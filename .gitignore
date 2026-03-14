@@ -4,6 +4,7 @@ dist/
 frontend/dist/
 build/
 backend/target/
+backend/project/target/
 coverage/
 .DS_Store
 *.log
