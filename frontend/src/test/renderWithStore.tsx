@@ -9,9 +9,15 @@ import { panelsReducer } from "../features/panels/panelsSlice";
 interface TestState {
   dashboards?: {
     items: Array<{ id: string; name: string }>;
+    selectedDashboardId?: string | null;
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
   };
   panels?: {
     items: Array<{ id: string; dashboardId: string; title: string }>;
+    loadedDashboardId?: string | null;
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
   };
 }
 
@@ -21,9 +27,26 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState): R
     panels: panelsReducer,
   };
 
+  const normalizedState = preloadedState
+    ? {
+        dashboards: {
+          items: preloadedState.dashboards?.items ?? [],
+          selectedDashboardId: preloadedState.dashboards?.selectedDashboardId ?? null,
+          status: preloadedState.dashboards?.status ?? "idle",
+          error: preloadedState.dashboards?.error ?? null,
+        },
+        panels: {
+          items: preloadedState.panels?.items ?? [],
+          loadedDashboardId: preloadedState.panels?.loadedDashboardId ?? null,
+          status: preloadedState.panels?.status ?? "idle",
+          error: preloadedState.panels?.error ?? null,
+        },
+      }
+    : undefined;
+
   const store = configureStore({
     reducer: reducer as never,
-    preloadedState: preloadedState as never,
+    preloadedState: normalizedState as never,
   });
 
   function Wrapper({ children }: PropsWithChildren) {
