@@ -1,0 +1,54 @@
+.popover {
+  position: relative;
+}
+
+.popover__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    transform var(--app-transition);
+}
+
+.popover__trigger:hover {
+  border-color: var(--app-border-strong);
+  transform: translateY(-1px);
+}
+
+.popover__trigger:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+
+.popover__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 40px));
+  padding: 16px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: color-mix(in srgb, var(--app-surface) 94%, transparent);
+  box-shadow: var(--app-shadow-card);
+  backdrop-filter: blur(24px);
+}
+
+.popover__panel--left {
+  left: 0;
+  right: auto;
+}
+
+.popover__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}

@@ -1,9 +1,14 @@
-import { dashboardsReducer, fetchDashboards } from "./dashboardsSlice";
+import { dashboardsReducer, fetchDashboards, updateDashboardAppearance } from "./dashboardsSlice";
 
 const defaultMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",
   lastUpdated: "2026-03-14T00:00:00Z",
+};
+
+const defaultAppearance = {
+  background: "transparent",
+  gridBackground: "transparent",
 };
 
 describe("dashboardsSlice", () => {
@@ -20,6 +25,7 @@ describe("dashboardsSlice", () => {
               ...defaultMeta,
               lastUpdated: "2026-03-14T12:00:00Z",
             },
+            appearance: defaultAppearance,
           },
           {
             id: "dashboard-2",
@@ -28,6 +34,7 @@ describe("dashboardsSlice", () => {
               ...defaultMeta,
               lastUpdated: "2026-03-14T13:00:00Z",
             },
+            appearance: defaultAppearance,
           },
         ],
         "request-id",
@@ -49,6 +56,7 @@ describe("dashboardsSlice", () => {
             id: "dashboard-1",
             name: "Operations",
             meta: defaultMeta,
+            appearance: defaultAppearance,
           },
           {
             id: "dashboard-2",
@@ -57,6 +65,7 @@ describe("dashboardsSlice", () => {
               ...defaultMeta,
               lastUpdated: "2026-03-14T13:00:00Z",
             },
+            appearance: defaultAppearance,
           },
         ],
         "request-id",
@@ -74,6 +83,7 @@ describe("dashboardsSlice", () => {
             id: "dashboard-1",
             name: "Operations",
             meta: defaultMeta,
+            appearance: defaultAppearance,
           },
           {
             id: "dashboard-2",
@@ -82,6 +92,7 @@ describe("dashboardsSlice", () => {
               ...defaultMeta,
               lastUpdated: "2026-03-14T14:00:00Z",
             },
+            appearance: defaultAppearance,
           },
         ],
         "request-id-2",
@@ -101,5 +112,53 @@ describe("dashboardsSlice", () => {
 
     expect(nextState.status).toBe("failed");
     expect(nextState.error).toBe("Failed to load dashboards.");
+  });
+
+  it("replaces the updated dashboard appearance after a save", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const nextState = dashboardsReducer(
+      initialState,
+      updateDashboardAppearance.fulfilled(
+        {
+          id: "dashboard-1",
+          name: "Operations",
+          meta: {
+            ...defaultMeta,
+            lastUpdated: "2026-03-14T02:00:00Z",
+          },
+          appearance: {
+            background: "#123456",
+            gridBackground: "#234567",
+          },
+        },
+        "request-id-2",
+        {
+          dashboardId: "dashboard-1",
+          appearance: {
+            background: "#123456",
+            gridBackground: "#234567",
+          },
+        },
+      ),
+    );
+
+    expect(nextState.items[0].appearance.background).toBe("#123456");
+    expect(nextState.items[0].appearance.gridBackground).toBe("#234567");
+    expect(nextState.items[0].meta.lastUpdated).toBe("2026-03-14T02:00:00Z");
   });
 });

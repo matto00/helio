@@ -1,9 +1,13 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
+import type { CSSProperties } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
 
+import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
+import { useTheme } from "../theme/ThemeProvider";
 import type { Panel } from "../types/models";
+import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
 import "./PanelGrid.css";
 
 interface PanelGridConfig {
@@ -74,7 +78,26 @@ interface PanelGridProps {
   panels: Panel[];
 }
 
+function getPanelCardStyle(panel: Panel, theme: "dark" | "light"): CSSProperties {
+  const style = {} as CSSProperties & Record<string, string>;
+  const panelSurface = buildPanelSurface(
+    theme,
+    panel.appearance.background,
+    panel.appearance.transparency,
+  );
+  style["--panel-surface-override"] = panelSurface;
+  style["--panel-text-override"] = resolvePanelTextColor(
+    theme,
+    panel.appearance.background,
+    panel.appearance.transparency,
+    panel.appearance.color,
+  );
+
+  return style;
+}
+
 export function PanelGrid({ panels }: PanelGridProps) {
+  const { theme } = useTheme();
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
@@ -95,19 +118,22 @@ export function PanelGrid({ panels }: PanelGridProps) {
       >
         {panels.map((panel) => (
           <div key={panel.id}>
-            <article className="panel-grid-card">
+            <article className="panel-grid-card" style={getPanelCardStyle(panel, theme)}>
               <div className="panel-grid-card__top">
                 <div>
                   <h3 className="panel-grid-card__title">{panel.title}</h3>
                 </div>
-                <button
-                  type="button"
-                  className="panel-grid-card__handle"
-                  aria-label={`Move ${panel.title} panel`}
-                >
-                  <span />
-                  <span />
-                </button>
+                <div className="panel-grid-card__actions">
+                  <PanelAppearanceEditor panel={panel} />
+                  <button
+                    type="button"
+                    className="panel-grid-card__handle"
+                    aria-label={`Move ${panel.title} panel`}
+                  >
+                    <span />
+                    <span />
+                  </button>
+                </div>
               </div>
               <p className="panel-grid-card__copy">
                 Starter grid placement is live now so future tickets can add richer panel content,

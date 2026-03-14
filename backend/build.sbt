@@ -1,8 +1,40 @@
 ThisBuild / scalaVersion := "2.13.15"
 
+def loadDotEnv(baseDir: File): Map[String, String] = {
+  val envFile = baseDir / ".env"
+  if (!envFile.exists()) {
+    Map.empty
+  } else {
+    IO.readLines(envFile)
+      .map(_.trim)
+      .filter(line => line.nonEmpty && !line.startsWith("#"))
+      .flatMap { line =>
+        line.split("=", 2) match {
+          case Array(key, value) if key.trim.nonEmpty =>
+            Some(key.trim -> value.trim)
+          case _ =>
+            None
+        }
+      }
+      .toMap
+  }
+}
+
+def loadAkkaLicenseKeyOptions(baseDir: File): Seq[String] =
+  loadDotEnv(baseDir)
+    .get("AKKA_LICENSE_KEY")
+    .toSeq
+    .map(key => s"-Dakka.license-key=$key")
+
 lazy val root = (project in file("."))
   .settings(
     name := "helio-backend",
+    Compile / run / fork := true,
+    Test / fork := true,
+    Compile / run / envVars ++= loadDotEnv(baseDirectory.value),
+    Test / envVars ++= loadDotEnv(baseDirectory.value),
+    Compile / run / javaOptions ++= loadAkkaLicenseKeyOptions(baseDirectory.value),
+    Test / javaOptions ++= loadAkkaLicenseKeyOptions(baseDirectory.value),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor-typed" % "2.8.8",
       "com.typesafe.akka" %% "akka-http" % "10.5.3",

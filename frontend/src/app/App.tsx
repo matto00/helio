@@ -1,20 +1,22 @@
+import type { CSSProperties } from "react";
 import { useEffect } from "react";
 
 import "./App.css";
+import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { fetchDashboards } from "../features/dashboards/dashboardsSlice";
 import { fetchPanels } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 
 export function App() {
   const dispatch = useAppDispatch();
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const { theme, toggleTheme } = useTheme();
-  const selectedDashboardName =
-    items.find((dashboard) => dashboard.id === selectedDashboardId)?.name ??
-    "No dashboard selected";
+  const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
+  const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 
   useEffect(() => {
     void dispatch(fetchDashboards());
@@ -28,8 +30,18 @@ export function App() {
     void dispatch(fetchPanels(selectedDashboardId));
   }, [dispatch, selectedDashboardId]);
 
+  const shellStyle =
+    selectedDashboard !== null && selectedDashboard.appearance.background !== "transparent"
+      ? ({
+          "--dashboard-background-override": resolveDashboardBackground(
+            theme,
+            selectedDashboard.appearance,
+          ),
+        } as CSSProperties)
+      : undefined;
+
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={shellStyle}>
       <header className="app-header">
         <div className="app-header__copy">
           <span className="app-header__eyebrow">Helio Workspace</span>
@@ -54,6 +66,7 @@ export function App() {
             </span>
             <span className="theme-toggle__value">{theme === "dark" ? "Light" : "Dark"}</span>
           </button>
+          <DashboardAppearanceEditor dashboard={selectedDashboard} />
         </div>
       </header>
       <div className="app-layout">

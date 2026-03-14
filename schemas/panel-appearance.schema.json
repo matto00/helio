@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panel-appearance.schema.json",
+  "title": "PanelAppearance",
+  "type": "object",
+  "required": ["background", "color", "transparency"],
+  "properties": {
+    "background": {
+      "type": "string",
+      "minLength": 1
+    },
+    "color": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transparency": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "additionalProperties": false
+}

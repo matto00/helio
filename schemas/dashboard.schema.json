@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/dashboard.schema.json",
   "title": "Dashboard",
   "type": "object",
-  "required": ["id", "name", "meta"],
+  "required": ["id", "name", "meta", "appearance"],
   "properties": {
     "id": {
       "type": "string",
@@ -16,6 +16,9 @@
     },
     "meta": {
       "$ref": "https://helio.local/schemas/resource-meta.schema.json"
+    },
+    "appearance": {
+      "$ref": "https://helio.local/schemas/dashboard-appearance.schema.json"
     }
   },
   "additionalProperties": false

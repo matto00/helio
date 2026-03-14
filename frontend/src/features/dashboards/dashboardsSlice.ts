@@ -1,8 +1,11 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import { fetchDashboards as fetchDashboardsRequest } from "../../services/dashboardService";
+import {
+  fetchDashboards as fetchDashboardsRequest,
+  updateDashboardAppearance as updateDashboardAppearanceRequest,
+} from "../../services/dashboardService";
 import type { RootState } from "../../store/store";
-import type { Dashboard } from "../../types/models";
+import type { Dashboard, DashboardAppearance } from "../../types/models";
 
 interface DashboardsState {
   items: Dashboard[];
@@ -53,6 +56,21 @@ export const fetchDashboards = createAsyncThunk<
   },
 );
 
+export const updateDashboardAppearance = createAsyncThunk<
+  Dashboard,
+  { dashboardId: string; appearance: DashboardAppearance },
+  { rejectValue: string }
+>(
+  "dashboards/updateDashboardAppearance",
+  async ({ dashboardId, appearance }, { rejectWithValue }) => {
+    try {
+      return await updateDashboardAppearanceRequest(dashboardId, appearance);
+    } catch {
+      return rejectWithValue("Failed to update dashboard appearance.");
+    }
+  },
+);
+
 const dashboardsSlice = createSlice({
   name: "dashboards",
   initialState,
@@ -87,6 +105,11 @@ const dashboardsSlice = createSlice({
       .addCase(fetchDashboards.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload ?? "Failed to load dashboards.";
+      })
+      .addCase(updateDashboardAppearance.fulfilled, (state, action) => {
+        state.items = state.items.map((dashboard) =>
+          dashboard.id === action.payload.id ? action.payload : dashboard,
+        );
       });
   },
 });

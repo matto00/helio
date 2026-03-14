@@ -2,6 +2,8 @@
   min-height: 100vh;
   width: 100%;
   padding: 32px 24px 36px;
+  background-color: var(--dashboard-background-override, var(--app-bg));
+  transition: background-color var(--app-transition);
 }
 
 .app-header {
