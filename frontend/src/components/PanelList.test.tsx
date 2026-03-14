@@ -81,6 +81,6 @@ describe("PanelList", () => {
     });
 
     expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
-    expect(screen.getByText("Resizable foundation")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Revenue Pulse panel" })).toBeInTheDocument();
   });
 });

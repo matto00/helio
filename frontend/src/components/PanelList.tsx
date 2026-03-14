@@ -9,14 +9,7 @@ export function PanelList() {
   return (
     <section className="panel-list" aria-label="panels">
       <header className="panel-list__header">
-        <div className="panel-list__header-copy">
-          <span className="panel-list__eyebrow">Insights</span>
-          <h2>Panels</h2>
-          <p className="panel-list__description">
-            Keep each dashboard focused with clean panel surfaces designed for readable, low-noise
-            monitoring.
-          </p>
-        </div>
+        <h2>Panels</h2>
         <span className="panel-list__count">
           {items.length} panel{items.length === 1 ? "" : "s"}
         </span>

@@ -16,26 +16,9 @@
   margin-bottom: 22px;
 }
 
-.panel-list__header-copy h2 {
+.panel-list__header h2 {
   margin: 0;
   font-size: 1.2rem;
-}
-
-.panel-list__eyebrow {
-  display: inline-flex;
-  margin-bottom: 10px;
-  color: var(--app-text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.panel-list__description {
-  margin: 10px 0 0;
-  max-width: 560px;
-  color: var(--app-text-muted);
-  line-height: 1.6;
 }
 
 .panel-list__count {
