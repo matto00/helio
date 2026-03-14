@@ -10,7 +10,7 @@
     "lint": "eslint src --max-warnings=0",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "test": "jest --passWithNoTests"
+    "test": "jest --config jest.config.cjs --passWithNoTests"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.10.1",
@@ -19,9 +19,15 @@
     "react-redux": "^9.2.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.1.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
     "vite": "^7.2.1"
   }

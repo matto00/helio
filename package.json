@@ -9,7 +9,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests && npm --prefix frontend test"
   },
   "keywords": [],
   "author": "",
