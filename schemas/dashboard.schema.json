@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboard.schema.json",
+  "title": "Dashboard",
+  "type": "object",
+  "required": ["id", "name"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  },
+  "additionalProperties": false
+}

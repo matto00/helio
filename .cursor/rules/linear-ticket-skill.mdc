@@ -1,0 +1,18 @@
+# Linear Ticket Skill Preference
+
+When the user asks to work on a Linear issue or references a Helio Linear ticket (for example `HEL-5`), prefer using the project skill `linear-ticket-delivery`.
+
+Apply that skill to guide the workflow for:
+
+- reading the ticket first
+- asking clarifying questions
+- creating the ticket branch
+- using `opsx-propose` or `opsx-explore`
+- enforcing approval gates
+- implementing and verifying changes
+- updating relevant artifacts
+- archiving with `opsx-archive`
+- creating the PR
+- updating Linear status/comments through completion
+
+Do not force the skill when the user is clearly asking for something smaller or outside the Linear workflow.

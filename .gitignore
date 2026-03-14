@@ -1,0 +1,9 @@
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+backend/target/
+coverage/
+.DS_Store
+*.log

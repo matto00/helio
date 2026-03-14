@@ -1,0 +1,52 @@
+# Helio Agent Rules
+
+Apply these rules to all agent-assisted changes in this repository.
+
+## Project Context
+
+- Frontend: React + TypeScript + Redux
+- Backend: Scala + Akka
+- API contract source of truth: JSON Schema
+- Tests: Jest (frontend), ScalaTest (backend)
+
+## Behavior Rules
+
+- Ask clarifying questions before making large assumptions about architecture or requirements.
+- Optimize for performance by default in both frontend and backend code paths.
+- Keep code modular and reusable; prefer small composable units.
+- Import classes/types instead of using full qualifiers in normal code.
+- Keep changes focused on the requested task; avoid unrelated refactors unless requested.
+
+## Workflow Rules
+
+- Before finalizing, ensure formatting, linting, and tests are addressed for impacted areas.
+- Respect pre-commit policy: lint, format, and tests are expected to pass.
+- If a bypass is used (`git commit -n`), call it out explicitly and follow with a fix commit.
+- Do not introduce secrets into code, config, tests, logs, or commits.
+- Call out security and performance impacts in change summaries.
+
+## Frontend Rules
+
+- Use Redux for shared application state.
+- Keep components primarily presentational when possible.
+- Move reusable behavior into hooks/selectors/utilities.
+- Prefer typed APIs and avoid `any` without clear justification.
+
+## Backend Rules
+
+- Keep Akka protocols explicit and boundaries clear.
+- Avoid blocking operations in actor execution paths.
+- Separate domain logic from infrastructure integrations.
+- Prefer reusable service abstractions over inline one-off integrations.
+
+## API and Validation Rules
+
+- Treat JSON Schemas as contract-first artifacts.
+- Keep schema updates in the same change as related client/server code.
+- Validate external input at boundaries.
+
+## Testing Rules
+
+- Add or update Jest tests for changed frontend behavior.
+- Add or update ScalaTest coverage for changed backend behavior.
+- Include regression tests for bug fixes whenever practical.
