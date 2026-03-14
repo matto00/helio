@@ -1,15 +1,7 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { useState } from "react";
-import {
-  Responsive,
-  type Layout,
-  type LayoutItem,
-  type ResponsiveLayouts,
-  type ResponsiveGridLayoutProps,
-  useContainerWidth,
-} from "react-grid-layout";
+import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
 
 import type { Panel } from "../types/models";
 import "./PanelGrid.css";
@@ -50,7 +42,10 @@ const panelGridConfig: PanelGridConfig = {
   },
 };
 
-function createBaseLayout(panels: Panel[], colCount: number): Layout {
+function createBaseLayout(
+  panels: Panel[],
+  colCount: number,
+): NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] {
   const itemWidth = colCount >= 10 ? 4 : colCount >= 6 ? 3 : 2;
   const itemHeight = panelGridConfig.itemHeights.default;
   const itemsPerRow = Math.max(1, Math.floor(colCount / itemWidth));
@@ -66,7 +61,7 @@ function createBaseLayout(panels: Panel[], colCount: number): Layout {
   }));
 }
 
-function createLayouts(panels: Panel[]): ResponsiveLayouts<string> {
+function createLayouts(panels: Panel[]): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
   return {
     lg: createBaseLayout(panels, panelGridConfig.cols.lg),
     md: createBaseLayout(panels, panelGridConfig.cols.md),
@@ -75,51 +70,15 @@ function createLayouts(panels: Panel[]): ResponsiveLayouts<string> {
   };
 }
 
-function mergeLayouts(
-  currentLayouts: ResponsiveLayouts<string>,
-  panels: Panel[],
-): ResponsiveLayouts<string> {
-  const panelIds = new Set(panels.map((panel) => panel.id));
-  const nextLayouts = createLayouts(panels);
-
-  for (const breakpoint of Object.keys(nextLayouts) as Array<keyof ResponsiveLayouts<string>>) {
-    const currentLayout = currentLayouts[breakpoint] ?? [];
-    const defaultLayout = nextLayouts[breakpoint] ?? [];
-    const defaultsById = new Map<string, LayoutItem>(
-      defaultLayout.map((layout: LayoutItem) => [layout.i, layout]),
-    );
-
-    nextLayouts[breakpoint] = currentLayout
-      .filter((layout: LayoutItem) => panelIds.has(layout.i))
-      .map((layout: LayoutItem) => ({
-        ...(defaultsById.get(layout.i) ?? {}),
-        ...layout,
-      }));
-
-    for (const panel of panels) {
-      if (nextLayouts[breakpoint]?.some((layout: LayoutItem) => layout.i === panel.id)) {
-        continue;
-      }
-
-      const fallbackLayout = defaultsById.get(panel.id);
-      if (fallbackLayout) {
-        nextLayouts[breakpoint] = [...(nextLayouts[breakpoint] ?? []), fallbackLayout];
-      }
-    }
-  }
-
-  return nextLayouts;
-}
-
 interface PanelGridProps {
   panels: Panel[];
 }
 
 export function PanelGrid({ panels }: PanelGridProps) {
-  const [layouts, setLayouts] = useState<ResponsiveLayouts<string>>(() => createLayouts(panels));
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
+  const layouts = createLayouts(panels);
 
   return (
     <div ref={containerRef} className="panel-grid-shell">
@@ -133,9 +92,6 @@ export function PanelGrid({ panels }: PanelGridProps) {
         margin={panelGridConfig.margin}
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
-        onLayoutChange={(_layout: Layout, allLayouts: ResponsiveLayouts<string>) =>
-          setLayouts(mergeLayouts(allLayouts, panels))
-        }
       >
         {panels.map((panel) => (
           <div key={panel.id}>

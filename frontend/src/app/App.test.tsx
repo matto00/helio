@@ -119,6 +119,69 @@ describe("App", () => {
     );
   });
 
+  it("keeps panel content visible when switching dashboards", async () => {
+    fetchDashboardsMock.mockResolvedValue([
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
+        },
+      },
+      {
+        id: "dashboard-2",
+        name: "Executive",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T11:00:00Z",
+          lastUpdated: "2026-03-14T12:00:00Z",
+        },
+      },
+    ]);
+    fetchPanelsMock.mockImplementation(async (dashboardId: string) =>
+      dashboardId === "dashboard-1"
+        ? [
+            {
+              id: "panel-1",
+              dashboardId,
+              title: "CPU Usage",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T12:00:00Z",
+                lastUpdated: "2026-03-14T12:30:00Z",
+              },
+            },
+          ]
+        : [
+            {
+              id: "panel-2",
+              dashboardId,
+              title: "Revenue Pulse",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T13:00:00Z",
+                lastUpdated: "2026-03-14T13:30:00Z",
+              },
+            },
+          ],
+    );
+
+    renderApp();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Operations" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "CPU Usage" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Move CPU Usage panel" })).toBeInTheDocument();
+  });
+
   it("toggles theme from the app header", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
