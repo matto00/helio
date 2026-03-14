@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import "./App.css";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { fetchDashboards } from "../features/dashboards/dashboardsSlice";
@@ -23,10 +24,18 @@ export function App() {
   }, [dispatch, selectedDashboardId]);
 
   return (
-    <main>
-      <h1>Helio Dashboard</h1>
-      <DashboardList />
-      <PanelList />
+    <main className="app-shell">
+      <header className="app-header">
+        <h1>Helio Dashboard</h1>
+      </header>
+      <div className="app-layout">
+        <aside className="app-sidebar">
+          <DashboardList />
+        </aside>
+        <section className="app-content">
+          <PanelList />
+        </section>
+      </div>
     </main>
   );
 }

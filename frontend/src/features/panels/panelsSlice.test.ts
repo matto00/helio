@@ -1,11 +1,17 @@
 import { fetchPanels, panelsReducer } from "./panelsSlice";
 
+const defaultMeta = {
+  createdBy: "system",
+  createdAt: "2026-03-14T00:00:00Z",
+  lastUpdated: "2026-03-14T00:00:00Z",
+};
+
 describe("panelsSlice", () => {
   it("stores backend panels for the selected dashboard", () => {
     const nextState = panelsReducer(
       undefined,
       fetchPanels.fulfilled(
-        [{ id: "panel-1", dashboardId: "dashboard-1", title: "Latency" }],
+        [{ id: "panel-1", dashboardId: "dashboard-1", title: "Latency", meta: defaultMeta }],
         "request-id",
         "dashboard-1",
       ),

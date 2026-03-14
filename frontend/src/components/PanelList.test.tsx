@@ -3,6 +3,12 @@ import { screen } from "@testing-library/react";
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelList } from "./PanelList";
 
+const defaultMeta = {
+  createdBy: "system",
+  createdAt: "2026-03-14T00:00:00Z",
+  lastUpdated: "2026-03-14T00:00:00Z",
+};
+
 describe("PanelList", () => {
   it("renders a prompt when no dashboard has been selected yet", () => {
     renderWithStore(<PanelList />, {
@@ -23,7 +29,7 @@ describe("PanelList", () => {
   it("renders an error fallback when panel loading fails", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
-        items: [{ id: "dashboard-1", name: "Operations" }],
+        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
         selectedDashboardId: "dashboard-1",
       },
       panels: {
@@ -41,7 +47,7 @@ describe("PanelList", () => {
   it("renders the empty-state message when a selected dashboard has no panels", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
-        items: [{ id: "dashboard-1", name: "Operations" }],
+        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
         selectedDashboardId: "dashboard-1",
       },
       panels: {

@@ -4,4 +4,7 @@ module.exports = {
   testMatch: ["<rootDir>/src/**/*.test.ts", "<rootDir>/src/**/*.test.tsx"],
   setupFilesAfterEnv: ["<rootDir>/src/test/jest.setup.ts"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
+  moduleNameMapper: {
+    "\\.(css)$": "<rootDir>/src/test/styleMock.js",
+  },
 };
