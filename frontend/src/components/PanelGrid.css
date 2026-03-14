@@ -1,0 +1,117 @@
+.panel-grid-shell {
+  min-height: min(72vh, 960px);
+}
+
+.panel-grid {
+  min-height: min(72vh, 960px);
+}
+
+.panel-grid > .react-grid-item {
+  transition:
+    transform 180ms ease,
+    width 180ms ease,
+    height 180ms ease;
+}
+
+.panel-grid > .react-grid-placeholder {
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-surface);
+  opacity: 0.4;
+}
+
+.panel-grid .react-resizable-handle::after {
+  border-color: var(--app-accent-strong);
+}
+
+.panel-grid-card {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: clamp(14px, 2vw, 22px);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background:
+    linear-gradient(180deg, var(--app-accent-surface), transparent 72%), var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  overflow: hidden;
+}
+
+.panel-grid-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.panel-grid-card__title {
+  margin: 0;
+  font-size: clamp(0.92rem, 1.2vw, 1.08rem);
+  line-height: 1.3;
+}
+
+.panel-grid-card__handle {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  cursor: grab;
+}
+
+.panel-grid-card__handle span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.panel-grid-card__handle:active {
+  cursor: grabbing;
+}
+
+.panel-grid-card__copy {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: clamp(0.82rem, 1vw, 0.94rem);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.panel-grid-card__footer {
+  display: flex;
+  gap: 12px;
+  color: var(--app-accent-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .panel-grid-shell,
+  .panel-grid {
+    min-height: 540px;
+  }
+
+  .panel-grid-card {
+    gap: 12px;
+  }
+
+  .panel-grid-card__footer {
+    flex-direction: column;
+  }
+}

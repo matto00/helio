@@ -1,0 +1,99 @@
+.dashboard-list {
+  padding: 22px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: blur(28px);
+}
+
+.dashboard-list__header {
+  margin-bottom: 18px;
+}
+
+.dashboard-list__eyebrow {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--app-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dashboard-list__header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dashboard-list__header p {
+  margin: 8px 0 0;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+.dashboard-list__status {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.dashboard-list__status--error {
+  color: #ffb4b4;
+}
+
+.dashboard-list__items {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-list__button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text);
+  text-align: left;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    transform var(--app-transition);
+}
+
+.dashboard-list__button:hover {
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-subtle);
+  transform: translateY(-1px);
+}
+
+.dashboard-list__button:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+
+.dashboard-list__button[aria-pressed="true"] {
+  background: var(--app-accent-surface);
+  border-color: var(--app-border-strong);
+}
+
+.dashboard-list__name {
+  font-weight: 600;
+}
+
+.dashboard-list__meta {
+  color: var(--app-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { ThemeProvider } from "../theme/ThemeProvider";
 import { App } from "./App";
 
 import { fetchDashboards as fetchDashboardsRequest } from "../services/dashboardService";
@@ -31,15 +32,19 @@ function renderApp() {
   return {
     store,
     ...render(
-      <Provider store={store}>
-        <App />
-      </Provider>,
+      <ThemeProvider>
+        <Provider store={store}>
+          <App />
+        </Provider>
+      </ThemeProvider>,
     ),
   };
 }
 
 describe("App", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
     fetchDashboardsMock.mockReset();
     fetchPanelsMock.mockReset();
   });
@@ -71,6 +76,7 @@ describe("App", () => {
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-2"));
+    expect(screen.getByText("Active dashboard")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Executive" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -111,5 +117,82 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("keeps panel content visible when switching dashboards", async () => {
+    fetchDashboardsMock.mockResolvedValue([
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
+        },
+      },
+      {
+        id: "dashboard-2",
+        name: "Executive",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T11:00:00Z",
+          lastUpdated: "2026-03-14T12:00:00Z",
+        },
+      },
+    ]);
+    fetchPanelsMock.mockImplementation(async (dashboardId: string) =>
+      dashboardId === "dashboard-1"
+        ? [
+            {
+              id: "panel-1",
+              dashboardId,
+              title: "CPU Usage",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T12:00:00Z",
+                lastUpdated: "2026-03-14T12:30:00Z",
+              },
+            },
+          ]
+        : [
+            {
+              id: "panel-2",
+              dashboardId,
+              title: "Revenue Pulse",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T13:00:00Z",
+                lastUpdated: "2026-03-14T13:30:00Z",
+              },
+            },
+          ],
+    );
+
+    renderApp();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Operations" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "CPU Usage" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Move CPU Usage panel" })).toBeInTheDocument();
+  });
+
+  it("toggles theme from the app header", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
+    expect(window.localStorage.getItem("helio-theme")).toBe("light");
   });
 });

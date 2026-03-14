@@ -59,4 +59,28 @@ describe("PanelList", () => {
 
     expect(screen.getByText("No panels yet.")).toBeInTheDocument();
   });
+
+  it("renders panel content inside the dashboard grid foundation", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [
+          {
+            id: "panel-1",
+            dashboardId: "dashboard-1",
+            title: "Revenue Pulse",
+            meta: defaultMeta,
+          },
+        ],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Revenue Pulse panel" })).toBeInTheDocument();
+  });
 });
