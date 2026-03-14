@@ -11,6 +11,8 @@ import com.helio.app.DashboardRegistryActor
 import com.helio.app.PanelRegistryActor
 import com.helio.domain.Dashboard
 import com.helio.domain.DashboardAppearance
+import com.helio.domain.DashboardLayout
+import com.helio.domain.DashboardLayoutItem
 import com.helio.domain.DashboardId
 import com.helio.domain.Panel
 import com.helio.domain.PanelAppearance
@@ -69,28 +71,16 @@ final class ApiRoutes(
               path(Segment) { dashboardId =>
                 patch {
                   entity(as[UpdateDashboardRequest]) { request =>
-                    request.appearance match {
-                      case Some(appearancePayload) =>
-                        onSuccess(
-                          updateDashboardAppearance(
-                            DashboardId(dashboardId),
-                            DashboardAppearance(
-                              background = RequestValidation.normalizeDashboardBackground(
-                                appearancePayload.background
-                              ),
-                              gridBackground = RequestValidation.normalizeDashboardGridBackground(
-                                appearancePayload.gridBackground
-                              )
-                            )
-                          )
-                        ) {
+                    validateDashboardUpdateRequest(request) match {
+                      case Left(error) =>
+                        complete(StatusCodes.BadRequest, ErrorResponse(error))
+                      case Right((appearance, layout)) =>
+                        onSuccess(updateDashboard(DashboardId(dashboardId), appearance, layout)) {
                           case Some(dashboard) =>
                             complete(DashboardResponse.fromDomain(dashboard))
                           case None =>
                             complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                         }
-                      case None =>
-                        complete(StatusCodes.BadRequest, ErrorResponse("appearance is required"))
                     }
                   }
                 }
@@ -185,14 +175,16 @@ final class ApiRoutes(
       )
     )
 
-  private def updateDashboardAppearance(
+  private def updateDashboard(
       dashboardId: DashboardId,
-      appearance: DashboardAppearance
+      appearance: Option[DashboardAppearance],
+      layout: Option[DashboardLayout]
   ): Future[Option[Dashboard]] =
     dashboardRegistry.ask(
-      DashboardRegistryActor.UpdateDashboardAppearance(
+      DashboardRegistryActor.UpdateDashboard(
         dashboardId,
         appearance,
+        layout,
         _
       )
     ).map(_.item)
@@ -213,5 +205,77 @@ final class ApiRoutes(
     request.dashboardId.map(_.trim).filter(_.nonEmpty) match {
       case Some(dashboardId) => Right(DashboardId(dashboardId))
       case None              => Left("dashboardId is required")
+    }
+
+  private def validateDashboardUpdateRequest(
+      request: UpdateDashboardRequest
+  ): Either[String, (Option[DashboardAppearance], Option[DashboardLayout])] = {
+    if (request.appearance.isEmpty && request.layout.isEmpty) {
+      Left("appearance or layout is required")
+    } else {
+      validateDashboardLayoutPayload(request.layout).map(layout =>
+        (
+          request.appearance.map(appearancePayload =>
+            DashboardAppearance(
+              background = RequestValidation.normalizeDashboardBackground(
+                appearancePayload.background
+              ),
+              gridBackground = RequestValidation.normalizeDashboardGridBackground(
+                appearancePayload.gridBackground
+              )
+            )
+          ),
+          layout
+        )
+      )
+    }
+  }
+
+  private def validateDashboardLayoutPayload(
+      layout: Option[DashboardLayoutPayload]
+  ): Either[String, Option[DashboardLayout]] =
+    layout match {
+      case None => Right(None)
+      case Some(layoutPayload) =>
+        validateDashboardLayoutItems(layoutPayload.lg)
+          .flatMap(lg =>
+            validateDashboardLayoutItems(layoutPayload.md).flatMap(md =>
+              validateDashboardLayoutItems(layoutPayload.sm).flatMap(sm =>
+                validateDashboardLayoutItems(layoutPayload.xs).map(xs =>
+                  Some(
+                    DashboardLayout(
+                      lg = lg,
+                      md = md,
+                      sm = sm,
+                      xs = xs
+                    )
+                  )
+                )
+              )
+            )
+          )
+    }
+
+  private def validateDashboardLayoutItems(
+      items: Vector[DashboardLayoutItemPayload]
+  ): Either[String, Vector[DashboardLayoutItem]] =
+    items.foldLeft[Either[String, Vector[DashboardLayoutItem]]](Right(Vector.empty)) {
+      case (Left(error), _) =>
+        Left(error)
+      case (Right(currentItems), item) =>
+        val panelId = item.panelId.trim
+        if (panelId.isEmpty) {
+          Left("layout panelId is required")
+        } else {
+          Right(
+            currentItems :+ DashboardLayoutItem(
+              panelId = PanelId(panelId),
+              x = RequestValidation.normalizeLayoutCoordinate(item.x),
+              y = RequestValidation.normalizeLayoutCoordinate(item.y),
+              w = RequestValidation.normalizeLayoutSpan(item.w),
+              h = RequestValidation.normalizeLayoutSpan(item.h)
+            )
+          )
+        }
     }
 }

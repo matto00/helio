@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 import "./PanelList.css";
+import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { PanelGrid } from "./PanelGrid";
 import { useAppSelector } from "../hooks/reduxHooks";
 import { resolveDashboardGridBackground } from "../theme/appearance";
@@ -45,7 +46,14 @@ export function PanelList() {
       {status === "succeeded" && items.length === 0 ? (
         <p className="panel-list__state">No panels yet.</p>
       ) : null}
-      {items.length > 0 ? <PanelGrid key={selectedDashboardId ?? "panels"} panels={items} /> : null}
+      {items.length > 0 && selectedDashboardId !== null ? (
+        <PanelGrid
+          key={selectedDashboardId}
+          dashboardId={selectedDashboardId}
+          layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+          panels={items}
+        />
+      ) : null}
     </section>
   );
 }

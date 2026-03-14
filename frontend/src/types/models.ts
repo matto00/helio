@@ -9,6 +9,21 @@ export interface DashboardAppearance {
   gridBackground: string;
 }
 
+export interface DashboardLayoutItem {
+  panelId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface DashboardLayout {
+  lg: DashboardLayoutItem[];
+  md: DashboardLayoutItem[];
+  sm: DashboardLayoutItem[];
+  xs: DashboardLayoutItem[];
+}
+
 export interface PanelAppearance {
   background: string;
   color: string;
@@ -20,6 +35,7 @@ export interface Dashboard {
   name: string;
   meta: ResourceMeta;
   appearance: DashboardAppearance;
+  layout: DashboardLayout;
 }
 
 export interface Panel {

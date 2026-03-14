@@ -3,22 +3,40 @@ package com.helio.api
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.Dashboard
 import com.helio.domain.DashboardAppearance
+import com.helio.domain.DashboardLayout
+import com.helio.domain.DashboardLayoutItem
 import com.helio.domain.Panel
 import com.helio.domain.PanelAppearance
+import com.helio.domain.PanelId
 import com.helio.domain.ResourceMeta
 import spray.json.DefaultJsonProtocol
 import spray.json.RootJsonFormat
 
 final case class ResourceMetaResponse(createdBy: String, createdAt: String, lastUpdated: String)
 final case class DashboardAppearancePayload(background: Option[String], gridBackground: Option[String])
+final case class DashboardLayoutItemPayload(panelId: String, x: Int, y: Int, w: Int, h: Int)
+final case class DashboardLayoutPayload(
+    lg: Vector[DashboardLayoutItemPayload],
+    md: Vector[DashboardLayoutItemPayload],
+    sm: Vector[DashboardLayoutItemPayload],
+    xs: Vector[DashboardLayoutItemPayload]
+)
 final case class PanelAppearancePayload(background: Option[String], color: Option[String], transparency: Option[Double])
 final case class DashboardAppearanceResponse(background: String, gridBackground: String)
+final case class DashboardLayoutItemResponse(panelId: String, x: Int, y: Int, w: Int, h: Int)
+final case class DashboardLayoutResponse(
+    lg: Vector[DashboardLayoutItemResponse],
+    md: Vector[DashboardLayoutItemResponse],
+    sm: Vector[DashboardLayoutItemResponse],
+    xs: Vector[DashboardLayoutItemResponse]
+)
 final case class PanelAppearanceResponse(background: String, color: String, transparency: Double)
 final case class DashboardResponse(
     id: String,
     name: String,
     meta: ResourceMetaResponse,
-    appearance: DashboardAppearanceResponse
+    appearance: DashboardAppearanceResponse,
+    layout: DashboardLayoutResponse
 )
 final case class PanelResponse(
     id: String,
@@ -33,7 +51,10 @@ final case class HealthResponse(status: String)
 final case class ErrorResponse(message: String)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String])
-final case class UpdateDashboardRequest(appearance: Option[DashboardAppearancePayload])
+final case class UpdateDashboardRequest(
+    appearance: Option[DashboardAppearancePayload],
+    layout: Option[DashboardLayoutPayload]
+)
 final case class UpdatePanelRequest(appearance: Option[PanelAppearancePayload])
 
 object ResourceMetaResponse {
@@ -51,7 +72,8 @@ object DashboardResponse {
       id = dashboard.id.value,
       name = dashboard.name,
       meta = ResourceMetaResponse.fromDomain(dashboard.meta),
-      appearance = DashboardAppearanceResponse.fromDomain(dashboard.appearance)
+      appearance = DashboardAppearanceResponse.fromDomain(dashboard.appearance),
+      layout = DashboardLayoutResponse.fromDomain(dashboard.layout)
     )
 }
 
@@ -74,6 +96,48 @@ object DashboardAppearanceResponse {
     )
 }
 
+object DashboardLayoutItemPayload {
+  def toDomain(item: DashboardLayoutItemPayload): DashboardLayoutItem =
+    DashboardLayoutItem(
+      panelId = PanelId(item.panelId),
+      x = item.x,
+      y = item.y,
+      w = item.w,
+      h = item.h
+    )
+}
+
+object DashboardLayoutPayload {
+  def toDomain(layout: DashboardLayoutPayload): DashboardLayout =
+    DashboardLayout(
+      lg = layout.lg.map(DashboardLayoutItemPayload.toDomain),
+      md = layout.md.map(DashboardLayoutItemPayload.toDomain),
+      sm = layout.sm.map(DashboardLayoutItemPayload.toDomain),
+      xs = layout.xs.map(DashboardLayoutItemPayload.toDomain)
+    )
+}
+
+object DashboardLayoutItemResponse {
+  def fromDomain(item: DashboardLayoutItem): DashboardLayoutItemResponse =
+    DashboardLayoutItemResponse(
+      panelId = item.panelId.value,
+      x = item.x,
+      y = item.y,
+      w = item.w,
+      h = item.h
+    )
+}
+
+object DashboardLayoutResponse {
+  def fromDomain(layout: DashboardLayout): DashboardLayoutResponse =
+    DashboardLayoutResponse(
+      lg = layout.lg.map(DashboardLayoutItemResponse.fromDomain),
+      md = layout.md.map(DashboardLayoutItemResponse.fromDomain),
+      sm = layout.sm.map(DashboardLayoutItemResponse.fromDomain),
+      xs = layout.xs.map(DashboardLayoutItemResponse.fromDomain)
+    )
+}
+
 object PanelAppearanceResponse {
   def fromDomain(appearance: PanelAppearance): PanelAppearanceResponse =
     PanelAppearanceResponse(
@@ -90,16 +154,28 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardAppearancePayloadFormat: RootJsonFormat[DashboardAppearancePayload] = jsonFormat2(
     DashboardAppearancePayload.apply
   )
+  implicit val dashboardLayoutItemPayloadFormat: RootJsonFormat[DashboardLayoutItemPayload] = jsonFormat5(
+    DashboardLayoutItemPayload.apply
+  )
+  implicit val dashboardLayoutPayloadFormat: RootJsonFormat[DashboardLayoutPayload] = jsonFormat4(
+    DashboardLayoutPayload.apply
+  )
   implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload] = jsonFormat3(
     PanelAppearancePayload.apply
   )
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(
     DashboardAppearanceResponse.apply
   )
+  implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(
+    DashboardLayoutItemResponse.apply
+  )
+  implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse] = jsonFormat4(
+    DashboardLayoutResponse.apply
+  )
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat3(
     PanelAppearanceResponse.apply
   )
-  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat4(
+  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat5(
     DashboardResponse.apply
   )
   implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat5(PanelResponse.apply)
@@ -119,7 +195,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat2(
     CreatePanelRequest.apply
   )
-  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat1(
+  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat2(
     UpdateDashboardRequest.apply
   )
   implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat1(

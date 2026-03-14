@@ -33,6 +33,12 @@ object RequestValidation {
       .map(value => math.max(MinTransparency, math.min(MaxTransparency, value)))
       .getOrElse(MinTransparency)
 
+  def normalizeLayoutCoordinate(value: Int): Int =
+    math.max(0, value)
+
+  def normalizeLayoutSpan(value: Int): Int =
+    math.max(1, value)
+
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
 }

@@ -2,6 +2,8 @@ package com.helio.app
 
 import com.helio.domain.Dashboard
 import com.helio.domain.DashboardAppearance
+import com.helio.domain.DashboardLayout
+import com.helio.domain.DashboardLayoutItem
 import com.helio.domain.DashboardId
 import com.helio.domain.Panel
 import com.helio.domain.PanelAppearance
@@ -38,6 +40,24 @@ object DemoData {
         appearance = DashboardAppearance(
           background = "#081226",
           gridBackground = "#0b1730"
+        ),
+        layout = DashboardLayout(
+          lg = Vector(
+            DashboardLayoutItem(PanelId("panel-ops-latency"), x = 0, y = 0, w = 4, h = 5),
+            DashboardLayoutItem(PanelId("panel-ops-incidents"), x = 4, y = 0, w = 4, h = 5)
+          ),
+          md = Vector(
+            DashboardLayoutItem(PanelId("panel-ops-latency"), x = 0, y = 0, w = 5, h = 5),
+            DashboardLayoutItem(PanelId("panel-ops-incidents"), x = 5, y = 0, w = 5, h = 5)
+          ),
+          sm = Vector(
+            DashboardLayoutItem(PanelId("panel-ops-latency"), x = 0, y = 0, w = 3, h = 5),
+            DashboardLayoutItem(PanelId("panel-ops-incidents"), x = 3, y = 0, w = 3, h = 5)
+          ),
+          xs = Vector(
+            DashboardLayoutItem(PanelId("panel-ops-latency"), x = 0, y = 0, w = 2, h = 5),
+            DashboardLayoutItem(PanelId("panel-ops-incidents"), x = 0, y = 5, w = 2, h = 5)
+          )
         )
       ),
       Dashboard(
@@ -47,6 +67,24 @@ object DemoData {
         appearance = DashboardAppearance(
           background = "#101826",
           gridBackground = "#16233a"
+        ),
+        layout = DashboardLayout(
+          lg = Vector(
+            DashboardLayoutItem(PanelId("panel-exec-revenue"), x = 0, y = 0, w = 4, h = 5),
+            DashboardLayoutItem(PanelId("panel-exec-forecast"), x = 4, y = 2, w = 4, h = 5)
+          ),
+          md = Vector(
+            DashboardLayoutItem(PanelId("panel-exec-revenue"), x = 0, y = 0, w = 5, h = 5),
+            DashboardLayoutItem(PanelId("panel-exec-forecast"), x = 5, y = 2, w = 5, h = 5)
+          ),
+          sm = Vector(
+            DashboardLayoutItem(PanelId("panel-exec-revenue"), x = 0, y = 0, w = 3, h = 5),
+            DashboardLayoutItem(PanelId("panel-exec-forecast"), x = 0, y = 5, w = 3, h = 5)
+          ),
+          xs = Vector(
+            DashboardLayoutItem(PanelId("panel-exec-revenue"), x = 0, y = 0, w = 2, h = 5),
+            DashboardLayoutItem(PanelId("panel-exec-forecast"), x = 0, y = 5, w = 2, h = 5)
+          )
         )
       )
     )

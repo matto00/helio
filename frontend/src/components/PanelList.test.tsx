@@ -14,6 +14,13 @@ const defaultDashboardAppearance = {
   gridBackground: "transparent",
 };
 
+const defaultDashboardLayout = {
+  lg: [],
+  md: [],
+  sm: [],
+  xs: [],
+};
+
 const defaultPanelAppearance = {
   background: "transparent",
   color: "inherit",
@@ -46,6 +53,7 @@ describe("PanelList", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
           },
         ],
         selectedDashboardId: "dashboard-1",
@@ -71,6 +79,7 @@ describe("PanelList", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
           },
         ],
         selectedDashboardId: "dashboard-1",
@@ -94,6 +103,7 @@ describe("PanelList", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
           },
         ],
         selectedDashboardId: "dashboard-1",

@@ -3,11 +3,17 @@ import { render } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 
+import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
-import type { DashboardAppearance, PanelAppearance, ResourceMeta } from "../types/models";
+import type {
+  DashboardAppearance,
+  DashboardLayout,
+  PanelAppearance,
+  ResourceMeta,
+} from "../types/models";
 
 const defaultMeta: ResourceMeta = {
   createdBy: "system",
@@ -22,6 +28,7 @@ interface TestState {
       name: string;
       meta?: ResourceMeta;
       appearance?: DashboardAppearance;
+      layout?: DashboardLayout;
     }>;
     selectedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";
@@ -55,6 +62,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
               ...dashboard,
               meta: dashboard.meta ?? defaultMeta,
               appearance: dashboard.appearance ?? defaultDashboardAppearance,
+              layout: dashboard.layout ?? defaultDashboardLayout,
             })) ?? [],
           selectedDashboardId: preloadedState.dashboards?.selectedDashboardId ?? null,
           status: preloadedState.dashboards?.status ?? "idle",
