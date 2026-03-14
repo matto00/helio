@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/create-panel-request.schema.json",
+  "title": "CreatePanelRequest",
+  "type": "object",
+  "required": ["dashboardId"],
+  "properties": {
+    "dashboardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 160
+    }
+  },
+  "additionalProperties": false
+}

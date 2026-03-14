@@ -10,8 +10,10 @@ object DashboardRegistryActor {
   sealed trait Command
   final case class RegisterDashboard(name: String, replyTo: ActorRef[Dashboard]) extends Command
   final case class GetDashboards(replyTo: ActorRef[Dashboards]) extends Command
+  final case class GetDashboard(dashboardId: DashboardId, replyTo: ActorRef[DashboardLookup]) extends Command
 
   final case class Dashboards(items: Vector[Dashboard])
+  final case class DashboardLookup(item: Option[Dashboard])
 
   def apply(): Behavior[Command] =
     behavior(Vector.empty)
@@ -24,6 +26,9 @@ object DashboardRegistryActor {
         behavior(dashboards :+ created)
       case GetDashboards(replyTo) =>
         replyTo ! Dashboards(dashboards)
+        Behaviors.same
+      case GetDashboard(dashboardId, replyTo) =>
+        replyTo ! DashboardLookup(dashboards.find(_.id == dashboardId))
         Behaviors.same
     }
 }

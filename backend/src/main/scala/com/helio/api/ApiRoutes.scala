@@ -3,6 +3,7 @@ package com.helio.api
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
@@ -32,19 +33,57 @@ final class ApiRoutes(
         complete(HealthResponse(status = "ok"))
       }
     } ~
-      pathPrefix("api" / "dashboards") {
+      pathPrefix("api") {
         concat(
-          pathEndOrSingleSlash {
-            get {
-              onSuccess(fetchDashboards()) { dashboards =>
-                complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
+          pathPrefix("dashboards") {
+            concat(
+              pathEndOrSingleSlash {
+                concat(
+                  get {
+                    onSuccess(fetchDashboards()) { dashboards =>
+                      complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
+                    }
+                  },
+                  post {
+                    entity(as[CreateDashboardRequest]) { request =>
+                      onSuccess(createDashboard(request)) { dashboard =>
+                        complete(
+                          StatusCodes.Created,
+                          DashboardResponse.fromDomain(dashboard)
+                        )
+                      }
+                    }
+                  }
+                )
+              },
+              path(Segment / "panels") { dashboardId =>
+                get {
+                  onSuccess(fetchPanels(DashboardId(dashboardId))) { panels =>
+                    complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+                  }
+                }
               }
-            }
+            )
           },
-          path(Segment / "panels") { dashboardId =>
-            get {
-              onSuccess(fetchPanels(DashboardId(dashboardId))) { panels =>
-                complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+          path("panels") {
+            post {
+              entity(as[CreatePanelRequest]) { request =>
+                validatePanelRequest(request) match {
+                  case Left(error) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(error))
+                  case Right(dashboardId) =>
+                    onSuccess(fetchDashboard(dashboardId)) {
+                      case Some(_) =>
+                        onSuccess(createPanel(dashboardId, request)) { panel =>
+                          complete(
+                            StatusCodes.Created,
+                            PanelResponse.fromDomain(panel)
+                          )
+                        }
+                      case None =>
+                        complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                    }
+                }
               }
             }
           }
@@ -54,6 +93,32 @@ final class ApiRoutes(
   private def fetchDashboards(): Future[Vector[Dashboard]] =
     dashboardRegistry.ask(DashboardRegistryActor.GetDashboards.apply).map(_.items)
 
+  private def fetchDashboard(dashboardId: DashboardId): Future[Option[Dashboard]] =
+    dashboardRegistry.ask(DashboardRegistryActor.GetDashboard(dashboardId, _)).map(_.item)
+
   private def fetchPanels(dashboardId: DashboardId): Future[Vector[Panel]] =
     panelRegistry.ask(PanelRegistryActor.GetPanelsForDashboard(dashboardId, _)).map(_.items)
+
+  private def createDashboard(request: CreateDashboardRequest): Future[Dashboard] =
+    dashboardRegistry.ask(
+      DashboardRegistryActor.RegisterDashboard(
+        RequestValidation.normalizeDashboardName(request.name),
+        _
+      )
+    )
+
+  private def createPanel(dashboardId: DashboardId, request: CreatePanelRequest): Future[Panel] =
+    panelRegistry.ask(
+      PanelRegistryActor.RegisterPanel(
+        dashboardId,
+        RequestValidation.normalizePanelTitle(request.title),
+        _
+      )
+    )
+
+  private def validatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
+    request.dashboardId.map(_.trim).filter(_.nonEmpty) match {
+      case Some(dashboardId) => Right(DashboardId(dashboardId))
+      case None              => Left("dashboardId is required")
+    }
 }

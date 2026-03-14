@@ -11,6 +11,9 @@ final case class PanelResponse(id: String, dashboardId: String, title: String)
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
 final case class HealthResponse(status: String)
+final case class ErrorResponse(message: String)
+final case class CreateDashboardRequest(name: Option[String])
+final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String])
 
 object DashboardResponse {
   def fromDomain(dashboard: Dashboard): DashboardResponse =
@@ -35,5 +38,12 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   )
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(
     HealthResponse.apply
+  )
+  implicit val errorResponseFormat: RootJsonFormat[ErrorResponse] = jsonFormat1(ErrorResponse.apply)
+  implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest] = jsonFormat1(
+    CreateDashboardRequest.apply
+  )
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat2(
+    CreatePanelRequest.apply
   )
 }
