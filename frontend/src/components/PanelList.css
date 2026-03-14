@@ -3,9 +3,10 @@
   padding: 26px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);
-  background: var(--app-surface-strong);
+  background: var(--dashboard-grid-background-override, var(--app-surface-strong));
   box-shadow: var(--app-shadow-soft);
   backdrop-filter: blur(28px);
+  transition: background-color var(--app-transition);
 }
 
 .panel-list__header {

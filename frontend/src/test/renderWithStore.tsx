@@ -5,7 +5,9 @@ import { Provider } from "react-redux";
 
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
-import type { ResourceMeta } from "../types/models";
+import { ThemeProvider } from "../theme/ThemeProvider";
+import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
+import type { DashboardAppearance, PanelAppearance, ResourceMeta } from "../types/models";
 
 const defaultMeta: ResourceMeta = {
   createdBy: "system",
@@ -15,13 +17,24 @@ const defaultMeta: ResourceMeta = {
 
 interface TestState {
   dashboards?: {
-    items: Array<{ id: string; name: string; meta?: ResourceMeta }>;
+    items: Array<{
+      id: string;
+      name: string;
+      meta?: ResourceMeta;
+      appearance?: DashboardAppearance;
+    }>;
     selectedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
   };
   panels?: {
-    items: Array<{ id: string; dashboardId: string; title: string; meta?: ResourceMeta }>;
+    items: Array<{
+      id: string;
+      dashboardId: string;
+      title: string;
+      meta?: ResourceMeta;
+      appearance?: PanelAppearance;
+    }>;
     loadedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
@@ -41,6 +54,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
             preloadedState.dashboards?.items.map((dashboard) => ({
               ...dashboard,
               meta: dashboard.meta ?? defaultMeta,
+              appearance: dashboard.appearance ?? defaultDashboardAppearance,
             })) ?? [],
           selectedDashboardId: preloadedState.dashboards?.selectedDashboardId ?? null,
           status: preloadedState.dashboards?.status ?? "idle",
@@ -51,6 +65,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
             preloadedState.panels?.items.map((panel) => ({
               ...panel,
               meta: panel.meta ?? defaultMeta,
+              appearance: panel.appearance ?? defaultPanelAppearance,
             })) ?? [],
           loadedDashboardId: preloadedState.panels?.loadedDashboardId ?? null,
           status: preloadedState.panels?.status ?? "idle",
@@ -65,7 +80,11 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
   });
 
   function Wrapper({ children }: PropsWithChildren) {
-    return <Provider store={store}>{children}</Provider>;
+    return (
+      <ThemeProvider>
+        <Provider store={store}>{children}</Provider>
+      </ThemeProvider>
+    );
   }
 
   return {

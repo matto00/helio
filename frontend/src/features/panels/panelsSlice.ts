@@ -1,8 +1,11 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-import { fetchPanels as fetchPanelsRequest } from "../../services/panelService";
+import {
+  fetchPanels as fetchPanelsRequest,
+  updatePanelAppearance as updatePanelAppearanceRequest,
+} from "../../services/panelService";
 import type { RootState } from "../../store/store";
-import type { Panel } from "../../types/models";
+import type { Panel, PanelAppearance } from "../../types/models";
 
 interface PanelsState {
   items: Panel[];
@@ -47,6 +50,18 @@ export const fetchPanels = createAsyncThunk<
   },
 );
 
+export const updatePanelAppearance = createAsyncThunk<
+  Panel,
+  { panelId: string; appearance: PanelAppearance },
+  { rejectValue: string }
+>("panels/updatePanelAppearance", async ({ panelId, appearance }, { rejectWithValue }) => {
+  try {
+    return await updatePanelAppearanceRequest(panelId, appearance);
+  } catch {
+    return rejectWithValue("Failed to update panel appearance.");
+  }
+});
+
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
@@ -67,6 +82,11 @@ const panelsSlice = createSlice({
         state.items = [];
         state.status = "failed";
         state.error = action.payload ?? "Failed to load panels.";
+      })
+      .addCase(updatePanelAppearance.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
       });
   },
 });

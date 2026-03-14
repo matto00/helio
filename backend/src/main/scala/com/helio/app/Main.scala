@@ -20,9 +20,11 @@ object Main {
     Behaviors.setup[Nothing] { context =>
       implicit val system: ActorSystem[Nothing] = context.system
       val logger = system.log
+      val seedData = DemoData.build()
 
-      val dashboardRegistry = context.spawn(DashboardRegistryActor(), "dashboard-registry")
-      val panelRegistry = context.spawn(PanelRegistryActor(), "panel-registry")
+      val dashboardRegistry =
+        context.spawn(DashboardRegistryActor(seedData.dashboards), "dashboard-registry")
+      val panelRegistry = context.spawn(PanelRegistryActor(seedData.panels), "panel-registry")
       val host = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
       val apiRoutes = new ApiRoutes(dashboardRegistry, panelRegistry)

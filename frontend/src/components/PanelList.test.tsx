@@ -9,6 +9,17 @@ const defaultMeta = {
   lastUpdated: "2026-03-14T00:00:00Z",
 };
 
+const defaultDashboardAppearance = {
+  background: "transparent",
+  gridBackground: "transparent",
+};
+
+const defaultPanelAppearance = {
+  background: "transparent",
+  color: "inherit",
+  transparency: 0,
+};
+
 describe("PanelList", () => {
   it("renders a prompt when no dashboard has been selected yet", () => {
     renderWithStore(<PanelList />, {
@@ -29,7 +40,14 @@ describe("PanelList", () => {
   it("renders an error fallback when panel loading fails", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
-        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+          },
+        ],
         selectedDashboardId: "dashboard-1",
       },
       panels: {
@@ -47,7 +65,14 @@ describe("PanelList", () => {
   it("renders the empty-state message when a selected dashboard has no panels", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
-        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+          },
+        ],
         selectedDashboardId: "dashboard-1",
       },
       panels: {
@@ -63,7 +88,14 @@ describe("PanelList", () => {
   it("renders panel content inside the dashboard grid foundation", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
-        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+          },
+        ],
         selectedDashboardId: "dashboard-1",
       },
       panels: {
@@ -73,6 +105,7 @@ describe("PanelList", () => {
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
             meta: defaultMeta,
+            appearance: defaultPanelAppearance,
           },
         ],
         loadedDashboardId: "dashboard-1",
@@ -82,5 +115,8 @@ describe("PanelList", () => {
 
     expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move Revenue Pulse panel" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Customize Revenue Pulse panel" }),
+    ).toBeInTheDocument();
   });
 });

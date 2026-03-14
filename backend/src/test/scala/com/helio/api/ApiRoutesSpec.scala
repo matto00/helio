@@ -57,6 +57,18 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
     meta.lastUpdated should not be empty
   }
 
+  private def assertDashboardAppearance(appearance: DashboardAppearanceResponse): Unit = {
+    appearance.background should not be empty
+    appearance.gridBackground should not be empty
+  }
+
+  private def assertPanelAppearance(appearance: PanelAppearanceResponse): Unit = {
+    appearance.background should not be empty
+    appearance.color should not be empty
+    appearance.transparency should be >= 0.0
+    appearance.transparency should be <= 1.0
+  }
+
   "ApiRoutes" should {
     "return health status" in {
       val routes = buildRoutes()
@@ -86,6 +98,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.items.head.id shouldBe dashboard.id.value
         response.items.head.name shouldBe "Operations"
         assertResourceMeta(response.items.head.meta)
+        assertDashboardAppearance(response.items.head.appearance)
       }
 
       Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
@@ -96,6 +109,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.items.head.title shouldBe "CPU Usage"
         response.items.head.id should not be empty
         assertResourceMeta(response.items.head.meta)
+        assertPanelAppearance(response.items.head.appearance)
       }
     }
 
@@ -108,6 +122,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.name shouldBe "Operations"
         response.id should not be empty
         assertResourceMeta(response.meta)
+        assertDashboardAppearance(response.appearance)
       }
     }
 
@@ -133,6 +148,72 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.title shouldBe "Latency"
         response.id should not be empty
         assertResourceMeta(response.meta)
+        assertPanelAppearance(response.appearance)
+      }
+    }
+
+    "update dashboard appearance and refresh lastUpdated" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Patch(
+        s"/api/dashboards/${dashboard.id.value}",
+        UpdateDashboardRequest(
+          Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a")))
+        )
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardResponse]
+        response.id shouldBe dashboard.id.value
+        response.appearance.background shouldBe "#1e293b"
+        response.appearance.gridBackground shouldBe "#0f172a"
+        response.meta.lastUpdated should not be dashboard.meta.lastUpdated.toString
+      }
+
+      Get("/api/dashboards") ~> routes.routes ~> check {
+        val response = responseAs[DashboardsResponse]
+        response.items.head.appearance.background shouldBe "#1e293b"
+        response.items.head.appearance.gridBackground shouldBe "#0f172a"
+      }
+    }
+
+    "update panel appearance and clamp transparency" in {
+      val (routes, dashboard) = buildSeededRoutes()
+      var panelId = ""
+
+      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        panelId = responseAs[PanelsResponse].items.head.id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(
+          Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0)))
+        )
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.id shouldBe panelId
+        response.appearance.background shouldBe "#0f172a"
+        response.appearance.color shouldBe "#f8fafc"
+        response.appearance.transparency shouldBe 1.0
+      }
+
+      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
+        val response = responseAs[PanelsResponse]
+        response.items.head.appearance.background shouldBe "#0f172a"
+      }
+    }
+
+    "reject appearance updates without appearance payload" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Patch(
+        s"/api/dashboards/${dashboard.id.value}",
+        UpdateDashboardRequest(None)
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance is required")
       }
     }
 

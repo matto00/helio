@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboard-appearance.schema.json",
+  "title": "DashboardAppearance",
+  "type": "object",
+  "required": ["background", "gridBackground"],
+  "properties": {
+    "background": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gridBackground": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

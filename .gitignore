@@ -7,3 +7,4 @@ backend/target/
 coverage/
 .DS_Store
 *.log
+backend/.env
