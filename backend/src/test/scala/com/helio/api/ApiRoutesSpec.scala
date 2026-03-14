@@ -51,6 +51,12 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
   private def await[T](future: scala.concurrent.Future[T]): T =
     Await.result(future, 3.seconds)
 
+  private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
+    meta.createdBy shouldBe "system"
+    meta.createdAt should not be empty
+    meta.lastUpdated should not be empty
+  }
+
   "ApiRoutes" should {
     "return health status" in {
       val routes = buildRoutes()
@@ -75,8 +81,11 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
 
       Get("/api/dashboards") ~> routes.routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[DashboardsResponse] shouldBe
-          DashboardsResponse(Vector(DashboardResponse(dashboard.id.value, "Operations")))
+        val response = responseAs[DashboardsResponse]
+        response.items should have size 1
+        response.items.head.id shouldBe dashboard.id.value
+        response.items.head.name shouldBe "Operations"
+        assertResourceMeta(response.items.head.meta)
       }
 
       Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
@@ -86,6 +95,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.items.head.dashboardId shouldBe dashboard.id.value
         response.items.head.title shouldBe "CPU Usage"
         response.items.head.id should not be empty
+        assertResourceMeta(response.items.head.meta)
       }
     }
 
@@ -97,6 +107,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         val response = responseAs[DashboardResponse]
         response.name shouldBe "Operations"
         response.id should not be empty
+        assertResourceMeta(response.meta)
       }
     }
 
@@ -121,6 +132,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.dashboardId shouldBe dashboard.id.value
         response.title shouldBe "Latency"
         response.id should not be empty
+        assertResourceMeta(response.meta)
       }
     }
 

@@ -1,7 +1,9 @@
-import { useAppSelector } from "../hooks/reduxHooks";
+import { setSelectedDashboardId } from "../features/dashboards/dashboardsSlice";
+import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 
 export function DashboardList() {
-  const { items, status, error } = useAppSelector((state) => state.dashboards);
+  const dispatch = useAppDispatch();
+  const { items, selectedDashboardId, status, error } = useAppSelector((state) => state.dashboards);
 
   return (
     <section aria-label="dashboards">
@@ -10,7 +12,15 @@ export function DashboardList() {
       {status === "failed" && error ? <p>{error}</p> : null}
       <ul>
         {items.map((dashboard) => (
-          <li key={dashboard.id}>{dashboard.name}</li>
+          <li key={dashboard.id}>
+            <button
+              type="button"
+              aria-pressed={selectedDashboardId === dashboard.id}
+              onClick={() => dispatch(setSelectedDashboardId(dashboard.id))}
+            >
+              {dashboard.name}
+            </button>
+          </li>
         ))}
       </ul>
     </section>

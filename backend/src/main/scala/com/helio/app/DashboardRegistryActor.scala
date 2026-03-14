@@ -5,8 +5,13 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.helio.domain.Dashboard
 import com.helio.domain.DashboardId
+import com.helio.domain.ResourceMeta
+
+import java.time.Instant
 
 object DashboardRegistryActor {
+  private val SystemUser = "system"
+
   sealed trait Command
   final case class RegisterDashboard(name: String, replyTo: ActorRef[Dashboard]) extends Command
   final case class GetDashboards(replyTo: ActorRef[Dashboards]) extends Command
@@ -21,7 +26,12 @@ object DashboardRegistryActor {
   private def behavior(dashboards: Vector[Dashboard]): Behavior[Command] =
     Behaviors.receiveMessage {
       case RegisterDashboard(name, replyTo) =>
-        val created = Dashboard(DashboardId(java.util.UUID.randomUUID().toString), name)
+        val now = Instant.now()
+        val created = Dashboard(
+          DashboardId(java.util.UUID.randomUUID().toString),
+          name,
+          ResourceMeta(createdBy = SystemUser, createdAt = now, lastUpdated = now)
+        )
         replyTo ! created
         behavior(dashboards :+ created)
       case GetDashboards(replyTo) =>

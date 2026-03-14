@@ -18,6 +18,23 @@ const initialState: DashboardsState = {
   error: null,
 };
 
+function getDashboardTimestamp(dashboard: Dashboard): number {
+  const parsedTimestamp = Date.parse(dashboard.meta.lastUpdated);
+  return Number.isNaN(parsedTimestamp) ? Number.NEGATIVE_INFINITY : parsedTimestamp;
+}
+
+function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
+  if (dashboards.length === 0) {
+    return null;
+  }
+
+  return dashboards.reduce((mostRecentDashboard, dashboard) =>
+    getDashboardTimestamp(dashboard) > getDashboardTimestamp(mostRecentDashboard)
+      ? dashboard
+      : mostRecentDashboard,
+  ).id;
+}
+
 export const fetchDashboards = createAsyncThunk<
   Dashboard[],
   void,
@@ -65,7 +82,7 @@ const dashboardsSlice = createSlice({
         );
         state.selectedDashboardId = selectedExists
           ? state.selectedDashboardId
-          : action.payload[0].id;
+          : getMostRecentDashboardId(action.payload);
       })
       .addCase(fetchDashboards.rejected, (state, action) => {
         state.status = "failed";

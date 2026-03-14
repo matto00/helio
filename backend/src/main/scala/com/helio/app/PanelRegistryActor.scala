@@ -6,8 +6,13 @@ import akka.actor.typed.scaladsl.Behaviors
 import com.helio.domain.DashboardId
 import com.helio.domain.Panel
 import com.helio.domain.PanelId
+import com.helio.domain.ResourceMeta
+
+import java.time.Instant
 
 object PanelRegistryActor {
+  private val SystemUser = "system"
+
   sealed trait Command
   final case class RegisterPanel(
       dashboardId: DashboardId,
@@ -27,7 +32,13 @@ object PanelRegistryActor {
   private def behavior(panels: Vector[Panel]): Behavior[Command] =
     Behaviors.receiveMessage {
       case RegisterPanel(dashboardId, title, replyTo) =>
-        val created = Panel(PanelId(java.util.UUID.randomUUID().toString), dashboardId, title)
+        val now = Instant.now()
+        val created = Panel(
+          PanelId(java.util.UUID.randomUUID().toString),
+          dashboardId,
+          title,
+          ResourceMeta(createdBy = SystemUser, createdAt = now, lastUpdated = now)
+        )
         replyTo ! created
         behavior(panels :+ created)
       case GetPanelsForDashboard(dashboardId, replyTo) =>
