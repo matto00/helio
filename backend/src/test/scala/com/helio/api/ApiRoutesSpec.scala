@@ -4,6 +4,9 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.ContentTypes
+import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import com.helio.app.DashboardRegistryActor
@@ -83,6 +86,85 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.items.head.dashboardId shouldBe dashboard.id.value
         response.items.head.title shouldBe "CPU Usage"
         response.items.head.id should not be empty
+      }
+    }
+
+    "create a dashboard and return 201" in {
+      val routes = buildRoutes()
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[DashboardResponse]
+        response.name shouldBe "Operations"
+        response.id should not be empty
+      }
+    }
+
+    "default a missing dashboard name" in {
+      val routes = buildRoutes()
+
+      Post("/api/dashboards", CreateDashboardRequest(None)) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DashboardResponse].name shouldBe RequestValidation.DefaultDashboardName
+      }
+    }
+
+    "create a panel and return 201" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboard.id.value), Some("Latency"))
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.dashboardId shouldBe dashboard.id.value
+        response.title shouldBe "Latency"
+        response.id should not be empty
+      }
+    }
+
+    "default a missing panel title" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboard.id.value), None)
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe RequestValidation.DefaultPanelTitle
+      }
+    }
+
+    "reject panel creation without dashboardId" in {
+      val routes = buildRoutes()
+
+      Post("/api/panels", CreatePanelRequest(None, Some("Latency"))) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("dashboardId is required")
+      }
+    }
+
+    "reject panel creation for a missing dashboard" in {
+      val routes = buildRoutes()
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some("missing-dashboard"), Some("Latency"))
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "reject malformed panel requests" in {
+      val routes = buildRoutes()
+
+      Post(
+        "/api/panels",
+        HttpEntity(ContentTypes.`application/json`, """{"title":17}""")
+      ) ~> Route.seal(routes.routes) ~> check {
+        status shouldBe StatusCodes.BadRequest
       }
     }
   }
