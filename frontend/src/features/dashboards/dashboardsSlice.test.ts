@@ -1,12 +1,30 @@
-import { addDashboard, dashboardsReducer } from "./dashboardsSlice";
+import { dashboardsReducer, fetchDashboards } from "./dashboardsSlice";
 
 describe("dashboardsSlice", () => {
-  it("adds a dashboard with the provided name", () => {
+  it("stores backend dashboards and selects the first dashboard by default", () => {
     const initialState = dashboardsReducer(undefined, { type: "@@INIT" });
-    const nextState = dashboardsReducer(initialState, addDashboard("Operations"));
+    const nextState = dashboardsReducer(
+      initialState,
+      fetchDashboards.fulfilled(
+        [{ id: "dashboard-1", name: "Operations" }],
+        "request-id",
+        undefined,
+      ),
+    );
 
-    expect(nextState.items).toHaveLength(initialState.items.length + 1);
-    expect(nextState.items.at(-1)?.name).toBe("Operations");
-    expect(nextState.items.at(-1)?.id).toBeTruthy();
+    expect(nextState.items).toEqual([{ id: "dashboard-1", name: "Operations" }]);
+    expect(nextState.selectedDashboardId).toBe("dashboard-1");
+    expect(nextState.status).toBe("succeeded");
+  });
+
+  it("stores an error when dashboard loading fails", () => {
+    const initialState = dashboardsReducer(undefined, { type: "@@INIT" });
+    const nextState = dashboardsReducer(
+      initialState,
+      fetchDashboards.rejected(null, "request-id", undefined, "Failed to load dashboards."),
+    );
+
+    expect(nextState.status).toBe("failed");
+    expect(nextState.error).toBe("Failed to load dashboards.");
   });
 });
