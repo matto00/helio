@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { ThemeProvider } from "../theme/ThemeProvider";
 import { App } from "./App";
 
 import { fetchDashboards as fetchDashboardsRequest } from "../services/dashboardService";
@@ -31,15 +32,19 @@ function renderApp() {
   return {
     store,
     ...render(
-      <Provider store={store}>
-        <App />
-      </Provider>,
+      <ThemeProvider>
+        <Provider store={store}>
+          <App />
+        </Provider>
+      </ThemeProvider>,
     ),
   };
 }
 
 describe("App", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
     fetchDashboardsMock.mockReset();
     fetchPanelsMock.mockReset();
   });
@@ -71,6 +76,7 @@ describe("App", () => {
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-2"));
+    expect(screen.getByText("Active dashboard")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Executive" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -111,5 +117,19 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("toggles theme from the app header", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
+    expect(window.localStorage.getItem("helio-theme")).toBe("light");
   });
 });

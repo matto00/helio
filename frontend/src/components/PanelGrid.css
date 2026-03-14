@@ -1,0 +1,118 @@
+.panel-grid-shell {
+  min-height: min(72vh, 960px);
+}
+
+.panel-grid {
+  min-height: min(72vh, 960px);
+}
+
+.panel-grid > .react-grid-item {
+  transition:
+    transform 180ms ease,
+    width 180ms ease,
+    height 180ms ease;
+}
+
+.panel-grid > .react-grid-placeholder {
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-surface);
+  opacity: 0.4;
+}
+
+.panel-grid .react-resizable-handle::after {
+  border-color: var(--app-accent-strong);
+}
+
+.panel-grid-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background:
+    linear-gradient(180deg, var(--app-accent-surface), transparent 72%), var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  overflow: hidden;
+}
+
+.panel-grid-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.panel-grid-card__eyebrow {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--app-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.panel-grid-card__title {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.panel-grid-card__handle {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  cursor: grab;
+}
+
+.panel-grid-card__handle span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.panel-grid-card__handle:active {
+  cursor: grabbing;
+}
+
+.panel-grid-card__copy {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.7;
+}
+
+.panel-grid-card__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--app-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .panel-grid-shell,
+  .panel-grid {
+    min-height: 540px;
+  }
+
+  .panel-grid-card {
+    padding: 18px;
+  }
+
+  .panel-grid-card__footer {
+    flex-direction: column;
+  }
+}
