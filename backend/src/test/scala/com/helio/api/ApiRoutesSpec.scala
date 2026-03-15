@@ -309,6 +309,41 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
       }
     }
 
+    "return dashboards sorted by lastUpdated descending" in {
+      val routes = buildRoutes()
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Alpha"))) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post("/api/dashboards", CreateDashboardRequest(Some("Beta"))) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get("/api/dashboards") ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[DashboardsResponse].items
+        items should have size 2
+        val timestamps = items.map(d => java.time.Instant.parse(d.meta.lastUpdated))
+        timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
+      }
+    }
+
+    "return panels sorted by lastUpdated descending" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Post("/api/panels", CreatePanelRequest(Some(dashboard.id.value), Some("Panel A"))) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[PanelsResponse].items
+        items.size should be >= 2
+        val timestamps = items.map(p => java.time.Instant.parse(p.meta.lastUpdated))
+        timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
+      }
+    }
+
     "reject malformed dashboard create request with type mismatch" in {
       val routes = buildRoutes()
 
