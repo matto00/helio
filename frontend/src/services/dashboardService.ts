@@ -5,6 +5,10 @@ interface DashboardsResponse {
   items: Dashboard[];
 }
 
+interface CreateDashboardRequest {
+  name: string;
+}
+
 interface UpdateDashboardAppearanceRequest {
   appearance: DashboardAppearance;
 }
@@ -16,6 +20,13 @@ interface UpdateDashboardLayoutRequest {
 export async function fetchDashboards(): Promise<Dashboard[]> {
   const response = await httpClient.get<DashboardsResponse>("/api/dashboards");
   return response.data.items;
+}
+
+export async function createDashboard(name: string): Promise<Dashboard> {
+  const response = await httpClient.post<Dashboard>("/api/dashboards", {
+    name,
+  } satisfies CreateDashboardRequest);
+  return response.data;
 }
 
 export async function updateDashboardAppearance(

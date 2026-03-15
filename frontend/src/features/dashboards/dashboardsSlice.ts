@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import {
+  createDashboard as createDashboardRequest,
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
@@ -56,6 +57,18 @@ export const fetchDashboards = createAsyncThunk<
     condition: (_, { getState }) => getState().dashboards.status === "idle",
   },
 );
+
+export const createDashboard = createAsyncThunk<
+  Dashboard,
+  { name: string },
+  { rejectValue: string }
+>("dashboards/createDashboard", async ({ name }, { rejectWithValue }) => {
+  try {
+    return await createDashboardRequest(name);
+  } catch {
+    return rejectWithValue("Failed to create dashboard.");
+  }
+});
 
 export const updateDashboardAppearance = createAsyncThunk<
   Dashboard,
@@ -128,6 +141,10 @@ const dashboardsSlice = createSlice({
         state.items = state.items.map((dashboard) =>
           dashboard.id === action.payload.id ? action.payload : dashboard,
         );
+      })
+      .addCase(createDashboard.fulfilled, (state, action) => {
+        state.items.push(action.payload);
+        state.selectedDashboardId = action.payload.id;
       });
   },
 });
