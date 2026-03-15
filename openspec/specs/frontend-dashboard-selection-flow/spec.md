@@ -27,3 +27,8 @@ The system SHALL allow a user to change the active dashboard from a clickable li
 - **WHEN** a user creates a dashboard from the dashboard list
 - **THEN** the created dashboard becomes the selected dashboard
 - **AND** the existing selection behavior continues to apply for later manual changes
+
+#### Scenario: Panel creation uses selected dashboard context
+- **WHEN** a user creates a panel from the panel list
+- **THEN** the create flow targets the currently selected dashboard
+- **AND** the panel refresh flow remains scoped to that selected dashboard

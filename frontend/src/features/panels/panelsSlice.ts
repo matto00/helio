@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 import {
+  createPanel as createPanelRequest,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
 } from "../../services/panelService";
@@ -50,6 +51,21 @@ export const fetchPanels = createAsyncThunk<
   },
 );
 
+export const createPanel = createAsyncThunk<
+  Panel,
+  { dashboardId: string; title: string },
+  { state: RootState; rejectValue: string }
+>("panels/createPanel", async ({ dashboardId, title }, { dispatch, rejectWithValue }) => {
+  try {
+    const createdPanel = await createPanelRequest(dashboardId, title);
+    dispatch(markDashboardPanelsStale(dashboardId));
+    await dispatch(fetchPanels(dashboardId));
+    return createdPanel;
+  } catch {
+    return rejectWithValue("Failed to create panel.");
+  }
+});
+
 export const updatePanelAppearance = createAsyncThunk<
   Panel,
   { panelId: string; appearance: PanelAppearance },
@@ -65,7 +81,16 @@ export const updatePanelAppearance = createAsyncThunk<
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
-  reducers: {},
+  reducers: {
+    markDashboardPanelsStale(state, action) {
+      if (state.loadedDashboardId !== action.payload) {
+        return;
+      }
+
+      state.loadedDashboardId = null;
+      state.status = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchPanels.pending, (state, action) => {
@@ -87,8 +112,12 @@ const panelsSlice = createSlice({
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
+      })
+      .addCase(createPanel.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to create panel.";
       });
   },
 });
 
+export const { markDashboardPanelsStale } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
