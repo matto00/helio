@@ -89,12 +89,6 @@
   cursor: wait;
 }
 
-.panel-appearance-editor__error {
-  margin: 0;
-  color: #fca5a5;
-  font-size: 0.78rem;
-}
-
 @media (max-width: 768px) {
   .panel-appearance-editor__row {
     grid-template-columns: 1fr;

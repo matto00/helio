@@ -6,6 +6,8 @@ import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { createPanel } from "../features/panels/panelsSlice";
 import { PanelGrid } from "./PanelGrid";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { InlineError } from "./InlineError";
+import { StatusMessage } from "./StatusMessage";
 import { resolveDashboardGridBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -105,13 +107,13 @@ export function PanelList() {
           >
             {isCreating ? "Creating..." : "Create panel"}
           </button>
-          {createError ? <p className="panel-list__create-error">{createError}</p> : null}
+          <InlineError error={createError} />
         </form>
       ) : null}
-      {status === "loading" ? <p className="panel-list__state">Loading panels...</p> : null}
-      {status === "failed" && error ? (
-        <p className="panel-list__state panel-list__state--error">{error}</p>
-      ) : null}
+      <StatusMessage
+        status={status}
+        message={status === "loading" ? "Loading panels..." : (error ?? undefined)}
+      />
       {status !== "loading" && status !== "failed" && selectedDashboardId === null ? (
         <p className="panel-list__state">Select a dashboard to view panels.</p>
       ) : null}

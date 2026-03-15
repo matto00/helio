@@ -12,6 +12,7 @@ import {
 import type { Panel } from "../types/models";
 import "./Popover.css";
 import "./PanelAppearanceEditor.css";
+import { InlineError } from "./InlineError";
 
 interface PanelAppearanceEditorProps {
   panel: Panel;
@@ -116,7 +117,7 @@ export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
           <button type="submit" className="panel-appearance-editor__save" disabled={isSaving}>
             {isSaving ? "Saving..." : "Save panel style"}
           </button>
-          {error ? <p className="panel-appearance-editor__error">{error}</p> : null}
+          <InlineError error={error} />
         </form>
       ) : null}
     </div>

@@ -3,6 +3,8 @@ import { useState, type FormEvent } from "react";
 import "./DashboardList.css";
 import { createDashboard, setSelectedDashboardId } from "../features/dashboards/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { InlineError } from "./InlineError";
+import { StatusMessage } from "./StatusMessage";
 
 interface DashboardListProps {
   onCollapse?: () => void;
@@ -90,15 +92,13 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           >
             {isSaving ? "Creating..." : "Create dashboard"}
           </button>
-          {createError ? <p className="dashboard-list__create-error">{createError}</p> : null}
+          <InlineError error={createError} />
         </form>
       ) : null}
-      {status === "loading" ? (
-        <p className="dashboard-list__status">Loading dashboards...</p>
-      ) : null}
-      {status === "failed" && error ? (
-        <p className="dashboard-list__status dashboard-list__status--error">{error}</p>
-      ) : null}
+      <StatusMessage
+        status={status}
+        message={status === "loading" ? "Loading dashboards..." : (error ?? undefined)}
+      />
       <ul className="dashboard-list__items">
         {items.map((dashboard) => (
           <li key={dashboard.id}>

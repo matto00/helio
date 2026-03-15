@@ -118,12 +118,6 @@
   cursor: not-allowed;
 }
 
-.panel-list__create-error {
-  margin: 0;
-  color: #fca5a5;
-  font-size: 0.78rem;
-}
-
 .panel-list__state {
   margin: 0 0 18px;
   padding: 16px 18px;
@@ -132,10 +126,6 @@
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
   line-height: 1.6;
-}
-
-.panel-list__state--error {
-  color: #ffb4b4;
 }
 
 @media (max-width: 768px) {
