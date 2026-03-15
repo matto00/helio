@@ -5,6 +5,11 @@ interface PanelsResponse {
   items: Panel[];
 }
 
+interface CreatePanelRequest {
+  dashboardId: string;
+  title: string;
+}
+
 interface UpdatePanelAppearanceRequest {
   appearance: PanelAppearance;
 }
@@ -12,6 +17,14 @@ interface UpdatePanelAppearanceRequest {
 export async function fetchPanels(dashboardId: string): Promise<Panel[]> {
   const response = await httpClient.get<PanelsResponse>(`/api/dashboards/${dashboardId}/panels`);
   return response.data.items;
+}
+
+export async function createPanel(dashboardId: string, title: string): Promise<Panel> {
+  const response = await httpClient.post<Panel>("/api/panels", {
+    dashboardId,
+    title,
+  } satisfies CreatePanelRequest);
+  return response.data;
 }
 
 export async function updatePanelAppearance(

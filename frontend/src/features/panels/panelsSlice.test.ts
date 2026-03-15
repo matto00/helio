@@ -1,4 +1,4 @@
-import { fetchPanels, panelsReducer, updatePanelAppearance } from "./panelsSlice";
+import { createPanel, fetchPanels, panelsReducer, updatePanelAppearance } from "./panelsSlice";
 
 const defaultMeta = {
   createdBy: "system",
@@ -98,5 +98,19 @@ describe("panelsSlice", () => {
 
     expect(nextState.items[0].appearance.transparency).toBe(0.45);
     expect(nextState.items[0].appearance.background).toBe("#111827");
+  });
+
+  it("stores a create error when panel creation fails", () => {
+    const initialState = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([], "request-id", "dashboard-1"),
+    );
+
+    const nextState = panelsReducer(
+      initialState,
+      createPanel.rejected(null, "request-id-2", { dashboardId: "dashboard-1", title: "Forecast" }),
+    );
+
+    expect(nextState.error).toBe("Failed to create panel.");
   });
 });
