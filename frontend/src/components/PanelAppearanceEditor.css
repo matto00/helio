@@ -5,16 +5,14 @@
 .panel-appearance-editor__trigger {
   width: 38px;
   height: 38px;
-  gap: 4px;
   padding: 0;
   color: color-mix(in srgb, currentColor 80%, transparent);
 }
 
-.panel-appearance-editor__trigger-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 999px;
-  background: currentColor;
+.panel-appearance-editor__trigger-icon {
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .panel-appearance-editor__panel {

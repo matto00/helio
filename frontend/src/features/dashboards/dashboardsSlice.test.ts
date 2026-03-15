@@ -1,4 +1,9 @@
-import { dashboardsReducer, fetchDashboards, updateDashboardAppearance } from "./dashboardsSlice";
+import {
+  dashboardsReducer,
+  fetchDashboards,
+  updateDashboardAppearance,
+  updateDashboardLayout,
+} from "./dashboardsSlice";
 
 const defaultMeta = {
   createdBy: "system",
@@ -9,6 +14,13 @@ const defaultMeta = {
 const defaultAppearance = {
   background: "transparent",
   gridBackground: "transparent",
+};
+
+const defaultLayout = {
+  lg: [],
+  md: [],
+  sm: [],
+  xs: [],
 };
 
 describe("dashboardsSlice", () => {
@@ -26,6 +38,7 @@ describe("dashboardsSlice", () => {
               lastUpdated: "2026-03-14T12:00:00Z",
             },
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
           {
             id: "dashboard-2",
@@ -35,6 +48,7 @@ describe("dashboardsSlice", () => {
               lastUpdated: "2026-03-14T13:00:00Z",
             },
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
         ],
         "request-id",
@@ -57,6 +71,7 @@ describe("dashboardsSlice", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
           {
             id: "dashboard-2",
@@ -66,6 +81,7 @@ describe("dashboardsSlice", () => {
               lastUpdated: "2026-03-14T13:00:00Z",
             },
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
         ],
         "request-id",
@@ -84,6 +100,7 @@ describe("dashboardsSlice", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
           {
             id: "dashboard-2",
@@ -93,6 +110,7 @@ describe("dashboardsSlice", () => {
               lastUpdated: "2026-03-14T14:00:00Z",
             },
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
         ],
         "request-id-2",
@@ -124,6 +142,7 @@ describe("dashboardsSlice", () => {
             name: "Operations",
             meta: defaultMeta,
             appearance: defaultAppearance,
+            layout: defaultLayout,
           },
         ],
         "request-id",
@@ -145,6 +164,7 @@ describe("dashboardsSlice", () => {
             background: "#123456",
             gridBackground: "#234567",
           },
+          layout: defaultLayout,
         },
         "request-id-2",
         {
@@ -160,5 +180,64 @@ describe("dashboardsSlice", () => {
     expect(nextState.items[0].appearance.background).toBe("#123456");
     expect(nextState.items[0].appearance.gridBackground).toBe("#234567");
     expect(nextState.items[0].meta.lastUpdated).toBe("2026-03-14T02:00:00Z");
+  });
+
+  it("replaces the updated dashboard layout after a save", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const nextState = dashboardsReducer(
+      initialState,
+      updateDashboardLayout.fulfilled(
+        {
+          id: "dashboard-1",
+          name: "Operations",
+          meta: {
+            ...defaultMeta,
+            lastUpdated: "2026-03-14T03:00:00Z",
+          },
+          appearance: defaultAppearance,
+          layout: {
+            lg: [{ panelId: "panel-1", x: 2, y: 1, w: 4, h: 6 }],
+            md: [{ panelId: "panel-1", x: 1, y: 0, w: 5, h: 5 }],
+            sm: [{ panelId: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
+            xs: [{ panelId: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
+          },
+        },
+        "request-id-3",
+        {
+          dashboardId: "dashboard-1",
+          layout: {
+            lg: [{ panelId: "panel-1", x: 2, y: 1, w: 4, h: 6 }],
+            md: [{ panelId: "panel-1", x: 1, y: 0, w: 5, h: 5 }],
+            sm: [{ panelId: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
+            xs: [{ panelId: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
+          },
+        },
+      ),
+    );
+
+    expect(nextState.items[0].layout.lg[0]).toMatchObject({
+      panelId: "panel-1",
+      x: 2,
+      y: 1,
+      w: 4,
+      h: 6,
+    });
+    expect(nextState.items[0].meta.lastUpdated).toBe("2026-03-14T03:00:00Z");
   });
 });

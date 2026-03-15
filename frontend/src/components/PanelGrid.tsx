@@ -1,12 +1,20 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
+import { noCompactor } from "react-grid-layout/core";
 
+import {
+  areDashboardLayoutsEqual,
+  dashboardGridCols,
+  resolveDashboardLayout,
+} from "../features/dashboards/dashboardLayout";
+import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
-import type { Panel } from "../types/models";
+import type { DashboardLayout, Panel } from "../types/models";
 import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
 import "./PanelGrid.css";
 
@@ -30,12 +38,7 @@ const panelGridConfig: PanelGridConfig = {
     sm: 768,
     xs: 0,
   },
-  cols: {
-    lg: 12,
-    md: 10,
-    sm: 6,
-    xs: 2,
-  },
+  cols: dashboardGridCols,
   rowHeight: 52,
   margin: [18, 18],
   containerPadding: [0, 0],
@@ -46,35 +49,50 @@ const panelGridConfig: PanelGridConfig = {
   },
 };
 
-function createBaseLayout(
-  panels: Panel[],
-  colCount: number,
-): NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] {
-  const itemWidth = colCount >= 10 ? 4 : colCount >= 6 ? 3 : 2;
-  const itemHeight = panelGridConfig.itemHeights.default;
-  const itemsPerRow = Math.max(1, Math.floor(colCount / itemWidth));
-
-  return panels.map((panel, index) => ({
-    i: panel.id,
-    x: (index % itemsPerRow) * itemWidth,
-    y: Math.floor(index / itemsPerRow) * itemHeight,
-    w: itemWidth,
-    h: itemHeight,
-    minW: Math.min(2, itemWidth),
-    minH: panelGridConfig.itemHeights.min,
-  }));
-}
-
-function createLayouts(panels: Panel[]): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
+function createLayouts(layout: DashboardLayout): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
   return {
-    lg: createBaseLayout(panels, panelGridConfig.cols.lg),
-    md: createBaseLayout(panels, panelGridConfig.cols.md),
-    sm: createBaseLayout(panels, panelGridConfig.cols.sm),
-    xs: createBaseLayout(panels, panelGridConfig.cols.xs),
+    lg: layout.lg.map((item) => ({
+      i: item.panelId,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      minW: Math.min(2, item.w),
+      minH: panelGridConfig.itemHeights.min,
+    })),
+    md: layout.md.map((item) => ({
+      i: item.panelId,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      minW: Math.min(2, item.w),
+      minH: panelGridConfig.itemHeights.min,
+    })),
+    sm: layout.sm.map((item) => ({
+      i: item.panelId,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      minW: Math.min(2, item.w),
+      minH: panelGridConfig.itemHeights.min,
+    })),
+    xs: layout.xs.map((item) => ({
+      i: item.panelId,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      minW: 1,
+      minH: panelGridConfig.itemHeights.min,
+    })),
   };
 }
 
 interface PanelGridProps {
+  dashboardId: string;
+  layout: DashboardLayout;
   panels: Panel[];
 }
 
@@ -96,12 +114,91 @@ function getPanelCardStyle(panel: Panel, theme: "dark" | "light"): CSSProperties
   return style;
 }
 
-export function PanelGrid({ panels }: PanelGridProps) {
+function fromResponsiveLayouts(
+  panels: Panel[],
+  layouts: NonNullable<ResponsiveGridLayoutProps["layouts"]>,
+): DashboardLayout {
+  const panelIds = new Set(panels.map((panel) => panel.id));
+  const toItems = (items: NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] = []) =>
+    items
+      .filter((item) => panelIds.has(item.i))
+      .map((item) => ({
+        panelId: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+      }));
+
+  return resolveDashboardLayout(panels, {
+    lg: toItems(layouts.lg),
+    md: toItems(layouts.md),
+    sm: toItems(layouts.sm),
+    xs: toItems(layouts.xs),
+  });
+}
+
+export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
+  const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
-  const layouts = createLayouts(panels);
+  const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
+  const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
+  const latestLayoutRef = useRef(resolvedLayout);
+  const persistedLayoutRef = useRef(resolvedLayout);
+  const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    latestLayoutRef.current = resolvedLayout;
+    persistedLayoutRef.current = resolvedLayout;
+    if (
+      inFlightLayoutRef.current !== null &&
+      areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
+    ) {
+      inFlightLayoutRef.current = null;
+    }
+  }, [resolvedLayout]);
+
+  useEffect(
+    () => () => {
+      if (persistTimerRef.current !== null) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const persistLayout = useCallback(() => {
+    const nextLayout = latestLayoutRef.current;
+    if (areDashboardLayoutsEqual(nextLayout, persistedLayoutRef.current)) {
+      return;
+    }
+    if (
+      inFlightLayoutRef.current !== null &&
+      areDashboardLayoutsEqual(nextLayout, inFlightLayoutRef.current)
+    ) {
+      return;
+    }
+
+    inFlightLayoutRef.current = nextLayout;
+    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
+      .unwrap()
+      .catch(() => {
+        // Keep local drag UX responsive; retry happens on the next layout change.
+      })
+      .finally(() => {
+        if (
+          inFlightLayoutRef.current !== null &&
+          areDashboardLayoutsEqual(inFlightLayoutRef.current, nextLayout)
+        ) {
+          inFlightLayoutRef.current = null;
+        }
+      });
+  }, [dashboardId, dispatch]);
 
   return (
     <div ref={containerRef} className="panel-grid-shell">
@@ -115,6 +212,20 @@ export function PanelGrid({ panels }: PanelGridProps) {
         margin={panelGridConfig.margin}
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
+        compactor={noCompactor}
+        onLayoutChange={(_, nextLayouts) => {
+          if (nextLayouts === undefined) {
+            return;
+          }
+          latestLayoutRef.current = fromResponsiveLayouts(panels, nextLayouts);
+          if (persistTimerRef.current !== null) {
+            clearTimeout(persistTimerRef.current);
+          }
+          persistTimerRef.current = setTimeout(() => {
+            persistTimerRef.current = null;
+            persistLayout();
+          }, 250);
+        }}
       >
         {panels.map((panel) => (
           <div key={panel.id}>

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboard-layout-item.schema.json",
+  "title": "DashboardLayoutItem",
+  "type": "object",
+  "required": ["panelId", "x", "y", "w", "h"],
+  "properties": {
+    "panelId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "x": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "y": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "w": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "h": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false
+}

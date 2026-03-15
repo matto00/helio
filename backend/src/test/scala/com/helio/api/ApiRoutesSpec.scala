@@ -62,6 +62,13 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
     appearance.gridBackground should not be empty
   }
 
+  private def assertDashboardLayout(layout: DashboardLayoutResponse): Unit = {
+    layout.lg should not be null
+    layout.md should not be null
+    layout.sm should not be null
+    layout.xs should not be null
+  }
+
   private def assertPanelAppearance(appearance: PanelAppearanceResponse): Unit = {
     appearance.background should not be empty
     appearance.color should not be empty
@@ -99,6 +106,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.items.head.name shouldBe "Operations"
         assertResourceMeta(response.items.head.meta)
         assertDashboardAppearance(response.items.head.appearance)
+        assertDashboardLayout(response.items.head.layout)
       }
 
       Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
@@ -123,6 +131,7 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         response.id should not be empty
         assertResourceMeta(response.meta)
         assertDashboardAppearance(response.appearance)
+        response.layout shouldBe DashboardLayoutResponse(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
       }
     }
 
@@ -158,7 +167,8 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
       Patch(
         s"/api/dashboards/${dashboard.id.value}",
         UpdateDashboardRequest(
-          Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a")))
+          appearance = Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a"))),
+          layout = None
         )
       ) ~> routes.routes ~> check {
         status shouldBe StatusCodes.OK
@@ -173,6 +183,44 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         val response = responseAs[DashboardsResponse]
         response.items.head.appearance.background shouldBe "#1e293b"
         response.items.head.appearance.gridBackground shouldBe "#0f172a"
+      }
+    }
+
+    "update dashboard layout and refresh lastUpdated" in {
+      val (routes, dashboard) = buildSeededRoutes()
+
+      Patch(
+        s"/api/dashboards/${dashboard.id.value}",
+        UpdateDashboardRequest(
+          appearance = None,
+          layout = Some(
+            DashboardLayoutPayload(
+              lg = Vector(
+                DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)
+              ),
+              md = Vector(
+                DashboardLayoutItemPayload("panel-a", x = 0, y = 1, w = 4, h = 5)
+              ),
+              sm = Vector(
+                DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 3, h = 5)
+              ),
+              xs = Vector(
+                DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 2, h = 5)
+              )
+            )
+          )
+        )
+      ) ~> routes.routes ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardResponse]
+        response.id shouldBe dashboard.id.value
+        response.layout.lg should contain only DashboardLayoutItemResponse("panel-a", 1, 2, 5, 6)
+        response.meta.lastUpdated should not be dashboard.meta.lastUpdated.toString
+      }
+
+      Get("/api/dashboards") ~> routes.routes ~> check {
+        val response = responseAs[DashboardsResponse]
+        response.items.head.layout.md should contain only DashboardLayoutItemResponse("panel-a", 0, 1, 4, 5)
       }
     }
 
@@ -210,10 +258,10 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
 
       Patch(
         s"/api/dashboards/${dashboard.id.value}",
-        UpdateDashboardRequest(None)
+        UpdateDashboardRequest(None, None)
       ) ~> routes.routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance is required")
+        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance or layout is required")
       }
     }
 

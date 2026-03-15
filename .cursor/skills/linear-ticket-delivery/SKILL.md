@@ -99,6 +99,7 @@ After approval:
 Always update related materials when relevant, including:
 
 - OpenSpec proposal/design/tasks/specs
+- During consolidation, always sync OpenSpec proposal/design/tasks/specs with the implemented behavior before sign-off or archive.
 - JSON schemas
 - API contracts
 - docs and runbooks
@@ -146,6 +147,7 @@ Do not archive until sign-off is received.
 After tasks are complete, tests pass, and human sign-off is received:
 
 - use `opsx-archive`
+- always archive the completed OpenSpec change during consolidation before opening or finalizing the PR
 - do not skip archive for completed ticket work
 
 ### 11. Create the pull request
@@ -200,6 +202,7 @@ The workflow is complete only when all of the following are true:
 - human approval received before implementation
 - implementation completed cleanly
 - relevant artifacts updated
+- OpenSpec artifacts synchronized during consolidation
 - required verification passed
 - human sign-off received
 - OpenSpec change archived with `opsx-archive`

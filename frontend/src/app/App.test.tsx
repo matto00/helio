@@ -7,6 +7,7 @@ import { panelsReducer } from "../features/panels/panelsSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
+  updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../services/dashboardService";
 import {
   fetchPanels as fetchPanelsRequest,
@@ -18,6 +19,7 @@ import { App } from "./App";
 jest.mock("../services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
   updateDashboardAppearance: jest.fn(),
+  updateDashboardLayout: jest.fn(),
 }));
 
 jest.mock("../services/panelService", () => ({
@@ -28,11 +30,19 @@ jest.mock("../services/panelService", () => ({
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
+const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 const updatePanelAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 
 const defaultDashboardAppearance = {
   background: "transparent",
   gridBackground: "transparent",
+};
+
+const defaultDashboardLayout = {
+  lg: [],
+  md: [],
+  sm: [],
+  xs: [],
 };
 
 const defaultPanelAppearance = {
@@ -68,6 +78,7 @@ describe("App", () => {
     fetchDashboardsMock.mockReset();
     fetchPanelsMock.mockReset();
     updateDashboardAppearanceMock.mockReset();
+    updateDashboardLayoutMock.mockReset();
     updatePanelAppearanceMock.mockReset();
   });
 
@@ -82,6 +93,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
       {
         id: "dashboard-2",
@@ -92,6 +104,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T12:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
     ]);
     fetchPanelsMock.mockResolvedValue([]);
@@ -118,6 +131,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
       {
         id: "dashboard-2",
@@ -128,6 +142,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T12:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
     ]);
     fetchPanelsMock.mockResolvedValue([]);
@@ -156,6 +171,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
       {
         id: "dashboard-2",
@@ -166,6 +182,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T12:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
     ]);
     fetchPanelsMock.mockImplementation(async (dashboardId: string) =>
@@ -226,6 +243,38 @@ describe("App", () => {
     expect(window.localStorage.getItem("helio-theme")).toBe("light");
   });
 
+  it("collapses and expands the dashboard list", async () => {
+    fetchDashboardsMock.mockResolvedValue([
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
+        },
+        appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
+      },
+    ]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const collapseButton = await screen.findByRole("button", { name: "Collapse dashboard list" });
+    fireEvent.click(collapseButton);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Expand dashboard list" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("heading", { name: "Dashboards" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand dashboard list" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument(),
+    );
+  });
+
   it("saves dashboard appearance changes", async () => {
     fetchDashboardsMock.mockResolvedValue([
       {
@@ -237,6 +286,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
     ]);
     fetchPanelsMock.mockResolvedValue([]);
@@ -252,6 +302,7 @@ describe("App", () => {
         background: "#123456",
         gridBackground: "#234567",
       },
+      layout: defaultDashboardLayout,
     });
 
     renderApp();
@@ -292,6 +343,7 @@ describe("App", () => {
           lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
       },
     ]);
     fetchPanelsMock.mockResolvedValue([

@@ -67,8 +67,9 @@ export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
         aria-expanded={isOpen}
         aria-label={`Customize ${panel.title} panel`}
       >
-        <span className="panel-appearance-editor__trigger-dot" />
-        <span className="panel-appearance-editor__trigger-dot" />
+        <span className="panel-appearance-editor__trigger-icon" aria-hidden="true">
+          ✎
+        </span>
       </button>
       {isOpen ? (
         <button type="button" className="popover__scrim" onClick={() => setIsOpen(false)} />

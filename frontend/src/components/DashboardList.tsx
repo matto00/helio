@@ -2,14 +2,30 @@ import "./DashboardList.css";
 import { setSelectedDashboardId } from "../features/dashboards/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 
-export function DashboardList() {
+interface DashboardListProps {
+  onCollapse?: () => void;
+}
+
+export function DashboardList({ onCollapse }: DashboardListProps) {
   const dispatch = useAppDispatch();
   const { items, selectedDashboardId, status, error } = useAppSelector((state) => state.dashboards);
 
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
-        <span className="dashboard-list__eyebrow">Navigation</span>
+        <div className="dashboard-list__header-row">
+          <span className="dashboard-list__eyebrow">Navigation</span>
+          {onCollapse ? (
+            <button
+              type="button"
+              className="dashboard-list__collapse"
+              aria-label="Collapse dashboard list"
+              onClick={onCollapse}
+            >
+              <span aria-hidden="true">⟨</span>
+            </button>
+          ) : null}
+        </div>
         <h2>Dashboards</h2>
         <p>Choose a workspace view and keep the panel content focused on the active dashboard.</p>
       </header>

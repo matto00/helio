@@ -1,4 +1,4 @@
-import type { Dashboard, DashboardAppearance } from "../types/models";
+import type { Dashboard, DashboardAppearance, DashboardLayout } from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface DashboardsResponse {
@@ -7,6 +7,10 @@ interface DashboardsResponse {
 
 interface UpdateDashboardAppearanceRequest {
   appearance: DashboardAppearance;
+}
+
+interface UpdateDashboardLayoutRequest {
+  layout: DashboardLayout;
 }
 
 export async function fetchDashboards(): Promise<Dashboard[]> {
@@ -21,5 +25,15 @@ export async function updateDashboardAppearance(
   const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, {
     appearance,
   } satisfies UpdateDashboardAppearanceRequest);
+  return response.data;
+}
+
+export async function updateDashboardLayout(
+  dashboardId: string,
+  layout: DashboardLayout,
+): Promise<Dashboard> {
+  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, {
+    layout,
+  } satisfies UpdateDashboardLayoutRequest);
   return response.data;
 }
