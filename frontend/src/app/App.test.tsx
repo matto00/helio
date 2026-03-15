@@ -83,18 +83,8 @@ describe("App", () => {
   });
 
   it("auto-selects the most recently updated dashboard and loads its panels", async () => {
+    // Backend returns dashboards sorted by lastUpdated desc — most recently updated is first.
     fetchDashboardsMock.mockResolvedValue([
-      {
-        id: "dashboard-1",
-        name: "Operations",
-        meta: {
-          createdBy: "system",
-          createdAt: "2026-03-14T10:00:00Z",
-          lastUpdated: "2026-03-14T10:00:00Z",
-        },
-        appearance: defaultDashboardAppearance,
-        layout: defaultDashboardLayout,
-      },
       {
         id: "dashboard-2",
         name: "Executive",
@@ -102,6 +92,17 @@ describe("App", () => {
           createdBy: "system",
           createdAt: "2026-03-14T11:00:00Z",
           lastUpdated: "2026-03-14T12:00:00Z",
+        },
+        appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
+      },
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
         layout: defaultDashboardLayout,
@@ -121,18 +122,8 @@ describe("App", () => {
   });
 
   it("loads panels lazily when the user changes the selected dashboard", async () => {
+    // Backend returns dashboards sorted by lastUpdated desc — most recently updated is first.
     fetchDashboardsMock.mockResolvedValue([
-      {
-        id: "dashboard-1",
-        name: "Operations",
-        meta: {
-          createdBy: "system",
-          createdAt: "2026-03-14T10:00:00Z",
-          lastUpdated: "2026-03-14T10:00:00Z",
-        },
-        appearance: defaultDashboardAppearance,
-        layout: defaultDashboardLayout,
-      },
       {
         id: "dashboard-2",
         name: "Executive",
@@ -140,6 +131,17 @@ describe("App", () => {
           createdBy: "system",
           createdAt: "2026-03-14T11:00:00Z",
           lastUpdated: "2026-03-14T12:00:00Z",
+        },
+        appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
+      },
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
         layout: defaultDashboardLayout,
@@ -161,18 +163,8 @@ describe("App", () => {
   });
 
   it("keeps panel content visible when switching dashboards", async () => {
+    // Backend returns dashboards sorted by lastUpdated desc — most recently updated is first.
     fetchDashboardsMock.mockResolvedValue([
-      {
-        id: "dashboard-1",
-        name: "Operations",
-        meta: {
-          createdBy: "system",
-          createdAt: "2026-03-14T10:00:00Z",
-          lastUpdated: "2026-03-14T10:00:00Z",
-        },
-        appearance: defaultDashboardAppearance,
-        layout: defaultDashboardLayout,
-      },
       {
         id: "dashboard-2",
         name: "Executive",
@@ -180,6 +172,17 @@ describe("App", () => {
           createdBy: "system",
           createdAt: "2026-03-14T11:00:00Z",
           lastUpdated: "2026-03-14T12:00:00Z",
+        },
+        appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
+      },
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
         },
         appearance: defaultDashboardAppearance,
         layout: defaultDashboardLayout,

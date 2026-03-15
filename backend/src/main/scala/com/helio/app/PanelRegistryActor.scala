@@ -51,7 +51,7 @@ object PanelRegistryActor {
         replyTo ! created
         behavior(panels :+ created)
       case GetPanelsForDashboard(dashboardId, replyTo) =>
-        replyTo ! Panels(panels.filter(_.dashboardId == dashboardId))
+        replyTo ! Panels(panels.filter(_.dashboardId == dashboardId).sortBy(_.meta.lastUpdated).reverse)
         Behaviors.same
       case GetPanel(panelId, replyTo) =>
         replyTo ! PanelLookup(panels.find(_.id == panelId))

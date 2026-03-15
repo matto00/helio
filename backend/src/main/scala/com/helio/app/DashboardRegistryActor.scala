@@ -45,7 +45,7 @@ object DashboardRegistryActor {
         replyTo ! created
         behavior(dashboards :+ created)
       case GetDashboards(replyTo) =>
-        replyTo ! Dashboards(dashboards)
+        replyTo ! Dashboards(dashboards.sortBy(_.meta.lastUpdated).reverse)
         Behaviors.same
       case GetDashboard(dashboardId, replyTo) =>
         replyTo ! DashboardLookup(dashboards.find(_.id == dashboardId))

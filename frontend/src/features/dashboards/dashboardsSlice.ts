@@ -23,21 +23,10 @@ const initialState: DashboardsState = {
   error: null,
 };
 
-function getDashboardTimestamp(dashboard: Dashboard): number {
-  const parsedTimestamp = Date.parse(dashboard.meta.lastUpdated);
-  return Number.isNaN(parsedTimestamp) ? Number.NEGATIVE_INFINITY : parsedTimestamp;
-}
-
+// The backend guarantees dashboards are returned sorted by lastUpdated desc,
+// so the first item is always the most recently updated.
 function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
-  if (dashboards.length === 0) {
-    return null;
-  }
-
-  return dashboards.reduce((mostRecentDashboard, dashboard) =>
-    getDashboardTimestamp(dashboard) > getDashboardTimestamp(mostRecentDashboard)
-      ? dashboard
-      : mostRecentDashboard,
-  ).id;
+  return dashboards[0]?.id ?? null;
 }
 
 export const fetchDashboards = createAsyncThunk<

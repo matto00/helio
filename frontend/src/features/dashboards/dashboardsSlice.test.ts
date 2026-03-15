@@ -25,28 +25,29 @@ const defaultLayout = {
 };
 
 describe("dashboardsSlice", () => {
-  it("stores backend dashboards and selects the most recently updated dashboard by default", () => {
+  it("selects the first dashboard in the response (backend guarantees lastUpdated desc order)", () => {
     const initialState = dashboardsReducer(undefined, { type: "@@INIT" });
+    // Backend returns dashboards sorted by lastUpdated desc — most recently updated is first.
     const nextState = dashboardsReducer(
       initialState,
       fetchDashboards.fulfilled(
         [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: {
-              ...defaultMeta,
-              lastUpdated: "2026-03-14T12:00:00Z",
-            },
-            appearance: defaultAppearance,
-            layout: defaultLayout,
-          },
           {
             id: "dashboard-2",
             name: "Executive",
             meta: {
               ...defaultMeta,
               lastUpdated: "2026-03-14T13:00:00Z",
+            },
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: {
+              ...defaultMeta,
+              lastUpdated: "2026-03-14T12:00:00Z",
             },
             appearance: defaultAppearance,
             layout: defaultLayout,
