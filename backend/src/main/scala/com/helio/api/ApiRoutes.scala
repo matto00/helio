@@ -1,35 +1,24 @@
 package com.helio.api
 
-import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
-import akka.util.Timeout
-import com.helio.app.DashboardRegistryActor
-import com.helio.app.PanelRegistryActor
-import com.helio.domain.Dashboard
-import com.helio.domain.DashboardAppearance
-import com.helio.domain.DashboardLayout
-import com.helio.domain.DashboardLayoutItem
-import com.helio.domain.DashboardId
-import com.helio.domain.Panel
-import com.helio.domain.PanelAppearance
-import com.helio.domain.PanelId
+import com.helio.domain._
+import com.helio.infrastructure.{DashboardRepository, PanelRepository}
 
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 
 final class ApiRoutes(
-    dashboardRegistry: ActorRef[DashboardRegistryActor.Command],
-    panelRegistry: ActorRef[PanelRegistryActor.Command]
+    dashboardRepo: DashboardRepository,
+    panelRepo: PanelRepository
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
-  private implicit val timeout: Timeout = 3.seconds
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
   val routes: Route =
@@ -45,17 +34,22 @@ final class ApiRoutes(
               pathEndOrSingleSlash {
                 concat(
                   get {
-                    onSuccess(fetchDashboards()) { dashboards =>
+                    onSuccess(dashboardRepo.findAll()) { dashboards =>
                       complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
                     }
                   },
                   post {
                     entity(as[CreateDashboardRequest]) { request =>
-                      onSuccess(createDashboard(request)) { dashboard =>
-                        complete(
-                          StatusCodes.Created,
-                          DashboardResponse.fromDomain(dashboard)
-                        )
+                      val now = Instant.now()
+                      val dashboard = Dashboard(
+                        id         = DashboardId(UUID.randomUUID().toString),
+                        name       = RequestValidation.normalizeDashboardName(request.name),
+                        meta       = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
+                        appearance = DashboardAppearance.Default,
+                        layout     = DashboardLayout.Default
+                      )
+                      onSuccess(dashboardRepo.insert(dashboard)) { created =>
+                        complete(StatusCodes.Created, DashboardResponse.fromDomain(created))
                       }
                     }
                   }
@@ -63,7 +57,7 @@ final class ApiRoutes(
               },
               path(Segment / "panels") { dashboardId =>
                 get {
-                  onSuccess(fetchPanels(DashboardId(dashboardId))) { panels =>
+                  onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
                     complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
                   }
                 }
@@ -74,12 +68,20 @@ final class ApiRoutes(
                     validateDashboardUpdateRequest(request) match {
                       case Left(error) =>
                         complete(StatusCodes.BadRequest, ErrorResponse(error))
-                      case Right((appearance, layout)) =>
-                        onSuccess(updateDashboard(DashboardId(dashboardId), appearance, layout)) {
-                          case Some(dashboard) =>
-                            complete(DashboardResponse.fromDomain(dashboard))
+                      case Right((appearanceOpt, layoutOpt)) =>
+                        onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
                           case None =>
                             complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                          case Some(existing) =>
+                            val updated = existing.copy(
+                              appearance = appearanceOpt.getOrElse(existing.appearance),
+                              layout     = layoutOpt.getOrElse(existing.layout),
+                              meta       = existing.meta.copy(lastUpdated = Instant.now())
+                            )
+                            onSuccess(dashboardRepo.update(updated)) {
+                              case Some(d) => complete(DashboardResponse.fromDomain(d))
+                              case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                            }
                         }
                     }
                   }
@@ -96,16 +98,21 @@ final class ApiRoutes(
                       case Left(error) =>
                         complete(StatusCodes.BadRequest, ErrorResponse(error))
                       case Right(dashboardId) =>
-                        onSuccess(fetchDashboard(dashboardId)) {
-                          case Some(_) =>
-                            onSuccess(createPanel(dashboardId, request)) { panel =>
-                              complete(
-                                StatusCodes.Created,
-                                PanelResponse.fromDomain(panel)
-                              )
-                            }
+                        onSuccess(dashboardRepo.findById(dashboardId)) {
                           case None =>
                             complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                          case Some(_) =>
+                            val now = Instant.now()
+                            val panel = Panel(
+                              id          = PanelId(UUID.randomUUID().toString),
+                              dashboardId = dashboardId,
+                              title       = RequestValidation.normalizePanelTitle(request.title),
+                              meta        = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
+                              appearance  = PanelAppearance.Default
+                            )
+                            onSuccess(panelRepo.insert(panel)) { created =>
+                              complete(StatusCodes.Created, PanelResponse.fromDomain(created))
+                            }
                         }
                     }
                   }
@@ -116,24 +123,14 @@ final class ApiRoutes(
                   entity(as[UpdatePanelRequest]) { request =>
                     request.appearance match {
                       case Some(appearancePayload) =>
-                        onSuccess(
-                          updatePanelAppearance(
-                            PanelId(panelId),
-                            PanelAppearance(
-                              background = RequestValidation.normalizePanelBackground(
-                                appearancePayload.background
-                              ),
-                              color = RequestValidation.normalizePanelColor(appearancePayload.color),
-                              transparency = RequestValidation.normalizeTransparency(
-                                appearancePayload.transparency
-                              )
-                            )
-                          )
-                        ) {
-                          case Some(panel) =>
-                            complete(PanelResponse.fromDomain(panel))
-                          case None =>
-                            complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                        val appearance = PanelAppearance(
+                          background   = RequestValidation.normalizePanelBackground(appearancePayload.background),
+                          color        = RequestValidation.normalizePanelColor(appearancePayload.color),
+                          transparency = RequestValidation.normalizeTransparency(appearancePayload.transparency)
+                        )
+                        onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearance, Instant.now())) {
+                          case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                          case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                         }
                       case None =>
                         complete(StatusCodes.BadRequest, ErrorResponse("appearance is required"))
@@ -146,65 +143,10 @@ final class ApiRoutes(
         )
       }
 
-  private def fetchDashboards(): Future[Vector[Dashboard]] =
-    dashboardRegistry.ask(DashboardRegistryActor.GetDashboards.apply).map(_.items)
-
-  private def fetchDashboard(dashboardId: DashboardId): Future[Option[Dashboard]] =
-    dashboardRegistry.ask(DashboardRegistryActor.GetDashboard(dashboardId, _)).map(_.item)
-
-  private def fetchPanels(dashboardId: DashboardId): Future[Vector[Panel]] =
-    panelRegistry.ask(PanelRegistryActor.GetPanelsForDashboard(dashboardId, _)).map(_.items)
-
-  private def fetchPanel(panelId: PanelId): Future[Option[Panel]] =
-    panelRegistry.ask(PanelRegistryActor.GetPanel(panelId, _)).map(_.item)
-
-  private def createDashboard(request: CreateDashboardRequest): Future[Dashboard] =
-    dashboardRegistry.ask(
-      DashboardRegistryActor.RegisterDashboard(
-        RequestValidation.normalizeDashboardName(request.name),
-        _
-      )
-    )
-
-  private def createPanel(dashboardId: DashboardId, request: CreatePanelRequest): Future[Panel] =
-    panelRegistry.ask(
-      PanelRegistryActor.RegisterPanel(
-        dashboardId,
-        RequestValidation.normalizePanelTitle(request.title),
-        _
-      )
-    )
-
-  private def updateDashboard(
-      dashboardId: DashboardId,
-      appearance: Option[DashboardAppearance],
-      layout: Option[DashboardLayout]
-  ): Future[Option[Dashboard]] =
-    dashboardRegistry.ask(
-      DashboardRegistryActor.UpdateDashboard(
-        dashboardId,
-        appearance,
-        layout,
-        _
-      )
-    ).map(_.item)
-
-  private def updatePanelAppearance(
-      panelId: PanelId,
-      appearance: PanelAppearance
-  ): Future[Option[Panel]] =
-    panelRegistry.ask(
-      PanelRegistryActor.UpdatePanelAppearance(
-        panelId,
-        appearance,
-        _
-      )
-    ).map(_.item)
-
   private def validatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
     request.dashboardId.map(_.trim).filter(_.nonEmpty) match {
-      case Some(dashboardId) => Right(DashboardId(dashboardId))
-      case None              => Left("dashboardId is required")
+      case Some(id) => Right(DashboardId(id))
+      case None     => Left("dashboardId is required")
     }
 
   private def validateDashboardUpdateRequest(
@@ -213,21 +155,17 @@ final class ApiRoutes(
     if (request.appearance.isEmpty && request.layout.isEmpty) {
       Left("appearance or layout is required")
     } else {
-      validateDashboardLayoutPayload(request.layout).map(layout =>
+      validateDashboardLayoutPayload(request.layout).map { layout =>
         (
-          request.appearance.map(appearancePayload =>
+          request.appearance.map(p =>
             DashboardAppearance(
-              background = RequestValidation.normalizeDashboardBackground(
-                appearancePayload.background
-              ),
-              gridBackground = RequestValidation.normalizeDashboardGridBackground(
-                appearancePayload.gridBackground
-              )
+              background    = RequestValidation.normalizeDashboardBackground(p.background),
+              gridBackground = RequestValidation.normalizeDashboardGridBackground(p.gridBackground)
             )
           ),
           layout
         )
-      )
+      }
     }
   }
 
@@ -236,46 +174,32 @@ final class ApiRoutes(
   ): Either[String, Option[DashboardLayout]] =
     layout match {
       case None => Right(None)
-      case Some(layoutPayload) =>
-        validateDashboardLayoutItems(layoutPayload.lg)
-          .flatMap(lg =>
-            validateDashboardLayoutItems(layoutPayload.md).flatMap(md =>
-              validateDashboardLayoutItems(layoutPayload.sm).flatMap(sm =>
-                validateDashboardLayoutItems(layoutPayload.xs).map(xs =>
-                  Some(
-                    DashboardLayout(
-                      lg = lg,
-                      md = md,
-                      sm = sm,
-                      xs = xs
-                    )
-                  )
-                )
+      case Some(p) =>
+        validateDashboardLayoutItems(p.lg).flatMap(lg =>
+          validateDashboardLayoutItems(p.md).flatMap(md =>
+            validateDashboardLayoutItems(p.sm).flatMap(sm =>
+              validateDashboardLayoutItems(p.xs).map(xs =>
+                Some(DashboardLayout(lg, md, sm, xs))
               )
             )
           )
+        )
     }
 
   private def validateDashboardLayoutItems(
       items: Vector[DashboardLayoutItemPayload]
   ): Either[String, Vector[DashboardLayoutItem]] =
     items.foldLeft[Either[String, Vector[DashboardLayoutItem]]](Right(Vector.empty)) {
-      case (Left(error), _) =>
-        Left(error)
-      case (Right(currentItems), item) =>
+      case (Left(err), _) => Left(err)
+      case (Right(acc), item) =>
         val panelId = item.panelId.trim
-        if (panelId.isEmpty) {
-          Left("layout panelId is required")
-        } else {
-          Right(
-            currentItems :+ DashboardLayoutItem(
-              panelId = PanelId(panelId),
-              x = RequestValidation.normalizeLayoutCoordinate(item.x),
-              y = RequestValidation.normalizeLayoutCoordinate(item.y),
-              w = RequestValidation.normalizeLayoutSpan(item.w),
-              h = RequestValidation.normalizeLayoutSpan(item.h)
-            )
-          )
-        }
+        if (panelId.isEmpty) Left("layout panelId is required")
+        else Right(acc :+ DashboardLayoutItem(
+          panelId = PanelId(panelId),
+          x       = RequestValidation.normalizeLayoutCoordinate(item.x),
+          y       = RequestValidation.normalizeLayoutCoordinate(item.y),
+          w       = RequestValidation.normalizeLayoutSpan(item.w),
+          h       = RequestValidation.normalizeLayoutSpan(item.h)
+        ))
     }
 }

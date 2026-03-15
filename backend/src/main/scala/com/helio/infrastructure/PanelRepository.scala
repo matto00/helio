@@ -1,0 +1,88 @@
+package com.helio.infrastructure
+
+import com.helio.api.JsonProtocols
+import com.helio.domain._
+import slick.jdbc.PostgresProfile.api._
+import spray.json._
+
+import java.time.Instant
+import scala.concurrent.{ExecutionContext, Future}
+
+class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
+    extends JsonProtocols {
+
+  import PanelRepository._
+
+  private val table = TableQuery[PanelTable]
+
+  private def rowToDomain(row: PanelRow): Panel =
+    Panel(
+      id          = PanelId(row.id),
+      dashboardId = DashboardId(row.dashboardId),
+      title       = row.title,
+      meta        = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
+      appearance  = row.appearance.parseJson.convertTo[PanelAppearance]
+    )
+
+  private def domainToRow(p: Panel): PanelRow =
+    PanelRow(
+      id          = p.id.value,
+      dashboardId = p.dashboardId.value,
+      title       = p.title,
+      createdBy   = p.meta.createdBy,
+      createdAt   = p.meta.createdAt,
+      lastUpdated = p.meta.lastUpdated,
+      appearance  = p.appearance.toJson.compactPrint
+    )
+
+  def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
+    db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
+      .map(_.map(rowToDomain).toVector)
+
+  def findById(id: PanelId): Future[Option[Panel]] =
+    db.run(table.filter(_.id === id.value).result.headOption)
+      .map(_.map(rowToDomain))
+
+  def insert(panel: Panel): Future[Panel] =
+    db.run(table += domainToRow(panel))
+      .map(_ => panel)
+
+  def updateAppearance(id: PanelId, appearance: PanelAppearance, lastUpdated: Instant): Future[Option[Panel]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.appearance, r.lastUpdated))
+        .update((appearance.toJson.compactPrint, lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
+}
+
+object PanelRepository {
+  implicit val instantColumnType: BaseColumnType[Instant] =
+    MappedColumnType.base[Instant, java.sql.Timestamp](
+      instant => java.sql.Timestamp.from(instant),
+      ts      => ts.toInstant
+    )
+
+  case class PanelRow(
+      id: String,
+      dashboardId: String,
+      title: String,
+      createdBy: String,
+      createdAt: Instant,
+      lastUpdated: Instant,
+      appearance: String
+  )
+
+  class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
+    def id          = column[String]("id", O.PrimaryKey)
+    def dashboardId = column[String]("dashboard_id")
+    def title       = column[String]("title")
+    def createdBy   = column[String]("created_by")
+    def createdAt   = column[Instant]("created_at")
+    def lastUpdated = column[Instant]("last_updated")
+    def appearance  = column[String]("appearance")
+
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance).mapTo[PanelRow]
+  }
+}

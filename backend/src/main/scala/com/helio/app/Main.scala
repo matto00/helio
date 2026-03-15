@@ -4,6 +4,8 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
+import com.helio.infrastructure.{Database, DashboardRepository, PanelRepository}
+import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
@@ -19,15 +21,20 @@ object Main {
   private def guardian(): Behavior[Nothing] =
     Behaviors.setup[Nothing] { context =>
       implicit val system: ActorSystem[Nothing] = context.system
+      implicit val ec = context.executionContext
       val logger = system.log
-      val seedData = DemoData.build()
 
-      val dashboardRegistry =
-        context.spawn(DashboardRegistryActor(seedData.dashboards), "dashboard-registry")
-      val panelRegistry = context.spawn(PanelRegistryActor(seedData.panels), "panel-registry")
-      val host = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
-      val port = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRegistry, panelRegistry)
+      val config = ConfigFactory.load()
+      val db     = Database.init(config)
+
+      val dashboardRepo = new DashboardRepository(db)
+      val panelRepo     = new PanelRepository(db)
+
+      DemoData.seedIfEmpty(dashboardRepo, panelRepo)
+
+      val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
+      val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
+      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo)
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

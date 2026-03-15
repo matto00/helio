@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Dashboard list is sorted by lastUpdated descending
 The `GET /api/dashboards` endpoint SHALL return dashboards sorted by `meta.lastUpdated` in descending order (most recently updated first). Sort is enforced by a SQL `ORDER BY last_updated DESC` clause in `DashboardRepository`, replacing the previous actor-level sort.

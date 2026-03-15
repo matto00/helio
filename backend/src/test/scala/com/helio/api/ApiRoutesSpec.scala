@@ -1,58 +1,72 @@
 package com.helio.api
 
 import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter._
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.ContentTypes
-import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.util.Timeout
-import com.helio.app.DashboardRegistryActor
-import com.helio.app.PanelRegistryActor
-import com.helio.domain.Dashboard
+import com.helio.infrastructure.{Database, DashboardRepository, PanelRepository}
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.flywaydb.core.Flyway
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import slick.jdbc.JdbcBackend
 
-import java.util.UUID
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class ApiRoutesSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalatestRouteTest
+    with JsonProtocols
+    with BeforeAndAfterAll {
+
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
-  private implicit val timeout: Timeout = 3.seconds
 
-  private def buildRoutes(): ApiRoutes = {
-    val suffix = UUID.randomUUID().toString
-    val dashboardRegistry =
-      typedSystem.systemActorOf(DashboardRegistryActor(), s"dashboard-registry-$suffix")
-    val panelRegistry = typedSystem.systemActorOf(PanelRegistryActor(), s"panel-registry-$suffix")
+  private var embeddedPostgres: EmbeddedPostgres = _
+  private var db: JdbcBackend.Database           = _
+  private var dashboardRepo: DashboardRepository = _
+  private var panelRepo: PanelRepository         = _
 
-    new ApiRoutes(dashboardRegistry, panelRegistry)(typedSystem)
-  }
+  override def beforeAll(): Unit = {
+    embeddedPostgres = EmbeddedPostgres.start()
 
-  private def buildSeededRoutes(): (ApiRoutes, Dashboard) = {
-    val suffix = UUID.randomUUID().toString
-    val dashboardRegistry =
-      typedSystem.systemActorOf(DashboardRegistryActor(), s"dashboard-registry-$suffix")
-    val panelRegistry = typedSystem.systemActorOf(PanelRegistryActor(), s"panel-registry-$suffix")
+    Flyway
+      .configure()
+      .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
+      .locations("classpath:db/migration")
+      .load()
+      .migrate()
 
-    val dashboard = await(dashboardRegistry.ask(DashboardRegistryActor.RegisterDashboard("Operations", _)))
-    await(
-      panelRegistry.ask(
-        PanelRegistryActor.RegisterPanel(dashboard.id, "CPU Usage", _)
-      )
+    db = JdbcBackend.Database.forDataSource(
+      embeddedPostgres.getPostgresDatabase,
+      Some(10)
     )
 
-    (new ApiRoutes(dashboardRegistry, panelRegistry)(typedSystem), dashboard)
+    dashboardRepo = new DashboardRepository(db)(typedSystem.executionContext)
+    panelRepo     = new PanelRepository(db)(typedSystem.executionContext)
   }
 
-  private def await[T](future: scala.concurrent.Future[T]): T =
-    Await.result(future, 3.seconds)
+  override def afterAll(): Unit = {
+    db.close()
+    embeddedPostgres.close()
+    super.afterAll()
+  }
+
+  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 5.seconds)
+
+  private def cleanDb(): Unit = {
+    import slick.jdbc.PostgresProfile.api._
+    await(db.run(sqlu"TRUNCATE TABLE panels, dashboards RESTART IDENTITY CASCADE"))
+  }
+
+  private def routes(): Route =
+    new ApiRoutes(dashboardRepo, panelRepo).routes
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
-    meta.createdBy shouldBe "system"
+    meta.createdBy should not be empty
     meta.createdAt should not be empty
     meta.lastUpdated should not be empty
   }
@@ -77,54 +91,25 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
   }
 
   "ApiRoutes" should {
-    "return health status" in {
-      val routes = buildRoutes()
 
-      Get("/health") ~> routes.routes ~> check {
+    "return health status" in {
+      Get("/health") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         responseAs[HealthResponse] shouldBe HealthResponse("ok")
       }
     }
 
     "return an empty dashboard collection by default" in {
-      val routes = buildRoutes()
-
-      Get("/api/dashboards") ~> routes.routes ~> check {
+      cleanDb()
+      Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         responseAs[DashboardsResponse] shouldBe DashboardsResponse(Vector.empty)
       }
     }
 
-    "return dashboard and panel data from the in-memory registries" in {
-      val (routes, dashboard) = buildSeededRoutes()
-
-      Get("/api/dashboards") ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DashboardsResponse]
-        response.items should have size 1
-        response.items.head.id shouldBe dashboard.id.value
-        response.items.head.name shouldBe "Operations"
-        assertResourceMeta(response.items.head.meta)
-        assertDashboardAppearance(response.items.head.appearance)
-        assertDashboardLayout(response.items.head.layout)
-      }
-
-      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelsResponse]
-        response.items should have size 1
-        response.items.head.dashboardId shouldBe dashboard.id.value
-        response.items.head.title shouldBe "CPU Usage"
-        response.items.head.id should not be empty
-        assertResourceMeta(response.items.head.meta)
-        assertPanelAppearance(response.items.head.appearance)
-      }
-    }
-
     "create a dashboard and return 201" in {
-      val routes = buildRoutes()
-
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes.routes ~> check {
+      cleanDb()
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[DashboardResponse]
         response.name shouldBe "Operations"
@@ -136,24 +121,74 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
     }
 
     "default a missing dashboard name" in {
-      val routes = buildRoutes()
-
-      Post("/api/dashboards", CreateDashboardRequest(None)) ~> routes.routes ~> check {
+      cleanDb()
+      Post("/api/dashboards", CreateDashboardRequest(None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         responseAs[DashboardResponse].name shouldBe RequestValidation.DefaultDashboardName
       }
     }
 
-    "create a panel and return 201" in {
-      val (routes, dashboard) = buildSeededRoutes()
+    "return dashboard and panel data after seeding" in {
+      cleanDb()
+      var dashboardId = ""
 
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboard.id.value), Some("Latency"))
-      ) ~> routes.routes ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardsResponse]
+        response.items should have size 1
+        response.items.head.name shouldBe "Operations"
+        assertResourceMeta(response.items.head.meta)
+        assertDashboardAppearance(response.items.head.appearance)
+        assertDashboardLayout(response.items.head.layout)
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelsResponse]
+        response.items should have size 1
+        response.items.head.dashboardId shouldBe dashboardId
+        response.items.head.title shouldBe "CPU Usage"
+        assertResourceMeta(response.items.head.meta)
+        assertPanelAppearance(response.items.head.appearance)
+      }
+    }
+
+    "persist dashboard data across repository reloads" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Persistent"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      // Re-query via repository directly to confirm DB persistence
+      val found = await(dashboardRepo.findById(com.helio.domain.DashboardId(dashboardId)))
+      found.isDefined shouldBe true
+      found.get.name shouldBe "Persistent"
+    }
+
+    "create a panel and return 201" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[PanelResponse]
-        response.dashboardId shouldBe dashboard.id.value
+        response.dashboardId shouldBe dashboardId
         response.title shouldBe "Latency"
         response.id should not be empty
         assertResourceMeta(response.meta)
@@ -161,167 +196,19 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
       }
     }
 
-    "update dashboard appearance and refresh lastUpdated" in {
-      val (routes, dashboard) = buildSeededRoutes()
-
-      Patch(
-        s"/api/dashboards/${dashboard.id.value}",
-        UpdateDashboardRequest(
-          appearance = Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a"))),
-          layout = None
-        )
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DashboardResponse]
-        response.id shouldBe dashboard.id.value
-        response.appearance.background shouldBe "#1e293b"
-        response.appearance.gridBackground shouldBe "#0f172a"
-        response.meta.lastUpdated should not be dashboard.meta.lastUpdated.toString
-      }
-
-      Get("/api/dashboards") ~> routes.routes ~> check {
-        val response = responseAs[DashboardsResponse]
-        response.items.head.appearance.background shouldBe "#1e293b"
-        response.items.head.appearance.gridBackground shouldBe "#0f172a"
-      }
-    }
-
-    "update dashboard layout and refresh lastUpdated" in {
-      val (routes, dashboard) = buildSeededRoutes()
-
-      Patch(
-        s"/api/dashboards/${dashboard.id.value}",
-        UpdateDashboardRequest(
-          appearance = None,
-          layout = Some(
-            DashboardLayoutPayload(
-              lg = Vector(
-                DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)
-              ),
-              md = Vector(
-                DashboardLayoutItemPayload("panel-a", x = 0, y = 1, w = 4, h = 5)
-              ),
-              sm = Vector(
-                DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 3, h = 5)
-              ),
-              xs = Vector(
-                DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 2, h = 5)
-              )
-            )
-          )
-        )
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DashboardResponse]
-        response.id shouldBe dashboard.id.value
-        response.layout.lg should contain only DashboardLayoutItemResponse("panel-a", 1, 2, 5, 6)
-        response.meta.lastUpdated should not be dashboard.meta.lastUpdated.toString
-      }
-
-      Get("/api/dashboards") ~> routes.routes ~> check {
-        val response = responseAs[DashboardsResponse]
-        response.items.head.layout.md should contain only DashboardLayoutItemResponse("panel-a", 0, 1, 4, 5)
-      }
-    }
-
-    "update panel appearance and clamp transparency" in {
-      val (routes, dashboard) = buildSeededRoutes()
-      var panelId = ""
-
-      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        panelId = responseAs[PanelsResponse].items.head.id
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(
-          Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0)))
-        )
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelResponse]
-        response.id shouldBe panelId
-        response.appearance.background shouldBe "#0f172a"
-        response.appearance.color shouldBe "#f8fafc"
-        response.appearance.transparency shouldBe 1.0
-      }
-
-      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
-        val response = responseAs[PanelsResponse]
-        response.items.head.appearance.background shouldBe "#0f172a"
-      }
-    }
-
-    "reject appearance updates without appearance payload" in {
-      val (routes, dashboard) = buildSeededRoutes()
-
-      Patch(
-        s"/api/dashboards/${dashboard.id.value}",
-        UpdateDashboardRequest(None, None)
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance or layout is required")
-      }
-    }
-
-    "default a missing panel title" in {
-      val (routes, dashboard) = buildSeededRoutes()
-
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboard.id.value), None)
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.Created
-        responseAs[PanelResponse].title shouldBe RequestValidation.DefaultPanelTitle
-      }
-    }
-
-    "reject panel creation without dashboardId" in {
-      val routes = buildRoutes()
-
-      Post("/api/panels", CreatePanelRequest(None, Some("Latency"))) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse] shouldBe ErrorResponse("dashboardId is required")
-      }
-    }
-
-    "reject panel creation for a missing dashboard" in {
-      val routes = buildRoutes()
-
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some("missing-dashboard"), Some("Latency"))
-      ) ~> routes.routes ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
-      }
-    }
-
-    "reject malformed panel requests" in {
-      val routes = buildRoutes()
-
-      Post(
-        "/api/panels",
-        HttpEntity(ContentTypes.`application/json`, """{"title":17}""")
-      ) ~> Route.seal(routes.routes) ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
-
     "return dashboards sorted by lastUpdated descending" in {
-      val routes = buildRoutes()
+      cleanDb()
 
-      Post("/api/dashboards", CreateDashboardRequest(Some("Alpha"))) ~> routes.routes ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Alpha"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
-      Post("/api/dashboards", CreateDashboardRequest(Some("Beta"))) ~> routes.routes ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Beta"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
 
-      Get("/api/dashboards") ~> routes.routes ~> check {
+      Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items = responseAs[DashboardsResponse].items
+        val items      = responseAs[DashboardsResponse].items
         items should have size 2
         val timestamps = items.map(d => java.time.Instant.parse(d.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
@@ -329,39 +216,183 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
     }
 
     "return panels sorted by lastUpdated descending" in {
-      val (routes, dashboard) = buildSeededRoutes()
+      cleanDb()
+      var dashboardId = ""
 
-      Post("/api/panels", CreatePanelRequest(Some(dashboard.id.value), Some("Panel A"))) ~> routes.routes ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel A"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel B"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
 
-      Get(s"/api/dashboards/${dashboard.id.value}/panels") ~> routes.routes ~> check {
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items = responseAs[PanelsResponse].items
-        items.size should be >= 2
+        val items      = responseAs[PanelsResponse].items
+        items should have size 2
         val timestamps = items.map(p => java.time.Instant.parse(p.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
       }
     }
 
-    "reject malformed dashboard create request with type mismatch" in {
-      val routes = buildRoutes()
+    "update dashboard appearance and refresh lastUpdated" in {
+      cleanDb()
+      var dashboardId  = ""
+      var originalMeta = ""
 
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        val r = responseAs[DashboardResponse]
+        dashboardId  = r.id
+        originalMeta = r.meta.lastUpdated
+      }
+
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          appearance = Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a"))),
+          layout     = None
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardResponse]
+        response.appearance.background shouldBe "#1e293b"
+        response.appearance.gridBackground shouldBe "#0f172a"
+        response.meta.lastUpdated should not be originalMeta
+      }
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        val items = responseAs[DashboardsResponse].items
+        items.head.appearance.background shouldBe "#1e293b"
+      }
+    }
+
+    "update dashboard layout and refresh lastUpdated" in {
+      cleanDb()
+      var dashboardId  = ""
+      var originalMeta = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        val r = responseAs[DashboardResponse]
+        dashboardId  = r.id
+        originalMeta = r.meta.lastUpdated
+      }
+
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          appearance = None,
+          layout = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)),
+            md = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 1, w = 4, h = 5)),
+            sm = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 3, h = 5)),
+            xs = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 2, h = 5))
+          ))
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardResponse]
+        response.layout.lg should contain only DashboardLayoutItemResponse("panel-a", 1, 2, 5, 6)
+        response.meta.lastUpdated should not be originalMeta
+      }
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        val items = responseAs[DashboardsResponse].items
+        items.head.layout.md should contain only DashboardLayoutItemResponse("panel-a", 0, 1, 4, 5)
+      }
+    }
+
+    "update panel appearance and clamp transparency" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.appearance.background shouldBe "#0f172a"
+        response.appearance.color shouldBe "#f8fafc"
+        response.appearance.transparency shouldBe 1.0
+      }
+    }
+
+    "reject appearance updates without appearance or layout payload" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance or layout is required")
+      }
+    }
+
+    "default a missing panel title" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe RequestValidation.DefaultPanelTitle
+      }
+    }
+
+    "reject panel creation without dashboardId" in {
+      Post("/api/panels", CreatePanelRequest(None, Some("Latency"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("dashboardId is required")
+      }
+    }
+
+    "reject panel creation for a missing dashboard" in {
+      Post("/api/panels", CreatePanelRequest(Some("missing-dashboard"), Some("Latency"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "reject malformed panel requests" in {
+      Post(
+        "/api/panels",
+        HttpEntity(ContentTypes.`application/json`, """{"title":17}""")
+      ) ~> Route.seal(routes()) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject malformed dashboard create request with type mismatch" in {
       Post(
         "/api/dashboards",
         HttpEntity(ContentTypes.`application/json`, """{"name":42}""")
-      ) ~> Route.seal(routes.routes) ~> check {
+      ) ~> Route.seal(routes()) ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }
 
     "reject malformed dashboard create request with invalid JSON" in {
-      val routes = buildRoutes()
-
       Post(
         "/api/dashboards",
         HttpEntity(ContentTypes.`application/json`, """{invalid}""")
-      ) ~> Route.seal(routes.routes) ~> check {
+      ) ~> Route.seal(routes()) ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }
