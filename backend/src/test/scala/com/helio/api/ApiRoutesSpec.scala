@@ -308,5 +308,27 @@ class ApiRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest wi
         status shouldBe StatusCodes.BadRequest
       }
     }
+
+    "reject malformed dashboard create request with type mismatch" in {
+      val routes = buildRoutes()
+
+      Post(
+        "/api/dashboards",
+        HttpEntity(ContentTypes.`application/json`, """{"name":42}""")
+      ) ~> Route.seal(routes.routes) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject malformed dashboard create request with invalid JSON" in {
+      val routes = buildRoutes()
+
+      Post(
+        "/api/dashboards",
+        HttpEntity(ContentTypes.`application/json`, """{invalid}""")
+      ) ~> Route.seal(routes.routes) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
   }
 }
