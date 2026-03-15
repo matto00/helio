@@ -3,6 +3,7 @@ import "react-resizable/css/styles.css";
 
 import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
+import { noCompactor } from "react-grid-layout/core";
 
 import {
   areDashboardLayoutsEqual,
@@ -146,19 +147,58 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
   const latestLayoutRef = useRef(resolvedLayout);
+  const persistedLayoutRef = useRef(resolvedLayout);
+  const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
+    persistedLayoutRef.current = resolvedLayout;
+    if (
+      inFlightLayoutRef.current !== null &&
+      areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
+    ) {
+      inFlightLayoutRef.current = null;
+    }
   }, [resolvedLayout]);
+
+  useEffect(
+    () => () => {
+      if (persistTimerRef.current !== null) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
-    if (areDashboardLayoutsEqual(nextLayout, resolvedLayout)) {
+    if (areDashboardLayoutsEqual(nextLayout, persistedLayoutRef.current)) {
+      return;
+    }
+    if (
+      inFlightLayoutRef.current !== null &&
+      areDashboardLayoutsEqual(nextLayout, inFlightLayoutRef.current)
+    ) {
       return;
     }
 
-    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }));
-  }, [dashboardId, dispatch, resolvedLayout]);
+    inFlightLayoutRef.current = nextLayout;
+    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
+      .unwrap()
+      .catch(() => {
+        // Keep local drag UX responsive; retry happens on the next layout change.
+      })
+      .finally(() => {
+        if (
+          inFlightLayoutRef.current !== null &&
+          areDashboardLayoutsEqual(inFlightLayoutRef.current, nextLayout)
+        ) {
+          inFlightLayoutRef.current = null;
+        }
+      });
+  }, [dashboardId, dispatch]);
 
   return (
     <div ref={containerRef} className="panel-grid-shell">
@@ -172,11 +212,20 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
         margin={panelGridConfig.margin}
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
+        compactor={noCompactor}
         onLayoutChange={(_, nextLayouts) => {
+          if (nextLayouts === undefined) {
+            return;
+          }
           latestLayoutRef.current = fromResponsiveLayouts(panels, nextLayouts);
+          if (persistTimerRef.current !== null) {
+            clearTimeout(persistTimerRef.current);
+          }
+          persistTimerRef.current = setTimeout(() => {
+            persistTimerRef.current = null;
+            persistLayout();
+          }, 250);
         }}
-        onDragStop={persistLayout}
-        onResizeStop={persistLayout}
       >
         {panels.map((panel) => (
           <div key={panel.id}>

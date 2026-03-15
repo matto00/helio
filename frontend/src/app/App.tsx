@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
@@ -15,6 +15,7 @@ export function App() {
   const dispatch = useAppDispatch();
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const { theme, toggleTheme } = useTheme();
+  const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 
@@ -69,10 +70,25 @@ export function App() {
           <DashboardAppearanceEditor dashboard={selectedDashboard} />
         </div>
       </header>
-      <div className="app-layout">
-        <aside className="app-sidebar">
-          <DashboardList />
-        </aside>
+      <div
+        className={
+          isDashboardListCollapsed ? "app-layout app-layout--sidebar-collapsed" : "app-layout"
+        }
+      >
+        {isDashboardListCollapsed ? (
+          <button
+            type="button"
+            className="app-layout__sidebar-toggle"
+            aria-label="Expand dashboard list"
+            onClick={() => setIsDashboardListCollapsed(false)}
+          >
+            <span aria-hidden="true">⟩</span>
+          </button>
+        ) : (
+          <aside className="app-sidebar">
+            <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+          </aside>
+        )}
         <section className="app-content">
           <PanelList />
         </section>

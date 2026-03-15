@@ -243,6 +243,38 @@ describe("App", () => {
     expect(window.localStorage.getItem("helio-theme")).toBe("light");
   });
 
+  it("collapses and expands the dashboard list", async () => {
+    fetchDashboardsMock.mockResolvedValue([
+      {
+        id: "dashboard-1",
+        name: "Operations",
+        meta: {
+          createdBy: "system",
+          createdAt: "2026-03-14T10:00:00Z",
+          lastUpdated: "2026-03-14T10:00:00Z",
+        },
+        appearance: defaultDashboardAppearance,
+        layout: defaultDashboardLayout,
+      },
+    ]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const collapseButton = await screen.findByRole("button", { name: "Collapse dashboard list" });
+    fireEvent.click(collapseButton);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Expand dashboard list" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("heading", { name: "Dashboards" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand dashboard list" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument(),
+    );
+  });
+
   it("saves dashboard appearance changes", async () => {
     fetchDashboardsMock.mockResolvedValue([
       {
