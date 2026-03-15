@@ -1,4 +1,5 @@
 import {
+  createDashboard,
   dashboardsReducer,
   fetchDashboards,
   updateDashboardAppearance,
@@ -239,5 +240,46 @@ describe("dashboardsSlice", () => {
       h: 6,
     });
     expect(nextState.items[0].meta.lastUpdated).toBe("2026-03-14T03:00:00Z");
+  });
+
+  it("adds a created dashboard and selects it", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const nextState = dashboardsReducer(
+      initialState,
+      createDashboard.fulfilled(
+        {
+          id: "dashboard-2",
+          name: "Executive",
+          meta: {
+            ...defaultMeta,
+            lastUpdated: "2026-03-14T05:00:00Z",
+          },
+          appearance: defaultAppearance,
+          layout: defaultLayout,
+        },
+        "request-id-4",
+        { name: "Executive" },
+      ),
+    );
+
+    expect(nextState.items).toHaveLength(2);
+    expect(nextState.items[1].name).toBe("Executive");
+    expect(nextState.selectedDashboardId).toBe("dashboard-2");
   });
 });

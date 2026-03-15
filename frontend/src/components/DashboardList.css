@@ -18,6 +18,12 @@
   gap: 10px;
 }
 
+.dashboard-list__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dashboard-list__eyebrow {
   display: inline-flex;
   margin-bottom: 8px;
@@ -58,6 +64,35 @@
   outline-offset: 2px;
 }
 
+.dashboard-list__add {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.dashboard-list__add:hover {
+  border-color: var(--app-border-strong);
+}
+
+.dashboard-list__add:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
 .dashboard-list__header h2 {
   margin: 0;
   font-size: 1.1rem;
@@ -67,6 +102,59 @@
   margin: 8px 0 0;
   color: var(--app-text-muted);
   line-height: 1.6;
+}
+
+.dashboard-list__create {
+  margin: 0 0 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-list__create-label {
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+}
+
+.dashboard-list__create-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  padding: 8px 10px;
+}
+
+.dashboard-list__create-input:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.dashboard-list__create-submit {
+  min-height: 36px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-weight: 600;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.dashboard-list__create-submit:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+}
+
+.dashboard-list__create-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.dashboard-list__create-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 0.78rem;
 }
 
 .dashboard-list__status {
