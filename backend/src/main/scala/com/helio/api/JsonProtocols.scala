@@ -1,16 +1,8 @@
 package com.helio.api
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.helio.domain.Dashboard
-import com.helio.domain.DashboardAppearance
-import com.helio.domain.DashboardLayout
-import com.helio.domain.DashboardLayoutItem
-import com.helio.domain.Panel
-import com.helio.domain.PanelAppearance
-import com.helio.domain.PanelId
-import com.helio.domain.ResourceMeta
-import spray.json.DefaultJsonProtocol
-import spray.json.RootJsonFormat
+import com.helio.domain._
+import spray.json._
 
 final case class ResourceMetaResponse(createdBy: String, createdAt: String, lastUpdated: String)
 final case class DashboardAppearancePayload(background: Option[String], gridBackground: Option[String])
@@ -148,6 +140,19 @@ object PanelAppearanceResponse {
 }
 
 trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
+  // Domain type formatters (used for JSON blob persistence)
+  implicit val panelIdFormat: JsonFormat[PanelId] = new JsonFormat[PanelId] {
+    def write(id: PanelId): JsValue = JsString(id.value)
+    def read(json: JsValue): PanelId = json match {
+      case JsString(s) => PanelId(s)
+      case x           => deserializationError(s"Expected string for PanelId, got $x")
+    }
+  }
+  implicit val dashboardAppearanceFormat: RootJsonFormat[DashboardAppearance]     = jsonFormat2(DashboardAppearance.apply)
+  implicit val dashboardLayoutItemFormat: RootJsonFormat[DashboardLayoutItem]     = jsonFormat5(DashboardLayoutItem.apply)
+  implicit val dashboardLayoutFormat: RootJsonFormat[DashboardLayout]             = jsonFormat4(DashboardLayout.apply)
+  implicit val panelAppearanceFormat: RootJsonFormat[PanelAppearance]             = jsonFormat3(PanelAppearance.apply)
+
   implicit val resourceMetaResponseFormat: RootJsonFormat[ResourceMetaResponse] = jsonFormat3(
     ResourceMetaResponse.apply
   )

@@ -42,8 +42,14 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-slf4j" % "2.8.8",
       "com.typesafe.akka" %% "akka-stream" % "2.8.8",
       "ch.qos.logback" % "logback-classic" % "1.2.12",
+      "com.typesafe.slick" %% "slick" % "3.5.2",
+      "com.typesafe.slick" %% "slick-hikaricp" % "3.5.2",
+      "org.postgresql" % "postgresql" % "42.7.4",
+      "org.flywaydb" % "flyway-core" % "10.20.1",
+      "org.flywaydb" % "flyway-database-postgresql" % "10.20.1",
       "com.typesafe.akka" %% "akka-testkit" % "2.8.8" % Test,
       "com.typesafe.akka" %% "akka-http-testkit" % "10.5.3" % Test,
-      "org.scalatest" %% "scalatest" % "3.2.19" % Test
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test
     )
   )
