@@ -80,9 +80,3 @@
   opacity: 0.7;
   cursor: wait;
 }
-
-.dashboard-appearance-editor__error {
-  margin: 0;
-  color: #f87171;
-  font-size: 0.86rem;
-}

@@ -11,6 +11,7 @@ import {
 import type { Dashboard } from "../types/models";
 import "./Popover.css";
 import "./DashboardAppearanceEditor.css";
+import { InlineError } from "./InlineError";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
@@ -123,7 +124,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
           <button type="submit" className="dashboard-appearance-editor__save" disabled={isSaving}>
             {isSaving ? "Saving..." : "Save dashboard style"}
           </button>
-          {error ? <p className="dashboard-appearance-editor__error">{error}</p> : null}
+          <InlineError error={error} />
         </form>
       ) : null}
     </div>

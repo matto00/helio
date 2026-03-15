@@ -151,24 +151,6 @@
   cursor: not-allowed;
 }
 
-.dashboard-list__create-error {
-  margin: 0;
-  color: #fca5a5;
-  font-size: 0.78rem;
-}
-
-.dashboard-list__status {
-  margin: 0 0 16px;
-  padding: 12px 14px;
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text-muted);
-}
-
-.dashboard-list__status--error {
-  color: #ffb4b4;
-}
-
 .dashboard-list__items {
   display: grid;
   gap: 10px;
