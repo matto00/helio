@@ -253,6 +253,7 @@ class ApiRoutesSpec
       Patch(
         s"/api/dashboards/$dashboardId",
         UpdateDashboardRequest(
+          name       = None,
           appearance = Some(DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a"))),
           layout     = None
         )
@@ -284,6 +285,7 @@ class ApiRoutesSpec
       Patch(
         s"/api/dashboards/$dashboardId",
         UpdateDashboardRequest(
+          name       = None,
           appearance = None,
           layout = Some(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)),
@@ -319,7 +321,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))))
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))))
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[PanelResponse]
@@ -337,9 +339,9 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
 
-      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(None, None)) ~> routes() ~> check {
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(None, None, None)) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse] shouldBe ErrorResponse("appearance or layout is required")
+        responseAs[ErrorResponse] shouldBe ErrorResponse("name, appearance, or layout is required")
       }
     }
 
@@ -482,7 +484,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))))
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))))
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
@@ -573,6 +575,102 @@ class ApiRoutesSpec
         panels should have size 2
         val source = panels.find(_.id == panelId).get
         source.title shouldBe "CPU Usage"
+      }
+    }
+
+    "rename a dashboard and return 200 with updated name" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Old Name"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(name = Some("New Name"), appearance = None, layout = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DashboardResponse].name shouldBe "New Name"
+      }
+    }
+
+    "reject rename with blank name" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(name = Some("   "), appearance = None, layout = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("name must not be blank")
+      }
+    }
+
+    "return 404 when renaming a non-existent dashboard" in {
+      Patch(
+        "/api/dashboards/does-not-exist",
+        UpdateDashboardRequest(name = Some("New Name"), appearance = None, layout = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "update panel title and return 200 with updated title" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Old Title"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(title = Some("New Title"), appearance = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].title shouldBe "New Title"
+      }
+    }
+
+    "reject panel title update with blank title" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(title = Some(""), appearance = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("title must not be blank")
+      }
+    }
+
+    "return 404 when updating title of a non-existent panel" in {
+      Patch(
+        "/api/panels/does-not-exist",
+        UpdatePanelRequest(title = Some("New Title"), appearance = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
       }
     }
   }

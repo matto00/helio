@@ -249,3 +249,26 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.dashboard-list__rename {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-list__rename-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--app-accent);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.dashboard-list__rename-input:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}

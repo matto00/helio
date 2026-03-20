@@ -4,6 +4,7 @@ import {
   createDashboard as createDashboardRequest,
   deleteDashboard as deleteDashboardRequest,
   fetchDashboards as fetchDashboardsRequest,
+  renameDashboard as renameDashboardRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../../services/dashboardService";
@@ -87,6 +88,18 @@ export const deleteDashboard = createAsyncThunk<string, string, { rejectValue: s
   },
 );
 
+export const renameDashboard = createAsyncThunk<
+  Dashboard,
+  { dashboardId: string; name: string },
+  { rejectValue: string }
+>("dashboards/renameDashboard", async ({ dashboardId, name }, { rejectWithValue }) => {
+  try {
+    return await renameDashboardRequest(dashboardId, name);
+  } catch {
+    return rejectWithValue("Failed to rename dashboard.");
+  }
+});
+
 export const updateDashboardLayout = createAsyncThunk<
   Dashboard,
   { dashboardId: string; layout: DashboardLayout },
@@ -147,6 +160,11 @@ const dashboardsSlice = createSlice({
       .addCase(createDashboard.fulfilled, (state, action) => {
         state.items.push(action.payload);
         state.selectedDashboardId = action.payload.id;
+      })
+      .addCase(renameDashboard.fulfilled, (state, action) => {
+        state.items = state.items.map((dashboard) =>
+          dashboard.id === action.payload.id ? action.payload : dashboard,
+        );
       })
       .addCase(deleteDashboard.fulfilled, (state, action) => {
         state.items = state.items.filter((d) => d.id !== action.payload);

@@ -154,6 +154,27 @@
   flex-wrap: wrap;
 }
 
+.panel-grid-card__title-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-grid-card__title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--app-accent);
+  color: var(--panel-text, var(--app-text));
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 2px 0;
+}
+
+.panel-grid-card__title-input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--app-accent-strong);
+}
+
 @media (max-width: 768px) {
   .panel-grid-shell,
   .panel-grid {

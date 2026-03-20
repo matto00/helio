@@ -6,6 +6,7 @@ import {
   duplicatePanel as duplicatePanelRequest,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
+  updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
 import type { RootState } from "../../store/store";
 import type { Panel, PanelAppearance } from "../../types/models";
@@ -65,6 +66,18 @@ export const createPanel = createAsyncThunk<
     return createdPanel;
   } catch {
     return rejectWithValue("Failed to create panel.");
+  }
+});
+
+export const updatePanelTitle = createAsyncThunk<
+  Panel,
+  { panelId: string; title: string },
+  { rejectValue: string }
+>("panels/updatePanelTitle", async ({ panelId, title }, { rejectWithValue }) => {
+  try {
+    return await updatePanelTitleRequest(panelId, title);
+  } catch {
+    return rejectWithValue("Failed to update panel title.");
   }
 });
 
@@ -140,6 +153,11 @@ const panelsSlice = createSlice({
         state.error = action.payload ?? "Failed to load panels.";
       })
       .addCase(updatePanelAppearance.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
+      .addCase(updatePanelTitle.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );

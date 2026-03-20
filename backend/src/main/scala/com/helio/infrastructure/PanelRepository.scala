@@ -48,6 +48,15 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
     db.run(table += domainToRow(panel))
       .map(_ => panel)
 
+  def updateTitle(id: PanelId, title: String, lastUpdated: Instant): Future[Option[Panel]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.title, r.lastUpdated))
+        .update((title, lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
+
   def delete(id: PanelId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 

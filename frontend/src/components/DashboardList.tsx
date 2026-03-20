@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import "./DashboardList.css";
 import {
   createDashboard,
   deleteDashboard,
+  renameDashboard,
   setSelectedDashboardId,
 } from "../features/dashboards/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -23,6 +24,10 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingError, setEditingError] = useState<string | null>(null);
+  const cancelledRef = useRef(false);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,6 +46,40 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
       setCreateError("Failed to create dashboard.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function startEditing(dashboardId: string, currentName: string) {
+    setConfirmDeleteId(null);
+    setEditingId(dashboardId);
+    setEditingName(currentName);
+    setEditingError(null);
+    cancelledRef.current = false;
+  }
+
+  function cancelEditing() {
+    cancelledRef.current = true;
+    setEditingId(null);
+    setEditingError(null);
+  }
+
+  async function commitRename(dashboardId: string) {
+    if (cancelledRef.current) return;
+    const trimmed = editingName.trim();
+    if (trimmed.length === 0) {
+      setEditingError("Name must not be blank.");
+      return;
+    }
+    setEditingId(null);
+    setEditingError(null);
+    await dispatch(renameDashboard({ dashboardId, name: trimmed }));
+  }
+
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>, dashboardId: string) {
+    if (event.key === "Enter") {
+      void commitRename(dashboardId);
+    } else if (event.key === "Escape") {
+      cancelEditing();
     }
   }
 
@@ -113,21 +152,40 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
       <ul className="dashboard-list__items">
         {items.map((dashboard) => (
           <li key={dashboard.id} className="dashboard-list__item">
-            <button
-              type="button"
-              className="dashboard-list__button"
-              aria-label={dashboard.name}
-              aria-pressed={selectedDashboardId === dashboard.id}
-              onClick={() => {
-                setConfirmDeleteId(null);
-                dispatch(setSelectedDashboardId(dashboard.id));
-              }}
-            >
-              <span className="dashboard-list__name">{dashboard.name}</span>
-              <span className="dashboard-list__meta">
-                {selectedDashboardId === dashboard.id ? "Active" : "View"}
-              </span>
-            </button>
+            {editingId === dashboard.id ? (
+              <div className="dashboard-list__rename">
+                <input
+                  className="dashboard-list__rename-input"
+                  type="text"
+                  value={editingName}
+                  autoFocus
+                  aria-label="Dashboard name"
+                  onChange={(e) => {
+                    setEditingName(e.target.value);
+                    setEditingError(null);
+                  }}
+                  onKeyDown={(e) => handleRenameKeyDown(e, dashboard.id)}
+                  onBlur={() => void commitRename(dashboard.id)}
+                />
+                <InlineError error={editingError} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="dashboard-list__button"
+                aria-label={dashboard.name}
+                aria-pressed={selectedDashboardId === dashboard.id}
+                onClick={() => {
+                  setConfirmDeleteId(null);
+                  dispatch(setSelectedDashboardId(dashboard.id));
+                }}
+              >
+                <span className="dashboard-list__name">{dashboard.name}</span>
+                <span className="dashboard-list__meta">
+                  {selectedDashboardId === dashboard.id ? "Active" : "View"}
+                </span>
+              </button>
+            )}
             {confirmDeleteId === dashboard.id ? (
               <div className="dashboard-list__delete-confirm">
                 <button
@@ -145,11 +203,14 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                   Cancel
                 </button>
               </div>
-            ) : (
+            ) : editingId !== dashboard.id ? (
               <ActionsMenu
                 label={`${dashboard.name} actions`}
                 items={[
-                  { label: "Edit", onClick: () => {}, disabled: true },
+                  {
+                    label: "Rename",
+                    onClick: () => startEditing(dashboard.id, dashboard.name),
+                  },
                   { label: "Duplicate", onClick: () => {}, disabled: true },
                   {
                     label: "Delete",
@@ -158,7 +219,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                   },
                 ]}
               />
-            )}
+            ) : null}
           </li>
         ))}
       </ul>

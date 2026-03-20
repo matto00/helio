@@ -60,6 +60,15 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
+  def updateName(id: DashboardId, name: String, lastUpdated: Instant): Future[Option[Dashboard]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.name, r.lastUpdated))
+        .update((name, lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
+
   def delete(id: DashboardId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 

@@ -1,7 +1,15 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
 import { noCompactor } from "react-grid-layout/core";
 
@@ -11,12 +19,13 @@ import {
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
-import { deletePanel, duplicatePanel } from "../features/panels/panelsSlice";
+import { deletePanel, duplicatePanel, updatePanelTitle } from "../features/panels/panelsSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
+import { InlineError } from "./InlineError";
 import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
 import "./PanelGrid.css";
 
@@ -145,6 +154,10 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const { theme } = useTheme();
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
   const [customizePanelId, setCustomizePanelId] = useState<string | null>(null);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
+  const titleCancelledRef = useRef(false);
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
@@ -204,6 +217,41 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
       });
   }, [dashboardId, dispatch]);
 
+  function startEditingTitle(panelId: string, currentTitle: string) {
+    setConfirmDeletePanelId(null);
+    setCustomizePanelId(null);
+    setEditingTitleId(panelId);
+    setEditingTitle(currentTitle);
+    setEditingTitleError(null);
+    titleCancelledRef.current = false;
+  }
+
+  function cancelEditingTitle() {
+    titleCancelledRef.current = true;
+    setEditingTitleId(null);
+    setEditingTitleError(null);
+  }
+
+  async function commitTitleEdit(panelId: string) {
+    if (titleCancelledRef.current) return;
+    const trimmed = editingTitle.trim();
+    if (trimmed.length === 0) {
+      setEditingTitleError("Title must not be blank.");
+      return;
+    }
+    setEditingTitleId(null);
+    setEditingTitleError(null);
+    await dispatch(updatePanelTitle({ panelId, title: trimmed }));
+  }
+
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>, panelId: string) {
+    if (event.key === "Enter") {
+      void commitTitleEdit(panelId);
+    } else if (event.key === "Escape") {
+      cancelEditingTitle();
+    }
+  }
+
   return (
     <div ref={containerRef} className="panel-grid-shell">
       <Responsive
@@ -235,8 +283,27 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
           <div key={panel.id}>
             <article className="panel-grid-card" style={getPanelCardStyle(panel, theme)}>
               <div className="panel-grid-card__top">
-                <div>
-                  <h3 className="panel-grid-card__title">{panel.title}</h3>
+                <div className="panel-grid-card__title-area">
+                  {editingTitleId === panel.id ? (
+                    <>
+                      <input
+                        className="panel-grid-card__title-input"
+                        type="text"
+                        value={editingTitle}
+                        autoFocus
+                        aria-label="Panel title"
+                        onChange={(e) => {
+                          setEditingTitle(e.target.value);
+                          setEditingTitleError(null);
+                        }}
+                        onKeyDown={(e) => handleTitleKeyDown(e, panel.id)}
+                        onBlur={() => void commitTitleEdit(panel.id)}
+                      />
+                      <InlineError error={editingTitleError} />
+                    </>
+                  ) : (
+                    <h3 className="panel-grid-card__title">{panel.title}</h3>
+                  )}
                 </div>
                 <div className="panel-grid-card__actions">
                   {confirmDeletePanelId === panel.id ? (
@@ -259,7 +326,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                         ×
                       </button>
                     </>
-                  ) : customizePanelId === panel.id ? (
+                  ) : editingTitleId === panel.id ? null : customizePanelId === panel.id ? (
                     <PanelAppearanceEditor
                       panel={panel}
                       isOpenExternal={true}
@@ -269,6 +336,10 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                     <ActionsMenu
                       label={`${panel.title} panel actions`}
                       items={[
+                        {
+                          label: "Rename",
+                          onClick: () => startEditingTitle(panel.id, panel.title),
+                        },
                         {
                           label: "Customize",
                           onClick: () => setCustomizePanelId(panel.id),

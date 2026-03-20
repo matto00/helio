@@ -29,6 +29,11 @@ export async function createDashboard(name: string): Promise<Dashboard> {
   return response.data;
 }
 
+export async function renameDashboard(dashboardId: string, name: string): Promise<Dashboard> {
+  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, { name });
+  return response.data;
+}
+
 export async function updateDashboardAppearance(
   dashboardId: string,
   appearance: DashboardAppearance,
