@@ -44,10 +44,11 @@ final case class ErrorResponse(message: String)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String])
 final case class UpdateDashboardRequest(
+    name: Option[String],
     appearance: Option[DashboardAppearancePayload],
     layout: Option[DashboardLayoutPayload]
 )
-final case class UpdatePanelRequest(appearance: Option[PanelAppearancePayload])
+final case class UpdatePanelRequest(title: Option[String], appearance: Option[PanelAppearancePayload])
 
 object ResourceMetaResponse {
   def fromDomain(meta: ResourceMeta): ResourceMetaResponse =
@@ -200,10 +201,10 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat2(
     CreatePanelRequest.apply
   )
-  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat2(
+  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat3(
     UpdateDashboardRequest.apply
   )
-  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat1(
+  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat2(
     UpdatePanelRequest.apply
   )
 }

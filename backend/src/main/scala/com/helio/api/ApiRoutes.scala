@@ -75,19 +75,41 @@ final class ApiRoutes(
                     validateDashboardUpdateRequest(request) match {
                       case Left(error) =>
                         complete(StatusCodes.BadRequest, ErrorResponse(error))
-                      case Right((appearanceOpt, layoutOpt)) =>
+                      case Right((nameOpt, appearanceOpt, layoutOpt)) =>
                         onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
                           case None =>
                             complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                           case Some(existing) =>
-                            val updated = existing.copy(
-                              appearance = appearanceOpt.getOrElse(existing.appearance),
-                              layout     = layoutOpt.getOrElse(existing.layout),
-                              meta       = existing.meta.copy(lastUpdated = Instant.now())
-                            )
-                            onSuccess(dashboardRepo.update(updated)) {
-                              case Some(d) => complete(DashboardResponse.fromDomain(d))
-                              case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                            val now = Instant.now()
+                            nameOpt match {
+                              case Some(name) =>
+                                onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
+                                  case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                                  case Some(renamed) =>
+                                    if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
+                                      complete(DashboardResponse.fromDomain(renamed))
+                                    } else {
+                                      val updated = renamed.copy(
+                                        appearance = appearanceOpt.getOrElse(renamed.appearance),
+                                        layout     = layoutOpt.getOrElse(renamed.layout),
+                                        meta       = renamed.meta.copy(lastUpdated = now)
+                                      )
+                                      onSuccess(dashboardRepo.update(updated)) {
+                                        case Some(d) => complete(DashboardResponse.fromDomain(d))
+                                        case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                                      }
+                                    }
+                                }
+                              case None =>
+                                val updated = existing.copy(
+                                  appearance = appearanceOpt.getOrElse(existing.appearance),
+                                  layout     = layoutOpt.getOrElse(existing.layout),
+                                  meta       = existing.meta.copy(lastUpdated = now)
+                                )
+                                onSuccess(dashboardRepo.update(updated)) {
+                                  case Some(d) => complete(DashboardResponse.fromDomain(d))
+                                  case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                                }
                             }
                         }
                     }
@@ -135,19 +157,40 @@ final class ApiRoutes(
                 },
                 patch {
                   entity(as[UpdatePanelRequest]) { request =>
-                    request.appearance match {
-                      case Some(appearancePayload) =>
-                        val appearance = PanelAppearance(
-                          background   = RequestValidation.normalizePanelBackground(appearancePayload.background),
-                          color        = RequestValidation.normalizePanelColor(appearancePayload.color),
-                          transparency = RequestValidation.normalizeTransparency(appearancePayload.transparency)
+                    val trimmedTitle = request.title.map(_.trim)
+                    if (trimmedTitle.contains("")) {
+                      complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
+                    } else if (request.title.isEmpty && request.appearance.isEmpty) {
+                      complete(StatusCodes.BadRequest, ErrorResponse("title or appearance is required"))
+                    } else {
+                      val now = Instant.now()
+                      val appearanceOpt = request.appearance.map(p =>
+                        PanelAppearance(
+                          background   = RequestValidation.normalizePanelBackground(p.background),
+                          color        = RequestValidation.normalizePanelColor(p.color),
+                          transparency = RequestValidation.normalizeTransparency(p.transparency)
                         )
-                        onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearance, Instant.now())) {
-                          case Some(panel) => complete(PanelResponse.fromDomain(panel))
-                          case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                        }
-                      case None =>
-                        complete(StatusCodes.BadRequest, ErrorResponse("appearance is required"))
+                      )
+                      trimmedTitle match {
+                        case Some(title) =>
+                          onSuccess(panelRepo.updateTitle(PanelId(panelId), title, now)) {
+                            case None => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                            case Some(updated) =>
+                              appearanceOpt match {
+                                case None => complete(PanelResponse.fromDomain(updated))
+                                case Some(appearance) =>
+                                  onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearance, now)) {
+                                    case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                                    case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                                  }
+                              }
+                          }
+                        case None =>
+                          onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearanceOpt.get, now)) {
+                            case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                            case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                          }
+                      }
                     }
                   }
                 })
@@ -173,20 +216,25 @@ final class ApiRoutes(
 
   private def validateDashboardUpdateRequest(
       request: UpdateDashboardRequest
-  ): Either[String, (Option[DashboardAppearance], Option[DashboardLayout])] = {
-    if (request.appearance.isEmpty && request.layout.isEmpty) {
-      Left("appearance or layout is required")
+  ): Either[String, (Option[String], Option[DashboardAppearance], Option[DashboardLayout])] = {
+    if (request.name.isEmpty && request.appearance.isEmpty && request.layout.isEmpty) {
+      Left("name, appearance, or layout is required")
     } else {
-      validateDashboardLayoutPayload(request.layout).map { layout =>
-        (
-          request.appearance.map(p =>
-            DashboardAppearance(
-              background    = RequestValidation.normalizeDashboardBackground(p.background),
-              gridBackground = RequestValidation.normalizeDashboardGridBackground(p.gridBackground)
+      request.name.map(_.trim) match {
+        case Some("") => Left("name must not be blank")
+        case nameOpt =>
+          validateDashboardLayoutPayload(request.layout).map { layout =>
+            (
+              nameOpt,
+              request.appearance.map(p =>
+                DashboardAppearance(
+                  background    = RequestValidation.normalizeDashboardBackground(p.background),
+                  gridBackground = RequestValidation.normalizeDashboardGridBackground(p.gridBackground)
+                )
+              ),
+              layout
             )
-          ),
-          layout
-        )
+          }
       }
     }
   }
