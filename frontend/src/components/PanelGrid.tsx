@@ -1,7 +1,7 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
 import { noCompactor } from "react-grid-layout/core";
 
@@ -11,10 +11,12 @@ import {
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { deletePanel } from "../features/panels/panelsSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
+import { ActionsMenu } from "./ActionsMenu";
 import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
 import "./PanelGrid.css";
 
@@ -141,6 +143,8 @@ function fromResponsiveLayouts(
 export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
+  const [customizePanelId, setCustomizePanelId] = useState<string | null>(null);
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
@@ -235,7 +239,49 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                   <h3 className="panel-grid-card__title">{panel.title}</h3>
                 </div>
                 <div className="panel-grid-card__actions">
-                  <PanelAppearanceEditor panel={panel} />
+                  {confirmDeletePanelId === panel.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="panel-grid-card__delete-confirm-btn"
+                        onClick={() => {
+                          void dispatch(deletePanel({ panelId: panel.id, dashboardId }));
+                          setConfirmDeletePanelId(null);
+                        }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        className="panel-grid-card__delete-cancel-btn"
+                        onClick={() => setConfirmDeletePanelId(null)}
+                      >
+                        ×
+                      </button>
+                    </>
+                  ) : customizePanelId === panel.id ? (
+                    <PanelAppearanceEditor
+                      panel={panel}
+                      isOpenExternal={true}
+                      onClose={() => setCustomizePanelId(null)}
+                    />
+                  ) : (
+                    <ActionsMenu
+                      label={`${panel.title} panel actions`}
+                      items={[
+                        {
+                          label: "Customize",
+                          onClick: () => setCustomizePanelId(panel.id),
+                        },
+                        { label: "Duplicate", onClick: () => {}, disabled: true },
+                        {
+                          label: "Delete",
+                          onClick: () => setConfirmDeletePanelId(panel.id),
+                          danger: true,
+                        },
+                      ]}
+                    />
+                  )}
                   <button
                     type="button"
                     className="panel-grid-card__handle"

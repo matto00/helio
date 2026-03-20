@@ -380,9 +380,12 @@ describe("App", () => {
 
     renderApp();
 
-    const customizePanelButton = await screen.findByRole("button", {
-      name: "Customize Revenue Pulse panel",
+    const panelActionsButton = await screen.findByRole("button", {
+      name: "Revenue Pulse panel actions",
     });
+    fireEvent.click(panelActionsButton);
+
+    const customizePanelButton = await screen.findByRole("menuitem", { name: "Customize" });
     fireEvent.click(customizePanelButton);
 
     await waitFor(() =>

@@ -27,6 +27,10 @@ export async function createPanel(dashboardId: string, title: string): Promise<P
   return response.data;
 }
 
+export async function deletePanel(panelId: string): Promise<void> {
+  await httpClient.delete(`/api/panels/${panelId}`);
+}
+
 export async function updatePanelAppearance(
   panelId: string,
   appearance: PanelAppearance,

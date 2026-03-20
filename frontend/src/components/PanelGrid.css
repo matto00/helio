@@ -59,6 +59,17 @@
   gap: 8px;
 }
 
+.panel-grid-card__actions .actions-menu__trigger {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+}
+
+.panel-grid-card__actions .actions-menu__dots {
+  flex-direction: row;
+  gap: 3px;
+}
+
 .panel-grid-card__title {
   margin: 0;
   font-size: clamp(0.92rem, 1.2vw, 1.08rem);
@@ -90,6 +101,35 @@
 
 .panel-grid-card__handle:active {
   cursor: grabbing;
+}
+
+.panel-grid-card__delete-confirm-btn {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #f87171;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: #f87171;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.panel-grid-card__delete-confirm-btn:hover {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.panel-grid-card__delete-cancel-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 1rem;
 }
 
 .panel-grid-card__copy {

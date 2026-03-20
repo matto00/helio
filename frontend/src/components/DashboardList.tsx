@@ -1,8 +1,13 @@
 import { useState, type FormEvent } from "react";
 
 import "./DashboardList.css";
-import { createDashboard, setSelectedDashboardId } from "../features/dashboards/dashboardsSlice";
+import {
+  createDashboard,
+  deleteDashboard,
+  setSelectedDashboardId,
+} from "../features/dashboards/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
 
@@ -17,6 +22,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const [name, setName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,6 +42,11 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function handleDeleteDashboard(dashboardId: string) {
+    await dispatch(deleteDashboard(dashboardId));
+    setConfirmDeleteId(null);
   }
 
   return (
@@ -101,19 +112,53 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
       />
       <ul className="dashboard-list__items">
         {items.map((dashboard) => (
-          <li key={dashboard.id}>
+          <li key={dashboard.id} className="dashboard-list__item">
             <button
               type="button"
               className="dashboard-list__button"
               aria-label={dashboard.name}
               aria-pressed={selectedDashboardId === dashboard.id}
-              onClick={() => dispatch(setSelectedDashboardId(dashboard.id))}
+              onClick={() => {
+                setConfirmDeleteId(null);
+                dispatch(setSelectedDashboardId(dashboard.id));
+              }}
             >
               <span className="dashboard-list__name">{dashboard.name}</span>
               <span className="dashboard-list__meta">
                 {selectedDashboardId === dashboard.id ? "Active" : "View"}
               </span>
             </button>
+            {confirmDeleteId === dashboard.id ? (
+              <div className="dashboard-list__delete-confirm">
+                <button
+                  type="button"
+                  className="dashboard-list__delete-confirm-btn"
+                  onClick={() => void handleDeleteDashboard(dashboard.id)}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  className="dashboard-list__delete-cancel-btn"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <ActionsMenu
+                label={`${dashboard.name} actions`}
+                items={[
+                  { label: "Edit", onClick: () => {}, disabled: true },
+                  { label: "Duplicate", onClick: () => {}, disabled: true },
+                  {
+                    label: "Delete",
+                    onClick: () => setConfirmDeleteId(dashboard.id),
+                    danger: true,
+                  },
+                ]}
+              />
+            )}
           </li>
         ))}
       </ul>

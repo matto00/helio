@@ -143,9 +143,7 @@ describe("PanelList", () => {
 
     expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move Revenue Pulse panel" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Customize Revenue Pulse panel" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revenue Pulse panel actions" })).toBeInTheDocument();
   });
 
   it("creates a panel inline and refreshes selected dashboard panels", async () => {
