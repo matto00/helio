@@ -396,5 +396,77 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.BadRequest
       }
     }
+
+    "delete a dashboard and return 204" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("ToDelete"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Delete(s"/api/dashboards/$dashboardId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        responseAs[DashboardsResponse].items shouldBe empty
+      }
+    }
+
+    "cascade delete panels when dashboard is deleted" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("WithPanels"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Delete(s"/api/dashboards/$dashboardId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      val found = await(panelRepo.findById(com.helio.domain.PanelId(panelId)))
+      found shouldBe None
+    }
+
+    "return 404 when deleting a non-existent dashboard" in {
+      Delete("/api/dashboards/does-not-exist") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "delete a panel and return 204" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Delete(s"/api/panels/$panelId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        responseAs[PanelsResponse].items shouldBe empty
+      }
+    }
+
+    "return 404 when deleting a non-existent panel" in {
+      Delete("/api/panels/does-not-exist") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
+      }
+    }
   }
 }

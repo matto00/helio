@@ -60,6 +60,9 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
+  def delete(id: DashboardId): Future[Boolean] =
+    db.run(table.filter(_.id === id.value).delete).map(_ > 0)
+
   def count(): Future[Int] =
     db.run(table.length.result)
 }

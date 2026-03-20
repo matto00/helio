@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 import {
   createPanel as createPanelRequest,
+  deletePanel as deletePanelRequest,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
 } from "../../services/panelService";
@@ -66,6 +67,20 @@ export const createPanel = createAsyncThunk<
   }
 });
 
+export const deletePanel = createAsyncThunk<
+  string,
+  { panelId: string; dashboardId: string },
+  { rejectValue: string }
+>("panels/deletePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
+  try {
+    await deletePanelRequest(panelId);
+    dispatch(markDashboardPanelsStale(dashboardId));
+    return panelId;
+  } catch {
+    return rejectWithValue("Failed to delete panel.");
+  }
+});
+
 export const updatePanelAppearance = createAsyncThunk<
   Panel,
   { panelId: string; appearance: PanelAppearance },
@@ -115,6 +130,9 @@ const panelsSlice = createSlice({
       })
       .addCase(createPanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to create panel.";
+      })
+      .addCase(deletePanel.fulfilled, (state, action) => {
+        state.items = state.items.filter((p) => p.id !== action.payload);
       });
   },
 });

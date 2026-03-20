@@ -16,11 +16,27 @@ import { InlineError } from "./InlineError";
 
 interface PanelAppearanceEditorProps {
   panel: Panel;
+  isOpenExternal?: boolean;
+  onClose?: () => void;
 }
 
-export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
+export function PanelAppearanceEditor({
+  panel,
+  isOpenExternal,
+  onClose,
+}: PanelAppearanceEditorProps) {
+  const isControlled = isOpenExternal !== undefined;
   const dispatch = useAppDispatch();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpenInternal, setIsOpenInternal] = useState(false);
+  const isOpen = isControlled ? isOpenExternal : isOpenInternal;
+
+  function close() {
+    if (isControlled) {
+      onClose?.();
+    } else {
+      setIsOpenInternal(false);
+    }
+  }
   const [background, setBackground] = useState(panelAppearanceEditorFallback);
   const [color, setColor] = useState(panelTextEditorFallback);
   const [transparency, setTransparency] = useState(0);
@@ -32,7 +48,7 @@ export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
     setColor(getColorInputValue(panel.appearance.color, panelTextEditorFallback));
     setTransparency(Math.round(clampTransparency(panel.appearance.transparency) * 100));
     setError(null);
-    setIsOpen(false);
+    setIsOpenInternal(false);
   }, [panel]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -51,7 +67,7 @@ export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
           },
         }),
       ).unwrap();
-      setIsOpen(false);
+      close();
     } catch {
       setError("Failed to save panel appearance.");
     } finally {
@@ -61,20 +77,20 @@ export function PanelAppearanceEditor({ panel }: PanelAppearanceEditorProps) {
 
   return (
     <div className="popover panel-appearance-editor">
-      <button
-        type="button"
-        className="popover__trigger panel-appearance-editor__trigger"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-expanded={isOpen}
-        aria-label={`Customize ${panel.title} panel`}
-      >
-        <span className="panel-appearance-editor__trigger-icon" aria-hidden="true">
-          ✎
-        </span>
-      </button>
-      {isOpen ? (
-        <button type="button" className="popover__scrim" onClick={() => setIsOpen(false)} />
+      {!isControlled ? (
+        <button
+          type="button"
+          className="popover__trigger panel-appearance-editor__trigger"
+          onClick={() => setIsOpenInternal((open) => !open)}
+          aria-expanded={isOpen}
+          aria-label={`Customize ${panel.title} panel`}
+        >
+          <span className="panel-appearance-editor__trigger-icon" aria-hidden="true">
+            ✎
+          </span>
+        </button>
       ) : null}
+      {isOpen ? <button type="button" className="popover__scrim" onClick={() => close()} /> : null}
       {isOpen ? (
         <form className="popover__panel panel-appearance-editor__panel" onSubmit={handleSubmit}>
           <div className="panel-appearance-editor__header">

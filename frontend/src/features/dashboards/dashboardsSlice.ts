@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 
 import {
   createDashboard as createDashboardRequest,
+  deleteDashboard as deleteDashboardRequest,
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
@@ -74,6 +75,18 @@ export const updateDashboardAppearance = createAsyncThunk<
   },
 );
 
+export const deleteDashboard = createAsyncThunk<string, string, { rejectValue: string }>(
+  "dashboards/deleteDashboard",
+  async (dashboardId, { rejectWithValue }) => {
+    try {
+      await deleteDashboardRequest(dashboardId);
+      return dashboardId;
+    } catch {
+      return rejectWithValue("Failed to delete dashboard.");
+    }
+  },
+);
+
 export const updateDashboardLayout = createAsyncThunk<
   Dashboard,
   { dashboardId: string; layout: DashboardLayout },
@@ -134,6 +147,12 @@ const dashboardsSlice = createSlice({
       .addCase(createDashboard.fulfilled, (state, action) => {
         state.items.push(action.payload);
         state.selectedDashboardId = action.payload.id;
+      })
+      .addCase(deleteDashboard.fulfilled, (state, action) => {
+        state.items = state.items.filter((d) => d.id !== action.payload);
+        if (state.selectedDashboardId === action.payload) {
+          state.selectedDashboardId = getMostRecentDashboardId(state.items);
+        }
       });
   },
 });

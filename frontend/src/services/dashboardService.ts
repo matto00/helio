@@ -39,6 +39,10 @@ export async function updateDashboardAppearance(
   return response.data;
 }
 
+export async function deleteDashboard(dashboardId: string): Promise<void> {
+  await httpClient.delete(`/api/dashboards/${dashboardId}`);
+}
+
 export async function updateDashboardLayout(
   dashboardId: string,
   layout: DashboardLayout,

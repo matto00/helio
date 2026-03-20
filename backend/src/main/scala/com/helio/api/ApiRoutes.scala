@@ -63,6 +63,13 @@ final class ApiRoutes(
                 }
               },
               path(Segment) { dashboardId =>
+                concat(
+                delete {
+                  onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  }
+                },
                 patch {
                   entity(as[UpdateDashboardRequest]) { request =>
                     validateDashboardUpdateRequest(request) match {
@@ -85,7 +92,7 @@ final class ApiRoutes(
                         }
                     }
                   }
-                }
+                })
               }
             )
           },
@@ -119,6 +126,13 @@ final class ApiRoutes(
                 }
               },
               path(Segment) { panelId =>
+                concat(
+                delete {
+                  onSuccess(panelRepo.delete(PanelId(panelId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  }
+                },
                 patch {
                   entity(as[UpdatePanelRequest]) { request =>
                     request.appearance match {
@@ -136,7 +150,7 @@ final class ApiRoutes(
                         complete(StatusCodes.BadRequest, ErrorResponse("appearance is required"))
                     }
                   }
-                }
+                })
               }
             )
           }
