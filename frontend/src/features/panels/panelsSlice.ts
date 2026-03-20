@@ -3,6 +3,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   createPanel as createPanelRequest,
   deletePanel as deletePanelRequest,
+  duplicatePanel as duplicatePanelRequest,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
 } from "../../services/panelService";
@@ -81,6 +82,21 @@ export const deletePanel = createAsyncThunk<
   }
 });
 
+export const duplicatePanel = createAsyncThunk<
+  Panel,
+  { panelId: string; dashboardId: string },
+  { state: RootState; rejectValue: string }
+>("panels/duplicatePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
+  try {
+    const created = await duplicatePanelRequest(panelId);
+    dispatch(markDashboardPanelsStale(dashboardId));
+    await dispatch(fetchPanels(dashboardId));
+    return created;
+  } catch {
+    return rejectWithValue("Failed to duplicate panel.");
+  }
+});
+
 export const updatePanelAppearance = createAsyncThunk<
   Panel,
   { panelId: string; appearance: PanelAppearance },
@@ -133,6 +149,9 @@ const panelsSlice = createSlice({
       })
       .addCase(deletePanel.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);
+      })
+      .addCase(duplicatePanel.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to duplicate panel.";
       });
   },
 });

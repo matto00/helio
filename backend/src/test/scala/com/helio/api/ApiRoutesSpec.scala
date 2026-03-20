@@ -468,5 +468,112 @@ class ApiRoutesSpec
         responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
       }
     }
+
+    "duplicate a panel and return 201 with copied title and appearance" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))))
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val dup = responseAs[PanelResponse]
+        dup.id should not be panelId
+        dup.dashboardId shouldBe dashboardId
+        dup.title shouldBe "CPU Usage (copy)"
+        dup.appearance.background shouldBe "#0f172a"
+        dup.appearance.color shouldBe "#f8fafc"
+        dup.appearance.transparency shouldBe 0.5
+      }
+    }
+
+    "increment copy counter on subsequent duplications" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe "CPU Usage (copy)"
+      }
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe "CPU Usage (copy 2)"
+      }
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe "CPU Usage (copy 3)"
+      }
+    }
+
+    "strip existing copy suffix before computing new copy title" in {
+      cleanDb()
+      var dashboardId = ""
+      var copyId      = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      var sourceId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        sourceId = responseAs[PanelResponse].id
+      }
+      Post(s"/api/panels/$sourceId/duplicate") ~> routes() ~> check {
+        copyId = responseAs[PanelResponse].id
+      }
+
+      Post(s"/api/panels/$copyId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PanelResponse].title shouldBe "CPU Usage (copy 2)"
+      }
+    }
+
+    "return 404 when duplicating a non-existent panel" in {
+      Post("/api/panels/no-such-panel/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
+      }
+    }
+
+    "leave the source panel unchanged after duplication" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        val panels = responseAs[PanelsResponse].items
+        panels should have size 2
+        val source = panels.find(_.id == panelId).get
+        source.title shouldBe "CPU Usage"
+      }
+    }
   }
 }
