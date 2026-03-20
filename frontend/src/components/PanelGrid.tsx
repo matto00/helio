@@ -11,7 +11,7 @@ import {
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
-import { deletePanel } from "../features/panels/panelsSlice";
+import { deletePanel, duplicatePanel } from "../features/panels/panelsSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
@@ -273,7 +273,11 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                           label: "Customize",
                           onClick: () => setCustomizePanelId(panel.id),
                         },
-                        { label: "Duplicate", onClick: () => {}, disabled: true },
+                        {
+                          label: "Duplicate",
+                          onClick: () =>
+                            void dispatch(duplicatePanel({ panelId: panel.id, dashboardId })),
+                        },
                         {
                           label: "Delete",
                           onClick: () => setConfirmDeletePanelId(panel.id),

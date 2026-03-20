@@ -151,6 +151,14 @@ final class ApiRoutes(
                     }
                   }
                 })
+              },
+              path(Segment / "duplicate") { panelId =>
+                post {
+                  onSuccess(panelRepo.duplicate(PanelId(panelId))) {
+                    case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
+                    case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  }
+                }
               }
             )
           }

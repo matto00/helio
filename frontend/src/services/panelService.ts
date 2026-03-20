@@ -31,6 +31,11 @@ export async function deletePanel(panelId: string): Promise<void> {
   await httpClient.delete(`/api/panels/${panelId}`);
 }
 
+export async function duplicatePanel(panelId: string): Promise<Panel> {
+  const response = await httpClient.post<Panel>(`/api/panels/${panelId}/duplicate`);
+  return response.data;
+}
+
 export async function updatePanelAppearance(
   panelId: string,
   appearance: PanelAppearance,

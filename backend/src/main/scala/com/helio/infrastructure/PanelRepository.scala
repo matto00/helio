@@ -50,6 +50,46 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
   def delete(id: PanelId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 
+  def duplicate(id: PanelId): Future[Option[Panel]] = {
+    val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
+
+    def baseTitle(title: String): String = title match {
+      case copyTitleRegex(base, _) => base
+      case _                       => title
+    }
+
+    def nextCopyTitle(base: String, existingTitles: Seq[String]): String = {
+      val usedNumbers = existingTitles.collect {
+        case t if t == s"$base (copy)"                      => 1
+        case copyTitleRegex(b, n) if b == base && n != null => n.toInt
+      }.toSet
+      val n = Iterator.from(1).dropWhile(usedNumbers.contains).next()
+      if (n == 1) s"$base (copy)" else s"$base (copy $n)"
+    }
+
+    val action = table.filter(_.id === id.value).result.headOption.flatMap {
+      case None => DBIO.successful(None)
+      case Some(source) =>
+        val base = baseTitle(source.title)
+        table
+          .filter(_.dashboardId === source.dashboardId)
+          .map(_.title)
+          .result
+          .flatMap { existingTitles =>
+            val now    = Instant.now()
+            val newRow = source.copy(
+              id          = java.util.UUID.randomUUID().toString,
+              title       = nextCopyTitle(base, existingTitles),
+              createdAt   = now,
+              lastUpdated = now
+            )
+            (table += newRow).map(_ => Some(rowToDomain(newRow)))
+          }
+    }.transactionally
+
+    db.run(action)
+  }
+
   def updateAppearance(id: PanelId, appearance: PanelAppearance, lastUpdated: Instant): Future[Option[Panel]] =
     db.run(
       table
