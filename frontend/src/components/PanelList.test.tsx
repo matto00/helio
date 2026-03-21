@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import {
   createPanel as createPanelRequest,
@@ -109,7 +109,39 @@ describe("PanelList", () => {
       },
     });
 
-    expect(screen.getByText("No panels yet.")).toBeInTheDocument();
+    const emptyState = screen.getByRole("heading", { name: "No panels yet" }).closest("div")!;
+    expect(emptyState).toBeInTheDocument();
+    expect(
+      within(emptyState).getByText("Add a panel to start building your dashboard"),
+    ).toBeInTheDocument();
+    expect(within(emptyState).getByRole("button", { name: "Add panel" })).toBeInTheDocument();
+  });
+
+  it("clicking 'Add panel' in the empty state opens the create form", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+    });
+
+    const emptyState = screen.getByRole("heading", { name: "No panels yet" }).closest("div")!;
+    fireEvent.click(within(emptyState).getByRole("button", { name: "Add panel" }));
+
+    expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
   });
 
   it("renders panel content inside the dashboard grid foundation", () => {
