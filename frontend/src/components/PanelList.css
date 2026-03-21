@@ -145,8 +145,7 @@
 .panel-list__empty-icon {
   width: 48px;
   height: 48px;
-  color: var(--app-text-muted);
-  opacity: 0.5;
+  opacity: 0.6;
   margin-bottom: 4px;
 }
 
