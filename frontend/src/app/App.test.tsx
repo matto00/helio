@@ -13,6 +13,7 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
 } from "../services/panelService";
+import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { App } from "./App";
 
@@ -64,7 +65,9 @@ function renderApp() {
     ...render(
       <ThemeProvider>
         <Provider store={store}>
-          <App />
+          <OverlayProvider>
+            <App />
+          </OverlayProvider>
         </Provider>
       </ThemeProvider>,
     ),

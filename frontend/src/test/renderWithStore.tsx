@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type {
@@ -90,7 +91,9 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
   function Wrapper({ children }: PropsWithChildren) {
     return (
       <ThemeProvider>
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <OverlayProvider>{children}</OverlayProvider>
+        </Provider>
       </ThemeProvider>
     );
   }
