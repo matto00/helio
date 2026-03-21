@@ -117,8 +117,25 @@ export function PanelList() {
       {status !== "loading" && status !== "failed" && selectedDashboardId === null ? (
         <p className="panel-list__state">Select a dashboard to view panels.</p>
       ) : null}
-      {status === "succeeded" && items.length === 0 ? (
-        <p className="panel-list__state">No panels yet.</p>
+      {status === "succeeded" && items.length === 0 && !isCreateMode ? (
+        <div className="panel-list__empty-state">
+          <img
+            className="panel-list__empty-icon"
+            src="/empty-panel-grid.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          <h3 className="panel-list__empty-heading">No panels yet</h3>
+          <p className="panel-list__empty-subtext">Add a panel to start building your dashboard</p>
+          <button
+            type="button"
+            className="panel-list__empty-cta"
+            onClick={() => setIsCreateMode(true)}
+            disabled={selectedDashboardId === null}
+          >
+            Add panel
+          </button>
+        </div>
       ) : null}
       {items.length > 0 && selectedDashboardId !== null ? (
         <PanelGrid
