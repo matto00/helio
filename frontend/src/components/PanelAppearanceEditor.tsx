@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { updatePanelAppearance } from "../features/panels/panelsSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
@@ -13,6 +13,7 @@ import type { Panel } from "../types/models";
 import "./Popover.css";
 import "./PanelAppearanceEditor.css";
 import { InlineError } from "./InlineError";
+import { useOverlay } from "./OverlayProvider";
 
 interface PanelAppearanceEditorProps {
   panel: Panel;
@@ -27,16 +28,19 @@ export function PanelAppearanceEditor({
 }: PanelAppearanceEditorProps) {
   const isControlled = isOpenExternal !== undefined;
   const dispatch = useAppDispatch();
-  const [isOpenInternal, setIsOpenInternal] = useState(false);
-  const isOpen = isControlled ? isOpenExternal : isOpenInternal;
+  const overlay = useOverlay();
+  const isOpen = isControlled ? isOpenExternal : overlay.isActive;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   function close() {
     if (isControlled) {
       onClose?.();
     } else {
-      setIsOpenInternal(false);
+      overlay.close();
     }
   }
+
   const [background, setBackground] = useState(panelAppearanceEditorFallback);
   const [color, setColor] = useState(panelTextEditorFallback);
   const [transparency, setTransparency] = useState(0);
@@ -48,8 +52,18 @@ export function PanelAppearanceEditor({
     setColor(getColorInputValue(panel.appearance.color, panelTextEditorFallback));
     setTransparency(Math.round(clampTransparency(panel.appearance.transparency) * 100));
     setError(null);
-    setIsOpenInternal(false);
+    overlay.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
+
+  useEffect(() => {
+    if (!isControlled || !isOpenExternal) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCloseRef.current?.();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isControlled, isOpenExternal]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,7 +95,7 @@ export function PanelAppearanceEditor({
         <button
           type="button"
           className="popover__trigger panel-appearance-editor__trigger"
-          onClick={() => setIsOpenInternal((open) => !open)}
+          onClick={() => (overlay.isActive ? overlay.close() : overlay.open())}
           aria-expanded={isOpen}
           aria-label={`Customize ${panel.title} panel`}
         >
@@ -90,7 +104,7 @@ export function PanelAppearanceEditor({
           </span>
         </button>
       ) : null}
-      {isOpen ? <button type="button" className="popover__scrim" onClick={() => close()} /> : null}
+      {isOpen ? <button type="button" className="popover__scrim" onClick={close} /> : null}
       {isOpen ? (
         <form className="popover__panel panel-appearance-editor__panel" onSubmit={handleSubmit}>
           <div className="panel-appearance-editor__header">

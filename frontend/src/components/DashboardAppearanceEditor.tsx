@@ -12,6 +12,7 @@ import type { Dashboard } from "../types/models";
 import "./Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "./InlineError";
+import { useOverlay } from "./OverlayProvider";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
@@ -19,7 +20,7 @@ interface DashboardAppearanceEditorProps {
 
 export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEditorProps) {
   const dispatch = useAppDispatch();
-  const [isOpen, setIsOpen] = useState(false);
+  const { isActive: isOpen, open, close } = useOverlay();
   const [background, setBackground] = useState(dashboardAppearanceEditorFallback);
   const [gridBackground, setGridBackground] = useState(dashboardGridAppearanceEditorFallback);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,8 +40,8 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
       ),
     );
     setError(null);
-    setIsOpen(false);
-  }, [dashboard]);
+    close();
+  }, [dashboard, close]);
 
   if (dashboard === null) {
     return null;
@@ -63,7 +64,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
           },
         }),
       ).unwrap();
-      setIsOpen(false);
+      close();
     } catch {
       setError("Failed to save dashboard appearance.");
     } finally {
@@ -76,15 +77,13 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
       <button
         type="button"
         className="popover__trigger dashboard-appearance-editor__trigger"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => (isOpen ? close() : open())}
         aria-expanded={isOpen}
         aria-label="Customize dashboard appearance"
       >
         <span className="dashboard-appearance-editor__trigger-copy">Customize dashboard</span>
       </button>
-      {isOpen ? (
-        <button type="button" className="popover__scrim" onClick={() => setIsOpen(false)} />
-      ) : null}
+      {isOpen ? <button type="button" className="popover__scrim" onClick={close} /> : null}
       {isOpen ? (
         <form className="popover__panel" onSubmit={handleSubmit}>
           <div className="dashboard-appearance-editor__header">

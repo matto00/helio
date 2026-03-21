@@ -1,7 +1,6 @@
-import { useState } from "react";
-
 import "./ActionsMenu.css";
 import "./Popover.css";
+import { useOverlay } from "./OverlayProvider";
 
 export interface ActionsMenuItem {
   label: string;
@@ -16,10 +15,10 @@ interface ActionsMenuProps {
 }
 
 export function ActionsMenu({ label, items }: ActionsMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isActive: isOpen, open, close } = useOverlay();
 
   function handleItemClick(item: ActionsMenuItem) {
-    setIsOpen(false);
+    close();
     item.onClick();
   }
 
@@ -28,7 +27,7 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
       <button
         type="button"
         className="popover__trigger actions-menu__trigger"
-        onClick={() => setIsOpen((o) => !o)}
+        onClick={() => (isOpen ? close() : open())}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={label}
@@ -39,9 +38,7 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
           <span />
         </span>
       </button>
-      {isOpen ? (
-        <button type="button" className="popover__scrim" onClick={() => setIsOpen(false)} />
-      ) : null}
+      {isOpen ? <button type="button" className="popover__scrim" onClick={close} /> : null}
       {isOpen ? (
         <ul className="popover__panel actions-menu__panel" role="menu">
           {items.map((item) => (
