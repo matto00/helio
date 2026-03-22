@@ -4,6 +4,8 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain._
 import spray.json._
 
+// ── Request / Response types ──────────────────────────────────────────────────
+
 final case class ResourceMetaResponse(createdBy: String, createdAt: String, lastUpdated: String)
 final case class DashboardAppearancePayload(background: Option[String], gridBackground: Option[String])
 final case class DashboardLayoutItemPayload(panelId: String, x: Int, y: Int, w: Int, h: Int)
@@ -36,7 +38,9 @@ final case class PanelResponse(
     title: String,
     `type`: String,
     meta: ResourceMetaResponse,
-    appearance: PanelAppearanceResponse
+    appearance: PanelAppearanceResponse,
+    typeId: Option[String],
+    fieldMapping: Option[JsValue]
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
@@ -49,7 +53,34 @@ final case class UpdateDashboardRequest(
     appearance: Option[DashboardAppearancePayload],
     layout: Option[DashboardLayoutPayload]
 )
-final case class UpdatePanelRequest(title: Option[String], appearance: Option[PanelAppearancePayload], `type`: Option[String])
+// typeId / fieldMapping use Option[Option[_]] to distinguish absent from explicit null
+final case class UpdatePanelRequest(
+    title: Option[String],
+    appearance: Option[PanelAppearancePayload],
+    `type`: Option[String],
+    typeId: Option[Option[String]],
+    fieldMapping: Option[Option[JsValue]]
+)
+
+// ── DataType / DataSource API types ──────────────────────────────────────────
+
+final case class DataFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
+final case class DataTypeResponse(
+    id: String,
+    sourceId: Option[String],
+    name: String,
+    fields: Vector[DataFieldResponse],
+    version: Int,
+    createdAt: String,
+    updatedAt: String
+)
+final case class DataTypesResponse(items: Vector[DataTypeResponse])
+final case class DataSourceResponse(id: String, name: String, sourceType: String, createdAt: String, updatedAt: String)
+final case class DataSourcesResponse(items: Vector[DataSourceResponse])
+final case class DataFieldPayload(name: String, displayName: String, dataType: String, nullable: Boolean)
+final case class UpdateDataTypeRequest(name: Option[String], fields: Option[Vector[DataFieldPayload]])
+
+// ── Companion objects ─────────────────────────────────────────────────────────
 
 object ResourceMetaResponse {
   def fromDomain(meta: ResourceMeta): ResourceMetaResponse =
@@ -74,12 +105,38 @@ object DashboardResponse {
 object PanelResponse {
   def fromDomain(panel: Panel): PanelResponse =
     PanelResponse(
-      id = panel.id.value,
-      dashboardId = panel.dashboardId.value,
-      title = panel.title,
-      `type` = PanelType.asString(panel.panelType),
-      meta = ResourceMetaResponse.fromDomain(panel.meta),
-      appearance = PanelAppearanceResponse.fromDomain(panel.appearance)
+      id           = panel.id.value,
+      dashboardId  = panel.dashboardId.value,
+      title        = panel.title,
+      `type`       = PanelType.asString(panel.panelType),
+      meta         = ResourceMetaResponse.fromDomain(panel.meta),
+      appearance   = PanelAppearanceResponse.fromDomain(panel.appearance),
+      typeId       = panel.typeId.map(_.value),
+      fieldMapping = panel.fieldMapping
+    )
+}
+
+object DataTypeResponse {
+  def fromDomain(dt: DataType): DataTypeResponse =
+    DataTypeResponse(
+      id       = dt.id.value,
+      sourceId = dt.sourceId.map(_.value),
+      name     = dt.name,
+      fields   = dt.fields.map(f => DataFieldResponse(f.name, f.displayName, f.dataType, f.nullable)),
+      version  = dt.version,
+      createdAt = dt.createdAt.toString,
+      updatedAt = dt.updatedAt.toString
+    )
+}
+
+object DataSourceResponse {
+  def fromDomain(ds: DataSource): DataSourceResponse =
+    DataSourceResponse(
+      id         = ds.id.value,
+      name       = ds.name,
+      sourceType = SourceType.asString(ds.sourceType),
+      createdAt  = ds.createdAt.toString,
+      updatedAt  = ds.updatedAt.toString
     )
 }
 
@@ -142,6 +199,8 @@ object PanelAppearanceResponse {
     )
 }
 
+// ── JsonProtocols trait ───────────────────────────────────────────────────────
+
 trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // DataField / DataSource / DataType formatters
   implicit val sourceTypeFormat: JsonFormat[SourceType] = new JsonFormat[SourceType] {
@@ -203,7 +262,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat5(
     DashboardResponse.apply
   )
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat6(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat8(PanelResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse] = jsonFormat1(
     DashboardsResponse.apply
   )
@@ -223,7 +282,55 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat3(
     UpdateDashboardRequest.apply
   )
-  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat3(
-    UpdatePanelRequest.apply
+
+  // Custom format to distinguish absent fields from explicit null for typeId / fieldMapping
+  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] =
+    new RootJsonFormat[UpdatePanelRequest] {
+      def write(r: UpdatePanelRequest): JsValue = {
+        val fields = scala.collection.mutable.Map.empty[String, JsValue]
+        r.title.foreach(v => fields("title") = JsString(v))
+        r.appearance.foreach(v => fields("appearance") = v.toJson)
+        r.`type`.foreach(v => fields("type") = JsString(v))
+        r.typeId.foreach {
+          case None    => fields("typeId") = JsNull
+          case Some(s) => fields("typeId") = JsString(s)
+        }
+        r.fieldMapping.foreach {
+          case None    => fields("fieldMapping") = JsNull
+          case Some(v) => fields("fieldMapping") = v
+        }
+        JsObject(fields.toMap)
+      }
+
+      def read(json: JsValue): UpdatePanelRequest = {
+        val obj = json.asJsObject
+        UpdatePanelRequest(
+          title      = obj.fields.get("title").map(_.convertTo[String]),
+          appearance = obj.fields.get("appearance").map(_.convertTo[PanelAppearancePayload]),
+          `type`     = obj.fields.get("type").map(_.convertTo[String]),
+          typeId = obj.fields.get("typeId") match {
+            case None               => None
+            case Some(JsNull)       => Some(None)
+            case Some(JsString(s))  => Some(Some(s))
+            case Some(x)            => deserializationError(s"typeId must be a string or null, got $x")
+          },
+          fieldMapping = obj.fields.get("fieldMapping") match {
+            case None         => None
+            case Some(JsNull) => Some(None)
+            case Some(v)      => Some(Some(v))
+          }
+        )
+      }
+    }
+
+  // DataType / DataSource API formats
+  implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse] = jsonFormat4(DataFieldResponse.apply)
+  implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]   = jsonFormat7(DataTypeResponse.apply)
+  implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse] = jsonFormat1(DataTypesResponse.apply)
+  implicit val dataSourceResponseFormat: RootJsonFormat[DataSourceResponse]   = jsonFormat5(DataSourceResponse.apply)
+  implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse] = jsonFormat1(DataSourcesResponse.apply)
+  implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]         = jsonFormat4(DataFieldPayload.apply)
+  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest] = jsonFormat2(
+    UpdateDataTypeRequest.apply
   )
 }

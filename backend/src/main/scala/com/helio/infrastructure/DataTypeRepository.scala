@@ -83,6 +83,10 @@ class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
 
   def delete(id: DataTypeId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
+
+  def isBoundToAnyPanel(id: DataTypeId): Future[Boolean] =
+    db.run(sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value}".as[Int].head)
+      .map(_ > 0)
 }
 
 object DataTypeRepository {

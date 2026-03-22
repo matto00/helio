@@ -1,0 +1,2 @@
+ALTER TABLE panels ADD COLUMN type_id TEXT REFERENCES data_types(id) ON DELETE SET NULL;
+ALTER TABLE panels ADD COLUMN field_mapping TEXT;
