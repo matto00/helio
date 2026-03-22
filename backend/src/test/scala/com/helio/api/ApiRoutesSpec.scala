@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.infrastructure.{Database, DashboardRepository, PanelRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, PanelRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -25,10 +25,12 @@ class ApiRoutesSpec
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var dashboardRepo: DashboardRepository = _
-  private var panelRepo: PanelRepository         = _
+  private var embeddedPostgres: EmbeddedPostgres   = _
+  private var db: JdbcBackend.Database             = _
+  private var dashboardRepo: DashboardRepository   = _
+  private var panelRepo: PanelRepository           = _
+  private var dataSourceRepo: DataSourceRepository = _
+  private var dataTypeRepo: DataTypeRepository     = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -45,8 +47,10 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    dashboardRepo = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo     = new PanelRepository(db)(typedSystem.executionContext)
+    dashboardRepo  = new DashboardRepository(db)(typedSystem.executionContext)
+    panelRepo      = new PanelRepository(db)(typedSystem.executionContext)
+    dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
+    dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -59,11 +63,11 @@ class ApiRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE panels, dashboards RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
   private def routes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo).routes
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
@@ -321,7 +325,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))), None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))), None, None, None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[PanelResponse]
@@ -484,7 +488,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None, None, None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
@@ -636,7 +640,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None)
+        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None, typeId = None, fieldMapping = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         responseAs[PanelResponse].title shouldBe "New Title"
@@ -657,7 +661,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(title = Some(""), appearance = None, `type` = None)
+        UpdatePanelRequest(title = Some(""), appearance = None, `type` = None, typeId = None, fieldMapping = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse] shouldBe ErrorResponse("title must not be blank")
@@ -667,10 +671,241 @@ class ApiRoutesSpec
     "return 404 when updating title of a non-existent panel" in {
       Patch(
         "/api/panels/does-not-exist",
-        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None)
+        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None, typeId = None, fieldMapping = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
         responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
+      }
+    }
+
+    // ── DataType CRUD ──────────────────────────────────────────────────────────
+
+    "return an empty data type collection by default" in {
+      cleanDb()
+      Get("/api/types") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DataTypesResponse] shouldBe DataTypesResponse(Vector.empty)
+      }
+    }
+
+    "return 404 for a non-existent data type" in {
+      Get("/api/types/does-not-exist") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
+      }
+    }
+
+    "update a data type name and fields and increment version" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "Original",
+        fields    = Vector(DataField("col1", "Column 1", "string", nullable = false)),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Patch(
+        s"/api/types/${dt.id.value}",
+        UpdateDataTypeRequest(
+          name   = Some("Renamed"),
+          fields = Some(Vector(DataFieldPayload("col1", "Column 1", "string", nullable = false), DataFieldPayload("col2", "Column 2", "integer", nullable = true)))
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DataTypeResponse]
+        response.name shouldBe "Renamed"
+        response.fields should have size 2
+        response.version shouldBe 2
+      }
+    }
+
+    "return 404 when patching a non-existent data type" in {
+      Patch(
+        "/api/types/does-not-exist",
+        UpdateDataTypeRequest(name = Some("X"), fields = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
+      }
+    }
+
+    "delete a data type and return 204" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "ToDelete",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 when deleting a non-existent data type" in {
+      Delete("/api/types/does-not-exist") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
+      }
+    }
+
+    "return 409 when deleting a data type bound to a panel" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "BoundType",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, typeId = Some(Some(dt.id.value)), fieldMapping = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Cannot delete DataType: one or more panels are bound to it")
+      }
+    }
+
+    // ── DataSources ────────────────────────────────────────────────────────────
+
+    "return an empty data sources collection by default" in {
+      cleanDb()
+      Get("/api/data-sources") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DataSourcesResponse] shouldBe DataSourcesResponse(Vector.empty)
+      }
+    }
+
+    // ── Panel type binding ─────────────────────────────────────────────────────
+
+    "bind a data type to a panel and return it in the response" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+      import spray.json._
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "MyType",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      val mapping = """{"value":"col1"}""".parseJson
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, typeId = Some(Some(dt.id.value)), fieldMapping = Some(Some(mapping)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.typeId shouldBe Some(dt.id.value)
+        response.fieldMapping shouldBe Some(mapping)
+      }
+    }
+
+    "unbind a data type from a panel by setting typeId to null" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "MyType",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      // bind
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, typeId = Some(Some(dt.id.value)), fieldMapping = None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // unbind via explicit null
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, typeId = Some(None), fieldMapping = Some(None))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.typeId shouldBe None
+        response.fieldMapping shouldBe None
       }
     }
   }

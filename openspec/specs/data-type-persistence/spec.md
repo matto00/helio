@@ -25,3 +25,14 @@ The `DataTypeRepository` class SHALL expose `findAll(): Future[Vector[DataType]]
 #### Scenario: Insert sets version to 1
 - **WHEN** `insert` is called
 - **THEN** the persisted record has `version = 1` regardless of the input value
+
+### Requirement: DataTypeRepository can check if a type is bound to any panel
+The `DataTypeRepository` SHALL expose `isBoundToAnyPanel(id: DataTypeId): Future[Boolean]` that returns `true` if one or more panels have `type_id = id`.
+
+#### Scenario: Unbound type returns false
+- **WHEN** `isBoundToAnyPanel` is called for a type with no bound panels
+- **THEN** it returns `false`
+
+#### Scenario: Bound type returns true
+- **WHEN** at least one panel has `type_id` set to the given DataTypeId
+- **THEN** `isBoundToAnyPanel` returns `true`

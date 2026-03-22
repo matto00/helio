@@ -80,7 +80,9 @@ final case class Panel(
     title: String,
     meta: ResourceMeta,
     appearance: PanelAppearance,
-    panelType: PanelType
+    panelType: PanelType,
+    typeId: Option[DataTypeId] = None,
+    fieldMapping: Option[JsValue] = None
 )
 
 sealed trait SourceType

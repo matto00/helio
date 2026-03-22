@@ -18,24 +18,28 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
 
   private def rowToDomain(row: PanelRow): Panel =
     Panel(
-      id          = PanelId(row.id),
-      dashboardId = DashboardId(row.dashboardId),
-      title       = row.title,
-      meta        = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-      appearance  = row.appearance.parseJson.convertTo[PanelAppearance],
-      panelType   = PanelType.fromString(row.panelType).getOrElse(PanelType.Default)
+      id           = PanelId(row.id),
+      dashboardId  = DashboardId(row.dashboardId),
+      title        = row.title,
+      meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
+      appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
+      panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+      typeId       = row.typeId.map(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.map(_.parseJson)
     )
 
   private def domainToRow(p: Panel): PanelRow =
     PanelRow(
-      id          = p.id.value,
-      dashboardId = p.dashboardId.value,
-      title       = p.title,
-      createdBy   = p.meta.createdBy,
-      createdAt   = p.meta.createdAt,
-      lastUpdated = p.meta.lastUpdated,
-      appearance  = p.appearance.toJson.compactPrint,
-      panelType   = PanelType.asString(p.panelType)
+      id           = p.id.value,
+      dashboardId  = p.dashboardId.value,
+      title        = p.title,
+      createdBy    = p.meta.createdBy,
+      createdAt    = p.meta.createdAt,
+      lastUpdated  = p.meta.lastUpdated,
+      appearance   = p.appearance.toJson.compactPrint,
+      panelType    = PanelType.asString(p.panelType),
+      typeId       = p.typeId.map(_.value),
+      fieldMapping = p.fieldMapping.map(_.compactPrint)
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -119,6 +123,20 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
         .update((PanelType.asString(panelType), lastUpdated))
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
+
+  def updateTypeBinding(
+      id: PanelId,
+      typeId: Option[DataTypeId],
+      fieldMapping: Option[JsValue],
+      lastUpdated: Instant
+  ): Future[Option[Panel]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.typeId, r.fieldMapping, r.lastUpdated))
+        .update((typeId.map(_.value), fieldMapping.map(_.compactPrint), lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
 }
 
 object PanelRepository {
@@ -136,19 +154,23 @@ object PanelRepository {
       createdAt: Instant,
       lastUpdated: Instant,
       appearance: String,
-      panelType: String
+      panelType: String,
+      typeId: Option[String],
+      fieldMapping: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
-    def id          = column[String]("id", O.PrimaryKey)
-    def dashboardId = column[String]("dashboard_id")
-    def title       = column[String]("title")
-    def createdBy   = column[String]("created_by")
-    def createdAt   = column[Instant]("created_at")
-    def lastUpdated = column[Instant]("last_updated")
-    def appearance  = column[String]("appearance")
-    def panelType   = column[String]("type")
+    def id           = column[String]("id", O.PrimaryKey)
+    def dashboardId  = column[String]("dashboard_id")
+    def title        = column[String]("title")
+    def createdBy    = column[String]("created_by")
+    def createdAt    = column[Instant]("created_at")
+    def lastUpdated  = column[Instant]("last_updated")
+    def appearance   = column[String]("appearance")
+    def panelType    = column[String]("type")
+    def typeId       = column[Option[String]]("type_id")
+    def fieldMapping = column[Option[String]]("field_mapping")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping).mapTo[PanelRow]
   }
 }
