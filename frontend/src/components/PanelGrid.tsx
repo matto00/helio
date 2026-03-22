@@ -27,6 +27,7 @@ import type { DashboardLayout, Panel } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
+import { PanelContent } from "./PanelContent";
 import "./PanelGrid.css";
 
 interface PanelGridConfig {
@@ -367,11 +368,9 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                   </button>
                 </div>
               </div>
-              <p className="panel-grid-card__copy">
-                Starter grid placement is live now so future tickets can add richer panel content,
-                saved layouts, and deeper customization without replacing the layout foundation.
-              </p>
+              <PanelContent type={panel.type} />
               <div className="panel-grid-card__footer">
+                <span className="panel-grid-card__type-badge">{panel.type}</span>
                 <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
               </div>
             </article>
