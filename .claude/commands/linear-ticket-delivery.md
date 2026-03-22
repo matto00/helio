@@ -12,9 +12,17 @@ This workflow is mandatory for ticket-driven work in this repo.
 - Always update relevant artifacts, documentation, and specs when changes affect them.
 - Always verify behavior with tests and, when relevant, Playwright-based UI checks.
 
+## Worktree Model
+
+Every ticket runs in its own **git worktree** — an isolated working directory that shares the same repo history but has a completely independent working tree and index. This means multiple agents can work on different tickets simultaneously without touching each other's files, test outputs, or build artifacts.
+
+Worktrees live at `.claude/worktrees/<branch-name>/` inside the repo root.
+
+**Run all commands from the worktree directory**, not from the main repo root.
+
 ## Branching Rules
 
-Before implementation, create a new branch from `main` using:
+Branch name format (also used as the worktree directory name):
 
 `[feature|task|bug]/[3-5-word-description]/[ticket-id]`
 
@@ -32,7 +40,7 @@ Examples:
 
 ## End-to-End Workflow
 
-### 1. Read the Linear ticket
+### 1. Read the Linear ticket and mark In Progress
 
 - Read the issue title, description, comments, and current status.
 - Extract:
@@ -41,6 +49,7 @@ Examples:
   - constraints
   - open questions
 - If the ticket is underspecified, ask clarifying questions before doing anything else.
+- **Immediately move the ticket to "In Progress"** once you begin active work. This signals to other agents and collaborators that the ticket is claimed.
 
 ### 2. Choose the OpenSpec entry path
 
@@ -51,10 +60,17 @@ Choose exactly one:
 
 Do not implement directly before this step.
 
-### 3. Create the branch
+### 3. Create the worktree and branch
 
-- Create and check out the branch from `main` before drafting or implementing changes.
-- Keep all ticket work on that branch.
+Create an isolated worktree for this ticket before drafting or implementing any changes:
+
+```bash
+git worktree add .claude/worktrees/<branch-name> -b <branch-name>
+```
+
+Then use the `EnterWorktree` tool to switch into the worktree. All subsequent work — file edits, test runs, git commits — happens inside that worktree.
+
+Keep all ticket work on the worktree branch. Do not make commits to `main` directly.
 
 ### 4. Draft proposal and design artifacts
 
@@ -153,14 +169,26 @@ PR must include:
 
 Update the ticket status and comments at meaningful milestones:
 
+- **In Progress** — as soon as work begins (step 1)
 - when investigation/proposal starts
 - when approval is requested
 - when implementation starts
 - when blockers are discovered
 - when verification is complete
-- when PR is created
+- when PR is created — include the PR URL
 
-Include the PR URL in the ticket comments once available.
+### 13. Post-merge cleanup
+
+Once the human confirms the PR has been merged:
+
+1. **Move the Linear ticket to "Done"** (or the equivalent completed state).
+2. **Add a closing comment** to the ticket with a brief summary of what was shipped and the merged PR link.
+3. **Delete the worktree** from the filesystem:
+   ```bash
+   git worktree remove .claude/worktrees/<branch-name>
+   ```
+   If the worktree has untracked files that block removal, use `--force`. The branch itself can be left for GitHub to clean up via the PR merge settings.
+4. Use the `ExitWorktree` tool if still inside the worktree context.
 
 ## Blocker Handling
 
@@ -184,7 +212,8 @@ Do not guess through blockers.
 
 The workflow is complete only when all of the following are true:
 
-- branch created from `main`
+- worktree created and all work performed inside it
+- Linear ticket moved to "In Progress" at the start
 - Linear ticket reviewed and clarified
 - OpenSpec proposal/design/tasks created through `/opsx-propose` or `/opsx-explore`
 - human approval received before implementation
@@ -197,6 +226,9 @@ The workflow is complete only when all of the following are true:
 - branch pushed
 - PR created
 - Linear status/comments updated with progress and PR link
+- PR confirmed merged by human
+- Linear ticket moved to "Done" with closing comment
+- worktree deleted
 
 ## Guardrails
 
@@ -206,3 +238,4 @@ The workflow is complete only when all of the following are true:
 - Do not skip Playwright checks for UI-sensitive work when they are relevant.
 - Do not skip artifact updates when the change affects contracts, specs, or workflow.
 - Do not treat "it compiles" as sufficient verification.
+- Do not work directly in the main repo root when a worktree exists for the ticket.
