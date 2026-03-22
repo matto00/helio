@@ -198,6 +198,7 @@ describe("App", () => {
               id: "panel-1",
               dashboardId,
               title: "CPU Usage",
+              type: "metric" as const,
               meta: {
                 createdBy: "system",
                 createdAt: "2026-03-14T12:00:00Z",
@@ -211,6 +212,7 @@ describe("App", () => {
               id: "panel-2",
               dashboardId,
               title: "Revenue Pulse",
+              type: "metric" as const,
               meta: {
                 createdBy: "system",
                 createdAt: "2026-03-14T13:00:00Z",
@@ -357,6 +359,7 @@ describe("App", () => {
         id: "panel-1",
         dashboardId: "dashboard-1",
         title: "Revenue Pulse",
+        type: "metric" as const,
         meta: {
           createdBy: "system",
           createdAt: "2026-03-14T13:00:00Z",
@@ -369,6 +372,7 @@ describe("App", () => {
       id: "panel-1",
       dashboardId: "dashboard-1",
       title: "Revenue Pulse",
+      type: "metric" as const,
       meta: {
         createdBy: "system",
         createdAt: "2026-03-14T13:00:00Z",

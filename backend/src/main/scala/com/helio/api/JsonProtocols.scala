@@ -34,6 +34,7 @@ final case class PanelResponse(
     id: String,
     dashboardId: String,
     title: String,
+    `type`: String,
     meta: ResourceMetaResponse,
     appearance: PanelAppearanceResponse
 )
@@ -42,13 +43,13 @@ final case class PanelsResponse(items: Vector[PanelResponse])
 final case class HealthResponse(status: String)
 final case class ErrorResponse(message: String)
 final case class CreateDashboardRequest(name: Option[String])
-final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String])
+final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
     layout: Option[DashboardLayoutPayload]
 )
-final case class UpdatePanelRequest(title: Option[String], appearance: Option[PanelAppearancePayload])
+final case class UpdatePanelRequest(title: Option[String], appearance: Option[PanelAppearancePayload], `type`: Option[String])
 
 object ResourceMetaResponse {
   def fromDomain(meta: ResourceMeta): ResourceMetaResponse =
@@ -76,6 +77,7 @@ object PanelResponse {
       id = panel.id.value,
       dashboardId = panel.dashboardId.value,
       title = panel.title,
+      `type` = PanelType.asString(panel.panelType),
       meta = ResourceMetaResponse.fromDomain(panel.meta),
       appearance = PanelAppearanceResponse.fromDomain(panel.appearance)
     )
@@ -149,6 +151,13 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
       case x           => deserializationError(s"Expected string for PanelId, got $x")
     }
   }
+  implicit val panelTypeFormat: JsonFormat[PanelType] = new JsonFormat[PanelType] {
+    def write(t: PanelType): JsValue = JsString(PanelType.asString(t))
+    def read(json: JsValue): PanelType = json match {
+      case JsString(s) => PanelType.fromString(s).fold(deserializationError(_), identity)
+      case x           => deserializationError(s"Expected string for PanelType, got $x")
+    }
+  }
   implicit val dashboardAppearanceFormat: RootJsonFormat[DashboardAppearance]     = jsonFormat2(DashboardAppearance.apply)
   implicit val dashboardLayoutItemFormat: RootJsonFormat[DashboardLayoutItem]     = jsonFormat5(DashboardLayoutItem.apply)
   implicit val dashboardLayoutFormat: RootJsonFormat[DashboardLayout]             = jsonFormat4(DashboardLayout.apply)
@@ -184,7 +193,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat5(
     DashboardResponse.apply
   )
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat5(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat6(PanelResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse] = jsonFormat1(
     DashboardsResponse.apply
   )
@@ -198,13 +207,13 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest] = jsonFormat1(
     CreateDashboardRequest.apply
   )
-  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat2(
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat3(
     CreatePanelRequest.apply
   )
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat3(
     UpdateDashboardRequest.apply
   )
-  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat2(
+  implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] = jsonFormat3(
     UpdatePanelRequest.apply
   )
 }

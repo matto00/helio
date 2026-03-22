@@ -164,6 +164,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
+            type: "metric" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -183,6 +184,7 @@ describe("PanelList", () => {
       id: "panel-2",
       dashboardId: "dashboard-1",
       title: "Forecast",
+      type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
     });
@@ -191,6 +193,7 @@ describe("PanelList", () => {
         id: "panel-1",
         dashboardId: "dashboard-1",
         title: "Revenue Pulse",
+        type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
       },
@@ -198,6 +201,7 @@ describe("PanelList", () => {
         id: "panel-2",
         dashboardId: "dashboard-1",
         title: "Forecast",
+        type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
       },
@@ -222,6 +226,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
+            type: "metric" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -235,7 +240,9 @@ describe("PanelList", () => {
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Forecast" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
-    await waitFor(() => expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Forecast"));
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Forecast", undefined),
+    );
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-1"));
     expect(screen.getByRole("heading", { name: "Forecast" })).toBeInTheDocument();
   });

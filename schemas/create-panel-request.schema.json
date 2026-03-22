@@ -12,6 +12,10 @@
     "title": {
       "type": "string",
       "maxLength": 160
+    },
+    "type": {
+      "type": "string",
+      "enum": ["metric", "chart", "text", "table"]
     }
   },
   "additionalProperties": false

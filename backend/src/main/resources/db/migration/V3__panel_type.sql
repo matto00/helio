@@ -1,0 +1,2 @@
+ALTER TABLE panels
+    ADD COLUMN type TEXT NOT NULL DEFAULT 'metric';

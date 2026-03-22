@@ -38,10 +38,13 @@ export interface Dashboard {
   layout: DashboardLayout;
 }
 
+export type PanelType = "metric" | "chart" | "text" | "table";
+
 export interface Panel {
   id: string;
   dashboardId: string;
   title: string;
+  type: PanelType;
   meta: ResourceMeta;
   appearance: PanelAppearance;
 }

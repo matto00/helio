@@ -9,6 +9,7 @@ const panels = [
     id: "panel-1",
     dashboardId: "dashboard-1",
     title: "Revenue Pulse",
+    type: "metric" as const,
     meta: {
       createdBy: "system",
       createdAt: "2026-03-14T00:00:00Z",
@@ -24,6 +25,7 @@ const panels = [
     id: "panel-2",
     dashboardId: "dashboard-1",
     title: "Forecast",
+    type: "metric" as const,
     meta: {
       createdBy: "system",
       createdAt: "2026-03-14T00:00:00Z",
