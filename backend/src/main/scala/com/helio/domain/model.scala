@@ -112,6 +112,26 @@ final case class DataSource(
     updatedAt: Instant
 )
 
+sealed trait DataFieldType
+object DataFieldType {
+  case object StringType    extends DataFieldType
+  case object IntegerType   extends DataFieldType
+  case object FloatType     extends DataFieldType
+  case object BooleanType   extends DataFieldType
+  case object TimestampType extends DataFieldType
+
+  def asString(t: DataFieldType): String = t match {
+    case StringType    => "string"
+    case IntegerType   => "integer"
+    case FloatType     => "float"
+    case BooleanType   => "boolean"
+    case TimestampType => "timestamp"
+  }
+}
+
+final case class InferredField(name: String, displayName: String, dataType: DataFieldType, nullable: Boolean)
+final case class InferredSchema(fields: Seq[InferredField])
+
 final case class DataField(
     name: String,
     displayName: String,
