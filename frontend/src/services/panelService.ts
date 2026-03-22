@@ -1,4 +1,4 @@
-import type { Panel, PanelAppearance } from "../types/models";
+import type { Panel, PanelAppearance, PanelType } from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface PanelsResponse {
@@ -8,6 +8,7 @@ interface PanelsResponse {
 interface CreatePanelRequest {
   dashboardId: string;
   title: string;
+  type?: PanelType;
 }
 
 interface UpdatePanelAppearanceRequest {
@@ -19,10 +20,15 @@ export async function fetchPanels(dashboardId: string): Promise<Panel[]> {
   return response.data.items;
 }
 
-export async function createPanel(dashboardId: string, title: string): Promise<Panel> {
+export async function createPanel(
+  dashboardId: string,
+  title: string,
+  type?: PanelType,
+): Promise<Panel> {
   const response = await httpClient.post<Panel>("/api/panels", {
     dashboardId,
     title,
+    ...(type !== undefined && { type }),
   } satisfies CreatePanelRequest);
   return response.data;
 }

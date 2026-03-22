@@ -131,16 +131,22 @@ final class ApiRoutes(
                           case None =>
                             complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                           case Some(_) =>
-                            val now = Instant.now()
-                            val panel = Panel(
-                              id          = PanelId(UUID.randomUUID().toString),
-                              dashboardId = dashboardId,
-                              title       = RequestValidation.normalizePanelTitle(request.title),
-                              meta        = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
-                              appearance  = PanelAppearance.Default
-                            )
-                            onSuccess(panelRepo.insert(panel)) { created =>
-                              complete(StatusCodes.Created, PanelResponse.fromDomain(created))
+                            validatePanelType(request.`type`) match {
+                              case Left(err) =>
+                                complete(StatusCodes.BadRequest, ErrorResponse(err))
+                              case Right(panelType) =>
+                                val now = Instant.now()
+                                val panel = Panel(
+                                  id          = PanelId(UUID.randomUUID().toString),
+                                  dashboardId = dashboardId,
+                                  title       = RequestValidation.normalizePanelTitle(request.title),
+                                  meta        = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
+                                  appearance  = PanelAppearance.Default,
+                                  panelType   = panelType
+                                )
+                                onSuccess(panelRepo.insert(panel)) { created =>
+                                  complete(StatusCodes.Created, PanelResponse.fromDomain(created))
+                                }
                             }
                         }
                     }
@@ -160,35 +166,53 @@ final class ApiRoutes(
                     val trimmedTitle = request.title.map(_.trim)
                     if (trimmedTitle.contains("")) {
                       complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
-                    } else if (request.title.isEmpty && request.appearance.isEmpty) {
-                      complete(StatusCodes.BadRequest, ErrorResponse("title or appearance is required"))
                     } else {
-                      val now = Instant.now()
-                      val appearanceOpt = request.appearance.map(p =>
-                        PanelAppearance(
-                          background   = RequestValidation.normalizePanelBackground(p.background),
-                          color        = RequestValidation.normalizePanelColor(p.color),
-                          transparency = RequestValidation.normalizeTransparency(p.transparency)
-                        )
-                      )
-                      trimmedTitle match {
-                        case Some(title) =>
-                          onSuccess(panelRepo.updateTitle(PanelId(panelId), title, now)) {
-                            case None => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                            case Some(updated) =>
-                              appearanceOpt match {
-                                case None => complete(PanelResponse.fromDomain(updated))
-                                case Some(appearance) =>
-                                  onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearance, now)) {
-                                    case Some(panel) => complete(PanelResponse.fromDomain(panel))
-                                    case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                                  }
+                      validatePanelTypeOpt(request.`type`) match {
+                        case Left(err) =>
+                          complete(StatusCodes.BadRequest, ErrorResponse(err))
+                        case Right(panelTypeOpt) =>
+                          if (request.title.isEmpty && request.appearance.isEmpty && request.`type`.isEmpty) {
+                            complete(StatusCodes.BadRequest, ErrorResponse("title, appearance, or type is required"))
+                          } else {
+                            val now = Instant.now()
+                            val appearanceOpt = request.appearance.map(p =>
+                              PanelAppearance(
+                                background   = RequestValidation.normalizePanelBackground(p.background),
+                                color        = RequestValidation.normalizePanelColor(p.color),
+                                transparency = RequestValidation.normalizeTransparency(p.transparency)
+                              )
+                            )
+                            def applyTypeUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
+                              panelTypeOpt match {
+                                case None     => Future.successful(panelOpt)
+                                case Some(pt) => panelOpt match {
+                                  case None    => Future.successful(None)
+                                  case Some(_) => panelRepo.updateType(PanelId(panelId), pt, now)
+                                }
                               }
-                          }
-                        case None =>
-                          onSuccess(panelRepo.updateAppearance(PanelId(panelId), appearanceOpt.get, now)) {
-                            case Some(panel) => complete(PanelResponse.fromDomain(panel))
-                            case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                            val updateFuture: Future[Option[Panel]] = trimmedTitle match {
+                              case Some(title) =>
+                                panelRepo.updateTitle(PanelId(panelId), title, now).flatMap {
+                                  case None          => Future.successful(None)
+                                  case Some(updated) =>
+                                    appearanceOpt match {
+                                      case None             => applyTypeUpdate(Some(updated))
+                                      case Some(appearance) =>
+                                        panelRepo.updateAppearance(PanelId(panelId), appearance, now).flatMap(applyTypeUpdate)
+                                    }
+                                }
+                              case None =>
+                                appearanceOpt match {
+                                  case Some(appearance) =>
+                                    panelRepo.updateAppearance(PanelId(panelId), appearance, now).flatMap(applyTypeUpdate)
+                                  case None =>
+                                    panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
+                                }
+                            }
+                            onSuccess(updateFuture) {
+                              case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                              case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                            }
                           }
                       }
                     }
@@ -212,6 +236,18 @@ final class ApiRoutes(
     request.dashboardId.map(_.trim).filter(_.nonEmpty) match {
       case Some(id) => Right(DashboardId(id))
       case None     => Left("dashboardId is required")
+    }
+
+  private def validatePanelType(typeOpt: Option[String]): Either[String, PanelType] =
+    typeOpt match {
+      case None    => Right(PanelType.Default)
+      case Some(t) => PanelType.fromString(t)
+    }
+
+  private def validatePanelTypeOpt(typeOpt: Option[String]): Either[String, Option[PanelType]] =
+    typeOpt match {
+      case None    => Right(None)
+      case Some(t) => PanelType.fromString(t).map(Some(_))
     }
 
   private def validateDashboardUpdateRequest(

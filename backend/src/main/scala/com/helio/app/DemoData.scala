@@ -96,28 +96,32 @@ object DemoData {
         dashboardId = operationsId,
         title       = "Latency",
         meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
-        appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12)
+        appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12),
+        panelType   = PanelType.Metric
       ),
       Panel(
         id          = PanelId("panel-ops-incidents"),
         dashboardId = operationsId,
         title       = "Incident Queue",
         meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
-        appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18)
+        appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18),
+        panelType   = PanelType.Table
       ),
       Panel(
         id          = PanelId("panel-exec-revenue"),
         dashboardId = executiveId,
         title       = "Revenue Pulse",
         meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
-        appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08)
+        appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08),
+        panelType   = PanelType.Chart
       ),
       Panel(
         id          = PanelId("panel-exec-forecast"),
         dashboardId = executiveId,
         title       = "Forecast",
         meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
-        appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16)
+        appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16),
+        panelType   = PanelType.Chart
       )
     )
 

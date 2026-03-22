@@ -22,6 +22,7 @@ describe("panelsSlice", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Latency",
+            type: "metric" as const,
             meta: defaultMeta,
             appearance: defaultAppearance,
           },
@@ -58,6 +59,7 @@ describe("panelsSlice", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Latency",
+            type: "metric" as const,
             meta: defaultMeta,
             appearance: defaultAppearance,
           },
@@ -74,6 +76,7 @@ describe("panelsSlice", () => {
           id: "panel-1",
           dashboardId: "dashboard-1",
           title: "Latency",
+          type: "metric" as const,
           meta: {
             ...defaultMeta,
             lastUpdated: "2026-03-14T02:00:00Z",

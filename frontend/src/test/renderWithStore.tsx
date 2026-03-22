@@ -12,6 +12,7 @@ import type {
   DashboardAppearance,
   DashboardLayout,
   PanelAppearance,
+  PanelType,
   ResourceMeta,
 } from "../types/models";
 
@@ -39,6 +40,7 @@ interface TestState {
       id: string;
       dashboardId: string;
       title: string;
+      type?: PanelType;
       meta?: ResourceMeta;
       appearance?: PanelAppearance;
     }>;
@@ -72,6 +74,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           items:
             preloadedState.panels?.items.map((panel) => ({
               ...panel,
+              type: panel.type ?? "metric",
               meta: panel.meta ?? defaultMeta,
               appearance: panel.appearance ?? defaultPanelAppearance,
             })) ?? [],

@@ -9,7 +9,7 @@ import {
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
 import type { RootState } from "../../store/store";
-import type { Panel, PanelAppearance } from "../../types/models";
+import type { Panel, PanelAppearance, PanelType } from "../../types/models";
 
 interface PanelsState {
   items: Panel[];
@@ -56,11 +56,11 @@ export const fetchPanels = createAsyncThunk<
 
 export const createPanel = createAsyncThunk<
   Panel,
-  { dashboardId: string; title: string },
+  { dashboardId: string; title: string; type?: PanelType },
   { state: RootState; rejectValue: string }
->("panels/createPanel", async ({ dashboardId, title }, { dispatch, rejectWithValue }) => {
+>("panels/createPanel", async ({ dashboardId, title, type }, { dispatch, rejectWithValue }) => {
   try {
-    const createdPanel = await createPanelRequest(dashboardId, title);
+    const createdPanel = await createPanelRequest(dashboardId, title, type);
     dispatch(markDashboardPanelsStale(dashboardId));
     await dispatch(fetchPanels(dashboardId));
     return createdPanel;

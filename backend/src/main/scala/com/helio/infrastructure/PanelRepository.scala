@@ -22,7 +22,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       dashboardId = DashboardId(row.dashboardId),
       title       = row.title,
       meta        = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-      appearance  = row.appearance.parseJson.convertTo[PanelAppearance]
+      appearance  = row.appearance.parseJson.convertTo[PanelAppearance],
+      panelType   = PanelType.fromString(row.panelType).getOrElse(PanelType.Default)
     )
 
   private def domainToRow(p: Panel): PanelRow =
@@ -33,7 +34,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       createdBy   = p.meta.createdBy,
       createdAt   = p.meta.createdAt,
       lastUpdated = p.meta.lastUpdated,
-      appearance  = p.appearance.toJson.compactPrint
+      appearance  = p.appearance.toJson.compactPrint,
+      panelType   = PanelType.asString(p.panelType)
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -108,6 +110,15 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
         .update((appearance.toJson.compactPrint, lastUpdated))
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
+
+  def updateType(id: PanelId, panelType: PanelType, lastUpdated: Instant): Future[Option[Panel]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.panelType, r.lastUpdated))
+        .update((PanelType.asString(panelType), lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
 }
 
 object PanelRepository {
@@ -124,7 +135,8 @@ object PanelRepository {
       createdBy: String,
       createdAt: Instant,
       lastUpdated: Instant,
-      appearance: String
+      appearance: String,
+      panelType: String
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -135,7 +147,8 @@ object PanelRepository {
     def createdAt   = column[Instant]("created_at")
     def lastUpdated = column[Instant]("last_updated")
     def appearance  = column[String]("appearance")
+    def panelType   = column[String]("type")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType).mapTo[PanelRow]
   }
 }

@@ -137,7 +137,7 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
 
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
 
@@ -185,7 +185,7 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
 
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[PanelResponse]
         response.dashboardId shouldBe dashboardId
@@ -223,10 +223,10 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
 
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel A"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel A"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel B"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel B"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
 
@@ -315,13 +315,13 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))))
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))), None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[PanelResponse]
@@ -352,21 +352,21 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), None, None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         responseAs[PanelResponse].title shouldBe RequestValidation.DefaultPanelTitle
       }
     }
 
     "reject panel creation without dashboardId" in {
-      Post("/api/panels", CreatePanelRequest(None, Some("Latency"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(None, Some("Latency"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse] shouldBe ErrorResponse("dashboardId is required")
       }
     }
 
     "reject panel creation for a missing dashboard" in {
-      Post("/api/panels", CreatePanelRequest(Some("missing-dashboard"), Some("Latency"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some("missing-dashboard"), Some("Latency"), None)) ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
         responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
       }
@@ -424,7 +424,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("WithPanels"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -451,7 +451,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Latency"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -479,12 +479,12 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))))
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
@@ -507,7 +507,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -534,7 +534,7 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
       var sourceId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         sourceId = responseAs[PanelResponse].id
       }
       Post(s"/api/panels/$sourceId/duplicate") ~> routes() ~> check {
@@ -562,7 +562,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -630,13 +630,13 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Old Title"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Old Title"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(title = Some("New Title"), appearance = None)
+        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         responseAs[PanelResponse].title shouldBe "New Title"
@@ -651,13 +651,13 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"))) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(title = Some(""), appearance = None)
+        UpdatePanelRequest(title = Some(""), appearance = None, `type` = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse] shouldBe ErrorResponse("title must not be blank")
@@ -667,7 +667,7 @@ class ApiRoutesSpec
     "return 404 when updating title of a non-existent panel" in {
       Patch(
         "/api/panels/does-not-exist",
-        UpdatePanelRequest(title = Some("New Title"), appearance = None)
+        UpdatePanelRequest(title = Some("New Title"), appearance = None, `type` = None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
         responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
