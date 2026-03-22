@@ -1,9 +1,12 @@
 package com.helio.domain
 
 import java.time.Instant
+import spray.json.JsValue
 
 final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
+final case class DataSourceId(value: String) extends AnyVal
+final case class DataTypeId(value: String) extends AnyVal
 
 sealed trait PanelType
 object PanelType {
@@ -78,4 +81,50 @@ final case class Panel(
     meta: ResourceMeta,
     appearance: PanelAppearance,
     panelType: PanelType
+)
+
+sealed trait SourceType
+object SourceType {
+  case object RestApi extends SourceType
+  case object Csv    extends SourceType
+  case object Static extends SourceType
+
+  def fromString(s: String): Either[String, SourceType] = s match {
+    case "rest_api" => Right(RestApi)
+    case "csv"      => Right(Csv)
+    case "static"   => Right(Static)
+    case other      => Left(s"Unknown source type: '$other'. Valid values: rest_api, csv, static")
+  }
+
+  def asString(t: SourceType): String = t match {
+    case RestApi => "rest_api"
+    case Csv     => "csv"
+    case Static  => "static"
+  }
+}
+
+final case class DataSource(
+    id: DataSourceId,
+    name: String,
+    sourceType: SourceType,
+    config: JsValue,
+    createdAt: Instant,
+    updatedAt: Instant
+)
+
+final case class DataField(
+    name: String,
+    displayName: String,
+    dataType: String,
+    nullable: Boolean
+)
+
+final case class DataType(
+    id: DataTypeId,
+    sourceId: Option[DataSourceId],
+    name: String,
+    fields: Vector[DataField],
+    version: Int,
+    createdAt: Instant,
+    updatedAt: Instant
 )

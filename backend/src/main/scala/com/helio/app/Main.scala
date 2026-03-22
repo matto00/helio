@@ -4,7 +4,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
-import com.helio.infrastructure.{Database, DashboardRepository, LocalFileSystem, PanelRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Await
@@ -27,9 +27,11 @@ object Main {
       val config = ConfigFactory.load()
       val db     = Database.init(config)
 
-      val dashboardRepo = new DashboardRepository(db)
-      val panelRepo     = new PanelRepository(db)
-      val fileSystem    = LocalFileSystem.fromEnv()
+      val dashboardRepo   = new DashboardRepository(db)
+      val panelRepo       = new PanelRepository(db)
+      val dataSourceRepo  = new DataSourceRepository(db)
+      val dataTypeRepo    = new DataTypeRepository(db)
+      val fileSystem      = LocalFileSystem.fromEnv()
 
       DemoData.seedIfEmpty(dashboardRepo, panelRepo)
 
