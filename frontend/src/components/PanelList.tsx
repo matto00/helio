@@ -10,6 +10,14 @@ import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
 import { resolveDashboardGridBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
+import type { PanelType } from "../types/models";
+
+const PANEL_TYPES: { value: PanelType; label: string }[] = [
+  { value: "metric", label: "Metric" },
+  { value: "chart", label: "Chart" },
+  { value: "text", label: "Text" },
+  { value: "table", label: "Table" },
+];
 
 export function PanelList() {
   const dispatch = useAppDispatch();
@@ -18,6 +26,7 @@ export function PanelList() {
   const { items, status, error } = useAppSelector((state) => state.panels);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const [title, setTitle] = useState("");
+  const [panelType, setPanelType] = useState<PanelType>("metric");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const selectedDashboard =
@@ -38,9 +47,10 @@ export function PanelList() {
     setCreateError(null);
     try {
       await dispatch(
-        createPanel({ dashboardId: selectedDashboardId, title: normalizedTitle }),
+        createPanel({ dashboardId: selectedDashboardId, title: normalizedTitle, type: panelType }),
       ).unwrap();
       setTitle("");
+      setPanelType("metric");
       setIsCreateMode(false);
     } catch {
       setCreateError("Failed to create panel.");
@@ -78,6 +88,7 @@ export function PanelList() {
             onClick={() => {
               setIsCreateMode((open) => !open);
               setCreateError(null);
+              setPanelType("metric");
             }}
             disabled={selectedDashboardId === null}
           >
@@ -100,6 +111,21 @@ export function PanelList() {
             aria-label="Panel title"
             autoFocus
           />
+          <fieldset className="panel-list__type-selector">
+            <legend className="panel-list__create-label">Panel type</legend>
+            {PANEL_TYPES.map(({ value, label }) => (
+              <label key={value} className="panel-list__type-option">
+                <input
+                  type="radio"
+                  name="panel-type"
+                  value={value}
+                  checked={panelType === value}
+                  onChange={() => setPanelType(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
           <button
             type="submit"
             className="panel-list__create-submit"
