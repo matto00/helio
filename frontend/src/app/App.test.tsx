@@ -83,6 +83,12 @@ describe("App", () => {
     updateDashboardAppearanceMock.mockReset();
     updateDashboardLayoutMock.mockReset();
     updatePanelAppearanceMock.mockReset();
+    HTMLDialogElement.prototype.showModal = jest.fn(function () {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function () {
+      this.removeAttribute("open");
+    });
   });
 
   it("auto-selects the most recently updated dashboard and loads its panels", async () => {

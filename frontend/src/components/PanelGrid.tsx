@@ -26,8 +26,8 @@ import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
-import { PanelAppearanceEditor } from "./PanelAppearanceEditor";
 import { PanelContent } from "./PanelContent";
+import { PanelDetailModal } from "./PanelDetailModal";
 import "./PanelGrid.css";
 
 interface PanelGridConfig {
@@ -154,7 +154,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
-  const [customizePanelId, setCustomizePanelId] = useState<string | null>(null);
+  const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
 
   function startEditingTitle(panelId: string, currentTitle: string) {
     setConfirmDeletePanelId(null);
-    setCustomizePanelId(null);
+    setDetailPanelId(null);
     setEditingTitleId(panelId);
     setEditingTitle(currentTitle);
     setEditingTitleError(null);
@@ -327,13 +327,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                         ×
                       </button>
                     </>
-                  ) : editingTitleId === panel.id ? null : customizePanelId === panel.id ? (
-                    <PanelAppearanceEditor
-                      panel={panel}
-                      isOpenExternal={true}
-                      onClose={() => setCustomizePanelId(null)}
-                    />
-                  ) : (
+                  ) : editingTitleId === panel.id ? null : (
                     <ActionsMenu
                       label={`${panel.title} panel actions`}
                       items={[
@@ -343,7 +337,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                         },
                         {
                           label: "Customize",
-                          onClick: () => setCustomizePanelId(panel.id),
+                          onClick: () => setDetailPanelId(panel.id),
                         },
                         {
                           label: "Duplicate",
@@ -377,6 +371,12 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
           </div>
         ))}
       </Responsive>
+      {detailPanelId !== null ? (
+        <PanelDetailModal
+          panel={panels.find((p) => p.id === detailPanelId)!}
+          onClose={() => setDetailPanelId(null)}
+        />
+      ) : null}
     </div>
   );
 }
