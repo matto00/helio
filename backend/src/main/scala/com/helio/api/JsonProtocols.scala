@@ -143,6 +143,16 @@ object PanelAppearanceResponse {
 }
 
 trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
+  // DataField / DataSource / DataType formatters
+  implicit val sourceTypeFormat: JsonFormat[SourceType] = new JsonFormat[SourceType] {
+    def write(t: SourceType): JsValue = JsString(SourceType.asString(t))
+    def read(json: JsValue): SourceType = json match {
+      case JsString(s) => SourceType.fromString(s).fold(deserializationError(_), identity)
+      case x           => deserializationError(s"Expected string for SourceType, got $x")
+    }
+  }
+  implicit val dataFieldFormat: RootJsonFormat[DataField] = jsonFormat4(DataField.apply)
+
   // Domain type formatters (used for JSON blob persistence)
   implicit val panelIdFormat: JsonFormat[PanelId] = new JsonFormat[PanelId] {
     def write(id: PanelId): JsValue = JsString(id.value)
