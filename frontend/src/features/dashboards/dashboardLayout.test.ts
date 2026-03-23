@@ -20,6 +20,9 @@ const panels = [
       color: "inherit",
       transparency: 0,
     },
+    typeId: null,
+    fieldMapping: null,
+    refreshInterval: null,
   },
   {
     id: "panel-2",
@@ -36,6 +39,9 @@ const panels = [
       color: "inherit",
       transparency: 0,
     },
+    typeId: null,
+    fieldMapping: null,
+    refreshInterval: null,
   },
 ];
 
