@@ -45,11 +45,10 @@ const testDataType = {
   id: "dt-1",
   name: "Sales Metrics",
   sourceId: null,
-  sourceType: "rest_api",
   version: 1,
   fields: [
-    { name: "revenue", fieldType: "number" },
-    { name: "label", fieldType: "string" },
+    { name: "revenue", displayName: "Revenue", dataType: "float", nullable: false },
+    { name: "label", displayName: "Label", dataType: "string", nullable: true },
   ],
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",

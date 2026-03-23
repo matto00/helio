@@ -32,18 +32,34 @@ export interface PanelAppearance {
 
 export interface DataTypeField {
   name: string;
-  fieldType: string;
+  displayName: string;
+  dataType: string;
+  nullable: boolean;
 }
 
 export interface DataType {
   id: string;
   name: string;
   sourceId: string | null;
-  sourceType: string;
   version: number;
   fields: DataTypeField[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DataSource {
+  id: string;
+  name: string;
+  sourceType: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InferredField {
+  name: string;
+  displayName: string;
+  dataType: string;
+  nullable: boolean;
 }
 
 export interface Dashboard {

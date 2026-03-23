@@ -1,7 +1,10 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-import { fetchDataTypes as fetchDataTypesRequest } from "../../services/dataTypeService";
-import type { DataType } from "../../types/models";
+import {
+  fetchDataTypes as fetchDataTypesRequest,
+  updateDataType as updateDataTypeRequest,
+} from "../../services/dataTypeService";
+import type { DataType, DataTypeField } from "../../types/models";
 
 interface DataTypesState {
   items: DataType[];
@@ -14,6 +17,18 @@ const initialState: DataTypesState = {
   status: "idle",
   error: null,
 };
+
+export const updateDataType = createAsyncThunk<
+  DataType,
+  { id: string; fields: DataTypeField[] },
+  { rejectValue: string }
+>("dataTypes/updateDataType", async ({ id, fields }, { rejectWithValue }) => {
+  try {
+    return await updateDataTypeRequest(id, fields);
+  } catch {
+    return rejectWithValue("Failed to update data type.");
+  }
+});
 
 export const fetchDataTypes = createAsyncThunk<DataType[], void, { rejectValue: string }>(
   "dataTypes/fetchDataTypes",
@@ -44,6 +59,10 @@ const dataTypesSlice = createSlice({
       .addCase(fetchDataTypes.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload ?? "Failed to load data types.";
+      })
+      .addCase(updateDataType.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((dt) => dt.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
       });
   },
 });

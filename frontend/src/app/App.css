@@ -120,6 +120,36 @@
   min-width: 0;
 }
 
+.app-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0 0.5rem;
+}
+
+.app-sidebar__nav-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+  text-decoration: none;
+  transition:
+    background var(--app-transition),
+    color var(--app-transition);
+}
+
+.app-sidebar__nav-link:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.app-sidebar__nav-link.active {
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+}
+
 .app-layout__sidebar-toggle {
   width: 34px;
   min-height: 108px;
