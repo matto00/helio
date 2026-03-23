@@ -26,10 +26,10 @@ object SchemaInferenceEngine {
   }
 
   def fromCsv(csv: String): InferredSchema = {
-    val lines = csv.split("\n", -1).map(_.stripTrailing())
+    val lines = splitCsvLines(csv)
     if (lines.isEmpty || lines.head.trim.isEmpty) return InferredSchema(Seq.empty)
 
-    val headers = parseRow(lines.head)
+    val headers = parseRfc4180Row(lines.head)
     if (headers.isEmpty) return InferredSchema(Seq.empty)
 
     val dataRows = lines.drop(1).take(100)
@@ -41,7 +41,7 @@ object SchemaInferenceEngine {
       Vector.fill(headers.length)((DataFieldType.IntegerType, false))
 
     val state = dataRows.foldLeft(init) { (colState, line) =>
-      val cells = parseRow(line).padTo(headers.length, "")
+      val cells = parseRfc4180Row(line).padTo(headers.length, "")
       colState.zip(cells).map { case ((colType, nullable), cell) =>
         if (cell.isEmpty) (colType, true)
         else (widenType(colType, cell), nullable)
@@ -52,6 +52,14 @@ object SchemaInferenceEngine {
       InferredField(name, displayName(name), colType, nullable)
     }
     InferredSchema(fields)
+  }
+
+  def parseCsvRows(csv: String, maxRows: Int = 10): (Vector[String], Vector[Vector[String]]) = {
+    val lines = splitCsvLines(csv)
+    if (lines.isEmpty || lines.head.trim.isEmpty) return (Vector.empty, Vector.empty)
+    val headers = parseRfc4180Row(lines.head)
+    val rows = lines.drop(1).filter(_.nonEmpty).take(maxRows).map(parseRfc4180Row).toVector
+    (headers, rows)
   }
 
   def displayName(name: String): String = {
@@ -154,8 +162,41 @@ object SchemaInferenceEngine {
   private def isBooleanValue(s: String): Boolean =
     s.equalsIgnoreCase("true") || s.equalsIgnoreCase("false")
 
-  private def parseRow(line: String): Vector[String] =
-    line.split(",", -1).map(_.trim).toVector
+  private def splitCsvLines(csv: String): Array[String] =
+    csv.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).map(_.stripTrailing())
+
+  private def parseRfc4180Row(line: String): Vector[String] = {
+    val fields = scala.collection.mutable.ArrayBuffer.empty[String]
+    val buf    = new StringBuilder
+    var inQuotes = false
+    var i = 0
+    while (i < line.length) {
+      val ch = line.charAt(i)
+      if (inQuotes) {
+        if (ch == '"') {
+          if (i + 1 < line.length && line.charAt(i + 1) == '"') {
+            buf.append('"')
+            i += 1
+          } else {
+            inQuotes = false
+          }
+        } else {
+          buf.append(ch)
+        }
+      } else {
+        ch match {
+          case '"' => inQuotes = true
+          case ',' =>
+            fields += buf.toString.trim
+            buf.clear()
+          case c => buf.append(c)
+        }
+      }
+      i += 1
+    }
+    fields += buf.toString.trim
+    fields.toVector
+  }
 
   // ---------------------------------------------------------------------------
   // displayName helpers

@@ -37,7 +37,7 @@ object Main {
 
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo)
+      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem)
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

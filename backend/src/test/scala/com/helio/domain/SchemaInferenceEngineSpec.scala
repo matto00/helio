@@ -142,6 +142,26 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     "return empty schema for empty CSV" in {
       fromCsv("").fields shouldBe empty
     }
+
+    "parse quoted field containing a comma as a single field" in {
+      val csv = "name,age\n\"Smith, John\",30"
+      val schema = fromCsv(csv)
+      schema.fields.map(_.name) shouldBe Seq("name", "age")
+      schema.fields.find(_.name == "age").get.dataType shouldBe DataFieldType.IntegerType
+    }
+
+    "unescape double-quotes inside quoted fields" in {
+      val csv = "label\n\"say \"\"hello\"\"\""
+      val schema = fromCsv(csv)
+      schema.fields.head.dataType shouldBe DataFieldType.StringType
+    }
+
+    "accept CRLF line endings" in {
+      val csv = "id,name\r\n1,Alice\r\n2,Bob"
+      val schema = fromCsv(csv)
+      schema.fields.map(_.name) shouldBe Seq("id", "name")
+      schema.fields.find(_.name == "id").get.dataType shouldBe DataFieldType.IntegerType
+    }
   }
 
   // ---------------------------------------------------------------------------
