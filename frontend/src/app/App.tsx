@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
+import { SourcesPage } from "../components/SourcesPage";
 import { fetchDashboards } from "../features/dashboards/dashboardsSlice";
 import { fetchPanels } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -16,6 +18,8 @@ export function App() {
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const { theme, toggleTheme } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
+  const location = useLocation();
+  const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 
@@ -32,7 +36,9 @@ export function App() {
   }, [dispatch, selectedDashboardId]);
 
   const shellStyle =
-    selectedDashboard !== null && selectedDashboard.appearance.background !== "transparent"
+    onDashboardView &&
+    selectedDashboard !== null &&
+    selectedDashboard.appearance.background !== "transparent"
       ? ({
           "--dashboard-background-override": resolveDashboardBackground(
             theme,
@@ -52,10 +58,12 @@ export function App() {
           </p>
         </div>
         <div className="app-header__controls">
-          <div className="app-header__selection-card">
-            <span className="app-header__selection-label">Active dashboard</span>
-            <strong>{selectedDashboardName}</strong>
-          </div>
+          {onDashboardView && (
+            <div className="app-header__selection-card">
+              <span className="app-header__selection-label">Active dashboard</span>
+              <strong>{selectedDashboardName}</strong>
+            </div>
+          )}
           <button
             type="button"
             className="theme-toggle"
@@ -67,7 +75,7 @@ export function App() {
             </span>
             <span className="theme-toggle__value">{theme === "dark" ? "Light" : "Dark"}</span>
           </button>
-          <DashboardAppearanceEditor dashboard={selectedDashboard} />
+          {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
         </div>
       </header>
       <div
@@ -86,11 +94,22 @@ export function App() {
           </button>
         ) : (
           <aside className="app-sidebar">
+            <nav className="app-sidebar__nav" aria-label="Main navigation">
+              <NavLink to="/" end className="app-sidebar__nav-link">
+                Dashboards
+              </NavLink>
+              <NavLink to="/sources" className="app-sidebar__nav-link">
+                Data Sources
+              </NavLink>
+            </nav>
             <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
           </aside>
         )}
         <section className="app-content">
-          <PanelList />
+          <Routes>
+            <Route path="/" element={<PanelList />} />
+            <Route path="/sources" element={<SourcesPage />} />
+          </Routes>
         </section>
       </div>
     </main>

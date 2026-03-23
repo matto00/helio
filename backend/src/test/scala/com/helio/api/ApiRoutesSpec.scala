@@ -933,9 +933,10 @@ class ApiRoutesSpec
       Post(
         "/api/sources",
         CreateSourceRequest(
-          name       = "My API",
-          sourceType = "rest_api",
-          config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None)
+          name           = "My API",
+          sourceType     = "rest_api",
+          config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
+          fieldOverrides = None
         )
       ) ~> routes(stubConnector(Right(responseJson))) ~> check {
         status shouldBe StatusCodes.Created
@@ -952,9 +953,10 @@ class ApiRoutesSpec
       Post(
         "/api/sources",
         CreateSourceRequest(
-          name       = "Bad API",
-          sourceType = "rest_api",
-          config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None)
+          name           = "Bad API",
+          sourceType     = "rest_api",
+          config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
+          fieldOverrides = None
         )
       ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
         status shouldBe StatusCodes.Created

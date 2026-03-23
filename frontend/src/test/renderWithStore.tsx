@@ -2,15 +2,18 @@ import { configureStore } from "@reduxjs/toolkit";
 import { render } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { sourcesReducer } from "../features/sources/sourcesSlice";
 import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type {
+  DataSource,
   DataType,
   DashboardAppearance,
   DashboardLayout,
@@ -56,6 +59,11 @@ interface TestState {
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
   };
+  sources?: {
+    items?: DataSource[];
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
+  };
 }
 
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
@@ -63,6 +71,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
     dashboards: dashboardsReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
+    sources: sourcesReducer,
   };
 
   const normalizedState = preloadedState
@@ -99,6 +108,11 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           status: preloadedState.dataTypes?.status ?? "idle",
           error: preloadedState.dataTypes?.error ?? null,
         },
+        sources: {
+          items: preloadedState.sources?.items ?? [],
+          status: preloadedState.sources?.status ?? "idle",
+          error: preloadedState.sources?.error ?? null,
+        },
       }
     : undefined;
 
@@ -109,11 +123,13 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
 
   function Wrapper({ children }: PropsWithChildren) {
     return (
-      <ThemeProvider>
-        <Provider store={store}>
-          <OverlayProvider>{children}</OverlayProvider>
-        </Provider>
-      </ThemeProvider>
+      <MemoryRouter>
+        <ThemeProvider>
+          <Provider store={store}>
+            <OverlayProvider>{children}</OverlayProvider>
+          </Provider>
+        </ThemeProvider>
+      </MemoryRouter>
     );
   }
 

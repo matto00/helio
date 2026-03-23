@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
@@ -70,13 +71,15 @@ function renderApp() {
   return {
     store,
     ...render(
-      <ThemeProvider>
-        <Provider store={store}>
-          <OverlayProvider>
-            <App />
-          </OverlayProvider>
-        </Provider>
-      </ThemeProvider>,
+      <MemoryRouter>
+        <ThemeProvider>
+          <Provider store={store}>
+            <OverlayProvider>
+              <App />
+            </OverlayProvider>
+          </Provider>
+        </ThemeProvider>
+      </MemoryRouter>,
     ),
   };
 }

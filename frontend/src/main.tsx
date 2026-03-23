@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { App } from "./app/App";
@@ -10,12 +11,14 @@ import "./theme/theme.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <Provider store={store}>
-        <OverlayProvider>
-          <App />
-        </OverlayProvider>
-      </Provider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
+        <Provider store={store}>
+          <OverlayProvider>
+            <App />
+          </OverlayProvider>
+        </Provider>
+      </ThemeProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 );

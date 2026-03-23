@@ -4,9 +4,8 @@ const testDataType = {
   id: "dt-1",
   name: "Metrics",
   sourceId: "s-1",
-  sourceType: "rest_api",
   version: 1,
-  fields: [{ name: "value", fieldType: "number" }],
+  fields: [{ name: "value", displayName: "Value", dataType: "float", nullable: false }],
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",
 };

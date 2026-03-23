@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem}
-import spray.json.JsValue
+import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -70,13 +70,26 @@ class DataSourceRoutesSpec
   private val stubConnector: RestApiConnector =
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left("no real HTTP in tests"))))
 
-  private def routes(): Route = {
+  private def successConnector(json: JsValue): RestApiConnector =
+    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Right(json))))
+
+  private def errorConnector(msg: String): RestApiConnector =
+    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left(msg))))
+
+  private def routes(): Route = routesWith(stubConnector)
+
+  private def routesWith(c: RestApiConnector): Route = {
     import com.helio.infrastructure.{DashboardRepository, PanelRepository}
     val ec = typedSystem.executionContext
     val dashboardRepo = new DashboardRepository(db)(ec)
     val panelRepo     = new PanelRepository(db)(ec)
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, stubConnector).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c).routes
   }
+
+  private val sampleJson: JsValue =
+    """[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]""".parseJson
+
+  private val inferConfigBody: String = """{"url": "http://example.com", "method": "GET"}"""
 
   private val validCsv      = "id,name,score\n1,Alice,9.5\n2,Bob,8.0"
   private val nonUtf8Bytes  = Array[Byte](0xff.toByte, 0xfe.toByte, 0x00.toByte)
@@ -239,6 +252,100 @@ class DataSourceRoutesSpec
     "return 404 for an unknown source id" in {
       Delete("/api/data-sources/does-not-exist") ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  "POST /api/data-sources/infer" should {
+
+    "return 200 with inferred schema fields for a valid CSV file" in {
+      val formData = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`text/plain(UTF-8)`, validCsv))
+      )
+      Post("/api/data-sources/infer", formData) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[InferredSchemaResponse]
+        resp.fields.map(_.name)        should contain allOf ("id", "name", "score")
+        resp.fields.map(_.displayName) should contain allOf ("Id", "Name", "Score")
+      }
+    }
+
+    "return 400 when file field is missing" in {
+      val noFile = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("other", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "x"))
+      )
+      Post("/api/data-sources/infer", noFile) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("file is required")
+      }
+    }
+  }
+
+  "POST /api/sources/infer" should {
+
+    "return 200 with inferred schema fields when fetch succeeds" in {
+      Post(
+        "/api/sources/infer",
+        HttpEntity(ContentTypes.`application/json`, inferConfigBody)
+      ) ~> routesWith(successConnector(sampleJson)) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[InferredSchemaResponse]
+        resp.fields.map(_.name) should contain allOf ("id", "name")
+      }
+    }
+
+    "return 502 when the connector fetch fails" in {
+      Post(
+        "/api/sources/infer",
+        HttpEntity(ContentTypes.`application/json`, inferConfigBody)
+      ) ~> routesWith(errorConnector("connection refused")) ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[ErrorResponse].message should include("connection refused")
+      }
+    }
+  }
+
+  "POST /api/data-sources with fieldOverrides" should {
+
+    "apply display name overrides to inferred fields" in {
+      cleanDb()
+      val fieldOverrides = """[{"name": "id", "displayName": "Record ID", "dataType": "integer"}]"""
+      val formData = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("name",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, "Overridden")),
+        Multipart.FormData.BodyPart.Strict("file",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, validCsv)),
+        Multipart.FormData.BodyPart.Strict("fields", HttpEntity(ContentTypes.`application/json`, fieldOverrides))
+      )
+      Post("/api/data-sources", formData) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DataSourceResponse].name shouldBe "Overridden"
+        Get("/api/types") ~> routes() ~> check {
+          val types = responseAs[DataTypesResponse]
+          val idField = types.items.head.fields.find(_.name == "id")
+          idField.map(_.displayName) shouldBe Some("Record ID")
+        }
+      }
+    }
+  }
+
+  "POST /api/sources with fieldOverrides" should {
+
+    "apply display name overrides to the committed DataType" in {
+      cleanDb()
+      val body =
+        """{
+          |  "name": "REST Overridden",
+          |  "sourceType": "rest_api",
+          |  "config": {"url": "http://example.com"},
+          |  "fieldOverrides": [{"name": "id", "displayName": "Identifier", "dataType": "integer"}]
+          |}""".stripMargin
+      Post(
+        "/api/sources",
+        HttpEntity(ContentTypes.`application/json`, body)
+      ) ~> routesWith(successConnector(sampleJson)) ~> check {
+        status shouldBe StatusCodes.Created
+        val resp    = responseAs[CreateSourceResponse]
+        val idField = resp.dataType.flatMap(_.fields.find(_.name == "id"))
+        idField.map(_.displayName) shouldBe Some("Identifier")
       }
     }
   }

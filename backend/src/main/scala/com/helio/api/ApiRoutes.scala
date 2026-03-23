@@ -356,9 +356,12 @@ final class ApiRoutes(
                           .mapAsync(1)(p => p.toStrict(60.seconds).map(s => p.name -> s.entity.data))
                           .runWith(Sink.seq)
                       onSuccess(collectedF) { parts =>
-                        val partsMap = parts.toMap
-                        val nameOpt  = partsMap.get("name").map(_.utf8String.trim).filter(_.nonEmpty)
-                        val bytesOpt = partsMap.get("file").map(_.toArray)
+                        val partsMap      = parts.toMap
+                        val nameOpt       = partsMap.get("name").map(_.utf8String.trim).filter(_.nonEmpty)
+                        val bytesOpt      = partsMap.get("file").map(_.toArray)
+                        val overridesOpt  = partsMap.get("fields").flatMap { raw =>
+                          scala.util.Try(raw.utf8String.parseJson.convertTo[Vector[FieldOverridePayload]]).toOption
+                        }
                         (nameOpt, bytesOpt) match {
                           case (None, _) =>
                             complete(StatusCodes.BadRequest, ErrorResponse("name is required"))
@@ -388,6 +391,10 @@ final class ApiRoutes(
                                     createdAt  = now,
                                     updatedAt  = now
                                   )
+                                  val rawFields = schema.fields.map { f =>
+                                    DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                                  }.toVector
+                                  val finalFields = applyFieldOverrides(rawFields, overridesOpt)
                                   val insertF =
                                     fileSystem.write(filePath, bytes).flatMap { _ =>
                                       dataSourceRepo.insert(source).flatMap { ds =>
@@ -395,9 +402,7 @@ final class ApiRoutes(
                                           id        = DataTypeId(UUID.randomUUID().toString),
                                           sourceId  = Some(ds.id),
                                           name      = name,
-                                          fields    = schema.fields.map { f =>
-                                            DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                                          }.toVector,
+                                          fields    = finalFields,
                                           version   = 1,
                                           createdAt = now,
                                           updatedAt = now
@@ -414,6 +419,40 @@ final class ApiRoutes(
                     }
                   }
                 )
+              },
+              path("infer") {
+                post {
+                  entity(as[Multipart.FormData]) { formData =>
+                    val collectedF =
+                      formData.parts
+                        .mapAsync(1)(p => p.toStrict(60.seconds).map(s => p.name -> s.entity.data))
+                        .runWith(Sink.seq)
+                    onSuccess(collectedF) { parts =>
+                      val partsMap = parts.toMap
+                      partsMap.get("file").map(_.toArray) match {
+                        case None =>
+                          complete(StatusCodes.BadRequest, ErrorResponse("file is required"))
+                        case Some(bytes) =>
+                          if (bytes.length.toLong > csvMaxBytes)
+                            complete(
+                              StatusCodes.RequestEntityTooLarge,
+                              ErrorResponse(s"File exceeds the maximum allowed size of $csvMaxBytes bytes")
+                            )
+                          else
+                            decodeUtf8(bytes) match {
+                              case None =>
+                                complete(StatusCodes.BadRequest, ErrorResponse("File must be UTF-8 encoded"))
+                              case Some(csvContent) =>
+                                val schema = SchemaInferenceEngine.fromCsv(csvContent)
+                                val fields = schema.fields.map { f =>
+                                  InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                                }.toVector
+                                complete(InferredSchemaResponse(fields))
+                            }
+                      }
+                    }
+                  }
+                }
               },
               path(Segment / "refresh") { sourceId =>
                 post {
@@ -499,6 +538,27 @@ final class ApiRoutes(
           },
           pathPrefix("sources") {
             concat(
+              path("infer") {
+                post {
+                  entity(as[RestApiConfigPayload]) { configPayload =>
+                    RestApiConfigPayload.toDomain(configPayload) match {
+                      case Left(err) =>
+                        complete(StatusCodes.BadRequest, ErrorResponse(err))
+                      case Right(restConfig) =>
+                        onSuccess(connector.fetch(restConfig)) {
+                          case Left(err) =>
+                            complete(StatusCodes.BadGateway, ErrorResponse(s"Fetch failed: $err"))
+                          case Right(json) =>
+                            val schema = SchemaInferenceEngine.fromJson(json)
+                            val fields = schema.fields.map { f =>
+                              InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                            }.toVector
+                            complete(InferredSchemaResponse(fields))
+                        }
+                    }
+                  }
+                }
+              },
               pathEndOrSingleSlash {
                 post {
                   entity(as[CreateSourceRequest]) { request =>
@@ -532,14 +592,15 @@ final class ApiRoutes(
                                   )
                                 case Right(json) =>
                                   val schema = SchemaInferenceEngine.fromJson(json)
-                                  val fields = schema.fields.map(f =>
+                                  val rawFields = schema.fields.map(f =>
                                     DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
                                   ).toVector
+                                  val finalFields = applyFieldOverrides(rawFields, request.fieldOverrides)
                                   val dt = DataType(
                                     id        = DataTypeId(UUID.randomUUID().toString),
                                     sourceId  = Some(inserted.id),
                                     name      = inserted.name,
-                                    fields    = fields,
+                                    fields    = finalFields,
                                     version   = 1,
                                     createdAt = now,
                                     updatedAt = now
@@ -639,6 +700,22 @@ final class ApiRoutes(
           }
         )
       }
+
+  private def applyFieldOverrides(
+      fields: Vector[DataField],
+      overrides: Option[Vector[FieldOverridePayload]]
+  ): Vector[DataField] =
+    overrides match {
+      case None | Some(Vector()) => fields
+      case Some(ov) =>
+        val overrideMap = ov.map(o => o.name -> o).toMap
+        fields.map { f =>
+          overrideMap.get(f.name) match {
+            case Some(o) => f.copy(displayName = o.displayName, dataType = o.dataType)
+            case None    => f
+          }
+        }
+    }
 
   private def validatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
     request.dashboardId.map(_.trim).filter(_.nonEmpty) match {

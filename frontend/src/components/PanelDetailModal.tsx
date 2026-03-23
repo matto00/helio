@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import "./PanelDetailModal.css";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
@@ -271,7 +272,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                   <span className="panel-detail-modal__selected-type-name">
                     {selectedType.name}
                   </span>
-                  <span className="panel-detail-modal__type-badge">{selectedType.sourceType}</span>
+                  {selectedType.sourceId && (
+                    <span className="panel-detail-modal__type-badge">source</span>
+                  )}
                   <span className="panel-detail-modal__type-count">
                     {selectedType.fields.length} fields
                   </span>
@@ -320,7 +323,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                           }}
                         >
                           <span className="panel-detail-modal__selected-type-name">{dt.name}</span>
-                          <span className="panel-detail-modal__type-badge">{dt.sourceType}</span>
+                          {dt.sourceId && (
+                            <span className="panel-detail-modal__type-badge">source</span>
+                          )}
                           <span className="panel-detail-modal__type-count">
                             {dt.fields.length} fields
                           </span>
@@ -330,9 +335,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                   )}
                 </>
               )}
-              <a href="/sources" className="panel-detail-modal__source-link">
+              <Link to="/sources" className="panel-detail-modal__source-link">
                 Add a new source →
-              </a>
+              </Link>
             </div>
 
             {selectedType && slots.length > 0 && (

@@ -97,13 +97,21 @@ final case class RestApiConfigPayload(
     auth: Option[RestApiAuthPayload],
     headers: Option[Map[String, String]]
 )
-final case class CreateSourceRequest(name: String, sourceType: String, config: RestApiConfigPayload)
+final case class FieldOverridePayload(name: String, displayName: String, dataType: String)
+final case class CreateSourceRequest(
+    name: String,
+    sourceType: String,
+    config: RestApiConfigPayload,
+    fieldOverrides: Option[Vector[FieldOverridePayload]]
+)
 final case class CreateSourceResponse(
     source: DataSourceResponse,
     dataType: Option[DataTypeResponse],
     fetchError: Option[String]
 )
 final case class PreviewSourceResponse(rows: Vector[JsValue])
+final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
+final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
 // ── Companion objects ─────────────────────────────────────────────────────────
 
@@ -384,8 +392,11 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // REST connector API formats
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload] = jsonFormat5(RestApiAuthPayload.apply)
   implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload] = jsonFormat4(RestApiConfigPayload.apply)
-  implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest] = jsonFormat3(CreateSourceRequest.apply)
+  implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload] = jsonFormat3(FieldOverridePayload.apply)
+  implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest] = jsonFormat4(CreateSourceRequest.apply)
   implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse] = jsonFormat1(PreviewSourceResponse.apply)
+  implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
+  implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
 
   // DataType / DataSource API formats
   implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse] = jsonFormat4(DataFieldResponse.apply)
