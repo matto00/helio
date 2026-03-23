@@ -4,12 +4,14 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type {
+  DataType,
   DashboardAppearance,
   DashboardLayout,
   PanelAppearance,
@@ -49,12 +51,18 @@ interface TestState {
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
   };
+  dataTypes?: {
+    items?: DataType[];
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
+  };
 }
 
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
   const reducer = {
     dashboards: dashboardsReducer,
     panels: panelsReducer,
+    dataTypes: dataTypesReducer,
   };
 
   const normalizedState = preloadedState
@@ -74,6 +82,9 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
         panels: {
           items:
             preloadedState.panels?.items.map((panel) => ({
+              typeId: null,
+              fieldMapping: null,
+              refreshInterval: null,
               ...panel,
               type: panel.type ?? "metric",
               meta: panel.meta ?? defaultMeta,
@@ -82,6 +93,11 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           loadedDashboardId: preloadedState.panels?.loadedDashboardId ?? null,
           status: preloadedState.panels?.status ?? "idle",
           error: preloadedState.panels?.error ?? null,
+        },
+        dataTypes: {
+          items: preloadedState.dataTypes?.items ?? [],
+          status: preloadedState.dataTypes?.status ?? "idle",
+          error: preloadedState.dataTypes?.error ?? null,
         },
       }
     : undefined;

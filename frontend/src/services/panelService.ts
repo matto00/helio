@@ -56,3 +56,17 @@ export async function updatePanelAppearance(
   } satisfies UpdatePanelAppearanceRequest);
   return response.data;
 }
+
+export async function updatePanelBinding(
+  panelId: string,
+  typeId: string | null,
+  fieldMapping: Record<string, string> | null,
+  refreshInterval: number | null,
+): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
+    typeId,
+    fieldMapping,
+    refreshInterval,
+  });
+  return response.data;
+}

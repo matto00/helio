@@ -6,6 +6,7 @@ import {
   duplicatePanel as duplicatePanelRequest,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
+  updatePanelBinding as updatePanelBindingRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
 import type { RootState } from "../../store/store";
@@ -122,6 +123,26 @@ export const updatePanelAppearance = createAsyncThunk<
   }
 });
 
+export const updatePanelBinding = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    typeId: string | null;
+    fieldMapping: Record<string, string> | null;
+    refreshInterval: number | null;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelBinding",
+  async ({ panelId, typeId, fieldMapping, refreshInterval }, { rejectWithValue }) => {
+    try {
+      return await updatePanelBindingRequest(panelId, typeId, fieldMapping, refreshInterval);
+    } catch {
+      return rejectWithValue("Failed to update panel binding.");
+    }
+  },
+);
+
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
@@ -170,6 +191,11 @@ const panelsSlice = createSlice({
       })
       .addCase(duplicatePanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to duplicate panel.";
+      })
+      .addCase(updatePanelBinding.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
       });
   },
 });

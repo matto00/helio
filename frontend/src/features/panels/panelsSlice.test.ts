@@ -1,4 +1,10 @@
-import { createPanel, fetchPanels, panelsReducer, updatePanelAppearance } from "./panelsSlice";
+import {
+  createPanel,
+  fetchPanels,
+  panelsReducer,
+  updatePanelAppearance,
+  updatePanelBinding,
+} from "./panelsSlice";
 
 const defaultMeta = {
   createdBy: "system",
@@ -12,24 +18,23 @@ const defaultAppearance = {
   transparency: 0,
 };
 
+const basePanel = {
+  id: "panel-1",
+  dashboardId: "dashboard-1",
+  title: "Latency",
+  type: "metric" as const,
+  meta: defaultMeta,
+  appearance: defaultAppearance,
+  typeId: null,
+  fieldMapping: null,
+  refreshInterval: null,
+};
+
 describe("panelsSlice", () => {
   it("stores backend panels for the selected dashboard", () => {
     const nextState = panelsReducer(
       undefined,
-      fetchPanels.fulfilled(
-        [
-          {
-            id: "panel-1",
-            dashboardId: "dashboard-1",
-            title: "Latency",
-            type: "metric" as const,
-            meta: defaultMeta,
-            appearance: defaultAppearance,
-          },
-        ],
-        "request-id",
-        "dashboard-1",
-      ),
+      fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
     );
 
     expect(nextState.items).toHaveLength(1);
@@ -53,48 +58,21 @@ describe("panelsSlice", () => {
   it("replaces the updated panel appearance after a save", () => {
     const initialState = panelsReducer(
       undefined,
-      fetchPanels.fulfilled(
-        [
-          {
-            id: "panel-1",
-            dashboardId: "dashboard-1",
-            title: "Latency",
-            type: "metric" as const,
-            meta: defaultMeta,
-            appearance: defaultAppearance,
-          },
-        ],
-        "request-id",
-        "dashboard-1",
-      ),
+      fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
     );
 
     const nextState = panelsReducer(
       initialState,
       updatePanelAppearance.fulfilled(
         {
-          id: "panel-1",
-          dashboardId: "dashboard-1",
-          title: "Latency",
-          type: "metric" as const,
-          meta: {
-            ...defaultMeta,
-            lastUpdated: "2026-03-14T02:00:00Z",
-          },
-          appearance: {
-            background: "#111827",
-            color: "#f8fafc",
-            transparency: 0.45,
-          },
+          ...basePanel,
+          meta: { ...defaultMeta, lastUpdated: "2026-03-14T02:00:00Z" },
+          appearance: { background: "#111827", color: "#f8fafc", transparency: 0.45 },
         },
         "request-id-2",
         {
           panelId: "panel-1",
-          appearance: {
-            background: "#111827",
-            color: "#f8fafc",
-            transparency: 0.45,
-          },
+          appearance: { background: "#111827", color: "#f8fafc", transparency: 0.45 },
         },
       ),
     );
@@ -115,5 +93,30 @@ describe("panelsSlice", () => {
     );
 
     expect(nextState.error).toBe("Failed to create panel.");
+  });
+
+  it("updates the matching panel when updatePanelBinding fulfills", () => {
+    const initialState = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
+    );
+
+    const nextState = panelsReducer(
+      initialState,
+      updatePanelBinding.fulfilled(
+        { ...basePanel, typeId: "dt-1", fieldMapping: { value: "count" }, refreshInterval: 300 },
+        "request-id-3",
+        {
+          panelId: "panel-1",
+          typeId: "dt-1",
+          fieldMapping: { value: "count" },
+          refreshInterval: 300,
+        },
+      ),
+    );
+
+    expect(nextState.items[0].typeId).toBe("dt-1");
+    expect(nextState.items[0].fieldMapping).toEqual({ value: "count" });
+    expect(nextState.items[0].refreshInterval).toBe(300);
   });
 });

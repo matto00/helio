@@ -2,8 +2,10 @@ import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import "./PanelDetailModal.css";
-import { updatePanelAppearance } from "../features/panels/panelsSlice";
-import { useAppDispatch } from "../hooks/reduxHooks";
+import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { PANEL_SLOTS } from "../features/panels/panelSlots";
+import { updatePanelAppearance, updatePanelBinding } from "../features/panels/panelsSlice";
+import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import {
   clampTransparency,
   getColorInputValue,
@@ -26,8 +28,12 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  const dataTypes = useAppSelector((state) => state.dataTypes.items);
+  const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
+
   const [activeTab, setActiveTab] = useState<Tab>("appearance");
 
+  // Appearance state
   const initialBackground = getColorInputValue(
     panel.appearance.background,
     panelAppearanceEditorFallback,
@@ -40,6 +46,19 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [transparency, setTransparency] = useState(initialTransparency);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Data binding state
+  const initialTypeId = panel.typeId;
+  const initialFieldMapping = panel.fieldMapping ?? {};
+  const initialRefreshInterval = panel.refreshInterval;
+
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialTypeId);
+  const [fieldMapping, setFieldMapping] = useState<Record<string, string>>(initialFieldMapping);
+  const [refreshInterval, setRefreshInterval] = useState<number | null>(initialRefreshInterval);
+  const [typeSearch, setTypeSearch] = useState("");
+  const [isDataSaving, setIsDataSaving] = useState(false);
+  const [dataSaveError, setDataSaveError] = useState<string | null>(null);
+
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
 
   const isDirty =
@@ -47,8 +66,13 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     color !== initialColor ||
     transparency !== initialTransparency;
 
-  const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
+  const dataDirty =
+    selectedTypeId !== initialTypeId ||
+    refreshInterval !== initialRefreshInterval ||
+    JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping);
+
+  const isAnyDirtyRef = useRef(isDirty || dataDirty);
+  isAnyDirtyRef.current = isDirty || dataDirty;
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -59,7 +83,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     if (!dialog) return;
 
     function attemptClose() {
-      if (isDirtyRef.current) {
+      if (isAnyDirtyRef.current) {
         setShowDiscardWarning(true);
       } else {
         dialog!.close();
@@ -90,7 +114,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   }
 
   function handleCancel() {
-    if (isDirty) {
+    if (isDirty || dataDirty) {
       setShowDiscardWarning(true);
     } else {
       dialogRef.current?.close();
@@ -98,7 +122,14 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     }
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleTabChange(tab: Tab) {
+    setActiveTab(tab);
+    if (tab === "data" && dataTypesStatus === "idle") {
+      void dispatch(fetchDataTypes());
+    }
+  }
+
+  async function handleAppearanceSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSaving(true);
     setSaveError(null);
@@ -122,6 +153,34 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     }
   }
 
+  async function handleDataSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsDataSaving(true);
+    setDataSaveError(null);
+    try {
+      await dispatch(
+        updatePanelBinding({
+          panelId: panel.id,
+          typeId: selectedTypeId,
+          fieldMapping: Object.keys(fieldMapping).length > 0 ? fieldMapping : null,
+          refreshInterval,
+        }),
+      ).unwrap();
+      dialogRef.current?.close();
+      onCloseRef.current();
+    } catch {
+      setDataSaveError("Failed to save data binding.");
+    } finally {
+      setIsDataSaving(false);
+    }
+  }
+
+  const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
+  const slots = PANEL_SLOTS[panel.type];
+  const filteredDataTypes = dataTypes.filter((dt) =>
+    dt.name.toLowerCase().includes(typeSearch.toLowerCase()),
+  );
+
   return (
     <dialog ref={dialogRef} className="panel-detail-modal" aria-label={`${panel.title} settings`}>
       <div className="panel-detail-modal__inner">
@@ -143,7 +202,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             role="tab"
             className="panel-detail-modal__tab"
             aria-selected={activeTab === "appearance"}
-            onClick={() => setActiveTab("appearance")}
+            onClick={() => handleTabChange("appearance")}
           >
             Appearance
           </button>
@@ -152,7 +211,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             role="tab"
             className="panel-detail-modal__tab"
             aria-selected={activeTab === "data"}
-            onClick={() => setActiveTab("data")}
+            onClick={() => handleTabChange("data")}
           >
             Data
           </button>
@@ -162,7 +221,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
           <form
             id="panel-detail-appearance-form"
             className="panel-detail-modal__content"
-            onSubmit={handleSubmit}
+            onSubmit={handleAppearanceSubmit}
           >
             <div className="panel-detail-modal__row">
               <label className="panel-detail-modal__field">
@@ -200,11 +259,141 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             <InlineError error={saveError} />
           </form>
         ) : (
-          <div className="panel-detail-modal__content panel-detail-modal__content--data">
-            <p className="panel-detail-modal__data-placeholder">
-              Connect a data source to display real content
-            </p>
-          </div>
+          <form
+            id="panel-detail-data-form"
+            className="panel-detail-modal__content"
+            onSubmit={handleDataSubmit}
+          >
+            <div className="panel-detail-modal__data-section">
+              <span className="panel-detail-modal__data-label">Data type</span>
+              {selectedType ? (
+                <div className="panel-detail-modal__selected-type">
+                  <span className="panel-detail-modal__selected-type-name">
+                    {selectedType.name}
+                  </span>
+                  <span className="panel-detail-modal__type-badge">{selectedType.sourceType}</span>
+                  <span className="panel-detail-modal__type-count">
+                    {selectedType.fields.length} fields
+                  </span>
+                  <button
+                    type="button"
+                    className="panel-detail-modal__type-clear"
+                    aria-label="Clear selected data type"
+                    onClick={() => {
+                      setSelectedTypeId(null);
+                      setFieldMapping({});
+                      setTypeSearch("");
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    className="panel-detail-modal__type-search"
+                    placeholder="Search data types…"
+                    value={typeSearch}
+                    onChange={(e) => setTypeSearch(e.target.value)}
+                    aria-label="Search data types"
+                  />
+                  {dataTypesStatus === "loading" ? (
+                    <p className="panel-detail-modal__type-hint">Loading…</p>
+                  ) : filteredDataTypes.length === 0 ? (
+                    <p className="panel-detail-modal__type-hint">No data types found.</p>
+                  ) : (
+                    <ul
+                      className="panel-detail-modal__type-list"
+                      role="listbox"
+                      aria-label="Data types"
+                    >
+                      {filteredDataTypes.map((dt) => (
+                        <li
+                          key={dt.id}
+                          role="option"
+                          aria-selected={dt.id === selectedTypeId}
+                          className="panel-detail-modal__type-option"
+                          onClick={() => {
+                            setSelectedTypeId(dt.id);
+                            setTypeSearch("");
+                          }}
+                        >
+                          <span className="panel-detail-modal__selected-type-name">{dt.name}</span>
+                          <span className="panel-detail-modal__type-badge">{dt.sourceType}</span>
+                          <span className="panel-detail-modal__type-count">
+                            {dt.fields.length} fields
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+              <a href="/sources" className="panel-detail-modal__source-link">
+                Add a new source →
+              </a>
+            </div>
+
+            {selectedType && slots.length > 0 && (
+              <div className="panel-detail-modal__data-section">
+                <span className="panel-detail-modal__data-label">Field mapping</span>
+                {slots.map((slot) => (
+                  <div key={slot.key} className="panel-detail-modal__mapping-row">
+                    <label
+                      className="panel-detail-modal__mapping-label"
+                      htmlFor={`slot-${slot.key}`}
+                    >
+                      {slot.label}
+                    </label>
+                    <select
+                      id={`slot-${slot.key}`}
+                      className="panel-detail-modal__mapping-select"
+                      value={fieldMapping[slot.key] ?? ""}
+                      onChange={(e) =>
+                        setFieldMapping((prev) => ({
+                          ...prev,
+                          [slot.key]: e.target.value,
+                        }))
+                      }
+                      aria-label={`${slot.label} field`}
+                    >
+                      <option value="">— None —</option>
+                      {selectedType.fields.map((f) => (
+                        <option key={f.name} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="refresh-interval">
+                Refresh interval
+              </label>
+              <select
+                id="refresh-interval"
+                className="panel-detail-modal__mapping-select"
+                value={refreshInterval ?? ""}
+                onChange={(e) =>
+                  setRefreshInterval(e.target.value === "" ? null : Number(e.target.value))
+                }
+                aria-label="Refresh interval"
+              >
+                <option value="">Manual</option>
+                <option value="30">30s</option>
+                <option value="60">1m</option>
+                <option value="300">5m</option>
+                <option value="900">15m</option>
+                <option value="3600">1h</option>
+              </select>
+            </div>
+
+            <InlineError error={dataSaveError} />
+          </form>
         )}
 
         {showDiscardWarning ? (
@@ -247,7 +436,17 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             >
               {isSaving ? "Saving..." : "Save"}
             </button>
-          ) : null}
+          ) : (
+            <button
+              type="submit"
+              form="panel-detail-data-form"
+              className="panel-detail-modal__btn panel-detail-modal__btn--save"
+              aria-label="Save data binding"
+              disabled={isDataSaving}
+            >
+              {isDataSaving ? "Saving..." : "Save"}
+            </button>
+          )}
         </footer>
       </div>
     </dialog>
