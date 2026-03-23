@@ -79,6 +79,8 @@ final case class DataSourceResponse(id: String, name: String, sourceType: String
 final case class DataSourcesResponse(items: Vector[DataSourceResponse])
 final case class DataFieldPayload(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class UpdateDataTypeRequest(name: Option[String], fields: Option[Vector[DataFieldPayload]])
+final case class CreateDataSourceRequest(name: String)
+final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
 
 // ── REST connector API types ──────────────────────────────────────────────────
 
@@ -391,9 +393,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse] = jsonFormat1(DataTypesResponse.apply)
   implicit val dataSourceResponseFormat: RootJsonFormat[DataSourceResponse]   = jsonFormat5(DataSourceResponse.apply)
   implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse] = jsonFormat1(DataSourcesResponse.apply)
-  implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]         = jsonFormat4(DataFieldPayload.apply)
-  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest] = jsonFormat2(
-    UpdateDataTypeRequest.apply
-  )
-  implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse] = jsonFormat3(CreateSourceResponse.apply)
+  implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]             = jsonFormat4(DataFieldPayload.apply)
+  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]   = jsonFormat2(UpdateDataTypeRequest.apply)
+  implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
+  implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
+  implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
 }

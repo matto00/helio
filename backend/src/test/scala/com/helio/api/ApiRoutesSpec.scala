@@ -6,7 +6,7 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{RestApiConfig, RestApiConnector}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -68,11 +68,20 @@ class ApiRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
+  private val stubFileSystem: FileSystem = new FileSystem {
+    import scala.concurrent.Future
+    def write(path: String, bytes: Array[Byte]): Future[Unit]  = Future.successful(())
+    def read(path: String): Future[Array[Byte]]                = Future.successful(Array.empty)
+    def delete(path: String): Future[Unit]                     = Future.successful(())
+    def exists(path: String): Future[Boolean]                  = Future.successful(false)
+    def list(prefix: String): Future[Seq[String]]              = Future.successful(Seq.empty)
+  }
+
   private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
 
   private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, connector).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector).routes
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
