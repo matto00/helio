@@ -5,7 +5,9 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem}
+import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -65,12 +67,15 @@ class DataSourceRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
+  private val stubConnector: RestApiConnector =
+    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left("no real HTTP in tests"))))
+
   private def routes(): Route = {
     import com.helio.infrastructure.{DashboardRepository, PanelRepository}
     val ec = typedSystem.executionContext
     val dashboardRepo = new DashboardRepository(db)(ec)
     val panelRepo     = new PanelRepository(db)(ec)
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, stubConnector).routes
   }
 
   private val validCsv      = "id,name,score\n1,Alice,9.5\n2,Bob,8.0"

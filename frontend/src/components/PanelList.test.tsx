@@ -177,6 +177,9 @@ describe("PanelList", () => {
       type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -213,6 +216,9 @@ describe("PanelList", () => {
       type: "chart" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -252,6 +258,9 @@ describe("PanelList", () => {
       type: "table" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -327,6 +336,9 @@ describe("PanelList", () => {
       type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
     });
     fetchPanelsMock.mockResolvedValue([
       {
@@ -336,6 +348,9 @@ describe("PanelList", () => {
         type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
+        typeId: null,
+        fieldMapping: null,
+        refreshInterval: null,
       },
       {
         id: "panel-2",
@@ -344,6 +359,9 @@ describe("PanelList", () => {
         type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
+        typeId: null,
+        fieldMapping: null,
+        refreshInterval: null,
       },
     ]);
 

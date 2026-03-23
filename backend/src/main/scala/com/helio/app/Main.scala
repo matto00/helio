@@ -4,6 +4,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
+import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository}
 import com.typesafe.config.ConfigFactory
 
@@ -35,9 +36,10 @@ object Main {
 
       DemoData.seedIfEmpty(dashboardRepo, panelRepo)
 
+      val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem)
+      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, connector)
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

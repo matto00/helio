@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 
+import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import {
@@ -26,6 +27,11 @@ jest.mock("../services/dashboardService", () => ({
 jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   updatePanelAppearance: jest.fn(),
+  updatePanelBinding: jest.fn(),
+}));
+
+jest.mock("../services/dataTypeService", () => ({
+  fetchDataTypes: jest.fn().mockResolvedValue([]),
 }));
 
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
@@ -57,6 +63,7 @@ function renderApp() {
     reducer: {
       dashboards: dashboardsReducer,
       panels: panelsReducer,
+      dataTypes: dataTypesReducer,
     },
   });
 
@@ -211,6 +218,9 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T12:30:00Z",
               },
               appearance: defaultPanelAppearance,
+              typeId: null,
+              fieldMapping: null,
+              refreshInterval: null,
             },
           ]
         : [
@@ -225,6 +235,9 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T13:30:00Z",
               },
               appearance: defaultPanelAppearance,
+              typeId: null,
+              fieldMapping: null,
+              refreshInterval: null,
             },
           ],
     );
@@ -372,6 +385,9 @@ describe("App", () => {
           lastUpdated: "2026-03-14T13:30:00Z",
         },
         appearance: defaultPanelAppearance,
+        typeId: null,
+        fieldMapping: null,
+        refreshInterval: null,
       },
     ]);
     updatePanelAppearanceMock.mockResolvedValue({
@@ -389,6 +405,9 @@ describe("App", () => {
         color: "#f8fafc",
         transparency: 0.35,
       },
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
     });
 
     renderApp();

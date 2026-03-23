@@ -44,6 +44,16 @@ class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exe
     db.run(table += domainToRow(source))
       .map(_ => source)
 
+  def update(source: DataSource): Future[Option[DataSource]] = {
+    val action = table
+      .filter(_.id === source.id.value)
+      .map(r => (r.name, r.config, r.updatedAt))
+      .update((source.name, source.config.compactPrint, source.updatedAt))
+      .andThen(table.filter(_.id === source.id.value).result.headOption)
+      .map(_.map(rowToDomain))
+    db.run(action)
+  }
+
   def delete(id: DataSourceId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 }

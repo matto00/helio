@@ -82,6 +82,29 @@ final case class UpdateDataTypeRequest(name: Option[String], fields: Option[Vect
 final case class CreateDataSourceRequest(name: String)
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
 
+// ── REST connector API types ──────────────────────────────────────────────────
+
+final case class RestApiAuthPayload(
+    `type`: String,
+    token: Option[String],
+    name: Option[String],
+    value: Option[String],
+    in: Option[String]
+)
+final case class RestApiConfigPayload(
+    url: String,
+    method: Option[String],
+    auth: Option[RestApiAuthPayload],
+    headers: Option[Map[String, String]]
+)
+final case class CreateSourceRequest(name: String, sourceType: String, config: RestApiConfigPayload)
+final case class CreateSourceResponse(
+    source: DataSourceResponse,
+    dataType: Option[DataTypeResponse],
+    fetchError: Option[String]
+)
+final case class PreviewSourceResponse(rows: Vector[JsValue])
+
 // ── Companion objects ─────────────────────────────────────────────────────────
 
 object ResourceMetaResponse {
@@ -190,6 +213,39 @@ object DashboardLayoutResponse {
       sm = layout.sm.map(DashboardLayoutItemResponse.fromDomain),
       xs = layout.xs.map(DashboardLayoutItemResponse.fromDomain)
     )
+}
+
+object RestApiConfigPayload {
+  def toDomain(p: RestApiConfigPayload): Either[String, RestApiConfig] = {
+    val auth: Either[String, RestApiAuth] = p.auth match {
+      case None => Right(RestApiAuth.NoAuth)
+      case Some(a) => a.`type` match {
+        case "none"    => Right(RestApiAuth.NoAuth)
+        case "bearer"  =>
+          a.token.toRight("bearer auth requires 'token'").map(RestApiAuth.BearerAuth(_))
+        case "api_key" =>
+          for {
+            name  <- a.name.toRight("api_key auth requires 'name'")
+            value <- a.value.toRight("api_key auth requires 'value'")
+            in    <- a.in.toRight("api_key auth requires 'in' (header or query)")
+            placement <- in match {
+              case "header" => Right(ApiKeyPlacement.Header)
+              case "query"  => Right(ApiKeyPlacement.Query)
+              case other    => Left(s"Invalid 'in' value: '$other'. Must be 'header' or 'query'")
+            }
+          } yield RestApiAuth.ApiKeyAuth(name, value, placement)
+        case other => Left(s"Unknown auth type: '$other'. Valid values: none, bearer, api_key")
+      }
+    }
+    auth.map(a =>
+      RestApiConfig(
+        url     = p.url,
+        method  = p.method.getOrElse("GET"),
+        auth    = a,
+        headers = p.headers.getOrElse(Map.empty)
+      )
+    )
+  }
 }
 
 object PanelAppearanceResponse {
@@ -325,14 +381,21 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
       }
     }
 
+  // REST connector API formats
+  implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload] = jsonFormat5(RestApiAuthPayload.apply)
+  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload] = jsonFormat4(RestApiConfigPayload.apply)
+  implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest] = jsonFormat3(CreateSourceRequest.apply)
+  implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse] = jsonFormat1(PreviewSourceResponse.apply)
+
   // DataType / DataSource API formats
   implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse] = jsonFormat4(DataFieldResponse.apply)
   implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]   = jsonFormat7(DataTypeResponse.apply)
   implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse] = jsonFormat1(DataTypesResponse.apply)
   implicit val dataSourceResponseFormat: RootJsonFormat[DataSourceResponse]   = jsonFormat5(DataSourceResponse.apply)
   implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse] = jsonFormat1(DataSourcesResponse.apply)
-  implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]           = jsonFormat4(DataFieldPayload.apply)
-  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest] = jsonFormat2(UpdateDataTypeRequest.apply)
+  implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]             = jsonFormat4(DataFieldPayload.apply)
+  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]   = jsonFormat2(UpdateDataTypeRequest.apply)
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
-  implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]       = jsonFormat2(CsvPreviewResponse.apply)
+  implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
+  implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
 }

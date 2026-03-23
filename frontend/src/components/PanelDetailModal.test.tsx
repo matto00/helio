@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../services/panelService";
+import { updatePanelBinding as updatePanelBindingRequest } from "../services/panelService";
+import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
 
@@ -8,9 +10,16 @@ jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn(),
+  updatePanelBinding: jest.fn(),
+}));
+
+jest.mock("../services/dataTypeService", () => ({
+  fetchDataTypes: jest.fn(),
 }));
 
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
+const updateBindingMock = jest.mocked(updatePanelBindingRequest);
+const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
 const testPanel = {
   id: "p1",
@@ -27,11 +36,26 @@ const testPanel = {
     createdAt: "2026-03-14T00:00:00Z",
     lastUpdated: "2026-03-14T00:00:00Z",
   },
+  typeId: null,
+  fieldMapping: null,
+  refreshInterval: null,
+};
+
+const testDataType = {
+  id: "dt-1",
+  name: "Sales Metrics",
+  sourceId: null,
+  sourceType: "rest_api",
+  version: 1,
+  fields: [
+    { name: "revenue", fieldType: "number" },
+    { name: "label", fieldType: "string" },
+  ],
+  createdAt: "2026-03-22T00:00:00Z",
+  updatedAt: "2026-03-22T00:00:00Z",
 };
 
 function renderModal(onClose = jest.fn()) {
-  // JSDOM does not implement showModal/close on <dialog>; mock them and simulate
-  // the open attribute so the dialog is accessible in the rendered tree.
   HTMLDialogElement.prototype.showModal = jest.fn(function () {
     this.setAttribute("open", "");
   });
@@ -42,9 +66,24 @@ function renderModal(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />);
 }
 
+function renderModalWithDataType(onClose = jest.fn()) {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />, {
+    dataTypes: { items: [testDataType], status: "succeeded" },
+  });
+}
+
 describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
+    updateBindingMock.mockReset();
+    fetchDataTypesMock.mockReset();
   });
 
   it("shows the panel title in the header", () => {
@@ -68,20 +107,102 @@ describe("PanelDetailModal", () => {
     expect(screen.getByLabelText("Revenue transparency")).toBeInTheDocument();
   });
 
-  it("switches to the Data tab and shows the placeholder", () => {
+  it("switches to the Data tab and shows the type search input", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
     renderModal();
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     expect(screen.getByRole("tab", { name: "Data" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Connect a data source to display real content")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
   });
 
-  it("hides the Save button on the Data tab", () => {
+  it("shows a Save button on the Data tab", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
     renderModal();
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
-    expect(screen.queryByRole("button", { name: /Save/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save data binding" })).toBeInTheDocument();
   });
 
-  it("calls updatePanelAppearance and closes on Save", async () => {
+  it("dispatches fetchDataTypes when Data tab is activated", async () => {
+    fetchDataTypesMock.mockResolvedValue([testDataType]);
+    renderModal();
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    await waitFor(() => expect(fetchDataTypesMock).toHaveBeenCalled());
+  });
+
+  it("shows the DataType list when data types are loaded", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    renderModalWithDataType();
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    expect(screen.getByRole("listbox", { name: "Data types" })).toBeInTheDocument();
+    expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
+  });
+
+  it("shows field mapping slots after selecting a DataType", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    renderModalWithDataType();
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    // metric panel: value, label, unit slots
+    expect(screen.getByLabelText("Value field")).toBeInTheDocument();
+    expect(screen.getByLabelText("Label field")).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit field")).toBeInTheDocument();
+  });
+
+  it("filters the DataType list by search query", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    renderModalWithDataType();
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    fireEvent.change(screen.getByLabelText("Search data types"), {
+      target: { value: "xyz" },
+    });
+    expect(screen.queryByText("Sales Metrics")).not.toBeInTheDocument();
+  });
+
+  it("saves binding and closes on Data tab Save", async () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    updateBindingMock.mockResolvedValue({
+      ...testPanel,
+      typeId: "dt-1",
+      fieldMapping: null,
+      refreshInterval: null,
+    });
+    const onClose = jest.fn();
+    renderModalWithDataType(onClose);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
+
+    await waitFor(() => expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("shows an inline error when Data tab Save fails", async () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    updateBindingMock.mockRejectedValue(new Error("Network error"));
+    renderModalWithDataType();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows discard warning when Cancel is clicked with unsaved data changes", () => {
+    fetchDataTypesMock.mockResolvedValue([]);
+    renderModalWithDataType();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+
+    expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+  });
+
+  it("calls updatePanelAppearance and closes on Appearance Save", async () => {
     updateAppearanceMock.mockResolvedValue({
       ...testPanel,
       appearance: { background: "#000000", color: "inherit", transparency: 0 },
@@ -90,7 +211,6 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     renderModal(onClose);
 
-    // Change the background color
     fireEvent.change(screen.getByLabelText("Revenue background color"), {
       target: { value: "#000000" },
     });
@@ -106,7 +226,7 @@ describe("PanelDetailModal", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it("shows an inline error when Save fails", async () => {
+  it("shows an inline error when Appearance Save fails", async () => {
     updateAppearanceMock.mockRejectedValue(new Error("Network error"));
 
     renderModal();
@@ -131,7 +251,7 @@ describe("PanelDetailModal", () => {
     expect(updateAppearanceMock).not.toHaveBeenCalled();
   });
 
-  it("shows discard warning when Cancel is clicked with unsaved changes", () => {
+  it("shows discard warning when Cancel is clicked with unsaved appearance changes", () => {
     renderModal();
 
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {

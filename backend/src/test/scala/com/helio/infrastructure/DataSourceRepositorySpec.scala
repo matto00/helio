@@ -104,5 +104,22 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val result = await(repo.delete(DataSourceId(UUID.randomUUID().toString)))
       result shouldBe false
     }
+
+    "update returns the updated entity" in {
+      cleanDb()
+      val source = newSource("Original")
+      await(repo.insert(source))
+      val updated = source.copy(name = "Renamed", updatedAt = Instant.now())
+      val result  = await(repo.update(updated))
+      result shouldBe defined
+      result.get.name shouldBe "Renamed"
+    }
+
+    "update returns None for unknown id" in {
+      cleanDb()
+      val source = newSource().copy(id = DataSourceId(UUID.randomUUID().toString))
+      val result = await(repo.update(source))
+      result shouldBe None
+    }
   }
 }

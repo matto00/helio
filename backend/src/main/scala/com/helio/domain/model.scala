@@ -114,6 +114,26 @@ final case class DataSource(
     updatedAt: Instant
 )
 
+sealed trait ApiKeyPlacement
+object ApiKeyPlacement {
+  case object Header extends ApiKeyPlacement
+  case object Query  extends ApiKeyPlacement
+}
+
+sealed trait RestApiAuth
+object RestApiAuth {
+  case object NoAuth                                                              extends RestApiAuth
+  final case class BearerAuth(token: String)                                    extends RestApiAuth
+  final case class ApiKeyAuth(name: String, value: String, in: ApiKeyPlacement) extends RestApiAuth
+}
+
+final case class RestApiConfig(
+    url: String,
+    method: String = "GET",
+    auth: RestApiAuth = RestApiAuth.NoAuth,
+    headers: Map[String, String] = Map.empty
+)
+
 sealed trait DataFieldType
 object DataFieldType {
   case object StringType    extends DataFieldType

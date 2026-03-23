@@ -30,6 +30,22 @@ export interface PanelAppearance {
   transparency: number;
 }
 
+export interface DataTypeField {
+  name: string;
+  fieldType: string;
+}
+
+export interface DataType {
+  id: string;
+  name: string;
+  sourceId: string | null;
+  sourceType: string;
+  version: number;
+  fields: DataTypeField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Dashboard {
   id: string;
   name: string;
@@ -47,4 +63,7 @@ export interface Panel {
   type: PanelType;
   meta: ResourceMeta;
   appearance: PanelAppearance;
+  typeId: string | null;
+  fieldMapping: Record<string, string> | null;
+  refreshInterval: number | null;
 }

@@ -5,7 +5,9 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.domain.{RestApiConfig, RestApiConnector}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository}
+import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -75,8 +77,11 @@ class ApiRoutesSpec
     def list(prefix: String): Future[Seq[String]]              = Future.successful(Seq.empty)
   }
 
-  private def routes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem).routes
+  private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
+    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
+
+  private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector).routes
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
@@ -915,6 +920,124 @@ class ApiRoutesSpec
         val response = responseAs[PanelResponse]
         response.typeId shouldBe None
         response.fieldMapping shouldBe None
+      }
+    }
+
+    // ── REST connector routes ──────────────────────────────────────────────────
+
+    "POST /api/sources creates DataSource and registers DataType on successful fetch" in {
+      cleanDb()
+      import spray.json._
+
+      val responseJson = """[{"col1":"a","col2":1},{"col1":"b","col2":2}]""".parseJson
+      Post(
+        "/api/sources",
+        CreateSourceRequest(
+          name       = "My API",
+          sourceType = "rest_api",
+          config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None)
+        )
+      ) ~> routes(stubConnector(Right(responseJson))) ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[CreateSourceResponse]
+        response.source.name shouldBe "My API"
+        response.dataType shouldBe defined
+        response.dataType.get.fields should have size 2
+        response.fetchError shouldBe None
+      }
+    }
+
+    "POST /api/sources creates DataSource with fetchError when fetch fails" in {
+      cleanDb()
+      Post(
+        "/api/sources",
+        CreateSourceRequest(
+          name       = "Bad API",
+          sourceType = "rest_api",
+          config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None)
+        )
+      ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[CreateSourceResponse]
+        response.dataType shouldBe None
+        response.fetchError shouldBe Some("HTTP 500: Internal Server Error")
+      }
+    }
+
+    "POST /api/sources/:id/refresh updates DataType and increments version" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+      import spray.json._
+
+      val now = Instant.now()
+      val source = DataSource(
+        id         = DataSourceId(UUID.randomUUID().toString),
+        name       = "Refresh Source",
+        sourceType = SourceType.RestApi,
+        config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
+        createdAt  = now,
+        updatedAt  = now
+      )
+      await(dataSourceRepo.insert(source))
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = Some(source.id),
+        name      = "Refresh Source",
+        fields    = Vector(DataField("old", "Old", "string", nullable = false)),
+        version   = 1,
+        createdAt = now,
+        updatedAt = now
+      )
+      await(dataTypeRepo.insert(dt))
+
+      val newJson = """[{"new_col":"x"}]""".parseJson
+      Post(s"/api/sources/${source.id.value}/refresh") ~> routes(stubConnector(Right(newJson))) ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DataTypeResponse]
+        response.fields.map(_.name) shouldBe Vector("new_col")
+        response.version shouldBe 2
+      }
+    }
+
+    "POST /api/sources/:id/refresh returns 404 for unknown source" in {
+      Post("/api/sources/does-not-exist/refresh") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("DataSource not found")
+      }
+    }
+
+    "GET /api/sources/:id/preview returns up to 10 rows" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+      import spray.json._
+
+      val now = Instant.now()
+      val source = DataSource(
+        id         = DataSourceId(UUID.randomUUID().toString),
+        name       = "Preview Source",
+        sourceType = SourceType.RestApi,
+        config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
+        createdAt  = now,
+        updatedAt  = now
+      )
+      await(dataSourceRepo.insert(source))
+
+      val bigArray = JsArray((1 to 15).map(i => JsObject("n" -> JsNumber(i))).toVector)
+      Get(s"/api/sources/${source.id.value}/preview") ~> routes(stubConnector(Right(bigArray))) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PreviewSourceResponse].rows should have size 10
+      }
+    }
+
+    "GET /api/sources/:id/preview returns 404 for unknown source" in {
+      Get("/api/sources/does-not-exist/preview") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("DataSource not found")
       }
     }
   }
