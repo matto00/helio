@@ -30,7 +30,7 @@ The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue
 - **THEN** the field is inferred as `TimestampType`
 
 ### Requirement: CSV schema inference
-The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (first row = headers), sample up to 100 data rows, and return an `InferredSchema`. Type detection SHALL use widening order: `IntegerType` → `FloatType` → `BooleanType` → `TimestampType` → `StringType`. Empty cells SHALL mark the field as nullable.
+The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (first row = headers), sample up to 100 data rows, and return an `InferredSchema`. Type detection SHALL use widening order: `IntegerType` → `FloatType` → `BooleanType` → `TimestampType` → `StringType`. Empty cells SHALL mark the field as nullable. Parsing SHALL comply with RFC 4180: fields MAY be enclosed in double-quotes; a double-quote inside a quoted field is escaped as two consecutive double-quotes (`""`); both CRLF and LF line endings SHALL be accepted.
 
 #### Scenario: Header row becomes field names
 - **WHEN** `fromCsv` is called with a CSV whose first row is `id,name,score`
@@ -63,6 +63,18 @@ The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (firs
 #### Scenario: Sampling is capped at 100 rows
 - **WHEN** `fromCsv` is called with a CSV containing more than 100 data rows
 - **THEN** only the first 100 rows are used for type inference
+
+#### Scenario: Quoted field with embedded comma is parsed as one field
+- **WHEN** a CSV row contains `"Smith, John",30`
+- **THEN** the first field value is `Smith, John` and the second is `30`
+
+#### Scenario: Escaped double-quote inside quoted field
+- **WHEN** a CSV row contains `"say ""hello""",ok`
+- **THEN** the first field value is `say "hello"` and the second is `ok`
+
+#### Scenario: CRLF line endings are accepted
+- **WHEN** the CSV uses CRLF (`\r\n`) line endings
+- **THEN** `fromCsv` produces the same result as the equivalent LF-only CSV
 
 ### Requirement: DataFieldType sealed type
 The `DataFieldType` sealed trait SHALL define exactly five variants: `StringType`, `IntegerType`, `FloatType`, `BooleanType`, `TimestampType`. An `asString` method SHALL return the canonical lowercase string representation used for storage in `DataField.dataType`.
