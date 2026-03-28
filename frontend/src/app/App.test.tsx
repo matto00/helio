@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
+import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
@@ -63,6 +64,7 @@ function renderApp() {
   const store = configureStore({
     reducer: {
       dashboards: dashboardsReducer,
+      layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
     },

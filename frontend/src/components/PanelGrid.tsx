@@ -19,6 +19,7 @@ import {
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import { deletePanel, duplicatePanel, updatePanelTitle } from "../features/panels/panelsSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
@@ -168,6 +169,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const persistedLayoutRef = useRef(resolvedLayout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
 
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
@@ -266,6 +268,34 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactor}
+        onDragStart={() => {
+          preInteractionLayoutRef.current = latestLayoutRef.current;
+        }}
+        onResizeStart={() => {
+          preInteractionLayoutRef.current = latestLayoutRef.current;
+        }}
+        onDragStop={() => {
+          if (preInteractionLayoutRef.current !== null) {
+            dispatch(
+              pushLayoutSnapshot({
+                dashboardId,
+                layout: preInteractionLayoutRef.current,
+              }),
+            );
+            preInteractionLayoutRef.current = null;
+          }
+        }}
+        onResizeStop={() => {
+          if (preInteractionLayoutRef.current !== null) {
+            dispatch(
+              pushLayoutSnapshot({
+                dashboardId,
+                layout: preInteractionLayoutRef.current,
+              }),
+            );
+            preInteractionLayoutRef.current = null;
+          }
+        }}
         onLayoutChange={(_, nextLayouts) => {
           if (nextLayouts === undefined) {
             return;
