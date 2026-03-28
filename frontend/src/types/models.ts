@@ -83,3 +83,8 @@ export interface Panel {
   fieldMapping: Record<string, string> | null;
   refreshInterval: number | null;
 }
+
+export interface DuplicateDashboardResponse {
+  dashboard: Dashboard;
+  panels: Panel[];
+}

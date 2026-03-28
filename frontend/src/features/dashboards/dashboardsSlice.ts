@@ -3,13 +3,19 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 import {
   createDashboard as createDashboardRequest,
   deleteDashboard as deleteDashboardRequest,
+  duplicateDashboard as duplicateDashboardRequest,
   fetchDashboards as fetchDashboardsRequest,
   renameDashboard as renameDashboardRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../../services/dashboardService";
 import type { RootState } from "../../store/store";
-import type { Dashboard, DashboardAppearance, DashboardLayout } from "../../types/models";
+import type {
+  Dashboard,
+  DashboardAppearance,
+  DashboardLayout,
+  DuplicateDashboardResponse,
+} from "../../types/models";
 
 interface DashboardsState {
   items: Dashboard[];
@@ -112,6 +118,18 @@ export const updateDashboardLayout = createAsyncThunk<
   }
 });
 
+export const duplicateDashboard = createAsyncThunk<
+  DuplicateDashboardResponse,
+  string,
+  { rejectValue: string }
+>("dashboards/duplicateDashboard", async (dashboardId, { rejectWithValue }) => {
+  try {
+    return await duplicateDashboardRequest(dashboardId);
+  } catch {
+    return rejectWithValue("Failed to duplicate dashboard.");
+  }
+});
+
 const dashboardsSlice = createSlice({
   name: "dashboards",
   initialState,
@@ -171,6 +189,10 @@ const dashboardsSlice = createSlice({
         if (state.selectedDashboardId === action.payload) {
           state.selectedDashboardId = getMostRecentDashboardId(state.items);
         }
+      })
+      .addCase(duplicateDashboard.fulfilled, (state, action) => {
+        state.items.push(action.payload.dashboard);
+        state.selectedDashboardId = action.payload.dashboard.id;
       });
   },
 });

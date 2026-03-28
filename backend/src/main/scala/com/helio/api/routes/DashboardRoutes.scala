@@ -55,6 +55,22 @@ final class DashboardRoutes(
             }
           }
         },
+        path(Segment / "duplicate") { dashboardId =>
+          post {
+            onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some((dashboard, panels)) =>
+                complete(
+                  StatusCodes.Created,
+                  DuplicateDashboardResponse(
+                    dashboard = DashboardResponse.fromDomain(dashboard),
+                    panels    = panels.map(PanelResponse.fromDomain)
+                  )
+                )
+            }
+          }
+        },
         path(Segment) { dashboardId =>
           concat(
             delete {

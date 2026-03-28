@@ -44,6 +44,7 @@ final case class PanelResponse(
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
+final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
 final case class HealthResponse(status: String)
 final case class ErrorResponse(message: String)
 final case class CreateDashboardRequest(name: Option[String])
@@ -334,6 +335,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   )
   implicit val panelsResponseFormat: RootJsonFormat[PanelsResponse] = jsonFormat1(
     PanelsResponse.apply
+  )
+  implicit val duplicateDashboardResponseFormat: RootJsonFormat[DuplicateDashboardResponse] = jsonFormat2(
+    DuplicateDashboardResponse.apply
   )
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(
     HealthResponse.apply
