@@ -60,9 +60,19 @@ final class SourceRoutes(
                             )
                           case Right(json) =>
                             val schema = SchemaInferenceEngine.fromJson(json)
-                            val fields = schema.fields.map(f =>
-                              DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                            ).toVector
+                            val overridesMap = request.fieldOverrides
+                              .getOrElse(Vector.empty)
+                              .map(o => o.name -> o)
+                              .toMap
+                            val fields = schema.fields.map { f =>
+                              val ov = overridesMap.get(f.name)
+                              DataField(
+                                f.name,
+                                ov.map(_.displayName).getOrElse(f.displayName),
+                                ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
+                                f.nullable
+                              )
+                            }.toVector
                             val dt = DataType(
                               id        = DataTypeId(UUID.randomUUID().toString),
                               sourceId  = Some(inserted.id),
@@ -84,6 +94,27 @@ final class SourceRoutes(
                             }
                         }
                       }
+                  }
+              }
+            }
+          }
+        },
+        path("infer") {
+          post {
+            entity(as[RestApiConfigPayload]) { payload =>
+              RestApiConfigPayload.toDomain(payload) match {
+                case Left(err) =>
+                  complete(StatusCodes.BadRequest, ErrorResponse(err))
+                case Right(restConfig) =>
+                  onSuccess(connector.fetch(restConfig)) {
+                    case Left(err) =>
+                      complete(StatusCodes.BadGateway, ErrorResponse(err))
+                    case Right(json) =>
+                      val schema = SchemaInferenceEngine.fromJson(json)
+                      val fields = schema.fields.map(f =>
+                        InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                      ).toVector
+                      complete(InferredSchemaResponse(fields))
                   }
               }
             }

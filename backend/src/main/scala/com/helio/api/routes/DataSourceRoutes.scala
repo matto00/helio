@@ -17,6 +17,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
+import scala.util.Try
 
 final class DataSourceRoutes(
     dataSourceRepo: DataSourceRepository,
@@ -68,6 +69,11 @@ final class DataSourceRoutes(
                           case None =>
                             complete(StatusCodes.BadRequest, ErrorResponse("File must be UTF-8 encoded"))
                           case Some(csvContent) =>
+                            val overridesMap = partsMap.get("fields")
+                              .flatMap(data => Try(data.utf8String.parseJson.convertTo[Vector[FieldOverridePayload]]).toOption)
+                              .getOrElse(Vector.empty)
+                              .map(o => o.name -> o)
+                              .toMap
                             val schema   = SchemaInferenceEngine.fromCsv(csvContent)
                             val now      = Instant.now()
                             val sourceId = DataSourceId(UUID.randomUUID().toString)
@@ -89,7 +95,13 @@ final class DataSourceRoutes(
                                     sourceId  = Some(ds.id),
                                     name      = name,
                                     fields    = schema.fields.map { f =>
-                                      DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                                      val ov = overridesMap.get(f.name)
+                                      DataField(
+                                        f.name,
+                                        ov.map(_.displayName).getOrElse(f.displayName),
+                                        ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
+                                        f.nullable
+                                      )
                                     }.toVector,
                                     version   = 1,
                                     createdAt = now,
@@ -163,6 +175,34 @@ final class DataSourceRoutes(
                       complete(CsvPreviewResponse(headers, rows))
                     }
                 }
+            }
+          }
+        },
+        path("infer") {
+          post {
+            entity(as[Multipart.FormData]) { formData =>
+              val collectedF =
+                formData.parts
+                  .mapAsync(1)(p => p.toStrict(60.seconds).map(s => p.name -> s.entity.data))
+                  .runWith(Sink.seq)
+              onSuccess(collectedF) { parts =>
+                val partsMap = parts.toMap
+                partsMap.get("file").map(_.toArray) match {
+                  case None =>
+                    complete(StatusCodes.BadRequest, ErrorResponse("file is required"))
+                  case Some(bytes) =>
+                    decodeUtf8(bytes) match {
+                      case None =>
+                        complete(StatusCodes.BadRequest, ErrorResponse("File must be UTF-8 encoded"))
+                      case Some(csvContent) =>
+                        val schema = SchemaInferenceEngine.fromCsv(csvContent)
+                        val fields = schema.fields.map(f =>
+                          InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                        ).toVector
+                        complete(InferredSchemaResponse(fields))
+                    }
+                }
+              }
             }
           }
         },
