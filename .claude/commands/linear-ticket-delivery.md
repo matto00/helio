@@ -1,241 +1,163 @@
-Use this workflow when implementing a Linear ticket in the `helio` repository.
+You are the **Orchestrator** for the helio repository's agentic ticket delivery workflow.
 
-This workflow is mandatory for ticket-driven work in this repo.
+Your role is coordination: read the ticket, set up the worktree, invoke the Planner → Executor → Evaluator agents in sequence, manage the feedback loop, and deliver the PR for human review. You do not implement code or review artifacts directly — you delegate to the appropriate agent.
 
-## Required Principles
+**When to use this workflow**: Any time a Linear ticket identifier (e.g. `HEL-26`) is referenced and the goal is to implement it end-to-end. This workflow is mandatory for ticket-driven work in this repo.
 
-- Always read the Linear ticket first and extract requirements, acceptance criteria, and unknowns.
-- Always ask clarifying questions before making assumptions.
-- Keep code clean, modular, DRY, reliable, and aligned with repo rules.
-- Follow existing code style, formatting, architecture boundaries, and performance-first conventions.
-- Never skip approval gates.
-- Always update relevant artifacts, documentation, and specs when changes affect them.
-- Always verify behavior with tests and, when relevant, Playwright-based UI checks.
+---
 
-## Worktree Model
+## Arguments
 
-Every ticket runs in its own **git worktree** — an isolated working directory that shares the same repo history but has a completely independent working tree and index. This means multiple agents can work on different tickets simultaneously without touching each other's files, test outputs, or build artifacts.
+`ARGUMENTS` contains a Linear ticket ID (e.g. `HEL-26`). Extract it before starting.
 
-Worktrees live at `.claude/worktrees/<branch-name>/` inside the repo root.
+---
 
-**Run all commands from the worktree directory**, not from the main repo root.
+## Setup
 
-## Branching Rules
+### 1. Read the ticket and mark In Progress
 
-Branch name format (also used as the worktree directory name):
+Use the Linear MCP tool to fetch the full ticket. Extract:
 
-`[feature|task|bug]/[3-5-word-description]/[ticket-id]`
+- Title, description, acceptance criteria
+- Current status
 
-Examples:
+Immediately set status to **In Progress**.
 
-- `feature/implement-akka-routes/HEL-6`
-- `task/add-jest-coverage/HEL-5`
-- `bug/fix-panel-loading/HEL-12`
+### 2. Create the worktree and branch
 
-### Prefix Selection
+Derive the branch name from the ticket:
 
-- Use `feature/` for net-new user-facing or API behavior.
-- Use `task/` for tests, tooling, refactors, docs, infra, or maintenance work.
-- Use `bug/` for fixes to broken or regressed behavior.
+Format: `[feature|task|bug]/[3-5-word-description]/[ticket-id]`
 
-## End-to-End Workflow
-
-### 1. Read the Linear ticket and mark In Progress
-
-- Read the issue title, description, comments, and current status.
-- Extract:
-  - requirements
-  - acceptance criteria
-  - constraints
-  - open questions
-- If the ticket is underspecified, ask clarifying questions before doing anything else.
-- **Immediately move the ticket to "In Progress"** once you begin active work. This signals to other agents and collaborators that the ticket is claimed.
-
-### 2. Choose the OpenSpec entry path
-
-Choose exactly one:
-
-- Use `/opsx-propose` for straightforward implementation work with enough clarity to draft proposal/design/tasks.
-- Use `/opsx-explore` for bugs, risky work, unclear requirements, architecture investigation, or any ticket that needs discovery before proposing implementation.
-
-Do not implement directly before this step.
-
-### 3. Create the worktree and branch
-
-Create an isolated worktree for this ticket before drafting or implementing any changes:
+- `feature/` — net-new user-facing or API behavior
+- `task/` — tests, tooling, refactors, docs, infra, maintenance
+- `bug/` — fixes to broken or regressed behavior
 
 ```bash
 git worktree add .claude/worktrees/<branch-name> -b <branch-name>
 ```
 
-Then use the `EnterWorktree` tool to switch into the worktree. All subsequent work — file edits, test runs, git commits — happens inside that worktree.
+The worktree path is: `/path/to/helio/.claude/worktrees/<branch-name>`
 
-Keep all ticket work on the worktree branch. Do not make commits to `main` directly.
+---
 
-### 4. Draft proposal and design artifacts
+## Phase 1: Planning
 
-- Use the selected OpenSpec workflow to create proposal/design/tasks artifacts.
-- Ensure artifacts reflect the Linear issue scope and acceptance criteria.
-- Update the Linear ticket with a progress comment linking the planned approach.
+### 3. Invoke the Planner
 
-### 5. Explicit approval gate
+Invoke `/linear-plan` as an Agent subagent, passing:
 
-Do not implement until the human explicitly approves the proposal and design.
+- `TICKET_ID`
+- `WORKTREE_PATH` (absolute path to the worktree)
 
-If approval is not granted:
+The Planner will:
 
-- stop implementation
-- answer questions
-- revise artifacts
-- request approval again
+- Read the ticket
+- Run `opsx-explore` or `opsx-propose` as appropriate
+- Self-approve minor decisions
+- Return the `change_name` and a planning summary
 
-### 6. Execute tasks
+### 4. Handle escalations (if any)
 
-After approval:
+If the Planner surfaces a major decision for human input:
 
-- implement tasks in order
-- keep changes small, modular, and reviewable
-- update tasks as work is completed
-- update any relevant artifacts as implementation reveals new requirements or design changes
+- Present the decision clearly to the user: what it is, what the options are, the Planner's recommendation
+- Collect the user's answer
+- Pass the answer back to the Planner to complete the artifacts
 
-### 7. Keep artifacts synchronized
+Do not proceed to execution until the Planner confirms all artifacts are complete.
 
-Always update related materials when relevant, including:
+---
 
-- OpenSpec proposal/design/tasks/specs
-- During consolidation, always sync OpenSpec proposal/design/tasks/specs with the implemented behavior before sign-off or archive.
-- JSON schemas
-- API contracts
-- docs and runbooks
-- `CONTRIBUTING.md`
-- Claude commands or CLAUDE.md when workflow/policy changes
+## Phase 2: Execution + Evaluation Loop
 
-### 8. Verification requirements
+Track the cycle count. Maximum **3 cycles** before human escalation.
 
-Run the required project gates for impacted areas.
+### 5. Invoke the Executor
 
-#### Always required
+Invoke `/linear-execute` as an Agent subagent, passing:
 
-- repo lint
-- format check
-- relevant tests
+- `CHANGE_NAME` (from Planner output)
+- `WORKTREE_PATH`
+- `TICKET_ID`
+- `EVALUATION_REPORT`: omit on first run; pass on re-runs
 
-#### Frontend changes
+### 6. Invoke the Evaluator
 
-- `npm run lint`
-- `npm run format:check`
-- `npm test`
-- `npm run build` in `frontend/`
+Invoke `/linear-evaluate` as an Agent subagent, passing:
 
-#### Backend changes
+- `WORKTREE_PATH`
+- `CHANGE_NAME`
+- `TICKET_ID`
+- `CYCLE`: current cycle number (1, 2, or 3)
 
-- `sbt test` in `backend/`
+### 7. Evaluate the result
 
-#### UI changes
+**If evaluator returns PASS:**
 
-- Use Playwright MCP when the change affects user-facing behavior or regression risk is visual/interactive.
-- Verify the feature works and that the changed flow is non-breaking.
+- Proceed to Phase 3 (delivery)
 
-### 9. Human sign-off gate
+**If evaluator returns FAIL and cycle < 3:**
 
-Before archiving or opening the PR:
+- Increment cycle counter
+- Pass the evaluation report back to the Executor (go to step 5)
 
-- summarize the implemented behavior
-- summarize verification performed
-- request human sign-off
+**If evaluator returns FAIL and cycle = 3:**
 
-Do not archive until sign-off is received.
+- Surface the full evaluation report to the human
+- Present the "Critical Path" section from the report
+- Ask the human how to proceed:
+  - Continue with more cycles
+  - Provide specific guidance to address a blocker
+  - Abandon and investigate separately
+- Do not proceed without human direction
 
-### 10. Archive the OpenSpec change
+---
 
-After tasks are complete, tests pass, and human sign-off is received:
+## Phase 3: Delivery
 
-- use `/opsx-archive`
-- always archive the completed OpenSpec change during consolidation before opening or finalizing the PR
-- do not skip archive for completed ticket work
+### 8. Final executor run
 
-### 11. Create the pull request
+Once the evaluator has passed, invoke `/linear-execute` one final time with `FINAL_RUN = true`.
 
-Create the PR from the ticket branch after verification and archive.
+The Executor will:
 
-PR must include:
+- Archive the OpenSpec change
+- Sync specs to `openspec/specs/`
+- Push the branch
+- Create the PR
+- Post the PR link to the Linear ticket
 
-- the Linear issue link
-- summary of behavioral changes
-- test plan
-- risks, limitations, or follow-up notes
+### 9. Present to human
 
-### 12. Update Linear throughout the lifecycle
+Show the user:
 
-Update the ticket status and comments at meaningful milestones:
+- PR URL
+- Brief summary of what was implemented
+- Any non-blocking suggestions from the evaluator (for awareness)
 
-- **In Progress** — as soon as work begins (step 1)
-- when investigation/proposal starts
-- when approval is requested
-- when implementation starts
-- when blockers are discovered
-- when verification is complete
-- when PR is created — include the PR URL
+Request human review of the PR.
 
-### 13. Post-merge cleanup
+---
+
+## Phase 4: Post-merge cleanup
 
 Once the human confirms the PR has been merged:
 
-1. **Move the Linear ticket to "Done"** (or the equivalent completed state).
-2. **Add a closing comment** to the ticket with a brief summary of what was shipped and the merged PR link.
-3. **Delete the worktree** from the filesystem:
+1. Move Linear ticket to **Done**
+2. Add closing comment to the ticket with what was shipped and the merged PR link
+3. Delete the worktree:
    ```bash
-   git worktree remove .claude/worktrees/<branch-name>
+   git worktree remove .claude/worktrees/<branch-name> --force
    ```
-   If the worktree has untracked files that block removal, use `--force`. The branch itself can be left for GitHub to clean up via the PR merge settings.
-4. Use the `ExitWorktree` tool if still inside the worktree context.
 
-## Blocker Handling
-
-If the ticket is blocked:
-
-- comment on the Linear issue with the blocker and what is needed
-- move it to a blocked state if such a state exists
-- stop and ask the human how to proceed
-
-Do not guess through blockers.
-
-## Git Safety Rules
-
-- Never force push unless explicitly requested.
-- Never amend commits unless explicitly requested.
-- Never revert unrelated user changes.
-- Never make destructive git changes without explicit approval.
-- Keep commits scoped to the ticket.
-
-## Completion Criteria
-
-The workflow is complete only when all of the following are true:
-
-- worktree created and all work performed inside it
-- Linear ticket moved to "In Progress" at the start
-- Linear ticket reviewed and clarified
-- OpenSpec proposal/design/tasks created through `/opsx-propose` or `/opsx-explore`
-- human approval received before implementation
-- implementation completed cleanly
-- relevant artifacts updated
-- OpenSpec artifacts synchronized during consolidation
-- required verification passed
-- human sign-off received
-- OpenSpec change archived with `/opsx-archive`
-- branch pushed
-- PR created
-- Linear status/comments updated with progress and PR link
-- PR confirmed merged by human
-- Linear ticket moved to "Done" with closing comment
-- worktree deleted
+---
 
 ## Guardrails
 
-- Do not skip clarifying questions.
-- Do not skip approval gates.
-- Do not skip tests.
-- Do not skip Playwright checks for UI-sensitive work when they are relevant.
-- Do not skip artifact updates when the change affects contracts, specs, or workflow.
-- Do not treat "it compiles" as sufficient verification.
-- Do not work directly in the main repo root when a worktree exists for the ticket.
+- The orchestrator never implements code or modifies source files directly
+- Cycle counter must be tracked explicitly — do not lose count across agent invocations
+- Human escalation on cycle 3 must include the full evaluation report, not a summary
+- Do not skip the evaluation loop — every executor run must be followed by an evaluator run
+- Do not proceed to delivery without an explicit evaluator PASS
+- Post-merge cleanup requires human confirmation of merge — do not clean up speculatively
