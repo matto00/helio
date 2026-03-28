@@ -12,6 +12,18 @@ Your role is coordination: read the ticket, set up the worktree, invoke the Plan
 
 ---
 
+## Signal Types
+
+Agents communicate structured signals in their output. Handle each as follows:
+
+| Signal        | From      | Action                                                                            |
+| ------------- | --------- | --------------------------------------------------------------------------------- |
+| `ESCALATION`  | Planner   | Present decision to human, collect answer, resume Planner via SendMessage         |
+| `BLOCKER`     | Evaluator | Present blocker to human, do not loop back to Executor — wait for human direction |
+| Normal return | Any       | Continue to next step                                                             |
+
+---
+
 ## Setup
 
 ### 1. Read the ticket and mark In Progress
@@ -55,15 +67,18 @@ The Planner will:
 - Read the ticket
 - Run `opsx-explore` or `opsx-propose` as appropriate
 - Self-approve minor decisions
-- Return the `change_name` and a planning summary
+- Return either a normal completion or an `ESCALATION` block
 
 ### 4. Handle escalations (if any)
 
-If the Planner surfaces a major decision for human input:
+If the Planner returns an `ESCALATION` block:
 
 - Present the decision clearly to the user: what it is, what the options are, the Planner's recommendation
 - Collect the user's answer
-- Pass the answer back to the Planner to complete the artifacts
+- **Resume the Planner via SendMessage** (do not invoke a new Agent) — pass the answer as `HUMAN_ANSWER`
+- The Planner will apply the decision and complete the artifacts
+
+Repeat until the Planner returns a normal completion with no pending escalations.
 
 Do not proceed to execution until the Planner confirms all artifacts are complete.
 
@@ -75,9 +90,11 @@ Track the cycle count. Maximum **3 cycles** before human escalation.
 
 ### 5. Invoke the Executor
 
+Extract `CHANGE_NAME` from the Planner's return summary before proceeding.
+
 Invoke `/linear-execute` as an Agent subagent, passing:
 
-- `CHANGE_NAME` (from Planner output)
+- `CHANGE_NAME` (extracted from Planner output)
 - `WORKTREE_PATH`
 - `TICKET_ID`
 - `EVALUATION_REPORT`: omit on first run; pass on re-runs
@@ -96,6 +113,12 @@ Invoke `/linear-evaluate` as an Agent subagent, passing:
 **If evaluator returns PASS:**
 
 - Proceed to Phase 3 (delivery)
+
+**If evaluator returns a `BLOCKER`:**
+
+- Surface the blocker and full context to the human
+- Do not loop back to the Executor — the blocker is environmental, not a code issue
+- Ask the human how to proceed and wait for direction before continuing
 
 **If evaluator returns FAIL and cycle < 3:**
 
@@ -118,10 +141,11 @@ Invoke `/linear-evaluate` as an Agent subagent, passing:
 
 ### 8. Final executor run
 
-Once the evaluator has passed, invoke `/linear-execute` one final time with `FINAL_RUN = true`.
+Once the evaluator returns an explicit **PASS** (not after a BLOCKER is resolved — BLOCKER resolution resumes the evaluation loop, it does not constitute a pass), invoke `/linear-execute` one final time with `FINAL_RUN = true`.
 
 The Executor will:
 
+- Squash all branch commits into one
 - Archive the OpenSpec change
 - Sync specs to `openspec/specs/`
 - Push the branch
@@ -161,3 +185,4 @@ Once the human confirms the PR has been merged:
 - Do not skip the evaluation loop — every executor run must be followed by an evaluator run
 - Do not proceed to delivery without an explicit evaluator PASS
 - Post-merge cleanup requires human confirmation of merge — do not clean up speculatively
+- Resume agents via SendMessage when continuing mid-execution — do not re-invoke with a fresh Agent call

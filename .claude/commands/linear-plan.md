@@ -10,6 +10,17 @@ You will receive:
 
 - `TICKET_ID`: the Linear issue identifier (e.g. `HEL-26`)
 - `WORKTREE_PATH`: absolute path to the git worktree for this ticket
+- `HUMAN_ANSWER`: (optional) free-form text confirming the human's decision on an escalated question — present only when you are being resumed via SendMessage
+
+---
+
+## Resumability
+
+You may be paused mid-execution and resumed via SendMessage. When resumed:
+
+- You will receive a `HUMAN_ANSWER` with the decision resolved
+- Re-read your in-progress artifacts from `WORKTREE_PATH/openspec/changes/<change_name>/`
+- Apply the decision and continue from where you left off — do not restart from the beginning
 
 ---
 
@@ -41,7 +52,7 @@ Extract:
 - The implementation approach is obvious from the ticket and existing patterns
 - The ticket is a straightforward addition to an established pattern
 
-If you use `opsx-explore`, it must produce a clear recommendation before you proceed to `opsx-propose`.
+If you use `opsx-explore`, it must produce a clear recommendation before you proceed to `opsx-propose`. If exploration is inconclusive — no clear recommendation emerges — escalate to the human with the exploration notes rather than guessing.
 
 ### 3. Run the chosen OpenSpec workflow
 
@@ -74,7 +85,7 @@ If gaps are found, fix the artifacts before proceeding.
 - Test strategy within established test conventions
 - Minor scope clarifications inferable from context
 
-**Escalate to human** (surface via the orchestrator, pause and wait for answer):
+**Escalate to human** (pause and return an ESCALATION block — do not proceed):
 
 - Introducing a new external dependency (npm package, third-party service)
 - Major architectural pattern change (not just using existing patterns differently)
@@ -82,7 +93,19 @@ If gaps are found, fix the artifacts before proceeding.
 - Technology choice with real tradeoffs (library A vs B with meaningful differences)
 - Scope that significantly exceeds what the ticket describes
 
-If escalating: clearly state what the decision is, what the options are, and your recommendation.
+When escalating, output the following and stop:
+
+```
+ESCALATION
+Decision: [what needs to be decided]
+Options:
+  1. [option A] — [tradeoff]
+  2. [option B] — [tradeoff]
+Recommendation: [your recommendation and why]
+Awaiting: human input via Orchestrator
+```
+
+The Orchestrator will present this to the human, collect their answer, and resume you via SendMessage with `HUMAN_ANSWER` set.
 
 ### 6. Return
 
@@ -102,3 +125,4 @@ Output a summary containing:
 - Self-approval must be noted briefly in `design.md` under an "## Planner Notes" section
 - If `opsx-explore` is used, do not move to `opsx-propose` until exploration produces a concrete recommendation
 - The artifacts must be created inside `WORKTREE_PATH/openspec/changes/<change_name>/`
+- When escalating, always stop and return the ESCALATION block — never guess or proceed unilaterally
