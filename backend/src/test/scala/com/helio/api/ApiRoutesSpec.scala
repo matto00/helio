@@ -1042,5 +1042,125 @@ class ApiRoutesSpec
         responseAs[ErrorResponse] shouldBe ErrorResponse("DataSource not found")
       }
     }
+
+    "duplicate a dashboard and return 201 with copied name, appearance, and panels" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None, None, None)
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.dashboard.id should not be dashboardId
+        result.dashboard.name shouldBe "Operations (copy)"
+        result.panels should have size 1
+        val copiedPanel = result.panels.head
+        copiedPanel.id should not be panelId
+        copiedPanel.dashboardId shouldBe result.dashboard.id
+        copiedPanel.title shouldBe "CPU Usage"
+        copiedPanel.appearance.background shouldBe "#0f172a"
+        copiedPanel.appearance.color shouldBe "#f8fafc"
+        copiedPanel.appearance.transparency shouldBe 0.5
+      }
+    }
+
+    "remap layout panel IDs when duplicating a dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Layout Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel A"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout     = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result    = responseAs[DuplicateDashboardResponse]
+        val newPanelId = result.panels.head.id
+        result.dashboard.layout.lg should have size 1
+        result.dashboard.layout.lg.head.panelId shouldBe newPanelId
+        result.dashboard.layout.lg.head.panelId should not be panelId
+      }
+    }
+
+    "duplicate a dashboard with no panels" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Empty"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.dashboard.name shouldBe "Empty (copy)"
+        result.panels shouldBe empty
+      }
+    }
+
+    "return 404 when duplicating a non-existent dashboard" in {
+      Post("/api/dashboards/no-such-dashboard/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "leave the source dashboard unchanged after duplication" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Source"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        val panels = responseAs[PanelsResponse].items
+        panels should have size 1
+        panels.head.id shouldBe panelId
+        panels.head.title shouldBe "My Panel"
+      }
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        val dashboards = responseAs[DashboardsResponse].items
+        val source     = dashboards.find(_.id == dashboardId).get
+        source.name shouldBe "Source"
+      }
+    }
   }
 }

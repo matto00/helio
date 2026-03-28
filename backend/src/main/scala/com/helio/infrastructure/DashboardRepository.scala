@@ -6,6 +6,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
@@ -74,6 +75,61 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
 
   def count(): Future[Int] =
     db.run(table.length.result)
+
+  def duplicate(id: DashboardId): Future[Option[(Dashboard, Vector[Panel])]] = {
+    val panelTable = TableQuery[PanelRepository.PanelTable]
+
+    val action = table.filter(_.id === id.value).result.headOption.flatMap {
+      case None => DBIO.successful(None)
+      case Some(sourceRow) =>
+        panelTable.filter(_.dashboardId === id.value).result.flatMap { panelRows =>
+          val now        = Instant.now()
+          val newDashId  = UUID.randomUUID().toString
+          val idMap      = panelRows.map(p => p.id -> UUID.randomUUID().toString).toMap
+          val sourceDash = rowToDomain(sourceRow)
+
+          def remapItems(items: Vector[DashboardLayoutItem]): Vector[DashboardLayoutItem] =
+            items.flatMap(item => idMap.get(item.panelId.value).map(nid => item.copy(panelId = PanelId(nid))))
+
+          val newLayout = DashboardLayout(
+            lg = remapItems(sourceDash.layout.lg),
+            md = remapItems(sourceDash.layout.md),
+            sm = remapItems(sourceDash.layout.sm),
+            xs = remapItems(sourceDash.layout.xs)
+          )
+          val newDash = Dashboard(
+            id         = DashboardId(newDashId),
+            name       = s"${sourceDash.name} (copy)",
+            meta       = ResourceMeta("system", now, now),
+            appearance = sourceDash.appearance,
+            layout     = newLayout
+          )
+
+          val newPanelRows: Seq[PanelRepository.PanelRow] =
+            panelRows.map(p => p.copy(id = idMap(p.id), dashboardId = newDashId, createdAt = now, lastUpdated = now))
+
+          def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
+            Panel(
+              id           = PanelId(row.id),
+              dashboardId  = DashboardId(row.dashboardId),
+              title        = row.title,
+              meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
+              appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
+              panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+              typeId       = row.typeId.map(DataTypeId(_)),
+              fieldMapping = row.fieldMapping.map(_.parseJson)
+            )
+
+          val newPanels = newPanelRows.map(panelRowToDomain).toVector
+
+          (table += domainToRow(newDash))
+            .andThen(DBIO.sequence(newPanelRows.map(pr => panelTable += pr)))
+            .map(_ => Some((newDash, newPanels)))
+        }
+    }.transactionally
+
+    db.run(action)
+  }
 }
 
 object DashboardRepository {

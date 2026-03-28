@@ -4,6 +4,7 @@ import "./DashboardList.css";
 import {
   createDashboard,
   deleteDashboard,
+  duplicateDashboard,
   renameDashboard,
   setSelectedDashboardId,
 } from "../features/dashboards/dashboardsSlice";
@@ -211,7 +212,10 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                     label: "Rename",
                     onClick: () => startEditing(dashboard.id, dashboard.name),
                   },
-                  { label: "Duplicate", onClick: () => {}, disabled: true },
+                  {
+                    label: "Duplicate",
+                    onClick: () => void dispatch(duplicateDashboard(dashboard.id)),
+                  },
                   {
                     label: "Delete",
                     onClick: () => setConfirmDeleteId(dashboard.id),

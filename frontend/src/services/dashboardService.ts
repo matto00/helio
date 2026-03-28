@@ -1,4 +1,9 @@
-import type { Dashboard, DashboardAppearance, DashboardLayout } from "../types/models";
+import type {
+  Dashboard,
+  DashboardAppearance,
+  DashboardLayout,
+  DuplicateDashboardResponse,
+} from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface DashboardsResponse {
@@ -55,5 +60,12 @@ export async function updateDashboardLayout(
   const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, {
     layout,
   } satisfies UpdateDashboardLayoutRequest);
+  return response.data;
+}
+
+export async function duplicateDashboard(dashboardId: string): Promise<DuplicateDashboardResponse> {
+  const response = await httpClient.post<DuplicateDashboardResponse>(
+    `/api/dashboards/${dashboardId}/duplicate`,
+  );
   return response.data;
 }

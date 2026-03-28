@@ -9,6 +9,7 @@ import {
   updatePanelBinding as updatePanelBindingRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
+import { duplicateDashboard } from "../dashboards/dashboardsSlice";
 import type { RootState } from "../../store/store";
 import type { Panel, PanelAppearance, PanelType } from "../../types/models";
 
@@ -196,6 +197,12 @@ const panelsSlice = createSlice({
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
+      })
+      .addCase(duplicateDashboard.fulfilled, (state, action) => {
+        state.items = action.payload.panels;
+        state.loadedDashboardId = action.payload.dashboard.id;
+        state.status = "succeeded";
+        state.error = null;
       });
   },
 });
