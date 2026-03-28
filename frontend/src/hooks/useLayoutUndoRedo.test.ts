@@ -59,7 +59,7 @@ function makeStore() {
 
 function wrapper(store: ReturnType<typeof makeStore>) {
   return function Wrapper({ children }: PropsWithChildren) {
-    return createElement(Provider, { store, children });
+    return createElement(Provider, { store } as never, children);
   };
 }
 
