@@ -15,7 +15,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
       - run: npm ci
+      - run: npm --prefix frontend ci
       - run: npm run lint
       - run: npm run format:check
       - run: npm test

@@ -10,10 +10,7 @@ const testSource = {
 
 describe("sourcesSlice", () => {
   it("populates items when fetchSources fulfills", () => {
-    const nextState = sourcesReducer(
-      undefined,
-      fetchSources.fulfilled([testSource], "req-1"),
-    );
+    const nextState = sourcesReducer(undefined, fetchSources.fulfilled([testSource], "req-1"));
     expect(nextState.items).toHaveLength(1);
     expect(nextState.items[0].name).toBe("Sales API");
     expect(nextState.status).toBe("succeeded");

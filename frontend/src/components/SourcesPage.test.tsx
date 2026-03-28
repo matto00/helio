@@ -47,9 +47,7 @@ describe("SourcesPage", () => {
   it("shows empty state for sources when there are none", async () => {
     renderWithStore(<SourcesPage />);
     await waitFor(() =>
-      expect(
-        screen.getByText("No data sources yet. Add one to get started."),
-      ).toBeInTheDocument(),
+      expect(screen.getByText("No data sources yet. Add one to get started.")).toBeInTheDocument(),
     );
   });
 
