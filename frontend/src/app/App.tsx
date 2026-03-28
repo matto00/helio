@@ -7,9 +7,18 @@ import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEdit
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { SourcesPage } from "../components/SourcesPage";
-import { fetchDashboards } from "../features/dashboards/dashboardsSlice";
+import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
+import {
+  redoLayout,
+  selectCanRedo,
+  selectCanUndo,
+  selectRedoLayout,
+  selectUndoLayout,
+  undoLayout,
+} from "../features/layout/layoutHistorySlice";
 import { fetchPanels } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -22,6 +31,29 @@ export function App() {
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
+
+  const canUndo = useAppSelector(selectCanUndo(selectedDashboardId));
+  const canRedo = useAppSelector(selectCanRedo(selectedDashboardId));
+  const undoTarget = useAppSelector(selectUndoLayout(selectedDashboardId));
+  const redoTarget = useAppSelector(selectRedoLayout(selectedDashboardId));
+
+  useLayoutUndoRedo(selectedDashboardId);
+
+  function handleUndo() {
+    if (!selectedDashboardId || !undoTarget || !selectedDashboard) return;
+    dispatch(
+      undoLayout({ dashboardId: selectedDashboardId, currentLayout: selectedDashboard.layout }),
+    );
+    dispatch(setDashboardLayoutLocally({ dashboardId: selectedDashboardId, layout: undoTarget }));
+  }
+
+  function handleRedo() {
+    if (!selectedDashboardId || !redoTarget || !selectedDashboard) return;
+    dispatch(
+      redoLayout({ dashboardId: selectedDashboardId, currentLayout: selectedDashboard.layout }),
+    );
+    dispatch(setDashboardLayoutLocally({ dashboardId: selectedDashboardId, layout: redoTarget }));
+  }
 
   useEffect(() => {
     void dispatch(fetchDashboards());
@@ -75,6 +107,30 @@ export function App() {
             </span>
             <span className="theme-toggle__value">{theme === "dark" ? "Light" : "Dark"}</span>
           </button>
+          {onDashboardView && (
+            <div className="app-header__undo-redo">
+              <button
+                type="button"
+                className="undo-redo-btn"
+                onClick={handleUndo}
+                disabled={!canUndo}
+                aria-label="Undo layout change"
+                title="Undo (Ctrl+Z)"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                className="undo-redo-btn"
+                onClick={handleRedo}
+                disabled={!canRedo}
+                aria-label="Redo layout change"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                Redo
+              </button>
+            </div>
+          )}
           {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
         </div>
       </header>

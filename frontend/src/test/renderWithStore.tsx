@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
+import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import { OverlayProvider } from "../components/OverlayProvider";
@@ -69,6 +70,7 @@ interface TestState {
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
   const reducer = {
     dashboards: dashboardsReducer,
+    layoutHistory: layoutHistoryReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
     sources: sourcesReducer,

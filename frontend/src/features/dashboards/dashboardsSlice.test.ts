@@ -2,6 +2,7 @@ import {
   createDashboard,
   dashboardsReducer,
   fetchDashboards,
+  setDashboardLayoutLocally,
   updateDashboardAppearance,
   updateDashboardLayout,
 } from "./dashboardsSlice";
@@ -282,5 +283,59 @@ describe("dashboardsSlice", () => {
     expect(nextState.items).toHaveLength(2);
     expect(nextState.items[1].name).toBe("Executive");
     expect(nextState.selectedDashboardId).toBe("dashboard-2");
+  });
+
+  describe("setDashboardLayoutLocally", () => {
+    const twoItemState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+          {
+            id: "dashboard-2",
+            name: "Executive",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "req",
+        undefined,
+      ),
+    );
+
+    const newLayout = { lg: [{ panelId: "p1", x: 1, y: 1, w: 3, h: 3 }], md: [], sm: [], xs: [] };
+
+    it("updates the layout for the specified dashboard", () => {
+      const nextState = dashboardsReducer(
+        twoItemState,
+        setDashboardLayoutLocally({ dashboardId: "dashboard-1", layout: newLayout }),
+      );
+      const updated = nextState.items.find((d) => d.id === "dashboard-1");
+      expect(updated?.layout).toEqual(newLayout);
+    });
+
+    it("does not affect other dashboards", () => {
+      const nextState = dashboardsReducer(
+        twoItemState,
+        setDashboardLayoutLocally({ dashboardId: "dashboard-1", layout: newLayout }),
+      );
+      const other = nextState.items.find((d) => d.id === "dashboard-2");
+      expect(other?.layout).toEqual(defaultLayout);
+    });
+
+    it("does nothing when dashboardId is not found", () => {
+      const nextState = dashboardsReducer(
+        twoItemState,
+        setDashboardLayoutLocally({ dashboardId: "nonexistent", layout: newLayout }),
+      );
+      expect(nextState.items).toEqual(twoItemState.items);
+    });
   });
 });

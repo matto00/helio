@@ -103,6 +103,43 @@
   font-weight: 700;
 }
 
+.app-header__undo-redo {
+  display: flex;
+  gap: 8px;
+}
+
+.undo-redo-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  backdrop-filter: blur(24px);
+  color: var(--app-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    transform var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.undo-redo-btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  transform: translateY(-1px);
+}
+
+.undo-redo-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+
+.undo-redo-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .app-layout {
   display: grid;
   gap: 28px;

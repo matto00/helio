@@ -119,6 +119,16 @@ const dashboardsSlice = createSlice({
     setSelectedDashboardId(state, action: PayloadAction<string | null>) {
       state.selectedDashboardId = action.payload;
     },
+    setDashboardLayoutLocally(
+      state,
+      action: PayloadAction<{ dashboardId: string; layout: DashboardLayout }>,
+    ) {
+      const { dashboardId, layout } = action.payload;
+      const dashboard = state.items.find((d) => d.id === dashboardId);
+      if (dashboard) {
+        dashboard.layout = layout;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -175,5 +185,5 @@ const dashboardsSlice = createSlice({
   },
 });
 
-export const { setSelectedDashboardId } = dashboardsSlice.actions;
+export const { setSelectedDashboardId, setDashboardLayoutLocally } = dashboardsSlice.actions;
 export const dashboardsReducer = dashboardsSlice.reducer;
