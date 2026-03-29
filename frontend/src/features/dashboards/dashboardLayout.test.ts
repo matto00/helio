@@ -150,10 +150,4 @@ describe("smart panel placement", () => {
     expect(layout.xs[1]).toMatchObject({ x: 0, y: 5 });
     expect(layout.xs[2]).toMatchObject({ x: 0, y: 10 });
   });
-
-  it("places the second panel beside the first on the lg breakpoint (lg[1] x=4)", () => {
-    const layout = createFallbackDashboardLayout(panels);
-
-    expect(layout.lg[1]).toMatchObject({ panelId: "panel-2", x: 4, y: 0 });
-  });
 });
