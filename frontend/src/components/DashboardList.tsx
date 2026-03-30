@@ -31,7 +31,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingError, setEditingError] = useState<string | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<{ dashboardId: string; message: string } | null>(
+    null,
+  );
   const cancelledRef = useRef(false);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
@@ -98,7 +100,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
     try {
       await dispatch(exportDashboard({ dashboardId, dashboardName })).unwrap();
     } catch {
-      setExportError("Failed to export dashboard.");
+      setExportError({ dashboardId, message: "Failed to export dashboard." });
     }
   }
 
@@ -282,7 +284,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                 ]}
               />
             ) : null}
-            {exportError ? <InlineError error={exportError} /> : null}
+            {exportError?.dashboardId === dashboard.id ? (
+              <InlineError error={exportError.message} />
+            ) : null}
           </li>
         ))}
       </ul>

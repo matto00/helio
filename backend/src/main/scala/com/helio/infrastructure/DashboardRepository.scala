@@ -180,7 +180,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           )
 
           Some(DashboardSnapshotPayload(
-            version   = 1,
+            version   = Some(1),
             dashboard = snapshotDashboard,
             panels    = snapshotPanels
           ))

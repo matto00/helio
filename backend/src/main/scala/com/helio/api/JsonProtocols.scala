@@ -61,7 +61,7 @@ final case class DashboardSnapshotDashboardEntry(
     layout: DashboardLayoutPayload
 )
 final case class DashboardSnapshotPayload(
-    version: Int,
+    version: Option[Int],
     dashboard: DashboardSnapshotDashboardEntry,
     panels: Vector[DashboardSnapshotPanelEntry]
 )
