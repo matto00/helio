@@ -4,7 +4,9 @@ import {
   createDashboard as createDashboardRequest,
   deleteDashboard as deleteDashboardRequest,
   duplicateDashboard as duplicateDashboardRequest,
+  exportDashboard as exportDashboardRequest,
   fetchDashboards as fetchDashboardsRequest,
+  importDashboard as importDashboardRequest,
   renameDashboard as renameDashboardRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
@@ -14,6 +16,7 @@ import type {
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
+  DashboardSnapshot,
   DuplicateDashboardResponse,
 } from "../../types/models";
 
@@ -130,6 +133,30 @@ export const duplicateDashboard = createAsyncThunk<
   }
 });
 
+export const exportDashboard = createAsyncThunk<
+  void,
+  { dashboardId: string; dashboardName: string },
+  { rejectValue: string }
+>("dashboards/exportDashboard", async ({ dashboardId, dashboardName }, { rejectWithValue }) => {
+  try {
+    await exportDashboardRequest(dashboardId, dashboardName);
+  } catch {
+    return rejectWithValue("Failed to export dashboard.");
+  }
+});
+
+export const importDashboard = createAsyncThunk<
+  DuplicateDashboardResponse,
+  DashboardSnapshot,
+  { rejectValue: string }
+>("dashboards/importDashboard", async (snapshot, { rejectWithValue }) => {
+  try {
+    return await importDashboardRequest(snapshot);
+  } catch {
+    return rejectWithValue("Failed to import dashboard.");
+  }
+});
+
 const dashboardsSlice = createSlice({
   name: "dashboards",
   initialState,
@@ -201,6 +228,10 @@ const dashboardsSlice = createSlice({
         }
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
+        state.items.push(action.payload.dashboard);
+        state.selectedDashboardId = action.payload.dashboard.id;
+      })
+      .addCase(importDashboard.fulfilled, (state, action) => {
         state.items.push(action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
       });

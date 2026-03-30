@@ -5,6 +5,7 @@ import {
   updatePanelAppearance,
   updatePanelBinding,
 } from "./panelsSlice";
+import { importDashboard } from "../dashboards/dashboardsSlice";
 
 const defaultMeta = {
   createdBy: "system",
@@ -93,6 +94,50 @@ describe("panelsSlice", () => {
     );
 
     expect(nextState.error).toBe("Failed to create panel.");
+  });
+
+  it("replaces panels and sets loadedDashboardId when importDashboard fulfills", () => {
+    const initialState = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
+    );
+
+    const importedPanel = {
+      ...basePanel,
+      id: "panel-imported",
+      dashboardId: "dashboard-imported",
+    };
+
+    const nextState = panelsReducer(
+      initialState,
+      importDashboard.fulfilled(
+        {
+          dashboard: {
+            id: "dashboard-imported",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: { background: "transparent", gridBackground: "transparent" },
+            layout: { lg: [], md: [], sm: [], xs: [] },
+          },
+          panels: [importedPanel],
+        },
+        "req-import",
+        {
+          version: 1,
+          dashboard: {
+            name: "Operations",
+            appearance: {},
+            layout: { lg: [], md: [], sm: [], xs: [] },
+          },
+          panels: [],
+        },
+      ),
+    );
+
+    expect(nextState.items).toHaveLength(1);
+    expect(nextState.items[0].id).toBe("panel-imported");
+    expect(nextState.loadedDashboardId).toBe("dashboard-imported");
+    expect(nextState.status).toBe("succeeded");
   });
 
   it("updates the matching panel when updatePanelBinding fulfills", () => {

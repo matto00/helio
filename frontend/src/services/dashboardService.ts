@@ -2,6 +2,7 @@ import type {
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
+  DashboardSnapshot,
   DuplicateDashboardResponse,
 } from "../types/models";
 import { httpClient } from "./httpClient";
@@ -66,6 +67,27 @@ export async function updateDashboardLayout(
 export async function duplicateDashboard(dashboardId: string): Promise<DuplicateDashboardResponse> {
   const response = await httpClient.post<DuplicateDashboardResponse>(
     `/api/dashboards/${dashboardId}/duplicate`,
+  );
+  return response.data;
+}
+
+export async function exportDashboard(dashboardId: string, dashboardName: string): Promise<void> {
+  const response = await httpClient.get<DashboardSnapshot>(`/api/dashboards/${dashboardId}/export`);
+  const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${dashboardName}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importDashboard(
+  snapshot: DashboardSnapshot,
+): Promise<DuplicateDashboardResponse> {
+  const response = await httpClient.post<DuplicateDashboardResponse>(
+    `/api/dashboards/import`,
+    snapshot,
   );
   return response.data;
 }

@@ -71,6 +71,34 @@ final class DashboardRoutes(
             }
           }
         },
+        path(Segment / "export") { dashboardId =>
+          get {
+            onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
+              case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(snapshot) => complete(snapshot)
+            }
+          }
+        },
+        path("import") {
+          post {
+            entity(as[DashboardSnapshotPayload]) { payload =>
+              validateSnapshotPayload(payload) match {
+                case Left(error) =>
+                  complete(StatusCodes.BadRequest, ErrorResponse(error))
+                case Right(_) =>
+                  onSuccess(dashboardRepo.importSnapshot(payload)) { case (dashboard, panels) =>
+                    complete(
+                      StatusCodes.Created,
+                      DuplicateDashboardResponse(
+                        dashboard = DashboardResponse.fromDomain(dashboard),
+                        panels    = panels.map(PanelResponse.fromDomain)
+                      )
+                    )
+                  }
+              }
+            }
+          }
+        },
         path(Segment) { dashboardId =>
           concat(
             delete {
@@ -187,4 +215,34 @@ final class DashboardRoutes(
           h       = RequestValidation.normalizeLayoutSpan(item.h)
         ))
     }
+
+  private def validateSnapshotPayload(payload: DashboardSnapshotPayload): Either[String, Unit] = {
+    val name = payload.dashboard.name.trim
+    if (name.isEmpty) {
+      return Left("dashboard.name must not be blank")
+    }
+
+    val snapshotIds = payload.panels.map(_.snapshotId).toSet
+
+    for (panel <- payload.panels) {
+      PanelType.fromString(panel.`type`) match {
+        case Left(err) => return Left(err)
+        case Right(_)  => ()
+      }
+    }
+
+    val allLayoutItems =
+      payload.dashboard.layout.lg ++
+      payload.dashboard.layout.md ++
+      payload.dashboard.layout.sm ++
+      payload.dashboard.layout.xs
+
+    for (item <- allLayoutItems) {
+      if (!snapshotIds.contains(item.panelId)) {
+        return Left(s"layout references unknown snapshotId: '${item.panelId}'")
+      }
+    }
+
+    Right(())
+  }
 }
