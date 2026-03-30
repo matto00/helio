@@ -71,6 +71,7 @@ Before declaring done, verify the artifacts against the ticket:
 - [ ] Existing patterns and utilities are reused where applicable (no unnecessary new abstractions)
 - [ ] The design references the correct files and is grounded in the actual codebase
 - [ ] Each task is small enough to complete in one session
+- [ ] Any deliberate deviation from a ticket-stated value (e.g. a size, count, or name that differs from what the ticket specifies) is documented in `design.md` with the rationale
 
 If gaps are found, fix the artifacts before proceeding.
 

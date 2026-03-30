@@ -61,7 +61,14 @@ npx husky install 2>/dev/null || true
 
 If hooks still fail to run after configuration, see the `--no-verify` policy below.
 
-### 5. Run verification gates
+### 5. Pre-commit self-check
+
+Before running gates, verify:
+
+- [ ] All completed tasks in `tasks.md` are marked `[x]` — if `opsx-apply` did not check them off, update the file now
+- [ ] Each new test exercises the specific scenario described in its task — not just something adjacent or related
+
+### 6. Run verification gates
 
 Run all applicable gates from `WORKTREE_PATH`:
 
@@ -87,7 +94,7 @@ cd backend && sbt test
 
 If any gate fails: fix the issue and re-run before proceeding. Do not proceed with a failing gate.
 
-### 6. Commit
+### 7. Commit
 
 Commit all changes from `WORKTREE_PATH`:
 
@@ -96,7 +103,7 @@ Commit all changes from `WORKTREE_PATH`:
 
 **`--no-verify` policy**: permitted only when (a) all verification gates above have explicitly passed, and (b) the hook is failing for a purely environmental reason unrelated to code quality (e.g. Husky cannot resolve the `.git` path after configuration attempts). Never use `--no-verify` to bypass a gate failure. If used, note it explicitly in your output with the reason.
 
-### 7. Return
+### 8. Return
 
 Output a summary containing:
 
