@@ -16,6 +16,18 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
 
   private val table = TableQuery[DashboardTable]
 
+  private def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
+    Panel(
+      id           = PanelId(row.id),
+      dashboardId  = DashboardId(row.dashboardId),
+      title        = row.title,
+      meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
+      appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
+      panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+      typeId       = row.typeId.map(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.map(_.parseJson)
+    )
+
   private def rowToDomain(row: DashboardRow): Dashboard =
     Dashboard(
       id         = DashboardId(row.id),
@@ -108,18 +120,6 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           val newPanelRows: Seq[PanelRepository.PanelRow] =
             panelRows.map(p => p.copy(id = idMap(p.id), dashboardId = newDashId, createdAt = now, lastUpdated = now))
 
-          def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
-            Panel(
-              id           = PanelId(row.id),
-              dashboardId  = DashboardId(row.dashboardId),
-              title        = row.title,
-              meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-              appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
-              panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
-              typeId       = row.typeId.map(DataTypeId(_)),
-              fieldMapping = row.fieldMapping.map(_.parseJson)
-            )
-
           val newPanels = newPanelRows.map(panelRowToDomain).toVector
 
           (table += domainToRow(newDash))
@@ -157,17 +157,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           )
 
           val snapshotPanels = panelRows.toVector.map { p =>
-            val panel = Panel(
-              id           = PanelId(p.id),
-              dashboardId  = DashboardId(p.dashboardId),
-              title        = p.title,
-              meta         = ResourceMeta(p.createdBy, p.createdAt, p.lastUpdated),
-              appearance   = p.appearance.parseJson.convertTo[PanelAppearance],
-              panelType    = PanelType.fromString(p.panelType).getOrElse(PanelType.Default),
-              typeId       = p.typeId.map(DataTypeId(_)),
-              fieldMapping = p.fieldMapping.map(_.parseJson)
-            )
-            DashboardSnapshotPanelEntry.fromDomain(panel)
+            DashboardSnapshotPanelEntry.fromDomain(panelRowToDomain(p))
           }
 
           val snapshotDashboard = DashboardSnapshotDashboardEntry(
@@ -180,7 +170,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           )
 
           Some(DashboardSnapshotPayload(
-            version   = Some(1),
+            version   = 1,
             dashboard = snapshotDashboard,
             panels    = snapshotPanels
           ))
@@ -239,18 +229,6 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         fieldMapping = entry.fieldMapping.map(_.compactPrint)
       )
     }
-
-    def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
-      Panel(
-        id           = PanelId(row.id),
-        dashboardId  = DashboardId(row.dashboardId),
-        title        = row.title,
-        meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-        appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
-        panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
-        typeId       = row.typeId.map(DataTypeId(_)),
-        fieldMapping = row.fieldMapping.map(_.parseJson)
-      )
 
     val newPanels = newPanelRows.map(panelRowToDomain)
 

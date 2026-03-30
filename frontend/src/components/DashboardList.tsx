@@ -118,8 +118,8 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
         const snapshot = JSON.parse(text) as DashboardSnapshot;
         await dispatch(importDashboard(snapshot)).unwrap();
         setIsCreateMode(false);
-      } catch {
-        setCreateError("Failed to import dashboard. The file may be invalid.");
+      } catch (err) {
+        setCreateError(typeof err === "string" ? err : "Failed to import dashboard.");
       } finally {
         setIsSaving(false);
         // Reset input so the same file can be re-selected
@@ -187,9 +187,6 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           >
             {isSaving ? "Creating..." : "Create dashboard"}
           </button>
-          <label className="dashboard-list__import-label" htmlFor="dashboard-import-file">
-            Or import from file
-          </label>
           <input
             id="dashboard-import-file"
             className="dashboard-list__import-input"
@@ -199,6 +196,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
             onChange={handleImportFile}
             aria-label="Import dashboard from JSON file"
           />
+          <label className="dashboard-list__import-label" htmlFor="dashboard-import-file">
+            {isSaving ? "Importing..." : "Import from file"}
+          </label>
           <InlineError error={createError} />
         </form>
       ) : null}

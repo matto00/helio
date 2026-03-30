@@ -1193,7 +1193,7 @@ class ApiRoutesSpec
       Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val snapshot = responseAs[DashboardSnapshotPayload]
-        snapshot.version shouldBe Some(1)
+        snapshot.version shouldBe 1
         snapshot.dashboard.name shouldBe "Export Test"
         snapshot.panels should have size 1
         val snapshotPanel = snapshot.panels.head
@@ -1313,15 +1313,15 @@ class ApiRoutesSpec
           ContentTypes.`application/json`,
           """{"dashboard":{"name":"X","appearance":{"background":"transparent","gridBackground":"transparent"},"layout":{"lg":[],"md":[],"sm":[],"xs":[]}},"panels":[]}"""
         )
-      ) ~> routes() ~> check {
+      ) ~> Route.seal(routes()) ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("version")
+        responseAs[String] should include("version")
       }
     }
 
     "reject import with empty dashboard name" in {
       val payload = DashboardSnapshotPayload(
-        version = Some(1),
+        version = 1,
         dashboard = DashboardSnapshotDashboardEntry(
           name = "",
           appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
@@ -1337,7 +1337,7 @@ class ApiRoutesSpec
 
     "reject import with invalid panel type" in {
       val payload = DashboardSnapshotPayload(
-        version = Some(1),
+        version = 1,
         dashboard = DashboardSnapshotDashboardEntry(
           name = "Test",
           appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
@@ -1362,7 +1362,7 @@ class ApiRoutesSpec
 
     "reject import when layout references unknown snapshotId" in {
       val payload = DashboardSnapshotPayload(
-        version = Some(1),
+        version = 1,
         dashboard = DashboardSnapshotDashboardEntry(
           name = "Test",
           appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),

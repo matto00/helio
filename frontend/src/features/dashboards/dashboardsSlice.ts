@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { isAxiosError } from "axios";
 
 import {
   createDashboard as createDashboardRequest,
@@ -152,8 +153,16 @@ export const importDashboard = createAsyncThunk<
 >("dashboards/importDashboard", async (snapshot, { rejectWithValue }) => {
   try {
     return await importDashboardRequest(snapshot);
-  } catch {
-    return rejectWithValue("Failed to import dashboard.");
+  } catch (err) {
+    const serverMessage =
+      isAxiosError(err) && typeof err.response?.data?.message === "string"
+        ? err.response.data.message
+        : null;
+    return rejectWithValue(
+      serverMessage
+        ? `Failed to import dashboard: ${serverMessage}`
+        : "Failed to import dashboard.",
+    );
   }
 });
 

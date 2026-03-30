@@ -217,10 +217,8 @@ final class DashboardRoutes(
     }
 
   private def validateSnapshotPayload(payload: DashboardSnapshotPayload): Either[String, Unit] = {
-    payload.version match {
-      case None                    => return Left("version is required")
-      case Some(v) if v < 1        => return Left(s"version must be >= 1, got $v")
-      case _                       => ()
+    if (payload.version < 1) {
+      return Left(s"version must be >= 1, got ${payload.version}")
     }
 
     val name = payload.dashboard.name.trim
