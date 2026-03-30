@@ -22,17 +22,49 @@ export const defaultDashboardLayout: DashboardLayout = {
   xs: [],
 };
 
+function findNextAvailablePosition(
+  placed: DashboardLayoutItem[],
+  colCount: number,
+  itemWidth: number,
+  itemHeight: number,
+): { x: number; y: number } {
+  const maxBottom = placed.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+
+  for (let y = 0; y <= maxBottom; y++) {
+    for (let x = 0; x <= colCount - itemWidth; x++) {
+      const overlaps = placed.some(
+        (item) =>
+          x < item.x + item.w &&
+          x + itemWidth > item.x &&
+          y < item.y + item.h &&
+          y + itemHeight > item.y,
+      );
+      if (!overlaps) {
+        return { x, y };
+      }
+    }
+  }
+
+  return { x: 0, y: maxBottom };
+}
+
 function createBaseLayout(panels: Panel[], colCount: number): DashboardLayoutItem[] {
   const itemWidth = colCount >= 10 ? 4 : colCount >= 6 ? 3 : 2;
-  const itemsPerRow = Math.max(1, Math.floor(colCount / itemWidth));
+  const placed: DashboardLayoutItem[] = [];
 
-  return panels.map((panel, index) => ({
-    panelId: panel.id,
-    x: (index % itemsPerRow) * itemWidth,
-    y: Math.floor(index / itemsPerRow) * defaultItemHeight,
-    w: itemWidth,
-    h: defaultItemHeight,
-  }));
+  for (const panel of panels) {
+    const { x, y } = findNextAvailablePosition(placed, colCount, itemWidth, defaultItemHeight);
+    const item: DashboardLayoutItem = {
+      panelId: panel.id,
+      x,
+      y,
+      w: itemWidth,
+      h: defaultItemHeight,
+    };
+    placed.push(item);
+  }
+
+  return placed;
 }
 
 export function createFallbackDashboardLayout(panels: Panel[]): DashboardLayout {
