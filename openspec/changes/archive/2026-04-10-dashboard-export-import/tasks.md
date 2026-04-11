@@ -40,4 +40,4 @@
 
 - [x] 8.1 Run `sbt test` in `backend/` — all tests pass
 - [x] 8.2 Run `npm run lint`, `npm run format:check`, `npm test`, and `npm run build` in `frontend/` — all pass
-- [ ] 8.3 Playwright smoke test: export a dashboard with panels, verify the downloaded JSON contains the correct shape and no server IDs; import the file, verify a new dashboard appears with the same name and panels; verify the original is unchanged
+- [x] 8.3 Playwright smoke test: export a dashboard with panels, verify the downloaded JSON contains the correct shape and no server IDs; import the file, verify a new dashboard appears with the same name and panels; verify the original is unchanged
