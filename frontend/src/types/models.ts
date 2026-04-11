@@ -88,3 +88,31 @@ export interface DuplicateDashboardResponse {
   dashboard: Dashboard;
   panels: Panel[];
 }
+
+export interface DashboardSnapshotPanelEntry {
+  snapshotId: string;
+  title: string;
+  type: string;
+  appearance: {
+    background?: string;
+    color?: string;
+    transparency?: number;
+  };
+  typeId?: string | null;
+  fieldMapping?: Record<string, string> | null;
+}
+
+export interface DashboardSnapshotDashboardEntry {
+  name: string;
+  appearance: {
+    background?: string;
+    gridBackground?: string;
+  };
+  layout: DashboardLayout;
+}
+
+export interface DashboardSnapshot {
+  version: number;
+  dashboard: DashboardSnapshotDashboardEntry;
+  panels: DashboardSnapshotPanelEntry[];
+}

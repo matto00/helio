@@ -46,6 +46,25 @@ final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
 final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
 final case class HealthResponse(status: String)
+// ── Snapshot API types ────────────────────────────────────────────────────────
+final case class DashboardSnapshotPanelEntry(
+    snapshotId: String,
+    title: String,
+    `type`: String,
+    appearance: PanelAppearancePayload,
+    typeId: Option[String],
+    fieldMapping: Option[JsValue]
+)
+final case class DashboardSnapshotDashboardEntry(
+    name: String,
+    appearance: DashboardAppearancePayload,
+    layout: DashboardLayoutPayload
+)
+final case class DashboardSnapshotPayload(
+    version: Int,
+    dashboard: DashboardSnapshotDashboardEntry,
+    panels: Vector[DashboardSnapshotPanelEntry]
+)
 final case class ErrorResponse(message: String)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
@@ -266,6 +285,22 @@ object PanelAppearanceResponse {
     )
 }
 
+object DashboardSnapshotPanelEntry {
+  def fromDomain(panel: Panel): DashboardSnapshotPanelEntry =
+    DashboardSnapshotPanelEntry(
+      snapshotId   = panel.id.value,
+      title        = panel.title,
+      `type`       = PanelType.asString(panel.panelType),
+      appearance   = PanelAppearancePayload(
+        background   = Some(panel.appearance.background),
+        color        = Some(panel.appearance.color),
+        transparency = Some(panel.appearance.transparency)
+      ),
+      typeId       = panel.typeId.map(_.value),
+      fieldMapping = panel.fieldMapping
+    )
+}
+
 // ── JsonProtocols trait ───────────────────────────────────────────────────────
 
 trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
@@ -413,4 +448,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
+
+  // Snapshot API formats
+  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
+  implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
+  implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 }

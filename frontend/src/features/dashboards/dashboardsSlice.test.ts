@@ -2,6 +2,7 @@ import {
   createDashboard,
   dashboardsReducer,
   fetchDashboards,
+  importDashboard,
   setDashboardLayoutLocally,
   updateDashboardAppearance,
   updateDashboardLayout,
@@ -283,6 +284,55 @@ describe("dashboardsSlice", () => {
     expect(nextState.items).toHaveLength(2);
     expect(nextState.items[1].name).toBe("Executive");
     expect(nextState.selectedDashboardId).toBe("dashboard-2");
+  });
+
+  it("adds the imported dashboard and selects it on importDashboard.fulfilled", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const nextState = dashboardsReducer(
+      initialState,
+      importDashboard.fulfilled(
+        {
+          dashboard: {
+            id: "dashboard-imported",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+          panels: [],
+        },
+        "req-import",
+        {
+          version: 1,
+          dashboard: {
+            name: "Operations",
+            appearance: {},
+            layout: defaultLayout,
+          },
+          panels: [],
+        },
+      ),
+    );
+
+    expect(nextState.items).toHaveLength(2);
+    expect(nextState.items[1].id).toBe("dashboard-imported");
+    expect(nextState.selectedDashboardId).toBe("dashboard-imported");
   });
 
   describe("setDashboardLayoutLocally", () => {

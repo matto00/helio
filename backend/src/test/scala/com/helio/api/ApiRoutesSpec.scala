@@ -1162,5 +1162,223 @@ class ApiRoutesSpec
         source.name shouldBe "Source"
       }
     }
+
+    // ── Export endpoint ────────────────────────────────────────────────────────
+
+    "export a dashboard and return snapshot shape without IDs or meta" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Export Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("metric"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val snapshot = responseAs[DashboardSnapshotPayload]
+        snapshot.version shouldBe 1
+        snapshot.dashboard.name shouldBe "Export Test"
+        snapshot.panels should have size 1
+        val snapshotPanel = snapshot.panels.head
+        snapshotPanel.snapshotId shouldBe panelId
+        snapshotPanel.title shouldBe "My Panel"
+        snapshotPanel.`type` shouldBe "metric"
+        // layout panelId references match the snapshotId
+        snapshot.dashboard.layout.lg.head.panelId shouldBe snapshotPanel.snapshotId
+      }
+    }
+
+    "export a dashboard with no panels returns empty panels array and empty layout" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Empty Export"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val snapshot = responseAs[DashboardSnapshotPayload]
+        snapshot.panels shouldBe empty
+        snapshot.dashboard.layout.lg shouldBe empty
+        snapshot.dashboard.layout.md shouldBe empty
+        snapshot.dashboard.layout.sm shouldBe empty
+        snapshot.dashboard.layout.xs shouldBe empty
+      }
+    }
+
+    "return 404 when exporting a non-existent dashboard" in {
+      Get("/api/dashboards/no-such-id/export") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    // ── Import endpoint ────────────────────────────────────────────────────────
+
+    "import a snapshot and return 201 with new IDs, remapped layout, and DuplicateDashboardResponse" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Original"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), Some("metric"))) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      var snapshot: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        snapshot = responseAs[DashboardSnapshotPayload]
+      }
+
+      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.dashboard.id should not be dashboardId
+        result.dashboard.name shouldBe "Original"
+        result.panels should have size 1
+        val importedPanel = result.panels.head
+        importedPanel.id should not be panelId
+        importedPanel.dashboardId shouldBe result.dashboard.id
+        importedPanel.title shouldBe "CPU"
+        // layout should use the new panel ID (remapped from snapshotId)
+        result.dashboard.layout.lg should have size 1
+        result.dashboard.layout.lg.head.panelId shouldBe importedPanel.id
+      }
+    }
+
+    "import assigns new IDs on each import" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Repeated Import"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var snapshot: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        snapshot = responseAs[DashboardSnapshotPayload]
+      }
+
+      var firstImportId  = ""
+      var secondImportId = ""
+      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
+        firstImportId = responseAs[DuplicateDashboardResponse].dashboard.id
+      }
+      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
+        secondImportId = responseAs[DuplicateDashboardResponse].dashboard.id
+      }
+
+      firstImportId should not be dashboardId
+      secondImportId should not be dashboardId
+      firstImportId should not be secondImportId
+    }
+
+    "reject import with missing version field" in {
+      Post(
+        "/api/dashboards/import",
+        HttpEntity(
+          ContentTypes.`application/json`,
+          """{"dashboard":{"name":"X","appearance":{"background":"transparent","gridBackground":"transparent"},"layout":{"lg":[],"md":[],"sm":[],"xs":[]}},"panels":[]}"""
+        )
+      ) ~> Route.seal(routes()) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("version")
+      }
+    }
+
+    "reject import with empty dashboard name" in {
+      val payload = DashboardSnapshotPayload(
+        version = 1,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+        ),
+        panels = Vector.empty
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("name")
+      }
+    }
+
+    "reject import with invalid panel type" in {
+      val payload = DashboardSnapshotPayload(
+        version = 1,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "Test",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+        ),
+        panels = Vector(
+          DashboardSnapshotPanelEntry(
+            snapshotId   = "snap-1",
+            title        = "Panel",
+            `type`       = "unknown_type",
+            appearance   = PanelAppearancePayload(None, None, None),
+            typeId       = None,
+            fieldMapping = None
+          )
+        )
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("unknown_type")
+      }
+    }
+
+    "reject import when layout references unknown snapshotId" in {
+      val payload = DashboardSnapshotPayload(
+        version = 1,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "Test",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload("nonexistent-id", 0, 0, 4, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          )
+        ),
+        panels = Vector.empty
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("nonexistent-id")
+      }
+    }
   }
 }

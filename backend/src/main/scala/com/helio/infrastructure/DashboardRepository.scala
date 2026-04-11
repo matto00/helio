@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.api.JsonProtocols
+import com.helio.api.{DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols}
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -15,6 +15,18 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
   import DashboardRepository._
 
   private val table = TableQuery[DashboardTable]
+
+  private def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
+    Panel(
+      id           = PanelId(row.id),
+      dashboardId  = DashboardId(row.dashboardId),
+      title        = row.title,
+      meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
+      appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
+      panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+      typeId       = row.typeId.map(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.map(_.parseJson)
+    )
 
   private def rowToDomain(row: DashboardRow): Dashboard =
     Dashboard(
@@ -108,18 +120,6 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           val newPanelRows: Seq[PanelRepository.PanelRow] =
             panelRows.map(p => p.copy(id = idMap(p.id), dashboardId = newDashId, createdAt = now, lastUpdated = now))
 
-          def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
-            Panel(
-              id           = PanelId(row.id),
-              dashboardId  = DashboardId(row.dashboardId),
-              title        = row.title,
-              meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-              appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
-              panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
-              typeId       = row.typeId.map(DataTypeId(_)),
-              fieldMapping = row.fieldMapping.map(_.parseJson)
-            )
-
           val newPanels = newPanelRows.map(panelRowToDomain).toVector
 
           (table += domainToRow(newDash))
@@ -127,6 +127,116 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
             .map(_ => Some((newDash, newPanels)))
         }
     }.transactionally
+
+    db.run(action)
+  }
+
+  def exportSnapshot(id: DashboardId): Future[Option[DashboardSnapshotPayload]] = {
+    val panelTable = TableQuery[PanelRepository.PanelTable]
+
+    val action = table.filter(_.id === id.value).result.headOption.flatMap {
+      case None => DBIO.successful(None)
+      case Some(sourceRow) =>
+        panelTable.filter(_.dashboardId === id.value).result.map { panelRows =>
+          val sourceDash = rowToDomain(sourceRow)
+
+          def layoutItemToSnapshot(item: DashboardLayoutItem): com.helio.api.DashboardLayoutItemPayload =
+            com.helio.api.DashboardLayoutItemPayload(
+              panelId = item.panelId.value,
+              x = item.x,
+              y = item.y,
+              w = item.w,
+              h = item.h
+            )
+
+          val snapshotLayout = com.helio.api.DashboardLayoutPayload(
+            lg = sourceDash.layout.lg.map(layoutItemToSnapshot),
+            md = sourceDash.layout.md.map(layoutItemToSnapshot),
+            sm = sourceDash.layout.sm.map(layoutItemToSnapshot),
+            xs = sourceDash.layout.xs.map(layoutItemToSnapshot)
+          )
+
+          val snapshotPanels = panelRows.toVector.map { p =>
+            DashboardSnapshotPanelEntry.fromDomain(panelRowToDomain(p))
+          }
+
+          val snapshotDashboard = DashboardSnapshotDashboardEntry(
+            name       = sourceDash.name,
+            appearance = com.helio.api.DashboardAppearancePayload(
+              background     = Some(sourceDash.appearance.background),
+              gridBackground = Some(sourceDash.appearance.gridBackground)
+            ),
+            layout = snapshotLayout
+          )
+
+          Some(DashboardSnapshotPayload(
+            version   = 1,
+            dashboard = snapshotDashboard,
+            panels    = snapshotPanels
+          ))
+        }
+    }
+
+    db.run(action)
+  }
+
+  def importSnapshot(payload: DashboardSnapshotPayload): Future[(Dashboard, Vector[Panel])] = {
+    val panelTable = TableQuery[PanelRepository.PanelTable]
+
+    val now       = Instant.now()
+    val newDashId = UUID.randomUUID().toString
+    val idMap     = payload.panels.map(p => p.snapshotId -> UUID.randomUUID().toString).toMap
+
+    def remapLayoutItem(item: com.helio.api.DashboardLayoutItemPayload): Option[DashboardLayoutItem] =
+      idMap.get(item.panelId).map(nid =>
+        DashboardLayoutItem(panelId = PanelId(nid), x = item.x, y = item.y, w = item.w, h = item.h)
+      )
+
+    val newLayout = DashboardLayout(
+      lg = payload.dashboard.layout.lg.flatMap(remapLayoutItem),
+      md = payload.dashboard.layout.md.flatMap(remapLayoutItem),
+      sm = payload.dashboard.layout.sm.flatMap(remapLayoutItem),
+      xs = payload.dashboard.layout.xs.flatMap(remapLayoutItem)
+    )
+
+    val newDash = Dashboard(
+      id         = DashboardId(newDashId),
+      name       = payload.dashboard.name,
+      meta       = ResourceMeta("system", now, now),
+      appearance = DashboardAppearance(
+        background     = payload.dashboard.appearance.background.getOrElse(DashboardAppearance.Default.background),
+        gridBackground = payload.dashboard.appearance.gridBackground.getOrElse(DashboardAppearance.Default.gridBackground)
+      ),
+      layout = newLayout
+    )
+
+    val newPanelRows: Vector[PanelRepository.PanelRow] = payload.panels.map { entry =>
+      val panelType = PanelType.fromString(entry.`type`).getOrElse(PanelType.Default)
+      PanelRepository.PanelRow(
+        id          = idMap(entry.snapshotId),
+        dashboardId = newDashId,
+        title       = entry.title,
+        createdBy   = "system",
+        createdAt   = now,
+        lastUpdated = now,
+        appearance  = PanelAppearance(
+          background   = entry.appearance.background.getOrElse(PanelAppearance.Default.background),
+          color        = entry.appearance.color.getOrElse(PanelAppearance.Default.color),
+          transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency)
+        ).toJson.compactPrint,
+        panelType   = PanelType.asString(panelType),
+        typeId      = entry.typeId,
+        fieldMapping = entry.fieldMapping.map(_.compactPrint)
+      )
+    }
+
+    val newPanels = newPanelRows.map(panelRowToDomain)
+
+    val action = (
+      (table += domainToRow(newDash))
+        .andThen(DBIO.sequence(newPanelRows.map(pr => panelTable += pr)))
+        .map(_ => (newDash, newPanels))
+    ).transactionally
 
     db.run(action)
   }

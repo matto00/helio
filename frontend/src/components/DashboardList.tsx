@@ -1,14 +1,17 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
 import "./DashboardList.css";
 import {
   createDashboard,
   deleteDashboard,
   duplicateDashboard,
+  exportDashboard,
+  importDashboard,
   renameDashboard,
   setSelectedDashboardId,
 } from "../features/dashboards/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import type { DashboardSnapshot } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
@@ -28,6 +31,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingError, setEditingError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<{ dashboardId: string; message: string } | null>(
+    null,
+  );
   const cancelledRef = useRef(false);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
@@ -89,6 +95,44 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
     setConfirmDeleteId(null);
   }
 
+  async function handleExportDashboard(dashboardId: string, dashboardName: string) {
+    setExportError(null);
+    try {
+      await dispatch(exportDashboard({ dashboardId, dashboardName })).unwrap();
+    } catch {
+      setExportError({ dashboardId, message: "Failed to export dashboard." });
+    }
+  }
+
+  async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsSaving(true);
+    setCreateError(null);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const snapshot = JSON.parse(text) as DashboardSnapshot;
+        await dispatch(importDashboard(snapshot)).unwrap();
+        setIsCreateMode(false);
+      } catch (err) {
+        setCreateError(typeof err === "string" ? err : "Failed to import dashboard.");
+      } finally {
+        setIsSaving(false);
+        // Reset input so the same file can be re-selected
+        event.target.value = "";
+      }
+    };
+    reader.onerror = () => {
+      setCreateError("Failed to read the selected file.");
+      setIsSaving(false);
+    };
+    reader.readAsText(file);
+  }
+
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
@@ -143,6 +187,18 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           >
             {isSaving ? "Creating..." : "Create dashboard"}
           </button>
+          <input
+            id="dashboard-import-file"
+            className="dashboard-list__import-input"
+            type="file"
+            accept=".json"
+            disabled={isSaving}
+            onChange={handleImportFile}
+            aria-label="Import dashboard from JSON file"
+          />
+          <label className="dashboard-list__import-label" htmlFor="dashboard-import-file">
+            {isSaving ? "Importing..." : "Import from file"}
+          </label>
           <InlineError error={createError} />
         </form>
       ) : null}
@@ -217,12 +273,19 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                     onClick: () => void dispatch(duplicateDashboard(dashboard.id)),
                   },
                   {
+                    label: "Export",
+                    onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
+                  },
+                  {
                     label: "Delete",
                     onClick: () => setConfirmDeleteId(dashboard.id),
                     danger: true,
                   },
                 ]}
               />
+            ) : null}
+            {exportError?.dashboardId === dashboard.id ? (
+              <InlineError error={exportError.message} />
             ) : null}
           </li>
         ))}
