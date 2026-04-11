@@ -6,7 +6,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem}
+import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, UserRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -83,7 +83,8 @@ class DataSourceRoutesSpec
     val ec = typedSystem.executionContext
     val dashboardRepo = new DashboardRepository(db)(ec)
     val panelRepo     = new PanelRepository(db)(ec)
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c).routes
+    val userRepo      = new UserRepository(db)(ec)
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c, userRepo).routes
   }
 
   private val sampleJson: JsValue =

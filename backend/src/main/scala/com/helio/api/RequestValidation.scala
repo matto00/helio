@@ -1,6 +1,26 @@
 package com.helio.api
 
 object RequestValidation {
+
+  private val EmailRegex = """^[^@]+@[^@]+\.[^@]+$""".r
+  private val MinPasswordLength = 8
+
+  def validateRegisterRequest(req: RegisterRequest): Either[String, RegisterRequest] =
+    if (req.email.isBlank || req.password.isBlank)
+      Left("email and password are required")
+    else if (EmailRegex.findFirstIn(req.email).isEmpty)
+      Left("invalid email format")
+    else if (req.password.length < MinPasswordLength)
+      Left(s"password must be at least $MinPasswordLength characters")
+    else
+      Right(req)
+
+  def validateLoginRequest(req: LoginRequest): Either[String, LoginRequest] =
+    if (req.email.isBlank || req.password.isBlank)
+      Left("email and password are required")
+    else
+      Right(req)
+
   val DefaultDashboardName = "Untitled Dashboard"
   val DefaultPanelTitle = "Untitled Panel"
   val DefaultDashboardBackground = "transparent"

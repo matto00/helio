@@ -6,7 +6,7 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{RestApiConfig, RestApiConnector}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -33,6 +33,7 @@ class ApiRoutesSpec
   private var panelRepo: PanelRepository           = _
   private var dataSourceRepo: DataSourceRepository = _
   private var dataTypeRepo: DataTypeRepository     = _
+  private var userRepo: UserRepository             = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -53,6 +54,7 @@ class ApiRoutesSpec
     panelRepo      = new PanelRepository(db)(typedSystem.executionContext)
     dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
+    userRepo       = new UserRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -65,7 +67,7 @@ class ApiRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
@@ -81,7 +83,7 @@ class ApiRoutesSpec
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
 
   private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector, userRepo).routes
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
@@ -1378,6 +1380,145 @@ class ApiRoutesSpec
       Post("/api/dashboards/import", payload) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("nonexistent-id")
+      }
+    }
+  }
+
+  // ── Auth ─────────────────────────────────────────────────────────────────────
+
+  "POST /api/auth/register" should {
+
+    "return 201 with token and user on successful registration" in {
+      cleanDb()
+      val req = RegisterRequest("test@example.com", "password123", Some("Test User"))
+      Post("/api/auth/register", req) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[AuthResponse]
+        resp.token should not be empty
+        resp.expiresAt should not be empty
+        resp.user.email shouldBe "test@example.com"
+        resp.user.displayName shouldBe Some("Test User")
+        resp.user.id should not be empty
+        val body = responseAs[String]
+        body should not include "password_hash"
+        body should not include "passwordHash"
+      }
+    }
+
+    "return 409 on duplicate email" in {
+      cleanDb()
+      val req = RegisterRequest("dup@example.com", "password123", None)
+      Post("/api/auth/register", req) ~> routes() ~> check { status shouldBe StatusCodes.Created }
+      Post("/api/auth/register", req) ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        responseAs[ErrorResponse].message should include("email")
+      }
+    }
+
+    "return 400 on invalid email format" in {
+      cleanDb()
+      val req = RegisterRequest("not-an-email", "password123", None)
+      Post("/api/auth/register", req) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("email")
+      }
+    }
+
+    "return 400 when password is too short" in {
+      cleanDb()
+      val req = RegisterRequest("short@example.com", "abc", None)
+      Post("/api/auth/register", req) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("password")
+      }
+    }
+
+    "return 400 when required fields are absent from JSON payload" in {
+      cleanDb()
+      Post(
+        "/api/auth/register",
+        HttpEntity(ContentTypes.`application/json`, """{"displayName":"NoEmailOrPassword"}""")
+      ) ~> Route.seal(routes()) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "POST /api/auth/login" should {
+
+    "return 200 with token and user on successful login" in {
+      cleanDb()
+      Post("/api/auth/register", RegisterRequest("login@example.com", "password123", None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post("/api/auth/login", LoginRequest("login@example.com", "password123")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AuthResponse]
+        resp.token should not be empty
+        resp.user.email shouldBe "login@example.com"
+        val body = responseAs[String]
+        body should not include "password_hash"
+        body should not include "passwordHash"
+      }
+    }
+
+    "return 401 with generic message on wrong password" in {
+      cleanDb()
+      Post("/api/auth/register", RegisterRequest("wrong@example.com", "correctpass", None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post("/api/auth/login", LoginRequest("wrong@example.com", "wrongpassword")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Invalid email or password"
+      }
+    }
+
+    "return 401 with identical generic message on unknown email" in {
+      cleanDb()
+      Post("/api/auth/login", LoginRequest("nobody@example.com", "somepassword")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Invalid email or password"
+      }
+    }
+
+    "return 400 when fields are empty" in {
+      cleanDb()
+      Post("/api/auth/login", LoginRequest("", "")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "POST /api/auth/logout" should {
+
+    "return 204 and invalidate the token so a second logout returns 401" in {
+      cleanDb()
+      var token = ""
+      Post("/api/auth/register", RegisterRequest("logout@example.com", "password123", None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        token = responseAs[AuthResponse].token
+      }
+      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken(token))) ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken(token))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+      }
+    }
+
+    "return 401 when no Authorization header is provided" in {
+      cleanDb()
+      Post("/api/auth/logout") ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+      }
+    }
+
+    "return 401 for an unrecognised token" in {
+      cleanDb()
+      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken("deadbeefdeadbeef"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
       }
     }
   }

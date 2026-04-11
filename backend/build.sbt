@@ -50,6 +50,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-testkit" % "2.8.8" % Test,
       "com.typesafe.akka" %% "akka-http-testkit" % "10.5.3" % Test,
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-      "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test
+      "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
+      "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
     )
   )
