@@ -5,7 +5,7 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository}
 
 final class ApiRoutes(
     dashboardRepo: DashboardRepository,
@@ -13,11 +13,13 @@ final class ApiRoutes(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo: DataTypeRepository,
     fileSystem: FileSystem,
-    connector: RestApiConnector
+    connector: RestApiConnector,
+    userRepo: UserRepository
 )(implicit system: ActorSystem[_])
     extends Directives {
 
   private val health      = new HealthRoutes()
+  private val auth        = new AuthRoutes(userRepo)
   private val dashboards  = new DashboardRoutes(dashboardRepo, panelRepo)
   private val panels      = new PanelRoutes(panelRepo, dashboardRepo)
   private val dataTypes   = new DataTypeRoutes(dataTypeRepo)
@@ -28,6 +30,7 @@ final class ApiRoutes(
     health.routes ~
       pathPrefix("api") {
         concat(
+          pathPrefix("auth") { auth.routes },
           dashboards.routes,
           panels.routes,
           dataTypes.routes,

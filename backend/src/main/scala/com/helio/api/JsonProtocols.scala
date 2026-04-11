@@ -66,6 +66,12 @@ final case class DashboardSnapshotPayload(
     panels: Vector[DashboardSnapshotPanelEntry]
 )
 final case class ErrorResponse(message: String)
+
+// ── Auth API types ────────────────────────────────────────────────────────────
+final case class RegisterRequest(email: String, password: String, displayName: Option[String])
+final case class LoginRequest(email: String, password: String)
+final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String)
+final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
 final case class UpdateDashboardRequest(
@@ -301,6 +307,16 @@ object DashboardSnapshotPanelEntry {
     )
 }
 
+object UserResponse {
+  def fromDomain(user: com.helio.domain.User): UserResponse =
+    UserResponse(
+      id          = user.id.value,
+      email       = user.email,
+      displayName = user.displayName,
+      createdAt   = user.createdAt.toString
+    )
+}
+
 // ── JsonProtocols trait ───────────────────────────────────────────────────────
 
 trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
@@ -448,6 +464,12 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
+
+  // Auth API formats
+  implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)
+  implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
+  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat4(UserResponse.apply)
+  implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat3(AuthResponse.apply)
 
   // Snapshot API formats
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)

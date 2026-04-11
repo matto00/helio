@@ -7,6 +7,21 @@ final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
 final case class DataSourceId(value: String) extends AnyVal
 final case class DataTypeId(value: String) extends AnyVal
+final case class UserId(value: String) extends AnyVal
+
+final case class User(
+    id: UserId,
+    email: String,
+    displayName: Option[String],
+    createdAt: Instant
+)
+
+final case class UserSession(
+    token: String,
+    userId: UserId,
+    createdAt: Instant,
+    expiresAt: Instant
+)
 
 sealed trait PanelType
 object PanelType {
