@@ -30,6 +30,10 @@ class UserRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execution
       expiresAt = row.expiresAt
     )
 
+  def findById(userId: UserId): Future[Option[User]] =
+    db.run(users.filter(_.id === UUID.fromString(userId.value)).result.headOption)
+      .map(_.map(rowToDomain))
+
   def findByEmail(email: String): Future[Option[User]] =
     db.run(users.filter(_.email === email).result.headOption)
       .map(_.map(rowToDomain))

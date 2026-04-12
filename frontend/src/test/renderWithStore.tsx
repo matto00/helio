@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { authReducer } from "../features/auth/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
@@ -69,6 +70,7 @@ interface TestState {
 
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
   const reducer = {
+    auth: authReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
     panels: panelsReducer,
