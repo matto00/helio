@@ -14,7 +14,8 @@ import scala.concurrent.ExecutionContextExecutor
 
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
-    panelRepo: PanelRepository
+    panelRepo: PanelRepository,
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -37,7 +38,7 @@ final class DashboardRoutes(
                 val dashboard = Dashboard(
                   id         = DashboardId(UUID.randomUUID().toString),
                   name       = RequestValidation.normalizeDashboardName(request.name),
-                  meta       = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
+                  meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                   appearance = DashboardAppearance.Default,
                   layout     = DashboardLayout.Default
                 )

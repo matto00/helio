@@ -5,7 +5,7 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, UserRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, SlickUserSessionRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Await
@@ -28,19 +28,20 @@ object Main {
       val config = ConfigFactory.load()
       val db     = Database.init(config)
 
-      val dashboardRepo   = new DashboardRepository(db)
-      val panelRepo       = new PanelRepository(db)
-      val dataSourceRepo  = new DataSourceRepository(db)
-      val dataTypeRepo    = new DataTypeRepository(db)
-      val userRepo        = new UserRepository(db)
-      val fileSystem      = LocalFileSystem.fromEnv()
+      val dashboardRepo      = new DashboardRepository(db)
+      val panelRepo          = new PanelRepository(db)
+      val dataSourceRepo     = new DataSourceRepository(db)
+      val dataTypeRepo       = new DataTypeRepository(db)
+      val userRepo           = new UserRepository(db)
+      val userSessionRepo    = new SlickUserSessionRepository(db)
+      val fileSystem         = LocalFileSystem.fromEnv()
 
       DemoData.seedIfEmpty(dashboardRepo, panelRepo)
 
       val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, connector, userRepo)
+      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, connector, userRepo, userSessionRepo)
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

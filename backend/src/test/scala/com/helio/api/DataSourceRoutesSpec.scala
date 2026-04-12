@@ -5,8 +5,11 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, UserRepository}
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
+import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, UserRepository, UserSessionRepository}
+import akka.http.scaladsl.server.Directives.mapRequest
+import scala.concurrent.Future
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -76,6 +79,14 @@ class DataSourceRoutesSpec
   private def errorConnector(msg: String): RestApiConnector =
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left(msg))))
 
+  private val testToken = "ds-spec-test-token"
+  private val testUser  = AuthenticatedUser(UserId("ds-spec-user-id"))
+
+  private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
+    override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
+      Future.successful(if (token == testToken) Some(testUser) else None)
+  }
+
   private def routes(): Route = routesWith(stubConnector)
 
   private def routesWith(c: RestApiConnector): Route = {
@@ -84,7 +95,12 @@ class DataSourceRoutesSpec
     val dashboardRepo = new DashboardRepository(db)(ec)
     val panelRepo     = new PanelRepository(db)(ec)
     val userRepo      = new UserRepository(db)(ec)
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c, userRepo).routes
+    mapRequest { req =>
+      if (req.header[Authorization].isDefined) req
+      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
+    } {
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c, userRepo, stubSessionRepo).routes
+    }
   }
 
   private val sampleJson: JsValue =

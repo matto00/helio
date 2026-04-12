@@ -5,8 +5,9 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{RestApiConfig, RestApiConnector}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository}
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -15,7 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
 class ApiRoutesSpec
@@ -82,8 +83,36 @@ class ApiRoutesSpec
   private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
 
+  // Fixed test user injected by the stub session repository
+  private val testUserId  = "test-user-id-1234"
+  private val testToken   = "valid-test-token"
+  private val testUser    = AuthenticatedUser(UserId(testUserId))
+
+  // Stub session repo: returns testUser for testToken, None for anything else
+  private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
+    override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
+      Future.successful(if (token == testToken) Some(testUser) else None)
+  }
+
+  /** Builds the raw routes (no automatic auth header). */
+  private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector, userRepo, stubSessionRepo).routes
+
+  import akka.http.scaladsl.server.Directives.mapRequest
+  import akka.http.scaladsl.model.headers.Authorization
+
+  /** Routes with the valid Bearer token pre-applied to every request that does
+   *  not already carry an Authorization header.  This keeps all existing
+   *  happy-path tests working without modification while still allowing the
+   *  auth-route tests to supply their own tokens.
+   */
   private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector, userRepo).routes
+    mapRequest { req =>
+      if (req.header[Authorization].isDefined) req
+      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
+    } {
+      rawRoutes(connector)
+    }
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
@@ -1380,6 +1409,69 @@ class ApiRoutesSpec
       Post("/api/dashboards/import", payload) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("nonexistent-id")
+      }
+    }
+  }
+
+  // ── Session middleware — 401 tests ───────────────────────────────────────────
+
+  "Protected routes" should {
+
+    "return 401 for GET /api/dashboards without Authorization" in {
+      Get("/api/dashboards") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for POST /api/dashboards without Authorization" in {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Test"))) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for GET /api/dashboards/:id/panels without Authorization" in {
+      Get("/api/dashboards/some-id/panels") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for POST /api/panels without Authorization" in {
+      Post("/api/panels", CreatePanelRequest(Some("some-id"), Some("Test"), None)) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for an expired or unknown token" in {
+      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      Get("/api/dashboards").withHeaders(Authorization(OAuth2BearerToken("unknown-bad-token"))) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "POST /api/dashboards with valid token sets createdBy to the authenticated user ID" in {
+      cleanDb()
+      Post("/api/dashboards", CreateDashboardRequest(Some("Auth Dashboard"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[DashboardResponse]
+        response.meta.createdBy shouldBe testUserId
+      }
+    }
+
+    "POST /api/panels with valid token sets createdBy to the authenticated user ID" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Auth Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.meta.createdBy shouldBe testUserId
       }
     }
   }
