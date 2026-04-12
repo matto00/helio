@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Login page
-The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed.
+The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed. The page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth flow.
 
 #### Scenario: Successful login redirects to home
 - **WHEN** the user submits valid credentials on the login page
@@ -19,10 +19,10 @@ The frontend SHALL provide a `/login` page with an email/password form. Submitti
 - **WHEN** the user is on the login page
 - **THEN** a link to `/register` is visible
 
-#### Scenario: Google login button is visible but non-functional
+#### Scenario: Google login button is visible and functional
 - **WHEN** the user is on the login page
-- **THEN** a "Continue with Google" button is rendered
-- **AND** clicking it does NOT initiate any OAuth flow in this version
+- **THEN** a "Continue with Google" button is rendered and enabled
+- **AND** clicking it navigates the browser to `GET /api/auth/google` (a full browser navigation, not a fetch)
 
 ### Requirement: Registration page
 The frontend SHALL provide a `/register` page with email, password, and optional display name fields. Submitting the form SHALL dispatch the `register` thunk. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed.

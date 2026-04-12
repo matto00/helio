@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Auth slice tracks current user and status
-The frontend Redux store SHALL include an `authSlice` with state shape `{ currentUser: User | null, status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated', token: string | null }`. The slice SHALL expose actions `setAuth`, `clearAuth`, and an async thunk `rehydrateAuth`.
+The frontend Redux store SHALL include an `authSlice` with state shape `{ currentUser: User | null, status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated', token: string | null }`. The slice SHALL expose actions `setAuth`, `clearAuth`, and async thunks `rehydrateAuth` and `handleOAuthCallback`. The `User` type SHALL include `avatarUrl: string | null` in addition to `id`, `email`, `displayName`, and `createdAt`.
 
 #### Scenario: Initial state
 - **WHEN** the Redux store is first created
@@ -84,3 +84,26 @@ The frontend SHALL set `Authorization: Bearer <token>` as a default header on th
 #### Scenario: Header removed after logout
 - **WHEN** the user logs out
 - **THEN** subsequent HTTP requests via `httpClient` do NOT include an `Authorization` header
+
+### Requirement: handleOAuthCallback thunk
+The frontend SHALL expose a `handleOAuthCallback(code: string, state?: string)` async thunk that calls `GET /api/auth/google/callback` with the provided `code` and optional `state` query parameters. On `200 OK` it SHALL dispatch `setAuth({ token, user })` and store the token in `sessionStorage`. On failure it SHALL return a rejected action.
+
+#### Scenario: Successful OAuth callback exchange
+- **WHEN** `handleOAuthCallback({ code: "valid-code" })` is dispatched
+- **THEN** `GET /api/auth/google/callback?code=valid-code` is called
+- **AND** on success `auth.status` becomes `'authenticated'` and `auth.currentUser` is populated with `avatarUrl`
+
+#### Scenario: Failed OAuth callback exchange
+- **WHEN** `handleOAuthCallback({ code: "expired-code" })` is dispatched and the backend returns an error
+- **THEN** the thunk rejects and `auth.status` remains `'unauthenticated'`
+
+### Requirement: User model includes avatarUrl
+The `User` TypeScript interface SHALL include `avatarUrl: string | null`. This field SHALL be populated from Google profile data for OAuth users and SHALL be `null` for email/password users.
+
+#### Scenario: Google user has avatarUrl populated
+- **WHEN** a Google OAuth login completes successfully
+- **THEN** `auth.currentUser.avatarUrl` is a non-null string containing the Google profile picture URL
+
+#### Scenario: Email/password user has null avatarUrl
+- **WHEN** an email/password login completes successfully
+- **THEN** `auth.currentUser.avatarUrl` is `null`

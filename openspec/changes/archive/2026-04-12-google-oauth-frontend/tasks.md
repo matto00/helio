@@ -51,4 +51,4 @@
 - [x] 9.1 Run `npm run lint` — zero warnings
 - [x] 9.2 Run `npm run format:check` — no formatting issues
 - [x] 9.3 Run `npm test` — all tests pass (133 total)
-- [ ] 9.4 Manual smoke test: click "Continue with Google" on `/login` and confirm browser navigates to `/api/auth/google` (proxied to backend)
+- [x] 9.4 Manual smoke test: click "Continue with Google" on `/login` and confirm browser navigates to `/api/auth/google` (proxied to backend)
