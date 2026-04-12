@@ -18,7 +18,10 @@ final class ApiRoutes(
     fileSystem: FileSystem,
     connector: RestApiConnector,
     userRepo: UserRepository,
-    userSessionRepo: UserSessionRepository
+    userSessionRepo: UserSessionRepository,
+    googleClientId: String = "",
+    googleClientSecret: String = "",
+    googleRedirectUri: String = ""
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -27,7 +30,7 @@ final class ApiRoutes(
 
   private val authDirectives = new AuthDirectives(userSessionRepo)
   private val health         = new HealthRoutes()
-  private val auth           = new AuthRoutes(userRepo)
+  private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
   private val dataTypes      = new DataTypeRoutes(dataTypeRepo)
   private val dataSources    = new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sources        = new SourceRoutes(dataSourceRepo, dataTypeRepo, connector)

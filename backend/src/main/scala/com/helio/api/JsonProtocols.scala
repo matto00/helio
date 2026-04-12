@@ -67,10 +67,13 @@ final case class DashboardSnapshotPayload(
 )
 final case class ErrorResponse(message: String)
 
+// ── Google OAuth types ────────────────────────────────────────────────────────
+final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String])
+
 // ── Auth API types ────────────────────────────────────────────────────────────
 final case class RegisterRequest(email: String, password: String, displayName: Option[String])
 final case class LoginRequest(email: String, password: String)
-final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String)
+final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String, avatarUrl: Option[String] = None)
 final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
@@ -313,7 +316,8 @@ object UserResponse {
       id          = user.id.value,
       email       = user.email,
       displayName = user.displayName,
-      createdAt   = user.createdAt.toString
+      createdAt   = user.createdAt.toString,
+      avatarUrl   = user.avatarUrl
     )
 }
 
@@ -468,8 +472,21 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // Auth API formats
   implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
-  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat4(UserResponse.apply)
+  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat5(UserResponse.apply)
   implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat3(AuthResponse.apply)
+
+  // Google OAuth formats
+  implicit val googleProfileFormat: RootJsonReader[GoogleProfile] = new RootJsonReader[GoogleProfile] {
+    def read(json: JsValue): GoogleProfile = {
+      val obj = json.asJsObject
+      GoogleProfile(
+        sub     = obj.fields("sub").convertTo[String],
+        email   = obj.fields.get("email").map(_.convertTo[String]),
+        name    = obj.fields.get("name").map(_.convertTo[String]),
+        picture = obj.fields.get("picture").map(_.convertTo[String])
+      )
+    }
+  }
 
   // Snapshot API formats
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
