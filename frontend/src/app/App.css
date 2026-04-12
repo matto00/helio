@@ -226,6 +226,52 @@
   min-height: calc(100vh - 160px);
 }
 
+/* User identity display in the app header */
+.user-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  backdrop-filter: blur(24px);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-avatar--initials {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--app-accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.user-identity__name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
 @media (max-width: 768px) {
   .app-shell {
     padding-top: 28px;

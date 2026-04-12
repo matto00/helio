@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { login } from "./authSlice";
@@ -8,6 +8,7 @@ import "./auth.css";
 export function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const status = useAppSelector((state) => state.auth.status);
 
   const [email, setEmail] = useState("");
@@ -15,6 +16,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isLoading = status === "loading";
+  const oauthError =
+    searchParams.get("error") === "oauth_failed"
+      ? "Google sign-in failed. Please try again."
+      : null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,9 +70,17 @@ export function LoginPage() {
           {error && <div className="auth-error">{error}</div>}
         </form>
 
+        {oauthError && <div className="auth-error">{oauthError}</div>}
+
         <div className="auth-divider">or</div>
 
-        <button type="button" className="auth-google-btn" disabled title="Coming soon">
+        <button
+          type="button"
+          className="auth-google-btn"
+          onClick={() => {
+            window.location.href = "/api/auth/google";
+          }}
+        >
           <span>G</span>
           Continue with Google
         </button>

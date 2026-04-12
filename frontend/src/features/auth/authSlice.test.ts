@@ -3,7 +3,15 @@ import { configureStore } from "@reduxjs/toolkit";
 import * as authService from "../../services/authService";
 import * as httpClient from "../../services/httpClient";
 import type { AuthResponse, User } from "../../types/models";
-import { authReducer, clearAuth, login, logout, rehydrateAuth, setAuth } from "./authSlice";
+import {
+  authReducer,
+  clearAuth,
+  handleOAuthCallback,
+  login,
+  logout,
+  rehydrateAuth,
+  setAuth,
+} from "./authSlice";
 
 jest.mock("../../services/authService");
 jest.mock("../../services/httpClient", () => ({
@@ -18,6 +26,7 @@ const testUser: User = {
   id: "user-1",
   email: "test@example.com",
   displayName: "Test User",
+  avatarUrl: null,
   createdAt: "2026-01-01T00:00:00Z",
 };
 
@@ -160,5 +169,63 @@ describe("logout thunk", () => {
 
     expect(store.getState().auth.status).toBe("unauthenticated");
     expect(store.getState().auth.token).toBeNull();
+  });
+});
+
+describe("handleOAuthCallback thunk", () => {
+  beforeEach(() => {
+    mockedSetAuthToken.mockClear();
+    sessionStorage.clear();
+  });
+
+  it("sets authenticated state and stores token on successful OAuth callback", async () => {
+    const oauthUser: User = {
+      id: "google-user-1",
+      email: "google@example.com",
+      displayName: "Google User",
+      avatarUrl: "https://example.com/avatar.jpg",
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const oauthResponse: AuthResponse = {
+      token: "oauth-token-xyz",
+      expiresAt: "2026-12-31T00:00:00Z",
+      user: oauthUser,
+    };
+    mockedAuthService.oauthCallbackRequest.mockResolvedValue(oauthResponse);
+
+    const store = makeStore();
+    const result = await store.dispatch(handleOAuthCallback({ code: "auth-code-123" }));
+
+    expect(handleOAuthCallback.fulfilled.match(result)).toBe(true);
+    expect(store.getState().auth.status).toBe("authenticated");
+    expect(store.getState().auth.token).toBe("oauth-token-xyz");
+    expect(store.getState().auth.currentUser).toEqual(oauthUser);
+    expect(mockedSetAuthToken).toHaveBeenCalledWith("oauth-token-xyz");
+    expect(sessionStorage.getItem("helio_auth_token")).toBe("oauth-token-xyz");
+  });
+
+  it("sets unauthenticated state on OAuth callback failure", async () => {
+    mockedAuthService.oauthCallbackRequest.mockRejectedValue(new Error("exchange failed"));
+
+    const store = makeStore();
+    const result = await store.dispatch(handleOAuthCallback({ code: "bad-code" }));
+
+    expect(handleOAuthCallback.rejected.match(result)).toBe(true);
+    expect(result.payload).toBe("OAuth sign-in failed.");
+    expect(store.getState().auth.status).toBe("unauthenticated");
+    expect(store.getState().auth.token).toBeNull();
+    expect(store.getState().auth.currentUser).toBeNull();
+  });
+
+  it("passes state param to oauthCallbackRequest when provided", async () => {
+    mockedAuthService.oauthCallbackRequest.mockResolvedValue(testAuthResponse);
+
+    const store = makeStore();
+    await store.dispatch(handleOAuthCallback({ code: "code-abc", state: "csrf-state-xyz" }));
+
+    expect(mockedAuthService.oauthCallbackRequest).toHaveBeenCalledWith(
+      "code-abc",
+      "csrf-state-xyz",
+    );
   });
 });

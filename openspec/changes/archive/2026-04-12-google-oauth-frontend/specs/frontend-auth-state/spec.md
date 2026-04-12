@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Auth slice tracks current user and status
 The frontend Redux store SHALL include an `authSlice` with state shape `{ currentUser: User | null, status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated', token: string | null }`. The slice SHALL expose actions `setAuth`, `clearAuth`, and async thunks `rehydrateAuth` and `handleOAuthCallback`. The `User` type SHALL include `avatarUrl: string | null` in addition to `id`, `email`, `displayName`, and `createdAt`.
@@ -59,31 +59,7 @@ The frontend SHALL expose a `rehydrateAuth()` async thunk. On app mount, the app
 - **WHEN** `rehydrateAuth()` is dispatched and the token in `sessionStorage` is expired or unrecognised
 - **THEN** `GET /api/auth/me` returns `401`, `clearAuth` is dispatched, and `auth.status` becomes `'unauthenticated'`
 
-#### Scenario: No token in sessionStorage
-- **WHEN** `rehydrateAuth()` is dispatched and `sessionStorage` has no token
-- **THEN** `clearAuth` is dispatched immediately without calling the server and `auth.status` becomes `'unauthenticated'`
-
-### Requirement: Token persisted to sessionStorage
-The frontend SHALL write the bearer token to `sessionStorage` under the key `helio_auth_token` whenever `setAuth` is dispatched, and SHALL remove it whenever `clearAuth` is dispatched.
-
-#### Scenario: Token written on login
-- **WHEN** `setAuth` is dispatched with a token
-- **THEN** `sessionStorage.getItem('helio_auth_token')` returns that token
-
-#### Scenario: Token removed on logout
-- **WHEN** `clearAuth` is dispatched
-- **THEN** `sessionStorage.getItem('helio_auth_token')` returns `null`
-
-### Requirement: Bearer token attached to all API requests
-The frontend SHALL set `Authorization: Bearer <token>` as a default header on the shared Axios `httpClient` instance whenever `setAuth` is dispatched, and SHALL remove that header whenever `clearAuth` is dispatched.
-
-#### Scenario: Header present after login
-- **WHEN** the user successfully logs in
-- **THEN** all subsequent HTTP requests made via `httpClient` include `Authorization: Bearer <token>`
-
-#### Scenario: Header removed after logout
-- **WHEN** the user logs out
-- **THEN** subsequent HTTP requests via `httpClient` do NOT include an `Authorization` header
+## ADDED Requirements
 
 ### Requirement: handleOAuthCallback thunk
 The frontend SHALL expose a `handleOAuthCallback(code: string, state?: string)` async thunk that calls `GET /api/auth/google/callback` with the provided `code` and optional `state` query parameters. On `200 OK` it SHALL dispatch `setAuth({ token, user })` and store the token in `sessionStorage`. On failure it SHALL return a rejected action.

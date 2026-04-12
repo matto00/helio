@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Login page
 The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed. The page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth flow.
@@ -24,6 +24,17 @@ The frontend SHALL provide a `/login` page with an email/password form. Submitti
 - **THEN** a "Continue with Google" button is rendered and enabled
 - **AND** clicking it navigates the browser to `GET /api/auth/google` (a full browser navigation, not a fetch)
 
+### Requirement: Logout button in app header
+The app header SHALL include a logout button when `auth.status` is `'authenticated'`. Clicking it SHALL dispatch the `logout` thunk. On completion the user SHALL be redirected to `/login`.
+
+#### Scenario: Logout button visible when authenticated
+- **WHEN** `auth.status` is `'authenticated'`
+- **THEN** a logout button is visible in the app header
+
+#### Scenario: Clicking logout clears session and redirects
+- **WHEN** the user clicks the logout button
+- **THEN** the `logout` thunk is dispatched, auth state is cleared, and the user is redirected to `/login`
+
 ### Requirement: Registration page
 The frontend SHALL provide a `/register` page with email, password, and optional display name fields. Submitting the form SHALL dispatch the `register` thunk. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed.
 
@@ -42,17 +53,6 @@ The frontend SHALL provide a `/register` page with email, password, and optional
 #### Scenario: Link to login page
 - **WHEN** the user is on the registration page
 - **THEN** a link to `/login` is visible
-
-### Requirement: Logout button in app header
-The app header SHALL include a logout button when `auth.status` is `'authenticated'`. Clicking it SHALL dispatch the `logout` thunk. On completion the user SHALL be redirected to `/login`.
-
-#### Scenario: Logout button visible when authenticated
-- **WHEN** `auth.status` is `'authenticated'`
-- **THEN** a logout button is visible in the app header
-
-#### Scenario: Clicking logout clears session and redirects
-- **WHEN** the user clicks the logout button
-- **THEN** the `logout` thunk is dispatched, auth state is cleared, and the user is redirected to `/login`
 
 ### Requirement: Global 401 handling redirects to login
 The frontend SHALL intercept all `401 Unauthorized` HTTP responses via an Axios response interceptor. On receiving a 401 the interceptor SHALL dispatch `clearAuth` and redirect the user to `/login`. The interceptor SHALL NOT redirect if the 401 came from `GET /api/auth/me` during rehydration (to avoid a loop).
