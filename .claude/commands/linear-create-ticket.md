@@ -23,8 +23,14 @@ Signals of epic scope: "system for...", "refactor all...", "phase 1/2/3", multip
 
 Search Linear for existing open tickets with similar titles or descriptions.
 
-- If potential duplicates are found: list them with their titles and URLs, ask the user to confirm they want to proceed with creating a new ticket
-- If no duplicates: proceed without asking
+If potential duplicates are found:
+
+- List them with their titles and URLs
+- Ask: "I found a potentially related ticket — how would you like to proceed?"
+  - **Proceed with new ticket**: create it and add `Related: [URL]` in the description
+  - **Don't create**: stop and surface the existing ticket URL for reference
+
+If no duplicates: proceed without asking.
 
 ### 3. Ask clarifying questions (max 3, only when necessary)
 
@@ -45,7 +51,7 @@ Ask a question **only if** the answer would materially change the ticket's scope
 
 For a single clear ticket: ask **0 questions** and create it directly.
 
-### 4. For epics: show breakdown before creating
+### 4. For epics: show breakdown and wait for confirmation
 
 If the description is epic-scoped, break it down into logical tickets where each:
 
@@ -53,7 +59,7 @@ If the description is epic-scoped, break it down into logical tickets where each
 - Is achievable in one worktree session (one PR)
 - Has a clear, distinct purpose
 
-**Show the proposed breakdown to the user before creating anything:**
+**Show the proposed breakdown to the user and wait for confirmation before creating anything:**
 
 ```
 I'll create N tickets:
@@ -61,10 +67,10 @@ I'll create N tickets:
 2. [Title] — [one-line rationale]
 ...
 
-Creating now...
+Shall I create these?
 ```
 
-Then create all tickets.
+Only proceed to creation after the user confirms.
 
 ### 5. Create each ticket
 
@@ -77,6 +83,7 @@ For each ticket, create it in Linear with:
 - Context: why this is needed
 - What: what will change
 - (For bugs) Observed behavior, expected behavior, steps to reproduce
+- (If duplicate was found and user chose to proceed) `Related: [URL]`
 
 **Acceptance criteria** — at least 2, each testable and specific:
 
@@ -127,7 +134,7 @@ Before creating, verify each ticket satisfies:
 
 ## Guardrails
 
-- For multi-ticket breakdowns: always show the plan before creating — never silently create multiple tickets
+- For multi-ticket breakdowns: always show the plan and wait for confirmation — never silently create multiple tickets
 - Never ask more than 3 clarifying questions total across all tickets
 - For a clear, unambiguous single ticket: 0 questions, create immediately
 - Infer priority and project from context rather than asking

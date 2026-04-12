@@ -43,15 +43,16 @@ Helio is a dashboard builder with a React/Redux frontend and a Scala/Akka backen
 
 ```
 React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
-  → Vite proxy → Akka HTTP Routes → Registry Actor (in-memory state)
+  → Vite proxy → Akka HTTP Routes → Repository Layer (Slick) → PostgreSQL
 ```
 
 ### Backend (Scala/Akka)
 
-- **Akka Typed actors** hold all state in memory (`DashboardRegistryActor`, `PanelRegistryActor`) — no database yet; data is seeded from `DemoData` on startup and lost on restart.
-- **`ApiRoutes.scala`** defines all REST routes. Inputs are normalized by `RequestValidation` before reaching actors.
+- **PostgreSQL** is the persistence layer, managed by **Flyway** (migrations in `backend/src/main/resources/db/migration/`). **Slick** is the database access layer with HikariCP connection pooling.
+- **`ApiRoutes.scala`** defines all REST routes and composes the sub-routers. Inputs are normalized by `RequestValidation` before reaching repositories.
 - **`JsonProtocols.scala`** provides Spray JSON implicit formatters for all request/response types.
-- Domain models use value-class ID wrappers (`DashboardId`, `PanelId`) and immutable case classes with `ResourceMeta` for timestamps.
+- Domain models use value-class ID wrappers (`DashboardId`, `PanelId`, `DataTypeId`, `DataSourceId`) and immutable case classes with `ResourceMeta` for timestamps.
+- **`DemoData`** seeds initial data on startup for development convenience; production data persists across restarts.
 
 ### Frontend (React/Redux/TypeScript)
 
@@ -68,9 +69,18 @@ Key endpoints:
 
 - `GET/POST /api/dashboards`
 - `PATCH /api/dashboards/:id` — updates appearance and/or layout
+- `POST /api/dashboards/:id/duplicate`
+- `GET /api/dashboards/:id/export` / `POST /api/dashboards/import`
 - `GET /api/dashboards/:id/panels`
 - `POST /api/panels` — requires `dashboardId` in body
 - `PATCH /api/panels/:id` — updates appearance
+- `POST /api/panels/:id/duplicate`
+- `GET/POST /api/data-types`
+- `PATCH/DELETE /api/data-types/:id`
+- `GET/POST /api/data-sources`
+- `GET/DELETE /api/data-sources/:id`
+- `GET /api/data-sources/:id/sources`
+- `GET /health`
 
 ### Git conventions
 
@@ -82,7 +92,8 @@ Branch naming: `[feature|task|bug]/[3-5-word-description]/[ticket-id]`
 
 Available commands in `.claude/commands/`:
 
-- `/linear-ticket-delivery` — Full end-to-end workflow for working a Linear ticket (branching → proposal → approval gate → implementation → verification → archive → PR)
+- `/linear-ticket-delivery` — Full end-to-end workflow for working a Linear ticket (branching → proposal → implementation → verification → archive → PR)
+- `/linear-create-ticket` — Create one or more well-scoped Linear tickets from a free-form description
 - `/opsx-propose` — Create an OpenSpec change with all artifacts (proposal, design, tasks) in one step
 - `/opsx-explore` — Enter explore/discovery mode: think through problems and investigate the codebase without implementing
 - `/opsx-apply` — Implement tasks from an active OpenSpec change

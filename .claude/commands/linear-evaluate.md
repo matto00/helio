@@ -12,6 +12,13 @@ You will receive:
 - `CHANGE_NAME`: the OpenSpec change name
 - `TICKET_ID`: the Linear issue identifier
 - `CYCLE`: the current cycle number (1, 2, or 3)
+- `TICKET_CONTEXT`: (optional) pre-fetched ticket content (title, description, acceptance criteria) passed by the Orchestrator — if present, use this instead of fetching from Linear MCP
+
+---
+
+## Resumability
+
+You may be paused and resumed via SendMessage at any point. When resumed, re-read your current context and continue from where you left off.
 
 ---
 
@@ -21,7 +28,7 @@ You will receive:
 
 Read the following before evaluating:
 
-- Linear ticket: title, description, acceptance criteria (use Linear MCP)
+- Linear ticket: use `TICKET_CONTEXT` if provided; otherwise fetch via Linear MCP using `TICKET_ID`
 - `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/proposal.md`
 - `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/design.md`
 - `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/tasks.md`
@@ -66,29 +73,42 @@ Check each item:
 
 ## Phase 3: UI / Playwright Review
 
-**Run this phase if and only if:**
+**Run this phase if and only if any of the following were modified:**
 
-- Files under `frontend/` were modified, OR
-- Any API route used by the UI was changed
+- Files under `frontend/`
+- `backend/src/main/scala/routes/ApiRoutes.scala`
+- Files under `schemas/`
+- Files under `openspec/specs/`
 
-If neither condition is met: mark Phase 3 as N/A.
+If none of these were modified: mark Phase 3 as N/A.
 
-Start the dev server and backend if not already running. Use Playwright MCP to walk through the following:
+**Before starting the dev server**, check whether a meaningful E2E test is actually possible:
 
-**Functional flows:**
+- If `ApiRoutes.scala` changed but **no `frontend/` files changed**, the frontend likely hasn't been updated to use the new backend feature yet (common during phased rollout — e.g. backend auth added before frontend integration). In that case, the app would produce errors by design. Mark Phase 3 N/A and note the reason.
+- Only start the dev server when there are frontend changes or when an existing frontend flow exercises the modified backend behavior.
+
+### Dev server setup
+
+Start the dev server and backend if not already running. If the dev server fails to start:
+
+1. Diagnose the failure — check for port conflicts, missing dependencies, or build errors
+2. Include the diagnosis in your report
+3. Tag the issue as a `BLOCKER` (see output format below) — this is an environmental issue, not a code issue, and requires human intervention rather than an Executor re-run
+
+### Functional flows
 
 - [ ] All new user flows work correctly end-to-end
 - [ ] Happy path: feature works as described in the ticket
 - [ ] Unhappy paths: error states, empty states, and failed API calls are handled gracefully (no blank screens, no unhandled exceptions)
 - [ ] Loading states are present and correct (no jarring layout shifts or missing spinners)
 
-**Quality:**
+### Quality
 
 - [ ] No console errors during any tested flow
 - [ ] Visual design is consistent with existing application patterns (spacing, typography, component style)
 - [ ] Feature works from all relevant entry points, not just the primary one
 
-**Accessibility & responsiveness:**
+### Accessibility & responsiveness
 
 - [ ] Interactive elements have ARIA labels or accessible names
 - [ ] Keyboard navigation works for new interactive elements
@@ -98,7 +118,15 @@ Start the dev server and backend if not already running. Use Playwright MCP to w
 
 ## Output Format
 
-Produce a structured evaluation report in this exact format:
+### Step 1: Write report to file
+
+Write the full evaluation report to:
+
+```
+WORKTREE_PATH/openspec/changes/CHANGE_NAME/evaluation-CYCLE.md
+```
+
+The file content must follow this structure:
 
 ```
 ## Evaluation Report — Cycle N
@@ -127,6 +155,26 @@ Issues:
 - ...
 ```
 
+If a `BLOCKER` is present, append it to the file:
+
+```
+BLOCKER
+Issue: [description of the environmental problem]
+Diagnosis: [what was found — port conflict, missing dep, build error, etc.]
+Required: human intervention before evaluation can continue
+```
+
+### Step 2: Return verdict to Orchestrator
+
+Return only:
+
+```
+Overall: PASS | FAIL | BLOCKER
+Report: WORKTREE_PATH/openspec/changes/CHANGE_NAME/evaluation-CYCLE.md
+```
+
+Do not reproduce the full report in your return message — the Orchestrator and Executor will read it from the file.
+
 ---
 
 ## Cycle 3 Behavior
@@ -147,7 +195,7 @@ If `CYCLE = 3` and the result is FAIL:
 
 - **Never modify code** — read only
 - Change requests must be **specific and actionable** — not "improve readability" but "rename `x` to `layoutBeforeInteraction` in `PanelGrid.tsx:167` for clarity"
-- Phase 3 is **mandatory** (not optional) when frontend files or API routes were changed
+- Phase 3 is **mandatory** (not optional) when the trigger conditions are met
 - Non-blocking suggestions go in their own section and do NOT contribute to a FAIL result
 - A PASS with suggestions is still a PASS — do not inflate FAILs with minor nits
-- If a check cannot be performed (e.g., dev server won't start), note why and treat it as a FAIL for that phase
+- `BLOCKER` is for environmental failures only — not code issues; code issues go in Change Requests

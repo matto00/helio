@@ -14,7 +14,13 @@ coverage/
 *.log
 backend/.env
 
+# Git worktrees (managed by Claude Code orchestrator)
+.claude/worktrees/
+
 # Playwright MCP session artifacts
 .playwright-mcp/
 [0-9][0-9]-*.png
 [0-9][0-9]-snapshot.md
+
+# Leftover screenshot artifacts from E2E test sessions
+*.png

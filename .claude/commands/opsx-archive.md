@@ -2,6 +2,13 @@ Archive a completed change in the OpenSpec workflow.
 
 **Input**: Optionally specify a change name after `/opsx-archive` (e.g., `/opsx-archive add-auth`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
+**Invocation modes**
+
+- **Interactive** (user runs `/opsx-archive` directly): prompt for missing inputs and confirmations as described below.
+- **Orchestrator / programmatic** (invoked with a change name argument by another agent): skip all `AskUserQuestion` prompts — auto-confirm warnings and proceed. The caller has already validated the preconditions.
+
+---
+
 **Steps**
 
 1. **If no change name provided, prompt for selection**
@@ -11,7 +18,9 @@ Archive a completed change in the OpenSpec workflow.
    Show only active changes (not already archived).
    Include the schema used for each change if available.
 
-   **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
+   **IMPORTANT**: Do NOT guess or auto-select a change in interactive mode. Always let the user choose.
+
+   _Orchestrator mode_: change name is always provided — skip this step.
 
 2. **Check artifact completion status**
 
@@ -23,8 +32,8 @@ Archive a completed change in the OpenSpec workflow.
 
    **If any artifacts are not `done`:**
    - Display warning listing incomplete artifacts
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
-   - Proceed if user confirms
+   - Interactive mode: use **AskUserQuestion tool** to confirm; orchestrator mode: auto-proceed
+   - Proceed
 
 3. **Check task completion status**
 
@@ -34,8 +43,8 @@ Archive a completed change in the OpenSpec workflow.
 
    **If incomplete tasks found:**
    - Display warning showing count of incomplete tasks
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
-   - Proceed if user confirms
+   - Interactive mode: use **AskUserQuestion tool** to confirm; orchestrator mode: auto-proceed
+   - Proceed
 
    **If no tasks file exists:** Proceed without task-related warning.
 
@@ -48,11 +57,13 @@ Archive a completed change in the OpenSpec workflow.
    - Determine what changes would be applied (adds, modifications, removals, renames)
    - Show a combined summary before prompting
 
-   **Prompt options:**
+   **Prompt options (interactive mode only):**
    - If changes needed: "Sync now (recommended)", "Archive without syncing"
    - If already synced: "Archive now", "Sync anyway", "Cancel"
 
-   If user chooses sync, use the Agent tool (general-purpose) to invoke the openspec-sync-specs skill for change `<name>`. Proceed to archive regardless of choice.
+   **Orchestrator mode**: automatically sync if delta specs exist, then archive.
+
+   If syncing, use the Agent tool (general-purpose) to invoke the openspec-sync-specs skill for change `<name>`. Proceed to archive regardless of choice.
 
 5. **Perform the archive**
 
