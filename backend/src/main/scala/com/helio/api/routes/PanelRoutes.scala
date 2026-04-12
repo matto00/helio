@@ -14,7 +14,8 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 
 final class PanelRoutes(
     panelRepo: PanelRepository,
-    dashboardRepo: DashboardRepository
+    dashboardRepo: DashboardRepository,
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -44,7 +45,7 @@ final class PanelRoutes(
                             id          = PanelId(UUID.randomUUID().toString),
                             dashboardId = dashboardId,
                             title       = RequestValidation.normalizePanelTitle(request.title),
-                            meta        = ResourceMeta(createdBy = "system", createdAt = now, lastUpdated = now),
+                            meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                             appearance  = PanelAppearance.Default,
                             panelType   = panelType
                           )

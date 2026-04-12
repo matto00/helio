@@ -23,6 +23,8 @@ final case class UserSession(
     expiresAt: Instant
 )
 
+final case class AuthenticatedUser(id: UserId)
+
 sealed trait PanelType
 object PanelType {
   case object Metric extends PanelType
