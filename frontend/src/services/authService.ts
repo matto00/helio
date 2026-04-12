@@ -30,3 +30,12 @@ export async function getMeRequest(): Promise<User> {
   const response = await httpClient.get<User>("/api/auth/me");
   return response.data;
 }
+
+export async function oauthCallbackRequest(code: string, state?: string): Promise<AuthResponse> {
+  const params: Record<string, string> = { code };
+  if (state !== undefined) {
+    params.state = state;
+  }
+  const response = await httpClient.get<AuthResponse>("/api/auth/google/callback", { params });
+  return response.data;
+}

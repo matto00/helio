@@ -5,6 +5,7 @@ import {
   getMeRequest,
   loginRequest,
   logoutRequest,
+  oauthCallbackRequest,
   registerRequest,
 } from "../../services/authService";
 import { setAuthToken } from "../../services/httpClient";
@@ -76,6 +77,18 @@ export const register = createAsyncThunk<
         ? err.response.data.message
         : null;
     return rejectWithValue(serverMessage ?? "Registration failed.");
+  }
+});
+
+export const handleOAuthCallback = createAsyncThunk<
+  AuthResponse,
+  { code: string; state?: string },
+  { rejectValue: string }
+>("auth/handleOAuthCallback", async ({ code, state }, { rejectWithValue }) => {
+  try {
+    return await oauthCallbackRequest(code, state);
+  } catch {
+    return rejectWithValue("OAuth sign-in failed.");
   }
 });
 
@@ -159,6 +172,22 @@ const authSlice = createSlice({
         sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
       })
       .addCase(register.rejected, (state) => {
+        state.status = "unauthenticated";
+      })
+      // handleOAuthCallback
+      .addCase(handleOAuthCallback.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(handleOAuthCallback.fulfilled, (state, action) => {
+        state.token = action.payload.token;
+        state.currentUser = action.payload.user;
+        state.status = "authenticated";
+        setAuthToken(action.payload.token);
+        sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
+      })
+      .addCase(handleOAuthCallback.rejected, (state) => {
+        state.token = null;
+        state.currentUser = null;
         state.status = "unauthenticated";
       })
       // logout — clearAuth is dispatched from the thunk, handled by reducers

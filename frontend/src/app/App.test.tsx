@@ -43,9 +43,11 @@ jest.mock("../services/authService", () => ({
     id: "test-user",
     email: "test@example.com",
     displayName: null,
+    avatarUrl: null,
     createdAt: "2026-01-01T00:00:00Z",
   }),
   logoutRequest: jest.fn().mockResolvedValue(undefined),
+  oauthCallbackRequest: jest.fn(),
 }));
 
 // Prevent rehydrateAuth from overwriting the preloaded authenticated state in App tests.
@@ -98,6 +100,7 @@ function renderApp() {
           id: "test-user",
           email: "test@example.com",
           displayName: null,
+          avatarUrl: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
         token: "test-token",

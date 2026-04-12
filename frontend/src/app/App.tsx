@@ -19,6 +19,7 @@ import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
 import { SourcesPage } from "../components/SourcesPage";
 import { logout, rehydrateAuth } from "../features/auth/authSlice";
 import { LoginPage } from "../features/auth/LoginPage";
+import { OAuthCallbackPage } from "../features/auth/OAuthCallbackPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
 import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
 import {
@@ -41,6 +42,7 @@ function AppShell() {
   const navigate = useNavigate();
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
   const { theme, toggleTheme } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
@@ -153,6 +155,20 @@ function AppShell() {
             </div>
           )}
           {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+          {authStatus === "authenticated" && currentUser !== null && (
+            <div className="user-identity">
+              {currentUser.avatarUrl !== null ? (
+                <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
+              ) : (
+                <span className="user-avatar--initials" aria-hidden="true">
+                  {(currentUser.displayName ?? currentUser.email).charAt(0)}
+                </span>
+              )}
+              <span className="user-identity__name">
+                {currentUser.displayName ?? currentUser.email}
+              </span>
+            </div>
+          )}
           {authStatus === "authenticated" && (
             <button
               type="button"
@@ -215,6 +231,9 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
+
+      {/* Public route: OAuth callback — must be outside ProtectedRoute and PublicOnlyRoute */}
+      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>
