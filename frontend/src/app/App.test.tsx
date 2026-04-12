@@ -3,10 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
+import { authReducer } from "../features/auth/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { sourcesReducer } from "../features/sources/sourcesSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
@@ -36,6 +38,26 @@ jest.mock("../services/dataTypeService", () => ({
   fetchDataTypes: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("../services/authService", () => ({
+  getMeRequest: jest.fn().mockResolvedValue({
+    id: "test-user",
+    email: "test@example.com",
+    displayName: null,
+    createdAt: "2026-01-01T00:00:00Z",
+  }),
+  logoutRequest: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Prevent rehydrateAuth from overwriting the preloaded authenticated state in App tests.
+// The token is set in sessionStorage so rehydrateAuth finds it and keeps the authenticated status.
+beforeAll(() => {
+  sessionStorage.setItem("helio_auth_token", "test-token");
+});
+
+afterAll(() => {
+  sessionStorage.clear();
+});
+
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
@@ -63,10 +85,24 @@ const defaultPanelAppearance = {
 function renderApp() {
   const store = configureStore({
     reducer: {
+      auth: authReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
+      sources: sourcesReducer,
+    },
+    preloadedState: {
+      auth: {
+        currentUser: {
+          id: "test-user",
+          email: "test@example.com",
+          displayName: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        token: "test-token",
+        status: "authenticated" as const,
+      },
     },
   });
 

@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, SlickUserSessionRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -28,13 +28,14 @@ class ApiRoutesSpec
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
-  private var embeddedPostgres: EmbeddedPostgres   = _
-  private var db: JdbcBackend.Database             = _
-  private var dashboardRepo: DashboardRepository   = _
-  private var panelRepo: PanelRepository           = _
-  private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var userRepo: UserRepository             = _
+  private var embeddedPostgres: EmbeddedPostgres           = _
+  private var db: JdbcBackend.Database                     = _
+  private var dashboardRepo: DashboardRepository           = _
+  private var panelRepo: PanelRepository                   = _
+  private var dataSourceRepo: DataSourceRepository         = _
+  private var dataTypeRepo: DataTypeRepository             = _
+  private var userRepo: UserRepository                     = _
+  private var realSessionRepo: SlickUserSessionRepository  = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -56,6 +57,7 @@ class ApiRoutesSpec
     dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
     userRepo       = new UserRepository(db)(typedSystem.executionContext)
+    realSessionRepo = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -97,6 +99,10 @@ class ApiRoutesSpec
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
     new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector, userRepo, stubSessionRepo).routes
+
+  /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
+  private def realSessionRoutes(): Route =
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo).routes
 
   import akka.http.scaladsl.server.Directives.mapRequest
   import akka.http.scaladsl.model.headers.Authorization
@@ -1610,6 +1616,42 @@ class ApiRoutesSpec
       cleanDb()
       import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken("deadbeefdeadbeef"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+      }
+    }
+  }
+
+  "GET /api/auth/me" should {
+
+    "return 200 with user info for a valid token" in {
+      cleanDb()
+      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      var token = ""
+      // Register via realSessionRoutes to get a real DB session token
+      Post("/api/auth/register", RegisterRequest("me@example.com", "password123", Some("Me User"))) ~> realSessionRoutes() ~> check {
+        status shouldBe StatusCodes.Created
+        token = responseAs[AuthResponse].token
+      }
+      Get("/api/auth/me").withHeaders(Authorization(OAuth2BearerToken(token))) ~> realSessionRoutes() ~> check {
+        status shouldBe StatusCodes.OK
+        val user = responseAs[UserResponse]
+        user.email shouldBe "me@example.com"
+        user.displayName shouldBe Some("Me User")
+        user.id should not be empty
+      }
+    }
+
+    "return 401 for an expired or unknown token" in {
+      cleanDb()
+      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      Get("/api/auth/me").withHeaders(Authorization(OAuth2BearerToken("deadbeef00000000"))) ~> realSessionRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+      }
+    }
+
+    "return 401 when no Authorization header is provided" in {
+      cleanDb()
+      Get("/api/auth/me") ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
     }

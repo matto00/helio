@@ -1,12 +1,25 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  NavLink,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
+import { ProtectedRoute } from "../components/ProtectedRoute";
+import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
 import { SourcesPage } from "../components/SourcesPage";
+import { logout, rehydrateAuth } from "../features/auth/authSlice";
+import { LoginPage } from "../features/auth/LoginPage";
+import { RegisterPage } from "../features/auth/RegisterPage";
 import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
 import {
   redoLayout,
@@ -22,9 +35,12 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 
-export function App() {
+/** The authenticated app shell — rendered only when the user is signed in. */
+function AppShell() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
+  const authStatus = useAppSelector((state) => state.auth.status);
   const { theme, toggleTheme } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
@@ -53,6 +69,11 @@ export function App() {
       redoLayout({ dashboardId: selectedDashboardId, currentLayout: selectedDashboard.layout }),
     );
     dispatch(setDashboardLayoutLocally({ dashboardId: selectedDashboardId, layout: redoTarget }));
+  }
+
+  async function handleLogout() {
+    await dispatch(logout());
+    void navigate("/login");
   }
 
   useEffect(() => {
@@ -132,6 +153,17 @@ export function App() {
             </div>
           )}
           {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+          {authStatus === "authenticated" && (
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() => void handleLogout()}
+              aria-label="Sign out"
+            >
+              <span className="theme-toggle__label">Account</span>
+              <span className="theme-toggle__value">Sign out</span>
+            </button>
+          )}
         </div>
       </header>
       <div
@@ -162,12 +194,38 @@ export function App() {
           </aside>
         )}
         <section className="app-content">
-          <Routes>
-            <Route path="/" element={<PanelList />} />
-            <Route path="/sources" element={<SourcesPage />} />
-          </Routes>
+          <Outlet />
         </section>
       </div>
     </main>
+  );
+}
+
+export function App() {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    void dispatch(rehydrateAuth());
+  }, [dispatch]);
+
+  return (
+    <Routes>
+      {/* Public-only routes (redirect to / when already authenticated) */}
+      <Route element={<PublicOnlyRoute />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Route>
+
+      {/* Protected routes (redirect to /login when unauthenticated) */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<PanelList />} />
+          <Route path="/sources" element={<SourcesPage />} />
+        </Route>
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
