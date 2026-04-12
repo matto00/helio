@@ -28,6 +28,17 @@ object Main {
       val config = ConfigFactory.load()
       val db     = Database.init(config)
 
+      def requireEnv(name: String): String =
+        sys.env.get(name).filter(_.nonEmpty).getOrElse {
+          logger.error(s"Missing required environment variable: $name")
+          system.terminate()
+          throw new IllegalStateException(s"Missing required environment variable: $name")
+        }
+
+      val googleClientId     = requireEnv("GOOGLE_CLIENT_ID")
+      val googleClientSecret = requireEnv("GOOGLE_CLIENT_SECRET")
+      val googleRedirectUri  = requireEnv("GOOGLE_REDIRECT_URI")
+
       val dashboardRepo      = new DashboardRepository(db)
       val panelRepo          = new PanelRepository(db)
       val dataSourceRepo     = new DataSourceRepository(db)
@@ -41,7 +52,7 @@ object Main {
       val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, connector, userRepo, userSessionRepo)
+      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, connector, userRepo, userSessionRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

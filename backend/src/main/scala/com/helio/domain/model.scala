@@ -13,7 +13,9 @@ final case class User(
     id: UserId,
     email: String,
     displayName: Option[String],
-    createdAt: Instant
+    createdAt: Instant,
+    googleId: Option[String] = None,
+    avatarUrl: Option[String] = None
 )
 
 final case class UserSession(
