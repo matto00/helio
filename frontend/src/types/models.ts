@@ -70,6 +70,20 @@ export interface InferredField {
   nullable: boolean;
 }
 
+export type StaticColumnType = "string" | "integer" | "float" | "boolean";
+
+export interface StaticColumn {
+  name: string;
+  type: StaticColumnType;
+}
+
+export interface StaticSourcePayload {
+  name: string;
+  sourceType: "static";
+  columns: StaticColumn[];
+  rows: unknown[][];
+}
+
 export interface Dashboard {
   id: string;
   name: string;

@@ -1,4 +1,4 @@
-import type { DataSource, DataType, InferredField } from "../types/models";
+import type { DataSource, DataType, InferredField, StaticColumn } from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface DataSourcesResponse {
@@ -61,6 +61,20 @@ export async function createCsvSource(
   }
   const response = await httpClient.post<DataSource>("/api/data-sources", formData, {
     headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+export async function createStaticSource(
+  name: string,
+  columns: StaticColumn[],
+  rows: unknown[][],
+): Promise<DataSource> {
+  const response = await httpClient.post<DataSource>("/api/data-sources", {
+    name,
+    sourceType: "static",
+    columns,
+    rows,
   });
   return response.data;
 }

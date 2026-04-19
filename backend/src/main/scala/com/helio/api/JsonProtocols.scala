@@ -155,6 +155,12 @@ final case class PreviewSourceResponse(
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
+// ── Static connector API types ────────────────────────────────────────────────
+
+final case class StaticColumnPayload(name: String, `type`: String)
+final case class StaticDataPayload(columns: Vector[StaticColumnPayload], rows: Vector[Vector[spray.json.JsValue]])
+final case class StaticDataSourceRequest(name: String, sourceType: String, columns: Vector[StaticColumnPayload], rows: Vector[Vector[spray.json.JsValue]])
+
 // ── Companion objects ─────────────────────────────────────────────────────────
 
 object ResourceMetaResponse {
@@ -488,6 +494,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
+  implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]       = jsonFormat2(StaticColumnPayload.apply)
+  implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]           = jsonFormat2(StaticDataPayload.apply)
+  implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat4(StaticDataSourceRequest.apply)
 
   // Auth API formats
   implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)

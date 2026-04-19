@@ -3,8 +3,9 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   fetchSources as fetchSourcesRequest,
   deleteSource as deleteSourceRequest,
+  createStaticSource as createStaticSourceRequest,
 } from "../../services/dataSourceService";
-import type { DataSource } from "../../types/models";
+import type { DataSource, StaticColumn } from "../../types/models";
 
 interface SourcesState {
   items: DataSource[];
@@ -41,6 +42,24 @@ export const deleteSource = createAsyncThunk<string, string, { rejectValue: stri
   },
 );
 
+interface CreateStaticSourceArgs {
+  name: string;
+  columns: StaticColumn[];
+  rows: unknown[][];
+}
+
+export const createStaticSource = createAsyncThunk<
+  DataSource,
+  CreateStaticSourceArgs,
+  { rejectValue: string }
+>("sources/createStaticSource", async ({ name, columns, rows }, { rejectWithValue }) => {
+  try {
+    return await createStaticSourceRequest(name, columns, rows);
+  } catch {
+    return rejectWithValue("Failed to create static source.");
+  }
+});
+
 const sourcesSlice = createSlice({
   name: "sources",
   initialState,
@@ -62,6 +81,9 @@ const sourcesSlice = createSlice({
       })
       .addCase(deleteSource.fulfilled, (state, action) => {
         state.items = state.items.filter((s) => s.id !== action.payload);
+      })
+      .addCase(createStaticSource.fulfilled, (state, action) => {
+        state.items = [...state.items, action.payload];
       });
   },
 });

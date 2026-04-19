@@ -226,3 +226,23 @@
   background: var(--app-accent);
   color: var(--app-bg);
 }
+
+.add-source-modal__action-link {
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color var(--app-transition);
+}
+
+.add-source-modal__action-link:hover:not(:disabled) {
+  color: #f87171;
+}
+
+.add-source-modal__action-link:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

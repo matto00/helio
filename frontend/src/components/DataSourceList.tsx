@@ -48,7 +48,15 @@ export function DataSourceList() {
           <li key={source.id} className="data-source-list__item">
             <div className="data-source-list__item-info">
               <span className="data-source-list__item-name">{source.name}</span>
-              <span className="data-source-list__item-type">{source.sourceType}</span>
+              <span className="data-source-list__item-type">
+                {source.sourceType === "rest_api"
+                  ? "REST API"
+                  : source.sourceType === "csv"
+                    ? "CSV"
+                    : source.sourceType === "static"
+                      ? "Static"
+                      : source.sourceType}
+              </span>
             </div>
             <div className="data-source-list__item-actions">
               <button
