@@ -92,10 +92,19 @@ class ApiRoutesSpec
   private val testToken   = "valid-test-token"
   private val testUser    = AuthenticatedUser(UserId(testUserId))
 
-  // Stub session repo: returns testUser for testToken, None for anything else
+  // Second user for ACL tests (non-owner)
+  private val otherUserId = "other-user-id-5678"
+  private val otherToken  = "valid-other-token"
+  private val otherUser   = AuthenticatedUser(UserId(otherUserId))
+
+  // Stub session repo: returns testUser for testToken, otherUser for otherToken, None otherwise
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
-      Future.successful(if (token == testToken) Some(testUser) else None)
+      Future.successful(token match {
+        case `testToken`  => Some(testUser)
+        case `otherToken` => Some(otherUser)
+        case _            => None
+      })
   }
 
   /** Builds the raw routes (no automatic auth header). */
@@ -120,6 +129,15 @@ class ApiRoutesSpec
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
       rawRoutes(connector)
+    }
+
+  /** Routes authenticated as the second (non-owner) user. */
+  private def otherUserRoutes(): Route =
+    mapRequest { req =>
+      if (req.header[Authorization].isDefined) req
+      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(otherToken)))
+    } {
+      rawRoutes()
     }
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
@@ -1779,6 +1797,186 @@ class ApiRoutesSpec
       cleanDb()
       Get("/api/auth/me") ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
+      }
+    }
+  }
+
+  "ACL enforcement on DashboardRoutes" should {
+
+    "allow owner to PATCH their own dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Owner Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("Renamed"), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DashboardResponse].name shouldBe "Renamed"
+      }
+    }
+
+    "return 403 when non-owner attempts PATCH on dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Owner Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("Hacked"), None, None)) ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "allow owner to DELETE their own dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("To Delete"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Delete(s"/api/dashboards/$dashboardId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    "return 403 when non-owner attempts DELETE on dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Protected Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Delete(s"/api/dashboards/$dashboardId") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "return 403 when non-owner attempts GET on dashboard panels" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Panels Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Get(s"/api/dashboards/$dashboardId/panels") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "return 403 when non-owner attempts duplicate on dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Dup Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post(s"/api/dashboards/$dashboardId/duplicate") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "return 403 when non-owner attempts export on dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Export Dash"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Get(s"/api/dashboards/$dashboardId/export") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+  }
+
+  "ACL enforcement on PanelRoutes" should {
+
+    "allow owner to PATCH their own panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("D"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(Some("Renamed Panel"), None, None, None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].title shouldBe "Renamed Panel"
+      }
+    }
+
+    "return 403 when non-owner attempts PATCH on panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("D"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(Some("Hacked"), None, None, None, None)) ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "allow owner to DELETE their own panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("D"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("To Delete"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Delete(s"/api/panels/$panelId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    "return 403 when non-owner attempts DELETE on panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("D"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Protected Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Delete(s"/api/panels/$panelId") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "return 403 when non-owner attempts duplicate on panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("D"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Dup Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Post(s"/api/panels/$panelId/duplicate") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
       }
     }
   }

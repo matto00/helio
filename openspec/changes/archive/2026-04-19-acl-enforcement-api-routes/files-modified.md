@@ -1,0 +1,7 @@
+- `backend/src/main/scala/com/helio/api/AclDirective.scala` — new: ownership-checking Akka HTTP directive
+- `backend/src/main/scala/com/helio/domain/model.scala` — added `ResourceType` sealed trait
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — instantiated `AclDirective`; wired dashboard and panel owner resolvers; updated `DashboardRoutes` and `PanelRoutes` constructors
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — added `acl` and `ownerResolver` constructor params; wrapped PATCH, DELETE, panels GET, export GET, and duplicate POST with `authorizeResource`
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — added `acl` and `ownerResolver` constructor params; wrapped PATCH, DELETE, and duplicate POST with `authorizeResource`
+- `backend/src/test/scala/com/helio/api/AclDirectiveSpec.scala` — new: unit tests for directive (owner pass-through, non-owner 403, missing resource 404)
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — added second test user; added ACL route-level tests for DashboardRoutes and PanelRoutes
