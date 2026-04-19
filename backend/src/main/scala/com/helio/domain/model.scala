@@ -33,6 +33,12 @@ object AuthProvider {
   case object Local  extends AuthProvider
 }
 
+sealed trait ResourceType
+object ResourceType {
+  case object Dashboard extends ResourceType
+  case object Panel     extends ResourceType
+}
+
 sealed trait PanelType
 object PanelType {
   case object Metric extends PanelType
