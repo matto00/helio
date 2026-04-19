@@ -136,33 +136,30 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
-        <div className="dashboard-list__header-row">
-          <span className="dashboard-list__eyebrow">Navigation</span>
-          <div className="dashboard-list__header-actions">
+        <h2>Dashboards</h2>
+        <div className="dashboard-list__header-actions">
+          <button
+            type="button"
+            className="dashboard-list__add"
+            aria-label={isCreateMode ? "Cancel dashboard create" : "Add dashboard"}
+            onClick={() => {
+              setIsCreateMode((open) => !open);
+              setCreateError(null);
+            }}
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+          {onCollapse ? (
             <button
               type="button"
-              className="dashboard-list__add"
-              aria-label={isCreateMode ? "Cancel dashboard create" : "Add dashboard"}
-              onClick={() => {
-                setIsCreateMode((open) => !open);
-                setCreateError(null);
-              }}
+              className="dashboard-list__collapse"
+              aria-label="Collapse dashboard list"
+              onClick={onCollapse}
             >
-              <span aria-hidden="true">+</span>
+              <span aria-hidden="true">⟨</span>
             </button>
-            {onCollapse ? (
-              <button
-                type="button"
-                className="dashboard-list__collapse"
-                aria-label="Collapse dashboard list"
-                onClick={onCollapse}
-              >
-                <span aria-hidden="true">⟨</span>
-              </button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-        <h2>Dashboards</h2>
         <p>Choose a workspace view and keep the panel content focused on the active dashboard.</p>
       </header>
       {isCreateMode ? (

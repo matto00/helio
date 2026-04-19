@@ -296,6 +296,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactor}
+        {...({ preventCollision: true } as object)}
         onDragStart={() => {
           preInteractionLayoutRef.current = latestLayoutRef.current;
         }}

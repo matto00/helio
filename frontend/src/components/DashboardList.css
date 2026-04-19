@@ -10,14 +10,11 @@
 }
 
 .dashboard-list__header {
-  margin-bottom: 18px;
-}
-
-.dashboard-list__header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .dashboard-list__header-actions {
