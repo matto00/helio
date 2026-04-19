@@ -28,7 +28,7 @@ final class DashboardRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              onSuccess(dashboardRepo.findAll()) { dashboards =>
+              onSuccess(dashboardRepo.findAll(user.id)) { dashboards =>
                 complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
               }
             },
@@ -40,7 +40,8 @@ final class DashboardRoutes(
                   name       = RequestValidation.normalizeDashboardName(request.name),
                   meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                   appearance = DashboardAppearance.Default,
-                  layout     = DashboardLayout.Default
+                  layout     = DashboardLayout.Default,
+                  ownerId    = user.id
                 )
                 onSuccess(dashboardRepo.insert(dashboard)) { created =>
                   complete(StatusCodes.Created, DashboardResponse.fromDomain(created))
@@ -51,32 +52,53 @@ final class DashboardRoutes(
         },
         path(Segment / "panels") { dashboardId =>
           get {
-            onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
-              complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
+                  complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+                }
             }
           }
         },
         path(Segment / "duplicate") { dashboardId =>
           post {
-            onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId))) {
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-              case Some((dashboard, panels)) =>
-                complete(
-                  StatusCodes.Created,
-                  DuplicateDashboardResponse(
-                    dashboard = DashboardResponse.fromDomain(dashboard),
-                    panels    = panels.map(PanelResponse.fromDomain)
-                  )
-                )
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId), user.id)) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some((dashboard, panels)) =>
+                    complete(
+                      StatusCodes.Created,
+                      DuplicateDashboardResponse(
+                        dashboard = DashboardResponse.fromDomain(dashboard),
+                        panels    = panels.map(PanelResponse.fromDomain)
+                      )
+                    )
+                }
             }
           }
         },
         path(Segment / "export") { dashboardId =>
           get {
-            onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
-              case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-              case Some(snapshot) => complete(snapshot)
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
+                  case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some(snapshot) => complete(snapshot)
+                }
             }
           }
         },
@@ -87,7 +109,7 @@ final class DashboardRoutes(
                 case Left(error) =>
                   complete(StatusCodes.BadRequest, ErrorResponse(error))
                 case Right(_) =>
-                  onSuccess(dashboardRepo.importSnapshot(payload)) { case (dashboard, panels) =>
+                  onSuccess(dashboardRepo.importSnapshot(payload, user.id)) { case (dashboard, panels) =>
                     complete(
                       StatusCodes.Created,
                       DuplicateDashboardResponse(
@@ -103,9 +125,16 @@ final class DashboardRoutes(
         path(Segment) { dashboardId =>
           concat(
             delete {
-              onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
-                case true  => complete(StatusCodes.NoContent)
-                case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                case None =>
+                  complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                case Some(dashboard) if dashboard.ownerId != user.id =>
+                  complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                case Some(_) =>
+                  onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  }
               }
             },
             patch {
@@ -117,6 +146,8 @@ final class DashboardRoutes(
                     onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
                       case None =>
                         complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                      case Some(existing) if existing.ownerId != user.id =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
                       case Some(existing) =>
                         val now = Instant.now()
                         nameOpt match {

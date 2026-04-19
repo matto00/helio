@@ -47,7 +47,8 @@ final class PanelRoutes(
                             title       = RequestValidation.normalizePanelTitle(request.title),
                             meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                             appearance  = PanelAppearance.Default,
-                            panelType   = panelType
+                            panelType   = panelType,
+                            ownerId     = user.id
                           )
                           onSuccess(panelRepo.insert(panel)) { created =>
                             complete(StatusCodes.Created, PanelResponse.fromDomain(created))
@@ -61,13 +62,26 @@ final class PanelRoutes(
         path(Segment) { panelId =>
           concat(
             delete {
-              onSuccess(panelRepo.delete(PanelId(panelId))) {
-                case true  => complete(StatusCodes.NoContent)
-                case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+              onSuccess(panelRepo.findById(PanelId(panelId))) {
+                case None =>
+                  complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                case Some(panel) if panel.ownerId != user.id =>
+                  complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                case Some(_) =>
+                  onSuccess(panelRepo.delete(PanelId(panelId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  }
               }
             },
             patch {
               entity(as[UpdatePanelRequest]) { request =>
+                onSuccess(panelRepo.findById(PanelId(panelId))) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  case Some(existing) if existing.ownerId != user.id =>
+                    complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                  case Some(_) =>
                 val trimmedTitle  = request.title.map(_.trim)
                 val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
                 val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined
@@ -145,15 +159,23 @@ final class PanelRoutes(
                       }
                   }
                 }
+                }
               }
             }
           )
         },
         path(Segment / "duplicate") { panelId =>
           post {
-            onSuccess(panelRepo.duplicate(PanelId(panelId))) {
-              case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
-              case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+            onSuccess(panelRepo.findById(PanelId(panelId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+              case Some(panel) if panel.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(panelRepo.duplicate(PanelId(panelId), user.id)) {
+                  case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
+                  case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                }
             }
           }
         }

@@ -8,7 +8,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.DurationInt
 
 object DemoData {
-  private val DemoUser = "demo-seed"
+  val SystemUserId: UserId = UserId("00000000-0000-0000-0000-000000000001")
 
   def seedIfEmpty(
       dashboardRepo: DashboardRepository,
@@ -29,12 +29,12 @@ object DemoData {
     val executiveId  = DashboardId("dashboard-executive")
 
     val operationsMeta = ResourceMeta(
-      createdBy   = DemoUser,
+      createdBy   = SystemUserId.value,
       createdAt   = Instant.parse("2026-02-26T08:30:00Z"),
       lastUpdated = Instant.parse("2026-02-27T09:45:00Z")
     )
     val executiveMeta = ResourceMeta(
-      createdBy   = DemoUser,
+      createdBy   = SystemUserId.value,
       createdAt   = Instant.parse("2026-02-26T10:00:00Z"),
       lastUpdated = Instant.parse("2026-02-27T11:30:00Z")
     )
@@ -62,7 +62,8 @@ object DemoData {
             DashboardLayoutItem(PanelId("panel-ops-latency"),   x = 0, y = 0, w = 2, h = 5),
             DashboardLayoutItem(PanelId("panel-ops-incidents"), x = 0, y = 5, w = 2, h = 5)
           )
-        )
+        ),
+        ownerId    = SystemUserId
       ),
       Dashboard(
         id         = executiveId,
@@ -86,7 +87,8 @@ object DemoData {
             DashboardLayoutItem(PanelId("panel-exec-revenue"),  x = 0, y = 0, w = 2, h = 5),
             DashboardLayoutItem(PanelId("panel-exec-forecast"), x = 0, y = 5, w = 2, h = 5)
           )
-        )
+        ),
+        ownerId    = SystemUserId
       )
     )
 
@@ -95,33 +97,37 @@ object DemoData {
         id          = PanelId("panel-ops-latency"),
         dashboardId = operationsId,
         title       = "Latency",
-        meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
+        meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
         appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12),
-        panelType   = PanelType.Metric
+        panelType   = PanelType.Metric,
+        ownerId     = SystemUserId
       ),
       Panel(
         id          = PanelId("panel-ops-incidents"),
         dashboardId = operationsId,
         title       = "Incident Queue",
-        meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
+        meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
         appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18),
-        panelType   = PanelType.Table
+        panelType   = PanelType.Table,
+        ownerId     = SystemUserId
       ),
       Panel(
         id          = PanelId("panel-exec-revenue"),
         dashboardId = executiveId,
         title       = "Revenue Pulse",
-        meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
+        meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
         appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08),
-        panelType   = PanelType.Chart
+        panelType   = PanelType.Chart,
+        ownerId     = SystemUserId
       ),
       Panel(
         id          = PanelId("panel-exec-forecast"),
         dashboardId = executiveId,
         title       = "Forecast",
-        meta        = ResourceMeta(DemoUser, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
+        meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
         appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16),
-        panelType   = PanelType.Chart
+        panelType   = PanelType.Chart,
+        ownerId     = SystemUserId
       )
     )
 

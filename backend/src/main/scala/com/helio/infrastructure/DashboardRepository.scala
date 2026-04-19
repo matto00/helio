@@ -24,6 +24,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
       meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
       appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
       panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+      ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
       fieldMapping = row.fieldMapping.map(_.parseJson)
     )
@@ -34,7 +35,8 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
       name       = row.name,
       meta       = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
       appearance = row.appearance.parseJson.convertTo[DashboardAppearance],
-      layout     = row.layout.parseJson.convertTo[DashboardLayout]
+      layout     = row.layout.parseJson.convertTo[DashboardLayout],
+      ownerId    = UserId(row.ownerId.toString)
     )
 
   private def domainToRow(d: Dashboard): DashboardRow =
@@ -45,11 +47,12 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
       createdAt   = d.meta.createdAt,
       lastUpdated = d.meta.lastUpdated,
       appearance  = d.appearance.toJson.compactPrint,
-      layout      = d.layout.toJson.compactPrint
+      layout      = d.layout.toJson.compactPrint,
+      ownerId     = UUID.fromString(d.ownerId.value)
     )
 
-  def findAll(): Future[Vector[Dashboard]] =
-    db.run(table.sortBy(_.lastUpdated.desc).result)
+  def findAll(ownerId: UserId): Future[Vector[Dashboard]] =
+    db.run(table.filter(_.ownerId === UUID.fromString(ownerId.value)).sortBy(_.lastUpdated.desc).result)
       .map(_.map(rowToDomain).toVector)
 
   def findById(id: DashboardId): Future[Option[Dashboard]] =
@@ -88,7 +91,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
   def count(): Future[Int] =
     db.run(table.length.result)
 
-  def duplicate(id: DashboardId): Future[Option[(Dashboard, Vector[Panel])]] = {
+  def duplicate(id: DashboardId, ownerId: UserId): Future[Option[(Dashboard, Vector[Panel])]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
     val action = table.filter(_.id === id.value).result.headOption.flatMap {
@@ -112,13 +115,14 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           val newDash = Dashboard(
             id         = DashboardId(newDashId),
             name       = s"${sourceDash.name} (copy)",
-            meta       = ResourceMeta("system", now, now),
+            meta       = ResourceMeta(ownerId.value, now, now),
             appearance = sourceDash.appearance,
-            layout     = newLayout
+            layout     = newLayout,
+            ownerId    = ownerId
           )
 
           val newPanelRows: Seq[PanelRepository.PanelRow] =
-            panelRows.map(p => p.copy(id = idMap(p.id), dashboardId = newDashId, createdAt = now, lastUpdated = now))
+            panelRows.map(p => p.copy(id = idMap(p.id), dashboardId = newDashId, createdAt = now, lastUpdated = now, ownerId = UUID.fromString(ownerId.value)))
 
           val newPanels = newPanelRows.map(panelRowToDomain).toVector
 
@@ -180,7 +184,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
     db.run(action)
   }
 
-  def importSnapshot(payload: DashboardSnapshotPayload): Future[(Dashboard, Vector[Panel])] = {
+  def importSnapshot(payload: DashboardSnapshotPayload, ownerId: UserId): Future[(Dashboard, Vector[Panel])] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
     val now       = Instant.now()
@@ -202,12 +206,13 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
     val newDash = Dashboard(
       id         = DashboardId(newDashId),
       name       = payload.dashboard.name,
-      meta       = ResourceMeta("system", now, now),
+      meta       = ResourceMeta(ownerId.value, now, now),
       appearance = DashboardAppearance(
         background     = payload.dashboard.appearance.background.getOrElse(DashboardAppearance.Default.background),
         gridBackground = payload.dashboard.appearance.gridBackground.getOrElse(DashboardAppearance.Default.gridBackground)
       ),
-      layout = newLayout
+      layout  = newLayout,
+      ownerId = ownerId
     )
 
     val newPanelRows: Vector[PanelRepository.PanelRow] = payload.panels.map { entry =>
@@ -216,7 +221,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         id          = idMap(entry.snapshotId),
         dashboardId = newDashId,
         title       = entry.title,
-        createdBy   = "system",
+        createdBy   = ownerId.value,
         createdAt   = now,
         lastUpdated = now,
         appearance  = PanelAppearance(
@@ -226,7 +231,8 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         ).toJson.compactPrint,
         panelType   = PanelType.asString(panelType),
         typeId      = entry.typeId,
-        fieldMapping = entry.fieldMapping.map(_.compactPrint)
+        fieldMapping = entry.fieldMapping.map(_.compactPrint),
+        ownerId      = UUID.fromString(ownerId.value)
       )
     }
 
@@ -256,7 +262,8 @@ object DashboardRepository {
       createdAt: Instant,
       lastUpdated: Instant,
       appearance: String,
-      layout: String
+      layout: String,
+      ownerId: java.util.UUID
   )
 
   class DashboardTable(tag: Tag) extends Table[DashboardRow](tag, "dashboards") {
@@ -267,7 +274,8 @@ object DashboardRepository {
     def lastUpdated = column[Instant]("last_updated")
     def appearance  = column[String]("appearance")
     def layout      = column[String]("layout")
+    def ownerId     = column[java.util.UUID]("owner_id")
 
-    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout).mapTo[DashboardRow]
+    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId).mapTo[DashboardRow]
   }
 }
