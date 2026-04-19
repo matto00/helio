@@ -156,7 +156,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
               aria-label="Collapse dashboard list"
               onClick={onCollapse}
             >
-              <span aria-hidden="true">⟨</span>
+              <span aria-hidden="true">‹</span>
             </button>
           ) : null}
         </div>
