@@ -92,3 +92,24 @@ export async function inferFromCsv(file: File): Promise<InferredField[]> {
   );
   return response.data.fields;
 }
+
+export interface CsvPreviewResponse {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface RestPreviewResponse {
+  rows: Record<string, unknown>[];
+}
+
+export async function fetchCsvPreview(sourceId: string): Promise<CsvPreviewResponse> {
+  const response = await httpClient.get<CsvPreviewResponse>(
+    `/api/data-sources/${sourceId}/preview`,
+  );
+  return response.data;
+}
+
+export async function fetchRestPreview(sourceId: string): Promise<RestPreviewResponse> {
+  const response = await httpClient.get<RestPreviewResponse>(`/api/sources/${sourceId}/preview`);
+  return response.data;
+}

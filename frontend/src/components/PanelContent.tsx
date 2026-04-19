@@ -1,27 +1,47 @@
 import "./PanelContent.css";
-import type { PanelType } from "../types/models";
+import type { MappedPanelData, PanelType } from "../types/models";
 
-function MetricContent() {
+interface MetricContentProps {
+  data?: MappedPanelData | null;
+}
+
+function MetricContent({ data }: MetricContentProps) {
   return (
     <div className="panel-content panel-content--metric">
-      <span className="panel-content__metric-value">--</span>
-      <span className="panel-content__metric-label">No data</span>
+      <span className="panel-content__metric-value">{data?.value ?? "--"}</span>
+      <span className="panel-content__metric-label">{data?.label ?? "No data"}</span>
     </div>
   );
 }
 
-function ChartContent() {
+interface ChartContentProps {
+  data?: MappedPanelData | null;
+}
+
+function ChartContent({ data }: ChartContentProps) {
   const heights = [40, 65, 50, 80, 55];
   return (
     <div className="panel-content panel-content--chart" aria-hidden="true">
+      {data ? <span className="panel-content__data-badge">Data loaded</span> : null}
       {heights.map((h, i) => (
-        <span key={i} className="panel-content__bar" style={{ height: `${h}%` }} />
+        <span key={i} className="panel-content__bar" style={{ height: h + "%" }} />
       ))}
     </div>
   );
 }
 
-function TextContent() {
+interface TextContentProps {
+  data?: MappedPanelData | null;
+}
+
+function TextContent({ data }: TextContentProps) {
+  if (data?.content) {
+    return (
+      <div className="panel-content panel-content--text">
+        <span className="panel-content__text-live">{data.content}</span>
+      </div>
+    );
+  }
   return (
     <div className="panel-content panel-content--text" aria-hidden="true">
       <span className="panel-content__text-line panel-content__text-line--long" />
@@ -30,7 +50,38 @@ function TextContent() {
   );
 }
 
-function TableContent() {
+interface TableContentProps {
+  data?: MappedPanelData | null;
+  rawRows?: string[][] | null;
+  headers?: string[] | null;
+}
+
+function TableContent({ rawRows, headers }: TableContentProps) {
+  if (rawRows && rawRows.length > 0) {
+    const cols = headers ?? rawRows[0].map((_, i) => String(i + 1));
+    return (
+      <div className="panel-content panel-content--table">
+        <table className="panel-content__table">
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th key={col}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rawRows.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => (
+                  <td key={ci}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
   return (
     <div className="panel-content panel-content--table">
       <table className="panel-content__table" aria-hidden="true">
@@ -59,21 +110,60 @@ function TableContent() {
   );
 }
 
-interface PanelContentProps {
+export interface PanelContentProps {
   type: PanelType;
+  data?: MappedPanelData | null;
+  rawRows?: string[][] | null;
+  headers?: string[] | null;
+  isLoading?: boolean;
+  error?: string | null;
+  noData?: boolean;
 }
 
-export function PanelContent({ type }: PanelContentProps) {
+export function PanelContent({
+  type,
+  data,
+  rawRows,
+  headers,
+  isLoading,
+  error,
+  noData,
+}: PanelContentProps) {
+  if (isLoading) {
+    return (
+      <div className="panel-content panel-content--state" aria-label="Loading data">
+        <span className="panel-content__spinner" aria-hidden="true" />
+        <span className="panel-content__state-label">Loading...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="panel-content panel-content--state panel-content--error" role="alert">
+        <span className="panel-content__state-label">{error}</span>
+      </div>
+    );
+  }
+
+  if (noData) {
+    return (
+      <div className="panel-content panel-content--state">
+        <span className="panel-content__state-label">No data available</span>
+      </div>
+    );
+  }
+
   switch (type) {
     case "metric":
-      return <MetricContent />;
+      return <MetricContent data={data} />;
     case "chart":
-      return <ChartContent />;
+      return <ChartContent data={data} />;
     case "text":
-      return <TextContent />;
+      return <TextContent data={data} />;
     case "table":
-      return <TableContent />;
+      return <TableContent data={data} rawRows={rawRows} headers={headers} />;
     default:
-      return <MetricContent />;
+      return <MetricContent data={data} />;
   }
 }

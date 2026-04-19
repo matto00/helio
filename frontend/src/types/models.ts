@@ -84,6 +84,8 @@ export interface Panel {
   refreshInterval: number | null;
 }
 
+export type MappedPanelData = Record<string, string>;
+
 export interface DuplicateDashboardResponse {
   dashboard: Dashboard;
   panels: Panel[];
