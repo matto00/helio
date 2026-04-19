@@ -1,0 +1,85 @@
+.computed-fields-editor {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  padding-top: 1rem;
+}
+
+.computed-fields-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.computed-fields-editor__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.computed-fields-editor__add-btn {
+  font-size: 0.8125rem;
+  cursor: pointer;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+}
+
+.computed-fields-editor__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.computed-fields-editor__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.computed-fields-editor__field-name {
+  font-weight: 500;
+  min-width: 6rem;
+}
+
+.computed-fields-editor__field-expr {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--color-muted, #64748b);
+}
+
+.computed-badge {
+  font-size: 0.7rem;
+  background: var(--color-accent-soft, #dbeafe);
+  color: var(--color-accent, #1d4ed8);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+}
+
+.computed-fields-editor__item-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.computed-fields-editor__edit-btn,
+.computed-fields-editor__remove-btn {
+  font-size: 0.75rem;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+}
+
+.computed-fields-editor__empty {
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+}

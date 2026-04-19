@@ -44,6 +44,9 @@ module.exports = [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      // Disable base rule in favour of the TypeScript-aware version, which
+      // correctly handles interface/type-level parameter names.
+      "no-unused-vars": "off",
     },
   },
   {

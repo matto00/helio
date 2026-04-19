@@ -37,12 +37,20 @@ export interface DataTypeField {
   nullable: boolean;
 }
 
+export interface ComputedField {
+  name: string;
+  displayName: string;
+  expression: string;
+  dataType: string;
+}
+
 export interface DataType {
   id: string;
   name: string;
   sourceId: string | null;
   version: number;
   fields: DataTypeField[];
+  computedFields: ComputedField[];
   createdAt: string;
   updatedAt: string;
 }

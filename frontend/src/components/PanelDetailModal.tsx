@@ -369,6 +369,11 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                           {f.name}
                         </option>
                       ))}
+                      {(selectedType.computedFields ?? []).map((cf) => (
+                        <option key={`computed:${cf.name}`} value={cf.name}>
+                          {cf.name} (computed)
+                        </option>
+                      ))}
                     </select>
                   </div>
                 ))}

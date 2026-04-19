@@ -1,0 +1,64 @@
+.computed-field-form {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+}
+
+.computed-field-form__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.computed-field-form__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.computed-field-form__input,
+.computed-field-form__select {
+  font-size: 0.875rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 4px;
+  width: 100%;
+}
+
+.computed-field-form__hint {
+  font-size: 0.75rem;
+  color: var(--color-muted, #64748b);
+}
+
+.computed-field-form__error {
+  font-size: 0.75rem;
+  color: var(--color-danger, #dc2626);
+}
+
+.computed-field-form__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.computed-field-form__btn {
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid currentColor;
+}
+
+.computed-field-form__btn--save {
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  border-color: transparent;
+}
+
+.computed-field-form__btn--save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.computed-field-form__btn--cancel {
+  background: none;
+}

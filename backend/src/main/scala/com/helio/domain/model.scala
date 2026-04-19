@@ -194,11 +194,19 @@ final case class DataField(
     nullable: Boolean
 )
 
+final case class ComputedField(
+    name: String,
+    displayName: String,
+    expression: String,
+    dataType: String
+)
+
 final case class DataType(
     id: DataTypeId,
     sourceId: Option[DataSourceId],
     name: String,
     fields: Vector[DataField],
+    computedFields: Vector[ComputedField] = Vector.empty,
     version: Int,
     createdAt: Instant,
     updatedAt: Instant

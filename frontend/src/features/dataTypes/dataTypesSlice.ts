@@ -4,7 +4,7 @@ import {
   fetchDataTypes as fetchDataTypesRequest,
   updateDataType as updateDataTypeRequest,
 } from "../../services/dataTypeService";
-import type { DataType, DataTypeField } from "../../types/models";
+import type { ComputedField, DataType, DataTypeField } from "../../types/models";
 
 interface DataTypesState {
   items: DataType[];
@@ -20,11 +20,11 @@ const initialState: DataTypesState = {
 
 export const updateDataType = createAsyncThunk<
   DataType,
-  { id: string; fields: DataTypeField[] },
+  { id: string; fields: DataTypeField[]; computedFields?: ComputedField[] },
   { rejectValue: string }
->("dataTypes/updateDataType", async ({ id, fields }, { rejectWithValue }) => {
+>("dataTypes/updateDataType", async ({ id, fields, computedFields }, { rejectWithValue }) => {
   try {
-    return await updateDataTypeRequest(id, fields);
+    return await updateDataTypeRequest(id, fields, computedFields);
   } catch {
     return rejectWithValue("Failed to update data type.");
   }

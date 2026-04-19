@@ -1,7 +1,6 @@
 import { httpClient, setupAuthInterceptor } from "./httpClient";
 
 interface InterceptorEntry {
-  // eslint-disable-next-line no-unused-vars
   rejected: (err: unknown) => Promise<never>;
 }
 

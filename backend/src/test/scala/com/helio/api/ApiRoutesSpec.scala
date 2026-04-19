@@ -881,6 +881,221 @@ class ApiRoutesSpec
       }
     }
 
+    // ── DataType computed fields ───────────────────────────────────────────────
+
+    "PATCH /api/types/:id includes computedFields and returns updated DataType" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "PriceType",
+        fields    = Vector(
+          DataField("price", "Price", "float", nullable = false),
+          DataField("quantity", "Quantity", "integer", nullable = false)
+        ),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Patch(
+        s"/api/types/${dt.id.value}",
+        UpdateDataTypeRequest(
+          name   = None,
+          fields = None,
+          computedFields = Some(Vector(
+            ComputedFieldPayload("total", "Total", "price * quantity", "float")
+          ))
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DataTypeResponse]
+        response.computedFields should have size 1
+        response.computedFields.head.name shouldBe "total"
+        response.computedFields.head.expression shouldBe "price * quantity"
+        response.version shouldBe 2
+      }
+    }
+
+    "GET /api/types/:id includes computedFields array" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id             = DataTypeId(UUID.randomUUID().toString),
+        sourceId       = None,
+        name           = "WithComputed",
+        fields         = Vector(DataField("x", "X", "float", nullable = false)),
+        computedFields = Vector(ComputedField("doubled", "Doubled", "x * 2", "float")),
+        version        = 1,
+        createdAt      = Instant.now(),
+        updatedAt      = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DataTypeResponse]
+        response.computedFields should have size 1
+        response.computedFields.head.name shouldBe "doubled"
+      }
+    }
+
+    "PATCH /api/types/:id with invalid computed field expression returns 400" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "ErrorType",
+        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Patch(
+        s"/api/types/${dt.id.value}",
+        UpdateDataTypeRequest(
+          name   = None,
+          fields = None,
+          computedFields = Some(Vector(
+            ComputedFieldPayload("bad", "Bad", "price **", "float")
+          ))
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "PATCH /api/types/:id with expression exceeding 500 chars returns 400" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "LongExprType",
+        fields    = Vector(DataField("x", "X", "float", nullable = false)),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      val longExpr = "x + " * 200 // > 500 chars
+
+      Patch(
+        s"/api/types/${dt.id.value}",
+        UpdateDataTypeRequest(
+          name   = None,
+          fields = None,
+          computedFields = Some(Vector(
+            ComputedFieldPayload("toolong", "Too Long", longExpr, "float")
+          ))
+        )
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "GET /api/types/:id/validate-expression returns valid=true for a valid expression" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "ValidateType",
+        fields    = Vector(
+          DataField("price", "Price", "float", nullable = false),
+          DataField("quantity", "Qty", "integer", nullable = false)
+        ),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+*+quantity") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[ValidateExpressionResponse]
+        response.valid shouldBe true
+        response.message shouldBe None
+      }
+    }
+
+    "GET /api/types/:id/validate-expression returns valid=false for syntax error" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "ValidateSyntaxType",
+        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+**") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[ValidateExpressionResponse]
+        response.valid shouldBe false
+        response.message shouldBe defined
+      }
+    }
+
+    "GET /api/types/:id/validate-expression returns valid=false for unknown field" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "ValidateFieldType",
+        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Get(s"/api/types/${dt.id.value}/validate-expression?expr=nonexistent+*+2") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[ValidateExpressionResponse]
+        response.valid shouldBe false
+        response.message shouldBe Some("Unknown field: nonexistent")
+      }
+    }
+
+    "GET /api/types/:id/validate-expression returns 404 for unknown DataType" in {
+      Get(s"/api/types/no-such-id/validate-expression?expr=x+*+2") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
     // ── DataSources ────────────────────────────────────────────────────────────
 
     "return an empty data sources collection by default" in {
