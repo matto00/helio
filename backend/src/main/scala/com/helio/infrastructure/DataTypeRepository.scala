@@ -17,24 +17,26 @@ class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
 
   private def rowToDomain(row: DataTypeRow): DataType =
     DataType(
-      id        = DataTypeId(row.id),
-      sourceId  = row.sourceId.map(DataSourceId(_)),
-      name      = row.name,
-      fields    = row.fields.parseJson.convertTo[Vector[DataField]],
-      version   = row.version,
-      createdAt = row.createdAt,
-      updatedAt = row.updatedAt
+      id             = DataTypeId(row.id),
+      sourceId       = row.sourceId.map(DataSourceId(_)),
+      name           = row.name,
+      fields         = row.fields.parseJson.convertTo[Vector[DataField]],
+      computedFields = row.computedFields.parseJson.convertTo[Vector[ComputedField]],
+      version        = row.version,
+      createdAt      = row.createdAt,
+      updatedAt      = row.updatedAt
     )
 
   private def domainToRow(dt: DataType): DataTypeRow =
     DataTypeRow(
-      id        = dt.id.value,
-      sourceId  = dt.sourceId.map(_.value),
-      name      = dt.name,
-      fields    = dt.fields.toJson.compactPrint,
-      version   = dt.version,
-      createdAt = dt.createdAt,
-      updatedAt = dt.updatedAt
+      id             = dt.id.value,
+      sourceId       = dt.sourceId.map(_.value),
+      name           = dt.name,
+      fields         = dt.fields.toJson.compactPrint,
+      computedFields = dt.computedFields.toJson.compactPrint,
+      version        = dt.version,
+      createdAt      = dt.createdAt,
+      updatedAt      = dt.updatedAt
     )
 
   def findAll(): Future[Vector[DataType]] =
@@ -65,11 +67,12 @@ class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
           val newVersion = existing.version + 1
           table
             .filter(_.id === dt.id.value)
-            .map(r => (r.sourceId, r.name, r.fields, r.version, r.updatedAt))
+            .map(r => (r.sourceId, r.name, r.fields, r.computedFields, r.version, r.updatedAt))
             .update((
               dt.sourceId.map(_.value),
               dt.name,
               dt.fields.toJson.compactPrint,
+              dt.computedFields.toJson.compactPrint,
               newVersion,
               dt.updatedAt
             ))
@@ -101,20 +104,22 @@ object DataTypeRepository {
       sourceId: Option[String],
       name: String,
       fields: String,
+      computedFields: String,
       version: Int,
       createdAt: Instant,
       updatedAt: Instant
   )
 
   class DataTypeTable(tag: Tag) extends Table[DataTypeRow](tag, "data_types") {
-    def id        = column[String]("id", O.PrimaryKey)
-    def sourceId  = column[Option[String]]("source_id")
-    def name      = column[String]("name")
-    def fields    = column[String]("fields")
-    def version   = column[Int]("version")
-    def createdAt = column[Instant]("created_at")
-    def updatedAt = column[Instant]("updated_at")
+    def id             = column[String]("id", O.PrimaryKey)
+    def sourceId       = column[Option[String]]("source_id")
+    def name           = column[String]("name")
+    def fields         = column[String]("fields")
+    def computedFields = column[String]("computed_fields")
+    def version        = column[Int]("version")
+    def createdAt      = column[Instant]("created_at")
+    def updatedAt      = column[Instant]("updated_at")
 
-    def * = (id, sourceId, name, fields, version, createdAt, updatedAt).mapTo[DataTypeRow]
+    def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt).mapTo[DataTypeRow]
   }
 }

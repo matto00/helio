@@ -21,6 +21,7 @@ object RequestValidation {
     else
       Right(req)
 
+  val MaxExpressionLength  = 500
   val DefaultDashboardName = "Untitled Dashboard"
   val DefaultPanelTitle = "Untitled Panel"
   val DefaultDashboardBackground = "transparent"

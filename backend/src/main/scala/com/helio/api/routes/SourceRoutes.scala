@@ -6,7 +6,6 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
-import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}
 import spray.json._
 
@@ -23,6 +22,31 @@ final class SourceRoutes(
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  /** Append evaluated computed-field values to each row JsObject.
+   *  Returns the augmented rows and a list of evaluation error messages collected
+   *  across all rows.  Rows that are not JsObjects are returned unchanged.
+   *  Fields whose expressions produce a runtime error get a JsNull value in that
+   *  row; the error message is accumulated in the returned error list. */
+  private def applyComputedFields(
+      rows: Vector[JsValue],
+      computedFields: Vector[ComputedField]
+  ): (Vector[JsValue], Vector[String]) = {
+    if (computedFields.isEmpty) return (rows, Vector.empty)
+    val errors = scala.collection.mutable.ArrayBuffer.empty[String]
+    val augmented = rows.map {
+      case obj: JsObject =>
+        val extra: Map[String, JsValue] = computedFields.map { cf =>
+          cf.name -> ExpressionEvaluator.evaluate(cf.expression, obj.fields).fold(
+            err => { errors += err.message; JsNull },
+            identity
+          )
+        }.toMap
+        JsObject(obj.fields ++ extra)
+      case other => other
+    }
+    (augmented, errors.distinct.toVector)
+  }
 
   val routes: Route =
     pathPrefix("sources") {
@@ -187,8 +211,14 @@ final class SourceRoutes(
                       case Left(err) =>
                         complete(StatusCodes.BadGateway, ErrorResponse(s"Fetch failed: $err"))
                       case Right(json) =>
-                        val rows = connector.toRows(json).take(10)
-                        complete(PreviewSourceResponse(rows))
+                        val rawRows = connector.toRows(json).take(10)
+                        onSuccess(dataTypeRepo.findBySourceId(id)) { dataTypes =>
+                          val computedFields = dataTypes.headOption
+                            .map(_.computedFields)
+                            .getOrElse(Vector.empty)
+                          val (rows, evalErrors) = applyComputedFields(rawRows, computedFields)
+                          complete(PreviewSourceResponse(rows, evalErrors))
+                        }
                     }
                 }
             }

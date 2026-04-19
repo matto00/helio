@@ -6,6 +6,7 @@ const testDataType = {
   sourceId: "s-1",
   version: 1,
   fields: [{ name: "value", displayName: "Value", dataType: "float", nullable: false }],
+  computedFields: [],
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",
 };

@@ -96,11 +96,13 @@ final case class UpdatePanelRequest(
 // ── DataType / DataSource API types ──────────────────────────────────────────
 
 final case class DataFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
+final case class ComputedFieldResponse(name: String, displayName: String, expression: String, dataType: String)
 final case class DataTypeResponse(
     id: String,
     sourceId: Option[String],
     name: String,
     fields: Vector[DataFieldResponse],
+    computedFields: Vector[ComputedFieldResponse],
     version: Int,
     createdAt: String,
     updatedAt: String
@@ -109,7 +111,13 @@ final case class DataTypesResponse(items: Vector[DataTypeResponse])
 final case class DataSourceResponse(id: String, name: String, sourceType: String, createdAt: String, updatedAt: String)
 final case class DataSourcesResponse(items: Vector[DataSourceResponse])
 final case class DataFieldPayload(name: String, displayName: String, dataType: String, nullable: Boolean)
-final case class UpdateDataTypeRequest(name: Option[String], fields: Option[Vector[DataFieldPayload]])
+final case class ComputedFieldPayload(name: String, displayName: String, expression: String, dataType: String)
+final case class UpdateDataTypeRequest(
+    name: Option[String],
+    fields: Option[Vector[DataFieldPayload]],
+    computedFields: Option[Vector[ComputedFieldPayload]] = None
+)
+final case class ValidateExpressionResponse(valid: Boolean, message: Option[String])
 final case class CreateDataSourceRequest(name: String)
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
 
@@ -140,7 +148,10 @@ final case class CreateSourceResponse(
     dataType: Option[DataTypeResponse],
     fetchError: Option[String]
 )
-final case class PreviewSourceResponse(rows: Vector[JsValue])
+final case class PreviewSourceResponse(
+    rows: Vector[JsValue],
+    evaluationErrors: Vector[String] = Vector.empty
+)
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
@@ -185,13 +196,14 @@ object PanelResponse {
 object DataTypeResponse {
   def fromDomain(dt: DataType): DataTypeResponse =
     DataTypeResponse(
-      id       = dt.id.value,
-      sourceId = dt.sourceId.map(_.value),
-      name     = dt.name,
-      fields   = dt.fields.map(f => DataFieldResponse(f.name, f.displayName, f.dataType, f.nullable)),
-      version  = dt.version,
-      createdAt = dt.createdAt.toString,
-      updatedAt = dt.updatedAt.toString
+      id             = dt.id.value,
+      sourceId       = dt.sourceId.map(_.value),
+      name           = dt.name,
+      fields         = dt.fields.map(f => DataFieldResponse(f.name, f.displayName, f.dataType, f.nullable)),
+      computedFields = dt.computedFields.map(cf => ComputedFieldResponse(cf.name, cf.displayName, cf.expression, cf.dataType)),
+      version        = dt.version,
+      createdAt      = dt.createdAt.toString,
+      updatedAt      = dt.updatedAt.toString
     )
 }
 
@@ -336,7 +348,8 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
       case x           => deserializationError(s"Expected string for SourceType, got $x")
     }
   }
-  implicit val dataFieldFormat: RootJsonFormat[DataField] = jsonFormat4(DataField.apply)
+  implicit val dataFieldFormat: RootJsonFormat[DataField]         = jsonFormat4(DataField.apply)
+  implicit val computedFieldFormat: RootJsonFormat[ComputedField] = jsonFormat4(ComputedField.apply)
 
   // Domain type formatters (used for JSON blob persistence)
   implicit val panelIdFormat: JsonFormat[PanelId] = new JsonFormat[PanelId] {
@@ -457,18 +470,21 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload] = jsonFormat4(RestApiConfigPayload.apply)
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload] = jsonFormat3(FieldOverridePayload.apply)
   implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest] = jsonFormat4(CreateSourceRequest.apply)
-  implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse] = jsonFormat1(PreviewSourceResponse.apply)
+  implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse] = jsonFormat2(PreviewSourceResponse.apply)
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
 
   // DataType / DataSource API formats
-  implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse] = jsonFormat4(DataFieldResponse.apply)
-  implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]   = jsonFormat7(DataTypeResponse.apply)
-  implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse] = jsonFormat1(DataTypesResponse.apply)
-  implicit val dataSourceResponseFormat: RootJsonFormat[DataSourceResponse]   = jsonFormat5(DataSourceResponse.apply)
-  implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse] = jsonFormat1(DataSourcesResponse.apply)
+  implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse]           = jsonFormat4(DataFieldResponse.apply)
+  implicit val computedFieldResponseFormat: RootJsonFormat[ComputedFieldResponse]   = jsonFormat4(ComputedFieldResponse.apply)
+  implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]             = jsonFormat8(DataTypeResponse.apply)
+  implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse]           = jsonFormat1(DataTypesResponse.apply)
+  implicit val dataSourceResponseFormat: RootJsonFormat[DataSourceResponse]         = jsonFormat5(DataSourceResponse.apply)
+  implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse]       = jsonFormat1(DataSourcesResponse.apply)
   implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]             = jsonFormat4(DataFieldPayload.apply)
-  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]   = jsonFormat2(UpdateDataTypeRequest.apply)
+  implicit val computedFieldPayloadFormat: RootJsonFormat[ComputedFieldPayload]     = jsonFormat4(ComputedFieldPayload.apply)
+  implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]   = jsonFormat3(UpdateDataTypeRequest.apply)
+  implicit val validateExpressionResponseFormat: RootJsonFormat[ValidateExpressionResponse] = jsonFormat2(ValidateExpressionResponse.apply)
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)

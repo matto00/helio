@@ -50,6 +50,7 @@ const testDataType = {
     { name: "revenue", displayName: "Revenue", dataType: "float", nullable: false },
     { name: "label", displayName: "Label", dataType: "string", nullable: true },
   ],
+  computedFields: [],
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",
 };

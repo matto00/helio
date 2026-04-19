@@ -1,0 +1,25 @@
+- `backend/src/main/resources/db/migration/V12__add_computed_fields_to_data_types.sql` — Flyway migration adding computed_fields JSONB column
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added ComputedField case class and extended DataType with computedFields field
+- `backend/src/main/scala/com/helio/domain/ExpressionEvaluator.scala` — New: recursive descent expression evaluator with validate and evaluate methods
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added ComputedField/ComputedFieldResponse/ComputedFieldPayload types, updated DataTypeResponse/UpdateDataTypeRequest, ValidateExpressionResponse, updated formatters
+- `backend/src/main/scala/com/helio/api/RequestValidation.scala` — Added MaxExpressionLength constant (500)
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` — Added validate-expression endpoint; PATCH now validates computed field expressions
+- `backend/src/main/scala/com/helio/api/routes/SourceRoutes.scala` — Preview endpoint now evaluates computed fields per row and returns evaluationErrors
+- `backend/src/main/scala/com/helio/infrastructure/DataTypeRepository.scala` — Added computed_fields column to row/table mapping and all CRUD methods
+- `backend/src/test/scala/com/helio/domain/ExpressionEvaluatorSpec.scala` — New: unit tests for ExpressionEvaluator
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — New: integration tests for computed fields API surface
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Added computed field CRUD and validate-expression integration tests
+- `frontend/src/types/models.ts` — Added ComputedField interface, extended DataType with computedFields
+- `frontend/src/services/dataTypeService.ts` — Updated updateDataType to accept computedFields; added validateExpression service function
+- `frontend/src/features/dataTypes/dataTypesSlice.ts` — Extended updateDataType thunk to pass computedFields
+- `frontend/src/features/dataTypes/dataTypesSlice.test.ts` — Added computedFields to test fixture
+- `frontend/src/components/ComputedFieldsEditor.tsx` — New: component listing/adding/editing/removing computed fields
+- `frontend/src/components/ComputedFieldsEditor.css` — New: styles for ComputedFieldsEditor and computed-badge
+- `frontend/src/components/ComputedFieldForm.tsx` — New: form for a single computed field with inline validation
+- `frontend/src/components/ComputedFieldForm.css` — New: styles for ComputedFieldForm
+- `frontend/src/components/TypeDetailPanel.tsx` — Wired in ComputedFieldsEditor; computedFields included in PATCH dispatch
+- `frontend/src/components/PanelDetailModal.tsx` — Field picker select now includes computed fields with (computed) label
+- `frontend/src/hooks/usePanelData.test.ts` — Added computedFields to DataType test fixtures
+- `frontend/src/components/ComputedFieldsEditor.test.tsx` — New: unit tests for ComputedFieldsEditor
+- `frontend/src/components/ComputedFieldPicker.test.tsx` — New: unit test that computed fields appear in field picker
+- `frontend/src/components/PanelDetailModal.test.tsx` — Added computedFields to test fixture

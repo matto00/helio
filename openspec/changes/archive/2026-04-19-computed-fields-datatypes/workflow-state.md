@@ -4,9 +4,9 @@ TICKET_ID: HEL-58
 CHANGE_NAME: computed-fields-datatypes
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/computed-fields-datatypes/HEL-58
 BRANCH: feature/computed-fields-datatypes/HEL-58
-PHASE: Delivery
+PHASE: Cleanup
 CYCLE: 1
 EXECUTOR_AGENT_ID: —
 EVALUATOR_AGENT_ID: —
 LAST_EVAL_VERDICT: PASS
-LAST_EVAL_REPORT: openspec/changes/archive/2026-04-19-computed-fields-datatypes/evaluation-1.md
+LAST_EVAL_REPORT: —

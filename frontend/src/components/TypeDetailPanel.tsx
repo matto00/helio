@@ -3,7 +3,8 @@ import { useState, type FormEvent } from "react";
 import "./TypeDetailPanel.css";
 import { updateDataType } from "../features/dataTypes/dataTypesSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
-import type { DataType, DataTypeField } from "../types/models";
+import type { ComputedField, DataType, DataTypeField } from "../types/models";
+import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
@@ -18,6 +19,9 @@ interface EditableField extends DataTypeField {
 export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
   const dispatch = useAppDispatch();
   const [fields, setFields] = useState<EditableField[]>(dataType.fields.map((f) => ({ ...f })));
+  const [computedFields, setComputedFields] = useState<ComputedField[]>(
+    dataType.computedFields ?? [],
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -32,7 +36,7 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
     setIsSaving(true);
     setError(null);
 
-    const result = await dispatch(updateDataType({ id: dataType.id, fields }));
+    const result = await dispatch(updateDataType({ id: dataType.id, fields, computedFields }));
     if (updateDataType.rejected.match(result)) {
       setError(result.payload ?? "Failed to save changes.");
     } else {
@@ -104,6 +108,15 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
             ))}
           </tbody>
         </table>
+
+        <ComputedFieldsEditor
+          typeId={dataType.id}
+          computedFields={computedFields}
+          onChange={(cfs) => {
+            setSaved(false);
+            setComputedFields(cfs);
+          }}
+        />
 
         {error && (
           <p className="type-detail-panel__error" role="alert">

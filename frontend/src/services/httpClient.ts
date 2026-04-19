@@ -14,12 +14,10 @@ export function setAuthToken(token: string | null): void {
  * Wire up the global 401 interceptor. Must be called once after the Redux
  * store and router are available (i.e. in main.tsx).
  */
-/* eslint-disable no-unused-vars */
 export function setupAuthInterceptor(
   dispatch: (a: { type: string }) => void,
   navigate: (s: string) => void,
 ): void {
-  /* eslint-enable no-unused-vars */
   httpClient.interceptors.response.use(
     (response) => response,
     (error: unknown) => {
