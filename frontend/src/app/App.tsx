@@ -160,7 +160,7 @@ function AppShell() {
           </button>
           {authStatus === "authenticated" && currentUser !== null && (
             <div className="user-identity">
-              {currentUser.avatarUrl !== null ? (
+              {currentUser.avatarUrl ? (
                 <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
               ) : (
                 <span className="user-avatar--initials" aria-hidden="true">

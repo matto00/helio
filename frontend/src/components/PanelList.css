@@ -25,18 +25,18 @@
 
 .panel-list__header h2 {
   margin: 0;
-  font-size: 1.65rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .panel-list__count {
-  padding: 10px 12px;
+  padding: 3px 8px;
   border: 1px solid var(--app-border-subtle);
   border-radius: 999px;
   background: var(--app-accent-surface);
   color: var(--app-accent-strong);
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 

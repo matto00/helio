@@ -3,9 +3,10 @@
 }
 
 .dashboard-appearance-editor__trigger {
-  width: 100%;
-  justify-content: space-between;
-  padding: 14px 16px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--app-text-muted);
 }
 
 .dashboard-appearance-editor__trigger-copy {

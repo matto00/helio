@@ -97,17 +97,15 @@
 
 .dashboard-list__header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
 }
 
 .dashboard-list__header p {
-  margin: 8px 0 0;
-  color: var(--app-text-muted);
-  font-weight: 300;
-  line-height: 1.7;
-  letter-spacing: 0.01em;
+  display: none;
 }
 
 .dashboard-list__create {
@@ -216,8 +214,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 7px 10px;
   border: 1px solid transparent;
   border-radius: var(--app-radius-md);
   background: transparent;
