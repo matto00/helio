@@ -21,13 +21,14 @@ import {
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import { deletePanel, duplicatePanel, updatePanelTitle } from "../features/panels/panelsSlice";
-import { useAppDispatch } from "../hooks/reduxHooks";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { PanelContent } from "./PanelContent";
+import { usePanelData } from "../hooks/usePanelData";
+import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { PanelDetailModal } from "./PanelDetailModal";
 import "./PanelGrid.css";
 
@@ -149,6 +150,31 @@ function fromResponsiveLayouts(
     sm: toItems(layouts.sm),
     xs: toItems(layouts.xs),
   });
+}
+
+interface PanelCardBodyProps {
+  panel: Panel;
+}
+
+function PanelCardBody({ panel }: PanelCardBodyProps) {
+  const dataTypes = useAppSelector((state) => state.dataTypes.items);
+  const sources = useAppSelector((state) => state.sources);
+  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(
+    panel,
+    dataTypes,
+    sources,
+  );
+  return (
+    <PanelContent
+      type={panel.type}
+      data={data}
+      rawRows={rawRows}
+      headers={headers}
+      isLoading={isLoading}
+      error={error}
+      noData={noData}
+    />
+  );
 }
 
 export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
@@ -392,7 +418,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                   </button>
                 </div>
               </div>
-              <PanelContent type={panel.type} />
+              <PanelCardBody panel={panel} />
               <div className="panel-grid-card__footer">
                 <span className="panel-grid-card__type-badge">{panel.type}</span>
                 <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
