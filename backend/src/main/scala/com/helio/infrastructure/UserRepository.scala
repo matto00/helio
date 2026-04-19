@@ -44,7 +44,7 @@ class UserRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execution
     db.run(users.filter(_.googleId === googleId).result.headOption)
       .map(_.map(rowToDomain))
 
-  def insert(user: User, passwordHash: String): Future[User] = {
+  def insert(user: User, passwordHash: Option[String]): Future[User] = {
     val row = UserRow(
       id           = UUID.fromString(user.id.value),
       email        = user.email,
@@ -85,7 +85,7 @@ class UserRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execution
         val row = UserRow(
           id           = UUID.fromString(newUser.id.value),
           email        = newUser.email,
-          passwordHash = "",  // Google users have no password
+          passwordHash = None,
           displayName  = newUser.displayName,
           createdAt    = newUser.createdAt,
           googleId     = newUser.googleId,
@@ -97,6 +97,7 @@ class UserRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execution
 
   def getPasswordHash(userId: UserId): Future[Option[String]] =
     db.run(users.filter(_.id === UUID.fromString(userId.value)).map(_.passwordHash).result.headOption)
+      .map(_.flatten)
 
   def createSession(session: UserSession): Future[UserSession] = {
     val row = SessionRow(
@@ -127,7 +128,7 @@ object UserRepository {
   final case class UserRow(
       id: UUID,
       email: String,
-      passwordHash: String,
+      passwordHash: Option[String],
       displayName: Option[String],
       createdAt: Instant,
       googleId: Option[String] = None,
@@ -144,7 +145,7 @@ object UserRepository {
   class UserTable(tag: Tag) extends Table[UserRow](tag, "users") {
     def id           = column[UUID]("id", O.PrimaryKey)
     def email        = column[String]("email")
-    def passwordHash = column[String]("password_hash")
+    def passwordHash = column[Option[String]]("password_hash")
     def displayName  = column[Option[String]]("display_name")
     def createdAt    = column[Instant]("created_at")
     def googleId     = column[Option[String]]("google_id")

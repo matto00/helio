@@ -48,4 +48,4 @@ rules:
     - Each task must be completable in a single focused session (no multi-hour tasks)
     - Backend tasks first, then frontend, then tests — never interleave
     - Tests are their own task group at the end, not sprinkled throughout
-    - Prefix task group headings with the area: "### Backend", "### Frontend", "### Tests"
+    - 'Prefix task group headings with the area: "### Backend", "### Frontend", "### Tests"'

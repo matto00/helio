@@ -153,7 +153,7 @@ class AuthRoutes(
                           expiresAt = now.plusSeconds(30L * 24 * 60 * 60)
                         )
                         for {
-                          createdUser    <- userRepo.insert(user, passwordHash)
+                          createdUser    <- userRepo.insert(user, Some(passwordHash))
                           createdSession <- userRepo.createSession(session)
                         } yield Right(AuthResponse(
                           token     = createdSession.token,

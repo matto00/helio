@@ -27,6 +27,12 @@ final case class UserSession(
 
 final case class AuthenticatedUser(id: UserId)
 
+sealed trait AuthProvider
+object AuthProvider {
+  case object Google extends AuthProvider
+  case object Local  extends AuthProvider
+}
+
 sealed trait PanelType
 object PanelType {
   case object Metric extends PanelType
