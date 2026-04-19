@@ -14,5 +14,3 @@ CREATE TABLE user_sessions (
   user_agent   TEXT,
   CONSTRAINT user_sessions_token_unique UNIQUE (token)
 );
-
-CREATE UNIQUE INDEX user_sessions_token_idx ON user_sessions (token);
