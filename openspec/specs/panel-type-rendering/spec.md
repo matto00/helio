@@ -1,21 +1,37 @@
 ### Requirement: Each panel type renders a visually distinct body
-The panel grid MUST render a different body content area for each panel type (`metric`, `chart`, `text`, `table`). Each body SHALL be recognisable as its type without requiring a label.
+The panel grid MUST render a different body content area for each panel type (`metric`, `chart`, `text`, `table`). When a panel has live mapped data, it SHALL display that data; when unbound (no `typeId`), it SHALL display the existing static placeholder.
 
-#### Scenario: Metric panel renders a large value placeholder
-- **WHEN** a panel with `type: "metric"` is displayed in the grid
+#### Scenario: Unbound metric panel renders a large value placeholder
+- **WHEN** a panel with `type: "metric"` and no `typeId` is displayed in the grid
 - **THEN** the panel body shows a large placeholder value (e.g. "--") with a sub-label
 
-#### Scenario: Chart panel renders a bar-chart skeleton
-- **WHEN** a panel with `type: "chart"` is displayed in the grid
+#### Scenario: Bound metric panel renders live value and label
+- **WHEN** a panel with `type: "metric"` has a `typeId` and data has been fetched
+- **THEN** the panel body shows the mapped `value` slot as a large value and `label` slot as a sub-label
+
+#### Scenario: Unbound chart panel renders a bar-chart skeleton
+- **WHEN** a panel with `type: "chart"` and no `typeId` is displayed in the grid
 - **THEN** the panel body shows a set of height-varied bars representing a chart placeholder
 
-#### Scenario: Text panel renders placeholder text lines
-- **WHEN** a panel with `type: "text"` is displayed in the grid
+#### Scenario: Bound chart panel shows data-present indicator
+- **WHEN** a panel with `type: "chart"` has a `typeId` and data has been fetched
+- **THEN** the panel body shows the existing bar-chart skeleton with a visible "Data loaded" badge
+
+#### Scenario: Unbound text panel renders placeholder text lines
+- **WHEN** a panel with `type: "text"` and no `typeId` is displayed in the grid
 - **THEN** the panel body shows faded placeholder text lines
 
-#### Scenario: Table panel renders a table skeleton
-- **WHEN** a panel with `type: "table"` is displayed in the grid
+#### Scenario: Bound text panel renders live content
+- **WHEN** a panel with `type: "text"` has a `typeId` and data has been fetched
+- **THEN** the panel body shows the mapped `content` slot value
+
+#### Scenario: Unbound table panel renders a table skeleton
+- **WHEN** a panel with `type: "table"` and no `typeId` is displayed in the grid
 - **THEN** the panel body shows a table structure with header row and placeholder data rows
+
+#### Scenario: Bound table panel renders live rows
+- **WHEN** a panel with `type: "table"` has a `typeId` and data has been fetched
+- **THEN** the panel body shows actual column headers and data rows from the preview response
 
 ### Requirement: Unknown panel types degrade gracefully
 If a panel has an unrecognised or missing type value, the grid MUST render a fallback body rather than crashing or leaving the body blank.
