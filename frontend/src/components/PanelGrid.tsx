@@ -10,7 +10,12 @@ import {
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
+import type React from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
+
+const ResponsiveGrid = Responsive as React.ComponentType<
+  ResponsiveGridLayoutProps & { preventCollision?: boolean }
+>;
 import { noCompactor } from "react-grid-layout/core";
 
 import {
@@ -285,7 +290,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
 
   return (
     <div ref={containerRef} className="panel-grid-shell">
-      <Responsive
+      <ResponsiveGrid
         className="panel-grid"
         width={width}
         layouts={layouts}
@@ -296,7 +301,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactor}
-        {...({ preventCollision: true } as object)}
+        preventCollision={true}
         onDragStart={() => {
           preInteractionLayoutRef.current = latestLayoutRef.current;
         }}
@@ -429,7 +434,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
             </article>
           </div>
         ))}
-      </Responsive>
+      </ResponsiveGrid>
       {detailPanelId !== null ? (
         <PanelDetailModal
           panel={panels.find((p) => p.id === detailPanelId)!}

@@ -161,23 +161,12 @@ function AppShell() {
           {authStatus === "authenticated" && currentUser !== null && (
             <div className="user-identity">
               {currentUser.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt="User avatar"
-                  className="user-avatar"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                    e.currentTarget.nextElementSibling?.removeAttribute("hidden");
-                  }}
-                />
-              ) : null}
-              <span
-                className="user-avatar--initials"
-                aria-hidden="true"
-                hidden={!!currentUser.avatarUrl}
-              >
-                {(currentUser.displayName || currentUser.email).charAt(0).toUpperCase()}
-              </span>
+                <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
+              ) : (
+                <span className="user-avatar--initials" aria-hidden="true">
+                  {(currentUser.displayName || currentUser.email).charAt(0).toUpperCase()}
+                </span>
+              )}
               <span className="user-identity__name">
                 {currentUser.displayName ?? currentUser.email}
               </span>
