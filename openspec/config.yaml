@@ -41,11 +41,14 @@ rules:
   proposal:
     - Keep under 300 words — focus on what changes and why, not implementation details
     - Include a "Non-goals" section for anything explicitly out of scope
+    - Maximum 80 lines; wrap prose at 120 chars per line
   design:
     - Ground every decision in actual files/patterns from the codebase, not hypotheticals
     - Document self-approved decisions under a "## Planner Notes" section
+    - Maximum 150 lines; wrap prose at 120 chars per line
   tasks:
     - Each task must be completable in a single focused session (no multi-hour tasks)
     - Backend tasks first, then frontend, then tests — never interleave
     - Tests are their own task group at the end, not sprinkled throughout
     - 'Prefix task group headings with the area: "### Backend", "### Frontend", "### Tests"'
+    - Maximum 80 lines; one line per task, no prose blocks
