@@ -28,6 +28,7 @@ import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { PanelContent } from "./PanelContent";
 import { usePanelData } from "../hooks/usePanelData";
+import { usePanelPolling } from "../hooks/usePanelPolling";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { PanelDetailModal } from "./PanelDetailModal";
 import "./PanelGrid.css";
@@ -159,11 +160,12 @@ interface PanelCardBodyProps {
 function PanelCardBody({ panel }: PanelCardBodyProps) {
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const sources = useAppSelector((state) => state.sources);
-  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(
+  const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(
     panel,
     dataTypes,
     sources,
   );
+  usePanelPolling(refresh, panel.refreshInterval, panel.typeId);
   return (
     <PanelContent
       type={panel.type}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
@@ -17,6 +17,8 @@ export interface PanelDataResult {
   isLoading: boolean;
   error: string | null;
   noData: boolean;
+  /** Reset the fetch-deduplication key and trigger a fresh data fetch. */
+  refresh: () => void;
 }
 
 export function usePanelData(
@@ -34,6 +36,16 @@ export function usePanelData(
 
   const fieldMappingKey = panel.fieldMapping ? JSON.stringify(panel.fieldMapping) : null;
   const prevFetchKey = useRef<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  /**
+   * Reset the fetch-deduplication key and trigger a re-render so the data
+   * useEffect bypasses its guard and re-fetches on the next tick.
+   */
+  const refresh = useCallback(() => {
+    prevFetchKey.current = null;
+    setRefreshToken((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     if (!panel.typeId) {
@@ -128,8 +140,8 @@ export function usePanelData(
     }
 
     void fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fieldMappingKey is a stable JSON serialisation of panel.fieldMapping
-  }, [panel.typeId, fieldMappingKey, dataTypes, sources, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fieldMappingKey is a stable JSON serialisation of panel.fieldMapping; refreshToken drives manual re-fetches
+  }, [panel.typeId, fieldMappingKey, dataTypes, sources, dispatch, refreshToken]);
 
-  return { data, rawRows, headers, isLoading, error, noData };
+  return { data, rawRows, headers, isLoading, error, noData, refresh };
 }
