@@ -13,6 +13,7 @@ coverage/
 .DS_Store
 *.log
 backend/.env
+backend/data/
 
 # Git worktrees (managed by Claude Code orchestrator)
 .claude/worktrees/
