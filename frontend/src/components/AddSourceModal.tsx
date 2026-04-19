@@ -2,7 +2,11 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 
 import "./AddSourceModal.css";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
-import { createStaticSource, fetchSources } from "../features/sources/sourcesSlice";
+import {
+  createStaticSource,
+  createSqlSource,
+  fetchSources,
+} from "../features/sources/sourcesSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import type { InferredField, StaticColumn } from "../types/models";
 import {
@@ -10,10 +14,12 @@ import {
   createRestSource,
   inferFromCsv,
   inferFromJson,
+  type SqlSourceConfig,
 } from "../services/dataSourceService";
 import { StaticSourceForm } from "./StaticSourceForm";
+import { SqlTab } from "./SqlTab";
 
-type SourceType = "rest_api" | "csv" | "static";
+type SourceType = "rest_api" | "csv" | "static" | "sql";
 type Step = "configure" | "preview";
 
 interface EditableField extends InferredField {
@@ -134,6 +140,30 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     }
   }
 
+  async function handleSqlSave(
+    sourceName: string,
+    config: SqlSourceConfig,
+    _inferredFields: InferredField[],
+  ) {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await dispatch(createSqlSource({ name: sourceName, config })).unwrap();
+      void dispatch(fetchDataTypes());
+      handleClose();
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "string" && err
+          ? err
+          : err instanceof Error
+            ? err.message
+            : "Failed to create SQL source.";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
@@ -204,6 +234,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
                 >
                   Manual
                 </button>
+                <button
+                  type="button"
+                  className="add-source-modal__type-btn"
+                  onClick={() => setSourceType("sql")}
+                >
+                  SQL Database
+                </button>
               </div>
             </div>
             <StaticSourceForm
@@ -257,15 +294,36 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
                 </button>
                 <button
                   type="button"
-                  className="add-source-modal__type-btn"
+                  className={
+                    sourceType === "static"
+                      ? "add-source-modal__type-btn add-source-modal__type-btn--active"
+                      : "add-source-modal__type-btn"
+                  }
                   onClick={() => setSourceType("static")}
                 >
                   Manual
                 </button>
+                <button
+                  type="button"
+                  className={
+                    sourceType === "sql"
+                      ? "add-source-modal__type-btn add-source-modal__type-btn--active"
+                      : "add-source-modal__type-btn"
+                  }
+                  onClick={() => setSourceType("sql")}
+                >
+                  SQL Database
+                </button>
               </div>
             </div>
 
-            {sourceType === "rest_api" ? (
+            {sourceType === "sql" ? (
+              <SqlTab
+                name={name.trim()}
+                onSave={(n, cfg, inferred) => void handleSqlSave(n, cfg, inferred)}
+                isSaving={isLoading}
+              />
+            ) : sourceType === "rest_api" ? (
               <>
                 <div className="add-source-modal__field">
                   <label className="add-source-modal__label" htmlFor="source-url">
@@ -315,22 +373,24 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               </p>
             )}
 
-            <div className="add-source-modal__actions">
-              <button
-                type="button"
-                className="add-source-modal__btn add-source-modal__btn--secondary"
-                onClick={handleClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="add-source-modal__btn add-source-modal__btn--primary"
-                disabled={isLoading}
-              >
-                {isLoading ? "Loading…" : "Preview schema"}
-              </button>
-            </div>
+            {sourceType !== "sql" && (
+              <div className="add-source-modal__actions">
+                <button
+                  type="button"
+                  className="add-source-modal__btn add-source-modal__btn--secondary"
+                  onClick={handleClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="add-source-modal__btn add-source-modal__btn--primary"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Loading…" : "Preview schema"}
+                </button>
+              </div>
+            )}
           </form>
         ) : (
           <form className="add-source-modal__form" onSubmit={(e) => void handleCreate(e)}>

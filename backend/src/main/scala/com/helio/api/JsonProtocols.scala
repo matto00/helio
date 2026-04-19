@@ -121,6 +121,29 @@ final case class ValidateExpressionResponse(valid: Boolean, message: Option[Stri
 final case class CreateDataSourceRequest(name: String)
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
 
+// ── SQL connector API types ───────────────────────────────────────────────────
+
+final case class SqlCreateSourceRequest(
+    name: String,
+    sourceType: String,
+    config: SqlSourceConfigPayload
+)
+
+final case class SqlInferRequest(
+    sourceType: String,
+    config: SqlSourceConfigPayload
+)
+
+final case class SqlSourceConfigPayload(
+    dialect: String,
+    host: String,
+    port: Int,
+    database: String,
+    user: String,
+    password: String,
+    query: String
+)
+
 // ── REST connector API types ──────────────────────────────────────────────────
 
 final case class RestApiAuthPayload(
@@ -271,6 +294,19 @@ object DashboardLayoutResponse {
       md = layout.md.map(DashboardLayoutItemResponse.fromDomain),
       sm = layout.sm.map(DashboardLayoutItemResponse.fromDomain),
       xs = layout.xs.map(DashboardLayoutItemResponse.fromDomain)
+    )
+}
+
+object SqlSourceConfigPayload {
+  def toDomain(p: SqlSourceConfigPayload): SqlSourceConfig =
+    SqlSourceConfig(
+      dialect  = p.dialect,
+      host     = p.host,
+      port     = p.port,
+      database = p.database,
+      user     = p.user,
+      password = p.password,
+      query    = p.query
     )
 }
 
@@ -470,6 +506,11 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
         )
       }
     }
+
+  // SQL connector API formats
+  implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)
+  implicit val sqlCreateSourceRequestFormat: RootJsonFormat[SqlCreateSourceRequest] = jsonFormat3(SqlCreateSourceRequest.apply)
+  implicit val sqlInferRequestFormat: RootJsonFormat[SqlInferRequest]               = jsonFormat2(SqlInferRequest.apply)
 
   // REST connector API formats
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload] = jsonFormat5(RestApiAuthPayload.apply)
