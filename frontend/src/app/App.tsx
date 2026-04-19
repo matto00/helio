@@ -164,7 +164,7 @@ function AppShell() {
                 <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
               ) : (
                 <span className="user-avatar--initials" aria-hidden="true">
-                  {(currentUser.displayName ?? currentUser.email).charAt(0)}
+                  {(currentUser.displayName || currentUser.email).charAt(0)}
                 </span>
               )}
               <span className="user-identity__name">
@@ -198,13 +198,6 @@ function AppShell() {
           </button>
         ) : (
           <aside className="app-sidebar">
-            <div className="app-sidebar__logo">
-              <div className="app-sidebar__wordmark">
-                <span className="app-sidebar__logo-dot" aria-hidden="true" />
-                Helio
-              </div>
-              <div className="app-sidebar__workspace">Workspace</div>
-            </div>
             <nav className="app-sidebar__nav" aria-label="Main navigation">
               <NavLink to="/" end className="app-sidebar__nav-link">
                 Dashboards
