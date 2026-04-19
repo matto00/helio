@@ -46,6 +46,7 @@
 .data-source-list__item-name {
   font-size: 0.9375rem;
   font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--app-text);
   white-space: nowrap;
   overflow: hidden;

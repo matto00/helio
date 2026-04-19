@@ -239,7 +239,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
               >
                 <span className="dashboard-list__name">{dashboard.name}</span>
                 <span className="dashboard-list__meta">
-                  {selectedDashboardId === dashboard.id ? "Active" : "View"}
+                  {selectedDashboardId === dashboard.id ? "Active dashboard" : "View"}
                 </span>
               </button>
             )}

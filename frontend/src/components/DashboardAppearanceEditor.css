@@ -53,7 +53,7 @@
   width: 52px;
   height: 36px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 10px;
+  border-radius: var(--app-radius-md);
   background: transparent;
   cursor: pointer;
 }
@@ -62,7 +62,7 @@
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--app-radius-md);
   background: var(--app-surface-soft);
   color: var(--app-text);
   font-weight: 600;

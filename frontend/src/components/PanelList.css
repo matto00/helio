@@ -1,11 +1,11 @@
 .panel-list {
-  min-height: calc(100vh - 200px);
+  min-height: 100%;
   padding: 26px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-lg);
-  background: var(--dashboard-grid-background-override, var(--app-surface-strong));
-  box-shadow: var(--app-shadow-soft);
-  backdrop-filter: blur(28px);
+  border: none;
+  border-radius: 0;
+  background: var(--dashboard-grid-background-override, transparent);
+  box-shadow: none;
+  backdrop-filter: none;
   transition: background-color var(--app-transition);
 }
 
@@ -25,7 +25,9 @@
 
 .panel-list__header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .panel-list__count {
