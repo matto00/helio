@@ -103,7 +103,8 @@ final case class Dashboard(
     name: String,
     meta: ResourceMeta,
     appearance: DashboardAppearance,
-    layout: DashboardLayout
+    layout: DashboardLayout,
+    ownerId: UserId
 )
 final case class Panel(
     id: PanelId,
@@ -112,6 +113,7 @@ final case class Panel(
     meta: ResourceMeta,
     appearance: PanelAppearance,
     panelType: PanelType,
+    ownerId: UserId,
     typeId: Option[DataTypeId] = None,
     fieldMapping: Option[JsValue] = None
 )

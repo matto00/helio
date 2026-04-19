@@ -29,19 +29,11 @@ final class ApiRoutes(
   private implicit val ec = system.executionContext
 
   private val authDirectives = new AuthDirectives(userSessionRepo)
-  private val aclDirective   = new AclDirective()
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
   private val dataTypes      = new DataTypeRoutes(dataTypeRepo)
   private val dataSources    = new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sources        = new SourceRoutes(dataSourceRepo, dataTypeRepo, connector)
-
-  /** Resolvers for ACL ownership checks — each maps a resource ID to its owner's user ID string. */
-  private def dashboardOwnerResolver(id: String): scala.concurrent.Future[Option[String]] =
-    dashboardRepo.findById(com.helio.domain.DashboardId(id)).map(_.map(_.meta.createdBy))
-
-  private def panelOwnerResolver(id: String): scala.concurrent.Future[Option[String]] =
-    panelRepo.findById(com.helio.domain.PanelId(id)).map(_.map(_.meta.createdBy))
 
   val routes: Route =
     health.routes ~
@@ -65,8 +57,8 @@ final class ApiRoutes(
                   }
                 }
               },
-              new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, aclDirective, dashboardOwnerResolver).routes,
-              new PanelRoutes(panelRepo, dashboardRepo, authenticatedUser, aclDirective, panelOwnerResolver).routes,
+              new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser).routes,
+              new PanelRoutes(panelRepo, dashboardRepo, authenticatedUser).routes,
               dataTypes.routes,
               dataSources.routes,
               sources.routes

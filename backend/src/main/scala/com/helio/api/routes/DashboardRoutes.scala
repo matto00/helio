@@ -10,14 +10,12 @@ import com.helio.infrastructure.{DashboardRepository, PanelRepository}
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
-    user: AuthenticatedUser,
-    acl: AclDirective,
-    ownerResolver: String => Future[Option[String]]
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -30,7 +28,7 @@ final class DashboardRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              onSuccess(dashboardRepo.findAll()) { dashboards =>
+              onSuccess(dashboardRepo.findAll(user.id)) { dashboards =>
                 complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
               }
             },
@@ -42,7 +40,8 @@ final class DashboardRoutes(
                   name       = RequestValidation.normalizeDashboardName(request.name),
                   meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                   appearance = DashboardAppearance.Default,
-                  layout     = DashboardLayout.Default
+                  layout     = DashboardLayout.Default,
+                  ownerId    = user.id
                 )
                 onSuccess(dashboardRepo.insert(dashboard)) { created =>
                   complete(StatusCodes.Created, DashboardResponse.fromDomain(created))
@@ -53,38 +52,53 @@ final class DashboardRoutes(
         },
         path(Segment / "panels") { dashboardId =>
           get {
-            acl.authorizeResource(dashboardId, user, ownerResolver, "Dashboard not found") {
-              onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
-                complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
-              }
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
+                  complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+                }
             }
           }
         },
         path(Segment / "duplicate") { dashboardId =>
           post {
-            acl.authorizeResource(dashboardId, user, ownerResolver, "Dashboard not found") {
-              onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId))) {
-                case None =>
-                  complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                case Some((dashboard, panels)) =>
-                  complete(
-                    StatusCodes.Created,
-                    DuplicateDashboardResponse(
-                      dashboard = DashboardResponse.fromDomain(dashboard),
-                      panels    = panels.map(PanelResponse.fromDomain)
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId), user.id)) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some((dashboard, panels)) =>
+                    complete(
+                      StatusCodes.Created,
+                      DuplicateDashboardResponse(
+                        dashboard = DashboardResponse.fromDomain(dashboard),
+                        panels    = panels.map(PanelResponse.fromDomain)
+                      )
                     )
-                  )
-              }
+                }
             }
           }
         },
         path(Segment / "export") { dashboardId =>
           get {
-            acl.authorizeResource(dashboardId, user, ownerResolver, "Dashboard not found") {
-              onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
-                case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                case Some(snapshot) => complete(snapshot)
-              }
+            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+              case Some(dashboard) if dashboard.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
+                  case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some(snapshot) => complete(snapshot)
+                }
             }
           }
         },
@@ -95,7 +109,7 @@ final class DashboardRoutes(
                 case Left(error) =>
                   complete(StatusCodes.BadRequest, ErrorResponse(error))
                 case Right(_) =>
-                  onSuccess(dashboardRepo.importSnapshot(payload)) { case (dashboard, panels) =>
+                  onSuccess(dashboardRepo.importSnapshot(payload, user.id)) { case (dashboard, panels) =>
                     complete(
                       StatusCodes.Created,
                       DuplicateDashboardResponse(
@@ -111,57 +125,62 @@ final class DashboardRoutes(
         path(Segment) { dashboardId =>
           concat(
             delete {
-              acl.authorizeResource(dashboardId, user, ownerResolver, "Dashboard not found") {
-                onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
-                  case true  => complete(StatusCodes.NoContent)
-                  case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                }
+              onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                case None =>
+                  complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                case Some(dashboard) if dashboard.ownerId != user.id =>
+                  complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                case Some(_) =>
+                  onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  }
               }
             },
             patch {
-              acl.authorizeResource(dashboardId, user, ownerResolver, "Dashboard not found") {
-                entity(as[UpdateDashboardRequest]) { request =>
-                  validateDashboardUpdateRequest(request) match {
-                    case Left(error) =>
-                      complete(StatusCodes.BadRequest, ErrorResponse(error))
-                    case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-                      onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
-                        case None =>
-                          complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                        case Some(existing) =>
-                          val now = Instant.now()
-                          nameOpt match {
-                            case Some(name) =>
-                              onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
-                                case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                                case Some(renamed) =>
-                                  if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
-                                    complete(DashboardResponse.fromDomain(renamed))
-                                  } else {
-                                    val updated = renamed.copy(
-                                      appearance = appearanceOpt.getOrElse(renamed.appearance),
-                                      layout     = layoutOpt.getOrElse(renamed.layout),
-                                      meta       = renamed.meta.copy(lastUpdated = now)
-                                    )
-                                    onSuccess(dashboardRepo.update(updated)) {
-                                      case Some(d) => complete(DashboardResponse.fromDomain(d))
-                                      case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                                    }
+              entity(as[UpdateDashboardRequest]) { request =>
+                validateDashboardUpdateRequest(request) match {
+                  case Left(error) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(error))
+                  case Right((nameOpt, appearanceOpt, layoutOpt)) =>
+                    onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                      case None =>
+                        complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                      case Some(existing) if existing.ownerId != user.id =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                      case Some(existing) =>
+                        val now = Instant.now()
+                        nameOpt match {
+                          case Some(name) =>
+                            onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
+                              case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                              case Some(renamed) =>
+                                if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
+                                  complete(DashboardResponse.fromDomain(renamed))
+                                } else {
+                                  val updated = renamed.copy(
+                                    appearance = appearanceOpt.getOrElse(renamed.appearance),
+                                    layout     = layoutOpt.getOrElse(renamed.layout),
+                                    meta       = renamed.meta.copy(lastUpdated = now)
+                                  )
+                                  onSuccess(dashboardRepo.update(updated)) {
+                                    case Some(d) => complete(DashboardResponse.fromDomain(d))
+                                    case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                                   }
-                              }
-                            case None =>
-                              val updated = existing.copy(
-                                appearance = appearanceOpt.getOrElse(existing.appearance),
-                                layout     = layoutOpt.getOrElse(existing.layout),
-                                meta       = existing.meta.copy(lastUpdated = now)
-                              )
-                              onSuccess(dashboardRepo.update(updated)) {
-                                case Some(d) => complete(DashboardResponse.fromDomain(d))
-                                case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                              }
-                          }
-                      }
-                  }
+                                }
+                            }
+                          case None =>
+                            val updated = existing.copy(
+                              appearance = appearanceOpt.getOrElse(existing.appearance),
+                              layout     = layoutOpt.getOrElse(existing.layout),
+                              meta       = existing.meta.copy(lastUpdated = now)
+                            )
+                            onSuccess(dashboardRepo.update(updated)) {
+                              case Some(d) => complete(DashboardResponse.fromDomain(d))
+                              case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                            }
+                        }
+                    }
                 }
               }
             }

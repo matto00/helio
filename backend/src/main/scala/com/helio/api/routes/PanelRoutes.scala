@@ -15,9 +15,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 final class PanelRoutes(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
-    user: AuthenticatedUser,
-    acl: AclDirective,
-    ownerResolver: String => Future[Option[String]]
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -49,7 +47,8 @@ final class PanelRoutes(
                             title       = RequestValidation.normalizePanelTitle(request.title),
                             meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                             appearance  = PanelAppearance.Default,
-                            panelType   = panelType
+                            panelType   = panelType,
+                            ownerId     = user.id
                           )
                           onSuccess(panelRepo.insert(panel)) { created =>
                             complete(StatusCodes.Created, PanelResponse.fromDomain(created))
@@ -63,93 +62,103 @@ final class PanelRoutes(
         path(Segment) { panelId =>
           concat(
             delete {
-              acl.authorizeResource(panelId, user, ownerResolver, "Panel not found") {
-                onSuccess(panelRepo.delete(PanelId(panelId))) {
-                  case true  => complete(StatusCodes.NoContent)
-                  case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                }
+              onSuccess(panelRepo.findById(PanelId(panelId))) {
+                case None =>
+                  complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                case Some(panel) if panel.ownerId != user.id =>
+                  complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                case Some(_) =>
+                  onSuccess(panelRepo.delete(PanelId(panelId))) {
+                    case true  => complete(StatusCodes.NoContent)
+                    case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  }
               }
             },
             patch {
-              acl.authorizeResource(panelId, user, ownerResolver, "Panel not found") {
-                entity(as[UpdatePanelRequest]) { request =>
-                  val trimmedTitle  = request.title.map(_.trim)
-                  val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
-                  val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined
+              entity(as[UpdatePanelRequest]) { request =>
+                onSuccess(panelRepo.findById(PanelId(panelId))) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  case Some(existing) if existing.ownerId != user.id =>
+                    complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                  case Some(_) =>
+                    val trimmedTitle  = request.title.map(_.trim)
+                    val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
+                    val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined
 
-                  if (trimmedTitle.contains("")) {
-                    complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
-                  } else if (!hasOtherField && !hasBinding) {
-                    complete(StatusCodes.BadRequest, ErrorResponse("at least one field is required"))
-                  } else {
-                    validatePanelTypeOpt(request.`type`) match {
-                      case Left(err) =>
-                        complete(StatusCodes.BadRequest, ErrorResponse(err))
-                      case Right(panelTypeOpt) =>
-                        val now           = Instant.now()
-                        val appearanceOpt = request.appearance.map(p =>
-                          PanelAppearance(
-                            background   = RequestValidation.normalizePanelBackground(p.background),
-                            color        = RequestValidation.normalizePanelColor(p.color),
-                            transparency = RequestValidation.normalizeTransparency(p.transparency)
+                    if (trimmedTitle.contains("")) {
+                      complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
+                    } else if (!hasOtherField && !hasBinding) {
+                      complete(StatusCodes.BadRequest, ErrorResponse("at least one field is required"))
+                    } else {
+                      validatePanelTypeOpt(request.`type`) match {
+                        case Left(err) =>
+                          complete(StatusCodes.BadRequest, ErrorResponse(err))
+                        case Right(panelTypeOpt) =>
+                          val now           = Instant.now()
+                          val appearanceOpt = request.appearance.map(p =>
+                            PanelAppearance(
+                              background   = RequestValidation.normalizePanelBackground(p.background),
+                              color        = RequestValidation.normalizePanelColor(p.color),
+                              transparency = RequestValidation.normalizeTransparency(p.transparency)
+                            )
                           )
-                        )
 
-                        def applyTypeUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                          panelTypeOpt match {
-                            case None     => Future.successful(panelOpt)
-                            case Some(pt) => panelOpt match {
-                              case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateType(PanelId(panelId), pt, now)
+                          def applyTypeUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
+                            panelTypeOpt match {
+                              case None     => Future.successful(panelOpt)
+                              case Some(pt) => panelOpt match {
+                                case None    => Future.successful(None)
+                                case Some(_) => panelRepo.updateType(PanelId(panelId), pt, now)
+                              }
                             }
-                          }
 
-                        def applyBindingUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                          if (!hasBinding) Future.successful(panelOpt)
-                          else panelOpt match {
-                            case None => Future.successful(None)
-                            case Some(panel) =>
-                              val newTypeId       = request.typeId.fold(panel.typeId)(_.map(DataTypeId(_)))
-                              val newFieldMapping = request.fieldMapping.fold(panel.fieldMapping)(identity)
-                              panelRepo.updateTypeBinding(PanelId(panelId), newTypeId, newFieldMapping, now)
-                          }
+                          def applyBindingUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
+                            if (!hasBinding) Future.successful(panelOpt)
+                            else panelOpt match {
+                              case None => Future.successful(None)
+                              case Some(panel) =>
+                                val newTypeId       = request.typeId.fold(panel.typeId)(_.map(DataTypeId(_)))
+                                val newFieldMapping = request.fieldMapping.fold(panel.fieldMapping)(identity)
+                                panelRepo.updateTypeBinding(PanelId(panelId), newTypeId, newFieldMapping, now)
+                            }
 
-                        val coreFuture: Future[Option[Panel]] =
-                          if (!hasOtherField) {
-                            panelRepo.findById(PanelId(panelId))
-                          } else {
-                            val titleFuture: Future[Option[Panel]] = trimmedTitle match {
-                              case Some(title) =>
-                                panelRepo.updateTitle(PanelId(panelId), title, now).flatMap { result =>
-                                  appearanceOpt match {
-                                    case None             => applyTypeUpdate(result)
-                                    case Some(appearance) =>
-                                      result match {
-                                        case None    => Future.successful(None)
-                                        case Some(_) =>
-                                          panelRepo.updateAppearance(PanelId(panelId), appearance, now)
-                                            .flatMap(applyTypeUpdate)
-                                      }
+                          val coreFuture: Future[Option[Panel]] =
+                            if (!hasOtherField) {
+                              panelRepo.findById(PanelId(panelId))
+                            } else {
+                              val titleFuture: Future[Option[Panel]] = trimmedTitle match {
+                                case Some(title) =>
+                                  panelRepo.updateTitle(PanelId(panelId), title, now).flatMap { result =>
+                                    appearanceOpt match {
+                                      case None             => applyTypeUpdate(result)
+                                      case Some(appearance) =>
+                                        result match {
+                                          case None    => Future.successful(None)
+                                          case Some(_) =>
+                                            panelRepo.updateAppearance(PanelId(panelId), appearance, now)
+                                              .flatMap(applyTypeUpdate)
+                                        }
+                                    }
                                   }
-                                }
-                              case None =>
-                                appearanceOpt match {
-                                  case Some(appearance) =>
-                                    panelRepo.updateAppearance(PanelId(panelId), appearance, now)
-                                      .flatMap(applyTypeUpdate)
-                                  case None =>
-                                    panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
-                                }
+                                case None =>
+                                  appearanceOpt match {
+                                    case Some(appearance) =>
+                                      panelRepo.updateAppearance(PanelId(panelId), appearance, now)
+                                        .flatMap(applyTypeUpdate)
+                                    case None =>
+                                      panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
+                                  }
+                              }
+                              titleFuture
                             }
-                            titleFuture
-                          }
 
-                        onSuccess(coreFuture.flatMap(applyBindingUpdate)) {
-                          case Some(panel) => complete(PanelResponse.fromDomain(panel))
-                          case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                        }
+                          onSuccess(coreFuture.flatMap(applyBindingUpdate)) {
+                            case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                            case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                          }
+                      }
                     }
-                  }
                 }
               }
             }
@@ -157,11 +166,16 @@ final class PanelRoutes(
         },
         path(Segment / "duplicate") { panelId =>
           post {
-            acl.authorizeResource(panelId, user, ownerResolver, "Panel not found") {
-              onSuccess(panelRepo.duplicate(PanelId(panelId))) {
-                case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
-                case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-              }
+            onSuccess(panelRepo.findById(PanelId(panelId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+              case Some(panel) if panel.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+              case Some(_) =>
+                onSuccess(panelRepo.duplicate(PanelId(panelId), user.id)) {
+                  case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
+                  case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                }
             }
           }
         }

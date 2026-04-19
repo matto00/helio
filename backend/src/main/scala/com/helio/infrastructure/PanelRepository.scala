@@ -24,6 +24,7 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
       appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
       panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
+      ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
       fieldMapping = row.fieldMapping.map(_.parseJson)
     )
@@ -39,7 +40,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       appearance   = p.appearance.toJson.compactPrint,
       panelType    = PanelType.asString(p.panelType),
       typeId       = p.typeId.map(_.value),
-      fieldMapping = p.fieldMapping.map(_.compactPrint)
+      fieldMapping = p.fieldMapping.map(_.compactPrint),
+      ownerId      = UUID.fromString(p.ownerId.value)
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -66,7 +68,7 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
   def delete(id: PanelId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 
-  def duplicate(id: PanelId): Future[Option[Panel]] = {
+  def duplicate(id: PanelId, ownerId: UserId): Future[Option[Panel]] = {
     val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
 
     def baseTitle(title: String): String = title match {
@@ -97,7 +99,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
               id          = UUID.randomUUID().toString,
               title       = nextCopyTitle(base, existingTitles),
               createdAt   = now,
-              lastUpdated = now
+              lastUpdated = now,
+              ownerId     = UUID.fromString(ownerId.value)
             )
             (table += newRow).map(_ => Some(rowToDomain(newRow)))
           }
@@ -156,7 +159,8 @@ object PanelRepository {
       appearance: String,
       panelType: String,
       typeId: Option[String],
-      fieldMapping: Option[String]
+      fieldMapping: Option[String],
+      ownerId: java.util.UUID
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -170,7 +174,8 @@ object PanelRepository {
     def panelType    = column[String]("type")
     def typeId       = column[Option[String]]("type_id")
     def fieldMapping = column[Option[String]]("field_mapping")
+    def ownerId      = column[java.util.UUID]("owner_id")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId).mapTo[PanelRow]
   }
 }

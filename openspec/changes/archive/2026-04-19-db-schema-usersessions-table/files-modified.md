@@ -1,0 +1,1 @@
+- `backend/src/main/resources/db/migration/V10__user_sessions_complete.sql` — corrective Flyway migration that drops the minimal V7 user_sessions table and recreates it with the full schema: UUID PK, hashed token (UNIQUE), user_id FK, created_at, expires_at, last_seen_at (nullable), ip_address (nullable), user_agent (nullable), plus a dedicated index on token for fast lookup

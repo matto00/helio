@@ -1,0 +1,11 @@
+- `backend/src/main/resources/db/migration/V10__owner_id.sql` — adds system user, owner_id UUID FK columns to dashboards and panels (REFERENCES users(id))
+- `backend/src/main/scala/com/helio/domain/model.scala` — adds ownerId: UserId field to Dashboard and Panel domain models
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala` — Slick row/table updated for UUID owner_id; all CRUD methods enforce ownership
+- `backend/src/main/scala/com/helio/infrastructure/PanelRepository.scala` — Slick row/table updated for UUID owner_id; domainToRow conversion updated; duplicate() accepts ownerId and sets it on the new row
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — DashboardResponse and PanelResponse include ownerId field; jsonFormat updated
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — ownership checks on PATCH, duplicate, export, import; GET returns only owned dashboards
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — ownership checks on POST, PATCH, DELETE, duplicate; passes user.id as ownerId to panelRepo.duplicate()
+- `backend/src/main/scala/com/helio/app/DemoData.scala` — DemoData records assigned to SystemUserId
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — test user IDs changed to valid UUIDs; cleanDb() re-inserts users; ownership tests updated; added panel duplicate ownership and 403 tests
+- `schemas/dashboard.schema.json` — added ownerId as required string property
+- `schemas/panel.schema.json` — added ownerId as required string property
