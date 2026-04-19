@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { createElement } from "react";
 import { Provider } from "react-redux";
@@ -220,5 +220,59 @@ describe("usePanelData", () => {
     });
 
     expect(dispatchSpy).toHaveBeenCalled();
+  });
+
+  it("exposes a refresh callback that is a function", () => {
+    const store = makeStore();
+    const panel = makePanel({ typeId: null });
+    const { result } = renderHook(
+      () => usePanelData(panel, [], { items: [], status: "succeeded" }),
+      { wrapper: wrapper(store) },
+    );
+    expect(typeof result.current.refresh).toBe("function");
+  });
+
+  it("refresh callback triggers a re-fetch for a bound panel", async () => {
+    mockFetchCsvPreview.mockResolvedValue({
+      headers: ["revenue", "region"],
+      rows: [["1000", "North"]],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({
+      typeId: "dt-csv",
+      fieldMapping: { value: "revenue", label: "region" },
+    });
+
+    const { result } = renderHook(
+      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
+      { wrapper: wrapper(store) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockFetchCsvPreview).toHaveBeenCalledTimes(1);
+
+    // Calling refresh() should trigger another fetch
+    act(() => {
+      result.current.refresh();
+    });
+
+    // Wait for the second fetch to complete and data to be populated
+    await waitFor(() => expect(mockFetchCsvPreview).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual({ value: "1000", label: "North" });
+  });
+
+  it("refresh callback is stable across re-renders", () => {
+    const store = makeStore();
+    const panel = makePanel({ typeId: null });
+    const { result, rerender } = renderHook(
+      () => usePanelData(panel, [], { items: [], status: "succeeded" }),
+      { wrapper: wrapper(store) },
+    );
+
+    const firstRefresh = result.current.refresh;
+    rerender();
+    expect(result.current.refresh).toBe(firstRefresh);
   });
 });

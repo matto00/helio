@@ -1,0 +1,5 @@
+- `frontend/src/hooks/usePanelPolling.ts` — new hook: setInterval-based polling with visibilitychange pause/resume and unmount cleanup
+- `frontend/src/hooks/usePanelData.ts` — added `refresh` callback (resets prevFetchKey + increments refreshToken to re-trigger the fetch effect) and exposed it on PanelDataResult
+- `frontend/src/components/PanelGrid.tsx` — imported usePanelPolling; wired refresh, refreshInterval, and typeId into usePanelPolling inside PanelCardBody
+- `frontend/src/hooks/usePanelPolling.test.ts` — new: full unit-test suite for usePanelPolling (cadence, unmount, typeId=null, visibility pause/resume, no stacking)
+- `frontend/src/hooks/usePanelData.test.ts` — added three tests for the new refresh callback (function type, triggers re-fetch, referential stability)
