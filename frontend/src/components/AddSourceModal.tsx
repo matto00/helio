@@ -2,17 +2,18 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 
 import "./AddSourceModal.css";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
-import { fetchSources } from "../features/sources/sourcesSlice";
+import { createStaticSource, fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
-import type { InferredField } from "../types/models";
+import type { InferredField, StaticColumn } from "../types/models";
 import {
   createCsvSource,
   createRestSource,
   inferFromCsv,
   inferFromJson,
 } from "../services/dataSourceService";
+import { StaticSourceForm } from "./StaticSourceForm";
 
-type SourceType = "rest_api" | "csv";
+type SourceType = "rest_api" | "csv" | "static";
 type Step = "configure" | "preview";
 
 interface EditableField extends InferredField {
@@ -115,6 +116,24 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     }
   }
 
+  async function handleCreateStatic(columns: StaticColumn[], rows: unknown[][]) {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await dispatch(createStaticSource({ name: name.trim(), columns, rows })).unwrap();
+      void dispatch(fetchDataTypes());
+      handleClose();
+    } catch {
+      setError("Failed to create static source.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
@@ -146,7 +165,56 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           </button>
         </header>
 
-        {step === "configure" ? (
+        {step === "configure" && sourceType === "static" ? (
+          <>
+            <div className="add-source-modal__field">
+              <label className="add-source-modal__label" htmlFor="source-name-static">
+                Source name
+              </label>
+              <input
+                id="source-name-static"
+                type="text"
+                className="add-source-modal__input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Reference table"
+              />
+            </div>
+            <div className="add-source-modal__field">
+              <span className="add-source-modal__label">Source type</span>
+              <div className="add-source-modal__type-toggle" role="group" aria-label="Source type">
+                <button
+                  type="button"
+                  className="add-source-modal__type-btn"
+                  onClick={() => setSourceType("rest_api")}
+                >
+                  REST API
+                </button>
+                <button
+                  type="button"
+                  className="add-source-modal__type-btn"
+                  onClick={() => setSourceType("csv")}
+                >
+                  CSV File
+                </button>
+                <button
+                  type="button"
+                  className="add-source-modal__type-btn add-source-modal__type-btn--active"
+                  onClick={() => setSourceType("static")}
+                >
+                  Manual
+                </button>
+              </div>
+            </div>
+            <StaticSourceForm
+              name={name}
+              onSubmit={(columns, rows) => void handleCreateStatic(columns, rows)}
+              isLoading={isLoading}
+              error={error}
+              onCancel={handleClose}
+            />
+          </>
+        ) : step === "configure" ? (
           <form className="add-source-modal__form" onSubmit={(e) => void handlePreview(e)}>
             <div className="add-source-modal__field">
               <label className="add-source-modal__label" htmlFor="source-name">
@@ -186,6 +254,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
                   onClick={() => setSourceType("csv")}
                 >
                   CSV File
+                </button>
+                <button
+                  type="button"
+                  className="add-source-modal__type-btn"
+                  onClick={() => setSourceType("static")}
+                >
+                  Manual
                 </button>
               </div>
             </div>

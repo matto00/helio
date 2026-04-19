@@ -344,6 +344,177 @@ class DataSourceRoutesSpec
     }
   }
 
+  "POST /api/data-sources (static)" should {
+
+    "return 201 and register a DataType for a valid static payload" in {
+      cleanDb()
+      val body =
+        """{
+          |  "name": "Lookup Table",
+          |  "sourceType": "static",
+          |  "columns": [{"name": "id", "type": "integer"}, {"name": "label", "type": "string"}],
+          |  "rows": [[1, "Alice"], [2, "Bob"]]
+          |}""".stripMargin
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, body)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val ds = responseAs[DataSourceResponse]
+        ds.name       shouldBe "Lookup Table"
+        ds.sourceType shouldBe "static"
+        ds.id         should not be empty
+
+        Get("/api/types") ~> routes() ~> check {
+          status shouldBe StatusCodes.OK
+          val types = responseAs[DataTypesResponse]
+          types.items should have length 1
+          val dt = types.items.head
+          dt.name     shouldBe "Lookup Table"
+          dt.sourceId shouldBe Some(ds.id)
+          dt.fields.map(_.name) should contain allOf ("id", "label")
+        }
+      }
+    }
+
+    "return 400 when name is missing" in {
+      cleanDb()
+      val body =
+        """{
+          |  "name": "",
+          |  "sourceType": "static",
+          |  "columns": [{"name": "x", "type": "string"}],
+          |  "rows": []
+          |}""".stripMargin
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, body)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("name is required")
+      }
+    }
+
+    "return 400 when row count exceeds 500" in {
+      cleanDb()
+      val rows = (1 to 501).map(i => s"""[$i, "v$i"]""").mkString("[", ",", "]")
+      val body =
+        s"""{
+           |  "name": "Too Big",
+           |  "sourceType": "static",
+           |  "columns": [{"name": "id", "type": "integer"}, {"name": "v", "type": "string"}],
+           |  "rows": $rows
+           |}""".stripMargin
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, body)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("500 rows")
+      }
+    }
+  }
+
+  "POST /api/data-sources/:id/refresh (static)" should {
+
+    "return 200 and update the linked DataType fields" in {
+      cleanDb()
+      val createBody =
+        """{
+          |  "name": "Static Refresh Test",
+          |  "sourceType": "static",
+          |  "columns": [{"name": "col1", "type": "string"}],
+          |  "rows": [["hello"]]
+          |}""".stripMargin
+      var sourceId = ""
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, createBody)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      val refreshBody =
+        """{
+          |  "columns": [{"name": "col1", "type": "string"}, {"name": "col2", "type": "integer"}],
+          |  "rows": [["hello", 42]]
+          |}""".stripMargin
+      Post(
+        s"/api/data-sources/$sourceId/refresh",
+        HttpEntity(ContentTypes.`application/json`, refreshBody)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DataSourceResponse].id shouldBe sourceId
+      }
+
+      Get("/api/types") ~> routes() ~> check {
+        val types = responseAs[DataTypesResponse]
+        val dt    = types.items.head
+        dt.fields.map(_.name) should contain allOf ("col1", "col2")
+      }
+    }
+
+    "return 400 when row count exceeds 500 on refresh" in {
+      cleanDb()
+      val createBody =
+        """{
+          |  "name": "Static Refresh Limit",
+          |  "sourceType": "static",
+          |  "columns": [{"name": "x", "type": "string"}],
+          |  "rows": []
+          |}""".stripMargin
+      var sourceId = ""
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, createBody)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      val rows        = (1 to 501).map(i => s"""["v$i"]""").mkString("[", ",", "]")
+      val refreshBody = s"""{"columns": [{"name": "x", "type": "string"}], "rows": $rows}"""
+      Post(
+        s"/api/data-sources/$sourceId/refresh",
+        HttpEntity(ContentTypes.`application/json`, refreshBody)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "GET /api/data-sources/:id/preview (static)" should {
+
+    "return 200 with headers and rows as strings" in {
+      cleanDb()
+      val createBody =
+        """{
+          |  "name": "Static Preview Test",
+          |  "sourceType": "static",
+          |  "columns": [{"name": "id", "type": "integer"}, {"name": "name", "type": "string"}],
+          |  "rows": [[1, "Alice"], [2, "Bob"]]
+          |}""".stripMargin
+      var sourceId = ""
+      Post(
+        "/api/data-sources",
+        HttpEntity(ContentTypes.`application/json`, createBody)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val preview = responseAs[CsvPreviewResponse]
+        preview.headers           shouldBe Vector("id", "name")
+        preview.rows              should have length 2
+        preview.rows.head         shouldBe Vector("1", "Alice")
+        preview.rows.last         shouldBe Vector("2", "Bob")
+      }
+    }
+  }
+
   "POST /api/sources with fieldOverrides" should {
 
     "apply display name overrides to the committed DataType" in {
