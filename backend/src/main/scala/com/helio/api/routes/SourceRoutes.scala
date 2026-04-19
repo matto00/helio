@@ -12,6 +12,7 @@ import spray.json._
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.ExecutionContextExecutor
+import scala.util.Try
 
 final class SourceRoutes(
     dataSourceRepo: DataSourceRepository,
@@ -48,98 +49,210 @@ final class SourceRoutes(
     (augmented, errors.distinct.toVector)
   }
 
+  // ── SQL route helpers ───────────────────────────────────────────────────────
+
+  private def handleSqlCreate(request: SqlCreateSourceRequest): Route = {
+    val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
+    SqlConnector.checkQuery(sqlConfig.query) match {
+      case Left(err) =>
+        complete(StatusCodes.BadRequest, ErrorResponse(err))
+      case Right(_) =>
+        val now = Instant.now()
+        val source = DataSource(
+          id         = DataSourceId(UUID.randomUUID().toString),
+          name       = request.name,
+          sourceType = SourceType.Sql,
+          config     = request.config.toJson,
+          createdAt  = now,
+          updatedAt  = now
+        )
+        onSuccess(dataSourceRepo.insert(source)) { inserted =>
+          onSuccess(SqlConnector.execute(sqlConfig, maxRows = 100)) {
+            case Left(err) =>
+              complete(
+                StatusCodes.Created,
+                CreateSourceResponse(
+                  source     = DataSourceResponse.fromDomain(inserted),
+                  dataType   = None,
+                  fetchError = Some(err)
+                )
+              )
+            case Right(rows) =>
+              val schema = SqlConnector.inferSchema(rows)
+              val fields = schema.fields.map { f =>
+                DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+              }.toVector
+              val dt = DataType(
+                id        = DataTypeId(UUID.randomUUID().toString),
+                sourceId  = Some(inserted.id),
+                name      = inserted.name,
+                fields    = fields,
+                version   = 1,
+                createdAt = now,
+                updatedAt = now
+              )
+              onSuccess(dataTypeRepo.insert(dt)) { createdDt =>
+                complete(
+                  StatusCodes.Created,
+                  CreateSourceResponse(
+                    source     = DataSourceResponse.fromDomain(inserted),
+                    dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
+                    fetchError = None
+                  )
+                )
+              }
+          }
+        }
+    }
+  }
+
+  private def handleRestCreate(request: CreateSourceRequest): Route =
+    RestApiConfigPayload.toDomain(request.config) match {
+      case Left(err) =>
+        complete(StatusCodes.BadRequest, ErrorResponse(err))
+      case Right(restConfig) =>
+        SourceType.fromString(request.sourceType) match {
+          case Left(err) =>
+            complete(StatusCodes.BadRequest, ErrorResponse(err))
+          case Right(sourceType) =>
+            val now = Instant.now()
+            val source = DataSource(
+              id         = DataSourceId(UUID.randomUUID().toString),
+              name       = request.name,
+              sourceType = sourceType,
+              config     = request.config.toJson,
+              createdAt  = now,
+              updatedAt  = now
+            )
+            onSuccess(dataSourceRepo.insert(source)) { inserted =>
+              onSuccess(connector.fetch(restConfig)) {
+                case Left(err) =>
+                  complete(
+                    StatusCodes.Created,
+                    CreateSourceResponse(
+                      source     = DataSourceResponse.fromDomain(inserted),
+                      dataType   = None,
+                      fetchError = Some(err)
+                    )
+                  )
+                case Right(json) =>
+                  val schema = SchemaInferenceEngine.fromJson(json)
+                  val overridesMap = request.fieldOverrides
+                    .getOrElse(Vector.empty)
+                    .map(o => o.name -> o)
+                    .toMap
+                  val fields = schema.fields.map { f =>
+                    val ov = overridesMap.get(f.name)
+                    DataField(
+                      f.name,
+                      ov.map(_.displayName).getOrElse(f.displayName),
+                      ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
+                      f.nullable
+                    )
+                  }.toVector
+                  val dt = DataType(
+                    id        = DataTypeId(UUID.randomUUID().toString),
+                    sourceId  = Some(inserted.id),
+                    name      = inserted.name,
+                    fields    = fields,
+                    version   = 1,
+                    createdAt = now,
+                    updatedAt = now
+                  )
+                  onSuccess(dataTypeRepo.insert(dt)) { createdDt =>
+                    complete(
+                      StatusCodes.Created,
+                      CreateSourceResponse(
+                        source     = DataSourceResponse.fromDomain(inserted),
+                        dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
+                        fetchError = None
+                      )
+                    )
+                  }
+              }
+            }
+        }
+    }
+
+  private def handleSqlInfer(sqlConfig: SqlSourceConfig): Route =
+    SqlConnector.checkQuery(sqlConfig.query) match {
+      case Left(err) =>
+        complete(StatusCodes.BadRequest, ErrorResponse(err))
+      case Right(_) =>
+        onSuccess(SqlConnector.execute(sqlConfig, maxRows = 100)) {
+          case Left(err) =>
+            complete(StatusCodes.BadGateway, ErrorResponse(err))
+          case Right(rows) =>
+            val schema = SqlConnector.inferSchema(rows)
+            val fields = schema.fields.map(f =>
+              InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+            ).toVector
+            complete(InferredSchemaResponse(fields))
+        }
+    }
+
   val routes: Route =
     pathPrefix("sources") {
       concat(
         pathEndOrSingleSlash {
           post {
-            entity(as[CreateSourceRequest]) { request =>
-              RestApiConfigPayload.toDomain(request.config) match {
-                case Left(err) =>
-                  complete(StatusCodes.BadRequest, ErrorResponse(err))
-                case Right(restConfig) =>
-                  SourceType.fromString(request.sourceType) match {
-                    case Left(err) =>
-                      complete(StatusCodes.BadRequest, ErrorResponse(err))
-                    case Right(sourceType) =>
-                      val now = Instant.now()
-                      val source = DataSource(
-                        id         = DataSourceId(UUID.randomUUID().toString),
-                        name       = request.name,
-                        sourceType = sourceType,
-                        config     = request.config.toJson,
-                        createdAt  = now,
-                        updatedAt  = now
-                      )
-                      onSuccess(dataSourceRepo.insert(source)) { inserted =>
-                        onSuccess(connector.fetch(restConfig)) {
-                          case Left(err) =>
-                            complete(
-                              StatusCodes.Created,
-                              CreateSourceResponse(
-                                source     = DataSourceResponse.fromDomain(inserted),
-                                dataType   = None,
-                                fetchError = Some(err)
-                              )
-                            )
-                          case Right(json) =>
-                            val schema = SchemaInferenceEngine.fromJson(json)
-                            val overridesMap = request.fieldOverrides
-                              .getOrElse(Vector.empty)
-                              .map(o => o.name -> o)
-                              .toMap
-                            val fields = schema.fields.map { f =>
-                              val ov = overridesMap.get(f.name)
-                              DataField(
-                                f.name,
-                                ov.map(_.displayName).getOrElse(f.displayName),
-                                ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
-                                f.nullable
-                              )
-                            }.toVector
-                            val dt = DataType(
-                              id        = DataTypeId(UUID.randomUUID().toString),
-                              sourceId  = Some(inserted.id),
-                              name      = inserted.name,
-                              fields    = fields,
-                              version   = 1,
-                              createdAt = now,
-                              updatedAt = now
-                            )
-                            onSuccess(dataTypeRepo.insert(dt)) { createdDt =>
-                              complete(
-                                StatusCodes.Created,
-                                CreateSourceResponse(
-                                  source     = DataSourceResponse.fromDomain(inserted),
-                                  dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
-                                  fetchError = None
-                                )
-                              )
-                            }
-                        }
-                      }
-                  }
+            entity(as[JsValue]) { json =>
+              val obj = json.asJsObject
+              val sourceTypeStr = obj.fields.get("sourceType")
+                .collect { case JsString(s) => s }
+                .getOrElse("rest_api")
+
+              if (sourceTypeStr == "sql") {
+                Try(json.convertTo[SqlCreateSourceRequest]) match {
+                  case scala.util.Success(request) => handleSqlCreate(request)
+                  case scala.util.Failure(e)       => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+                }
+              } else {
+                Try(json.convertTo[CreateSourceRequest]) match {
+                  case scala.util.Success(request) => handleRestCreate(request)
+                  case scala.util.Failure(e)       => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+                }
               }
             }
           }
         },
         path("infer") {
           post {
-            entity(as[RestApiConfigPayload]) { payload =>
-              RestApiConfigPayload.toDomain(payload) match {
-                case Left(err) =>
-                  complete(StatusCodes.BadRequest, ErrorResponse(err))
-                case Right(restConfig) =>
-                  onSuccess(connector.fetch(restConfig)) {
-                    case Left(err) =>
-                      complete(StatusCodes.BadGateway, ErrorResponse(err))
-                    case Right(json) =>
-                      val schema = SchemaInferenceEngine.fromJson(json)
-                      val fields = schema.fields.map(f =>
-                        InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                      ).toVector
-                      complete(InferredSchemaResponse(fields))
-                  }
+            entity(as[JsValue]) { json =>
+              val obj = json.asJsObject
+              val sourceTypeStr = obj.fields.get("sourceType")
+                .orElse(obj.fields.get("source_type"))
+                .collect { case JsString(s) => s }
+                .getOrElse("rest_api")
+
+              if (sourceTypeStr == "sql") {
+                Try(json.convertTo[SqlInferRequest]) match {
+                  case scala.util.Success(request) =>
+                    handleSqlInfer(SqlSourceConfigPayload.toDomain(request.config))
+                  case scala.util.Failure(e) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+                }
+              } else {
+                Try(json.convertTo[RestApiConfigPayload]) match {
+                  case scala.util.Success(payload) =>
+                    RestApiConfigPayload.toDomain(payload) match {
+                      case Left(err) =>
+                        complete(StatusCodes.BadRequest, ErrorResponse(err))
+                      case Right(restConfig) =>
+                        onSuccess(connector.fetch(restConfig)) {
+                          case Left(err) =>
+                            complete(StatusCodes.BadGateway, ErrorResponse(err))
+                          case Right(json) =>
+                            val schema = SchemaInferenceEngine.fromJson(json)
+                            val fields = schema.fields.map(f =>
+                              InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                            ).toVector
+                            complete(InferredSchemaResponse(fields))
+                        }
+                    }
+                  case scala.util.Failure(e) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+                }
               }
             }
           }
@@ -150,6 +263,46 @@ final class SourceRoutes(
             onSuccess(dataSourceRepo.findById(id)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("DataSource not found"))
+              case Some(source) if source.sourceType == SourceType.Sql =>
+                Try(source.config.convertTo[SqlSourceConfigPayload]) match {
+                  case scala.util.Failure(e) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(s"Invalid stored SQL config: ${e.getMessage}"))
+                  case scala.util.Success(configPayload) =>
+                    val sqlConfig = SqlSourceConfigPayload.toDomain(configPayload)
+                    onSuccess(SqlConnector.execute(sqlConfig, maxRows = 100)) {
+                      case Left(err) =>
+                        complete(StatusCodes.BadGateway, ErrorResponse(s"SQL execution failed: $err"))
+                      case Right(rows) =>
+                        val now    = Instant.now()
+                        val schema = SqlConnector.inferSchema(rows)
+                        val fields = schema.fields.map(f =>
+                          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                        ).toVector
+                        onSuccess(dataTypeRepo.findBySourceId(id)) { existing =>
+                          existing.headOption match {
+                            case Some(dt) =>
+                              val updated = dt.copy(fields = fields, version = dt.version + 1, updatedAt = now)
+                              onSuccess(dataTypeRepo.update(updated)) {
+                                case Some(d) => complete(DataTypeResponse.fromDomain(d))
+                                case None    => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
+                              }
+                            case None =>
+                              val dt = DataType(
+                                id        = DataTypeId(UUID.randomUUID().toString),
+                                sourceId  = Some(source.id),
+                                name      = source.name,
+                                fields    = fields,
+                                version   = 1,
+                                createdAt = now,
+                                updatedAt = now
+                              )
+                              onSuccess(dataTypeRepo.insert(dt)) { created =>
+                                complete(DataTypeResponse.fromDomain(created))
+                              }
+                          }
+                        }
+                    }
+                }
               case Some(source) =>
                 RestApiConfigPayload.toDomain(
                   source.config.convertTo[RestApiConfigPayload]
@@ -200,6 +353,26 @@ final class SourceRoutes(
             onSuccess(dataSourceRepo.findById(id)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("DataSource not found"))
+              case Some(source) if source.sourceType == SourceType.Sql =>
+                Try(source.config.convertTo[SqlSourceConfigPayload]) match {
+                  case scala.util.Failure(e) =>
+                    complete(StatusCodes.BadRequest, ErrorResponse(s"Invalid stored SQL config: ${e.getMessage}"))
+                  case scala.util.Success(configPayload) =>
+                    val sqlConfig = SqlSourceConfigPayload.toDomain(configPayload)
+                    onSuccess(SqlConnector.execute(sqlConfig, maxRows = 10)) {
+                      case Left(err) =>
+                        complete(StatusCodes.BadGateway, ErrorResponse(s"SQL execution failed: $err"))
+                      case Right(rows) =>
+                        onSuccess(dataTypeRepo.findBySourceId(id)) { dataTypes =>
+                          val computedFields = dataTypes.headOption
+                            .map(_.computedFields)
+                            .getOrElse(Vector.empty)
+                          val rawRows = SqlConnector.toRows(rows)
+                          val (augmented, evalErrors) = applyComputedFields(rawRows, computedFields)
+                          complete(PreviewSourceResponse(augmented, evalErrors))
+                        }
+                    }
+                }
               case Some(source) =>
                 RestApiConfigPayload.toDomain(
                   source.config.convertTo[RestApiConfigPayload]

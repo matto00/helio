@@ -107,6 +107,36 @@ export async function inferFromCsv(file: File): Promise<InferredField[]> {
   return response.data.fields;
 }
 
+export interface SqlSourceConfig {
+  dialect: "postgresql" | "mysql";
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+  query: string;
+}
+
+export async function inferSqlSource(config: SqlSourceConfig): Promise<InferredField[]> {
+  const response = await httpClient.post<InferredSchemaResponse>("/api/sources/infer", {
+    sourceType: "sql",
+    config,
+  });
+  return response.data.fields;
+}
+
+export async function createSqlSource(
+  name: string,
+  config: SqlSourceConfig,
+): Promise<CreateSourceResponse> {
+  const response = await httpClient.post<CreateSourceResponse>("/api/sources", {
+    name,
+    sourceType: "sql",
+    config,
+  });
+  return response.data;
+}
+
 export interface CsvPreviewResponse {
   headers: string[];
   rows: string[][];

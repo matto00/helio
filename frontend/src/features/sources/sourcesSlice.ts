@@ -1,11 +1,25 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { isAxiosError } from "axios";
 
 import {
   fetchSources as fetchSourcesRequest,
   deleteSource as deleteSourceRequest,
   createStaticSource as createStaticSourceRequest,
+  inferSqlSource as inferSqlSourceRequest,
+  createSqlSource as createSqlSourceRequest,
+  type SqlSourceConfig,
 } from "../../services/dataSourceService";
-import type { DataSource, StaticColumn } from "../../types/models";
+import type { DataSource, InferredField, StaticColumn } from "../../types/models";
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    if (typeof data?.error === "string" && data.error) return data.error;
+    if (typeof data?.message === "string" && data.message) return data.message;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 interface SourcesState {
   items: DataSource[];
@@ -29,6 +43,31 @@ export const fetchSources = createAsyncThunk<DataSource[], void, { rejectValue: 
     }
   },
 );
+
+export const inferSqlSource = createAsyncThunk<
+  InferredField[],
+  SqlSourceConfig,
+  { rejectValue: string }
+>("sources/inferSqlSource", async (config, { rejectWithValue }) => {
+  try {
+    return await inferSqlSourceRequest(config);
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to connect to database."));
+  }
+});
+
+export const createSqlSource = createAsyncThunk<
+  DataSource,
+  { name: string; config: SqlSourceConfig },
+  { rejectValue: string }
+>("sources/createSqlSource", async ({ name, config }, { rejectWithValue }) => {
+  try {
+    const result = await createSqlSourceRequest(name, config);
+    return result.source;
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to create SQL source."));
+  }
+});
 
 export const deleteSource = createAsyncThunk<string, string, { rejectValue: string }>(
   "sources/deleteSource",
@@ -83,6 +122,9 @@ const sourcesSlice = createSlice({
         state.items = state.items.filter((s) => s.id !== action.payload);
       })
       .addCase(createStaticSource.fulfilled, (state, action) => {
+        state.items = [...state.items, action.payload];
+      })
+      .addCase(createSqlSource.fulfilled, (state, action) => {
         state.items = [...state.items, action.payload];
       });
   },

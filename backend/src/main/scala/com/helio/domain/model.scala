@@ -123,20 +123,34 @@ object SourceType {
   case object RestApi extends SourceType
   case object Csv    extends SourceType
   case object Static extends SourceType
+  case object Sql    extends SourceType
 
   def fromString(s: String): Either[String, SourceType] = s match {
     case "rest_api" => Right(RestApi)
     case "csv"      => Right(Csv)
     case "static"   => Right(Static)
-    case other      => Left(s"Unknown source type: '$other'. Valid values: rest_api, csv, static")
+    case "sql"      => Right(Sql)
+    case other      => Left(s"Unknown source type: '$other'. Valid values: rest_api, csv, static, sql")
   }
 
   def asString(t: SourceType): String = t match {
     case RestApi => "rest_api"
     case Csv     => "csv"
     case Static  => "static"
+    case Sql     => "sql"
   }
 }
+
+final case class SqlSourceConfig(
+    dialect: String,
+    host: String,
+    port: Int,
+    database: String,
+    user: String,
+    password: String,
+    query: String
+)
+
 
 final case class DataSource(
     id: DataSourceId,
