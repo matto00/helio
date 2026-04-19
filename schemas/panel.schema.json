@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/panel.schema.json",
   "title": "Panel",
   "type": "object",
-  "required": ["id", "dashboardId", "title", "type", "meta", "appearance"],
+  "required": ["id", "dashboardId", "title", "type", "meta", "appearance", "ownerId"],
   "properties": {
     "id": {
       "type": "string",
@@ -27,6 +27,10 @@
     },
     "appearance": {
       "$ref": "https://helio.local/schemas/panel-appearance.schema.json"
+    },
+    "ownerId": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "additionalProperties": false

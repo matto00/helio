@@ -30,7 +30,8 @@ final case class DashboardResponse(
     name: String,
     meta: ResourceMetaResponse,
     appearance: DashboardAppearanceResponse,
-    layout: DashboardLayoutResponse
+    layout: DashboardLayoutResponse,
+    ownerId: String
 )
 final case class PanelResponse(
     id: String,
@@ -40,7 +41,8 @@ final case class PanelResponse(
     meta: ResourceMetaResponse,
     appearance: PanelAppearanceResponse,
     typeId: Option[String],
-    fieldMapping: Option[JsValue]
+    fieldMapping: Option[JsValue],
+    ownerId: String
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
@@ -160,7 +162,8 @@ object DashboardResponse {
       name = dashboard.name,
       meta = ResourceMetaResponse.fromDomain(dashboard.meta),
       appearance = DashboardAppearanceResponse.fromDomain(dashboard.appearance),
-      layout = DashboardLayoutResponse.fromDomain(dashboard.layout)
+      layout = DashboardLayoutResponse.fromDomain(dashboard.layout),
+      ownerId = dashboard.ownerId.value
     )
 }
 
@@ -174,7 +177,8 @@ object PanelResponse {
       meta         = ResourceMetaResponse.fromDomain(panel.meta),
       appearance   = PanelAppearanceResponse.fromDomain(panel.appearance),
       typeId       = panel.typeId.map(_.value),
-      fieldMapping = panel.fieldMapping
+      fieldMapping = panel.fieldMapping,
+      ownerId = panel.ownerId.value
     )
 }
 
@@ -381,10 +385,10 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat3(
     PanelAppearanceResponse.apply
   )
-  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat5(
+  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat6(
     DashboardResponse.apply
   )
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat8(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat9(PanelResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse] = jsonFormat1(
     DashboardsResponse.apply
   )

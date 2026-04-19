@@ -71,6 +71,8 @@ class ApiRoutesSpec
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
     await(db.run(sqlu"TRUNCATE TABLE user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000098'::uuid, 'other@helio.test', now())"""))
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
@@ -86,7 +88,7 @@ class ApiRoutesSpec
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
 
   // Fixed test user injected by the stub session repository
-  private val testUserId  = "test-user-id-1234"
+  private val testUserId  = "00000000-0000-0000-0000-000000000099"
   private val testToken   = "valid-test-token"
   private val testUser    = AuthenticatedUser(UserId(testUserId))
 
@@ -1621,6 +1623,130 @@ class ApiRoutesSpec
     }
   }
 
+
+  // ── Ownership enforcement ────────────────────────────────────────────────────
+
+  "Ownership enforcement" should {
+
+    "GET /api/dashboards returns only the calling user's dashboards" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      // Create a dashboard as testUser via the API
+      Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      // Insert a dashboard directly belonging to a different user
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-1', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+
+      Get("/api/dashboards") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[DashboardsResponse].items
+        items should have size 1
+        items.head.name shouldBe "My Dashboard"
+      }
+    }
+
+    "PATCH /api/dashboards/:id returns 403 when caller does not own the dashboard" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      // Insert a dashboard owned by another user
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-2', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+
+      Patch("/api/dashboards/other-dash-2", UpdateDashboardRequest(name = Some("Hacked"), appearance = None, layout = None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "DELETE /api/dashboards/:id returns 403 when caller does not own the dashboard" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-3', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+
+      Delete("/api/dashboards/other-dash-3") ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "GET /api/dashboards/:id/panels returns 403 when caller does not own the dashboard" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-4', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+
+      Get("/api/dashboards/other-dash-4/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "PATCH /api/panels/:id returns 403 when caller does not own the panel" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-5', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+
+      Patch("/api/panels/other-panel-1", UpdatePanelRequest(title = Some("Hacked"), appearance = None, `type` = None, typeId = None, fieldMapping = None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "DELETE /api/panels/:id returns 403 when caller does not own the panel" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-6', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+
+      Delete("/api/panels/other-panel-2") ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "POST /api/panels/:id/duplicate sets the calling user as owner of the new panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU Usage"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      var dupId = ""
+      Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dupId = responseAs[PanelResponse].id
+      }
+
+      val dupPanel = await(panelRepo.findById(com.helio.domain.PanelId(dupId)))
+      dupPanel.isDefined shouldBe true
+      dupPanel.get.ownerId shouldBe com.helio.domain.UserId(testUserId)
+    }
+
+    "POST /api/panels/:id/duplicate returns 403 when caller does not own the source panel" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+
+      await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-7', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+
+      Post("/api/panels/other-panel-3/duplicate") ~> routes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+  }
   "GET /api/auth/me" should {
 
     "return 200 with user info for a valid token" in {
