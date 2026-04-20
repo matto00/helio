@@ -1,5 +1,6 @@
 import "./PanelContent.css";
 import type { MappedPanelData, PanelType } from "../types/models";
+import { ChartPanel } from "./ChartPanel";
 
 interface MetricContentProps {
   data?: MappedPanelData | null;
@@ -10,22 +11,6 @@ function MetricContent({ data }: MetricContentProps) {
     <div className="panel-content panel-content--metric">
       <span className="panel-content__metric-value">{data?.value ?? "--"}</span>
       <span className="panel-content__metric-label">{data?.label ?? "No data"}</span>
-    </div>
-  );
-}
-
-interface ChartContentProps {
-  data?: MappedPanelData | null;
-}
-
-function ChartContent({ data }: ChartContentProps) {
-  const heights = [40, 65, 50, 80, 55];
-  return (
-    <div className="panel-content panel-content--chart" aria-hidden="true">
-      {data ? <span className="panel-content__data-badge">Data loaded</span> : null}
-      {heights.map((h, i) => (
-        <span key={i} className="panel-content__bar" style={{ height: h + "%" }} />
-      ))}
     </div>
   );
 }
@@ -158,7 +143,7 @@ export function PanelContent({
     case "metric":
       return <MetricContent data={data} />;
     case "chart":
-      return <ChartContent data={data} />;
+      return <ChartPanel />;
     case "text":
       return <TextContent data={data} />;
     case "table":

@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 
 import { PanelContent } from "./PanelContent";
 
+jest.mock("./ChartPanel", () => ({
+  ChartPanel: () => <div data-testid="chart-panel" />,
+}));
+
 describe("PanelContent — placeholder (unbound)", () => {
   it("renders the metric placeholder for type metric", () => {
     render(<PanelContent type="metric" />);
@@ -9,10 +13,9 @@ describe("PanelContent — placeholder (unbound)", () => {
     expect(screen.getByText("No data")).toBeInTheDocument();
   });
 
-  it("renders bar elements for type chart", () => {
-    const { container } = render(<PanelContent type="chart" />);
-    const bars = container.querySelectorAll(".panel-content__bar");
-    expect(bars.length).toBeGreaterThan(0);
+  it("renders an ECharts chart panel for type chart", () => {
+    render(<PanelContent type="chart" />);
+    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
   });
 
   it("renders placeholder lines for type text", () => {
