@@ -28,6 +28,7 @@ export interface PanelAppearance {
   background: string;
   color: string;
   transparency: number;
+  chartType?: "line" | "bar" | "pie" | "scatter";
 }
 
 export interface DataTypeField {

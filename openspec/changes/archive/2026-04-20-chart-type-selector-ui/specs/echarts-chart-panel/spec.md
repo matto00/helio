@@ -1,8 +1,5 @@
-# echarts-chart-panel Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change echarts-base-chart-panel. Update Purpose after archive.
-## Requirements
 ### Requirement: Chart panel renders a live ECharts instance
 The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart"`, rendering the chart type
 specified by `appearance.chartType`. If `appearance.chartType` is absent or unrecognised, the panel MUST
@@ -35,12 +32,3 @@ default to a line chart. The chart MUST fill the available panel card body area.
 #### Scenario: No console errors on unmount
 - **WHEN** a chart panel is removed from the grid (panel deleted or dashboard changed)
 - **THEN** the ECharts instance is disposed cleanly with no console errors
-
-### Requirement: Chart panel resizes with the grid panel
-The ECharts instance MUST reflow to match the panel card dimensions whenever the panel is resized
-on the dashboard grid.
-
-#### Scenario: Chart resizes when panel is resized
-- **WHEN** the user drags a chart panel's resize handle to a new size
-- **THEN** the ECharts canvas updates its dimensions to fill the new panel size without overflow or blank space
-

@@ -1,0 +1,10 @@
+- `schemas/panel-appearance.schema.json` — added optional `chartType` enum (`line | bar | pie | scatter`) to document the contract
+- `frontend/src/types/models.ts` — added `chartType?` field to `PanelAppearance` interface
+- `frontend/src/components/ChartPanel.tsx` — added `appearance` prop, exported `getChartOption` helper, switches ECharts option per chart type
+- `frontend/src/components/ChartPanel.test.tsx` — new unit tests for `getChartOption` (all four types, xAxis/yAxis presence)
+- `frontend/src/components/PanelContent.tsx` — added `appearance?: PanelAppearance` prop and passes it to `ChartPanel`
+- `frontend/src/components/PanelContent.test.tsx` — added test verifying appearance prop passes through to ChartPanel
+- `frontend/src/components/PanelDetailModal.tsx` — added `chartType` local state, isDirty check, chart type selector UI, live preview, and chartType in save payload
+- `frontend/src/components/PanelDetailModal.css` — added styles for chart type selector and preview
+- `frontend/src/components/PanelDetailModal.test.tsx` — added tests for selector visibility, dirty state, and save payload
+- `frontend/src/components/PanelGrid.tsx` — passes `panel.appearance` to `PanelContent`

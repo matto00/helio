@@ -178,6 +178,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       isLoading={isLoading}
       error={error}
       noData={noData}
+      appearance={panel.appearance}
     />
   );
 }
