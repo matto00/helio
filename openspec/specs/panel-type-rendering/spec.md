@@ -1,5 +1,10 @@
+## Purpose
+Defines how each panel type renders its body content area inside the dashboard grid, including placeholder states when no data is bound and live states when data is present.
+## Requirements
 ### Requirement: Each panel type renders a visually distinct body
-The panel grid MUST render a different body content area for each panel type (`metric`, `chart`, `text`, `table`). When a panel has live mapped data, it SHALL display that data; when unbound (no `typeId`), it SHALL display the existing static placeholder.
+The panel grid MUST render a different body content area for each panel type (`metric`, `chart`,
+`text`, `table`). When a panel has live mapped data, it SHALL display that data; when unbound
+(no `typeId`), it SHALL display an appropriate placeholder.
 
 #### Scenario: Unbound metric panel renders a large value placeholder
 - **WHEN** a panel with `type: "metric"` and no `typeId` is displayed in the grid
@@ -9,13 +14,13 @@ The panel grid MUST render a different body content area for each panel type (`m
 - **WHEN** a panel with `type: "metric"` has a `typeId` and data has been fetched
 - **THEN** the panel body shows the mapped `value` slot as a large value and `label` slot as a sub-label
 
-#### Scenario: Unbound chart panel renders a bar-chart skeleton
+#### Scenario: Unbound chart panel renders an empty ECharts instance
 - **WHEN** a panel with `type: "chart"` and no `typeId` is displayed in the grid
-- **THEN** the panel body shows a set of height-varied bars representing a chart placeholder
+- **THEN** the panel body shows an empty line chart with placeholder axes rendered by ECharts
 
-#### Scenario: Bound chart panel shows data-present indicator
+#### Scenario: Bound chart panel renders an ECharts instance
 - **WHEN** a panel with `type: "chart"` has a `typeId` and data has been fetched
-- **THEN** the panel body shows the existing bar-chart skeleton with a visible "Data loaded" badge
+- **THEN** the panel body shows an ECharts instance (chart configuration for bound data is handled in future work)
 
 #### Scenario: Unbound text panel renders placeholder text lines
 - **WHEN** a panel with `type: "text"` and no `typeId` is displayed in the grid
@@ -46,3 +51,4 @@ Each panel card in the grid MUST display the panel's type as a small visible lab
 #### Scenario: Type badge shown on panel card
 - **WHEN** any panel is displayed in the grid
 - **THEN** a small type badge (e.g. "metric", "chart") is visible on the card
+
