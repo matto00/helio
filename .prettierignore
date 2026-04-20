@@ -4,3 +4,6 @@ build
 .cursor
 openspec
 prototypes
+CODE_OF_CONDUCT.md
+SECURITY.md
+.github/ISSUE_TEMPLATE
