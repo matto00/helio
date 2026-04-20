@@ -298,7 +298,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                   ))}
                 </div>
                 <div className="panel-detail-modal__chart-preview" aria-label="Chart preview">
-                  <ChartPanel appearance={{ ...panel.appearance, chartType }} />
+                  <ChartPanel chartType={chartType} />
                 </div>
               </div>
             )}

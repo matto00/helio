@@ -175,6 +175,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       data={data}
       rawRows={rawRows}
       headers={headers}
+      fieldMapping={panel.fieldMapping}
       isLoading={isLoading}
       error={error}
       noData={noData}

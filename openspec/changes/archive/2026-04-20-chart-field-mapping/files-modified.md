@@ -1,0 +1,5 @@
+- `frontend/src/components/ChartPanel.tsx` — added `rawRows`, `headers`, `fieldMapping` props; implemented column-index transform building ECharts series; added empty-state render path for unmapped fields
+- `frontend/src/components/PanelContent.tsx` — added `fieldMapping` prop and forwarded it (with `rawRows`, `headers`) to `ChartPanel`
+- `frontend/src/components/PanelGrid.tsx` — `PanelCardBody` passes `panel.fieldMapping` to `PanelContent`
+- `frontend/src/components/ChartPanel.test.tsx` — new unit tests: placeholder render, empty-state for missing xAxis/yAxis, data rendering with mapped fields, missing-column graceful handling
+- `frontend/src/components/PanelContent.test.tsx` — added tests verifying `fieldMapping`, `rawRows`, and `headers` are forwarded to `ChartPanel` for chart-type panels
