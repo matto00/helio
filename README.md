@@ -1,25 +1,20 @@
 # Helio
 
-A customizable dashboard builder with a React/Redux/TypeScript frontend and a Scala/Akka HTTP backend.
+Helio is a dashboard builder that lets you create, arrange, and customize panels to visualize your data. Panels support charts, metrics, tables, and text — all draggable and resizable on a responsive grid.
 
-## Features
+![Helio dashboard — dark theme](docs/dashboard-overview.png)
 
-- Create, rename, and delete dashboards
-- Create, rename, duplicate, and delete panels within dashboards
-- Drag-and-drop panel layout with four responsive breakpoints (lg/md/sm/xs)
-- Customize dashboard and panel appearance (background color, transparency, text color)
-- Persistent layouts and appearance settings backed by PostgreSQL
+![Helio dashboard — light theme](docs/dashboard-customize.png)
+
+## What you can do
+
+- Create multiple dashboards and switch between them instantly
+- Add panels (charts, metrics, tables, text) and arrange them freely via drag-and-drop
+- Resize panels across four responsive breakpoints (lg / md / sm / xs)
+- Customize dashboard and panel appearance — background, transparency, text color
+- Connect data sources and map fields to chart axes
+- Import and export dashboards
 - Light and dark theme
-
-## Tech Stack
-
-| Layer            | Technology                                               |
-| ---------------- | -------------------------------------------------------- |
-| Frontend         | React 18, TypeScript, Redux Toolkit, React Grid Layout   |
-| Backend          | Scala 2.13, Akka HTTP, Slick, PostgreSQL                 |
-| API contracts    | JSON Schema 2020-12                                      |
-| Frontend tooling | Vite, ESLint, Prettier, Jest                             |
-| Backend testing  | ScalaTest, embedded PostgreSQL (via `embedded-postgres`) |
 
 ## Project Structure
 
@@ -43,18 +38,28 @@ helio/
 └── openspec/          # API specs and change history
 ```
 
-## Getting Started
+## Tech Stack
+
+| Layer            | Technology                                               |
+| ---------------- | -------------------------------------------------------- |
+| Frontend         | React 18, TypeScript, Redux Toolkit, React Grid Layout   |
+| Backend          | Scala 2.13, Akka HTTP, Slick, PostgreSQL                 |
+| API contracts    | JSON Schema 2020-12                                      |
+| Frontend tooling | Vite, ESLint, Prettier, Jest                             |
+| Backend testing  | ScalaTest, embedded PostgreSQL (via `embedded-postgres`) |
+
+## Running Locally
 
 ### Prerequisites
 
 - Node.js 18+
 - JDK 21
 - sbt 1.x
-- PostgreSQL (or Docker)
+- PostgreSQL
 
 ### Backend
 
-Create a `.env` file in `backend/` with your database connection and Akka license:
+Create a `.env` file in `backend/`:
 
 ```env
 DB_URL=jdbc:postgresql://localhost:5432/helio
@@ -63,7 +68,7 @@ DB_PASSWORD=secret
 AKKA_LICENSE_KEY=<your-key>
 ```
 
-Then start the server on port 8080:
+Start the server on port 8080:
 
 ```bash
 cd backend
@@ -99,22 +104,6 @@ npm run format:check  # Check formatting without modifying
 sbt run   # Start server
 sbt test  # Run ScalaTest suite
 ```
-
-## API Overview
-
-| Method   | Path                         | Description                             |
-| -------- | ---------------------------- | --------------------------------------- |
-| `GET`    | `/api/dashboards`            | List all dashboards                     |
-| `POST`   | `/api/dashboards`            | Create a dashboard                      |
-| `PATCH`  | `/api/dashboards/:id`        | Update name, appearance, or layout      |
-| `DELETE` | `/api/dashboards/:id`        | Delete a dashboard (cascades to panels) |
-| `GET`    | `/api/dashboards/:id/panels` | List panels for a dashboard             |
-| `POST`   | `/api/panels`                | Create a panel                          |
-| `PATCH`  | `/api/panels/:id`            | Update title or appearance              |
-| `POST`   | `/api/panels/:id/duplicate`  | Duplicate a panel                       |
-| `DELETE` | `/api/panels/:id`            | Delete a panel                          |
-
-Request and response shapes are defined in `schemas/` and documented in `openspec/specs/`.
 
 ## Contributing
 

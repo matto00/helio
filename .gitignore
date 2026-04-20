@@ -25,3 +25,4 @@ backend/data/
 
 # Leftover screenshot artifacts from E2E test sessions
 *.png
+!docs/*.png
