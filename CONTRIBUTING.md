@@ -1,98 +1,73 @@
-# Contributing
+# Contributing to Helio
 
-This repository uses a performance-first engineering approach for a customizable dashboard application.
+Thanks for your interest in contributing. This document covers how to get set up, the standards we hold code to, and what to expect from the review process.
 
-## Core Stack
+## Getting Started
 
-- Frontend: React + TypeScript + Redux
-- Backend: Scala + Akka
-- Frontend tooling: npm, ESLint, Prettier, Jest
-- Backend testing: ScalaTest
-- API contracts: JSON Schema
+See the [README](README.md) for prerequisites and instructions on running the frontend and backend locally.
 
-## Non-Negotiables
+Before starting work on anything non-trivial, open an issue or comment on an existing one so we can align on approach before you invest time in implementation.
 
-These are hard rules for all contributions:
+## Workflow
 
-- Optimize for performance by default.
-- Keep code modular and reusable.
-- Import classes/types when needed; do not use full qualifiers in normal code.
-- Follow project formatting and style rules (no ad-hoc styles).
-- Do not make large assumptions about architecture or requirements without asking first.
+1. Fork the repo and create a branch: `[feature|task|bug]/short-description`
+2. Make your changes, keeping commits focused and descriptive
+3. Ensure all pre-commit checks pass (see below)
+4. Open a pull request against `main` and fill out the PR template
 
-## Development Rules
+## Code Standards
 
-### 1) Code Quality and Style
+### General
 
-- All TypeScript and Scala code must pass linting and formatting checks before commit.
-- Prefer small, composable modules over large files/functions.
-- Keep naming explicit and domain-oriented (`dashboard`, `panel`, `layout`, `widget`, etc.).
-- Avoid duplicate logic. Extract shared behavior into reusable modules.
-- Use strict typing in frontend code; avoid `any` unless there is a documented reason.
+- Optimize for readability and performance — they're usually not in conflict
+- Keep changes focused; avoid unrelated refactors in the same PR
+- Prefer small, composable units over large files or functions
+- Never commit secrets, credentials, or `.env` files
 
-### 2) Frontend (React + TypeScript + Redux)
+### Frontend (React / TypeScript / Redux)
 
-- Keep UI components focused on presentation; move business logic to hooks/selectors/services.
-- Use Redux for app-level state. Keep local component state local.
-- Use memoized selectors for derived state where needed.
-- Minimize unnecessary renders (stable props, memoization where it measurably helps).
-- Keep component tests in Jest focused on behavior, not implementation details.
+- Use Redux for shared app state; keep components primarily presentational
+- Move reusable behavior into hooks, selectors, or utilities
+- Avoid `any` — use proper types or `unknown` with narrowing
+- Write Jest tests for components, hooks, selectors, and reducers
+- Test behavior, not implementation details
 
-### 3) Backend (Scala + Akka)
+### Backend (Scala / Akka HTTP)
 
-- Keep actor and service boundaries clear and minimal.
-- Prefer explicit message protocols and typed interfaces.
-- Do not block actor threads with long-running synchronous operations.
-- Isolate infrastructure concerns (IO, external clients) behind reusable interfaces.
-- Write ScalaTest coverage for core domain and service logic.
+- Keep actor and service boundaries explicit
+- Never block actor threads with synchronous I/O
+- Isolate infrastructure concerns behind reusable interfaces
+- Write ScalaTest coverage for domain and service logic
 
-### 4) API Contracts (JSON Schema)
+### API Contracts
 
-- Define request/response payloads with JSON Schema.
-- Keep schemas versioned in-repo and update them in the same change as code.
-- Validate inputs at service boundaries.
-- Ensure frontend and backend remain schema-aligned.
-
-### 5) Security Guidelines
-
-- Validate and sanitize all untrusted input.
-- Enforce authentication/authorization checks at backend boundaries.
-- Never commit secrets, tokens, or credentials.
-- Use least-privilege access patterns for services and data access.
-- Avoid leaking sensitive data in logs and error messages.
-
-### 6) Testing Requirements
-
-- Frontend: Jest tests required for changed components, hooks, selectors, and reducers.
-- Backend: ScalaTest required for changed domain/service behavior.
-- New features should include tests for success and failure paths.
-- Bug fixes should include a regression test when practical.
+- Define request/response shapes in `schemas/` (JSON Schema 2020-12)
+- Keep schema changes in the same PR as the code that uses them
+- Validate all inputs at service boundaries
 
 ## Pre-Commit Policy
 
-Pre-commit checks must run and block commits on failure.
+Husky runs the following automatically on every commit — fix failures before pushing:
 
-Required checks:
+```bash
+npm run lint          # ESLint (zero-warnings)
+npm run format:check  # Prettier
+npm test              # Jest + Scala tests
+```
 
-- `npm run lint`
-- `npm run format` (or `npm run format:check` if configured)
-- `npm test`
-
-Bypass policy:
-
-- `git commit -n` (no-verify) is available for emergencies only.
-- Any bypassed checks must be fixed immediately in the next commit.
+`git commit -n` (skip hooks) is available for emergencies only. Any bypassed checks must be fixed in the next commit.
 
 ## Pull Request Expectations
 
-- Keep PRs focused and reasonably sized.
-- Describe behavior changes and testing performed.
-- Flag security-sensitive or performance-sensitive changes explicitly.
-- If requirements are unclear, ask questions before implementation.
+- Keep PRs reasonably scoped — one concern per PR
+- Describe what changed and how you tested it (the PR template will prompt you)
+- Flag anything security-sensitive or performance-sensitive explicitly
+- Expect review feedback within a few days; address comments or push back with reasoning
 
-## Out of Scope for Now
+## Reporting Issues
 
-- Database specification rules (to be decided later).
-- WebSocket/real-time rules (not in scope yet).
-- CI/CD policy (not defined yet).
-- Backward-compatibility policy for saved dashboard configs (not required yet).
+Use the GitHub issue templates for bugs and feature requests. For security vulnerabilities, see [SECURITY.md](SECURITY.md).
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Please read it before participating.
