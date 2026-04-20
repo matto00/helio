@@ -14,6 +14,8 @@ import {
   panelTextEditorFallback,
 } from "../theme/appearance";
 import type { Panel } from "../types/models";
+import type { ChartType } from "./ChartPanel";
+import { ChartPanel } from "./ChartPanel";
 import { InlineError } from "./InlineError";
 
 type Tab = "appearance" | "data";
@@ -48,6 +50,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const initialChartType: ChartType = panel.appearance.chartType ?? "line";
+  const [chartType, setChartType] = useState<ChartType>(initialChartType);
+
   // Data binding state
   const initialTypeId = panel.typeId;
   const initialFieldMapping = panel.fieldMapping ?? {};
@@ -65,7 +70,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const isDirty =
     background !== initialBackground ||
     color !== initialColor ||
-    transparency !== initialTransparency;
+    transparency !== initialTransparency ||
+    chartType !== initialChartType;
 
   const dataDirty =
     selectedTypeId !== initialTypeId ||
@@ -142,6 +148,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             background,
             color,
             transparency: clampTransparency(transparency / 100),
+            ...(panel.type === "chart" ? { chartType } : {}),
           },
         }),
       ).unwrap();
@@ -257,6 +264,44 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               />
               <strong>{transparency}%</strong>
             </label>
+            {panel.type === "chart" && (
+              <div className="panel-detail-modal__chart-type-section">
+                <span className="panel-detail-modal__chart-type-label">Chart type</span>
+                <div
+                  className="panel-detail-modal__chart-type-selector"
+                  role="group"
+                  aria-label="Chart type"
+                >
+                  {(["line", "bar", "pie", "scatter"] as ChartType[]).map((ct) => (
+                    <label
+                      key={ct}
+                      className={`panel-detail-modal__chart-type-option${chartType === ct ? " panel-detail-modal__chart-type-option--active" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="chartType"
+                        value={ct}
+                        checked={chartType === ct}
+                        onChange={() => setChartType(ct)}
+                        className="panel-detail-modal__chart-type-radio"
+                      />
+                      <span className="panel-detail-modal__chart-type-icon" aria-hidden="true">
+                        {ct === "line" && "〜"}
+                        {ct === "bar" && "▦"}
+                        {ct === "pie" && "◕"}
+                        {ct === "scatter" && "⁖"}
+                      </span>
+                      <span className="panel-detail-modal__chart-type-name">
+                        {ct.charAt(0).toUpperCase() + ct.slice(1)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="panel-detail-modal__chart-preview" aria-label="Chart preview">
+                  <ChartPanel appearance={{ ...panel.appearance, chartType }} />
+                </div>
+              </div>
+            )}
             <InlineError error={saveError} />
           </form>
         ) : (

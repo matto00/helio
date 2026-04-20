@@ -18,6 +18,17 @@ describe("PanelContent — placeholder (unbound)", () => {
     expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
   });
 
+  it("passes appearance prop to ChartPanel", () => {
+    const appearance = {
+      background: "#fff",
+      color: "#000",
+      transparency: 0,
+      chartType: "bar" as const,
+    };
+    render(<PanelContent type="chart" appearance={appearance} />);
+    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
+  });
+
   it("renders placeholder lines for type text", () => {
     const { container } = render(<PanelContent type="text" />);
     const lines = container.querySelectorAll(".panel-content__text-line");

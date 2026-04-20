@@ -6,6 +6,10 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeSer
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
 
+jest.mock("./ChartPanel", () => ({
+  ChartPanel: () => <div data-testid="chart-panel-preview" />,
+}));
+
 jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
@@ -55,6 +59,36 @@ const testDataType = {
   updatedAt: "2026-03-22T00:00:00Z",
 };
 
+const chartPanel = {
+  id: "p2",
+  dashboardId: "d1",
+  title: "Sales Chart",
+  type: "chart" as const,
+  appearance: {
+    background: "transparent",
+    color: "inherit",
+    transparency: 0,
+  },
+  meta: {
+    createdBy: "system",
+    createdAt: "2026-03-14T00:00:00Z",
+    lastUpdated: "2026-03-14T00:00:00Z",
+  },
+  typeId: null,
+  fieldMapping: null,
+  refreshInterval: null,
+};
+
+function renderModalForChart(onClose = jest.fn()) {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={chartPanel} onClose={onClose} />);
+}
 function renderModal(onClose = jest.fn()) {
   HTMLDialogElement.prototype.showModal = jest.fn(function () {
     this.setAttribute("open", "");
@@ -291,5 +325,92 @@ describe("PanelDetailModal", () => {
 
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+  });
+
+  describe("Chart type selector", () => {
+    it("shows the chart type selector for chart panels", () => {
+      renderModalForChart();
+      expect(screen.getByRole("group", { name: "Chart type" })).toBeInTheDocument();
+    });
+
+    it("does not show the chart type selector for non-chart panels", () => {
+      renderModal();
+      expect(screen.queryByRole("group", { name: "Chart type" })).not.toBeInTheDocument();
+    });
+
+    it("shows all four chart type options", () => {
+      renderModalForChart();
+      expect(screen.getByDisplayValue("line")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("bar")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("pie")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("scatter")).toBeInTheDocument();
+    });
+
+    it("shows a chart preview for chart panels", () => {
+      renderModalForChart();
+      expect(screen.getByTestId("chart-panel-preview")).toBeInTheDocument();
+    });
+
+    it("marks form dirty when chart type selection changes", () => {
+      renderModalForChart();
+      // default is "line"; change to "bar"
+      fireEvent.click(screen.getByDisplayValue("bar"));
+      fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+      expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+    });
+
+    it("does not mark form dirty when chart type remains unchanged", () => {
+      renderModalForChart();
+      // click "line" which is already selected
+      fireEvent.click(screen.getByDisplayValue("line"));
+      fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+      // No discard warning — form is not dirty
+      expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+    });
+
+    it("includes chartType in the Save payload for chart panels", async () => {
+      updateAppearanceMock.mockResolvedValue({
+        ...chartPanel,
+        appearance: {
+          background: "transparent",
+          color: "inherit",
+          transparency: 0,
+          chartType: "bar",
+        },
+      });
+
+      renderModalForChart();
+
+      fireEvent.click(screen.getByDisplayValue("bar"));
+      fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
+
+      await waitFor(() => {
+        expect(updateAppearanceMock).toHaveBeenCalledWith(
+          "p2",
+          expect.objectContaining({ chartType: "bar" }),
+        );
+      });
+    });
+
+    it("does not include chartType in the Save payload for non-chart panels", async () => {
+      updateAppearanceMock.mockResolvedValue({
+        ...testPanel,
+        appearance: { background: "#000000", color: "inherit", transparency: 0 },
+      });
+
+      renderModal();
+
+      fireEvent.change(screen.getByLabelText("Revenue background color"), {
+        target: { value: "#000000" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
+
+      await waitFor(() => {
+        expect(updateAppearanceMock).toHaveBeenCalledWith(
+          "p1",
+          expect.not.objectContaining({ chartType: expect.anything() }),
+        );
+      });
+    });
   });
 });

@@ -17,6 +17,10 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "chartType": {
+      "type": "string",
+      "enum": ["line", "bar", "pie", "scatter"]
     }
   },
   "additionalProperties": false
