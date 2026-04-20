@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Chart panel renders the selected chart type
+### Requirement: Chart panel renders a live ECharts instance
 The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart"`, rendering the chart type
 specified by `appearance.chartType`. If `appearance.chartType` is absent or unrecognised, the panel MUST
 default to a line chart. The chart MUST fill the available panel card body area.
