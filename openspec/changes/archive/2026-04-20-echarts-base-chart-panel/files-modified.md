@@ -1,0 +1,6 @@
+- `frontend/package.json` — added `echarts` and `echarts-for-react` (+ `tslib`) dependencies
+- `frontend/package-lock.json` — lockfile updated for new dependencies
+- `frontend/src/components/ChartPanel.tsx` — new component: mounts a live ECharts instance with default empty line chart and `autoResize`
+- `frontend/src/components/PanelContent.tsx` — replaced `ChartContent` function with `<ChartPanel />`; removed `ChartContent` definition
+- `frontend/src/components/PanelContent.css` — removed chart bar skeleton CSS (`.panel-content--chart`, `.panel-content__bar`, `.panel-content__data-badge`)
+- `frontend/src/components/PanelContent.test.tsx` — updated chart test to assert `data-testid="chart-panel"` via `jest.mock("./ChartPanel")`; added module mock to prevent canvas errors in other test suites
