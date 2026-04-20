@@ -7,7 +7,7 @@ import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
 
 jest.mock("./ChartPanel", () => ({
-  ChartPanel: () => <div data-testid="chart-panel-preview" />,
+  ChartPanel: () => <div data-testid="modal-chart-panel" />,
 }));
 
 jest.mock("../services/panelService", () => ({
@@ -45,6 +45,11 @@ const testPanel = {
   refreshInterval: null,
 };
 
+const chartTestPanel = {
+  ...testPanel,
+  type: "chart" as const,
+};
+
 const testDataType = {
   id: "dt-1",
   name: "Sales Metrics",
@@ -59,36 +64,6 @@ const testDataType = {
   updatedAt: "2026-03-22T00:00:00Z",
 };
 
-const chartPanel = {
-  id: "p2",
-  dashboardId: "d1",
-  title: "Sales Chart",
-  type: "chart" as const,
-  appearance: {
-    background: "transparent",
-    color: "inherit",
-    transparency: 0,
-  },
-  meta: {
-    createdBy: "system",
-    createdAt: "2026-03-14T00:00:00Z",
-    lastUpdated: "2026-03-14T00:00:00Z",
-  },
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-};
-
-function renderModalForChart(onClose = jest.fn()) {
-  HTMLDialogElement.prototype.showModal = jest.fn(function () {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function () {
-    this.removeAttribute("open");
-  });
-
-  return renderWithStore(<PanelDetailModal panel={chartPanel} onClose={onClose} />);
-}
 function renderModal(onClose = jest.fn()) {
   HTMLDialogElement.prototype.showModal = jest.fn(function () {
     this.setAttribute("open", "");
@@ -111,6 +86,17 @@ function renderModalWithDataType(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />, {
     dataTypes: { items: [testDataType], status: "succeeded" },
   });
+}
+
+function renderChartModal(onClose = jest.fn()) {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={chartTestPanel} onClose={onClose} />);
 }
 
 describe("PanelDetailModal", () => {
@@ -327,90 +313,53 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
   });
 
-  describe("Chart type selector", () => {
-    it("shows the chart type selector for chart panels", () => {
-      renderModalForChart();
-      expect(screen.getByRole("group", { name: "Chart type" })).toBeInTheDocument();
+  describe("Chart section", () => {
+    it("renders Chart section on Appearance tab for chart panels", () => {
+      renderChartModal();
+      expect(screen.getByTestId("modal-chart-panel")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show legend")).toBeInTheDocument();
+      expect(screen.getByLabelText("Enable tooltip")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show X-axis label")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show Y-axis label")).toBeInTheDocument();
     });
 
-    it("does not show the chart type selector for non-chart panels", () => {
+    it("does not render Chart section for non-chart panels", () => {
       renderModal();
-      expect(screen.queryByRole("group", { name: "Chart type" })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Show legend")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Enable tooltip")).not.toBeInTheDocument();
     });
 
-    it("shows all four chart type options", () => {
-      renderModalForChart();
-      expect(screen.getByDisplayValue("line")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("bar")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("pie")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("scatter")).toBeInTheDocument();
+    it("renders 8 series color swatches for chart panels", () => {
+      renderChartModal();
+      const swatches = screen.getAllByLabelText(/Series color/);
+      expect(swatches).toHaveLength(8);
     });
 
-    it("shows a chart preview for chart panels", () => {
-      renderModalForChart();
-      expect(screen.getByTestId("chart-panel-preview")).toBeInTheDocument();
+    it("shows legend position selector when legend is visible", () => {
+      renderChartModal();
+      expect(screen.getByLabelText("Legend position")).toBeInTheDocument();
     });
 
-    it("marks form dirty when chart type selection changes", () => {
-      renderModalForChart();
-      // default is "line"; change to "bar"
-      fireEvent.click(screen.getByDisplayValue("bar"));
-      fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
-      expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+    it("hides legend position selector when legend is toggled off", () => {
+      renderChartModal();
+      fireEvent.click(screen.getByLabelText("Show legend"));
+      expect(screen.queryByLabelText("Legend position")).not.toBeInTheDocument();
     });
 
-    it("does not mark form dirty when chart type remains unchanged", () => {
-      renderModalForChart();
-      // click "line" which is already selected
-      fireEvent.click(screen.getByDisplayValue("line"));
-      fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
-      // No discard warning — form is not dirty
-      expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+    it("shows X-axis label text input when X-axis label is enabled", () => {
+      renderChartModal();
+      expect(screen.getByLabelText("X-axis label text")).toBeInTheDocument();
     });
 
-    it("includes chartType in the Save payload for chart panels", async () => {
-      updateAppearanceMock.mockResolvedValue({
-        ...chartPanel,
-        appearance: {
-          background: "transparent",
-          color: "inherit",
-          transparency: 0,
-          chartType: "bar",
-        },
-      });
-
-      renderModalForChart();
-
-      fireEvent.click(screen.getByDisplayValue("bar"));
-      fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
-
-      await waitFor(() => {
-        expect(updateAppearanceMock).toHaveBeenCalledWith(
-          "p2",
-          expect.objectContaining({ chartType: "bar" }),
-        );
-      });
+    it("shows Y-axis label text input when Y-axis label is enabled", () => {
+      renderChartModal();
+      expect(screen.getByLabelText("Y-axis label text")).toBeInTheDocument();
     });
 
-    it("does not include chartType in the Save payload for non-chart panels", async () => {
-      updateAppearanceMock.mockResolvedValue({
-        ...testPanel,
-        appearance: { background: "#000000", color: "inherit", transparency: 0 },
-      });
-
-      renderModal();
-
-      fireEvent.change(screen.getByLabelText("Revenue background color"), {
-        target: { value: "#000000" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
-
-      await waitFor(() => {
-        expect(updateAppearanceMock).toHaveBeenCalledWith(
-          "p1",
-          expect.not.objectContaining({ chartType: expect.anything() }),
-        );
-      });
+    it("hides X-axis label text input when toggled off", () => {
+      renderChartModal();
+      fireEvent.click(screen.getByLabelText("Show X-axis label"));
+      expect(screen.queryByLabelText("X-axis label text")).not.toBeInTheDocument();
     });
   });
 });

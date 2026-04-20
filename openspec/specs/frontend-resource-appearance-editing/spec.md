@@ -1,3 +1,5 @@
+## ADDED Requirements
+
 ### Requirement: Users can edit panel appearance from the frontend
 The frontend MUST provide controls for editing supported panel appearance settings and apply saved values to rendered panels. The panel appearance controls MUST be hosted in the Appearance tab of the panel detail modal (not a popover).
 

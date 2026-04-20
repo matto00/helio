@@ -147,7 +147,14 @@ export function PanelContent({
     case "metric":
       return <MetricContent data={data} />;
     case "chart":
-      return <ChartPanel rawRows={rawRows} headers={headers} fieldMapping={fieldMapping} />;
+      return (
+        <ChartPanel
+          appearance={appearance}
+          rawRows={rawRows}
+          headers={headers}
+          fieldMapping={fieldMapping}
+        />
+      );
     case "text":
       return <TextContent data={data} />;
     case "table":

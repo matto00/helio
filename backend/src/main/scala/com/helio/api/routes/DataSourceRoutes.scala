@@ -17,7 +17,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 final class DataSourceRoutes(
     dataSourceRepo: DataSourceRepository,
@@ -261,10 +261,15 @@ final class DataSourceRoutes(
                     case None =>
                       complete(StatusCodes.InternalServerError, ErrorResponse("Source config is missing path"))
                     case Some(path) =>
-                      onSuccess(fileSystem.read(path)) { bytes =>
-                        val csv             = new String(bytes, StandardCharsets.UTF_8)
-                        val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = 10)
-                        complete(CsvPreviewResponse(headers, rows))
+                      onComplete(fileSystem.read(path)) {
+                        case Success(bytes) =>
+                          val csv             = new String(bytes, StandardCharsets.UTF_8)
+                          val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = 10)
+                          complete(CsvPreviewResponse(headers, rows))
+                        case Failure(_: java.nio.file.NoSuchFileException) =>
+                          complete(StatusCodes.NotFound, ErrorResponse("Data file not found; the source may need to be re-uploaded"))
+                        case Failure(_) =>
+                          complete(StatusCodes.InternalServerError, ErrorResponse("Failed to read data file"))
                       }
                   }
             }

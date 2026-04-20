@@ -13,12 +13,39 @@ import {
   panelAppearanceEditorFallback,
   panelTextEditorFallback,
 } from "../theme/appearance";
-import type { Panel } from "../types/models";
-import type { ChartType } from "./ChartPanel";
+import type { ChartAppearance, Panel, PanelAppearance } from "../types/models";
 import { ChartPanel } from "./ChartPanel";
 import { InlineError } from "./InlineError";
 
 type Tab = "appearance" | "data";
+
+const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
+  seriesColors: [
+    "#5470c6",
+    "#91cc75",
+    "#fac858",
+    "#ee6666",
+    "#73c0de",
+    "#3ba272",
+    "#fc8452",
+    "#9a60b4",
+  ],
+  legend: { show: true, position: "top" },
+  tooltip: { enabled: true },
+  axisLabels: {
+    x: { show: true, label: "X Axis" },
+    y: { show: true, label: "Y Axis" },
+  },
+};
+
+function padSeriesColors(colors: string[]): string[] {
+  const defaults = DEFAULT_CHART_APPEARANCE.seriesColors;
+  const padded = [...colors];
+  while (padded.length < 8) {
+    padded.push(defaults[padded.length]);
+  }
+  return padded.slice(0, 8);
+}
 
 interface PanelDetailModalProps {
   panel: Panel;
@@ -50,8 +77,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const initialChartType: ChartType = panel.appearance.chartType ?? "line";
-  const [chartType, setChartType] = useState<ChartType>(initialChartType);
+  // Chart appearance state (for chart panels only)
+  const initialChart: ChartAppearance = {
+    ...DEFAULT_CHART_APPEARANCE,
+    ...(panel.appearance.chart ?? {}),
+    seriesColors: padSeriesColors(panel.appearance.chart?.seriesColors ?? []),
+    legend: panel.appearance.chart?.legend ?? DEFAULT_CHART_APPEARANCE.legend,
+    tooltip: panel.appearance.chart?.tooltip ?? DEFAULT_CHART_APPEARANCE.tooltip,
+    axisLabels: panel.appearance.chart?.axisLabels ?? DEFAULT_CHART_APPEARANCE.axisLabels,
+  };
+  const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
   // Data binding state
   const initialTypeId = panel.typeId;
@@ -71,7 +106,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     background !== initialBackground ||
     color !== initialColor ||
     transparency !== initialTransparency ||
-    chartType !== initialChartType;
+    (panel.type === "chart" && JSON.stringify(chartAppearance) !== JSON.stringify(initialChart));
 
   const dataDirty =
     selectedTypeId !== initialTypeId ||
@@ -141,15 +176,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     setIsSaving(true);
     setSaveError(null);
     try {
+      const appearancePayload: PanelAppearance = {
+        background,
+        color,
+        transparency: clampTransparency(transparency / 100),
+        ...(panel.type === "chart" ? { chart: chartAppearance } : {}),
+      };
       await dispatch(
         updatePanelAppearance({
           panelId: panel.id,
-          appearance: {
-            background,
-            color,
-            transparency: clampTransparency(transparency / 100),
-            ...(panel.type === "chart" ? { chartType } : {}),
-          },
+          appearance: appearancePayload,
         }),
       ).unwrap();
       dialogRef.current?.close();
@@ -265,40 +301,174 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               <strong>{transparency}%</strong>
             </label>
             {panel.type === "chart" && (
-              <div className="panel-detail-modal__chart-type-section">
-                <span className="panel-detail-modal__chart-type-label">Chart type</span>
-                <div
-                  className="panel-detail-modal__chart-type-selector"
-                  role="group"
-                  aria-label="Chart type"
-                >
-                  {(["line", "bar", "pie", "scatter"] as ChartType[]).map((ct) => (
-                    <label
-                      key={ct}
-                      className={`panel-detail-modal__chart-type-option${chartType === ct ? " panel-detail-modal__chart-type-option--active" : ""}`}
-                    >
-                      <input
-                        type="radio"
-                        name="chartType"
-                        value={ct}
-                        checked={chartType === ct}
-                        onChange={() => setChartType(ct)}
-                        className="panel-detail-modal__chart-type-radio"
-                      />
-                      <span className="panel-detail-modal__chart-type-icon" aria-hidden="true">
-                        {ct === "line" && "〜"}
-                        {ct === "bar" && "▦"}
-                        {ct === "pie" && "◕"}
-                        {ct === "scatter" && "⁖"}
-                      </span>
-                      <span className="panel-detail-modal__chart-type-name">
-                        {ct.charAt(0).toUpperCase() + ct.slice(1)}
-                      </span>
-                    </label>
-                  ))}
+              <div className="panel-detail-modal__chart-section">
+                <span className="panel-detail-modal__section-heading">Chart</span>
+
+                <div className="panel-detail-modal__chart-preview">
+                  <ChartPanel
+                    appearance={{
+                      background,
+                      color,
+                      transparency: clampTransparency(transparency / 100),
+                      chart: chartAppearance,
+                    }}
+                  />
                 </div>
-                <div className="panel-detail-modal__chart-preview" aria-label="Chart preview">
-                  <ChartPanel chartType={chartType} />
+
+                <div className="panel-detail-modal__chart-subsection">
+                  <span className="panel-detail-modal__chart-label">Series colors</span>
+                  <div className="panel-detail-modal__color-swatches">
+                    {chartAppearance.seriesColors.map((hex, i) => (
+                      <input
+                        key={i}
+                        type="color"
+                        value={hex}
+                        aria-label={`Series color ${String(i + 1)}`}
+                        onChange={(e) =>
+                          setChartAppearance((prev) => {
+                            const next = [...prev.seriesColors];
+                            next[i] = e.target.value;
+                            return { ...prev, seriesColors: next };
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="panel-detail-modal__chart-subsection">
+                  <label className="panel-detail-modal__chart-label">
+                    <input
+                      type="checkbox"
+                      checked={chartAppearance.legend.show}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          legend: { ...prev.legend, show: e.target.checked },
+                        }))
+                      }
+                      aria-label="Show legend"
+                    />
+                    Show legend
+                  </label>
+                  {chartAppearance.legend.show && (
+                    <div className="panel-detail-modal__row">
+                      <label className="panel-detail-modal__field">
+                        <span>Legend position</span>
+                        <select
+                          value={chartAppearance.legend.position}
+                          onChange={(e) =>
+                            setChartAppearance((prev) => ({
+                              ...prev,
+                              legend: {
+                                ...prev.legend,
+                                position: e.target.value as "top" | "bottom" | "left" | "right",
+                              },
+                            }))
+                          }
+                          aria-label="Legend position"
+                        >
+                          <option value="top">Top</option>
+                          <option value="bottom">Bottom</option>
+                          <option value="left">Left</option>
+                          <option value="right">Right</option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="panel-detail-modal__chart-subsection">
+                  <label className="panel-detail-modal__chart-label">
+                    <input
+                      type="checkbox"
+                      checked={chartAppearance.tooltip.enabled}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          tooltip: { enabled: e.target.checked },
+                        }))
+                      }
+                      aria-label="Enable tooltip"
+                    />
+                    Enable tooltip
+                  </label>
+                </div>
+
+                <div className="panel-detail-modal__chart-subsection">
+                  <label className="panel-detail-modal__chart-label">
+                    <input
+                      type="checkbox"
+                      checked={chartAppearance.axisLabels.x.show}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          axisLabels: {
+                            ...prev.axisLabels,
+                            x: { ...prev.axisLabels.x, show: e.target.checked },
+                          },
+                        }))
+                      }
+                      aria-label="Show X-axis label"
+                    />
+                    Show X-axis label
+                  </label>
+                  {chartAppearance.axisLabels.x.show && (
+                    <input
+                      type="text"
+                      className="panel-detail-modal__type-search"
+                      placeholder="X axis label text"
+                      value={chartAppearance.axisLabels.x.label ?? ""}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          axisLabels: {
+                            ...prev.axisLabels,
+                            x: { ...prev.axisLabels.x, label: e.target.value },
+                          },
+                        }))
+                      }
+                      aria-label="X-axis label text"
+                    />
+                  )}
+                </div>
+
+                <div className="panel-detail-modal__chart-subsection">
+                  <label className="panel-detail-modal__chart-label">
+                    <input
+                      type="checkbox"
+                      checked={chartAppearance.axisLabels.y.show}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          axisLabels: {
+                            ...prev.axisLabels,
+                            y: { ...prev.axisLabels.y, show: e.target.checked },
+                          },
+                        }))
+                      }
+                      aria-label="Show Y-axis label"
+                    />
+                    Show Y-axis label
+                  </label>
+                  {chartAppearance.axisLabels.y.show && (
+                    <input
+                      type="text"
+                      className="panel-detail-modal__type-search"
+                      placeholder="Y axis label text"
+                      value={chartAppearance.axisLabels.y.label ?? ""}
+                      onChange={(e) =>
+                        setChartAppearance((prev) => ({
+                          ...prev,
+                          axisLabels: {
+                            ...prev.axisLabels,
+                            y: { ...prev.axisLabels.y, label: e.target.value },
+                          },
+                        }))
+                      }
+                      aria-label="Y-axis label text"
+                    />
+                  )}
                 </div>
               </div>
             )}

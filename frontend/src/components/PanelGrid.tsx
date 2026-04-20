@@ -172,6 +172,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
   return (
     <PanelContent
       type={panel.type}
+      appearance={panel.appearance}
       data={data}
       rawRows={rawRows}
       headers={headers}
@@ -179,7 +180,6 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       isLoading={isLoading}
       error={error}
       noData={noData}
-      appearance={panel.appearance}
     />
   );
 }

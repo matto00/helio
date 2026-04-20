@@ -15,7 +15,7 @@ final case class DashboardLayoutPayload(
     sm: Vector[DashboardLayoutItemPayload],
     xs: Vector[DashboardLayoutItemPayload]
 )
-final case class PanelAppearancePayload(background: Option[String], color: Option[String], transparency: Option[Double])
+final case class PanelAppearancePayload(background: Option[String], color: Option[String], transparency: Option[Double], chart: Option[ChartAppearance])
 final case class DashboardAppearanceResponse(background: String, gridBackground: String)
 final case class DashboardLayoutItemResponse(panelId: String, x: Int, y: Int, w: Int, h: Int)
 final case class DashboardLayoutResponse(
@@ -24,7 +24,7 @@ final case class DashboardLayoutResponse(
     sm: Vector[DashboardLayoutItemResponse],
     xs: Vector[DashboardLayoutItemResponse]
 )
-final case class PanelAppearanceResponse(background: String, color: String, transparency: Double)
+final case class PanelAppearanceResponse(background: String, color: String, transparency: Double, chart: Option[ChartAppearance])
 final case class DashboardResponse(
     id: String,
     name: String,
@@ -346,9 +346,10 @@ object RestApiConfigPayload {
 object PanelAppearanceResponse {
   def fromDomain(appearance: PanelAppearance): PanelAppearanceResponse =
     PanelAppearanceResponse(
-      background = appearance.background,
-      color = appearance.color,
-      transparency = appearance.transparency
+      background   = appearance.background,
+      color        = appearance.color,
+      transparency = appearance.transparency,
+      chart        = appearance.chart
     )
 }
 
@@ -361,7 +362,8 @@ object DashboardSnapshotPanelEntry {
       appearance   = PanelAppearancePayload(
         background   = Some(panel.appearance.background),
         color        = Some(panel.appearance.color),
-        transparency = Some(panel.appearance.transparency)
+        transparency = Some(panel.appearance.transparency),
+        chart        = panel.appearance.chart
       ),
       typeId       = panel.typeId.map(_.value),
       fieldMapping = panel.fieldMapping
@@ -411,7 +413,12 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardAppearanceFormat: RootJsonFormat[DashboardAppearance]     = jsonFormat2(DashboardAppearance.apply)
   implicit val dashboardLayoutItemFormat: RootJsonFormat[DashboardLayoutItem]     = jsonFormat5(DashboardLayoutItem.apply)
   implicit val dashboardLayoutFormat: RootJsonFormat[DashboardLayout]             = jsonFormat4(DashboardLayout.apply)
-  implicit val panelAppearanceFormat: RootJsonFormat[PanelAppearance]             = jsonFormat3(PanelAppearance.apply)
+  implicit val chartLegendFormat: RootJsonFormat[ChartLegend]           = jsonFormat2(ChartLegend.apply)
+  implicit val chartTooltipFormat: RootJsonFormat[ChartTooltip]         = jsonFormat1(ChartTooltip.apply)
+  implicit val chartAxisLabelFormat: RootJsonFormat[ChartAxisLabel]     = jsonFormat2(ChartAxisLabel.apply)
+  implicit val chartAxisLabelsFormat: RootJsonFormat[ChartAxisLabels]   = jsonFormat2(ChartAxisLabels.apply)
+  implicit val chartAppearanceFormat: RootJsonFormat[ChartAppearance]   = jsonFormat4(ChartAppearance.apply)
+  implicit val panelAppearanceFormat: RootJsonFormat[PanelAppearance]   = jsonFormat4(PanelAppearance.apply)
 
   implicit val resourceMetaResponseFormat: RootJsonFormat[ResourceMetaResponse] = jsonFormat3(
     ResourceMetaResponse.apply
@@ -425,7 +432,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardLayoutPayloadFormat: RootJsonFormat[DashboardLayoutPayload] = jsonFormat4(
     DashboardLayoutPayload.apply
   )
-  implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload] = jsonFormat3(
+  implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload] = jsonFormat4(
     PanelAppearancePayload.apply
   )
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(
@@ -437,7 +444,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse] = jsonFormat4(
     DashboardLayoutResponse.apply
   )
-  implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat3(
+  implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(
     PanelAppearanceResponse.apply
   )
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat6(

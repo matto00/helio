@@ -396,7 +396,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0))), None, None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0), None)), None, None, None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[PanelResponse]
@@ -559,7 +559,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None, None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None)), None, None, None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
@@ -1328,7 +1328,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5))), None, None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None)), None, None, None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
@@ -1620,7 +1620,7 @@ class ApiRoutesSpec
             snapshotId   = "snap-1",
             title        = "Panel",
             `type`       = "unknown_type",
-            appearance   = PanelAppearancePayload(None, None, None),
+            appearance   = PanelAppearancePayload(None, None, None, None),
             typeId       = None,
             fieldMapping = None
           )

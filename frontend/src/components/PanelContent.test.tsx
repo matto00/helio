@@ -16,6 +16,32 @@ beforeEach(() => {
   capturedChartProps = null;
 });
 
+describe("PanelContent — appearance forwarding", () => {
+  it("forwards appearance prop to ChartPanel", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: {
+        seriesColors: ["#ff0000"],
+        legend: { show: true, position: "top" as const },
+        tooltip: { enabled: true },
+        axisLabels: {
+          x: { show: true, label: "X" },
+          y: { show: true, label: "Y" },
+        },
+      },
+    };
+    render(<PanelContent type="chart" appearance={appearance} />);
+    expect(capturedChartProps?.appearance).toEqual(appearance);
+  });
+
+  it("forwards undefined appearance when not provided", () => {
+    render(<PanelContent type="chart" />);
+    expect(capturedChartProps?.appearance).toBeUndefined();
+  });
+});
+
 describe("PanelContent — placeholder (unbound)", () => {
   it("renders the metric placeholder for type metric", () => {
     render(<PanelContent type="metric" />);
@@ -25,17 +51,6 @@ describe("PanelContent — placeholder (unbound)", () => {
 
   it("renders an ECharts chart panel for type chart", () => {
     render(<PanelContent type="chart" />);
-    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
-  });
-
-  it("passes appearance prop to ChartPanel", () => {
-    const appearance = {
-      background: "#fff",
-      color: "#000",
-      transparency: 0,
-      chartType: "bar" as const,
-    };
-    render(<PanelContent type="chart" appearance={appearance} />);
     expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
   });
 
@@ -96,7 +111,7 @@ describe("PanelContent — live metric data", () => {
   });
 });
 
-describe("PanelContent — chart type forwards props to ChartPanel", () => {
+describe("PanelContent — chart forwards all props to ChartPanel", () => {
   it("forwards fieldMapping, rawRows, and headers to ChartPanel", () => {
     const fieldMapping = { xAxis: "date", yAxis: "price" };
     const rawRows = [["2024-01-01", "100"]];
@@ -104,7 +119,6 @@ describe("PanelContent — chart type forwards props to ChartPanel", () => {
     render(
       <PanelContent type="chart" fieldMapping={fieldMapping} rawRows={rawRows} headers={headers} />,
     );
-    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
     expect(capturedChartProps?.headers).toEqual(headers);
