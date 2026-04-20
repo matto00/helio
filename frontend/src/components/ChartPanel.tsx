@@ -50,9 +50,10 @@ export interface ChartPanelProps {
   rawRows?: string[][] | null;
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
+  chartType?: ChartType;
 }
 
-export function ChartPanel({ rawRows, headers, fieldMapping }: ChartPanelProps = {}) {
+export function ChartPanel({ rawRows, headers, fieldMapping, chartType }: ChartPanelProps = {}) {
   // fieldMapping is present but xAxis or yAxis not set → empty state message
   if (fieldMapping != null) {
     const xField = fieldMapping.xAxis;
@@ -109,7 +110,7 @@ export function ChartPanel({ rawRows, headers, fieldMapping }: ChartPanelProps =
   // fieldMapping is null/undefined → default placeholder chart
   return (
     <ReactECharts
-      option={getChartOption("line")}
+      option={getChartOption(chartType ?? "line")}
       autoResize={true}
       style={{ height: "100%", width: "100%" }}
     />
