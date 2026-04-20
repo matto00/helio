@@ -100,7 +100,8 @@ final class PanelRoutes(
                             PanelAppearance(
                               background   = RequestValidation.normalizePanelBackground(p.background),
                               color        = RequestValidation.normalizePanelColor(p.color),
-                              transparency = RequestValidation.normalizeTransparency(p.transparency)
+                              transparency = RequestValidation.normalizeTransparency(p.transparency),
+                              chart        = p.chart
                             )
                           )
 

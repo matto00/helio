@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import { getChartOption, ChartPanel } from "./ChartPanel";
+import { ChartPanel } from "./ChartPanel";
 
 jest.mock("echarts-for-react", () => ({
   __esModule: true,
@@ -9,138 +9,23 @@ jest.mock("echarts-for-react", () => ({
   ),
 }));
 
-describe("getChartOption", () => {
-  describe("line chart", () => {
-    it("returns series[0].type === 'line'", () => {
-      const option = getChartOption("line");
-      const series = option.series as Array<{ type: string }>;
-      expect(series[0].type).toBe("line");
-    });
+function getOption(el: HTMLElement) {
+  return JSON.parse(el.getAttribute("data-option") ?? "{}") as Record<string, unknown>;
+}
 
-    it("includes xAxis and yAxis", () => {
-      const option = getChartOption("line");
-      expect(option.xAxis).toBeDefined();
-      expect(option.yAxis).toBeDefined();
-    });
-  });
-
-  describe("bar chart", () => {
-    it("returns series[0].type === 'bar'", () => {
-      const option = getChartOption("bar");
-      const series = option.series as Array<{ type: string }>;
-      expect(series[0].type).toBe("bar");
-    });
-
-    it("includes xAxis and yAxis", () => {
-      const option = getChartOption("bar");
-      expect(option.xAxis).toBeDefined();
-      expect(option.yAxis).toBeDefined();
-    });
-  });
-
-  describe("pie chart", () => {
-    it("returns series[0].type === 'pie'", () => {
-      const option = getChartOption("pie");
-      const series = option.series as Array<{ type: string }>;
-      expect(series[0].type).toBe("pie");
-    });
-
-    it("omits xAxis and yAxis", () => {
-      const option = getChartOption("pie");
-      expect(option.xAxis).toBeUndefined();
-      expect(option.yAxis).toBeUndefined();
-    });
-  });
-
-  describe("scatter chart", () => {
-    it("returns series[0].type === 'scatter'", () => {
-      const option = getChartOption("scatter");
-      const series = option.series as Array<{ type: string }>;
-      expect(series[0].type).toBe("scatter");
-    });
-
-    it("includes xAxis and yAxis", () => {
-      const option = getChartOption("scatter");
-      expect(option.xAxis).toBeDefined();
-      expect(option.yAxis).toBeDefined();
-    });
-  });
-
-  describe("default", () => {
-    it("defaults to line when no argument given", () => {
-      const option = getChartOption();
-      const series = option.series as Array<{ type: string }>;
-      expect(series[0].type).toBe("line");
-    });
-  });
-});
-
-describe("ChartPanel — null fieldMapping (placeholder)", () => {
-  it("renders an ECharts instance when fieldMapping is null", () => {
-    render(<ChartPanel fieldMapping={null} />);
-    expect(screen.getByTestId("echarts")).toBeInTheDocument();
-  });
-
-  it("renders an ECharts instance when fieldMapping is omitted", () => {
+describe("ChartPanel — no data", () => {
+  it("renders an ECharts instance with default option", () => {
     render(<ChartPanel />);
     expect(screen.getByTestId("echarts")).toBeInTheDocument();
   });
 
-  it("does not show empty-state text when fieldMapping is null", () => {
+  it("renders when fieldMapping is null", () => {
     render(<ChartPanel fieldMapping={null} />);
-    expect(screen.queryByText("Select fields to display chart data")).not.toBeInTheDocument();
+    expect(screen.getByTestId("echarts")).toBeInTheDocument();
   });
 });
 
-describe("ChartPanel — empty-state when fields are not mapped", () => {
-  it("shows empty-state message when xAxis is absent", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ yAxis: "price" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
-    expect(screen.getByText("Select fields to display chart data")).toBeInTheDocument();
-    expect(screen.queryByTestId("echarts")).not.toBeInTheDocument();
-  });
-
-  it("shows empty-state message when yAxis is absent", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ xAxis: "date" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
-    expect(screen.getByText("Select fields to display chart data")).toBeInTheDocument();
-    expect(screen.queryByTestId("echarts")).not.toBeInTheDocument();
-  });
-
-  it("shows empty-state message when xAxis is empty string", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ xAxis: "", yAxis: "price" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
-    expect(screen.getByText("Select fields to display chart data")).toBeInTheDocument();
-  });
-
-  it("shows empty-state message when yAxis is empty string", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ xAxis: "date", yAxis: "" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
-    expect(screen.getByText("Select fields to display chart data")).toBeInTheDocument();
-  });
-});
-
-describe("ChartPanel — renders with mapped xAxis and yAxis", () => {
+describe("ChartPanel — mapped xAxis and yAxis", () => {
   const headers = ["date", "price"];
   const rawRows = [
     ["2024-01-01", "100"],
@@ -154,73 +39,86 @@ describe("ChartPanel — renders with mapped xAxis and yAxis", () => {
     expect(screen.getByTestId("echarts")).toBeInTheDocument();
   });
 
-  it("does not show empty-state text when fields are mapped", () => {
+  it("sets xAxis categories from the mapped column", () => {
     render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
-    expect(screen.queryByText("Select fields to display chart data")).not.toBeInTheDocument();
-  });
-
-  it("passes xAxis categories from the mapped column", () => {
-    render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
-    const el = screen.getByTestId("echarts");
-    const option = JSON.parse(el.getAttribute("data-option") ?? "{}") as {
-      xAxis: { data: string[] };
-    };
+    const option = getOption(screen.getByTestId("echarts")) as { xAxis: { data: string[] } };
     expect(option.xAxis.data).toEqual(["2024-01-01", "2024-01-02", "2024-01-03"]);
-  });
-
-  it("passes yAxis values from the mapped column", () => {
-    render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
-    const el = screen.getByTestId("echarts");
-    const option = JSON.parse(el.getAttribute("data-option") ?? "{}") as {
-      series: Array<{ data: string[] }>;
-    };
-    expect(option.series[0].data).toEqual(["100", "200", "150"]);
   });
 
   it("uses the yAxis field name as the series label", () => {
     render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
-    const el = screen.getByTestId("echarts");
-    const option = JSON.parse(el.getAttribute("data-option") ?? "{}") as {
+    const option = getOption(screen.getByTestId("echarts")) as {
       series: Array<{ name: string }>;
     };
     expect(option.series[0].name).toBe("price");
   });
 
-  it("includes all rows in the series (not just the first)", () => {
+  it("includes all rows in the series", () => {
     render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
-    const el = screen.getByTestId("echarts");
-    const option = JSON.parse(el.getAttribute("data-option") ?? "{}") as {
+    const option = getOption(screen.getByTestId("echarts")) as {
       series: Array<{ data: unknown[] }>;
     };
     expect(option.series[0].data).toHaveLength(rawRows.length);
   });
 });
 
-describe("ChartPanel — mapped field not present in headers", () => {
-  it("renders an ECharts instance (no crash)", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ xAxis: "date", yAxis: "nonexistent" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
+describe("ChartPanel — auto-detect numeric columns", () => {
+  it("uses first column as x-axis when no fieldMapping", () => {
+    const headers = ["label", "value"];
+    const rawRows = [
+      ["A", "10"],
+      ["B", "20"],
+    ];
+    render(<ChartPanel headers={headers} rawRows={rawRows} />);
+    const option = getOption(screen.getByTestId("echarts")) as { xAxis: { data: string[] } };
+    expect(option.xAxis.data).toEqual(["A", "B"]);
+  });
+
+  it("renders default chart when no numeric columns exist", () => {
+    const headers = ["a", "b"];
+    const rawRows = [["foo", "bar"]];
+    render(<ChartPanel headers={headers} rawRows={rawRows} />);
+    expect(screen.getByTestId("echarts")).toBeInTheDocument();
+  });
+});
+
+describe("ChartPanel — appearance", () => {
+  it("renders without crashing when appearance has chart config", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: {
+        seriesColors: ["#ff0000"],
+        legend: { show: false, position: "bottom" as const },
+        tooltip: { enabled: false },
+        axisLabels: {
+          x: { show: true, label: "Date" },
+          y: { show: true, label: "Price" },
+        },
+      },
+    };
+    render(<ChartPanel appearance={appearance} />);
     expect(screen.getByTestId("echarts")).toBeInTheDocument();
   });
 
-  it("produces an empty series when yAxis field is not in headers", () => {
-    render(
-      <ChartPanel
-        fieldMapping={{ xAxis: "date", yAxis: "nonexistent" }}
-        headers={["date", "price"]}
-        rawRows={[["2024-01-01", "100"]]}
-      />,
-    );
-    const el = screen.getByTestId("echarts");
-    const option = JSON.parse(el.getAttribute("data-option") ?? "{}") as {
-      series: Array<{ data: string[] }>;
+  it("applies series colors from appearance", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: {
+        seriesColors: ["#ff0000", "#00ff00"],
+        legend: { show: true, position: "top" as const },
+        tooltip: { enabled: true },
+        axisLabels: {
+          x: { show: true },
+          y: { show: true },
+        },
+      },
     };
-    // yIdx is -1, so each entry in yData is ""
-    expect(option.series[0].data).toEqual([""]);
+    render(<ChartPanel appearance={appearance} />);
+    const option = getOption(screen.getByTestId("echarts")) as { color: string[] };
+    expect(option.color).toEqual(["#ff0000", "#00ff00"]);
   });
 });

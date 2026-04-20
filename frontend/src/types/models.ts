@@ -24,11 +24,37 @@ export interface DashboardLayout {
   xs: DashboardLayoutItem[];
 }
 
+export interface ChartLegend {
+  show: boolean;
+  position: "top" | "bottom" | "left" | "right";
+}
+
+export interface ChartTooltip {
+  enabled: boolean;
+}
+
+export interface ChartAxisLabel {
+  show: boolean;
+  label?: string;
+}
+
+export interface ChartAxisLabels {
+  x: ChartAxisLabel;
+  y: ChartAxisLabel;
+}
+
+export interface ChartAppearance {
+  seriesColors: string[];
+  legend: ChartLegend;
+  tooltip: ChartTooltip;
+  axisLabels: ChartAxisLabels;
+}
+
 export interface PanelAppearance {
   background: string;
   color: string;
   transparency: number;
-  chartType?: "line" | "bar" | "pie" | "scatter";
+  chart?: ChartAppearance;
 }
 
 export interface DataTypeField {

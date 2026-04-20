@@ -65,7 +65,19 @@ object PanelType {
 }
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)
 final case class DashboardAppearance(background: String, gridBackground: String)
-final case class PanelAppearance(background: String, color: String, transparency: Double)
+
+final case class ChartLegend(show: Boolean, position: String)
+final case class ChartTooltip(enabled: Boolean)
+final case class ChartAxisLabel(show: Boolean, label: Option[String])
+final case class ChartAxisLabels(x: ChartAxisLabel, y: ChartAxisLabel)
+final case class ChartAppearance(
+    seriesColors: Vector[String],
+    legend: ChartLegend,
+    tooltip: ChartTooltip,
+    axisLabels: ChartAxisLabels
+)
+
+final case class PanelAppearance(background: String, color: String, transparency: Double, chart: Option[ChartAppearance] = None)
 final case class DashboardLayoutItem(panelId: PanelId, x: Int, y: Int, w: Int, h: Int)
 final case class DashboardLayout(
     lg: Vector[DashboardLayoutItem],

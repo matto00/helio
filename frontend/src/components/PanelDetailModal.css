@@ -1,6 +1,6 @@
 .panel-detail-modal {
   width: min(540px, 96vw);
-  max-height: min(640px, 90vh);
+  height: min(680px, 90vh);
   padding: 0;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);
@@ -12,7 +12,6 @@
 
 .panel-detail-modal::backdrop {
   background: rgb(0 0 0 / 0.55);
-  backdrop-filter: blur(4px);
 }
 
 .panel-detail-modal__inner {
@@ -398,6 +397,81 @@
 .panel-detail-modal__btn:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
+}
+
+/* Chart appearance section */
+
+.panel-detail-modal__section-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.panel-detail-modal__chart-section {
+  display: grid;
+  gap: 12px;
+}
+
+.panel-detail-modal__chart-preview {
+  height: 160px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  overflow: hidden;
+}
+
+.panel-detail-modal__chart-subsection {
+  display: grid;
+  gap: 6px;
+}
+
+.panel-detail-modal__chart-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--app-text-muted);
+}
+
+.panel-detail-modal__color-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.panel-detail-modal__color-swatches input[type="color"] {
+  width: 32px;
+  height: 28px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  padding: 1px;
+}
+
+.panel-detail-modal__chart-position {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.82rem;
+}
+
+.panel-detail-modal__chart-text-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.82rem;
+  box-sizing: border-box;
+}
+
+.panel-detail-modal__chart-text-input:focus {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
 }
 
 @media (max-width: 480px) {

@@ -227,7 +227,8 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         appearance  = PanelAppearance(
           background   = entry.appearance.background.getOrElse(PanelAppearance.Default.background),
           color        = entry.appearance.color.getOrElse(PanelAppearance.Default.color),
-          transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency)
+          transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency),
+          chart        = entry.appearance.chart
         ).toJson.compactPrint,
         panelType   = PanelType.asString(panelType),
         typeId      = entry.typeId,
