@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.10.1",
-    "axios": "^1.13.6",
+    "axios": "^1.15.0",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
     "react": "^19.1.1",
@@ -35,6 +35,6 @@
     "jest-environment-jsdom": "^30.3.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
-    "vite": "^7.2.1"
+    "vite": "^7.3.2"
   }
 }
