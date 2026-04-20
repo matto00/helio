@@ -100,6 +100,7 @@ export interface PanelContentProps {
   data?: MappedPanelData | null;
   rawRows?: string[][] | null;
   headers?: string[] | null;
+  fieldMapping?: Record<string, string> | null;
   isLoading?: boolean;
   error?: string | null;
   noData?: boolean;
@@ -111,6 +112,7 @@ export function PanelContent({
   data,
   rawRows,
   headers,
+  fieldMapping,
   isLoading,
   error,
   noData,
@@ -145,7 +147,7 @@ export function PanelContent({
     case "metric":
       return <MetricContent data={data} />;
     case "chart":
-      return <ChartPanel appearance={appearance} />;
+      return <ChartPanel rawRows={rawRows} headers={headers} fieldMapping={fieldMapping} />;
     case "text":
       return <TextContent data={data} />;
     case "table":

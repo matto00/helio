@@ -1,10 +1,20 @@
 import { render, screen } from "@testing-library/react";
 
 import { PanelContent } from "./PanelContent";
+import type { ChartPanelProps } from "./ChartPanel";
+
+let capturedChartProps: ChartPanelProps | null = null;
 
 jest.mock("./ChartPanel", () => ({
-  ChartPanel: () => <div data-testid="chart-panel" />,
+  ChartPanel: (props: ChartPanelProps) => {
+    capturedChartProps = props;
+    return <div data-testid="chart-panel" />;
+  },
 }));
+
+beforeEach(() => {
+  capturedChartProps = null;
+});
 
 describe("PanelContent — placeholder (unbound)", () => {
   it("renders the metric placeholder for type metric", () => {
@@ -83,6 +93,26 @@ describe("PanelContent — live metric data", () => {
   it("falls back to placeholder when data is null", () => {
     render(<PanelContent type="metric" data={null} />);
     expect(screen.getByText("--")).toBeInTheDocument();
+  });
+});
+
+describe("PanelContent — chart type forwards props to ChartPanel", () => {
+  it("forwards fieldMapping, rawRows, and headers to ChartPanel", () => {
+    const fieldMapping = { xAxis: "date", yAxis: "price" };
+    const rawRows = [["2024-01-01", "100"]];
+    const headers = ["date", "price"];
+    render(
+      <PanelContent type="chart" fieldMapping={fieldMapping} rawRows={rawRows} headers={headers} />,
+    );
+    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
+    expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
+    expect(capturedChartProps?.rawRows).toEqual(rawRows);
+    expect(capturedChartProps?.headers).toEqual(headers);
+  });
+
+  it("forwards null fieldMapping to ChartPanel", () => {
+    render(<PanelContent type="chart" fieldMapping={null} />);
+    expect(capturedChartProps?.fieldMapping).toBeNull();
   });
 });
 
