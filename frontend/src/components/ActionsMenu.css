@@ -46,7 +46,8 @@
 }
 
 .actions-menu__item:hover:not(:disabled) {
-  background: var(--app-surface-soft);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
 }
 
 .actions-menu__item:focus-visible {

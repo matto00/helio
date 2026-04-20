@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Helio — Direction A: Industrial Bold</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&family=Azeret+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        /* Industrial palette - stark blacks, concrete grays, signal orange */
+        --color-void: #0a0a0a;
+        --color-concrete: #1a1a1a;
+        --color-steel: #2d2d2d;
+        --color-metal: #424242;
+        --color-signal: #ff6b35;
+        --color-signal-bright: #ff8c5a;
+        --color-warning: #ffd23f;
+        --color-text: #f5f5f5;
+        --color-text-muted: #a3a3a3;
+        --color-border: #2d2d2d;
+        --color-border-accent: #3d3d3d;
+
+        --font-display: "Outfit", sans-serif;
+        --font-mono: "Azeret Mono", monospace;
+
+        --radius: 2px;
+        --shadow-brutal: 8px 8px 0px rgba(255, 107, 53, 0.25);
+        --shadow-card: 4px 4px 0px rgba(0, 0, 0, 0.4);
+      }
+
+      body {
+        font-family: var(--font-display);
+        background: var(--color-void);
+        color: var(--color-text);
+        line-height: 1.5;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Diagonal stripe background pattern */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 40px,
+          rgba(255, 107, 53, 0.02) 40px,
+          rgba(255, 107, 53, 0.02) 42px
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .app-shell {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        padding: 0;
+      }
+
+      /* Top bar - stark industrial header */
+      .topbar {
+        background: var(--color-concrete);
+        border-bottom: 3px solid var(--color-signal);
+        padding: 20px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .topbar__logo {
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        text-transform: uppercase;
+        color: var(--color-text);
+        position: relative;
+      }
+
+      .topbar__logo::after {
+        content: "";
+        position: absolute;
+        bottom: -4px;
+        left: 0;
+        width: 40%;
+        height: 3px;
+        background: var(--color-signal);
+      }
+
+      .topbar__controls {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+
+      .topbar__theme {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-text-muted);
+        background: var(--color-steel);
+        padding: 8px 16px;
+        border: 1px solid var(--color-border-accent);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .topbar__theme:hover {
+        background: var(--color-metal);
+        color: var(--color-signal);
+        border-color: var(--color-signal);
+        transform: translateX(-2px);
+      }
+
+      /* Layout grid */
+      .app-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: calc(100vh - 67px);
+      }
+
+      /* Sidebar - vertical industrial nav */
+      .sidebar {
+        background: var(--color-concrete);
+        border-right: 1px solid var(--color-border);
+        padding: 32px 0;
+      }
+
+      .sidebar__nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 16px;
+      }
+
+      .sidebar__link {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-text-muted);
+        text-decoration: none;
+        padding: 14px 16px;
+        border-left: 3px solid transparent;
+        background: transparent;
+        transition: all 0.15s ease;
+        position: relative;
+      }
+
+      .sidebar__link:hover {
+        color: var(--color-text);
+        background: var(--color-steel);
+        border-left-color: var(--color-signal);
+        transform: translateX(2px);
+      }
+
+      .sidebar__link.active {
+        color: var(--color-signal-bright);
+        background: var(--color-steel);
+        border-left-color: var(--color-signal);
+        font-weight: 600;
+      }
+
+      .sidebar__link.active::before {
+        content: "▸";
+        position: absolute;
+        left: -8px;
+        color: var(--color-signal);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      /* Main content */
+      .main-content {
+        padding: 48px;
+        background: var(--color-void);
+      }
+
+      .page-header {
+        margin-bottom: 48px;
+      }
+
+      .page-header__eyebrow {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--color-signal);
+        margin-bottom: 12px;
+        display: inline-block;
+        position: relative;
+        padding-left: 20px;
+      }
+
+      .page-header__eyebrow::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 12px;
+        height: 2px;
+        background: var(--color-signal);
+        transform: translateY(-50%);
+      }
+
+      .page-header h1 {
+        font-family: var(--font-display);
+        font-size: 4rem;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 0.95;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-muted) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .page-header__subtitle {
+        font-size: 1.1rem;
+        color: var(--color-text-muted);
+        max-width: 600px;
+        line-height: 1.6;
+      }
+
+      /* Dashboard grid */
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 28px;
+        animation: fadeIn 0.4s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Panel cards - brutal geometric boxes */
+      .panel-card {
+        background: var(--color-concrete);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        padding: 0;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .panel-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-signal), var(--color-warning));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .panel-card:hover {
+        border-color: var(--color-signal);
+        box-shadow: var(--shadow-brutal);
+        transform: translate(-2px, -2px);
+      }
+
+      .panel-card:hover::before {
+        opacity: 1;
+      }
+
+      .panel-card__header {
+        padding: 24px 24px 16px;
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+      }
+
+      .panel-card__title {
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--color-text);
+        letter-spacing: -0.02em;
+      }
+
+      .panel-card__type {
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-signal);
+        background: rgba(255, 107, 53, 0.15);
+        padding: 4px 10px;
+        border-radius: var(--radius);
+        border: 1px solid rgba(255, 107, 53, 0.3);
+      }
+
+      .panel-card__body {
+        padding: 24px;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .panel-card__metric {
+        text-align: center;
+      }
+
+      .panel-card__value {
+        font-family: var(--font-display);
+        font-size: 3.5rem;
+        font-weight: 900;
+        color: var(--color-signal-bright);
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+
+      .panel-card__label {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--color-text-muted);
+        margin-top: 8px;
+      }
+
+      /* Action button */
+      .btn-primary {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        background: var(--color-signal);
+        color: var(--color-void);
+        border: none;
+        padding: 14px 28px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4);
+      }
+
+      .btn-primary:hover {
+        background: var(--color-signal-bright);
+        transform: translate(-2px, -2px);
+        box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
+      }
+
+      .btn-primary:active {
+        transform: translate(0, 0);
+        box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar__logo">HELIO</div>
+        <div class="topbar__controls">
+          <button class="topbar__theme">⬢ DARK</button>
+        </div>
+      </header>
+
+      <div class="app-layout">
+        <aside class="sidebar">
+          <nav class="sidebar__nav">
+            <a href="#" class="sidebar__link active">Dashboards</a>
+            <a href="#" class="sidebar__link">Data Sources</a>
+            <a href="#" class="sidebar__link">Data Types</a>
+            <a href="#" class="sidebar__link">Settings</a>
+          </nav>
+        </aside>
+
+        <main class="main-content">
+          <div class="page-header">
+            <div class="page-header__eyebrow">Dashboard Builder</div>
+            <h1>Production<br />Overview</h1>
+            <p class="page-header__subtitle">
+              Real-time metrics and system health monitoring for industrial operations. All systems
+              operational.
+            </p>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="panel-card">
+              <div class="panel-card__header">
+                <h3 class="panel-card__title">Active Users</h3>
+                <span class="panel-card__type">Metric</span>
+              </div>
+              <div class="panel-card__body">
+                <div class="panel-card__metric">
+                  <div class="panel-card__value">1,247</div>
+                  <div class="panel-card__label">Current</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card__header">
+                <h3 class="panel-card__title">System Load</h3>
+                <span class="panel-card__type">Graph</span>
+              </div>
+              <div class="panel-card__body">
+                <div class="panel-card__metric">
+                  <div class="panel-card__value">67%</div>
+                  <div class="panel-card__label">CPU Usage</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card__header">
+                <h3 class="panel-card__title">Response Time</h3>
+                <span class="panel-card__type">Metric</span>
+              </div>
+              <div class="panel-card__body">
+                <div class="panel-card__metric">
+                  <div class="panel-card__value">124ms</div>
+                  <div class="panel-card__label">Average</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card__header">
+                <h3 class="panel-card__title">Error Rate</h3>
+                <span class="panel-card__type">Alert</span>
+              </div>
+              <div class="panel-card__body">
+                <div class="panel-card__metric">
+                  <div class="panel-card__value">0.02%</div>
+                  <div class="panel-card__label">Last Hour</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

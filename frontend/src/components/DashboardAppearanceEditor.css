@@ -3,9 +3,10 @@
 }
 
 .dashboard-appearance-editor__trigger {
-  width: 100%;
-  justify-content: space-between;
-  padding: 14px 16px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--app-text-muted);
 }
 
 .dashboard-appearance-editor__trigger-copy {
@@ -53,7 +54,7 @@
   width: 52px;
   height: 36px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 10px;
+  border-radius: var(--app-radius-md);
   background: transparent;
   cursor: pointer;
 }
@@ -62,7 +63,7 @@
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--app-radius-md);
   background: var(--app-surface-soft);
   color: var(--app-text);
   font-weight: 600;

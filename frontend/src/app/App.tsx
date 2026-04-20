@@ -36,7 +36,7 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 
-/** The authenticated app shell — rendered only when the user is signed in. */
+/** The authenticated app shell - rendered only when the user is signed in. */
 function AppShell() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -104,34 +104,29 @@ function AppShell() {
 
   return (
     <main className="app-shell" style={shellStyle}>
-      <header className="app-header">
-        <div className="app-header__copy">
-          <span className="app-header__eyebrow">Helio Workspace</span>
-          <h1>Helio Dashboard</h1>
-          <p className="app-header__subtitle">
-            A polished control surface for tracking the dashboards that matter most.
-          </p>
+      {/* -- COMMAND BAR -- */}
+      <header className="app-command-bar">
+        <div className="app-command-bar__left">
+          <span className="app-command-bar__logo">
+            <span className="app-command-bar__logo-dot" aria-hidden="true" />
+            <span className="app-command-bar__wordmark">Helio</span>
+          </span>
+          <span className="app-command-bar__sep" aria-hidden="true" />
+          <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
+            <span>{onDashboardView ? "Dashboards" : "Data Sources"}</span>
+            {onDashboardView && selectedDashboard !== null && (
+              <>
+                <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                  /
+                </span>
+                <span className="app-command-bar__breadcrumb-current">{selectedDashboardName}</span>
+              </>
+            )}
+          </nav>
         </div>
-        <div className="app-header__controls">
+        <div className="app-command-bar__right">
           {onDashboardView && (
-            <div className="app-header__selection-card">
-              <span className="app-header__selection-label">Active dashboard</span>
-              <strong>{selectedDashboardName}</strong>
-            </div>
-          )}
-          <button
-            type="button"
-            className="theme-toggle"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            <span className="theme-toggle__label">
-              {theme === "dark" ? "Dark mode" : "Light mode"}
-            </span>
-            <span className="theme-toggle__value">{theme === "dark" ? "Light" : "Dark"}</span>
-          </button>
-          {onDashboardView && (
-            <div className="app-header__undo-redo">
+            <>
               <button
                 type="button"
                 className="undo-redo-btn"
@@ -140,7 +135,7 @@ function AppShell() {
                 aria-label="Undo layout change"
                 title="Undo (Ctrl+Z)"
               >
-                Undo
+                ↩ Undo
               </button>
               <button
                 type="button"
@@ -150,18 +145,26 @@ function AppShell() {
                 aria-label="Redo layout change"
                 title="Redo (Ctrl+Shift+Z)"
               >
-                Redo
+                Redo ↪
               </button>
-            </div>
+            </>
           )}
           {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+          <button
+            type="button"
+            className="cmd-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+          >
+            {theme === "dark" ? "☀ Light" : "☾ Dark"}
+          </button>
           {authStatus === "authenticated" && currentUser !== null && (
             <div className="user-identity">
-              {currentUser.avatarUrl !== null ? (
+              {currentUser.avatarUrl ? (
                 <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
               ) : (
                 <span className="user-avatar--initials" aria-hidden="true">
-                  {(currentUser.displayName ?? currentUser.email).charAt(0)}
+                  {(currentUser.displayName || currentUser.email).charAt(0).toUpperCase()}
                 </span>
               )}
               <span className="user-identity__name">
@@ -172,29 +175,26 @@ function AppShell() {
           {authStatus === "authenticated" && (
             <button
               type="button"
-              className="theme-toggle"
+              className="cmd-btn"
               onClick={() => void handleLogout()}
               aria-label="Sign out"
             >
-              <span className="theme-toggle__label">Account</span>
-              <span className="theme-toggle__value">Sign out</span>
+              Sign out
             </button>
           )}
         </div>
       </header>
-      <div
-        className={
-          isDashboardListCollapsed ? "app-layout app-layout--sidebar-collapsed" : "app-layout"
-        }
-      >
+
+      {/* -- BODY (sidebar + content) -- */}
+      <div className="app-body">
         {isDashboardListCollapsed ? (
           <button
             type="button"
-            className="app-layout__sidebar-toggle"
+            className="app-sidebar-toggle"
             aria-label="Expand dashboard list"
             onClick={() => setIsDashboardListCollapsed(false)}
           >
-            <span aria-hidden="true">⟩</span>
+            ›
           </button>
         ) : (
           <aside className="app-sidebar">
@@ -232,7 +232,7 @@ export function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
-      {/* Public route: OAuth callback — must be outside ProtectedRoute and PublicOnlyRoute */}
+      {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
       {/* Protected routes (redirect to /login when unauthenticated) */}

@@ -11,7 +11,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
+
 import { noCompactor } from "react-grid-layout/core";
+
+const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
 import {
   areDashboardLayoutsEqual,
@@ -295,7 +298,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
         margin={panelGridConfig.margin}
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
-        compactor={noCompactor}
+        compactor={noCompactorPreventCollision}
         onDragStart={() => {
           preInteractionLayoutRef.current = latestLayoutRef.current;
         }}

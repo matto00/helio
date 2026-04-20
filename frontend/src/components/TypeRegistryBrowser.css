@@ -34,9 +34,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 0.875rem;
+  padding: 7px 10px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 10px;
+  border-radius: var(--app-radius-md);
   background: var(--app-surface);
   cursor: pointer;
   text-align: left;
@@ -46,16 +46,17 @@
 }
 
 .type-registry-browser__item--selected .type-registry-browser__item-btn {
-  border-color: var(--app-accent);
-  background: var(--app-accent-surface);
+  border-color: var(--app-accent-mid);
+  background: var(--app-accent-dim);
 }
 
 .type-registry-browser__item-btn:hover {
-  background: var(--app-surface-strong);
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-strong);
 }
 
 .type-registry-browser__item-name {
-  font-size: 0.9375rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--app-text);
   white-space: nowrap;
@@ -64,7 +65,7 @@
 }
 
 .type-registry-browser__item-count {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--app-text-muted);
   flex-shrink: 0;
 }

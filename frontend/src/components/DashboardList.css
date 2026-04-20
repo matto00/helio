@@ -1,21 +1,20 @@
 .dashboard-list {
-  padding: 22px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-lg);
-  background: var(--app-surface);
-  box-shadow: var(--app-shadow-soft);
-  backdrop-filter: blur(28px);
+  padding: 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .dashboard-list__header {
-  margin-bottom: 18px;
-}
-
-.dashboard-list__header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .dashboard-list__header-actions {
@@ -25,13 +24,7 @@
 }
 
 .dashboard-list__eyebrow {
-  display: inline-flex;
-  margin-bottom: 8px;
-  color: var(--app-text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .dashboard-list__collapse {
@@ -44,8 +37,8 @@
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 400;
   line-height: 1;
   padding: 0;
   transition:
@@ -95,13 +88,15 @@
 
 .dashboard-list__header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
 }
 
 .dashboard-list__header p {
-  margin: 8px 0 0;
-  color: var(--app-text-muted);
-  line-height: 1.6;
+  display: none;
 }
 
 .dashboard-list__create {
@@ -144,6 +139,7 @@
 
 .dashboard-list__create-submit:hover:not(:disabled) {
   border-color: var(--app-border-strong);
+  background: var(--app-accent-surface);
 }
 
 .dashboard-list__create-submit:disabled {
@@ -209,8 +205,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 7px 10px;
   border: 1px solid transparent;
   border-radius: var(--app-radius-md);
   background: transparent;
@@ -239,12 +235,13 @@
 }
 
 .dashboard-list__name {
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .dashboard-list__meta {
   color: var(--app-accent-strong);
-  font-size: 0.78rem;
+  font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
