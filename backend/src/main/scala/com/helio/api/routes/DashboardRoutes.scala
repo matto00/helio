@@ -6,21 +6,40 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    dataTypeRepo: Option[DataTypeRepository] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  /** Resolve cross-user typeId bindings for a list of panels.
+   *  If a panel's typeId belongs to a different user, it is cleared (treated as unbound). */
+  private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
+    dataTypeRepo match {
+      case None => Future.successful(panels)
+      case Some(dtRepo) =>
+        Future.traverse(panels) { panel =>
+          panel.typeId match {
+            case None => Future.successful(panel)
+            case Some(typeId) =>
+              dtRepo.findById(typeId, user.id).map {
+                case None    => panel.copy(typeId = None, fieldMapping = None)
+                case Some(_) => panel
+              }
+          }
+        }
+    }
 
   val routes: Route =
     pathPrefix("dashboards") {
@@ -58,7 +77,7 @@ final class DashboardRoutes(
               case Some(dashboard) if dashboard.ownerId != user.id =>
                 complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
               case Some(_) =>
-                onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId))) { panels =>
+                onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId)).flatMap(resolvePanels)) { panels =>
                   complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
                 }
             }

@@ -13,19 +13,25 @@ import java.time.Instant
 import scala.concurrent.ExecutionContextExecutor
 
 final class DataTypeRoutes(
-    dataTypeRepo: DataTypeRepository
+    dataTypeRepo: DataTypeRepository,
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
+  private val acl = new AclDirective()
+
+  private val dataTypeResolver: String => scala.concurrent.Future[Option[String]] =
+    id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))
+
   val routes: Route =
     pathPrefix("types") {
       concat(
         pathEndOrSingleSlash {
           get {
-            onSuccess(dataTypeRepo.findAll()) { types =>
+            onSuccess(dataTypeRepo.findAll(user.id)) { types =>
               complete(DataTypesResponse(items = types.map(DataTypeResponse.fromDomain)))
             }
           }
@@ -59,76 +65,80 @@ final class DataTypeRoutes(
               }
             },
             patch {
-              entity(as[UpdateDataTypeRequest]) { request =>
-                onSuccess(dataTypeRepo.findById(id)) {
-                  case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
-                  case Some(existing) =>
-                    // Validate any incoming computed fields
-                    val incomingComputedFields: Vector[ComputedFieldPayload] =
-                      request.computedFields.getOrElse(Vector.empty)
+              acl.authorizeResource(typeId, user, dataTypeResolver, "DataType not found") {
+                entity(as[UpdateDataTypeRequest]) { request =>
+                  onSuccess(dataTypeRepo.findById(id)) {
+                    case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
+                    case Some(existing) =>
+                      // Validate any incoming computed fields
+                      val incomingComputedFields: Vector[ComputedFieldPayload] =
+                        request.computedFields.getOrElse(Vector.empty)
 
-                    // Check expression length
-                    val tooLong = incomingComputedFields.find(_.expression.length > RequestValidation.MaxExpressionLength)
-                    if (tooLong.isDefined) {
-                      val cf = tooLong.get
-                      complete(
-                        StatusCodes.BadRequest,
-                        ErrorResponse(s"Expression for field '${cf.name}' exceeds maximum length of ${RequestValidation.MaxExpressionLength} characters")
-                      )
-                    } else {
-                      // Validate expressions against the merged field names
-                      val updatedRegularFields = request.fields
-                        .map(_.map(p => DataField(p.name, p.displayName, p.dataType, p.nullable)))
-                        .getOrElse(existing.fields)
-                      val fieldNames = updatedRegularFields.map(_.name).toSet
+                      // Check expression length
+                      val tooLong = incomingComputedFields.find(_.expression.length > RequestValidation.MaxExpressionLength)
+                      if (tooLong.isDefined) {
+                        val cf = tooLong.get
+                        complete(
+                          StatusCodes.BadRequest,
+                          ErrorResponse(s"Expression for field '${cf.name}' exceeds maximum length of ${RequestValidation.MaxExpressionLength} characters")
+                        )
+                      } else {
+                        // Validate expressions against the merged field names
+                        val updatedRegularFields = request.fields
+                          .map(_.map(p => DataField(p.name, p.displayName, p.dataType, p.nullable)))
+                          .getOrElse(existing.fields)
+                        val fieldNames = updatedRegularFields.map(_.name).toSet
 
-                      val exprError = incomingComputedFields.foldLeft(Option.empty[String]) {
-                        case (Some(err), _) => Some(err)
-                        case (None, cf) =>
-                          ExpressionEvaluator.validate(cf.expression, fieldNames) match {
-                            case Left(msg) => Some(s"Invalid expression for computed field '${cf.name}': $msg")
-                            case Right(_)  => None
-                          }
+                        val exprError = incomingComputedFields.foldLeft(Option.empty[String]) {
+                          case (Some(err), _) => Some(err)
+                          case (None, cf) =>
+                            ExpressionEvaluator.validate(cf.expression, fieldNames) match {
+                              case Left(msg) => Some(s"Invalid expression for computed field '${cf.name}': $msg")
+                              case Right(_)  => None
+                            }
+                        }
+
+                        exprError match {
+                          case Some(msg) =>
+                            complete(StatusCodes.BadRequest, ErrorResponse(msg))
+                          case None =>
+                            val now = Instant.now()
+                            val updatedComputedFields = request.computedFields
+                              .map(_.map(p => ComputedField(p.name, p.displayName, p.expression, p.dataType)))
+                              .getOrElse(existing.computedFields)
+                            val updated = existing.copy(
+                              name           = request.name.getOrElse(existing.name),
+                              fields         = updatedRegularFields,
+                              computedFields = updatedComputedFields,
+                              updatedAt      = now
+                            )
+                            onSuccess(dataTypeRepo.update(updated)) {
+                              case Some(dt) => complete(DataTypeResponse.fromDomain(dt))
+                              case None     => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
+                            }
+                        }
                       }
-
-                      exprError match {
-                        case Some(msg) =>
-                          complete(StatusCodes.BadRequest, ErrorResponse(msg))
-                        case None =>
-                          val now = Instant.now()
-                          val updatedComputedFields = request.computedFields
-                            .map(_.map(p => ComputedField(p.name, p.displayName, p.expression, p.dataType)))
-                            .getOrElse(existing.computedFields)
-                          val updated = existing.copy(
-                            name           = request.name.getOrElse(existing.name),
-                            fields         = updatedRegularFields,
-                            computedFields = updatedComputedFields,
-                            updatedAt      = now
-                          )
-                          onSuccess(dataTypeRepo.update(updated)) {
-                            case Some(dt) => complete(DataTypeResponse.fromDomain(dt))
-                            case None     => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
-                          }
-                      }
-                    }
+                  }
                 }
               }
             },
             delete {
-              onSuccess(dataTypeRepo.findById(id)) {
-                case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
-                case Some(_) =>
-                  onSuccess(dataTypeRepo.isBoundToAnyPanel(id)) {
-                    case true =>
-                      complete(
-                        StatusCodes.Conflict,
-                        ErrorResponse("Cannot delete DataType: one or more panels are bound to it")
-                      )
-                    case false =>
-                      onSuccess(dataTypeRepo.delete(id)) { _ =>
-                        complete(StatusCodes.NoContent)
-                      }
-                  }
+              acl.authorizeResource(typeId, user, dataTypeResolver, "DataType not found") {
+                onSuccess(dataTypeRepo.findById(id)) {
+                  case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
+                  case Some(_) =>
+                    onSuccess(dataTypeRepo.isBoundToAnyPanel(id)) {
+                      case true =>
+                        complete(
+                          StatusCodes.Conflict,
+                          ErrorResponse("Cannot delete DataType: one or more panels are bound to it")
+                        )
+                      case false =>
+                        onSuccess(dataTypeRepo.delete(id)) { _ =>
+                          complete(StatusCodes.NoContent)
+                        }
+                    }
+                }
               }
             }
           )

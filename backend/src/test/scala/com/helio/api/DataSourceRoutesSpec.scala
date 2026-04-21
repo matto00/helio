@@ -79,8 +79,9 @@ class DataSourceRoutesSpec
   private def errorConnector(msg: String): RestApiConnector =
     new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left(msg))))
 
-  private val testToken = "ds-spec-test-token"
-  private val testUser  = AuthenticatedUser(UserId("ds-spec-user-id"))
+  private val testToken   = "ds-spec-test-token"
+  private val testUserId  = "a0000000-0000-0000-0000-000000000001"
+  private val testUser    = AuthenticatedUser(UserId(testUserId))
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =

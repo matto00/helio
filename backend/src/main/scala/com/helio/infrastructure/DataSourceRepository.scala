@@ -4,6 +4,7 @@ import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
@@ -19,7 +20,8 @@ class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exe
       sourceType = SourceType.fromString(row.sourceType).getOrElse(SourceType.Static),
       config     = spray.json.JsonParser(row.config),
       createdAt  = row.createdAt,
-      updatedAt  = row.updatedAt
+      updatedAt  = row.updatedAt,
+      ownerId    = row.ownerId.map(id => UserId(id.toString)).getOrElse(UserId("00000000-0000-0000-0000-000000000000"))
     )
 
   private def domainToRow(ds: DataSource): DataSourceRow =
@@ -29,13 +31,17 @@ class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exe
       sourceType = SourceType.asString(ds.sourceType),
       config     = ds.config.compactPrint,
       createdAt  = ds.createdAt,
-      updatedAt  = ds.updatedAt
+      updatedAt  = ds.updatedAt,
+      ownerId    = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value))
     )
 
-  def findAll(): Future[Vector[DataSource]] =
-    db.run(table.sortBy(_.createdAt.desc).result)
+  def findAll(ownerId: UserId): Future[Vector[DataSource]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    db.run(table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result)
       .map(_.map(rowToDomain).toVector)
+  }
 
+  /** Unscoped findById — used by AclDirective resolver and internal post-auth route code. */
   def findById(id: DataSourceId): Future[Option[DataSource]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
@@ -71,7 +77,8 @@ object DataSourceRepository {
       sourceType: String,
       config: String,
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      ownerId: Option[java.util.UUID]
   )
 
   class DataSourceTable(tag: Tag) extends Table[DataSourceRow](tag, "data_sources") {
@@ -81,7 +88,8 @@ object DataSourceRepository {
     def config     = column[String]("config")
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
+    def ownerId    = column[Option[java.util.UUID]]("owner_id")
 
-    def * = (id, name, sourceType, config, createdAt, updatedAt).mapTo[DataSourceRow]
+    def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId).mapTo[DataSourceRow]
   }
 }

@@ -17,7 +17,8 @@ import scala.util.Try
 final class SourceRoutes(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo: DataTypeRepository,
-    connector: RestApiConnector
+    connector: RestApiConnector,
+    user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -64,7 +65,8 @@ final class SourceRoutes(
           sourceType = SourceType.Sql,
           config     = request.config.toJson,
           createdAt  = now,
-          updatedAt  = now
+          updatedAt  = now,
+          ownerId    = user.id
         )
         onSuccess(dataSourceRepo.insert(source)) { inserted =>
           onSuccess(SqlConnector.execute(sqlConfig, maxRows = 100)) {
@@ -89,7 +91,8 @@ final class SourceRoutes(
                 fields    = fields,
                 version   = 1,
                 createdAt = now,
-                updatedAt = now
+                updatedAt = now,
+                ownerId   = user.id
               )
               onSuccess(dataTypeRepo.insert(dt)) { createdDt =>
                 complete(
@@ -122,7 +125,8 @@ final class SourceRoutes(
               sourceType = sourceType,
               config     = request.config.toJson,
               createdAt  = now,
-              updatedAt  = now
+              updatedAt  = now,
+              ownerId    = user.id
             )
             onSuccess(dataSourceRepo.insert(source)) { inserted =>
               onSuccess(connector.fetch(restConfig)) {
@@ -157,7 +161,8 @@ final class SourceRoutes(
                     fields    = fields,
                     version   = 1,
                     createdAt = now,
-                    updatedAt = now
+                    updatedAt = now,
+                    ownerId   = user.id
                   )
                   onSuccess(dataTypeRepo.insert(dt)) { createdDt =>
                     complete(
@@ -263,6 +268,8 @@ final class SourceRoutes(
             onSuccess(dataSourceRepo.findById(id)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("DataSource not found"))
+              case Some(source) if source.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
               case Some(source) if source.sourceType == SourceType.Sql =>
                 Try(source.config.convertTo[SqlSourceConfigPayload]) match {
                   case scala.util.Failure(e) =>
@@ -278,7 +285,7 @@ final class SourceRoutes(
                         val fields = schema.fields.map(f =>
                           DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
                         ).toVector
-                        onSuccess(dataTypeRepo.findBySourceId(id)) { existing =>
+                        onSuccess(dataTypeRepo.findBySourceId(id, user.id)) { existing =>
                           existing.headOption match {
                             case Some(dt) =>
                               val updated = dt.copy(fields = fields, version = dt.version + 1, updatedAt = now)
@@ -294,7 +301,8 @@ final class SourceRoutes(
                                 fields    = fields,
                                 version   = 1,
                                 createdAt = now,
-                                updatedAt = now
+                                updatedAt = now,
+                                ownerId   = user.id
                               )
                               onSuccess(dataTypeRepo.insert(dt)) { created =>
                                 complete(DataTypeResponse.fromDomain(created))
@@ -319,7 +327,7 @@ final class SourceRoutes(
                         val fields = schema.fields.map(f =>
                           DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
                         ).toVector
-                        onSuccess(dataTypeRepo.findBySourceId(id)) { existing =>
+                        onSuccess(dataTypeRepo.findBySourceId(id, user.id)) { existing =>
                           existing.headOption match {
                             case Some(dt) =>
                               val updated = dt.copy(fields = fields, updatedAt = now)
@@ -335,7 +343,8 @@ final class SourceRoutes(
                                 fields    = fields,
                                 version   = 1,
                                 createdAt = now,
-                                updatedAt = now
+                                updatedAt = now,
+                                ownerId   = user.id
                               )
                               onSuccess(dataTypeRepo.insert(dt)) { created =>
                                 complete(DataTypeResponse.fromDomain(created))
@@ -353,6 +362,8 @@ final class SourceRoutes(
             onSuccess(dataSourceRepo.findById(id)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("DataSource not found"))
+              case Some(source) if source.ownerId != user.id =>
+                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
               case Some(source) if source.sourceType == SourceType.Sql =>
                 Try(source.config.convertTo[SqlSourceConfigPayload]) match {
                   case scala.util.Failure(e) =>
@@ -363,7 +374,7 @@ final class SourceRoutes(
                       case Left(err) =>
                         complete(StatusCodes.BadGateway, ErrorResponse(s"SQL execution failed: $err"))
                       case Right(rows) =>
-                        onSuccess(dataTypeRepo.findBySourceId(id)) { dataTypes =>
+                        onSuccess(dataTypeRepo.findBySourceId(id, user.id)) { dataTypes =>
                           val computedFields = dataTypes.headOption
                             .map(_.computedFields)
                             .getOrElse(Vector.empty)
@@ -385,7 +396,7 @@ final class SourceRoutes(
                         complete(StatusCodes.BadGateway, ErrorResponse(s"Fetch failed: $err"))
                       case Right(json) =>
                         val rawRows = connector.toRows(json).take(10)
-                        onSuccess(dataTypeRepo.findBySourceId(id)) { dataTypes =>
+                        onSuccess(dataTypeRepo.findBySourceId(id, user.id)) { dataTypes =>
                           val computedFields = dataTypes.headOption
                             .map(_.computedFields)
                             .getOrElse(Vector.empty)

@@ -170,7 +170,8 @@ final case class DataSource(
     sourceType: SourceType,
     config: JsValue,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    ownerId: UserId
 )
 
 sealed trait ApiKeyPlacement
@@ -235,5 +236,6 @@ final case class DataType(
     computedFields: Vector[ComputedField] = Vector.empty,
     version: Int,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    ownerId: UserId
 )

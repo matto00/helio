@@ -49,7 +49,10 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 
-  private def newSource(name: String = "Test Source"): DataSource = {
+  private val owner1 = UserId(UUID.randomUUID().toString)
+  private val owner2 = UserId(UUID.randomUUID().toString)
+
+  private def newSource(name: String = "Test Source", ownerId: UserId = owner1): DataSource = {
     val now = Instant.now()
     DataSource(
       id         = DataSourceId(UUID.randomUUID().toString),
@@ -57,7 +60,8 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       sourceType = SourceType.RestApi,
       config     = JsObject.empty,
       createdAt  = now,
-      updatedAt  = now
+      updatedAt  = now,
+      ownerId    = ownerId
     )
   }
 
@@ -72,22 +76,37 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       found.get.id        shouldBe source.id
       found.get.name      shouldBe source.name
       found.get.sourceType shouldBe source.sourceType
+      found.get.ownerId   shouldBe owner1
     }
 
-    "findAll returns all inserted records" in {
+    "findAll returns only records owned by the given user" in {
       cleanDb()
-      val a = newSource("Source A")
-      val b = newSource("Source B")
+      val a = newSource("Source A", owner1)
+      val b = newSource("Source B", owner1)
+      val c = newSource("Source C", owner2)
       await(repo.insert(a))
       await(repo.insert(b))
-      val all = await(repo.findAll())
-      all.map(_.id) should contain allOf (a.id, b.id)
+      await(repo.insert(c))
+      val forOwner1 = await(repo.findAll(owner1))
+      forOwner1.map(_.id) should contain allOf (a.id, b.id)
+      forOwner1.map(_.id) should not contain c.id
+      val forOwner2 = await(repo.findAll(owner2))
+      forOwner2.map(_.id) should contain only c.id
     }
 
     "findById returns None for unknown id" in {
       cleanDb()
       val result = await(repo.findById(DataSourceId(UUID.randomUUID().toString)))
       result shouldBe None
+    }
+
+    "findById returns None for wrong owner (owner-scoped overload via findAll)" in {
+      cleanDb()
+      val source = newSource(ownerId = owner1)
+      await(repo.insert(source))
+      // owner2 cannot see owner1's source via findAll
+      val forOwner2 = await(repo.findAll(owner2))
+      forOwner2.map(_.id) should not contain source.id
     }
 
     "delete returns true and removes the record" in {

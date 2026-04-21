@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 
 import java.time.Instant
 import java.util.UUID
@@ -15,12 +15,29 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 final class PanelRoutes(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
+    dataTypeRepo: DataTypeRepository,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  /** Resolve a panel's typeId against the authenticated user's owned types.
+   *  If the panel's typeId references a type owned by a different user, the
+   *  typeId and fieldMapping are cleared (treated as unbound). */
+  private def resolveTypeBinding(panel: Panel): Future[Panel] =
+    panel.typeId match {
+      case None => Future.successful(panel)
+      case Some(typeId) =>
+        dataTypeRepo.findById(typeId, user.id).map {
+          case None    => panel.copy(typeId = None, fieldMapping = None)
+          case Some(_) => panel
+        }
+    }
+
+  private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
+    Future.traverse(panels)(resolveTypeBinding)
 
   val routes: Route =
     pathPrefix("panels") {
@@ -154,7 +171,10 @@ final class PanelRoutes(
                               titleFuture
                             }
 
-                          onSuccess(coreFuture.flatMap(applyBindingUpdate)) {
+                          onSuccess(coreFuture.flatMap(applyBindingUpdate).flatMap {
+                            case None        => Future.successful(None)
+                            case Some(panel) => resolveTypeBinding(panel).map(Some(_))
+                          }) {
                             case Some(panel) => complete(PanelResponse.fromDomain(panel))
                             case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                           }
