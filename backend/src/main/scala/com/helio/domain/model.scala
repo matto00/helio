@@ -74,7 +74,8 @@ final case class ChartAppearance(
     seriesColors: Vector[String],
     legend: ChartLegend,
     tooltip: ChartTooltip,
-    axisLabels: ChartAxisLabels
+    axisLabels: ChartAxisLabels,
+    chartType: Option[String] = None
 )
 
 final case class PanelAppearance(background: String, color: String, transparency: Double, chart: Option[ChartAppearance] = None)

@@ -3,18 +3,20 @@ import type { EChartsOption } from "echarts";
 
 import type { PanelAppearance } from "../types/models";
 import { appearanceToEChartsOption } from "../utils/chartAppearance";
+import type { ChartType } from "../utils/chartAppearance";
 
 const defaultOption: EChartsOption = {
   legend: { show: true },
   xAxis: { type: "category", name: "X Axis", data: [] },
   yAxis: { type: "value", name: "Y Axis" },
-  series: [],
+  series: [{ type: "line" }],
 };
 
 function buildDataOption(
   rawRows: string[][],
   headers: string[],
   fieldMapping: Record<string, string> | null | undefined,
+  chartType: ChartType,
 ): Partial<EChartsOption> {
   if (rawRows.length === 0 || headers.length === 0) return {};
 
@@ -27,6 +29,29 @@ function buildDataOption(
   const seriesCol = seriesColName ? headers.indexOf(seriesColName) : -1;
 
   if (xCol === -1) return {};
+
+  // Scatter: coordinate pairs [[x, y], ...]
+  if (chartType === "scatter" && yCol !== -1) {
+    const data = rawRows.map((r) => {
+      const xVal = parseFloat(r[xCol] ?? "");
+      const yVal = parseFloat(r[yCol] ?? "");
+      return [isNaN(xVal) ? 0 : xVal, isNaN(yVal) ? 0 : yVal] as [number, number];
+    });
+    return {
+      series: [{ type: "scatter", data }],
+    };
+  }
+
+  // Pie: [{ name, value }] from x (label) and y (value)
+  if (chartType === "pie" && yCol !== -1) {
+    const data = rawRows.map((r) => ({
+      name: r[xCol] ?? "",
+      value: parseFloat(r[yCol] ?? "") || 0,
+    }));
+    return {
+      series: [{ type: "pie", data }],
+    };
+  }
 
   if (seriesCol !== -1 && yCol !== -1) {
     // Group rows by unique series-column values, x-values are shared categories
@@ -46,7 +71,7 @@ function buildDataOption(
       xAxis: { type: "category", data: allX },
       legend: { data: groups },
       series: groups.map((g) => ({
-        type: "bar",
+        type: chartType,
         name: g,
         data: allX.map((x) => lookup[g]?.[x] ?? 0),
       })),
@@ -63,7 +88,7 @@ function buildDataOption(
     return {
       xAxis: { type: "category", data: categories },
       legend: { data: [headers[yCol]] },
-      series: [{ type: "bar", name: headers[yCol], data: values }],
+      series: [{ type: chartType, name: headers[yCol], data: values }],
     };
   }
 
@@ -82,7 +107,7 @@ function buildDataOption(
   return {
     xAxis: { type: "category", data: categories },
     legend: { data: autoSeries.map((s) => s.name) },
-    series: autoSeries.map((s) => ({ type: "bar", name: s.name, data: s.data })),
+    series: autoSeries.map((s) => ({ type: chartType, name: s.name, data: s.data })),
   };
 }
 
@@ -94,22 +119,39 @@ export interface ChartPanelProps {
 }
 
 export function ChartPanel({ appearance, rawRows, headers, fieldMapping }: ChartPanelProps = {}) {
+  const { option: appearanceOption, chartType } =
+    appearance?.chart != null
+      ? appearanceToEChartsOption(appearance.chart)
+      : { option: {} as EChartsOption, chartType: "line" as ChartType };
+
   const dataOption =
     rawRows && rawRows.length > 0 && headers && headers.length > 0
-      ? buildDataOption(rawRows, headers, fieldMapping)
+      ? buildDataOption(rawRows, headers, fieldMapping, chartType)
       : {};
 
-  const appearanceOption =
-    appearance?.chart != null ? appearanceToEChartsOption(appearance.chart) : {};
+  const isPie = chartType === "pie";
 
-  const option: EChartsOption = {
-    ...defaultOption,
-    ...dataOption,
-    ...appearanceOption,
-    xAxis: { ...(dataOption.xAxis as object), ...(appearanceOption.xAxis as object) },
-    yAxis: { ...(defaultOption.yAxis as object), ...(appearanceOption.yAxis as object) },
-    legend: { ...(dataOption.legend as object), ...(appearanceOption.legend as object) },
-  };
+  let option: EChartsOption;
+  if (isPie) {
+    // Strip axes from both defaultOption and appearanceOption for pie charts
+    const { xAxis: _axA, yAxis: _ayA, ...appearOpt } = appearanceOption;
+    const { xAxis: _axD, yAxis: _ayD, series: _sD, ...defaultOpt } = defaultOption;
+    option = {
+      ...defaultOpt,
+      ...dataOption,
+      ...appearOpt,
+      legend: { ...(dataOption.legend as object), ...(appearOpt.legend as object) },
+    };
+  } else {
+    option = {
+      ...defaultOption,
+      ...dataOption,
+      ...appearanceOption,
+      xAxis: { ...(dataOption.xAxis as object), ...(appearanceOption.xAxis as object) },
+      yAxis: { ...(defaultOption.yAxis as object), ...(appearanceOption.yAxis as object) },
+      legend: { ...(dataOption.legend as object), ...(appearanceOption.legend as object) },
+    };
+  }
 
   return (
     <ReactECharts

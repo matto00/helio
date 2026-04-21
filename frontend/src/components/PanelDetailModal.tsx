@@ -36,6 +36,7 @@ const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
     x: { show: true, label: "X Axis" },
     y: { show: true, label: "Y Axis" },
   },
+  chartType: "line",
 };
 
 function padSeriesColors(colors: string[]): string[] {
@@ -85,6 +86,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     legend: panel.appearance.chart?.legend ?? DEFAULT_CHART_APPEARANCE.legend,
     tooltip: panel.appearance.chart?.tooltip ?? DEFAULT_CHART_APPEARANCE.tooltip,
     axisLabels: panel.appearance.chart?.axisLabels ?? DEFAULT_CHART_APPEARANCE.axisLabels,
+    chartType: panel.appearance.chart?.chartType ?? "line",
   };
   const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
@@ -470,6 +472,27 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     />
                   )}
                 </div>
+
+                <fieldset className="panel-detail-modal__chart-subsection">
+                  <legend className="panel-detail-modal__chart-label">Chart type</legend>
+                  <div className="panel-detail-modal__chart-type-options">
+                    {(["bar", "line", "pie", "scatter"] as const).map((type) => (
+                      <label key={type} className="panel-detail-modal__chart-type-option">
+                        <input
+                          type="radio"
+                          name="chartType"
+                          value={type}
+                          checked={chartAppearance.chartType === type}
+                          onChange={() =>
+                            setChartAppearance((prev) => ({ ...prev, chartType: type }))
+                          }
+                          aria-label={`Chart type ${type}`}
+                        />
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
             )}
             <InlineError error={saveError} />

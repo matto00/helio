@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/domain/model.scala` — added `chartType: Option[String] = None` field to `ChartAppearance` case class
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — updated `chartAppearanceFormat` from `jsonFormat4` to `jsonFormat5`
+- `schemas/panel-appearance.schema.json` — added `chartType` property (enum: bar, line, pie, scatter) to chart object
+- `frontend/src/types/models.ts` — added `chartType?: "bar" | "line" | "pie" | "scatter"` to `ChartAppearance` interface
+- `frontend/src/utils/chartAppearance.ts` — `appearanceToEChartsOption` now returns `{ option, chartType }` (new `AppearanceResult` type); added `ChartType` type export
+- `frontend/src/components/ChartPanel.tsx` — `buildDataOption` accepts `chartType` param; pie branch produces `{name, value}` data; scatter branch produces `[[x,y]]` pairs; pie suppresses xAxis/yAxis in merged option; `defaultOption` series uses type `"line"`
+- `frontend/src/components/PanelDetailModal.tsx` — added `chartType: "line"` to `DEFAULT_CHART_APPEARANCE`; initialised `chartType` from panel appearance or default; added chart type `<fieldset>` radio group (bar/line/pie/scatter)
+- `frontend/src/utils/chartAppearance.test.ts` — updated all tests to use new `{ option, chartType }` return shape; added chartType propagation test suite
+- `frontend/src/components/ChartPanel.test.tsx` — added pie series shape test, pie axis-suppression test, scatter coordinate-pair test
+- `frontend/src/components/PanelDetailModal.test.tsx` — added chart type radio button presence/absence tests, default selection test, selection-updates-preview test

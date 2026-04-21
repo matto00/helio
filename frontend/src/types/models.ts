@@ -48,6 +48,7 @@ export interface ChartAppearance {
   legend: ChartLegend;
   tooltip: ChartTooltip;
   axisLabels: ChartAxisLabels;
+  chartType?: "bar" | "line" | "pie" | "scatter";
 }
 
 export interface PanelAppearance {

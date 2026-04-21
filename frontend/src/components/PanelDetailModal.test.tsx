@@ -362,4 +362,35 @@ describe("PanelDetailModal", () => {
       expect(screen.queryByLabelText("X-axis label text")).not.toBeInTheDocument();
     });
   });
+
+  describe("Chart type selector", () => {
+    it("renders chart type radio buttons for chart panels", () => {
+      renderChartModal();
+      expect(screen.getByLabelText("Chart type bar")).toBeInTheDocument();
+      expect(screen.getByLabelText("Chart type line")).toBeInTheDocument();
+      expect(screen.getByLabelText("Chart type pie")).toBeInTheDocument();
+      expect(screen.getByLabelText("Chart type scatter")).toBeInTheDocument();
+    });
+
+    it("does not render chart type radio buttons for non-chart panels", () => {
+      renderModal();
+      expect(screen.queryByLabelText("Chart type bar")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Chart type line")).not.toBeInTheDocument();
+    });
+
+    it("defaults to line chart type", () => {
+      renderChartModal();
+      const lineRadio = screen.getByLabelText("Chart type line") as HTMLInputElement;
+      expect(lineRadio.checked).toBe(true);
+    });
+
+    it("updates the preview when a chart type is selected", () => {
+      renderChartModal();
+      const pieRadio = screen.getByLabelText("Chart type pie");
+      fireEvent.click(pieRadio);
+      expect((pieRadio as HTMLInputElement).checked).toBe(true);
+      const barRadio = screen.getByLabelText("Chart type bar") as HTMLInputElement;
+      expect(barRadio.checked).toBe(false);
+    });
+  });
 });
