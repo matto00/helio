@@ -13,7 +13,7 @@ latest version on the `main` branch only.
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Report vulnerabilities by emailing [mattheworr018@gmail.com](mailto:mattheworr018@gmail.com)  
+Report vulnerabilities by emailing [dev@helioapp.dev](mailto:dev@helioapp.dev)  
 with a description of the issue, steps to reproduce, and any relevant context.
 
 You can expect an acknowledgement within **48 hours** and a status update within  
