@@ -29,6 +29,17 @@ def loadAkkaLicenseKeyOptions(baseDir: File): Seq[String] =
 lazy val root = (project in file("."))
   .settings(
     name := "helio-backend",
+    assembly / mainClass := Some("com.helio.app.Main"),
+    assembly / assemblyJarName := "helio-backend.jar",
+    assembly / assemblyMergeStrategy := {
+      case "reference.conf"                        => MergeStrategy.concat
+      case "application.conf"                      => MergeStrategy.concat
+      case PathList("META-INF", "services", _*)    => MergeStrategy.concat
+      case PathList("META-INF", "MANIFEST.MF")     => MergeStrategy.discard
+      case PathList("META-INF", _*)                => MergeStrategy.discard
+      case "module-info.class"                     => MergeStrategy.discard
+      case x                                       => MergeStrategy.first
+    },
     Compile / run / fork := true,
     Test / fork := true,
     Compile / run / envVars ++= loadDotEnv(baseDirectory.value),
@@ -41,7 +52,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-spray-json" % "10.5.3",
       "com.typesafe.akka" %% "akka-slf4j" % "2.8.8",
       "com.typesafe.akka" %% "akka-stream" % "2.8.8",
-      "ch.qos.logback" % "logback-classic" % "1.2.12",
+      "ch.qos.logback" % "logback-classic" % "1.5.18",
       "com.typesafe.slick" %% "slick" % "3.5.2",
       "com.typesafe.slick" %% "slick-hikaricp" % "3.5.2",
       "org.postgresql" % "postgresql" % "42.7.4",

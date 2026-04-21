@@ -6,7 +6,6 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeSer
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
 
-
 jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),

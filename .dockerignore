@@ -1,0 +1,53 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+frontend/dist/
+build/
+backend/target/
+
+# Scala/SBT artifacts
+backend/.bloop/
+backend/.bsp/
+backend/.metals/
+backend/project/target/
+backend/project/project/
+
+# IDE and editor
+.idea/
+*.iml
+
+# Logs and temp files
+*.log
+*.png
+!docs/*.png
+
+# Environment and secrets
+backend/.env
+
+# Dev/test data
+backend/data/
+
+# Claude Code artifacts
+.claude/
+.playwright-mcp/
+[0-9][0-9]-snapshot.md
+
+# Docs and non-essential files
+docs/
+notes/
+prototypes/
+openspec/
+schemas/
+*.md
+!README.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db

@@ -165,7 +165,11 @@ export function ChartPanel({ appearance, rawRows, headers, fieldMapping }: Chart
         nameTextStyle: textStyle,
         axisLabel: { color: textColor },
       },
-      legend: { ...(dataOption.legend as object), ...(appearanceOption.legend as object), textStyle },
+      legend: {
+        ...(dataOption.legend as object),
+        ...(appearanceOption.legend as object),
+        textStyle,
+      },
     };
   }
 
