@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: ACL directive covers DataSource and DataType resource types
 The `authorizeResource` directive resolver registry SHALL include resolvers for `DataSource` and

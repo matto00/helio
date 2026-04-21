@@ -1,9 +1,5 @@
-# data-source-persistence Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines persistence requirements for Data Sources: the data_sources table schema, repository CRUD contract,
-owner_id isolation, and related API behaviors.
-## Requirements
 ### Requirement: Data sources are persisted in the database
 The backend SHALL maintain a `data_sources` table with columns: `id` (UUID PK), `name` (text), `source_type`
 (text, constrained to `rest_api | csv | static | sql`), `config` (text/JSON), `owner_id` (UUID, nullable),
@@ -50,55 +46,6 @@ The API SHALL expose `GET /api/data-sources` returning only the requesting user'
 - **WHEN** multiple users have created data sources
 - **THEN** `GET /api/data-sources` returns only the requesting user's sources
 
-### Requirement: POST /api/sources supports optional fieldOverrides
-`POST /api/sources` SHALL accept an optional `fieldOverrides` array in the JSON body. Each override is
-`{ "name": string, "displayName": string, "dataType": string }`. When provided, the inferred `DataField`
-vector is updated before the `DataType` is inserted: for each field whose `name` matches an override,
-`displayName` and `dataType` are replaced with the override values. Non-matching fields are left unchanged.
-
-#### Scenario: Override is applied to matching field
-- **WHEN** `POST /api/sources` is called with `fieldOverrides: [{ "name": "revenue", "displayName": "Total Revenue", "dataType": "float" }]`
-- **THEN** the created `DataType` contains a field named `revenue` with `displayName = "Total Revenue"` and `dataType = "float"`
-
-#### Scenario: Non-matching overrides are ignored
-- **WHEN** `fieldOverrides` contains an entry whose `name` does not match any inferred field
-- **THEN** the override is silently ignored and the created `DataType` is unaffected
-
-#### Scenario: Absent fieldOverrides leaves inferred schema unchanged
-- **WHEN** `POST /api/sources` is called with no `fieldOverrides` property
-- **THEN** the created `DataType` reflects the raw inferred schema
-
-### Requirement: POST /api/data-sources supports optional fieldOverrides via multipart
-`POST /api/data-sources` SHALL accept an optional `fields` multipart part containing a JSON-encoded
-`Vector[FieldOverridePayload]`. Parsing failures are silently ignored (treated as no overrides). If
-provided and parseable, overrides are applied to the inferred `DataField` vector before `DataType`
-insertion, using the same matching logic as `POST /api/sources`.
-
-#### Scenario: CSV field override is applied
-- **WHEN** `POST /api/data-sources` is called with a CSV file and a `fields` part containing `[{ "name": "value", "displayName": "Sale Value", "dataType": "float" }]`
-- **THEN** the created `DataType` contains a field named `value` with `displayName = "Sale Value"`
-
-### Requirement: Static source config shape is persisted in config JSONB
-The `data_sources.config` JSONB column SHALL store `{ "columns": [{ "name": string, "type": string }], "rows": [[...]] }`
-for sources with `source_type = "static"`. The `DataSourceRepository.update` method SHALL be used to
-replace this config on refresh.
-
-#### Scenario: Static config is round-tripped through the repository
-- **WHEN** a `DataSource` with `sourceType = Static` and a `config` containing `columns` and `rows` is inserted
-- **THEN** `DataSourceRepository.findById` returns the same `config` JSON value unchanged
-
-#### Scenario: Config is replaced on update
-- **WHEN** `DataSourceRepository.update` is called with a modified `config` for an existing static source
-- **THEN** `findById` returns the source with the updated `config`
-
-### Requirement: SQL source type is accepted in data_sources
-The `source_type` column in the `data_sources` table SHALL accept the value `"sql"` in addition to the
-existing `rest_api`, `csv`, and `static` values.
-
-#### Scenario: SQL source type is accepted
-- **WHEN** a `DataSource` with `source_type = "sql"` is inserted via `DataSourceRepository.insert`
-- **THEN** `DataSourceRepository.findById` returns the record with `source_type = "sql"`
-
 ### Requirement: data_sources table has an owner_id column
 A Flyway migration SHALL add an `owner_id UUID` column to the `data_sources` table. Existing rows will
 have `owner_id = NULL` and be treated as unowned (invisible to all users).
@@ -130,4 +77,3 @@ by the AclDirective resolver which performs its own ownership check.
 #### Scenario: findById returns the source for any caller
 - **WHEN** `findById` is called with a valid id
 - **THEN** the result is `Some(source)` regardless of the caller's identity
-

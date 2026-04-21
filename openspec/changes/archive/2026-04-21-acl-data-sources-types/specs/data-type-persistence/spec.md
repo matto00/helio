@@ -1,9 +1,5 @@
-# data-type-persistence Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines persistence requirements for Data Types (Type Registry): the data_types table schema,
-repository CRUD contract, owner_id isolation, and version tracking.
-## Requirements
 ### Requirement: Data types are persisted in the database
 The backend SHALL maintain a `data_types` table with columns: `id` (UUID PK), `source_id` (UUID FK →
 data_sources, nullable, ON DELETE SET NULL), `name` (text), `fields` (text/JSON array of
@@ -84,4 +80,3 @@ unbound-on-mismatch behavior.
 #### Scenario: findById returns Some when ownerId matches
 - **WHEN** `findById(id, correctOwnerId)` is called
 - **THEN** the result is `Some(dataType)`
-

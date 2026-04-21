@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: GET /api/data-sources returns only the authenticated user's sources
 The system SHALL filter `GET /api/data-sources` results to only include data sources owned by the
