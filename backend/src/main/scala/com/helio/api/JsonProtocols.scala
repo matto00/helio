@@ -417,7 +417,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val chartTooltipFormat: RootJsonFormat[ChartTooltip]         = jsonFormat1(ChartTooltip.apply)
   implicit val chartAxisLabelFormat: RootJsonFormat[ChartAxisLabel]     = jsonFormat2(ChartAxisLabel.apply)
   implicit val chartAxisLabelsFormat: RootJsonFormat[ChartAxisLabels]   = jsonFormat2(ChartAxisLabels.apply)
-  implicit val chartAppearanceFormat: RootJsonFormat[ChartAppearance]   = jsonFormat4(ChartAppearance.apply)
+  implicit val chartAppearanceFormat: RootJsonFormat[ChartAppearance]   = jsonFormat5(ChartAppearance.apply)
   implicit val panelAppearanceFormat: RootJsonFormat[PanelAppearance]   = jsonFormat4(PanelAppearance.apply)
 
   implicit val resourceMetaResponseFormat: RootJsonFormat[ResourceMetaResponse] = jsonFormat3(

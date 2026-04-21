@@ -2,6 +2,13 @@ import type { EChartsOption } from "echarts";
 
 import type { ChartAppearance } from "../types/models";
 
+export type ChartType = "bar" | "line" | "pie" | "scatter";
+
+export interface AppearanceResult {
+  option: EChartsOption;
+  chartType: ChartType;
+}
+
 function legendPositionProps(position: string): Record<string, unknown> {
   switch (position) {
     case "top":
@@ -17,7 +24,8 @@ function legendPositionProps(position: string): Record<string, unknown> {
   }
 }
 
-export function appearanceToEChartsOption(chart: ChartAppearance): EChartsOption {
+export function appearanceToEChartsOption(chart: ChartAppearance): AppearanceResult {
+  const chartType: ChartType = (chart.chartType as ChartType) ?? "line";
   const option: EChartsOption = {
     legend: {
       show: chart.legend.show,
@@ -40,5 +48,5 @@ export function appearanceToEChartsOption(chart: ChartAppearance): EChartsOption
   if (chart.seriesColors.length > 0) {
     option.color = chart.seriesColors;
   }
-  return option;
+  return { option, chartType };
 }

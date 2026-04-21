@@ -86,6 +86,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "chartType": {
+          "type": "string",
+          "enum": ["bar", "line", "pie", "scatter"]
         }
       },
       "additionalProperties": false

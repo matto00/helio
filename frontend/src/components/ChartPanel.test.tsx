@@ -13,7 +13,7 @@ function getOption(el: HTMLElement) {
   return JSON.parse(el.getAttribute("data-option") ?? "{}") as Record<string, unknown>;
 }
 
-describe("ChartPanel — no data", () => {
+describe("ChartPanel \u2014 no data", () => {
   it("renders an ECharts instance with default option", () => {
     render(<ChartPanel />);
     expect(screen.getByTestId("echarts")).toBeInTheDocument();
@@ -25,7 +25,7 @@ describe("ChartPanel — no data", () => {
   });
 });
 
-describe("ChartPanel — mapped xAxis and yAxis", () => {
+describe("ChartPanel \u2014 mapped xAxis and yAxis", () => {
   const headers = ["date", "price"];
   const rawRows = [
     ["2024-01-01", "100"],
@@ -62,7 +62,7 @@ describe("ChartPanel — mapped xAxis and yAxis", () => {
   });
 });
 
-describe("ChartPanel — auto-detect numeric columns", () => {
+describe("ChartPanel \u2014 auto-detect numeric columns", () => {
   it("uses first column as x-axis when no fieldMapping", () => {
     const headers = ["label", "value"];
     const rawRows = [
@@ -82,7 +82,7 @@ describe("ChartPanel — auto-detect numeric columns", () => {
   });
 });
 
-describe("ChartPanel — appearance", () => {
+describe("ChartPanel \u2014 appearance", () => {
   it("renders without crashing when appearance has chart config", () => {
     const appearance = {
       background: "transparent",
@@ -120,5 +120,103 @@ describe("ChartPanel — appearance", () => {
     render(<ChartPanel appearance={appearance} />);
     const option = getOption(screen.getByTestId("echarts")) as { color: string[] };
     expect(option.color).toEqual(["#ff0000", "#00ff00"]);
+  });
+});
+
+const baseAppearance = {
+  background: "transparent",
+  color: "inherit",
+  transparency: 0,
+};
+
+const baseChartConfig = {
+  seriesColors: [],
+  legend: { show: true, position: "top" as const },
+  tooltip: { enabled: true },
+  axisLabels: {
+    x: { show: true, label: "X" },
+    y: { show: true, label: "Y" },
+  },
+};
+
+describe("ChartPanel \u2014 pie chart", () => {
+  const headers = ["category", "sales"];
+  const rawRows = [
+    ["Apples", "100"],
+    ["Bananas", "200"],
+    ["Cherries", "50"],
+  ];
+  const fieldMapping = { xAxis: "category", yAxis: "sales" };
+  const appearance = {
+    ...baseAppearance,
+    chart: { ...baseChartConfig, chartType: "pie" as const },
+  };
+
+  it("produces pie series with {name, value} data shape", () => {
+    render(
+      <ChartPanel
+        appearance={appearance}
+        headers={headers}
+        rawRows={rawRows}
+        fieldMapping={fieldMapping}
+      />,
+    );
+    const option = getOption(screen.getByTestId("echarts")) as {
+      series: Array<{ type: string; data: Array<{ name: string; value: number }> }>;
+    };
+    expect(option.series[0].type).toBe("pie");
+    expect(option.series[0].data).toEqual([
+      { name: "Apples", value: 100 },
+      { name: "Bananas", value: 200 },
+      { name: "Cherries", value: 50 },
+    ]);
+  });
+
+  it("does not include xAxis or yAxis keys when chartType is pie", () => {
+    render(
+      <ChartPanel
+        appearance={appearance}
+        headers={headers}
+        rawRows={rawRows}
+        fieldMapping={fieldMapping}
+      />,
+    );
+    const option = getOption(screen.getByTestId("echarts"));
+    expect(option.xAxis).toBeUndefined();
+    expect(option.yAxis).toBeUndefined();
+  });
+});
+
+describe("ChartPanel \u2014 scatter chart", () => {
+  const headers = ["x", "y"];
+  const rawRows = [
+    ["1", "2"],
+    ["3", "4"],
+    ["5", "6"],
+  ];
+  const fieldMapping = { xAxis: "x", yAxis: "y" };
+  const appearance = {
+    ...baseAppearance,
+    chart: { ...baseChartConfig, chartType: "scatter" as const },
+  };
+
+  it("produces scatter series with [[x,y]] coordinate pairs", () => {
+    render(
+      <ChartPanel
+        appearance={appearance}
+        headers={headers}
+        rawRows={rawRows}
+        fieldMapping={fieldMapping}
+      />,
+    );
+    const option = getOption(screen.getByTestId("echarts")) as {
+      series: Array<{ type: string; data: Array<[number, number]> }>;
+    };
+    expect(option.series[0].type).toBe("scatter");
+    expect(option.series[0].data).toEqual([
+      [1, 2],
+      [3, 4],
+      [5, 6],
+    ]);
   });
 });
