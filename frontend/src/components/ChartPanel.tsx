@@ -131,25 +131,41 @@ export function ChartPanel({ appearance, rawRows, headers, fieldMapping }: Chart
 
   const isPie = chartType === "pie";
 
+  const textColor = appearance?.color;
+  const textStyle = textColor ? { color: textColor } : {};
+
   let option: EChartsOption;
   if (isPie) {
-    // Strip axes from both defaultOption and appearanceOption for pie charts
     const { xAxis: _axA, yAxis: _ayA, ...appearOpt } = appearanceOption;
     const { xAxis: _axD, yAxis: _ayD, series: _sD, ...defaultOpt } = defaultOption;
     option = {
       ...defaultOpt,
       ...dataOption,
       ...appearOpt,
-      legend: { ...(dataOption.legend as object), ...(appearOpt.legend as object) },
+      backgroundColor: "transparent",
+      textStyle,
+      legend: { ...(dataOption.legend as object), ...(appearOpt.legend as object), textStyle },
     };
   } else {
     option = {
       ...defaultOption,
       ...dataOption,
       ...appearanceOption,
-      xAxis: { ...(dataOption.xAxis as object), ...(appearanceOption.xAxis as object) },
-      yAxis: { ...(defaultOption.yAxis as object), ...(appearanceOption.yAxis as object) },
-      legend: { ...(dataOption.legend as object), ...(appearanceOption.legend as object) },
+      backgroundColor: "transparent",
+      textStyle,
+      xAxis: {
+        ...(dataOption.xAxis as object),
+        ...(appearanceOption.xAxis as object),
+        nameTextStyle: textStyle,
+        axisLabel: { color: textColor },
+      },
+      yAxis: {
+        ...(defaultOption.yAxis as object),
+        ...(appearanceOption.yAxis as object),
+        nameTextStyle: textStyle,
+        axisLabel: { color: textColor },
+      },
+      legend: { ...(dataOption.legend as object), ...(appearanceOption.legend as object), textStyle },
     };
   }
 

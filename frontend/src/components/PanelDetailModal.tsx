@@ -14,7 +14,6 @@ import {
   panelTextEditorFallback,
 } from "../theme/appearance";
 import type { ChartAppearance, Panel, PanelAppearance } from "../types/models";
-import { ChartPanel } from "./ChartPanel";
 import { InlineError } from "./InlineError";
 
 type Tab = "appearance" | "data";
@@ -306,17 +305,6 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               <div className="panel-detail-modal__chart-section">
                 <span className="panel-detail-modal__section-heading">Chart</span>
 
-                <div className="panel-detail-modal__chart-preview">
-                  <ChartPanel
-                    appearance={{
-                      background,
-                      color,
-                      transparency: clampTransparency(transparency / 100),
-                      chart: chartAppearance,
-                    }}
-                  />
-                </div>
-
                 <div className="panel-detail-modal__chart-subsection">
                   <span className="panel-detail-modal__chart-label">Series colors</span>
                   <div className="panel-detail-modal__color-swatches">
@@ -473,11 +461,28 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                   )}
                 </div>
 
-                <fieldset className="panel-detail-modal__chart-subsection">
-                  <legend className="panel-detail-modal__chart-label">Chart type</legend>
-                  <div className="panel-detail-modal__chart-type-options">
-                    {(["bar", "line", "pie", "scatter"] as const).map((type) => (
-                      <label key={type} className="panel-detail-modal__chart-type-option">
+                <div className="panel-detail-modal__chart-type-section">
+                  <span className="panel-detail-modal__chart-type-label">Chart type</span>
+                  <div className="panel-detail-modal__chart-type-selector">
+                    {(
+                      [
+                        { type: "bar", icon: "▊", label: "Bar" },
+                        { type: "line", icon: "∿", label: "Line" },
+                        { type: "pie", icon: "◑", label: "Pie" },
+                        { type: "scatter", icon: "⁖", label: "Scatter" },
+                      ] as const
+                    ).map(({ type, icon, label }) => (
+                      <label
+                        key={type}
+                        className={[
+                          "panel-detail-modal__chart-type-option",
+                          chartAppearance.chartType === type
+                            ? "panel-detail-modal__chart-type-option--active"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
                         <input
                           type="radio"
                           name="chartType"
@@ -487,12 +492,14 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                             setChartAppearance((prev) => ({ ...prev, chartType: type }))
                           }
                           aria-label={`Chart type ${type}`}
+                          className="panel-detail-modal__chart-type-radio"
                         />
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                        <span className="panel-detail-modal__chart-type-icon">{icon}</span>
+                        <span className="panel-detail-modal__chart-type-name">{label}</span>
                       </label>
                     ))}
                   </div>
-                </fieldset>
+                </div>
               </div>
             )}
             <InlineError error={saveError} />

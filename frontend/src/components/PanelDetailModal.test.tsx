@@ -6,9 +6,6 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeSer
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
 
-jest.mock("./ChartPanel", () => ({
-  ChartPanel: () => <div data-testid="modal-chart-panel" />,
-}));
 
 jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
@@ -316,7 +313,6 @@ describe("PanelDetailModal", () => {
   describe("Chart section", () => {
     it("renders Chart section on Appearance tab for chart panels", () => {
       renderChartModal();
-      expect(screen.getByTestId("modal-chart-panel")).toBeInTheDocument();
       expect(screen.getByLabelText("Show legend")).toBeInTheDocument();
       expect(screen.getByLabelText("Enable tooltip")).toBeInTheDocument();
       expect(screen.getByLabelText("Show X-axis label")).toBeInTheDocument();
