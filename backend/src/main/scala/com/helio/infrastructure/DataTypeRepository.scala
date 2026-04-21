@@ -6,6 +6,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
@@ -24,7 +25,8 @@ class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
       computedFields = row.computedFields.parseJson.convertTo[Vector[ComputedField]],
       version        = row.version,
       createdAt      = row.createdAt,
-      updatedAt      = row.updatedAt
+      updatedAt      = row.updatedAt,
+      ownerId        = row.ownerId.map(id => UserId(id.toString)).getOrElse(UserId("00000000-0000-0000-0000-000000000000"))
     )
 
   private def domainToRow(dt: DataType): DataTypeRow =
@@ -36,20 +38,34 @@ class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
       computedFields = dt.computedFields.toJson.compactPrint,
       version        = dt.version,
       createdAt      = dt.createdAt,
-      updatedAt      = dt.updatedAt
+      updatedAt      = dt.updatedAt,
+      ownerId        = if (dt.ownerId.value.isEmpty) None else Some(UUID.fromString(dt.ownerId.value))
     )
 
-  def findAll(): Future[Vector[DataType]] =
-    db.run(table.sortBy(_.createdAt.desc).result)
+  def findAll(ownerId: UserId): Future[Vector[DataType]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    db.run(table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result)
       .map(_.map(rowToDomain).toVector)
+  }
 
-  def findBySourceId(id: DataSourceId): Future[Vector[DataType]] =
-    db.run(table.filter(_.sourceId === id.value).result)
+  def findBySourceId(id: DataSourceId, ownerId: UserId): Future[Vector[DataType]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    db.run(table.filter(r => r.sourceId === id.value && r.ownerId === ownerUuid).result)
       .map(_.map(rowToDomain).toVector)
+  }
 
+  /** Unscoped findById — used by AclDirective resolver and internal post-auth route code. */
   def findById(id: DataTypeId): Future[Option[DataType]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
+
+  /** Owner-scoped findById — returns None if the type exists but belongs to a different user.
+   *  Used to null-out cross-user typeId bindings on panel reads. */
+  def findById(id: DataTypeId, ownerId: UserId): Future[Option[DataType]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    db.run(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
+      .map(_.map(rowToDomain))
+  }
 
   def insert(dt: DataType): Future[DataType] = {
     val row = domainToRow(dt).copy(version = 1)
@@ -107,7 +123,8 @@ object DataTypeRepository {
       computedFields: String,
       version: Int,
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      ownerId: Option[java.util.UUID]
   )
 
   class DataTypeTable(tag: Tag) extends Table[DataTypeRow](tag, "data_types") {
@@ -119,7 +136,8 @@ object DataTypeRepository {
     def version        = column[Int]("version")
     def createdAt      = column[Instant]("created_at")
     def updatedAt      = column[Instant]("updated_at")
+    def ownerId        = column[Option[java.util.UUID]]("owner_id")
 
-    def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt).mapTo[DataTypeRow]
+    def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt, ownerId).mapTo[DataTypeRow]
   }
 }

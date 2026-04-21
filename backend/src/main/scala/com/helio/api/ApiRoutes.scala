@@ -31,9 +31,6 @@ final class ApiRoutes(
   private val authDirectives = new AuthDirectives(userSessionRepo)
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
-  private val dataTypes      = new DataTypeRoutes(dataTypeRepo)
-  private val dataSources    = new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem)
-  private val sources        = new SourceRoutes(dataSourceRepo, dataTypeRepo, connector)
 
   val routes: Route =
     health.routes ~
@@ -57,11 +54,11 @@ final class ApiRoutes(
                   }
                 }
               },
-              new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser).routes,
-              new PanelRoutes(panelRepo, dashboardRepo, authenticatedUser).routes,
-              dataTypes.routes,
-              dataSources.routes,
-              sources.routes
+              new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
+              new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, authenticatedUser).routes,
+              new DataTypeRoutes(dataTypeRepo, authenticatedUser).routes,
+              new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, authenticatedUser).routes,
+              new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes
             )
           }
         )

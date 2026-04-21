@@ -93,7 +93,7 @@ class ApiRoutesSpec
   private val testUser    = AuthenticatedUser(UserId(testUserId))
 
   // Second user for ACL tests (non-owner)
-  private val otherUserId = "other-user-id-5678"
+  private val otherUserId = "00000000-0000-0000-0000-000000000098"
   private val otherToken  = "valid-other-token"
   private val otherUser   = AuthenticatedUser(UserId(otherUserId))
 
@@ -779,7 +779,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("col1", "Column 1", "string", nullable = false)),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -821,7 +822,8 @@ class ApiRoutesSpec
         fields    = Vector.empty,
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -864,7 +866,8 @@ class ApiRoutesSpec
         fields    = Vector.empty,
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -899,7 +902,8 @@ class ApiRoutesSpec
         ),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -936,7 +940,8 @@ class ApiRoutesSpec
         computedFields = Vector(ComputedField("doubled", "Doubled", "x * 2", "float")),
         version        = 1,
         createdAt      = Instant.now(),
-        updatedAt      = Instant.now()
+        updatedAt      = Instant.now(),
+        ownerId        = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -961,7 +966,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("price", "Price", "float", nullable = false)),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -992,7 +998,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("x", "X", "float", nullable = false)),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1028,7 +1035,8 @@ class ApiRoutesSpec
         ),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1053,7 +1061,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("price", "Price", "float", nullable = false)),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1078,7 +1087,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("price", "Price", "float", nullable = false)),
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1132,7 +1142,8 @@ class ApiRoutesSpec
         fields    = Vector.empty,
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1171,7 +1182,8 @@ class ApiRoutesSpec
         fields    = Vector.empty,
         version   = 1,
         createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1252,7 +1264,8 @@ class ApiRoutesSpec
         sourceType = SourceType.RestApi,
         config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
         createdAt  = now,
-        updatedAt  = now
+        updatedAt  = now,
+        ownerId    = UserId(testUserId)
       )
       await(dataSourceRepo.insert(source))
 
@@ -1263,7 +1276,8 @@ class ApiRoutesSpec
         fields    = Vector(DataField("old", "Old", "string", nullable = false)),
         version   = 1,
         createdAt = now,
-        updatedAt = now
+        updatedAt = now,
+        ownerId   = UserId(testUserId)
       )
       await(dataTypeRepo.insert(dt))
 
@@ -1297,7 +1311,8 @@ class ApiRoutesSpec
         sourceType = SourceType.RestApi,
         config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
         createdAt  = now,
-        updatedAt  = now
+        updatedAt  = now,
+        ownerId    = UserId(testUserId)
       )
       await(dataSourceRepo.insert(source))
 
@@ -1980,6 +1995,219 @@ class ApiRoutesSpec
       }
     }
   }
+  // ── DataSource ACL tests (Task 7.3) ─────────────────────────────────────────
+
+  "DataSource ownership enforcement" should {
+
+    "GET /api/data-sources returns only sources owned by the authenticated user" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // testUser creates a source via the API
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"My Source","sourceType":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      // Insert a source owned by another user directly
+      val otherId = UUID.randomUUID().toString
+      val now = Instant.now()
+      await(dataSourceRepo.insert(DataSource(
+        id         = DataSourceId(otherId),
+        name       = "Other Source",
+        sourceType = SourceType.Static,
+        config     = spray.json.JsObject.empty,
+        createdAt  = now,
+        updatedAt  = now,
+        ownerId    = UserId(otherUserId)
+      )))
+
+      Get("/api/data-sources") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[DataSourcesResponse].items
+        items.map(_.name) should contain ("My Source")
+        items.map(_.name) should not contain "Other Source"
+      }
+    }
+
+    "DELETE /api/data-sources/:id returns 403 when caller does not own the source" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // Create a source as testUser
+      var sourceId = ""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"Protected Source","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      // otherUser tries to delete it
+      Delete(s"/api/data-sources/$sourceId") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "GET /api/data-sources/:id/preview returns 403 when caller does not own the source" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"Private Source","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[["hello"]]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+  }
+
+  // ── DataType ACL tests (Task 7.4) ────────────────────────────────────────────
+
+  "DataType ownership enforcement" should {
+
+    "GET /api/types returns only types owned by the authenticated user" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // testUser creates a type via CSV upload (which auto-creates a DataType)
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"User Type","sourceType":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      // Insert a type owned by another user directly
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "Other Type",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = UserId(otherUserId)
+      )
+      await(dataTypeRepo.insert(dt))
+
+      Get("/api/types") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val types = responseAs[DataTypesResponse]
+        types.items.map(_.name) should contain ("User Type")
+        types.items.map(_.name) should not contain "Other Type"
+      }
+    }
+
+    "PATCH /api/types/:id returns 403 when caller does not own the type" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // testUser creates a type
+      var typeId = ""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"My Type","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get("/api/types") ~> routes() ~> check {
+        typeId = responseAs[DataTypesResponse].items.head.id
+      }
+
+      // otherUser tries to PATCH it
+      Patch(s"/api/types/$typeId",
+        UpdateDataTypeRequest(name = Some("Hacked"), fields = None)
+      ) ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+
+    "DELETE /api/types/:id returns 403 when caller does not own the type" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // testUser creates a type
+      var typeId = ""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
+        """{"name":"My Type2","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+      )) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get("/api/types") ~> routes() ~> check {
+        typeId = responseAs[DataTypesResponse].items.head.id
+      }
+
+      // otherUser tries to DELETE it
+      Delete(s"/api/types/$typeId") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse].message shouldBe "Forbidden"
+      }
+    }
+  }
+
+  // ── Cross-user panel type binding test (Task 7.5) ────────────────────────────
+
+  "Cross-user panel type binding" should {
+
+    "panel with typeId owned by a different user reads as typeId=null" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      // testUser creates a dashboard and panel
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      // Insert a DataType owned by otherUser directly into the DB
+      val foreignType = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "Foreign Type",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = UserId(otherUserId)
+      )
+      await(dataTypeRepo.insert(foreignType))
+
+      // Bind the foreign type to the panel directly via the DB (bypassing auth)
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(sqlu"UPDATE panels SET type_id = ${foreignType.id.value} WHERE id = $panelId"))
+
+      // Now testUser reads panels for their dashboard — typeId should be null
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        panels should have size 1
+        panels.head.typeId shouldBe None
+      }
+    }
+  }
+
   "GET /api/auth/me" should {
 
     "return 200 with user info for a valid token" in {

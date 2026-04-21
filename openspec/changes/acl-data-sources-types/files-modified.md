@@ -1,0 +1,17 @@
+- `backend/src/main/resources/db/migration/V14__data_sources_owner.sql` — Flyway migration adding nullable `owner_id UUID` column to `data_sources`
+- `backend/src/main/resources/db/migration/V15__data_types_owner.sql` — Flyway migration adding nullable `owner_id UUID` column to `data_types`
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added `ownerId: UserId` field to `DataSource` and `DataType` case classes
+- `backend/src/main/scala/com/helio/infrastructure/DataSourceRepository.scala` — Added `owner_id` Slick mapping; `findAll(ownerId)` filters by owner; kept unscoped `findById` for AclDirective resolver
+- `backend/src/main/scala/com/helio/infrastructure/DataTypeRepository.scala` — Added `owner_id` Slick mapping; owner-scoped `findAll`, `findBySourceId`, and `findById(id, ownerId)` overload
+- `backend/src/main/scala/com/helio/api/routes/DataSourceRoutes.scala` — Added `user: AuthenticatedUser` param; `findAll(user.id)`; new sources get `ownerId = user.id`; AclDirective wraps DELETE/preview/refresh
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` — Added `user: AuthenticatedUser` param; `findAll(user.id)`; AclDirective wraps PATCH/DELETE
+- `backend/src/main/scala/com/helio/api/routes/SourceRoutes.scala` — Added `user: AuthenticatedUser` param; SQL/REST DataSource + DataType creation sets `ownerId = user.id`; `findBySourceId(id, user.id)` in handlers
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — Added optional `dataTypeRepo` param; `resolvePanels` nulls-out typeId/fieldMapping when DataType belongs to a different owner
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — Added `dataTypeRepo` param; `resolveTypeBinding` nulls cross-user typeId/fieldMapping on PATCH response
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Passes `authenticatedUser` to DataTypeRoutes, DataSourceRoutes, SourceRoutes; passes `dataTypeRepo` to DashboardRoutes and PanelRoutes
+- `backend/src/main/scala/com/helio/app/DemoData.scala` — Minor import cleanup (no functional change; DataSources/DataTypes not seeded by DemoData)
+- `backend/src/test/scala/com/helio/infrastructure/DataSourceRepositorySpec.scala` — Owner-scoped `findAll` and `findById` tests (task 7.1)
+- `backend/src/test/scala/com/helio/infrastructure/DataTypeRepositorySpec.scala` — Owner-scoped `findAll`, `findBySourceId`, and `findById` overload tests (task 7.2)
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — Fixed `testUserId` to valid UUID; ownership enforcement tests (task 7.3)
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — Added `ownerId` to inline DataType constructions
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Fixed `otherUserId` to valid UUID; added `ownerId` to all inline DataType/DataSource constructions; DataSource/DataType/cross-user ownership tests (tasks 7.3–7.5)

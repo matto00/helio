@@ -128,7 +128,8 @@ class ComputedFieldsRoutesSpec
       fields    = fields.toVector,
       version   = 1,
       createdAt = now,
-      updatedAt = now
+      updatedAt = now,
+      ownerId   = UserId(testUserId)
     )
     await(dataTypeRepo.insert(dt))
   }
