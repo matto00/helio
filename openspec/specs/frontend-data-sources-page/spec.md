@@ -1,5 +1,6 @@
-## ADDED Requirements
-
+## Purpose
+Frontend spec for the Sources page: data source listing, type registry browser, and associated UX patterns.
+## Requirements
 ### Requirement: /sources route renders SourcesPage
 The frontend SHALL register a `/sources` route via React Router that renders `SourcesPage`. The existing `/` route continues to render the dashboard panel view. Navigation between the two routes is provided by `NavLink` components in the app sidebar with `aria-label="Main navigation"`.
 
@@ -45,26 +46,42 @@ The frontend SHALL register a `/sources` route via React Router that renders `So
 - **THEN** the create endpoint receives `fieldOverrides` reflecting the edited values
 
 ### Requirement: TypeRegistryBrowser with inline TypeDetailPanel
-The TypeRegistry section of `SourcesPage` SHALL render a `TypeRegistryBrowser` that lists all `DataType` records from Redux state. Clicking a type opens `TypeDetailPanel` inline, showing an editable field table. Saving dispatches `updateDataType` (PATCH /api/types/:id).
+The TypeRegistry section of `SourcesPage` SHALL render a `TypeRegistryBrowser` that lists all `DataType` records from Redux state. Clicking a type SHALL immediately open `TypeDetailPanel` inline showing the type's fields and name in editable form. The panel SHALL remain visible until the user explicitly closes it via the close button. Re-clicking a selected type SHALL NOT collapse the panel (toggle behavior is removed). Saving dispatches `updateDataType` (PATCH /api/types/:id) with updated name and fields.
 
-#### Scenario: Selecting a type opens detail panel
+#### Scenario: Selecting a type opens detail panel immediately
 - **WHEN** the user clicks a DataType row in the registry
-- **THEN** `TypeDetailPanel` appears showing the type's fields with editable displayName and dataType
+- **THEN** `TypeDetailPanel` appears showing the type's name (editable) and fields with editable displayName, dataType, and nullable
+
+#### Scenario: Clicking the same type again does not close the panel
+- **WHEN** TypeDetailPanel is open and the user clicks the same DataType row again
+- **THEN** the panel remains open and its content does not change
+
+#### Scenario: Closing via close button hides the panel
+- **WHEN** the user clicks the close button on TypeDetailPanel
+- **THEN** the panel closes and the DataType row is deselected
 
 #### Scenario: Saving field edits
 - **WHEN** the user changes a displayName and clicks "Save changes"
-- **THEN** `PATCH /api/types/:id` is called with the updated fields array
+- **THEN** PATCH /api/types/:id is called with the updated fields array
 
 #### Scenario: Empty registry state
 - **WHEN** no DataTypes exist in Redux state
-- **THEN** "No data types yet. Add a source to create one." is displayed
+- **THEN** a meaningful empty state is displayed with guidance to add a data source
 
 ### Requirement: DataTypeField model alignment
 The frontend `DataTypeField` interface SHALL be `{ name: string; displayName: string; dataType: string; nullable: boolean }`, matching the backend `DataField` wire format. The previous incorrect shape `{ name, fieldType }` SHALL be removed.
 
+#### Scenario: Field table renders displayName and dataType columns
+- **WHEN** TypeDetailPanel is open for a DataType with fields
+- **THEN** each field row shows the displayName and dataType values from the field object
+
 ### Requirement: DataType model removes sourceType
 The frontend `DataType` interface SHALL NOT include a `sourceType` field, which was never returned by the backend. Source-type information SHALL be accessed via `DataType.sourceId` (non-null means source-backed). The `PanelDetailModal` type badge SHALL use `sourceId !== null` as its condition.
-## Requirements
+
+#### Scenario: Panel type badge reflects source-backed status
+- **WHEN** PanelDetailModal is open for a panel bound to a DataType with a non-null sourceId
+- **THEN** the type badge is displayed to indicate the type is source-backed
+
 ### Requirement: AddSourceModal has a Manual/Static tab
 `AddSourceModal` SHALL include a third tab labelled "Manual" alongside the existing "REST API" and "CSV" tabs. Selecting this tab SHALL show a two-step flow: Step 1 — define columns (name and type selector: string/integer/float/boolean); Step 2 — enter row values inline using inputs matched to each column's declared type. Clicking "Create source" in Step 2 SHALL POST to `/api/data-sources` with `Content-Type: application/json` and `source_type: "static"`.
 
