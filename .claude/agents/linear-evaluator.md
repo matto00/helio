@@ -134,7 +134,17 @@ files changed, the frontend likely isn't wired to the new behavior yet
 
 ### Dev server setup
 
-Start the dev server if not running. If startup fails:
+Start the dev server if not already running. Use `DEV_PORT` (default 5173) so that
+parallel orchestrator sessions do not collide on the same port:
+
+```bash
+PORT=${DEV_PORT:-5173} npm run dev &
+```
+
+Use `http://localhost:${DEV_PORT:-5173}` as the Playwright base URL for all
+navigation calls in this session.
+
+If startup fails:
 
 1. Diagnose — port conflict, missing deps, build error
 2. Include diagnosis in report
