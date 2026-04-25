@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { AccentPicker } from "./AccentPicker";
 import type { Theme } from "../theme/theme";
 import type { User } from "../types/models";
 import "./UserMenu.css";
@@ -7,10 +8,19 @@ interface UserMenuProps {
   currentUser: User;
   theme: Theme;
   toggleTheme: () => void;
+  accentColor: string;
+  setAccentColor: (hex: string) => void;
   onLogout: () => void;
 }
 
-export function UserMenu({ currentUser, theme, toggleTheme, onLogout }: UserMenuProps) {
+export function UserMenu({
+  currentUser,
+  theme,
+  toggleTheme,
+  accentColor,
+  setAccentColor,
+  onLogout,
+}: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -80,8 +90,14 @@ export function UserMenu({ currentUser, theme, toggleTheme, onLogout }: UserMenu
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
           >
-            {theme === "dark" ? "☀ Light" : "☾ Dark"}
+            {theme === "dark" ? "\u2600 Light" : "\u263e Dark"}
           </button>
+          <div className="user-menu__divider" />
+          <div className="user-menu__section">
+            <span className="user-menu__section-label">Accent color</span>
+            <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
+          </div>
+          <div className="user-menu__divider" />
           <button
             type="button"
             role="menuitem"

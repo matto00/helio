@@ -44,7 +44,7 @@ function AppShell() {
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
@@ -156,6 +156,8 @@ function AppShell() {
               currentUser={currentUser}
               theme={theme}
               toggleTheme={toggleTheme}
+              accentColor={accentColor}
+              setAccentColor={setAccentColor}
               onLogout={() => void handleLogout()}
             />
           )}

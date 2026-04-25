@@ -14,10 +14,18 @@ function renderMenu(overrides: Partial<User> = {}) {
   const user: User = { ...baseUser, ...overrides };
   const toggleTheme = jest.fn();
   const onLogout = jest.fn();
+  const setAccentColor = jest.fn();
   const utils = render(
-    <UserMenu currentUser={user} theme="dark" toggleTheme={toggleTheme} onLogout={onLogout} />,
+    <UserMenu
+      currentUser={user}
+      theme="dark"
+      toggleTheme={toggleTheme}
+      accentColor="#f97316"
+      setAccentColor={setAccentColor}
+      onLogout={onLogout}
+    />,
   );
-  return { ...utils, toggleTheme, onLogout };
+  return { ...utils, toggleTheme, onLogout, setAccentColor };
 }
 
 describe("UserMenu", () => {
@@ -84,5 +92,12 @@ describe("UserMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders accent color picker inside popover", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByText("Accent color")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Accent color presets" })).toBeInTheDocument();
   });
 });
