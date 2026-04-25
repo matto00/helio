@@ -146,10 +146,14 @@ export interface RestPreviewResponse {
   rows: Record<string, unknown>[];
 }
 
-export async function fetchCsvPreview(sourceId: string): Promise<CsvPreviewResponse> {
-  const response = await httpClient.get<CsvPreviewResponse>(
-    `/api/data-sources/${sourceId}/preview`,
-  );
+export async function fetchCsvPreview(
+  sourceId: string,
+  limit?: number,
+): Promise<CsvPreviewResponse> {
+  const url = limit
+    ? `/api/data-sources/${sourceId}/preview?limit=${limit}`
+    : `/api/data-sources/${sourceId}/preview`;
+  const response = await httpClient.get<CsvPreviewResponse>(url);
   return response.data;
 }
 

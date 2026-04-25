@@ -1,8 +1,5 @@
-# panel-bound-data-fetch Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines how bound panels fetch and display preview data from their backing data source on mount and on binding changes.
-## Requirements
 ### Requirement: Bound panel fetches preview data on mount
 When a panel has a non-null `typeId`, the frontend SHALL fetch preview data from the DataType's backing source on component mount. The appropriate endpoint SHALL be selected based on `DataSource.sourceType`: `GET /api/data-sources/:id/preview` for CSV sources and `GET /api/sources/:id/preview` for REST API sources. For panels with `type === "chart"`, the CSV preview fetch SHALL include `?limit=200` to retrieve enough data points for a meaningful chart; all other panel types SHALL omit the limit parameter and receive the default 10-row preview.
 
@@ -78,4 +75,3 @@ a clear error message in the panel body.
 #### Scenario: Error state does not crash other panels
 - **WHEN** one panel's fetch fails
 - **THEN** other panels on the dashboard render normally
-

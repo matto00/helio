@@ -110,6 +110,7 @@ class DataSourceRoutesSpec
   private val inferConfigBody: String = """{"url": "http://example.com", "method": "GET"}"""
 
   private val validCsv      = "id,name,score\n1,Alice,9.5\n2,Bob,8.0"
+  private val largeCsv      = "id,value\n" + (1 to 250).map(i => s"$i,${i * 10}").mkString("\n")
   private val nonUtf8Bytes  = Array[Byte](0xff.toByte, 0xfe.toByte, 0x00.toByte)
 
   private def multipartUpload(name: String, csvContent: String): Multipart.FormData =
@@ -244,6 +245,37 @@ class DataSourceRoutesSpec
     "return 404 for an unknown source id" in {
       Get("/api/data-sources/does-not-exist/preview") ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 200 with 200 rows when limit=200 is provided" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Large Preview Test", largeCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview?limit=200") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val preview = responseAs[CsvPreviewResponse]
+        preview.headers shouldBe Vector("id", "value")
+        preview.rows should have length 200
+      }
+    }
+
+    "return 10 rows by default when no limit param is provided for large CSV" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Default Limit Test", largeCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val preview = responseAs[CsvPreviewResponse]
+        preview.rows should have length 10
       }
     }
   }
