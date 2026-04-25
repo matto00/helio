@@ -1,6 +1,5 @@
-## Purpose
-Defines requirements for displaying user identity (avatar, initials, display name) in the app header, and how the UserMenu trigger is rendered.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: App header shows avatar when user has avatarUrl
 When `auth.status` is `'authenticated'` and `auth.currentUser.avatarUrl` is non-null, the app header SHALL render a circular avatar image using the `avatarUrl` value as the `src`. The avatar SHALL serve as the trigger button for the UserMenu popover.
 
@@ -33,4 +32,3 @@ When `currentUser.avatarUrl` is `null`, the header SHALL render a styled circula
 #### Scenario: Initials from email
 - **WHEN** `currentUser.displayName` is `null` and `currentUser.email` is `"user@example.com"`
 - **THEN** the trigger button renders the letter `"u"` in the avatar position
-
