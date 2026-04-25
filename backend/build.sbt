@@ -62,6 +62,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-testkit" % "10.5.3" % Test,
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
       "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
+      "ch.megard" %% "akka-http-cors" % "1.2.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
       "com.mysql" % "mysql-connector-j" % "8.3.0"
     )

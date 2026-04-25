@@ -52,8 +52,32 @@ object Main {
 
       val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
-      val port      = sys.env.get("HELIO_HTTP_PORT").flatMap(_.toIntOption).getOrElse(8080)
-      val apiRoutes = new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, connector, userRepo, userSessionRepo, googleClientId, googleClientSecret, googleRedirectUri)
+      val port      = sys.env.get("PORT")
+        .orElse(sys.env.get("HELIO_HTTP_PORT"))
+        .flatMap(_.toIntOption)
+        .getOrElse(8080)
+      val corsAllowedOrigins = sys.env
+        .getOrElse("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+        .split(",")
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .toSeq
+      logger.info("CORS allowed origins: {}", corsAllowedOrigins.mkString(", "))
+      val apiRoutes = new ApiRoutes(
+        dashboardRepo,
+        panelRepo,
+        dataSourceRepo,
+        dataTypeRepo,
+        permissionRepo,
+        fileSystem,
+        connector,
+        userRepo,
+        userSessionRepo,
+        googleClientId,
+        googleClientSecret,
+        googleRedirectUri,
+        corsAllowedOrigins
+      )
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>

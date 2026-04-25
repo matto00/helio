@@ -1,0 +1,7 @@
+- `backend/build.sbt` — added `akka-http-cors` dependency (task 4.1)
+- `backend/src/main/resources/application.conf` — added DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD HOCON substitutions with local defaults; DATABASE_URL still takes precedence; added LOG_LEVEL substitution for Akka loglevel (tasks 2.1, 2.2, 3.1)
+- `backend/src/main/resources/logback.xml` — reads LOG_LEVEL env var via Logback property substitution with INFO default (task 3.2)
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — added `corsAllowedOrigins` parameter; applies `cors()` directive wrapping all routes using akka-http-cors (tasks 4.2, 4.3)
+- `backend/src/main/scala/com/helio/app/Main.scala` — resolves port as PORT → HELIO_HTTP_PORT → 8080; parses CORS_ALLOWED_ORIGINS and passes to ApiRoutes (tasks 1.1, 4.2)
+- `.env.example` — documents all env vars with inline comments and local-dev defaults (task 5.1)
+- `openspec/changes/make-config-env-driven/tasks.md` — all tasks marked complete
