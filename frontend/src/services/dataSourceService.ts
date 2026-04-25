@@ -161,3 +161,8 @@ export async function fetchRestPreview(sourceId: string): Promise<RestPreviewRes
   const response = await httpClient.get<RestPreviewResponse>(`/api/sources/${sourceId}/preview`);
   return response.data;
 }
+
+export async function updateSource(sourceId: string, name: string): Promise<DataSource> {
+  const response = await httpClient.patch<DataSource>(`/api/data-sources/${sourceId}`, { name });
+  return response.data;
+}

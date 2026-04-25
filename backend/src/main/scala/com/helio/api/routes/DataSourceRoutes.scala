@@ -321,28 +321,54 @@ final class DataSourceRoutes(
           }
         },
         path(Segment) { sourceId =>
-          delete {
-            acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
-              onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
-                case None =>
-                  complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
-                case Some(source) =>
-                  val deleteFileF: Future[Unit] =
-                    if (source.sourceType == SourceType.Csv)
-                      csvPathFromConfig(source.config) match {
-                        case Some(path) =>
-                          fileSystem.delete(path).recover { case ex =>
-                            system.log.warn("Failed to delete CSV file at {}: {}", path, ex.getMessage)
+          concat(
+            patch {
+              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+                entity(as[UpdateDataSourceRequest]) { req =>
+                  req.name match {
+                    case Some(n) if n.trim.isEmpty =>
+                      complete(StatusCodes.BadRequest, ErrorResponse("name must not be empty"))
+                    case _ =>
+                      onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
+                        case None =>
+                          complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
+                        case Some(source) =>
+                          val updated = source.copy(
+                            name      = req.name.map(_.trim).getOrElse(source.name),
+                            updatedAt = java.time.Instant.now()
+                          )
+                          onSuccess(dataSourceRepo.update(updated)) {
+                            case None    => complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
+                            case Some(ds) => complete(DataSourceResponse.fromDomain(ds))
                           }
-                        case None => Future.successful(())
                       }
-                    else Future.successful(())
-                  onSuccess(deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id))) { _ =>
-                    complete(StatusCodes.NoContent)
                   }
+                }
+              }
+            },
+            delete {
+              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+                onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
+                  case Some(source) =>
+                    val deleteFileF: Future[Unit] =
+                      if (source.sourceType == SourceType.Csv)
+                        csvPathFromConfig(source.config) match {
+                          case Some(path) =>
+                            fileSystem.delete(path).recover { case ex =>
+                              system.log.warn("Failed to delete CSV file at {}: {}", path, ex.getMessage)
+                            }
+                          case None => Future.successful(())
+                        }
+                      else Future.successful(())
+                    onSuccess(deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id))) { _ =>
+                      complete(StatusCodes.NoContent)
+                    }
+                }
               }
             }
-          }
+          )
         }
       )
     }

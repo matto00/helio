@@ -69,3 +69,77 @@
   color: var(--app-text-muted);
   flex-shrink: 0;
 }
+
+.type-registry-browser__empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.type-registry-browser__empty-message {
+  font-size: 0.875rem;
+  color: var(--app-text-muted);
+  margin: 0 0 1rem;
+}
+
+.type-registry-browser__item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.type-registry-browser__item-row .type-registry-browser__item-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.type-registry-browser__delete-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--app-text-muted);
+  padding: 4px 6px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.75rem;
+  transition: color var(--app-transition);
+}
+
+.type-registry-browser__delete-btn:hover {
+  color: var(--app-danger, #e53e3e);
+}
+
+.type-registry-browser__item-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.type-registry-browser__confirm-text {
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.type-registry-browser__confirm-btn {
+  background: none;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  color: var(--app-text);
+}
+
+.type-registry-browser__confirm-btn--danger {
+  border-color: var(--app-danger, #e53e3e);
+  color: var(--app-danger, #e53e3e);
+}
+
+.type-registry-browser__delete-error {
+  font-size: 0.8rem;
+  color: var(--app-danger, #e53e3e);
+  margin: 0 0 0.5rem;
+  padding: 0.5rem;
+  background: var(--app-danger-surface, #fff5f5);
+  border-radius: var(--app-radius-sm);
+}

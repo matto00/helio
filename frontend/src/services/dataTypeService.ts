@@ -14,8 +14,10 @@ export async function updateDataType(
   id: string,
   fields: DataTypeField[],
   computedFields?: ComputedField[],
+  name?: string,
 ): Promise<DataType> {
   const response = await httpClient.patch<DataType>(`/api/types/${id}`, {
+    ...(name !== undefined ? { name } : {}),
     fields,
     ...(computedFields !== undefined ? { computedFields } : {}),
   });
@@ -36,4 +38,8 @@ export async function validateExpression(
     { params: { expr } },
   );
   return response.data;
+}
+
+export async function deleteDataType(id: string): Promise<void> {
+  await httpClient.delete(`/api/types/${id}`);
 }

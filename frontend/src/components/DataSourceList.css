@@ -111,3 +111,52 @@
   background: rgba(248, 113, 113, 0.1);
   color: #f87171;
 }
+
+.data-source-list__empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.data-source-list__empty-message {
+  font-size: 0.875rem;
+  color: var(--app-text-muted);
+  margin: 0 0 1rem;
+}
+
+.data-source-list__empty-cta {
+  padding: 0.4375rem 1rem;
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-dim);
+  color: var(--app-accent-strong);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--app-transition),
+    color var(--app-transition);
+}
+
+.data-source-list__empty-cta:hover {
+  background: var(--app-accent-surface);
+}
+
+.data-source-list__name-input {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--app-text);
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-sm);
+  padding: 2px 6px;
+  outline: none;
+  min-width: 0;
+  width: 14rem;
+}
+
+.data-source-list__bound-warning {
+  font-size: 0.75rem;
+  color: var(--app-warn, #d97706);
+  white-space: normal;
+  max-width: 16rem;
+}

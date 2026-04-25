@@ -1,0 +1,16 @@
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `UpdateDataSourceRequest` case class and its implicit JSON formatter
+- `backend/src/main/scala/com/helio/api/routes/DataSourceRoutes.scala` — Added `PATCH /api/data-sources/:id` route with ACL guard and name validation; wrapped existing `delete` in a `concat` inside `path(Segment)`
+- `frontend/src/services/dataTypeService.ts` — Added `deleteDataType` function; added optional `name` param to `updateDataType`
+- `frontend/src/services/dataSourceService.ts` — Added `updateSource` function calling `PATCH /api/data-sources/:id`
+- `frontend/src/features/dataTypes/dataTypesSlice.ts` — Added `deleteDataType` thunk (with 409 handling via `rejectWithValue`) and its fulfilled reducer; updated `updateDataType` thunk to accept optional `name`
+- `frontend/src/features/sources/sourcesSlice.ts` — Added `updateSource` thunk and its fulfilled reducer
+- `frontend/src/components/TypeRegistryBrowser.tsx` — Removed toggle-deselect behavior; added delete button + inline confirmation per row; added proper empty state with guidance message
+- `frontend/src/components/TypeRegistryBrowser.css` — Added styles for empty state, item row layout, delete button, confirm buttons, and delete error alert
+- `frontend/src/components/TypeDetailPanel.tsx` — Replaced static `<h3>` title with editable name input; name included in `updateDataType` dispatch
+- `frontend/src/components/TypeDetailPanel.css` — Added `.type-detail-panel__name-input` style
+- `frontend/src/components/DataSourceList.tsx` — Added inline rename affordance (Edit button -> input -> Save/Cancel), proper empty state with CTA (`onAddSource` prop), bound-panel warning in delete confirmation
+- `frontend/src/components/DataSourceList.css` — Added styles for empty state, name input, and bound warning
+- `frontend/src/components/SourcesPage.tsx` — Passed `onAddSource` callback to `DataSourceList`
+- `frontend/src/features/dataTypes/dataTypesSlice.test.ts` — Added tests for `deleteDataType` fulfilled, 409 rejection, and `updateDataType` fulfilled
+- `frontend/src/features/sources/sourcesSlice.test.ts` — Added `updateSource` fulfilled tests
+- `frontend/src/components/SourcesPage.test.tsx` — Added tests for empty state CTA, non-toggle DataType selection, delete confirm flow, and cancel-without-API behavior

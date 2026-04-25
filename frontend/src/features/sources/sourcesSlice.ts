@@ -7,6 +7,7 @@ import {
   createStaticSource as createStaticSourceRequest,
   inferSqlSource as inferSqlSourceRequest,
   createSqlSource as createSqlSourceRequest,
+  updateSource as updateSourceRequest,
   type SqlSourceConfig,
 } from "../../services/dataSourceService";
 import type { DataSource, InferredField, StaticColumn } from "../../types/models";
@@ -81,6 +82,18 @@ export const deleteSource = createAsyncThunk<string, string, { rejectValue: stri
   },
 );
 
+export const updateSource = createAsyncThunk<
+  DataSource,
+  { id: string; name: string },
+  { rejectValue: string }
+>("sources/updateSource", async ({ id, name }, { rejectWithValue }) => {
+  try {
+    return await updateSourceRequest(id, name);
+  } catch {
+    return rejectWithValue("Failed to update source.");
+  }
+});
+
 interface CreateStaticSourceArgs {
   name: string;
   columns: StaticColumn[];
@@ -126,6 +139,10 @@ const sourcesSlice = createSlice({
       })
       .addCase(createSqlSource.fulfilled, (state, action) => {
         state.items = [...state.items, action.payload];
+      })
+      .addCase(updateSource.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((s) => s.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
       });
   },
 });
