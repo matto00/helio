@@ -24,9 +24,6 @@ final class DataTypeRoutes(
 
   private val acl = aclDirective
 
-  private val dataTypeResolver: String => scala.concurrent.Future[Option[String]] =
-    id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))
-
   val routes: Route =
     pathPrefix("types") {
       concat(
@@ -66,7 +63,7 @@ final class DataTypeRoutes(
               }
             },
             patch {
-              acl.authorizeResource(typeId, user, dataTypeResolver, "DataType not found") {
+              acl.authorizeResource(typeId, user, "data-type", "DataType not found") {
                 entity(as[UpdateDataTypeRequest]) { request =>
                   onSuccess(dataTypeRepo.findById(id)) {
                     case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
@@ -124,7 +121,7 @@ final class DataTypeRoutes(
               }
             },
             delete {
-              acl.authorizeResource(typeId, user, dataTypeResolver, "DataType not found") {
+              acl.authorizeResource(typeId, user, "data-type", "DataType not found") {
                 onSuccess(dataTypeRepo.findById(id)) {
                   case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
                   case Some(_) =>

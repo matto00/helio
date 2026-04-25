@@ -61,13 +61,20 @@ class AclDirectiveSpec
   private def ownerResolver(id: String): Future[Option[String]]   = Future.successful(Some(ownerUserId))
   private def missingResolver(id: String): Future[Option[String]] = Future.successful(None)
 
+  /** Build a [[ResourceTypeRegistry]] with `"dashboard"` mapped to the given resolver. */
+  private def makeRegistry(resolver: String => Future[Option[String]]): ResourceTypeRegistry =
+    new ResourceTypeRegistry(ResourceType("dashboard", resolver))
+
+  private val ownerRegistry   = makeRegistry(ownerResolver)
+  private val missingRegistry = makeRegistry(missingResolver)
+
   // ── authorizeResource tests ──────────────────────────────────────────────────
 
   "AclDirective.authorizeResource" should {
 
     "pass through to inner route when caller owns the resource" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResource(resourceId, ownerUser, ownerResolver, "Not found") {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResource(resourceId, ownerUser, resourceType, "Not found") {
         complete(StatusCodes.OK, "allowed")
       }
       Get("/") ~> route ~> check {
@@ -77,8 +84,8 @@ class AclDirectiveSpec
     }
 
     "return 403 Forbidden when caller does not own the resource" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResource(resourceId, nonOwnerUser, ownerResolver, "Not found") {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResource(resourceId, nonOwnerUser, resourceType, "Not found") {
         complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
@@ -88,8 +95,8 @@ class AclDirectiveSpec
     }
 
     "return 404 Not Found when resource does not exist" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResource(resourceId, ownerUser, missingResolver, "Not found") {
+      val directive = new AclDirective(noGrantsRepo, missingRegistry)
+      val route = directive.authorizeResource(resourceId, ownerUser, resourceType, "Not found") {
         complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
@@ -99,8 +106,8 @@ class AclDirectiveSpec
     }
 
     "use custom notFoundMessage in 404 response" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResource(resourceId, ownerUser, missingResolver, "Dashboard not found") {
+      val directive = new AclDirective(noGrantsRepo, missingRegistry)
+      val route = directive.authorizeResource(resourceId, ownerUser, resourceType, "Dashboard not found") {
         complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
@@ -110,15 +117,38 @@ class AclDirectiveSpec
     }
 
     "return 403 when resolver returns a different owner than any user ID" in {
-      val resolverWithOtherOwner: String => Future[Option[String]] =
-        _ => Future.successful(Some(otherUserId))
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResource(resourceId, ownerUser, resolverWithOtherOwner, "Not found") {
+      val otherOwnerRegistry = makeRegistry(_ => Future.successful(Some(otherUserId)))
+      val directive = new AclDirective(noGrantsRepo, otherOwnerRegistry)
+      val route = directive.authorizeResource(resourceId, ownerUser, resourceType, "Not found") {
         complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
         status shouldBe StatusCodes.Forbidden
         responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "return 500 Internal Server Error when resource type key is unknown" in {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResource(resourceId, ownerUser, "unknown-type", "Not found") {
+        complete(StatusCodes.OK, "should not reach here")
+      }
+      Get("/") ~> route ~> check {
+        status shouldBe StatusCodes.InternalServerError
+      }
+    }
+  }
+
+  // ── ResourceTypeRegistry tests ───────────────────────────────────────────────
+
+  "ResourceTypeRegistry" should {
+
+    "throw IllegalArgumentException when constructed with duplicate keys" in {
+      an[IllegalArgumentException] should be thrownBy {
+        new ResourceTypeRegistry(
+          ResourceType("dashboard", ownerResolver),
+          ResourceType("dashboard", ownerResolver)
+        )
       }
     }
   }
@@ -128,8 +158,8 @@ class AclDirectiveSpec
   "AclDirective.authorizeResourceWithSharing" should {
 
     "provide Owner access when the authenticated user is the resource owner" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(ownerUser), ownerResolver) {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(ownerUser)) {
         access => complete(StatusCodes.OK, access.toString)
       }
       Get("/") ~> route ~> check {
@@ -139,8 +169,8 @@ class AclDirectiveSpec
     }
 
     "provide Editor access when the authenticated user has an editor grant" in {
-      val directive = new AclDirective(makePermRepo(grantFor = Map(editorUserId -> Role.Editor)))
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(editorUser), ownerResolver) {
+      val directive = new AclDirective(makePermRepo(grantFor = Map(editorUserId -> Role.Editor)), ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(editorUser)) {
         access => complete(StatusCodes.OK, access.toString)
       }
       Get("/") ~> route ~> check {
@@ -150,8 +180,8 @@ class AclDirectiveSpec
     }
 
     "provide Viewer access when the authenticated user has a viewer grant" in {
-      val directive = new AclDirective(makePermRepo(grantFor = Map(viewerUserId -> Role.Viewer)))
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(viewerUser), ownerResolver) {
+      val directive = new AclDirective(makePermRepo(grantFor = Map(viewerUserId -> Role.Viewer)), ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(viewerUser)) {
         access => complete(StatusCodes.OK, access.toString)
       }
       Get("/") ~> route ~> check {
@@ -161,8 +191,8 @@ class AclDirectiveSpec
     }
 
     "return 403 when the authenticated user has no grant" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(guestUser), ownerResolver) {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(guestUser)) {
         _ => complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
@@ -172,8 +202,8 @@ class AclDirectiveSpec
     }
 
     "provide Viewer access for unauthenticated request on a public resource" in {
-      val directive = new AclDirective(makePermRepo(hasPublicGrant = true))
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, None, ownerResolver) {
+      val directive = new AclDirective(makePermRepo(hasPublicGrant = true), ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, None) {
         access => complete(StatusCodes.OK, access.toString)
       }
       Get("/") ~> route ~> check {
@@ -183,8 +213,8 @@ class AclDirectiveSpec
     }
 
     "return 404 for unauthenticated request on a non-public resource" in {
-      val directive = new AclDirective(makePermRepo(hasPublicGrant = false))
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, None, ownerResolver, "Dashboard not found") {
+      val directive = new AclDirective(makePermRepo(hasPublicGrant = false), ownerRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, None, "Dashboard not found") {
         _ => complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
@@ -194,13 +224,23 @@ class AclDirectiveSpec
     }
 
     "return 404 when the resource does not exist" in {
-      val directive = new AclDirective(noGrantsRepo)
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(ownerUser), missingResolver, "Dashboard not found") {
+      val directive = new AclDirective(noGrantsRepo, missingRegistry)
+      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(ownerUser), "Dashboard not found") {
         _ => complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
         status shouldBe StatusCodes.NotFound
         responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
+      }
+    }
+
+    "return 500 Internal Server Error when resource type key is unknown" in {
+      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
+      val route = directive.authorizeResourceWithSharing("unknown-type", resourceId, Some(ownerUser)) {
+        _ => complete(StatusCodes.OK, "should not reach here")
+      }
+      Get("/") ~> route ~> check {
+        status shouldBe StatusCodes.InternalServerError
       }
     }
   }

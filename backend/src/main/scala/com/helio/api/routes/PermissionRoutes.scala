@@ -8,7 +8,7 @@ import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, ResourcePermissionRepository}
 
 import java.time.Instant
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
 final class PermissionRoutes(
@@ -22,16 +22,13 @@ final class PermissionRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  private def getOwner(resourceId: String): Future[Option[String]] =
-    dashboardRepo.findById(DashboardId(resourceId)).map(_.map(_.ownerId.value))
-
   val routes: Route =
     pathPrefix("dashboards" / Segment / "permissions") { dashboardId =>
       concat(
         pathEndOrSingleSlash {
           concat(
             get {
-              aclDirective.authorizeResource(dashboardId, user, getOwner, "Dashboard not found") {
+              aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
                 onSuccess(permissionRepo.findByResource("dashboard", dashboardId)) { permissions =>
                   complete(PermissionsResponse(permissions.map(PermissionResponse.fromDomain)))
                 }
@@ -39,7 +36,7 @@ final class PermissionRoutes(
             },
             post {
               entity(as[GrantPermissionRequest]) { request =>
-                aclDirective.authorizeResource(dashboardId, user, getOwner, "Dashboard not found") {
+                aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
                   Role.fromString(request.role) match {
                     case Left(error) =>
                       complete(StatusCodes.BadRequest, ErrorResponse(error))
@@ -68,7 +65,7 @@ final class PermissionRoutes(
         },
         path(Segment) { granteeIdStr =>
           delete {
-            aclDirective.authorizeResource(dashboardId, user, getOwner, "Dashboard not found") {
+            aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
               val granteeId = UserId(granteeIdStr)
               onSuccess(permissionRepo.delete("dashboard", dashboardId, granteeId)) { deleted =>
                 if (deleted) {

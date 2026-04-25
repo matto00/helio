@@ -39,9 +39,6 @@ final class DataSourceRoutes(
 
   private val staticMaxRows = 500
 
-  private val dataSourceResolver: String => Future[Option[String]] =
-    id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value))
-
   val routes: Route =
     pathPrefix("data-sources") {
       concat(
@@ -176,7 +173,7 @@ final class DataSourceRoutes(
         },
         path(Segment / "refresh") { sourceId =>
           post {
-            acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+            acl.authorizeResource(sourceId, user, "data-source", "Data source not found") {
               onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
@@ -252,7 +249,7 @@ final class DataSourceRoutes(
           get {
             parameter("limit".as[Int].optional) { limitOpt =>
               val limit = limitOpt.map(l => math.max(1, math.min(500, l))).getOrElse(10)
-              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+              acl.authorizeResource(sourceId, user, "data-source", "Data source not found") {
               onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
@@ -324,7 +321,7 @@ final class DataSourceRoutes(
         path(Segment) { sourceId =>
           concat(
             patch {
-              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+              acl.authorizeResource(sourceId, user, "data-source", "Data source not found") {
                 entity(as[UpdateDataSourceRequest]) { req =>
                   req.name match {
                     case Some(n) if n.trim.isEmpty =>
@@ -348,7 +345,7 @@ final class DataSourceRoutes(
               }
             },
             delete {
-              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+              acl.authorizeResource(sourceId, user, "data-source", "Data source not found") {
                 onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
                   case None =>
                     complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))

@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/api/ResourceType.scala` — new: `ResourceType(key, ownerResolver)` case class
+- `backend/src/main/scala/com/helio/api/ResourceTypeRegistry.scala` — new: registry with constructor-time duplicate-key validation and `lookup(key)` method
+- `backend/src/main/scala/com/helio/api/AclDirective.scala` — accepts `ResourceTypeRegistry` in constructor; `authorizeResource` and `authorizeResourceWithSharing` now take `resourceType: String` key instead of resolver lambda; unknown key returns 500
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — builds `ResourceTypeRegistry` with four entries (`dashboard`, `panel`, `data-source`, `data-type`) and injects it into `AclDirective`
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` — removed `dataTypeResolver` lambda; passes `"data-type"` key string to `acl.authorizeResource`
+- `backend/src/main/scala/com/helio/api/routes/DataSourceRoutes.scala` — removed `dataSourceResolver` lambda; passes `"data-source"` key string to `acl.authorizeResource`
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — removed `getOwner` lambda; all `authorizeResourceWithSharing` calls now pass `"dashboard"` key (behavior unchanged — panel ACL is scoped to dashboard ownership)
+- `backend/src/main/scala/com/helio/api/routes/PermissionRoutes.scala` — removed `getOwner` lambda; passes `"dashboard"` key string to `acl.authorizeResource`
+- `backend/src/main/scala/com/helio/api/routes/PublicDashboardRoutes.scala` — removed `getOwner` lambda; passes `"dashboard"` key string to `acl.authorizeResourceWithSharing`
+- `backend/src/test/scala/com/helio/api/AclDirectiveSpec.scala` — updated to use `ResourceTypeRegistry` stub; added tests for duplicate-key exception and unknown-key 500 response

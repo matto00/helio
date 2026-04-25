@@ -25,9 +25,6 @@ final class PanelRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  private def getOwner(resourceId: String): Future[Option[String]] =
-    dashboardRepo.findById(DashboardId(resourceId)).map(_.map(_.ownerId.value))
-
   /** Resolve a panel's typeId against the authenticated user's owned types.
    *  If the panel's typeId references a type owned by a different user, the
    *  typeId and fieldMapping are cleared (treated as unbound). */
@@ -58,7 +55,6 @@ final class PanelRoutes(
                     "dashboard",
                     dashboardId.value,
                     Some(user),
-                    getOwner,
                     "Dashboard not found"
                   ) { access =>
                     access match {
@@ -100,7 +96,6 @@ final class PanelRoutes(
                     "dashboard",
                     panel.dashboardId.value,
                     Some(user),
-                    getOwner,
                     "Dashboard not found"
                   ) { access =>
                     access match {
@@ -125,7 +120,6 @@ final class PanelRoutes(
                       "dashboard",
                       existing.dashboardId.value,
                       Some(user),
-                      getOwner,
                       "Dashboard not found"
                     ) { access =>
                       access match {
@@ -230,7 +224,6 @@ final class PanelRoutes(
                   "dashboard",
                   panel.dashboardId.value,
                   Some(user),
-                  getOwner,
                   "Dashboard not found"
                 ) { access =>
                   access match {
