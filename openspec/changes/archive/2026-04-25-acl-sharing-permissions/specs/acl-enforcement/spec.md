@@ -44,12 +44,3 @@ checks `resource_permissions` for the caller's user ID and returns the appropria
 - **WHEN** an unauthenticated request targets a resource without a public viewer grant
 - **THEN** the server responds with `404 Not Found`
 
-## ADDED Requirements
-
-### Requirement: ACL directive is decoupled from resource types via a resolver registry
-The directive SHALL accept a resolver function per resource type. Adding support for a new resource type SHALL
-require registering a single resolver entry — no copy-paste of ACL logic.
-
-#### Scenario: New resource type registered without modifying directive
-- **WHEN** a new resolver is registered for a new resource type in `ApiRoutes`
-- **THEN** the existing `authorizeResource` directive enforces ownership for that type without code changes to the directive itself
