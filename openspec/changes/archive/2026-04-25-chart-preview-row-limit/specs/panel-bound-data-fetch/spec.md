@@ -1,13 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Bound panel fetches preview data on mount
-When a panel has a non-null `typeId`, the frontend SHALL fetch preview data from the
-DataType's backing source on component mount. The appropriate endpoint SHALL be selected
-based on `DataSource.sourceType`: `GET /api/data-sources/:id/preview` for CSV sources and
-`GET /api/sources/:id/preview` for REST API sources. For panels with `type === "chart"`,
-the CSV preview fetch SHALL include `?limit=200` to retrieve enough data points for a
-meaningful chart; all other panel types SHALL omit the limit parameter and receive the
-default 10-row preview.
+When a panel has a non-null `typeId`, the frontend SHALL fetch preview data from the DataType's backing source on component mount. The appropriate endpoint SHALL be selected based on `DataSource.sourceType`: `GET /api/data-sources/:id/preview` for CSV sources and `GET /api/sources/:id/preview` for REST API sources. For panels with `type === "chart"`, the CSV preview fetch SHALL include `?limit=200` to retrieve enough data points for a meaningful chart; all other panel types SHALL omit the limit parameter and receive the default 10-row preview.
 
 #### Scenario: CSV-backed panel triggers CSV preview fetch on mount
 - **WHEN** a panel with a non-null `typeId` is rendered and the DataType's source has
