@@ -34,6 +34,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const [exportError, setExportError] = useState<{ dashboardId: string; message: string } | null>(
     null,
   );
+  const [filterQuery, setFilterQuery] = useState("");
   const cancelledRef = useRef(false);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
@@ -133,6 +134,14 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
     reader.readAsText(file);
   }
 
+  // Derive filtered list: include items matching the query or matching selectedDashboardId
+  const normalizedQuery = filterQuery.toLowerCase().trim();
+  const visibleItems = items.filter((dashboard) => {
+    const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);
+    const isActive = dashboard.id === selectedDashboardId;
+    return matchesQuery || isActive;
+  });
+
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
@@ -162,6 +171,32 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
         </div>
         <p>Choose a workspace view and keep the panel content focused on the active dashboard.</p>
       </header>
+      <div className="dashboard-list__filter">
+        <label className="dashboard-list__filter-label" htmlFor="dashboard-filter-input">
+          Filter dashboards
+        </label>
+        <div className="dashboard-list__filter-wrapper">
+          <input
+            id="dashboard-filter-input"
+            className="dashboard-list__filter-input"
+            type="text"
+            value={filterQuery}
+            onChange={(event) => setFilterQuery(event.target.value)}
+            placeholder="Search..."
+            aria-label="Filter dashboards by name"
+          />
+          {filterQuery.length > 0 ? (
+            <button
+              type="button"
+              className="dashboard-list__filter-clear"
+              aria-label="Clear filter"
+              onClick={() => setFilterQuery("")}
+            >
+              ✕
+            </button>
+          ) : null}
+        </div>
+      </div>
       {isCreateMode ? (
         <form className="dashboard-list__create" onSubmit={handleCreateDashboard}>
           <label className="dashboard-list__create-label" htmlFor="dashboard-create-name">
@@ -204,88 +239,97 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
         message={status === "loading" ? "Loading dashboards..." : (error ?? undefined)}
       />
       <ul className="dashboard-list__items">
-        {items.map((dashboard) => (
-          <li key={dashboard.id} className="dashboard-list__item">
-            {editingId === dashboard.id ? (
-              <div className="dashboard-list__rename">
-                <input
-                  className="dashboard-list__rename-input"
-                  type="text"
-                  value={editingName}
-                  autoFocus
-                  aria-label="Dashboard name"
-                  onChange={(e) => {
-                    setEditingName(e.target.value);
-                    setEditingError(null);
+        {visibleItems.map((dashboard) => {
+          const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);
+          const isActive = dashboard.id === selectedDashboardId;
+          const isOutsideFilter = !matchesQuery && isActive && normalizedQuery.length > 0;
+          const itemClassName = isOutsideFilter
+            ? "dashboard-list__item dashboard-list__item--outside-filter"
+            : "dashboard-list__item";
+
+          return (
+            <li key={dashboard.id} className={itemClassName}>
+              {editingId === dashboard.id ? (
+                <div className="dashboard-list__rename">
+                  <input
+                    className="dashboard-list__rename-input"
+                    type="text"
+                    value={editingName}
+                    autoFocus
+                    aria-label="Dashboard name"
+                    onChange={(e) => {
+                      setEditingName(e.target.value);
+                      setEditingError(null);
+                    }}
+                    onKeyDown={(e) => handleRenameKeyDown(e, dashboard.id)}
+                    onBlur={() => void commitRename(dashboard.id)}
+                  />
+                  <InlineError error={editingError} />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="dashboard-list__button"
+                  aria-label={dashboard.name}
+                  aria-pressed={selectedDashboardId === dashboard.id}
+                  onClick={() => {
+                    setConfirmDeleteId(null);
+                    dispatch(setSelectedDashboardId(dashboard.id));
                   }}
-                  onKeyDown={(e) => handleRenameKeyDown(e, dashboard.id)}
-                  onBlur={() => void commitRename(dashboard.id)}
+                >
+                  <span className="dashboard-list__name">{dashboard.name}</span>
+                  <span className="dashboard-list__meta">
+                    {selectedDashboardId === dashboard.id ? "Active dashboard" : "View"}
+                  </span>
+                </button>
+              )}
+              {confirmDeleteId === dashboard.id ? (
+                <div className="dashboard-list__delete-confirm">
+                  <button
+                    type="button"
+                    className="dashboard-list__delete-confirm-btn"
+                    onClick={() => void handleDeleteDashboard(dashboard.id)}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-list__delete-cancel-btn"
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : editingId !== dashboard.id ? (
+                <ActionsMenu
+                  label={`${dashboard.name} actions`}
+                  items={[
+                    {
+                      label: "Rename",
+                      onClick: () => startEditing(dashboard.id, dashboard.name),
+                    },
+                    {
+                      label: "Duplicate",
+                      onClick: () => void dispatch(duplicateDashboard(dashboard.id)),
+                    },
+                    {
+                      label: "Export",
+                      onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
+                    },
+                    {
+                      label: "Delete",
+                      onClick: () => setConfirmDeleteId(dashboard.id),
+                      danger: true,
+                    },
+                  ]}
                 />
-                <InlineError error={editingError} />
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="dashboard-list__button"
-                aria-label={dashboard.name}
-                aria-pressed={selectedDashboardId === dashboard.id}
-                onClick={() => {
-                  setConfirmDeleteId(null);
-                  dispatch(setSelectedDashboardId(dashboard.id));
-                }}
-              >
-                <span className="dashboard-list__name">{dashboard.name}</span>
-                <span className="dashboard-list__meta">
-                  {selectedDashboardId === dashboard.id ? "Active dashboard" : "View"}
-                </span>
-              </button>
-            )}
-            {confirmDeleteId === dashboard.id ? (
-              <div className="dashboard-list__delete-confirm">
-                <button
-                  type="button"
-                  className="dashboard-list__delete-confirm-btn"
-                  onClick={() => void handleDeleteDashboard(dashboard.id)}
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  className="dashboard-list__delete-cancel-btn"
-                  onClick={() => setConfirmDeleteId(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : editingId !== dashboard.id ? (
-              <ActionsMenu
-                label={`${dashboard.name} actions`}
-                items={[
-                  {
-                    label: "Rename",
-                    onClick: () => startEditing(dashboard.id, dashboard.name),
-                  },
-                  {
-                    label: "Duplicate",
-                    onClick: () => void dispatch(duplicateDashboard(dashboard.id)),
-                  },
-                  {
-                    label: "Export",
-                    onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
-                  },
-                  {
-                    label: "Delete",
-                    onClick: () => setConfirmDeleteId(dashboard.id),
-                    danger: true,
-                  },
-                ]}
-              />
-            ) : null}
-            {exportError?.dashboardId === dashboard.id ? (
-              <InlineError error={exportError.message} />
-            ) : null}
-          </li>
-        ))}
+              ) : null}
+              {exportError?.dashboardId === dashboard.id ? (
+                <InlineError error={exportError.message} />
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

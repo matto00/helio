@@ -1,0 +1,3 @@
+- `frontend/src/components/DashboardList.tsx` — Added filter state, derived filtered list, rendered filter input with clear button, and applied outside-filter CSS class to active dashboard when filtered out
+- `frontend/src/components/DashboardList.css` — Added styles for filter input, wrapper, clear button, and outside-filter modifier
+- `frontend/src/components/DashboardList.test.tsx` — Added four tests covering filter functionality, active dashboard visibility, clear button behavior, and conditional clear button rendering

@@ -99,6 +99,71 @@
   display: none;
 }
 
+.dashboard-list__filter {
+  margin: 0 0 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-list__filter-label {
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+}
+
+.dashboard-list__filter-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.dashboard-list__filter-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  padding: 8px 36px 8px 10px;
+}
+
+.dashboard-list__filter-input:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.dashboard-list__filter-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.dashboard-list__filter-clear:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.dashboard-list__filter-clear:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
 .dashboard-list__create {
   margin: 0 0 16px;
   display: grid;
@@ -164,6 +229,28 @@
 .dashboard-list__item .dashboard-list__button {
   flex: 1;
   min-width: 0;
+}
+
+.dashboard-list__item--outside-filter {
+  opacity: 0.6;
+  position: relative;
+}
+
+.dashboard-list__item--outside-filter::after {
+  content: "active";
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .dashboard-list__delete-confirm {

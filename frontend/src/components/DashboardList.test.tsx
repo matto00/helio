@@ -118,4 +118,134 @@ describe("DashboardList", () => {
     );
     expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
   });
+
+  it("typing in filter input narrows the dashboard list", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+          { id: "dashboard-3", name: "Marketing", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    const filterInput = screen.getByLabelText("Filter dashboards by name");
+
+    // Initially all dashboards are visible
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marketing" })).toBeInTheDocument();
+
+    // Filter to only show items containing "exec"
+    fireEvent.change(filterInput, { target: { value: "exec" } });
+
+    expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Marketing" })).not.toBeInTheDocument();
+    // Operations is still visible because it's the active dashboard
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+  });
+
+  it("active dashboard remains visible even when filter does not match its name, with --outside-filter class applied", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+          { id: "dashboard-3", name: "Marketing", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    const filterInput = screen.getByLabelText("Filter dashboards by name");
+
+    // Filter to only show items containing "exec"
+    fireEvent.change(filterInput, { target: { value: "exec" } });
+
+    // Active dashboard (Operations) remains visible
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+
+    // Find the list item containing the Operations button
+    const operationsButton = screen.getByRole("button", { name: "Operations" });
+    const listItem = operationsButton.closest("li");
+
+    // Verify it has the --outside-filter class
+    expect(listItem).toHaveClass("dashboard-list__item--outside-filter");
+  });
+
+  it("clicking the clear button resets the filter and restores all items", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+          { id: "dashboard-3", name: "Marketing", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    const filterInput = screen.getByLabelText("Filter dashboards by name");
+
+    // Filter to only show items containing "exec"
+    fireEvent.change(filterInput, { target: { value: "exec" } });
+
+    // Marketing should be hidden
+    expect(screen.queryByRole("button", { name: "Marketing" })).not.toBeInTheDocument();
+
+    // Click the clear button
+    const clearButton = screen.getByRole("button", { name: "Clear filter" });
+    fireEvent.click(clearButton);
+
+    // All dashboards should be visible again
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marketing" })).toBeInTheDocument();
+  });
+
+  it("clear button is not rendered when filter is empty", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    // Clear button should not be present initially
+    expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
+
+    // Type something into the filter
+    const filterInput = screen.getByLabelText("Filter dashboards by name");
+    fireEvent.change(filterInput, { target: { value: "exec" } });
+
+    // Clear button should appear
+    expect(screen.getByRole("button", { name: "Clear filter" })).toBeInTheDocument();
+
+    // Clear the filter
+    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+
+    // Clear button should disappear
+    expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
+  });
 });
