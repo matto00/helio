@@ -4,9 +4,9 @@ TICKET_ID: HEL-69
 CHANGE_NAME: configurable-accent-color
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/configurable-accent-color/HEL-69
 BRANCH: feature/configurable-accent-color/HEL-69
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 1
-EXECUTOR_AGENT_ID: —
-EVALUATOR_AGENT_ID: —
-LAST_EVAL_VERDICT: —
-LAST_EVAL_REPORT: —
+EXECUTOR_AGENT_ID: linear-executor
+EVALUATOR_AGENT_ID: linear-evaluator
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: openspec/changes/configurable-accent-color/evaluation-1.md
