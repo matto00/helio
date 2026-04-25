@@ -69,20 +69,6 @@ final class DashboardRoutes(
             }
           )
         },
-        path(Segment / "panels") { dashboardId =>
-          get {
-            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
-              case None =>
-                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-              case Some(dashboard) if dashboard.ownerId != user.id =>
-                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-              case Some(_) =>
-                onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId)).flatMap(resolvePanels)) { panels =>
-                  complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
-                }
-            }
-          }
-        },
         path(Segment / "duplicate") { dashboardId =>
           post {
             onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {

@@ -14,6 +14,7 @@ import scala.concurrent.ExecutionContextExecutor
 
 final class DataTypeRoutes(
     dataTypeRepo: DataTypeRepository,
+    aclDirective: AclDirective,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -21,7 +22,7 @@ final class DataTypeRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  private val acl = new AclDirective()
+  private val acl = aclDirective
 
   private val dataTypeResolver: String => scala.concurrent.Future[Option[String]] =
     id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))

@@ -93,6 +93,20 @@ final case class UpdatePanelRequest(
     fieldMapping: Option[Option[JsValue]]
 )
 
+// ── Permission API types ──────────────────────────────────────────────────────
+final case class GrantPermissionRequest(granteeId: Option[String], role: String)
+final case class PermissionResponse(granteeId: Option[String], role: String, createdAt: String)
+final case class PermissionsResponse(items: Vector[PermissionResponse])
+
+object PermissionResponse {
+  def fromDomain(permission: ResourcePermission): PermissionResponse =
+    PermissionResponse(
+      granteeId = permission.granteeId.map(_.value),
+      role      = Role.asString(permission.role),
+      createdAt = permission.createdAt.toString
+    )
+}
+
 // ── DataType / DataSource API types ──────────────────────────────────────────
 
 final case class DataFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
@@ -514,6 +528,17 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
         )
       }
     }
+
+  // Permission API formats
+  implicit val grantPermissionRequestFormat: RootJsonFormat[GrantPermissionRequest] = jsonFormat2(
+    GrantPermissionRequest.apply
+  )
+  implicit val permissionResponseFormat: RootJsonFormat[PermissionResponse] = jsonFormat3(
+    PermissionResponse.apply
+  )
+  implicit val permissionsResponseFormat: RootJsonFormat[PermissionsResponse] = jsonFormat1(
+    PermissionsResponse.apply
+  )
 
   // SQL connector API formats
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)

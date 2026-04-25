@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, ResourcePermissionRepository, UserRepository, UserSessionRepository}
 import akka.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
 import spray.json._
@@ -31,11 +31,12 @@ class DataSourceRoutesSpec
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
-  private var embeddedPostgres: EmbeddedPostgres   = _
-  private var db: JdbcBackend.Database             = _
-  private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var fileSystem: LocalFileSystem          = _
+  private var embeddedPostgres: EmbeddedPostgres            = _
+  private var db: JdbcBackend.Database                      = _
+  private var dataSourceRepo: DataSourceRepository          = _
+  private var dataTypeRepo: DataTypeRepository              = _
+  private var permissionRepo: ResourcePermissionRepository  = _
+  private var fileSystem: LocalFileSystem                   = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -50,8 +51,9 @@ class DataSourceRoutesSpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
 
     val ec = typedSystem.executionContext
-    dataSourceRepo = new DataSourceRepository(db)(ec)
-    dataTypeRepo   = new DataTypeRepository(db)(ec)
+    dataSourceRepo  = new DataSourceRepository(db)(ec)
+    dataTypeRepo    = new DataTypeRepository(db)(ec)
+    permissionRepo  = new ResourcePermissionRepository(db)(ec)
 
     val tmpDir = Files.createTempDirectory("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
@@ -100,7 +102,7 @@ class DataSourceRoutesSpec
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, fileSystem, c, userRepo, stubSessionRepo).routes
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo).routes
     }
   }
 

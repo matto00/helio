@@ -23,6 +23,7 @@ final class DataSourceRoutes(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo: DataTypeRepository,
     fileSystem: FileSystem,
+    aclDirective: AclDirective,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -31,7 +32,7 @@ final class DataSourceRoutes(
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
   private implicit val mat: Materializer                         = SystemMaterializer(system).materializer
 
-  private val acl = new AclDirective()
+  private val acl = aclDirective
 
   private val csvMaxBytes: Long =
     sys.env.get("CSV_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(52428800L)

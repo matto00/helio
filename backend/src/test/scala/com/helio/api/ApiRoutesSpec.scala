@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, SlickUserSessionRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -28,14 +28,15 @@ class ApiRoutesSpec
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
-  private var embeddedPostgres: EmbeddedPostgres           = _
-  private var db: JdbcBackend.Database                     = _
-  private var dashboardRepo: DashboardRepository           = _
-  private var panelRepo: PanelRepository                   = _
-  private var dataSourceRepo: DataSourceRepository         = _
-  private var dataTypeRepo: DataTypeRepository             = _
-  private var userRepo: UserRepository                     = _
-  private var realSessionRepo: SlickUserSessionRepository  = _
+  private var embeddedPostgres: EmbeddedPostgres            = _
+  private var db: JdbcBackend.Database                      = _
+  private var dashboardRepo: DashboardRepository            = _
+  private var panelRepo: PanelRepository                    = _
+  private var dataSourceRepo: DataSourceRepository          = _
+  private var dataTypeRepo: DataTypeRepository              = _
+  private var userRepo: UserRepository                      = _
+  private var permissionRepo: ResourcePermissionRepository  = _
+  private var realSessionRepo: SlickUserSessionRepository   = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -52,11 +53,12 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    dashboardRepo  = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo      = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
-    userRepo       = new UserRepository(db)(typedSystem.executionContext)
+    dashboardRepo   = new DashboardRepository(db)(typedSystem.executionContext)
+    panelRepo       = new PanelRepository(db)(typedSystem.executionContext)
+    dataSourceRepo  = new DataSourceRepository(db)(typedSystem.executionContext)
+    dataTypeRepo    = new DataTypeRepository(db)(typedSystem.executionContext)
+    userRepo        = new UserRepository(db)(typedSystem.executionContext)
+    permissionRepo  = new ResourcePermissionRepository(db)(typedSystem.executionContext)
     realSessionRepo = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 
@@ -70,7 +72,7 @@ class ApiRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000098'::uuid, 'other@helio.test', now())"""))
   }
@@ -109,11 +111,11 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, connector, userRepo, stubSessionRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo).routes
 
   import akka.http.scaladsl.server.Directives.mapRequest
   import akka.http.scaladsl.model.headers.Authorization
@@ -1687,10 +1689,9 @@ class ApiRoutesSpec
       }
     }
 
-    "return 401 for GET /api/dashboards/:id/panels without Authorization" in {
+    "return 404 for GET /api/dashboards/:id/panels without Authorization (non-public resource)" in {
       Get("/api/dashboards/some-id/panels") ~> rawRoutes() ~> check {
-        status shouldBe StatusCodes.Unauthorized
-        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+        status shouldBe StatusCodes.NotFound
       }
     }
 
@@ -2418,6 +2419,216 @@ class ApiRoutesSpec
         panelId = responseAs[PanelResponse].id
       }
       Post(s"/api/panels/$panelId/duplicate") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+  }
+
+  // ── 8.2 PermissionRoutes integration tests ────────────────────────────────
+
+  "PermissionRoutes" should {
+
+    "grant permission and return 201 with the grant details" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Shared"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val body = s"""{"granteeId":"$otherUserId","role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PermissionResponse]
+        resp.granteeId shouldBe Some(otherUserId)
+        resp.role shouldBe "viewer"
+        resp.createdAt should not be empty
+      }
+    }
+
+    "return 409 Conflict when the same grant is created twice" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Dup Perm"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val body = s"""{"granteeId":"$otherUserId","role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+      }
+    }
+
+    "revoke permission and return 204" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Revoke Test"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val body = s"""{"granteeId":"$otherUserId","role":"editor"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Delete(s"/api/dashboards/$dashboardId/permissions/$otherUserId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    "list all grants for a dashboard (owner only)" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("List Perms"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val body = s"""{"granteeId":"$otherUserId","role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get(s"/api/dashboards/$dashboardId/permissions") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PermissionsResponse]
+        resp.items should have size 1
+        resp.items.head.granteeId shouldBe Some(otherUserId)
+        resp.items.head.role shouldBe "viewer"
+      }
+    }
+
+    "return 403 when a non-owner tries to manage permissions" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Protected"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val body = s"""{"granteeId":"$testUserId","role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+      Get(s"/api/dashboards/$dashboardId/permissions") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+  }
+
+  // ── 8.3 Public panel read integration tests ───────────────────────────────
+
+  "Public panel access" should {
+
+    "return 200 for unauthenticated request on a public dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Public"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Public Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      // Grant public viewer access (no granteeId)
+      val body = """{"role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      // Unauthenticated request should see the panels
+      Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PanelsResponse]
+        resp.items should have size 1
+        resp.items.head.id shouldBe panelId
+      }
+    }
+
+    "return 404 for unauthenticated request on a non-public dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Private"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      // No public grant — unauthenticated access should be hidden
+      Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  // ── 8.4 Editor / viewer access integration tests ─────────────────────────
+
+  "Editor and viewer access" should {
+
+    "allow an editor to PATCH a panel on the shared dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Edit Test"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Editable"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      // Grant editor access to otherUser
+      val grantBody = s"""{"granteeId":"$otherUserId","role":"editor"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      // otherUser patches the panel — should succeed
+      val patchBody = """{"title":"Updated by Editor"}"""
+      Patch(s"/api/panels/$panelId", HttpEntity(ContentTypes.`application/json`, patchBody)) ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].title shouldBe "Updated by Editor"
+      }
+    }
+
+    "prevent an editor from deleting the dashboard" in {
+      cleanDb()
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("No Delete"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      // Grant editor access to otherUser
+      val grantBody = s"""{"granteeId":"$otherUserId","role":"editor"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      // otherUser tries to delete the dashboard — should be forbidden
+      Delete(s"/api/dashboards/$dashboardId") ~> otherUserRoutes() ~> check {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+
+    "prevent a viewer from patching a panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("View Only"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Read Only Panel"), None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      // Grant viewer access to otherUser
+      val grantBody = s"""{"granteeId":"$otherUserId","role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      // otherUser tries to patch the panel — should be forbidden
+      val patchBody = """{"title":"Viewer Attempt"}"""
+      Patch(s"/api/panels/$panelId", HttpEntity(ContentTypes.`application/json`, patchBody)) ~> otherUserRoutes() ~> check {
         status shouldBe StatusCodes.Forbidden
         responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
       }

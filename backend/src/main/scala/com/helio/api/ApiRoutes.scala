@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, UserRepository, UserSessionRepository}
 
 import scala.util.{Failure, Success}
 
@@ -15,6 +15,7 @@ final class ApiRoutes(
     panelRepo: PanelRepository,
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo: DataTypeRepository,
+    permissionRepo: ResourcePermissionRepository,
     fileSystem: FileSystem,
     connector: RestApiConnector,
     userRepo: UserRepository,
@@ -29,6 +30,7 @@ final class ApiRoutes(
   private implicit val ec = system.executionContext
 
   private val authDirectives = new AuthDirectives(userSessionRepo)
+  private val aclDirective   = new AclDirective(permissionRepo)
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
@@ -37,6 +39,9 @@ final class ApiRoutes(
       pathPrefix("api") {
         concat(
           pathPrefix("auth") { auth.routes },
+          authDirectives.optionalAuthenticate { userOpt =>
+            new PublicDashboardRoutes(dashboardRepo, panelRepo, permissionRepo, aclDirective, userOpt, Some(dataTypeRepo)).routes
+          },
           authDirectives.authenticate { authenticatedUser =>
             concat(
               // GET /api/auth/me — returns the current user profile
@@ -55,9 +60,10 @@ final class ApiRoutes(
                 }
               },
               new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
-              new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, authenticatedUser).routes,
-              new DataTypeRoutes(dataTypeRepo, authenticatedUser).routes,
-              new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, authenticatedUser).routes,
+              new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+              new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+              new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
+              new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
               new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes
             )
           }
