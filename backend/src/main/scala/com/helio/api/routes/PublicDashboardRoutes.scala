@@ -22,9 +22,6 @@ final class PublicDashboardRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  private def getOwner(resourceId: String): Future[Option[String]] =
-    dashboardRepo.findById(DashboardId(resourceId)).map(_.map(_.ownerId.value))
-
   /** Resolve cross-user typeId bindings for a list of panels.
    *  If a panel's typeId belongs to a different user, it is cleared (treated as unbound). */
   private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
@@ -51,7 +48,6 @@ final class PublicDashboardRoutes(
             "dashboard",
             dashboardId,
             userOpt,
-            getOwner,
             "Dashboard not found"
           ) { _ =>
             onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId)).flatMap(resolvePanels)) { panels =>

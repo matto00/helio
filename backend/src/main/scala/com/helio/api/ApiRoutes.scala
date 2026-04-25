@@ -29,8 +29,15 @@ final class ApiRoutes(
 
   private implicit val ec = system.executionContext
 
+  private val registry = new ResourceTypeRegistry(
+    ResourceType("dashboard",   id => dashboardRepo.findById(com.helio.domain.DashboardId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("panel",       id => panelRepo.findById(com.helio.domain.PanelId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("data-source", id => dataSourceRepo.findById(com.helio.domain.DataSourceId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("data-type",   id => dataTypeRepo.findById(com.helio.domain.DataTypeId(id)).map(_.map(_.ownerId.value)))
+  )
+
   private val authDirectives = new AuthDirectives(userSessionRepo)
-  private val aclDirective   = new AclDirective(permissionRepo)
+  private val aclDirective   = new AclDirective(permissionRepo, registry)
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
