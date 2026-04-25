@@ -300,7 +300,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Move CPU Usage panel" })).toBeInTheDocument();
   });
 
-  it("toggles theme from the app header", async () => {
+  it("toggles theme from the user menu", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -308,7 +308,8 @@ describe("App", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Switch to light theme" }));
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
     expect(window.localStorage.getItem("helio-theme")).toBe("light");

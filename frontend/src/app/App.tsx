@@ -17,6 +17,7 @@ import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
 import { SourcesPage } from "../components/SourcesPage";
+import { UserMenu } from "../components/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/authSlice";
 import { LoginPage } from "../features/auth/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/OAuthCallbackPage";
@@ -150,37 +151,13 @@ function AppShell() {
             </>
           )}
           {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
-          <button
-            type="button"
-            className="cmd-btn"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            {theme === "dark" ? "☀ Light" : "☾ Dark"}
-          </button>
           {authStatus === "authenticated" && currentUser !== null && (
-            <div className="user-identity">
-              {currentUser.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="User avatar" className="user-avatar" />
-              ) : (
-                <span className="user-avatar--initials" aria-hidden="true">
-                  {(currentUser.displayName || currentUser.email).charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="user-identity__name">
-                {currentUser.displayName ?? currentUser.email}
-              </span>
-            </div>
-          )}
-          {authStatus === "authenticated" && (
-            <button
-              type="button"
-              className="cmd-btn"
-              onClick={() => void handleLogout()}
-              aria-label="Sign out"
-            >
-              Sign out
-            </button>
+            <UserMenu
+              currentUser={currentUser}
+              theme={theme}
+              toggleTheme={toggleTheme}
+              onLogout={() => void handleLogout()}
+            />
           )}
         </div>
       </header>

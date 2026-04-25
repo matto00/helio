@@ -317,53 +317,6 @@
   cursor: not-allowed;
 }
 
-/* --- USER IDENTITY --- */
-.user-identity {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 3px 8px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  background: transparent;
-}
-
-.user-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.user-avatar--initials {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  border-radius: 50%;
-  background: var(--app-accent);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  text-transform: uppercase;
-  line-height: 1;
-  user-select: none;
-}
-
-.user-identity__name {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--app-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
 @media (max-width: 768px) {
   .app-command-bar {
     padding: 0 12px;
