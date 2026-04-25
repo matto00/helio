@@ -217,6 +217,32 @@ describe("DashboardList", () => {
     expect(screen.getByRole("button", { name: "Marketing" })).toBeInTheDocument();
   });
 
+  it("active dashboard is pinned first and matches follow when filtering", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Alpha", meta: defaultMeta },
+          { id: "dashboard-2", name: "Beta Executive", meta: defaultMeta },
+          { id: "dashboard-3", name: "Gamma Executive", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter dashboards by name"), {
+      target: { value: "exec" },
+    });
+
+    const buttons = screen.getAllByRole("button", {
+      name: /^(Alpha|Beta Executive|Gamma Executive)$/,
+    });
+    expect(buttons[0]).toHaveAccessibleName("Alpha");
+    expect(buttons[1]).toHaveAccessibleName("Beta Executive");
+    expect(buttons[2]).toHaveAccessibleName("Gamma Executive");
+  });
+
   it("clear button is not rendered when filter is empty", () => {
     renderWithStore(<DashboardList />, {
       dashboards: {

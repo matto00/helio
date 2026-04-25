@@ -134,13 +134,16 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
     reader.readAsText(file);
   }
 
-  // Derive filtered list: include items matching the query or matching selectedDashboardId
+  // Active dashboard is always pinned first; matching non-active items follow; non-matches hidden.
   const normalizedQuery = filterQuery.toLowerCase().trim();
-  const visibleItems = items.filter((dashboard) => {
-    const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);
-    const isActive = dashboard.id === selectedDashboardId;
-    return matchesQuery || isActive;
-  });
+  const visibleItems = (() => {
+    if (normalizedQuery.length === 0) return items;
+    const active = items.find((d) => d.id === selectedDashboardId);
+    const matches = items.filter(
+      (d) => d.id !== selectedDashboardId && d.name.toLowerCase().includes(normalizedQuery),
+    );
+    return active ? [active, ...matches] : matches;
+  })();
 
   return (
     <section className="dashboard-list" aria-label="dashboards">
