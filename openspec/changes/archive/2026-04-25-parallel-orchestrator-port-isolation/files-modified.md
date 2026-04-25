@@ -1,0 +1,4 @@
+- `.claude/agents/linear-evaluator.md` — Phase 3 dev-server startup passes `PORT=${DEV_PORT:-5173}`; Playwright base URL uses `DEV_PORT` (defaults to 5173)
+- `.claude/agents/linear-orchestrator.md` — derives `DEV_PORT = 5173 + ticket_number` before invoking evaluator; passes it in cycle-1 spawns and cycle-2/3 SendMessage resumes; stores it in workflow-state.md for compaction survival
+- `backend/.sbtopts` — scopes sbt Ivy cache to the worktree directory via `-Dsbt.ivy.home=.ivy2`
+- `frontend/vite.config.ts` — reads `process.env.PORT` to set `server.port` (default 5173) with `strictPort: true`

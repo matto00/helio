@@ -67,6 +67,7 @@ WORKTREE_PATH: <abs path>
 BRANCH: <branch>
 PHASE: Setup | Planning | Execution | Evaluation | Delivery | Cleanup
 CYCLE: <n>
+DEV_PORT: <port>
 EXECUTOR_AGENT_ID: <id-or-name>
 EVALUATOR_AGENT_ID: <id-or-name>
 LAST_EVAL_VERDICT: PASS | FAIL | BLOCKER | —
@@ -160,6 +161,17 @@ Track cycle count (persisted in workflow-state.md). Maximum **3 cycles**.
 
 Record each agent's name/ID so you can SendMessage-resume in cycles 2+.
 
+Before spawning the evaluator, derive a stable `DEV_PORT` from the ticket ID so
+that parallel orchestrator sessions never collide on port 5173:
+
+```bash
+# e.g. HEL-55 → 5173 + 55 = 5228
+TICKET_NUM=$(echo "$TICKET_ID" | sed 's/^[A-Z]*-//')
+DEV_PORT=$((5173 + TICKET_NUM))
+```
+
+Store `DEV_PORT` in `workflow-state.md` so it survives compaction.
+
 1. `Agent` call with `subagent_type: linear-executor`. Prompt:
 
    > CHANGE_NAME=`<name>`, WORKTREE_PATH=`<path>`, TICKET_ID=`<id>`.
@@ -167,12 +179,15 @@ Record each agent's name/ID so you can SendMessage-resume in cycles 2+.
 
 2. After executor returns, `Agent` call with `subagent_type: linear-evaluator`.
    Prompt:
-   > WORKTREE_PATH=`<path>`, CHANGE_NAME=`<name>`, TICKET_ID=`<id>`, CYCLE=1.
+   > WORKTREE_PATH=`<path>`, CHANGE_NAME=`<name>`, TICKET_ID=`<id>`, CYCLE=1, DEV_PORT=`<port>`.
    > Evaluate this implementation.
 
 Record agent IDs in `workflow-state.md`.
 
 ### Cycles 2 and 3 — SendMessage-resume (do NOT spawn fresh)
+
+Re-use the same `DEV_PORT` derived in cycle 1 (read it from `workflow-state.md`
+if the session was compacted).
 
 1. **SendMessage** to the `linear-executor` agent:
 
@@ -181,7 +196,7 @@ Record agent IDs in `workflow-state.md`.
 
 2. After executor returns, **SendMessage** to the `linear-evaluator` agent:
    > Cycle N. Re-evaluate — the executor has addressed cycle (N-1)'s
-   > change requests.
+   > change requests. DEV_PORT=`<port>`.
 
 ### Verdict handling
 
