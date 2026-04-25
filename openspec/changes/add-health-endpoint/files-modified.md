@@ -1,0 +1,4 @@
+- `backend/src/main/scala/com/helio/api/routes/HealthRoutes.scala` — implements GET /health returning HealthResponse("ok")
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — HealthResponse case class and healthResponseFormat implicit
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — registers health.routes at root level outside the /api prefix
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — test asserting GET /health returns 200 OK with HealthResponse("ok")
