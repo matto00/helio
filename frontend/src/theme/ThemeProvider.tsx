@@ -9,24 +9,39 @@ import {
   type SetStateAction,
 } from "react";
 
-import { getInitialTheme, ThemeStorageKey, type Theme } from "./theme";
+import { applyAccentTokens } from "./appearance";
+import {
+  AccentStorageKey,
+  getInitialAccentColor,
+  getInitialTheme,
+  ThemeStorageKey,
+  type Theme,
+} from "./theme";
 
 interface ThemeContextValue {
   theme: Theme;
   setTheme: Dispatch<SetStateAction<Theme>>;
   toggleTheme: () => void;
+  accentColor: string;
+  setAccentColor: Dispatch<SetStateAction<string>>;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: PropsWithChildren) {
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
+  const [accentColor, setAccentColor] = useState<string>(() => getInitialAccentColor());
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem(ThemeStorageKey, theme);
   }, [theme]);
+
+  useEffect(() => {
+    applyAccentTokens(accentColor);
+    window.localStorage.setItem(AccentStorageKey, accentColor);
+  }, [accentColor]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
@@ -35,8 +50,10 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       toggleTheme: () => {
         setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
       },
+      accentColor,
+      setAccentColor,
     }),
-    [theme],
+    [theme, accentColor],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

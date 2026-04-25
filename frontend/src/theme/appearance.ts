@@ -196,3 +196,29 @@ export function resolvePanelTextColor(
 
   return themeAppearancePalette[theme].defaultText;
 }
+
+export function buildAccentTokens(hex: string): Record<string, string> {
+  const rgb = parseHexColor(hex);
+  if (rgb === null) {
+    return {};
+  }
+
+  const white = { r: 255, g: 255, b: 255 };
+  const strong = blendColors(rgb, white, 0.15);
+
+  return {
+    "--app-accent": hex,
+    "--app-accent-strong": toRgbString(strong),
+    "--app-accent-surface": toRgbString(rgb, 0.12),
+    "--app-accent-dim": toRgbString(rgb, 0.12),
+    "--app-accent-mid": toRgbString(rgb, 0.25),
+    "--app-bg-accent": toRgbString(rgb, 0.06),
+  };
+}
+
+export function applyAccentTokens(hex: string): void {
+  const tokens = buildAccentTokens(hex);
+  for (const [key, value] of Object.entries(tokens)) {
+    document.documentElement.style.setProperty(key, value);
+  }
+}

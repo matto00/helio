@@ -1,0 +1,14 @@
+- `frontend/src/theme/theme.ts` — Added `AccentStorageKey`, `DefaultAccentColor`, `ACCENT_PRESETS` array (8 presets), and `getInitialAccentColor()` utility
+- `frontend/src/theme/appearance.ts` — Added `buildAccentTokens(hex)` (returns 6 CSS variable key/value pairs) and `applyAccentTokens(hex)` (applies tokens to `:root`)
+- `frontend/src/theme/ThemeProvider.tsx` — Extended with `accentColor` state, `useEffect` for persistence and `applyAccentTokens`, exposed `accentColor`/`setAccentColor` on context
+- `frontend/src/components/AccentPicker.tsx` — New component: row of 8 swatch buttons from `ACCENT_PRESETS` with `aria-label`, `aria-pressed`, and selected ring indicator
+- `frontend/src/components/AccentPicker.css` — Swatch styles: 20px circles, hover scale, focus ring, selected ring using `--app-accent`
+- `frontend/src/components/UserMenu.tsx` — Added `accentColor`/`setAccentColor` props, renders `<AccentPicker>` below theme toggle with "Accent color" section label
+- `frontend/src/components/UserMenu.css` — Added `.user-menu__section` and `.user-menu__section-label` styles
+- `frontend/src/app/App.tsx` — Updated `useTheme()` destructure and `<UserMenu>` call site to pass `accentColor`/`setAccentColor`
+- `frontend/src/theme/appearance.test.ts` — Added `buildAccentTokens` tests: 6-key structure, correct rgba values for orange, empty object on invalid hex
+- `frontend/src/theme/theme.test.ts` — New test file: `getInitialAccentColor` defaults to orange, returns stored value when present
+- `frontend/src/theme/ThemeProvider.test.tsx` — Added tests: reads accent from localStorage on mount, applies to `documentElement`, persists on change
+- `frontend/src/components/AccentPicker.test.tsx` — New test file: renders all presets, selected swatch has `aria-pressed=true`, click calls `setAccentColor`
+- `frontend/src/components/UserMenu.test.tsx` — Updated to pass required `accentColor`/`setAccentColor` props, added accent picker render test
+- `openspec/changes/configurable-accent-color/tasks.md` — All 20 tasks marked complete
