@@ -249,7 +249,9 @@ final class DataSourceRoutes(
         },
         path(Segment / "preview") { sourceId =>
           get {
-            acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
+            parameter("limit".as[Int].optional) { limitOpt =>
+              val limit = limitOpt.map(l => math.max(1, math.min(500, l))).getOrElse(10)
+              acl.authorizeResource(sourceId, user, dataSourceResolver, "Data source not found") {
               onSuccess(dataSourceRepo.findById(DataSourceId(sourceId))) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Data source not found"))
@@ -277,7 +279,7 @@ final class DataSourceRoutes(
                         onComplete(fileSystem.read(path)) {
                           case Success(bytes) =>
                             val csv             = new String(bytes, StandardCharsets.UTF_8)
-                            val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = 10)
+                            val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = limit)
                             complete(CsvPreviewResponse(headers, rows))
                           case Failure(_: java.nio.file.NoSuchFileException) =>
                             complete(StatusCodes.NotFound, ErrorResponse("Data file not found; the source may need to be re-uploaded"))
@@ -286,6 +288,7 @@ final class DataSourceRoutes(
                         }
                     }
               }
+            }
             }
           }
         },

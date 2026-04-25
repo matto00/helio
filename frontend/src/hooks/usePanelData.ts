@@ -96,7 +96,8 @@ export function usePanelData(
     async function fetchData() {
       try {
         if (source!.sourceType === "csv" || source!.sourceType === "static") {
-          const preview = await fetchCsvPreview(source!.id);
+          const limit = panel.type === "chart" ? 200 : undefined;
+          const preview = await fetchCsvPreview(source!.id, limit);
           if (preview.rows.length === 0) {
             setNoData(true);
           } else {

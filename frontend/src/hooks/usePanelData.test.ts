@@ -145,7 +145,7 @@ describe("usePanelData", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv");
+    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", undefined);
     expect(result.current.data).toEqual({ value: "1000", label: "North" });
     expect(result.current.rawRows).toEqual([["1000", "North"]]);
     expect(result.current.headers).toEqual(["revenue", "region"]);
@@ -276,5 +276,54 @@ describe("usePanelData", () => {
     const firstRefresh = result.current.refresh;
     rerender();
     expect(result.current.refresh).toBe(firstRefresh);
+  });
+
+  it("fetches CSV preview with limit=200 for chart panels", async () => {
+    mockFetchCsvPreview.mockResolvedValue({
+      headers: ["x", "y"],
+      rows: [
+        ["1", "100"],
+        ["2", "200"],
+      ],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({
+      type: "chart",
+      typeId: "dt-csv",
+      fieldMapping: { x: "x", y: "y" },
+    });
+
+    const { result } = renderHook(
+      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
+      { wrapper: wrapper(store) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", 200);
+  });
+
+  it("fetches CSV preview without limit for non-chart panels", async () => {
+    mockFetchCsvPreview.mockResolvedValue({
+      headers: ["revenue"],
+      rows: [["1000"]],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({
+      type: "metric",
+      typeId: "dt-csv",
+      fieldMapping: { value: "revenue" },
+    });
+
+    const { result } = renderHook(
+      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
+      { wrapper: wrapper(store) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", undefined);
   });
 });
