@@ -124,3 +124,23 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.type-detail-panel__name-input {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--app-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  padding: 0.125rem 0.375rem;
+  outline: none;
+  transition: border-color var(--app-transition);
+  min-width: 0;
+}
+
+.type-detail-panel__name-input:hover,
+.type-detail-panel__name-input:focus {
+  border-color: var(--app-border-subtle);
+  background: var(--app-surface-soft);
+}

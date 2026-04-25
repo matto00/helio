@@ -1,10 +1,17 @@
-import { createStaticSource, deleteSource, fetchSources, sourcesReducer } from "./sourcesSlice";
+import {
+  createStaticSource,
+  deleteSource,
+  fetchSources,
+  sourcesReducer,
+  updateSource,
+} from "./sourcesSlice";
 import * as dataSourceService from "../../services/dataSourceService";
 
 jest.mock("../../services/dataSourceService", () => ({
   fetchSources: jest.fn(),
   deleteSource: jest.fn(),
   createStaticSource: jest.fn(),
+  updateSource: jest.fn(),
 }));
 
 const createStaticSourceMock = jest.mocked(dataSourceService.createStaticSource);
@@ -122,5 +129,37 @@ describe("createStaticSource thunk", () => {
       ([action]) => action.type === "sources/createStaticSource/rejected",
     );
     expect(rejectedCall).toBeDefined();
+  });
+});
+
+describe("updateSource", () => {
+  it("updates the matching item name when fulfilled", () => {
+    const initialState = {
+      items: [testSource],
+      status: "succeeded" as const,
+      error: null,
+    };
+    const updatedSource = { ...testSource, name: "Renamed API" };
+    const nextState = sourcesReducer(
+      initialState,
+      updateSource.fulfilled(updatedSource, "req-u1", { id: "s-1", name: "Renamed API" }),
+    );
+    expect(nextState.items[0].name).toBe("Renamed API");
+  });
+
+  it("does not modify other items when updating a different source", () => {
+    const otherSource = { ...testSource, id: "s-2", name: "Other" };
+    const initialState = {
+      items: [testSource, otherSource],
+      status: "succeeded" as const,
+      error: null,
+    };
+    const updatedSource = { ...testSource, name: "Renamed Sales" };
+    const nextState = sourcesReducer(
+      initialState,
+      updateSource.fulfilled(updatedSource, "req-u2", { id: "s-1", name: "Renamed Sales" }),
+    );
+    expect(nextState.items[0].name).toBe("Renamed Sales");
+    expect(nextState.items[1].name).toBe("Other");
   });
 });

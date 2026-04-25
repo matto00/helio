@@ -39,7 +39,9 @@ export function SourcesPage() {
             {sourcesError}
           </p>
         )}
-        {(sourcesStatus === "succeeded" || sourcesStatus === "idle") && <DataSourceList />}
+        {(sourcesStatus === "succeeded" || sourcesStatus === "idle") && (
+          <DataSourceList onAddSource={() => setIsAddModalOpen(true)} />
+        )}
       </div>
 
       <div className="sources-page__section">

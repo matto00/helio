@@ -18,6 +18,7 @@ interface EditableField extends DataTypeField {
 
 export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
   const dispatch = useAppDispatch();
+  const [name, setName] = useState(dataType.name);
   const [fields, setFields] = useState<EditableField[]>(dataType.fields.map((f) => ({ ...f })));
   const [computedFields, setComputedFields] = useState<ComputedField[]>(
     dataType.computedFields ?? [],
@@ -36,7 +37,14 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
     setIsSaving(true);
     setError(null);
 
-    const result = await dispatch(updateDataType({ id: dataType.id, fields, computedFields }));
+    const result = await dispatch(
+      updateDataType({
+        id: dataType.id,
+        name: name.trim() || dataType.name,
+        fields,
+        computedFields,
+      }),
+    );
     if (updateDataType.rejected.match(result)) {
       setError(result.payload ?? "Failed to save changes.");
     } else {
@@ -48,7 +56,16 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
   return (
     <div className="type-detail-panel">
       <div className="type-detail-panel__header">
-        <h3 className="type-detail-panel__title">{dataType.name}</h3>
+        <input
+          type="text"
+          className="type-detail-panel__name-input"
+          aria-label="Data type name"
+          value={name}
+          onChange={(e) => {
+            setSaved(false);
+            setName(e.target.value);
+          }}
+        />
         <button
           type="button"
           className="type-detail-panel__close"

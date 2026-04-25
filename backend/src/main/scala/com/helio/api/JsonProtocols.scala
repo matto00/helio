@@ -119,6 +119,7 @@ final case class UpdateDataTypeRequest(
 )
 final case class ValidateExpressionResponse(valid: Boolean, message: Option[String])
 final case class CreateDataSourceRequest(name: String)
+final case class UpdateDataSourceRequest(name: Option[String])
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
 
 // ── SQL connector API types ───────────────────────────────────────────────────
@@ -540,6 +541,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]   = jsonFormat3(UpdateDataTypeRequest.apply)
   implicit val validateExpressionResponseFormat: RootJsonFormat[ValidateExpressionResponse] = jsonFormat2(ValidateExpressionResponse.apply)
   implicit val createDataSourceRequestFormat: RootJsonFormat[CreateDataSourceRequest] = jsonFormat1(CreateDataSourceRequest.apply)
+  implicit val updateDataSourceRequestFormat: RootJsonFormat[UpdateDataSourceRequest] = jsonFormat1(UpdateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]         = jsonFormat2(CsvPreviewResponse.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse]     = jsonFormat3(CreateSourceResponse.apply)
   implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]       = jsonFormat2(StaticColumnPayload.apply)
