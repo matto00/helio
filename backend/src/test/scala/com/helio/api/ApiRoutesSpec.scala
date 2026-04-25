@@ -172,6 +172,7 @@ class ApiRoutesSpec
     "return health status" in {
       Get("/health") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
+        contentType shouldBe ContentTypes.`application/json`
         responseAs[HealthResponse] shouldBe HealthResponse("ok")
       }
     }
