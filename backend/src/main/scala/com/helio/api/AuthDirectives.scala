@@ -30,4 +30,22 @@ class AuthDirectives(userSessionRepo: UserSessionRepository)(implicit ec: Execut
       case _ =>
         complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
     }
+
+  /** Optionally extracts a Bearer token from the Authorization header and validates it.
+   *  Returns Some(AuthenticatedUser) if a valid token is present, None if no token is
+   *  provided, and completes with 401 if a token is present but invalid/expired.
+   *  This allows unauthenticated access for public resources while still validating
+   *  tokens when they are provided.
+   */
+  val optionalAuthenticate: Directive1[Option[AuthenticatedUser]] =
+    optionalHeaderValueByType(Authorization).flatMap {
+      case Some(Authorization(OAuth2BearerToken(token))) =>
+        onComplete(userSessionRepo.findValidSession(token)).flatMap {
+          case Success(Some(user)) => provide(Some(user))
+          case Success(None)       => complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
+          case Failure(_)          => complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
+        }
+      case _ =>
+        provide(None)
+    }
 }

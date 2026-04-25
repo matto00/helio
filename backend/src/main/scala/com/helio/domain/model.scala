@@ -240,3 +240,35 @@ final case class DataType(
     updatedAt: Instant,
     ownerId: UserId
 )
+
+sealed trait Role
+object Role {
+  case object Viewer extends Role
+  case object Editor extends Role
+
+  def fromString(s: String): Either[String, Role] = s match {
+    case "viewer" => Right(Viewer)
+    case "editor" => Right(Editor)
+    case other    => Left(s"Unknown role: '$other'. Valid values: viewer, editor")
+  }
+
+  def asString(r: Role): String = r match {
+    case Viewer => "viewer"
+    case Editor => "editor"
+  }
+}
+
+sealed trait ResourceAccess
+object ResourceAccess {
+  case object Owner  extends ResourceAccess
+  case object Editor extends ResourceAccess
+  case object Viewer extends ResourceAccess
+}
+
+final case class ResourcePermission(
+    resourceType: String,
+    resourceId: String,
+    granteeId: Option[UserId],
+    role: Role,
+    createdAt: Instant
+)

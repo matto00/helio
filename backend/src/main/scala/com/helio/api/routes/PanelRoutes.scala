@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
 
 import java.time.Instant
 import java.util.UUID
@@ -16,12 +16,17 @@ final class PanelRoutes(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataTypeRepo: DataTypeRepository,
+    permissionRepo: ResourcePermissionRepository,
+    aclDirective: AclDirective,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  private def getOwner(resourceId: String): Future[Option[String]] =
+    dashboardRepo.findById(DashboardId(resourceId)).map(_.map(_.ownerId.value))
 
   /** Resolve a panel's typeId against the authenticated user's owned types.
    *  If the panel's typeId references a type owned by a different user, the
@@ -49,28 +54,36 @@ final class PanelRoutes(
                 case Left(error) =>
                   complete(StatusCodes.BadRequest, ErrorResponse(error))
                 case Right(dashboardId) =>
-                  onSuccess(dashboardRepo.findById(dashboardId)) {
-                    case None =>
-                      complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                    case Some(_) =>
-                      validatePanelType(request.`type`) match {
-                        case Left(err) =>
-                          complete(StatusCodes.BadRequest, ErrorResponse(err))
-                        case Right(panelType) =>
-                          val now = Instant.now()
-                          val panel = Panel(
-                            id          = PanelId(UUID.randomUUID().toString),
-                            dashboardId = dashboardId,
-                            title       = RequestValidation.normalizePanelTitle(request.title),
-                            meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                            appearance  = PanelAppearance.Default,
-                            panelType   = panelType,
-                            ownerId     = user.id
-                          )
-                          onSuccess(panelRepo.insert(panel)) { created =>
-                            complete(StatusCodes.Created, PanelResponse.fromDomain(created))
-                          }
-                      }
+                  aclDirective.authorizeResourceWithSharing(
+                    "dashboard",
+                    dashboardId.value,
+                    Some(user),
+                    getOwner,
+                    "Dashboard not found"
+                  ) { access =>
+                    access match {
+                      case ResourceAccess.Viewer =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                      case ResourceAccess.Editor | ResourceAccess.Owner =>
+                        validatePanelType(request.`type`) match {
+                          case Left(err) =>
+                            complete(StatusCodes.BadRequest, ErrorResponse(err))
+                          case Right(panelType) =>
+                            val now = Instant.now()
+                            val panel = Panel(
+                              id          = PanelId(UUID.randomUUID().toString),
+                              dashboardId = dashboardId,
+                              title       = RequestValidation.normalizePanelTitle(request.title),
+                              meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+                              appearance  = PanelAppearance.Default,
+                              panelType   = panelType,
+                              ownerId     = user.id
+                            )
+                            onSuccess(panelRepo.insert(panel)) { created =>
+                              complete(StatusCodes.Created, PanelResponse.fromDomain(created))
+                            }
+                        }
+                    }
                   }
               }
             }
@@ -82,12 +95,23 @@ final class PanelRoutes(
               onSuccess(panelRepo.findById(PanelId(panelId))) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                case Some(panel) if panel.ownerId != user.id =>
-                  complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-                case Some(_) =>
-                  onSuccess(panelRepo.delete(PanelId(panelId))) {
-                    case true  => complete(StatusCodes.NoContent)
-                    case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                case Some(panel) =>
+                  aclDirective.authorizeResourceWithSharing(
+                    "dashboard",
+                    panel.dashboardId.value,
+                    Some(user),
+                    getOwner,
+                    "Dashboard not found"
+                  ) { access =>
+                    access match {
+                      case ResourceAccess.Viewer =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                      case ResourceAccess.Editor | ResourceAccess.Owner =>
+                        onSuccess(panelRepo.delete(PanelId(panelId))) {
+                          case true  => complete(StatusCodes.NoContent)
+                          case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                        }
+                    }
                   }
               }
             },
@@ -96,9 +120,18 @@ final class PanelRoutes(
                 onSuccess(panelRepo.findById(PanelId(panelId))) {
                   case None =>
                     complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                  case Some(existing) if existing.ownerId != user.id =>
-                    complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-                  case Some(_) =>
+                  case Some(existing) =>
+                    aclDirective.authorizeResourceWithSharing(
+                      "dashboard",
+                      existing.dashboardId.value,
+                      Some(user),
+                      getOwner,
+                      "Dashboard not found"
+                    ) { access =>
+                      access match {
+                        case ResourceAccess.Viewer =>
+                          complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                        case ResourceAccess.Editor | ResourceAccess.Owner =>
                     val trimmedTitle  = request.title.map(_.trim)
                     val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
                     val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined
@@ -180,6 +213,8 @@ final class PanelRoutes(
                           }
                       }
                     }
+                      }
+                    }
                 }
               }
             }
@@ -190,12 +225,23 @@ final class PanelRoutes(
             onSuccess(panelRepo.findById(PanelId(panelId))) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-              case Some(panel) if panel.ownerId != user.id =>
-                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-              case Some(_) =>
-                onSuccess(panelRepo.duplicate(PanelId(panelId), user.id)) {
-                  case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
-                  case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+              case Some(panel) =>
+                aclDirective.authorizeResourceWithSharing(
+                  "dashboard",
+                  panel.dashboardId.value,
+                  Some(user),
+                  getOwner,
+                  "Dashboard not found"
+                ) { access =>
+                  access match {
+                    case ResourceAccess.Viewer =>
+                      complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                    case ResourceAccess.Editor | ResourceAccess.Owner =>
+                      onSuccess(panelRepo.duplicate(PanelId(panelId), user.id)) {
+                        case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
+                        case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                      }
+                  }
                 }
             }
           }

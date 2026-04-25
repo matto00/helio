@@ -1,0 +1,19 @@
+- `backend/src/main/resources/db/migration/V16__resource_permissions.sql` — Flyway migration creating `resource_permissions` table (TEXT resource_id, nullable UUID grantee_id, role CHECK constraint, partial unique index for public grants)
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added `ResourcePermission` case class, `ResourceAccess` sealed trait (Owner/Editor/Viewer), and `Role` sealed trait (Viewer/Editor)
+- `backend/src/main/scala/com/helio/infrastructure/ResourcePermissionRepository.scala` — New: Slick-based repository with insert, delete, findByResource, findGrant, hasPublicViewerGrant
+- `backend/src/main/scala/com/helio/api/AclDirective.scala` — Added `authorizeResourceWithSharing` directive that returns `ResourceAccess` and handles public/shared/owner access patterns
+- `backend/src/main/scala/com/helio/api/AuthDirectives.scala` — Added `optionalAuthenticate` directive returning `Directive1[Option[AuthenticatedUser]]` for public route support
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `GrantPermissionRequest`, `PermissionResponse`, `PermissionsResponse` case classes and JSON formatters
+- `backend/src/main/scala/com/helio/api/routes/PermissionRoutes.scala` — New: owner-only POST/DELETE/GET permission management endpoints for dashboards
+- `backend/src/main/scala/com/helio/api/routes/PublicDashboardRoutes.scala` — New: GET /api/dashboards/:id/panels route under optionalAuthenticate supporting public/shared/owner access
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — Updated PATCH/DELETE/duplicate/create panel routes to use `authorizeResourceWithSharing`, accepting Editor and Owner access; Viewers get 403
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — DELETE and PATCH dashboard remain owner-only (inline ownership check rejects non-owners including editors)
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Wired `PublicDashboardRoutes` under `optionalAuthenticate`, `PermissionRoutes` under `authenticate`; passed `permissionRepo` to PanelRoutes/AclDirective
+- `backend/src/main/scala/com/helio/app/Main.scala` — Constructed `ResourcePermissionRepository` and passed it to `ApiRoutes`
+- `backend/src/main/scala/com/helio/api/routes/DataSourceRoutes.scala` — Minor wiring update to pass AclDirective
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` — Minor wiring update to pass AclDirective
+- `backend/src/test/scala/com/helio/api/AclDirectiveSpec.scala` — Unit tests for `authorizeResource` (existing) plus new `authorizeResourceWithSharing` suite (task 8.1): owner pass, editor pass, viewer pass, no-grant 403, unauthenticated public pass, unauthenticated non-public 404; uses stub `ResourcePermissionRepository` with method overrides
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Added `resource_permissions` to `cleanDb()` TRUNCATE; updated "no auth" panel test expectation from 401 → 404 (route now uses optionalAuthenticate); added integration tests for PermissionRoutes (8.2: grant, conflict-409, revoke, list, non-owner-403), public panel read (8.3: unauthenticated on public 200, on private 404), and editor/viewer access (8.4: editor can PATCH panel, editor cannot DELETE dashboard, viewer cannot PATCH panel)
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — Updated to pass permissionRepo to ApiRoutes constructor
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — Updated to pass permissionRepo to ApiRoutes constructor
+- `openspec/changes/acl-sharing-permissions/` — Change artifacts (proposal, design, tasks, specs)
