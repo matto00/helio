@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
+import { API_BASE_URL } from "../../config/env";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { login } from "./authSlice";
 import "./auth.css";
@@ -78,7 +79,7 @@ export function LoginPage() {
           type="button"
           className="auth-google-btn"
           onClick={() => {
-            window.location.href = "/api/auth/google";
+            window.location.href = `${API_BASE_URL}/api/auth/google`;
           }}
         >
           <span>G</span>
