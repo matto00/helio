@@ -1,9 +1,9 @@
 package com.helio.api.routes
 
-import akka.actor.typed.ActorSystem
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives
+import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}

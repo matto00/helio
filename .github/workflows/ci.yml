@@ -58,5 +58,3 @@ jobs:
       - name: Compile and test
         run: sbt compile test
         working-directory: backend
-        env:
-          AKKA_LICENSE_KEY: ${{ secrets.AKKA_LICENSE_KEY }}

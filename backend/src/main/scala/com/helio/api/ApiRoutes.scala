@@ -1,13 +1,13 @@
 package com.helio.api
 
-import akka.actor.typed.ActorSystem
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.HttpOrigin
-import akka.http.scaladsl.server.Directives
-import akka.http.scaladsl.server.Route
-import ch.megard.akka.http.cors.scaladsl.CorsDirectives._
-import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
-import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.HttpOrigin
+import org.apache.pekko.http.scaladsl.server.Directives
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
+import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
+import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, UserRepository, UserSessionRepository}

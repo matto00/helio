@@ -28,7 +28,7 @@ helio/
 │       ├── store/         # Redux store
 │       ├── theme/         # ThemeProvider + appearance helpers
 │       └── types/         # Shared TypeScript model types
-├── backend/           # Scala/Akka HTTP server
+├── backend/           # Scala/Pekko HTTP server
 │   └── src/main/scala/com/helio/
 │       ├── api/           # Routes, request validation, JSON protocols
 │       ├── domain/        # Domain models and value types
@@ -43,7 +43,7 @@ helio/
 | Layer            | Technology                                               |
 | ---------------- | -------------------------------------------------------- |
 | Frontend         | React 18, TypeScript, Redux Toolkit, React Grid Layout   |
-| Backend          | Scala 2.13, Akka HTTP, Slick, PostgreSQL                 |
+| Backend          | Scala 2.13, Apache Pekko HTTP, Slick, PostgreSQL         |
 | API contracts    | JSON Schema 2020-12                                      |
 | Frontend tooling | Vite, ESLint, Prettier, Jest                             |
 | Backend testing  | ScalaTest, embedded PostgreSQL (via `embedded-postgres`) |
@@ -63,7 +63,6 @@ Create a `.env` file in `backend/`:
 
 ```env
 DATABASE_URL=jdbc:postgresql://localhost:5432/helio?user=helio&password=secret
-AKKA_LICENSE_KEY=<your-key>
 ```
 
 Start the server on port 8080:

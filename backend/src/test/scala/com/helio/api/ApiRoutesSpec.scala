@@ -1,11 +1,11 @@
 package com.helio.api
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
@@ -117,8 +117,8 @@ class ApiRoutesSpec
   private def realSessionRoutes(): Route =
     new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo).routes
 
-  import akka.http.scaladsl.server.Directives.mapRequest
-  import akka.http.scaladsl.model.headers.Authorization
+  import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
+  import org.apache.pekko.http.scaladsl.model.headers.Authorization
 
   /** Routes with the valid Bearer token pre-applied to every request that does
    *  not already carry an Authorization header.  This keeps all existing
@@ -1704,7 +1704,7 @@ class ApiRoutesSpec
     }
 
     "return 401 for an expired or unknown token" in {
-      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       Get("/api/dashboards").withHeaders(Authorization(OAuth2BearerToken("unknown-bad-token"))) ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
         responseAs[ErrorResponse].message shouldBe "Unauthorized"
@@ -1848,7 +1848,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         token = responseAs[AuthResponse].token
       }
-      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken(token))) ~> routes() ~> check {
         status shouldBe StatusCodes.NoContent
       }
@@ -1866,7 +1866,7 @@ class ApiRoutesSpec
 
     "return 401 for an unrecognised token" in {
       cleanDb()
-      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken("deadbeefdeadbeef"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
@@ -2214,7 +2214,7 @@ class ApiRoutesSpec
 
     "return 200 with user info for a valid token" in {
       cleanDb()
-      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       var token = ""
       // Register via realSessionRoutes to get a real DB session token
       Post("/api/auth/register", RegisterRequest("me@example.com", "password123", Some("Me User"))) ~> realSessionRoutes() ~> check {
@@ -2232,7 +2232,7 @@ class ApiRoutesSpec
 
     "return 401 for an expired or unknown token" in {
       cleanDb()
-      import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       Get("/api/auth/me").withHeaders(Authorization(OAuth2BearerToken("deadbeef00000000"))) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }

@@ -25,11 +25,11 @@ npm test -- --testPathPattern=dashboardsSlice
 ### Backend (run from `backend/`)
 
 ```bash
-sbt run    # Start Akka HTTP server on port 8080
+sbt run    # Start Pekko HTTP server on port 8080
 sbt test   # Run ScalaTest suite
 ```
 
-The backend loads a `.env` file for environment variables (including `AKKA_LICENSE_KEY`).
+The backend loads a `.env` file for environment variables (e.g. `DATABASE_URL`).
 
 #### Production environment variables
 
@@ -48,16 +48,16 @@ Husky runs ESLint, Prettier, and Jest automatically on commit. Fix all issues be
 
 ## Architecture
 
-Helio is a dashboard builder with a React/Redux frontend and a Scala/Akka backend.
+Helio is a dashboard builder with a React/Redux frontend and a Scala/Pekko backend.
 
 ### Request Flow
 
 ```
 React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
-  → Vite proxy → Akka HTTP Routes → Repository Layer (Slick) → PostgreSQL
+  → Vite proxy → Pekko HTTP Routes → Repository Layer (Slick) → PostgreSQL
 ```
 
-### Backend (Scala/Akka)
+### Backend (Scala/Pekko)
 
 - **PostgreSQL** is the persistence layer, managed by **Flyway** (migrations in `backend/src/main/resources/db/migration/`). **Slick** is the database access layer with HikariCP connection pooling.
 - **`ApiRoutes.scala`** defines all REST routes and composes the sub-routers. Inputs are normalized by `RequestValidation` before reaching repositories.
@@ -130,7 +130,7 @@ Available commands in `.claude/commands/`:
 
 ### Backend
 
-- Keep Akka protocols explicit and actor boundaries clear.
+- Keep Pekko protocols explicit and actor boundaries clear.
 - Avoid blocking operations in actor execution paths.
 - Separate domain logic from infrastructure integrations.
 

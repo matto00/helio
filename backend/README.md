@@ -1,6 +1,6 @@
 # Backend Scaffold
 
-Scala + Akka backend scaffold.
+Scala + Pekko backend scaffold.
 
 No service implementation is included yet.
 

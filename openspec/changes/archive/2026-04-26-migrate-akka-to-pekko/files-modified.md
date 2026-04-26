@@ -1,0 +1,27 @@
+- `.github/workflows/ci.yml` — removed `AKKA_LICENSE_KEY` secret env var from backend CI job
+- `CLAUDE.md` — updated Akka → Pekko references in server description and architecture section; removed `AKKA_LICENSE_KEY` note
+- `README.md` — removed `AKKA_LICENSE_KEY` from `.env` example; updated tech stack table to Apache Pekko HTTP
+- `backend/build.sbt` — replaced all 7 `com.typesafe.akka` deps with `org.apache.pekko` Pekko 1.1.x equivalents; removed `loadAkkaLicenseKeyOptions()` function and its two call sites
+- `backend/src/main/resources/application.conf` — renamed `akka {}` block to `pekko {}`; updated logger/logging-filter class paths to `org.apache.pekko.*`; removed `license-key` entries
+- `backend/src/main/scala/com/helio/api/AclDirective.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/AuthDirectives.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/AuthRoutes.scala` — `import akka.` → `import org.apache.pekko.`; replaced fully-qualified `akka.http.scaladsl.model.headers.RawHeader` reference
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/DataSourceRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/HealthRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/PermissionRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/PublicDashboardRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/api/routes/SourceRoutes.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/app/HttpServer.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/app/Main.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/main/scala/com/helio/domain/RestApiConnector.scala` — `import akka.` → `import org.apache.pekko.`; replaced fully-qualified `akka.http.scaladsl.settings.ClientConnectionSettings` reference
+- `backend/src/test/scala/com/helio/api/AclDirectiveSpec.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — `import akka.` → `import org.apache.pekko.`
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — `import akka.` → `import org.apache.pekko.`; replaced fully-qualified `akka.util.ByteString` reference
+- `backend/src/test/scala/com/helio/api/GoogleOAuthRoutesSpec.scala` — `import akka.` → `import org.apache.pekko.`
+- `openspec/changes/migrate-akka-to-pekko/tasks.md` — all tasks marked complete

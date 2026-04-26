@@ -1,10 +1,10 @@
 package com.helio.api
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.{Directives, Route}
-import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.AuthRoutes
 import com.helio.infrastructure.UserRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres

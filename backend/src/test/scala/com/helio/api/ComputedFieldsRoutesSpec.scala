@@ -1,11 +1,11 @@
 package com.helio.api
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes._
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
 import com.helio.infrastructure.{
@@ -108,7 +108,7 @@ class ComputedFieldsRoutesSpec
     new RestApiConnector(Some(_ => Future.successful(resp)))
 
   private def routes(connector: RestApiConnector = stubConnector(Left("no-http"))): Route = {
-    import akka.http.scaladsl.server.Directives.mapRequest
+    import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
     mapRequest { req =>
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
