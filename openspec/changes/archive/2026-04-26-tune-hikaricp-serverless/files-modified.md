@@ -1,0 +1,1 @@
+- `backend/src/main/resources/application.conf` — Updated HikariCP pool settings for Cloud Run: replaced `numThreads=10`/`maxConnections=10` with `numThreads=5`/`maximumPoolSize=5`, added `minimumIdle=0`, `idleTimeout=30000`, `maxLifetime=60000`, and a comment block documenting the Cloud Run / Cloud SQL connection-exhaustion rationale
