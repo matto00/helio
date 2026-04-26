@@ -54,7 +54,7 @@ Helio is a dashboard builder with a React/Redux frontend and a Scala/Pekko backe
 
 ```
 React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
-  → Vite proxy → Akka HTTP Routes → Repository Layer (Slick) → PostgreSQL
+  → Vite proxy → Pekko HTTP Routes → Repository Layer (Slick) → PostgreSQL
 ```
 
 ### Backend (Scala/Pekko)
@@ -130,7 +130,7 @@ Available commands in `.claude/commands/`:
 
 ### Backend
 
-- Keep Akka protocols explicit and actor boundaries clear.
+- Keep Pekko protocols explicit and actor boundaries clear.
 - Avoid blocking operations in actor execution paths.
 - Separate domain logic from infrastructure integrations.
 
