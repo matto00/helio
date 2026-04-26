@@ -6,5 +6,6 @@ module.exports = {
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: {
     "\\.(css)$": "<rootDir>/src/test/styleMock.js",
+    "^.*/config/env$": "<rootDir>/src/test/envMock.ts",
   },
 };

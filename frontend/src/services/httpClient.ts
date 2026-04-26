@@ -1,6 +1,9 @@
 import axios, { isAxiosError } from "axios";
+import { API_BASE_URL } from "../config/env";
 
-export const httpClient = axios.create();
+export const httpClient = axios.create({
+  baseURL: API_BASE_URL,
+});
 
 export function setAuthToken(token: string | null): void {
   if (token) {
