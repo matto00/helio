@@ -1,7 +1,7 @@
 package com.helio.api
 
 import org.apache.pekko.actor.typed.ActorSystem
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.HttpOrigin
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
@@ -46,9 +46,9 @@ final class ApiRoutes(
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
-  private val corsSettings = CorsSettings.defaultSettings.withAllowedOrigins(
-    HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*)
-  )
+  private val corsSettings = CorsSettings.defaultSettings
+    .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
+    .withAllowedMethods(Seq(HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT, HttpMethods.PATCH, HttpMethods.DELETE, HttpMethods.HEAD, HttpMethods.OPTIONS))
 
   val routes: Route =
     cors(corsSettings) {

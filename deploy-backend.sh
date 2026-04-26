@@ -2,7 +2,7 @@
 set -euo pipefail
 
 gcloud run deploy helio-backend \
-  --image=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:v2 \
+  --image=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:v3 \
   --region=us-west1 \
   --platform=managed \
   --add-cloudsql-instances=helio-493120:us-west1:helio-db \
