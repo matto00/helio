@@ -31,6 +31,17 @@ sbt test   # Run ScalaTest suite
 
 The backend loads a `.env` file for environment variables (including `AKKA_LICENSE_KEY`).
 
+#### Production environment variables
+
+| Variable           | Required   | Description                                                        |
+| ------------------ | ---------- | ------------------------------------------------------------------ |
+| `DATABASE_URL`     | Yes        | JDBC URL for PostgreSQL (e.g. `jdbc:postgresql://host:5432/helio`) |
+| `DB_USER`          | Yes (prod) | Database username — passed to both Flyway and Slick/HikariCP       |
+| `DB_PASSWORD`      | Yes (prod) | Database password — passed to both Flyway and Slick/HikariCP       |
+| `AKKA_LICENSE_KEY` | Yes (prod) | Akka commercial license key                                        |
+
+For local development, `DATABASE_URL` can embed credentials and `DB_USER` / `DB_PASSWORD` may be omitted (they default to empty string, which PostgreSQL accepts for trust/md5 auth via URL).
+
 ### Pre-commit hooks
 
 Husky runs ESLint, Prettier, and Jest automatically on commit. Fix all issues before committing.

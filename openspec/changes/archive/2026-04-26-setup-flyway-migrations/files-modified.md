@@ -1,0 +1,3 @@
+- `backend/src/main/resources/application.conf` — added `user`/`password` fields with `${?DB_USER}` / `${?DB_PASSWORD}` env-var overrides under `helio.db`
+- `backend/src/main/scala/com/helio/infrastructure/Database.scala` — reads `user` and `password` from config and passes them to `Flyway.configure().dataSource(url, user, password)` instead of hardcoded nulls
+- `CLAUDE.md` — added production env var table documenting `DATABASE_URL`, `DB_USER`, `DB_PASSWORD`, and `AKKA_LICENSE_KEY`
