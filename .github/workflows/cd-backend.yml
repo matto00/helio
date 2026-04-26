@@ -1,0 +1,47 @@
+name: CD Backend
+
+on:
+  push:
+    branches: ["release/**"]
+    paths:
+      - "backend/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/cd-backend.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-west1-docker.pkg.dev
+
+      - name: Build and push image
+        run: |
+          BRANCH=$(echo "${{ github.ref_name }}" | sed 's|/|-|g')
+          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:${BRANCH}-${SHA}
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: helio-backend
+          region: us-west1
+          image: ${{ env.IMAGE }}
