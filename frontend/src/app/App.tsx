@@ -12,6 +12,7 @@ import {
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
+import { OrbitMark } from "../components/OrbitMark";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
@@ -109,7 +110,7 @@ function AppShell() {
       <header className="app-command-bar">
         <div className="app-command-bar__left">
           <span className="app-command-bar__logo">
-            <span className="app-command-bar__logo-dot" aria-hidden="true" />
+            <OrbitMark />
             <span className="app-command-bar__wordmark">Helio</span>
           </span>
           <span className="app-command-bar__sep" aria-hidden="true" />
@@ -177,6 +178,12 @@ function AppShell() {
           </button>
         ) : (
           <aside className="app-sidebar">
+            <div className="app-sidebar__logo">
+              <span className="app-sidebar__wordmark">
+                <OrbitMark />
+                Helio
+              </span>
+            </div>
             <nav className="app-sidebar__nav" aria-label="Main navigation">
               <NavLink to="/" end className="app-sidebar__nav-link">
                 Dashboards

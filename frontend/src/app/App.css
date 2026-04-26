@@ -40,19 +40,10 @@
   color: var(--app-text);
 }
 
-.app-command-bar__logo-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--app-accent);
-  box-shadow: 0 0 8px var(--app-accent);
-  flex-shrink: 0;
-}
-
 .app-command-bar__wordmark {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--app-text);
 }
@@ -176,18 +167,9 @@
   gap: 7px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--app-text);
-}
-
-.app-sidebar__logo-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--app-accent);
-  box-shadow: 0 0 8px var(--app-accent);
-  flex-shrink: 0;
 }
 
 .app-sidebar__workspace {

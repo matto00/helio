@@ -150,7 +150,7 @@
 }
 
 .add-source-modal__field-name {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
   color: var(--app-accent);
   padding-left: 0.625rem !important;

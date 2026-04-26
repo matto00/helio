@@ -51,7 +51,7 @@
 
 .computed-fields-editor__field-expr {
   flex: 1;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--color-muted, #64748b);
 }
