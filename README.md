@@ -62,9 +62,7 @@ helio/
 Create a `.env` file in `backend/`:
 
 ```env
-DB_URL=jdbc:postgresql://localhost:5432/helio
-DB_USER=helio
-DB_PASSWORD=secret
+DATABASE_URL=jdbc:postgresql://localhost:5432/helio?user=helio&password=secret
 AKKA_LICENSE_KEY=<your-key>
 ```
 
