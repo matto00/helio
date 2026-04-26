@@ -1,6 +1,6 @@
 package com.helio.api
 
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain._
 import spray.json._
 

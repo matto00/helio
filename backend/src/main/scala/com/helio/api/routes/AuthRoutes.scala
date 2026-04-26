@@ -1,12 +1,12 @@
 package com.helio.api.routes
 
-import akka.actor.typed.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.server.Directives
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.server.Directives
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.github.t3hnar.bcrypt._
 import com.helio.api._
 import com.helio.domain.{User, UserId, UserSession}
@@ -109,7 +109,7 @@ class AuthRoutes(
       method  = HttpMethods.GET,
       uri     = "https://www.googleapis.com/oauth2/v3/userinfo",
       headers = scala.collection.immutable.Seq(
-        akka.http.scaladsl.model.headers.RawHeader("Authorization", s"Bearer $accessToken")
+        org.apache.pekko.http.scaladsl.model.headers.RawHeader("Authorization", s"Bearer $accessToken")
       )
     )
     Http()(system.classicSystem).singleRequest(request).flatMap { response =>

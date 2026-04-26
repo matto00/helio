@@ -1,9 +1,9 @@
 package com.helio.api
 
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.server.Directive1
-import akka.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.server.Directive1
+import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.domain.AuthenticatedUser
 import com.helio.infrastructure.UserSessionRepository
 

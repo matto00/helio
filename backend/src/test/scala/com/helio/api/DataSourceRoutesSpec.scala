@@ -1,14 +1,14 @@
 package com.helio.api
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, ResourcePermissionRepository, UserRepository, UserSessionRepository}
-import akka.http.scaladsl.server.Directives.mapRequest
+import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -172,7 +172,7 @@ class DataSourceRoutesSpec
           "file",
           HttpEntity(
             ContentTypes.`text/plain(UTF-8)`,
-            akka.util.ByteString(Array.fill(1024)(0x41.toByte))
+            org.apache.pekko.util.ByteString(Array.fill(1024)(0x41.toByte))
           )
         )
       )

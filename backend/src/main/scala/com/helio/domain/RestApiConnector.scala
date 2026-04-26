@@ -1,11 +1,11 @@
 package com.helio.domain
 
-import akka.actor.typed.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
-import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.stream.Materializer
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
+import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
+import org.apache.pekko.stream.Materializer
 import spray.json._
 
 import scala.concurrent.duration._
@@ -22,7 +22,7 @@ class RestApiConnector(
   private val poolSettings: ConnectionPoolSettings =
     ConnectionPoolSettings(system.classicSystem)
       .withConnectionSettings(
-        akka.http.scaladsl.settings.ClientConnectionSettings(system.classicSystem)
+        org.apache.pekko.http.scaladsl.settings.ClientConnectionSettings(system.classicSystem)
           .withConnectingTimeout(10.seconds)
           .withIdleTimeout(30.seconds)
       )
