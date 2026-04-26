@@ -1,0 +1,1 @@
+- `README.md` — added "Running in production" section covering env vars, Docker build, migrations, Cloud Run deployment, and log access
