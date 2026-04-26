@@ -6,12 +6,14 @@ import slick.jdbc.JdbcBackend
 
 object Database {
   def init(config: Config): JdbcBackend.Database = {
-    val dbConfig = config.getConfig("helio.db")
-    val url      = dbConfig.getString("url")
+    val dbConfig  = config.getConfig("helio.db")
+    val url       = dbConfig.getString("url")
+    val user      = if (dbConfig.hasPath("user")) dbConfig.getString("user") else ""
+    val password  = if (dbConfig.hasPath("password")) dbConfig.getString("password") else ""
 
     Flyway
       .configure()
-      .dataSource(url, null, null)
+      .dataSource(url, user, password)
       .locations("classpath:db/migration")
       .load()
       .migrate()
