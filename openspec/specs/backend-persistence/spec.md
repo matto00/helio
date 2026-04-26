@@ -1,5 +1,7 @@
-## ADDED Requirements
+## Purpose
 
+Defines requirements for the backend's PostgreSQL persistence layer: schema migrations via Flyway, demo data seeding, repository isolation, and database credential configuration.
+## Requirements
 ### Requirement: Dashboard and panel data persists across restarts
 The backend SHALL store dashboard and panel data in PostgreSQL so that all data survives a backend restart.
 
@@ -46,3 +48,16 @@ The `panels` table SHALL have two nullable columns: `type_id` (text, FK → data
 #### Scenario: Panel binding persists across restarts
 - **WHEN** a panel's typeId and fieldMapping are set via PATCH
 - **THEN** the values survive a backend restart and are returned in subsequent GET responses
+
+### Requirement: Database credentials are configurable via environment variables
+The backend SHALL support configuring the database username and password via `DB_USER` and `DB_PASSWORD` environment variables, passed to both Flyway and Slick. When absent, the
+connection falls back to URL-only authentication suitable for local development.
+
+#### Scenario: Production credentials are used when provided
+- **WHEN** the `DB_USER` and `DB_PASSWORD` environment variables are set
+- **THEN** Flyway and Slick both connect using those credentials
+
+#### Scenario: Local dev falls back to URL-only auth
+- **WHEN** `DB_USER` and `DB_PASSWORD` are not set
+- **THEN** Flyway and Slick connect using URL-only authentication with no username/password
+
