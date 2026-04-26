@@ -2,8 +2,12 @@ package com.helio.api
 
 import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.HttpOrigin
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Route
+import ch.megard.akka.http.cors.scaladsl.CorsDirectives._
+import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
+import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, UserRepository, UserSessionRepository}
@@ -22,7 +26,8 @@ final class ApiRoutes(
     userSessionRepo: UserSessionRepository,
     googleClientId: String = "",
     googleClientSecret: String = "",
-    googleRedirectUri: String = ""
+    googleRedirectUri: String = "",
+    corsAllowedOrigins: Seq[String] = Seq("http://localhost:5173")
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -41,39 +46,45 @@ final class ApiRoutes(
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
+  private val corsSettings = CorsSettings.defaultSettings.withAllowedOrigins(
+    HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*)
+  )
+
   val routes: Route =
-    health.routes ~
-      pathPrefix("api") {
-        concat(
-          pathPrefix("auth") { auth.routes },
-          authDirectives.optionalAuthenticate { userOpt =>
-            new PublicDashboardRoutes(dashboardRepo, panelRepo, permissionRepo, aclDirective, userOpt, Some(dataTypeRepo)).routes
-          },
-          authDirectives.authenticate { authenticatedUser =>
-            concat(
-              // GET /api/auth/me — returns the current user profile
-              pathPrefix("auth") {
-                path("me") {
-                  get {
-                    onComplete(userRepo.findById(authenticatedUser.id)) {
-                      case Success(Some(user)) =>
-                        complete(StatusCodes.OK, UserResponse.fromDomain(user))
-                      case Success(None) =>
-                        complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
-                      case Failure(ex) =>
-                        complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+    cors(corsSettings) {
+      health.routes ~
+        pathPrefix("api") {
+          concat(
+            pathPrefix("auth") { auth.routes },
+            authDirectives.optionalAuthenticate { userOpt =>
+              new PublicDashboardRoutes(dashboardRepo, panelRepo, permissionRepo, aclDirective, userOpt, Some(dataTypeRepo)).routes
+            },
+            authDirectives.authenticate { authenticatedUser =>
+              concat(
+                // GET /api/auth/me — returns the current user profile
+                pathPrefix("auth") {
+                  path("me") {
+                    get {
+                      onComplete(userRepo.findById(authenticatedUser.id)) {
+                        case Success(Some(user)) =>
+                          complete(StatusCodes.OK, UserResponse.fromDomain(user))
+                        case Success(None) =>
+                          complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
+                        case Failure(ex) =>
+                          complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                      }
                     }
                   }
-                }
-              },
-              new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
-              new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-              new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-              new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
-              new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
-              new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes
-            )
-          }
-        )
-      }
+                },
+                new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
+                new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+                new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+                new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
+                new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
+                new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes
+              )
+            }
+          )
+        }
+    }
 }
