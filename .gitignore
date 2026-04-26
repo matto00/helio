@@ -16,6 +16,9 @@ backend/.env
 backend/data/
 frontend/.env.production
 frontend/.env.local
+frontend/.agents/
+frontend/.claude/
+frontend/skills-lock.json
 
 # Git worktrees (managed by Claude Code orchestrator)
 .claude/worktrees/
