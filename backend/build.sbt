@@ -56,6 +56,7 @@ lazy val root = (project in file("."))
       "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
       "org.apache.pekko" %% "pekko-http-cors" % "1.1.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
-      "com.mysql" % "mysql-connector-j" % "8.3.0"
+      "com.mysql" % "mysql-connector-j" % "8.3.0",
+      "com.google.cloud.sql" % "postgres-socket-factory" % "1.21.0"
     )
   )
