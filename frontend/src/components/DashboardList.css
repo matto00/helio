@@ -326,12 +326,13 @@
   font-weight: 600;
 }
 
-.dashboard-list__meta {
-  color: var(--app-accent-strong);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.dashboard-list__active-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--app-accent);
+  box-shadow: 0 0 6px var(--app-accent);
 }
 
 .dashboard-list__rename {

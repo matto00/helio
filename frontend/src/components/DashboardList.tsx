@@ -281,9 +281,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                   }}
                 >
                   <span className="dashboard-list__name">{dashboard.name}</span>
-                  <span className="dashboard-list__meta">
-                    {selectedDashboardId === dashboard.id ? "Active dashboard" : "View"}
-                  </span>
+                  {selectedDashboardId === dashboard.id && (
+                    <span className="dashboard-list__active-dot" aria-label="Active dashboard" />
+                  )}
                 </button>
               )}
               {confirmDeleteId === dashboard.id ? (
