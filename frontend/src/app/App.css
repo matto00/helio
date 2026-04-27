@@ -229,8 +229,8 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
-  width: 20px;
-  height: 48px;
+  width: 14px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -259,12 +259,12 @@
 
 .app-sidebar-collapse {
   position: absolute;
-  right: -20px;
+  right: -14px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
-  width: 20px;
-  height: 48px;
+  width: 14px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
