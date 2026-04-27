@@ -18,7 +18,7 @@
   background-image: radial-gradient(var(--app-bg-accent) 1px, transparent 1px);
   background-size: 28px 28px;
   pointer-events: none;
-  z-index: 0;
+  z-index: 5;
 }
 
 /* --- COMMAND BAR (replaces the old large app-header) --- */
