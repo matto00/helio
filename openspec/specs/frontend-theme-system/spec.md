@@ -54,3 +54,17 @@ Helio visual identity direction rather than generic defaults.
 - **WHEN** `[data-theme="light"]` is applied
 - **THEN** the `--app-*` token values SHALL reflect the chosen light palette and font stack from the selected visual direction
 
+### Requirement: Design token vocabulary in theme.css
+The `theme.css` `:root` block SHALL include the full design token vocabulary from the Helio design system handoff: type scale tokens (`--text-micro` through `--text-3xl`), semantic role tokens (`--h1-size`, `--eyebrow-*`), spacing scale tokens (`--space-1` through `--space-10`), `--app-radius-pill`, and `--font-mono`.
+
+#### Scenario: Extended token set is available globally
+- **WHEN** any component references a design token such as `--text-sm`, `--space-4`, or `--app-radius-pill`
+- **THEN** the value SHALL resolve correctly because the token is defined on `:root` in `theme.css`
+
+### Requirement: Typography utility classes in theme.css
+The `theme.css` file SHALL define `.eyebrow`, `.wordmark`, and `.mono` utility classes for consistent application of typographic roles across the UI.
+
+#### Scenario: Utility classes can be applied to any element
+- **WHEN** a component applies the class `eyebrow`, `wordmark`, or `mono`
+- **THEN** the appropriate typographic styles SHALL be applied without requiring additional component-specific CSS
+

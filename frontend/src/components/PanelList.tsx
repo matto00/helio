@@ -76,7 +76,6 @@ export function PanelList() {
       }
     >
       <header className="panel-list__header">
-        <h2>Panels</h2>
         <div className="panel-list__header-actions">
           <span className="panel-list__count">
             {items.length} panel{items.length === 1 ? "" : "s"}

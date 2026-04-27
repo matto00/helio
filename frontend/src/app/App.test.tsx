@@ -174,7 +174,7 @@ describe("App", () => {
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-2"));
-    expect(screen.getByText("Active dashboard")).toBeInTheDocument();
+    expect(screen.getByLabelText("Active dashboard")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Executive" })).toHaveAttribute(
       "aria-pressed",
       "true",

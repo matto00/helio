@@ -41,8 +41,8 @@
 }
 
 .panel-list__add {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -50,7 +50,7 @@
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   line-height: 1;
   padding: 0;
@@ -86,12 +86,13 @@
 
 .panel-list__create-input {
   width: 100%;
-  min-height: 36px;
+  min-height: 28px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  padding: 8px 10px;
+  font-size: 0.75rem;
+  padding: 5px 8px;
 }
 
 .panel-list__create-input:focus-visible {

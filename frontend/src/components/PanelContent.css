@@ -20,6 +20,8 @@
   color: var(--app-text);
   letter-spacing: -0.02em;
   line-height: 1;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .panel-content__metric-label {

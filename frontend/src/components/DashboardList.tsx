@@ -161,16 +161,6 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           >
             <span aria-hidden="true">+</span>
           </button>
-          {onCollapse ? (
-            <button
-              type="button"
-              className="dashboard-list__collapse"
-              aria-label="Collapse dashboard list"
-              onClick={onCollapse}
-            >
-              <span aria-hidden="true">‹</span>
-            </button>
-          ) : null}
         </div>
         <p>Choose a workspace view and keep the panel content focused on the active dashboard.</p>
       </header>
@@ -281,9 +271,9 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
                   }}
                 >
                   <span className="dashboard-list__name">{dashboard.name}</span>
-                  <span className="dashboard-list__meta">
-                    {selectedDashboardId === dashboard.id ? "Active dashboard" : "View"}
-                  </span>
+                  {selectedDashboardId === dashboard.id && (
+                    <span className="dashboard-list__active-dot" aria-label="Active dashboard" />
+                  )}
                 </button>
               )}
               {confirmDeleteId === dashboard.id ? (

@@ -9,9 +9,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
+import { OrbitMark } from "../components/OrbitMark";
 import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
@@ -109,7 +111,7 @@ function AppShell() {
       <header className="app-command-bar">
         <div className="app-command-bar__left">
           <span className="app-command-bar__logo">
-            <span className="app-command-bar__logo-dot" aria-hidden="true" />
+            <OrbitMark />
             <span className="app-command-bar__wordmark">Helio</span>
           </span>
           <span className="app-command-bar__sep" aria-hidden="true" />
@@ -173,7 +175,7 @@ function AppShell() {
             aria-label="Expand dashboard list"
             onClick={() => setIsDashboardListCollapsed(false)}
           >
-            ›
+            <PanelLeftOpen size={14} />
           </button>
         ) : (
           <aside className="app-sidebar">
@@ -186,6 +188,14 @@ function AppShell() {
               </NavLink>
             </nav>
             <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+            <button
+              type="button"
+              className="app-sidebar-collapse"
+              aria-label="Collapse dashboard list"
+              onClick={() => setIsDashboardListCollapsed(true)}
+            >
+              <PanelLeftClose size={14} />
+            </button>
           </aside>
         )}
         <section className="app-content">

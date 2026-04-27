@@ -1,0 +1,10 @@
+- `frontend/index.html` — replaced DM Sans Google Fonts URL with Space Grotesk + JetBrains Mono
+- `frontend/src/theme/theme.css` — updated `:root` font-family to Space Grotesk; added `--font-mono`; added type scale tokens (`--text-micro` → `--text-3xl`); added semantic role tokens (`--h1-size`, `--eyebrow-*`); added spacing scale (`--space-1` → `--space-10`); added `--app-radius-pill`; added `.eyebrow`, `.wordmark`, `.mono` utility classes
+- `frontend/src/app/App.tsx` — replaced `<span className="app-command-bar__logo-dot">` with `<OrbitMark />`; added OrbitMark to sidebar logo slot; imported `OrbitMark`
+- `frontend/src/app/App.css` — removed `.app-command-bar__logo-dot` and `.app-sidebar__logo-dot` dot-circle rules; updated `.app-command-bar__wordmark` and `.app-sidebar__wordmark` letter-spacing to `0.14em`
+- `frontend/src/components/OrbitMark.tsx` — new component: inline SVG with circle ring, quarter-arc highlight, centre dot; accent-coloured with drop-shadow glow
+- `frontend/src/components/TypeDetailPanel.css` — `font-family: monospace` → `font-family: var(--font-mono)` on field names
+- `frontend/src/components/ComputedFieldsEditor.css` — `font-family: monospace` → `font-family: var(--font-mono)` on expression field
+- `frontend/src/components/AddSourceModal.css` — `font-family: monospace` → `font-family: var(--font-mono)` on field names
+- `frontend/src/components/PanelContent.css` — added `font-family: var(--font-mono)` + `font-variant-numeric: tabular-nums` to `.panel-content__metric-value`
+- `frontend/public/orbit-mark.svg` — static Orbit mark asset for favicon/OG use

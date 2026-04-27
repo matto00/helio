@@ -58,7 +58,6 @@ describe("PanelList", () => {
       },
     });
 
-    expect(screen.getByRole("heading", { name: "Panels" })).toBeInTheDocument();
     expect(screen.getByText("Select a dashboard to view panels.")).toBeInTheDocument();
   });
 
@@ -84,7 +83,6 @@ describe("PanelList", () => {
       },
     });
 
-    expect(screen.getByRole("heading", { name: "Panels" })).toBeInTheDocument();
     expect(screen.getByText("Failed to load panels.")).toBeInTheDocument();
   });
 

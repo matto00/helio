@@ -161,7 +161,7 @@ export function buildPanelSurface(theme: Theme, background: string, transparency
     background,
     0.24,
   );
-  const alpha = 1 - clampTransparency(transparency) * 0.72;
+  const alpha = 0.9 - clampTransparency(transparency) * 0.72;
 
   return toRgbString(resolved, alpha);
 }
