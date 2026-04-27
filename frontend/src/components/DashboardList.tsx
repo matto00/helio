@@ -161,16 +161,6 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           >
             <span aria-hidden="true">+</span>
           </button>
-          {onCollapse ? (
-            <button
-              type="button"
-              className="dashboard-list__collapse"
-              aria-label="Collapse dashboard list"
-              onClick={onCollapse}
-            >
-              <span aria-hidden="true">‹</span>
-            </button>
-          ) : null}
         </div>
         <p>Choose a workspace view and keep the panel content focused on the active dashboard.</p>
       </header>

@@ -257,6 +257,40 @@
   outline-offset: 2px;
 }
 
+.app-sidebar-collapse {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 20px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-left: none;
+  border-radius: 0 var(--app-radius-md) var(--app-radius-md) 0;
+  color: var(--app-text-muted);
+  font-size: 18px;
+  font-weight: 400;
+  cursor: pointer;
+  transition:
+    color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.app-sidebar-collapse:hover {
+  color: var(--app-text);
+  border-color: var(--app-border-strong);
+}
+
+.app-sidebar-collapse:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
 /* --- CONTENT AREA --- */
 .app-content {
   flex: 1;

@@ -187,6 +187,14 @@ function AppShell() {
               </NavLink>
             </nav>
             <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+            <button
+              type="button"
+              className="app-sidebar-collapse"
+              aria-label="Collapse dashboard list"
+              onClick={() => setIsDashboardListCollapsed(true)}
+            >
+              ‹
+            </button>
           </aside>
         )}
         <section className="app-content">
