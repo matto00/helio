@@ -29,9 +29,7 @@
 }
 
 .popover__panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
   z-index: 30;
   width: min(360px, calc(100vw - 40px));
   padding: 16px;
