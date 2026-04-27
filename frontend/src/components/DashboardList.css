@@ -28,8 +28,8 @@
 }
 
 .dashboard-list__collapse {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -37,7 +37,7 @@
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   font-weight: 400;
   line-height: 1;
   padding: 0;
@@ -58,8 +58,8 @@
 }
 
 .dashboard-list__add {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -67,7 +67,7 @@
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   line-height: 1;
   padding: 0;
@@ -117,12 +117,13 @@
 
 .dashboard-list__filter-input {
   width: 100%;
-  min-height: 36px;
+  min-height: 28px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  padding: 8px 36px 8px 10px;
+  font-size: 0.75rem;
+  padding: 5px 30px 5px 8px;
 }
 
 .dashboard-list__filter-input:focus-visible {
@@ -135,8 +136,8 @@
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -144,7 +145,7 @@
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
   padding: 0;
