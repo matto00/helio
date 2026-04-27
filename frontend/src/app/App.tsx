@@ -9,6 +9,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
@@ -174,7 +175,7 @@ function AppShell() {
             aria-label="Expand dashboard list"
             onClick={() => setIsDashboardListCollapsed(false)}
           >
-            ›
+            <PanelLeftOpen size={14} />
           </button>
         ) : (
           <aside className="app-sidebar">
@@ -193,7 +194,7 @@ function AppShell() {
               aria-label="Collapse dashboard list"
               onClick={() => setIsDashboardListCollapsed(true)}
             >
-              ‹
+              <PanelLeftClose size={14} />
             </button>
           </aside>
         )}
