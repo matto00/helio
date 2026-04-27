@@ -178,12 +178,6 @@ function AppShell() {
           </button>
         ) : (
           <aside className="app-sidebar">
-            <div className="app-sidebar__logo">
-              <span className="app-sidebar__wordmark">
-                <OrbitMark />
-                Helio
-              </span>
-            </div>
             <nav className="app-sidebar__nav" aria-label="Main navigation">
               <NavLink to="/" end className="app-sidebar__nav-link">
                 Dashboards
