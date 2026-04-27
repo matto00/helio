@@ -135,7 +135,7 @@ export function resolveDashboardBackground(
     0.22,
   );
 
-  return toRgbString(resolved, 0.9);
+  return toRgbString(resolved);
 }
 
 export function resolveDashboardGridBackground(
