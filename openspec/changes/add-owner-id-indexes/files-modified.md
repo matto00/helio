@@ -1,0 +1,2 @@
+- `backend/src/main/resources/db/migration/V17__add_owner_indexes.sql` — new Flyway migration adding five indexes on owner_id and foreign key columns
+- `openspec/changes/add-owner-id-indexes/tasks.md` — all tasks marked complete
