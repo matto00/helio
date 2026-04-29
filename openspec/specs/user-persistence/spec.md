@@ -1,7 +1,7 @@
 # user-persistence Specification
 
 ## Purpose
-TBD - created by archiving change db-schema-users-table. Update Purpose after archive.
+Database schema and repository for user accounts, supporting both local (password hash) and OAuth (Google ID) authentication. Defines uniqueness constraints and ensures `password_hash` is never returned in API responses.
 ## Requirements
 ### Requirement: Users table has complete schema
 The database SHALL have a `users` table with all columns required for both local and OAuth authentication: `id` (UUID PK), `email` (unique, not null), `display_name` (nullable text), `avatar_url` (nullable text), `password_hash` (nullable text), `google_id` (nullable text, unique), `auth_provider` (enum: google|local, nullable), `created_at` (timestamptz not null), `updated_at` (timestamptz not null).

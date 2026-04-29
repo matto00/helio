@@ -1,7 +1,7 @@
 # health-endpoint Specification
 
 ## Purpose
-TBD - created by archiving change add-health-endpoint. Update Purpose after archive.
+Unauthenticated `GET /health` endpoint that returns `{"status":"ok"}`, used by Cloud Run startup and liveness probes.
 ## Requirements
 ### Requirement: Health check returns 200 OK
 The system SHALL expose a `GET /health` endpoint that returns HTTP 200 OK with a JSON

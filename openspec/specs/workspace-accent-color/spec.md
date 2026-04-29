@@ -1,7 +1,7 @@
 # workspace-accent-color Specification
 
 ## Purpose
-TBD - created by archiving change configurable-accent-color. Update Purpose after archive.
+User-selectable accent color from a curated preset palette that updates all accent CSS tokens immediately and persists across reloads via localStorage.
 ## Requirements
 ### Requirement: Workspace accent color selection
 The system SHALL allow users to select an accent color from a curated set of preset swatches that

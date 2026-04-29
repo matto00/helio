@@ -1,7 +1,7 @@
 # chart-type-selector Specification
 
 ## Purpose
-TBD - created by archiving change chart-type-selector-ui. Update Purpose after archive.
+Controls the chart rendering type (bar, line, pie, scatter) for chart panels. The selector appears in the Appearance tab of the panel detail modal and persists the selected type to the backend via the panel appearance save flow.
 ## Requirements
 ### Requirement: Panel detail modal shows chart type selector for chart panels
 The Appearance tab in the panel detail modal MUST display a chart type selector when `panel.type` is `"chart"`. The selector MUST NOT be visible for non-chart panel types.
@@ -20,13 +20,6 @@ The selector MUST present at minimum four options: line, bar, pie, and scatter. 
 #### Scenario: All four chart types are listed
 - **WHEN** the chart type selector is displayed
 - **THEN** it contains options for line, bar, pie, and scatter
-
-### Requirement: Selecting a chart type updates the preview immediately
-Changing the selected chart type MUST update the live chart preview inside the modal without requiring the user to click Save.
-
-#### Scenario: Preview changes on selection
-- **WHEN** the user selects a different chart type from the selector
-- **THEN** the chart preview in the Appearance tab reflects the new chart type immediately
 
 ### Requirement: Selected chart type is included in the Save payload
 When the user clicks Save in the Appearance tab, the selected `chartType` MUST be included in the appearance update sent to the backend.

@@ -1,7 +1,7 @@
 # acl-enforcement Specification
 
 ## Purpose
-TBD - created by archiving change acl-enforcement-api-routes. Update Purpose after archive.
+Defines the ACL directive that enforces resource ownership and sharing grants on all mutating and sensitive API routes. Covers ownership checks, shared access levels (Owner/Editor/Viewer), and decoupled resolver injection via the ResourceTypeRegistry.
 ## Requirements
 ### Requirement: ACL directive enforces resource ownership before handler execution
 The system SHALL provide an Akka HTTP directive `authorizeResource(resourceType, resourceId, user)` that resolves

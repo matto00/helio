@@ -1,7 +1,7 @@
 # container-jvm-memory Specification
 
 ## Purpose
-TBD - created by archiving change tune-jvm-container-memory. Update Purpose after archive.
+Configures JVM container support flags so the heap is sized relative to the container memory limit, not host RAM — preventing OOM kills on Cloud Run.
 ## Requirements
 ### Requirement: JVM heap bounded by container memory limit
 The backend container SHALL configure the JVM to respect the container's cgroup memory limit

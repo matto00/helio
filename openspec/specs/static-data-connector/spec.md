@@ -1,7 +1,7 @@
 # static-data-connector Specification
 
 ## Purpose
-TBD - created by archiving change static-data-connector. Update Purpose after archive.
+Manual data entry connector that stores tabular column/row data directly in the DataSource config JSONB. Supports create, refresh (replace rows), and preview without any external connection.
 ## Requirements
 ### Requirement: POST /api/data-sources accepts static source payload
 The backend SHALL accept `POST /api/data-sources` with `Content-Type: application/json` when `source_type` is `"static"`. The body SHALL be `{ "name": string, "source_type": "static", "columns": [{ "name": string, "type": string }], "rows": [[...]] }`. The handler SHALL store the columns and rows in the `data_sources.config` JSONB column and register a `DataType` using the declared column types.

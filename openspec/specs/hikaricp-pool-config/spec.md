@@ -1,7 +1,7 @@
 # hikaricp-pool-config Specification
 
 ## Purpose
-TBD - created by archiving change tune-hikaricp-serverless. Update Purpose after archive.
+Tunes the HikariCP connection pool for serverless deployment: max 5 connections, zero minimum idle, short idle and max-lifetime timeouts to avoid connection exhaustion on Cloud Run.
 ## Requirements
 ### Requirement: HikariCP pool is sized for serverless deployment
 The backend SHALL configure HikariCP with a maximum pool size of 5, minimum idle of 0, idle timeout of 30 000 ms, and max lifetime of 60 000 ms to prevent connection exhaustion when many Cloud Run instances connect to Cloud SQL simultaneously.

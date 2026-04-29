@@ -1,7 +1,7 @@
 # sql-database-connector Specification
 
 ## Purpose
-TBD - created by archiving change sql-database-connector. Update Purpose after archive.
+PostgreSQL and MySQL connector that executes a stored query via JDBC, infers schema, and registers a DataType. Covers create, preview, refresh, DDL/DML rejection, password masking, and the frontend SQL tab in AddSourceModal.
 ## Requirements
 ### Requirement: Create a SQL data source
 The backend SHALL expose `POST /api/sources` accepting `source_type: "sql"` with a `config` object

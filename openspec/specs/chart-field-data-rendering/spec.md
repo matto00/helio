@@ -1,7 +1,7 @@
 # chart-field-data-rendering Specification
 
 ## Purpose
-TBD - created by archiving change chart-field-mapping. Update Purpose after archive.
+Maps DataType field names to ECharts axes and series so chart panels render real data from a bound DataType. Covers axis assignment, multi-row series, empty-state messaging, and null fieldMapping fallback.
 ## Requirements
 ### Requirement: ChartPanel renders data from fieldMapping and rawRows
 The ChartPanel component SHALL accept `rawRows`, `headers`, and `fieldMapping` props. When `fieldMapping.xAxis` and `fieldMapping.yAxis` are both set, the component SHALL build an ECharts `series` using the corresponding columns and render a line chart with the xAxis categories and yAxis values.

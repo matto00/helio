@@ -1,7 +1,7 @@
 # user-menu-popover Specification
 
 ## Purpose
-TBD - created by archiving change consolidate-top-right-controls. Update Purpose after archive.
+Consolidates all per-user controls (theme, display name, sign-out, accent color) into a single avatar-triggered popover in the app header, removing loose controls from the command bar.
 ## Requirements
 ### Requirement: Single trigger button opens user menu popover
 The app header top-right SHALL render a single trigger button (avatar image or initials fallback) that opens a popover menu when clicked. No per-user controls SHALL appear outside this trigger.

@@ -1,7 +1,7 @@
 # data-type-acl Specification
 
 ## Purpose
-TBD - created by archiving change acl-data-sources-types. Update Purpose after archive.
+Enforces per-user ownership on all DataType endpoints: list returns only the caller's types, and single-resource routes (GET/PATCH/DELETE) reject non-owners with 404 or 403.
 ## Requirements
 ### Requirement: GET /api/types returns only the authenticated user's data types
 `GET /api/types` SHALL filter results to only include data types owned by the authenticated user.

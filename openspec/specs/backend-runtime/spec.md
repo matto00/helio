@@ -1,7 +1,7 @@
 # backend-runtime Specification
 
 ## Purpose
-TBD - created by archiving change migrate-akka-to-pekko. Update Purpose after archive.
+Specifies Apache Pekko as the backend actor and HTTP runtime, replacing Akka to eliminate the commercial license requirement.
 ## Requirements
 ### Requirement: Backend uses Apache Pekko as its actor and HTTP runtime
 The backend SHALL use Apache Pekko (org.apache.pekko) for all actor, HTTP, and stream functionality instead of Akka (com.typesafe.akka). No Akka license key SHALL be required to build or run the backend.

@@ -1,7 +1,7 @@
 # datasource-edit-delete Specification
 
 ## Purpose
-TBD - created by archiving change type-registry-datasource-ux. Update Purpose after archive.
+Edit and delete operations for DataSources and DataTypes from the Sources page: inline rename for DataSources, editable name field for DataTypes, delete with bound-panel warnings, and a backend PATCH endpoint for DataSource rename.
 ## Requirements
 ### Requirement: Delete DataType from TypeRegistryBrowser
 `TypeRegistryBrowser` SHALL render a delete button for each DataType row. Clicking it SHALL show an inline confirmation prompt. Confirming SHALL dispatch `deleteDataType` (DELETE /api/types/:id). On 409 from the backend the component SHALL display a warning: "One or more panels are bound to this type. Unbind them before deleting." On success the DataType SHALL be removed from the list.

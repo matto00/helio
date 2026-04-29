@@ -1,7 +1,7 @@
 # dependency-security-patch Specification
 
 ## Purpose
-TBD - created by archiving change fix-follow-redirects-vuln. Update Purpose after archive.
+Constrains `follow-redirects` to `>=1.16.0` via an npm overrides entry to prevent auth header leakage on cross-domain redirects.
 ## Requirements
 ### Requirement: follow-redirects version constraint
 The project SHALL constrain `follow-redirects` to `>=1.16.0` via an npm `overrides` entry in `frontend/package.json` to prevent auth header leakage on cross-domain redirects.

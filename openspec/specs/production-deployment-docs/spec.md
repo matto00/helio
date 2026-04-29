@@ -1,7 +1,7 @@
 # production-deployment-docs Specification
 
 ## Purpose
-TBD - created by archiving change document-prod-env-vars. Update Purpose after archive.
+README documentation for deploying the backend to Cloud Run: required env vars, Docker image build, automatic Flyway migrations, and log access via Cloud Logging.
 ## Requirements
 ### Requirement: README documents production environment variables
 README.md SHALL include a list of all required environment variables consumed by the backend at runtime, each with a brief description.

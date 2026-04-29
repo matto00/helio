@@ -1,7 +1,7 @@
 # chart-preview-row-limit Specification
 
 ## Purpose
-TBD - created by archiving change chart-preview-row-limit. Update Purpose after archive.
+Adds an optional `?limit=N` query parameter (1–500, default 10) to the CSV preview endpoint so chart panels can fetch enough data points for a meaningful render.
 ## Requirements
 ### Requirement: Preview endpoint accepts optional row limit
 The `GET /api/data-sources/:id/preview` endpoint SHALL accept an optional `?limit=N` query

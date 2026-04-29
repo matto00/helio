@@ -1,7 +1,7 @@
 # session-persistence Specification
 
 ## Purpose
-TBD - created by archiving change db-schema-usersessions-table. Update Purpose after archive.
+Database schema and lifecycle rules for user sessions: token storage as a secure hash, expiry enforcement, cascade deletion on user removal, and server-side invalidation on logout.
 ## Requirements
 ### Requirement: user_sessions table has complete schema
 The database SHALL have a `user_sessions` table with columns: `id` (UUID PK, default gen_random_uuid()), `user_id` (UUID NOT NULL, FK → users.id ON DELETE CASCADE), `token` (TEXT UNIQUE NOT NULL), `created_at` (TIMESTAMPTZ NOT NULL DEFAULT now()), `expires_at` (TIMESTAMPTZ NOT NULL), `last_seen_at` (TIMESTAMPTZ, nullable), `ip_address` (TEXT, nullable), `user_agent` (TEXT, nullable).

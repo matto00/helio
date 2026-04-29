@@ -1,7 +1,7 @@
 # backend-env-config Specification
 
 ## Purpose
-TBD - created by archiving change make-config-env-driven. Update Purpose after archive.
+Defines all environment variables that configure the backend at runtime: HTTP port, database connection, log level, and CORS allowed origins. Enables environment-specific deployment without code changes.
 ## Requirements
 ### Requirement: PORT env var controls HTTP bind port
 The server SHALL read the `PORT` environment variable as the primary port binding, falling back to `HELIO_HTTP_PORT`, then defaulting to `8080` if neither is set.

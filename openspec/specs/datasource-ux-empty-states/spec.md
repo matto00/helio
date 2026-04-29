@@ -1,7 +1,7 @@
 # datasource-ux-empty-states Specification
 
 ## Purpose
-TBD - created by archiving change type-registry-datasource-ux. Update Purpose after archive.
+Meaningful empty states for the DataSourceList and TypeRegistryBrowser components, replacing blank views with explanatory messages and actionable CTAs.
 ## Requirements
 ### Requirement: DataSourceList renders a meaningful empty state
 When no data sources exist, `DataSourceList` SHALL render an empty state containing a short explanatory message and a CTA button labelled "Add a data source" that triggers the add-source modal. The existing plain text message SHALL be replaced.

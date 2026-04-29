@@ -1,7 +1,7 @@
 # acl-resource-type-registry Specification
 
 ## Purpose
-TBD - created by archiving change acl-resource-type-registry. Update Purpose after archive.
+A registry that maps string resource type keys to ownership resolver functions, decoupling the ACL directive from individual resource types. Adding a new resource type requires only a single registry entry with no changes to the directive.
 ## Requirements
 ### Requirement: ResourceType encapsulates a resource type key and its ownership resolver
 The system SHALL provide a `ResourceType` case class in `com.helio.api` with:

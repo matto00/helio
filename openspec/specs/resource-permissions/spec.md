@@ -1,7 +1,7 @@
 # resource-permissions Specification
 
 ## Purpose
-TBD - created by archiving change acl-sharing-permissions. Update Purpose after archive.
+Database table and API endpoints for sharing dashboards with other users. Supports viewer and editor grants, public (unauthenticated) viewer access, and permission management restricted to the resource owner.
 ## Requirements
 ### Requirement: resource_permissions table persists per-resource grants
 The system SHALL maintain a `resource_permissions` table with columns `resource_type` VARCHAR,

@@ -1,7 +1,7 @@
 # sidebar-dashboard-filter Specification
 
 ## Purpose
-TBD - created by archiving change sidebar-dashboard-search-filter. Update Purpose after archive.
+Real-time case-insensitive substring filter for the sidebar dashboard list. The active dashboard always remains visible regardless of the filter, and a clear button resets the input.
 ## Requirements
 ### Requirement: Filter input is always visible in the dashboard sidebar
 The sidebar dashboard list SHALL display a text input above the list items at all times, regardless of how many dashboards exist, allowing users to type a query to narrow the visible list.

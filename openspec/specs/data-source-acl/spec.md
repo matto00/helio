@@ -1,7 +1,7 @@
 # data-source-acl Specification
 
 ## Purpose
-TBD - created by archiving change acl-data-sources-types. Update Purpose after archive.
+Enforces per-user ownership on all DataSource endpoints: list returns only the caller's sources, and per-id routes (GET/DELETE/preview/refresh) reject non-owners with 403 or 404.
 ## Requirements
 ### Requirement: GET /api/data-sources returns only the authenticated user's sources
 The system SHALL filter `GET /api/data-sources` results to only include data sources owned by the

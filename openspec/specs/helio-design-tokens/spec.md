@@ -1,7 +1,7 @@
 # helio-design-tokens Specification
 
 ## Purpose
-TBD - created by archiving change implement-design-system. Update Purpose after archive.
+CSS custom property token system for the Helio design system: type scale, semantic typography roles, spacing scale, brand tokens, mono font, and utility classes.
 ## Requirements
 ### Requirement: Type scale tokens
 The system SHALL define a complete type scale as CSS custom properties in `theme.css` under `:root`, covering all sizes from `--text-micro` through `--text-3xl` as specified in the design handoff `colors_and_type.css`.

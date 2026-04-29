@@ -1,7 +1,7 @@
 # sbt-worktree-isolation Specification
 
 ## Purpose
-TBD - created by archiving change parallel-orchestrator-port-isolation. Update Purpose after archive.
+Scopes the sbt Ivy cache to each worktree's local `.ivy2/` directory so parallel sbt invocations in separate git worktrees do not deadlock on the shared `~/.ivy2` lock.
 ## Requirements
 ### Requirement: sbt Ivy cache is scoped to the worktree
 The backend sbt project SHALL configure the Ivy home directory to a path local to the project (`.ivy2/`

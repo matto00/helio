@@ -1,7 +1,7 @@
 # parallel-dev-server-port Specification
 
 ## Purpose
-TBD - created by archiving change parallel-orchestrator-port-isolation. Update Purpose after archive.
+Makes the Vite dev server port configurable via a `PORT` env var so parallel worktree dev environments can bind to different ports without conflict.
 ## Requirements
 ### Requirement: Dev server binds to PORT env var
 The Vite dev server SHALL read the `PORT` environment variable and bind to that port. When `PORT` is

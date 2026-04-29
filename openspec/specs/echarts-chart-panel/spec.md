@@ -1,7 +1,7 @@
 # echarts-chart-panel Specification
 
 ## Purpose
-TBD - created by archiving change echarts-base-chart-panel. Update Purpose after archive.
+Defines the ECharts-based chart panel that renders inside any panel with `type: "chart"`. Covers mounting, resizing, empty states, chart type rendering, and clean disposal.
 ## Requirements
 ### Requirement: Chart panel renders a live ECharts instance
 The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart"`. The chart MUST
