@@ -1,0 +1,5 @@
+- `openspec/changes/audit-write-paths/proposal.md` — change proposal: why + what changes
+- `openspec/changes/audit-write-paths/design.md` — technical design: scope decisions and rationale
+- `openspec/changes/audit-write-paths/specs/write-path-audit/spec.md` — change-level spec (requirements and scenarios for the audit deliverable)
+- `openspec/changes/audit-write-paths/tasks.md` — implementation checklist (all tasks marked complete)
+- `openspec/specs/write-path-audit/spec.md` — new spec: full write-path audit table, payload shapes, call-volume estimates, and debounce documentation
