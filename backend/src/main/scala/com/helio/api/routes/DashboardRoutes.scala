@@ -11,6 +11,7 @@ import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelR
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success}
 
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
@@ -104,6 +105,36 @@ final class DashboardRoutes(
                   case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                   case Some(snapshot) => complete(snapshot)
                 }
+            }
+          }
+        },
+        path(Segment / "batch") { dashboardId =>
+          post {
+            entity(as[BatchRequest]) { request =>
+              if (request.ops.isEmpty) {
+                complete(StatusCodes.BadRequest, ErrorResponse("ops must not be empty"))
+              } else {
+                onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some(existing) if existing.ownerId != user.id =>
+                    complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                  case Some(_) =>
+                    onComplete(dashboardRepo.batchUpdate(DashboardId(dashboardId), request.ops)) {
+                      case Success(None) =>
+                        complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                      case Success(Some((updatedDashboard, updatedPanels))) =>
+                        complete(
+                          BatchResponse(
+                            dashboard = DashboardResponse.fromDomain(updatedDashboard),
+                            panels    = updatedPanels.map(PanelResponse.fromDomain)
+                          )
+                        )
+                      case Failure(ex) =>
+                        complete(StatusCodes.BadRequest, ErrorResponse(ex.getMessage))
+                    }
+                }
+              }
             }
           }
         },

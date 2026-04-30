@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/batch-request.schema.json",
+  "title": "BatchRequest",
+  "description": "Request body for POST /api/dashboards/:id/batch — versioned typed operations applied transactionally.",
+  "type": "object",
+  "required": ["ops"],
+  "properties": {
+    "ops": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of operations to apply within a single database transaction.",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/PanelLayoutOp" },
+          { "$ref": "#/$defs/PanelAppearanceOp" },
+          { "$ref": "#/$defs/DashboardAppearanceOp" },
+          { "$ref": "#/$defs/UserPreferenceOp" }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PanelLayoutOp": {
+      "type": "object",
+      "title": "PanelLayoutOp",
+      "description": "Replaces the full 4-breakpoint layout for all panels on the dashboard.",
+      "required": ["op", "v", "layout"],
+      "properties": {
+        "op": { "type": "string", "const": "panelLayout" },
+        "v": { "type": "integer", "minimum": 1 },
+        "layout": { "$ref": "https://helio.local/schemas/dashboard-layout.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    "PanelAppearanceOp": {
+      "type": "object",
+      "title": "PanelAppearanceOp",
+      "description": "Updates the appearance of a single panel identified by panelId.",
+      "required": ["op", "v", "panelId", "appearance"],
+      "properties": {
+        "op": { "type": "string", "const": "panelAppearance" },
+        "v": { "type": "integer", "minimum": 1 },
+        "panelId": { "type": "string", "minLength": 1 },
+        "appearance": { "$ref": "https://helio.local/schemas/panel-appearance.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    "DashboardAppearanceOp": {
+      "type": "object",
+      "title": "DashboardAppearanceOp",
+      "description": "Updates the appearance (background, gridBackground) of the target dashboard.",
+      "required": ["op", "v", "appearance"],
+      "properties": {
+        "op": { "type": "string", "const": "dashboardAppearance" },
+        "v": { "type": "integer", "minimum": 1 },
+        "appearance": { "$ref": "https://helio.local/schemas/dashboard-appearance.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    "UserPreferenceOp": {
+      "type": "object",
+      "title": "UserPreferenceOp",
+      "description": "Per-user per-dashboard preference. Accepted for schema extensibility; storage deferred until backing table exists.",
+      "required": ["op", "v"],
+      "properties": {
+        "op": { "type": "string", "const": "userPreference" },
+        "v": { "type": "integer", "minimum": 1 },
+        "zoomLevel": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

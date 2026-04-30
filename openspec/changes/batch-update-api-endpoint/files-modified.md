@@ -1,0 +1,13 @@
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — added `BatchOperation` sealed trait, `PanelLayoutOp`, `PanelAppearanceOp`, `DashboardAppearanceOp`, `UserPreferenceOp` case classes, `BatchRequest`/`BatchResponse`, and all Spray JSON formatters
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala` — added `batchUpdate` method using `DBIO.seq(...).transactionally`
+- `backend/src/main/scala/com/helio/api/routes/DashboardRoutes.scala` — added `POST /api/dashboards/:id/batch` route with empty-ops guard and `onComplete` failure handling
+- `schemas/batch-request.schema.json` — new: JSON Schema 2020-12 for the batch request with versioned operation union
+- `schemas/batch-response.schema.json` — new: JSON Schema 2020-12 for the batch response with `dashboard` and `panels` fields
+- `openapi.yaml` — new: OpenAPI 3.1 spec documenting the `POST /api/dashboards/{id}/batch` path with schema refs
+- `frontend/src/types/models.ts` — added `BatchOperation` union type, `PanelLayoutOp`, `PanelAppearanceOp`, `DashboardAppearanceOp`, `UserPreferenceOp`, and `BatchResponse` interfaces
+- `frontend/src/services/dashboardService.ts` — added `batchUpdate(dashboardId, ops)` function
+- `frontend/src/features/dashboards/dashboardsSlice.ts` — added `saveDashboardBatch` thunk and `saveDashboardBatch.fulfilled` reducer case
+- `frontend/src/components/PanelGrid.tsx` — replaced `updateDashboardLayout` dispatch with `saveDashboardBatch` carrying a `panelLayout` op
+- `frontend/src/features/dashboards/dashboardsSlice.test.ts` — added `saveDashboardBatch.fulfilled` reducer test
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — added four batch endpoint tests: happy path, rollback, unknown op, empty ops
+- `openspec/changes/batch-update-api-endpoint/tasks.md` — all 16 tasks marked complete

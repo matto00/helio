@@ -182,3 +182,41 @@ export interface AuthResponse {
   expiresAt: string;
   user: User;
 }
+
+// ── Batch API types ─────────────────────────────────────────────────────────
+
+export interface PanelLayoutOp {
+  op: "panelLayout";
+  v: number;
+  layout: DashboardLayout;
+}
+
+export interface PanelAppearanceOp {
+  op: "panelAppearance";
+  v: number;
+  panelId: string;
+  appearance: PanelAppearance;
+}
+
+export interface DashboardAppearanceOp {
+  op: "dashboardAppearance";
+  v: number;
+  appearance: DashboardAppearance;
+}
+
+export interface UserPreferenceOp {
+  op: "userPreference";
+  v: number;
+  zoomLevel?: number;
+}
+
+export type BatchOperation =
+  | PanelLayoutOp
+  | PanelAppearanceOp
+  | DashboardAppearanceOp
+  | UserPreferenceOp;
+
+export interface BatchResponse {
+  dashboard: Dashboard;
+  panels: Panel[];
+}

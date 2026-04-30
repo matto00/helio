@@ -1,4 +1,6 @@
 import type {
+  BatchOperation,
+  BatchResponse,
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
@@ -89,5 +91,15 @@ export async function importDashboard(
     `/api/dashboards/import`,
     snapshot,
   );
+  return response.data;
+}
+
+export async function batchUpdate(
+  dashboardId: string,
+  ops: BatchOperation[],
+): Promise<BatchResponse> {
+  const response = await httpClient.post<BatchResponse>(`/api/dashboards/${dashboardId}/batch`, {
+    ops,
+  });
   return response.data;
 }

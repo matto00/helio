@@ -1,0 +1,118 @@
+openapi: "3.1.0"
+info:
+  title: Helio API — Batch Update Endpoint
+  version: "1.0.0"
+  description: >
+    Partial OpenAPI 3.1 document covering the batch update endpoint introduced in HEL-155.
+    Full behavioural specifications live in openspec/specs/. JSON Schema definitions
+    for request/response shapes are in schemas/.
+servers:
+  - url: /api
+    description: Local development (proxied from Vite dev server)
+
+paths:
+  /dashboards/{id}/batch:
+    post:
+      operationId: batchUpdateDashboard
+      summary: Apply a batch of typed operations to a dashboard
+      description: >
+        Accepts an array of versioned, typed operation objects and applies all of them within
+        a single database transaction. If any operation fails the entire batch is rolled back.
+        The response includes the updated dashboard and the current panel list so callers can
+        eliminate a follow-up GET /api/dashboards/{id}/panels.
+      tags:
+        - dashboards
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Dashboard ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/batch-request.schema.json"
+            examples:
+              panelLayout:
+                summary: Update dashboard panel layout
+                value:
+                  ops:
+                    - op: panelLayout
+                      v: 1
+                      layout:
+                        lg:
+                          - panelId: "panel-abc"
+                            x: 0
+                            y: 0
+                            w: 6
+                            h: 5
+                        md: []
+                        sm: []
+                        xs: []
+              multiOp:
+                summary: Layout + dashboard appearance in one batch
+                value:
+                  ops:
+                    - op: panelLayout
+                      v: 1
+                      layout:
+                        lg:
+                          - panelId: "panel-abc"
+                            x: 0
+                            y: 0
+                            w: 6
+                            h: 5
+                        md: []
+                        sm: []
+                        xs: []
+                    - op: dashboardAppearance
+                      v: 1
+                      appearance:
+                        background: "#1e293b"
+                        gridBackground: "#0f172a"
+      responses:
+        "200":
+          description: All operations applied successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/batch-response.schema.json"
+        "400":
+          description: >
+            Invalid request — empty ops array, unknown op type, or an operation
+            references a panel that does not belong to the dashboard (triggers rollback).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+        "403":
+          description: Authenticated user does not own the target dashboard.
+        "404":
+          description: Dashboard not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      additionalProperties: false
