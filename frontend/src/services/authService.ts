@@ -1,4 +1,4 @@
-import type { AuthResponse, User } from "../types/models";
+import type { AuthResponse, UpdateUserPreferenceRequest, User } from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface LoginPayload {
@@ -29,6 +29,12 @@ export async function logoutRequest(token: string): Promise<void> {
 export async function getMeRequest(): Promise<User> {
   const response = await httpClient.get<User>("/api/auth/me");
   return response.data;
+}
+
+export async function updateUserPreferencesRequest(
+  request: UpdateUserPreferenceRequest,
+): Promise<void> {
+  await httpClient.patch("/api/users/me/update", request);
 }
 
 export async function oauthCallbackRequest(code: string, state?: string): Promise<AuthResponse> {

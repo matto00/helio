@@ -7,9 +7,10 @@ import {
   logoutRequest,
   oauthCallbackRequest,
   registerRequest,
+  updateUserPreferencesRequest,
 } from "../../services/authService";
 import { setAuthToken } from "../../services/httpClient";
-import type { AuthResponse, User } from "../../types/models";
+import type { AuthResponse, UpdateUserPreferenceRequest, User } from "../../types/models";
 
 interface AuthRootState {
   auth: AuthState;
@@ -106,6 +107,18 @@ export const logout = createAsyncThunk<void, void, { state: AuthRootState }>(
     dispatch(clearAuth());
   },
 );
+
+export const updateUserPreferences = createAsyncThunk<
+  void,
+  UpdateUserPreferenceRequest,
+  { rejectValue: string }
+>("auth/updateUserPreferences", async (request, { rejectWithValue }) => {
+  try {
+    await updateUserPreferencesRequest(request);
+  } catch {
+    return rejectWithValue("Failed to update user preferences.");
+  }
+});
 
 const authSlice = createSlice({
   name: "auth",
