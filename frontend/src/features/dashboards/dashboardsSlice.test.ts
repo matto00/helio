@@ -3,7 +3,6 @@ import {
   dashboardsReducer,
   fetchDashboards,
   importDashboard,
-  saveDashboardBatch,
   setDashboardLayoutLocally,
   updateDashboardAppearance,
   updateDashboardLayout,
@@ -390,7 +389,7 @@ describe("dashboardsSlice", () => {
     });
   });
 
-  it("updates dashboard in state after saveDashboardBatch.fulfilled", () => {
+  it("updates dashboard layout in state after updateDashboardLayout.fulfilled", () => {
     const initialState = dashboardsReducer(
       undefined,
       fetchDashboards.fulfilled(
@@ -417,25 +416,16 @@ describe("dashboardsSlice", () => {
 
     const nextState = dashboardsReducer(
       initialState,
-      saveDashboardBatch.fulfilled(
+      updateDashboardLayout.fulfilled(
         {
-          dashboard: {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: {
-              ...defaultMeta,
-              lastUpdated: "2026-04-30T10:00:00Z",
-            },
-            appearance: defaultAppearance,
-            layout: updatedLayout,
-          },
-          panels: [],
+          id: "dashboard-1",
+          name: "Operations",
+          meta: { ...defaultMeta, lastUpdated: "2026-04-30T10:00:00Z" },
+          appearance: defaultAppearance,
+          layout: updatedLayout,
         },
-        "request-batch",
-        {
-          dashboardId: "dashboard-1",
-          ops: [{ op: "panelLayout", v: 1, layout: updatedLayout }],
-        },
+        "request-layout",
+        { dashboardId: "dashboard-1", layout: updatedLayout },
       ),
     );
 

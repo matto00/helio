@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "update-panels-batch-request.schema.json",
+  "title": "UpdatePanelsBatchRequest",
+  "description": "Payload for POST /api/panels/updateBatch",
+  "type": "object",
+  "required": ["fields", "panels"],
+  "additionalProperties": false,
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of the fields being updated across the batch (e.g. [\"appearance\"], [\"title\"])"
+    },
+    "panels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "type": { "type": "string" },
+          "appearance": { "$ref": "panel-appearance.schema.json" }
+        }
+      }
+    }
+  }
+}

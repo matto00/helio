@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "update-dashboard-request.schema.json",
+  "title": "UpdateDashboardBatchRequest",
+  "description": "Payload for PATCH /api/dashboards/:id/update",
+  "type": "object",
+  "required": ["fields", "dashboard"],
+  "additionalProperties": false,
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of the fields being updated (e.g. [\"layout\"], [\"appearance\"], [\"name\"])"
+    },
+    "dashboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "appearance": { "$ref": "dashboard-appearance.schema.json" },
+        "layout": { "$ref": "dashboard-layout.schema.json" }
+      }
+    }
+  }
+}

@@ -69,16 +69,14 @@ final case class DashboardSnapshotPayload(
 )
 final case class ErrorResponse(message: String)
 
-// ── Batch API types ───────────────────────────────────────────────────────────
+// ── Update API types ──────────────────────────────────────────────────────────
 
-sealed trait BatchOperation
-final case class PanelLayoutOp(v: Int, layout: DashboardLayoutPayload) extends BatchOperation
-final case class PanelAppearanceOp(v: Int, panelId: String, appearance: PanelAppearancePayload) extends BatchOperation
-final case class DashboardAppearanceOp(v: Int, appearance: DashboardAppearancePayload) extends BatchOperation
-final case class UserPreferenceOp(v: Int, zoomLevel: Option[Double]) extends BatchOperation
-
-final case class BatchRequest(ops: Vector[BatchOperation])
-final case class BatchResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
+final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
+final case class PanelBatchItem(id: String, title: Option[String], appearance: Option[PanelAppearancePayload], `type`: Option[String])
+final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector[PanelBatchItem])
+final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
+final case class UserPreferencePayload(zoomLevel: Option[Double])
+final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
 
 // ── Google OAuth types ────────────────────────────────────────────────────────
 final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String])
@@ -608,52 +606,11 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 
-  // Batch API formats
-  implicit val batchOperationFormat: RootJsonFormat[BatchOperation] = new RootJsonFormat[BatchOperation] {
-    def write(op: BatchOperation): JsValue = op match {
-      case PanelLayoutOp(v, layout) =>
-        JsObject("op" -> JsString("panelLayout"), "v" -> JsNumber(v), "layout" -> layout.toJson)
-      case PanelAppearanceOp(v, panelId, appearance) =>
-        JsObject("op" -> JsString("panelAppearance"), "v" -> JsNumber(v), "panelId" -> JsString(panelId), "appearance" -> appearance.toJson)
-      case DashboardAppearanceOp(v, appearance) =>
-        JsObject("op" -> JsString("dashboardAppearance"), "v" -> JsNumber(v), "appearance" -> appearance.toJson)
-      case UserPreferenceOp(v, zoomLevel) =>
-        val fields: Map[String, JsValue] = Map("op" -> JsString("userPreference"), "v" -> JsNumber(v)) ++
-          zoomLevel.map(z => "zoomLevel" -> JsNumber(z)).toSeq
-        JsObject(fields)
-    }
-
-    def read(json: JsValue): BatchOperation = {
-      val obj = json.asJsObject
-      obj.fields.get("op") match {
-        case Some(JsString("panelLayout")) =>
-          PanelLayoutOp(
-            v      = obj.fields.get("v").fold(1)(_.convertTo[Int]),
-            layout = obj.fields("layout").convertTo[DashboardLayoutPayload]
-          )
-        case Some(JsString("panelAppearance")) =>
-          PanelAppearanceOp(
-            v          = obj.fields.get("v").fold(1)(_.convertTo[Int]),
-            panelId    = obj.fields("panelId").convertTo[String],
-            appearance = obj.fields("appearance").convertTo[PanelAppearancePayload]
-          )
-        case Some(JsString("dashboardAppearance")) =>
-          DashboardAppearanceOp(
-            v          = obj.fields.get("v").fold(1)(_.convertTo[Int]),
-            appearance = obj.fields("appearance").convertTo[DashboardAppearancePayload]
-          )
-        case Some(JsString("userPreference")) =>
-          UserPreferenceOp(
-            v         = obj.fields.get("v").fold(1)(_.convertTo[Int]),
-            zoomLevel = obj.fields.get("zoomLevel").map(_.convertTo[Double])
-          )
-        case Some(JsString(unknown)) =>
-          deserializationError(s"Unknown batch operation type: '$unknown'")
-        case _ =>
-          deserializationError("Batch operation must include an 'op' string field")
-      }
-    }
-  }
-  implicit val batchRequestFormat: RootJsonFormat[BatchRequest]   = jsonFormat1(BatchRequest.apply)
-  implicit val batchResponseFormat: RootJsonFormat[BatchResponse] = jsonFormat2(BatchResponse.apply)
+  // Update API formats
+  implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
+  implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem]                           = jsonFormat4(PanelBatchItem.apply)
+  implicit val updatePanelsBatchRequestFormat: RootJsonFormat[UpdatePanelsBatchRequest]       = jsonFormat2(UpdatePanelsBatchRequest.apply)
+  implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse]     = jsonFormat1(UpdatePanelsBatchResponse.apply)
+  implicit val userPreferencePayloadFormat: RootJsonFormat[UserPreferencePayload]             = jsonFormat1(UserPreferencePayload.apply)
+  implicit val updateUserPreferenceRequestFormat: RootJsonFormat[UpdateUserPreferenceRequest] = jsonFormat2(UpdateUserPreferenceRequest.apply)
 }

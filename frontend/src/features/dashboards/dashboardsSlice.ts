@@ -2,7 +2,6 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 import { isAxiosError } from "axios";
 
 import {
-  batchUpdate as batchUpdateRequest,
   createDashboard as createDashboardRequest,
   deleteDashboard as deleteDashboardRequest,
   duplicateDashboard as duplicateDashboardRequest,
@@ -15,8 +14,6 @@ import {
 } from "../../services/dashboardService";
 import type { RootState } from "../../store/store";
 import type {
-  BatchOperation,
-  BatchResponse,
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
@@ -125,18 +122,6 @@ export const updateDashboardLayout = createAsyncThunk<
   }
 });
 
-export const saveDashboardBatch = createAsyncThunk<
-  BatchResponse,
-  { dashboardId: string; ops: BatchOperation[] },
-  { rejectValue: string }
->("dashboards/saveDashboardBatch", async ({ dashboardId, ops }, { rejectWithValue }) => {
-  try {
-    return await batchUpdateRequest(dashboardId, ops);
-  } catch {
-    return rejectWithValue("Failed to save dashboard batch.");
-  }
-});
-
 export const duplicateDashboard = createAsyncThunk<
   DuplicateDashboardResponse,
   string,
@@ -234,11 +219,6 @@ const dashboardsSlice = createSlice({
       .addCase(updateDashboardLayout.fulfilled, (state, action) => {
         state.items = state.items.map((dashboard) =>
           dashboard.id === action.payload.id ? action.payload : dashboard,
-        );
-      })
-      .addCase(saveDashboardBatch.fulfilled, (state, action) => {
-        state.items = state.items.map((dashboard) =>
-          dashboard.id === action.payload.dashboard.id ? action.payload.dashboard : dashboard,
         );
       })
       .addCase(createDashboard.fulfilled, (state, action) => {

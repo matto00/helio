@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.api.JsonProtocols
+import com.helio.api.{JsonProtocols, PanelBatchItem}
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -140,6 +140,51 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
         .update((typeId.map(_.value), fieldMapping.map(_.compactPrint), lastUpdated))
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
+
+  def batchUpdate(items: Vector[PanelBatchItem], now: Instant): Future[Vector[Panel]] = {
+    if (items.isEmpty) return Future.successful(Vector.empty)
+
+    val panelIds = items.map(_.id)
+
+    def buildItemAction(item: PanelBatchItem): DBIO[Unit] =
+      table.filter(_.id === item.id).result.headOption.flatMap {
+        case None => DBIO.failed(new NoSuchElementException(s"Panel '${item.id}' not found"))
+        case Some(row) =>
+          val updates = Vector.newBuilder[DBIO[Unit]]
+
+          item.title.foreach { title =>
+            updates += table.filter(_.id === item.id).map(r => (r.title, r.lastUpdated)).update((title, now)).map(_ => ())
+          }
+
+          item.appearance.foreach { ap =>
+            val current = row.appearance.parseJson.convertTo[PanelAppearance]
+            val merged = PanelAppearance(
+              background   = ap.background.getOrElse(current.background),
+              color        = ap.color.getOrElse(current.color),
+              transparency = ap.transparency.getOrElse(current.transparency),
+              chart        = ap.chart.orElse(current.chart)
+            )
+            updates += table.filter(_.id === item.id).map(r => (r.appearance, r.lastUpdated)).update((merged.toJson.compactPrint, now)).map(_ => ())
+          }
+
+          item.`type`.foreach { typeStr =>
+            PanelType.fromString(typeStr).foreach { pt =>
+              updates += table.filter(_.id === item.id).map(r => (r.panelType, r.lastUpdated)).update((PanelType.asString(pt), now)).map(_ => ())
+            }
+          }
+
+          val actions = updates.result()
+          if (actions.isEmpty) DBIO.successful(())
+          else DBIO.seq(actions: _*)
+      }
+
+    val action =
+      DBIO.sequence(items.map(buildItemAction))
+        .andThen(table.filter(_.id inSet panelIds.toSet).result)
+        .transactionally
+
+    db.run(action).map(_.map(rowToDomain).toVector)
+  }
 }
 
 object PanelRepository {

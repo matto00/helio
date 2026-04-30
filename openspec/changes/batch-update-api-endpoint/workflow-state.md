@@ -7,7 +7,7 @@ BRANCH: feature/batch-update-api-endpoint/HEL-155
 PHASE: Cleanup
 CYCLE: 2
 DEV_PORT: 5328
-EXECUTOR_AGENT_ID: executor-cycle1-complete
-EVALUATOR_AGENT_ID: evaluator-cycle2-complete
+EXECUTOR_AGENT_ID: —
+EVALUATOR_AGENT_ID: —
 LAST_EVAL_VERDICT: PASS
-LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/batch-update-api-endpoint/HEL-155/openspec/changes/batch-update-api-endpoint/evaluation-cycle-2.md
+LAST_EVAL_REPORT: openspec/changes/archive/2026-04-30-batch-update-api-endpoint/evaluation-cycle-2.md

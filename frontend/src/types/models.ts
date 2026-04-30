@@ -183,40 +183,40 @@ export interface AuthResponse {
   user: User;
 }
 
-// ── Batch API types ─────────────────────────────────────────────────────────
+// ── Update API types ─────────────────────────────────────────────────────────
 
-export interface PanelLayoutOp {
-  op: "panelLayout";
-  v: number;
-  layout: DashboardLayout;
+export interface DashboardUpdatePayload {
+  name?: string;
+  appearance?: DashboardAppearance;
+  layout?: DashboardLayout;
 }
 
-export interface PanelAppearanceOp {
-  op: "panelAppearance";
-  v: number;
-  panelId: string;
-  appearance: PanelAppearance;
+export interface UpdateDashboardBatchRequest {
+  fields: string[];
+  dashboard: DashboardUpdatePayload;
 }
 
-export interface DashboardAppearanceOp {
-  op: "dashboardAppearance";
-  v: number;
-  appearance: DashboardAppearance;
+export interface PanelBatchItem {
+  id: string;
+  title?: string;
+  appearance?: PanelAppearance;
+  type?: string;
 }
 
-export interface UserPreferenceOp {
-  op: "userPreference";
-  v: number;
+export interface UpdatePanelsBatchRequest {
+  fields: string[];
+  panels: PanelBatchItem[];
+}
+
+export interface UpdatePanelsBatchResponse {
+  panels: Panel[];
+}
+
+export interface UserPreferencePayload {
   zoomLevel?: number;
 }
 
-export type BatchOperation =
-  | PanelLayoutOp
-  | PanelAppearanceOp
-  | DashboardAppearanceOp
-  | UserPreferenceOp;
-
-export interface BatchResponse {
-  dashboard: Dashboard;
-  panels: Panel[];
+export interface UpdateUserPreferenceRequest {
+  fields: string[];
+  user: UserPreferencePayload;
 }

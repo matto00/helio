@@ -1,6 +1,4 @@
 import type {
-  BatchOperation,
-  BatchResponse,
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
@@ -19,10 +17,6 @@ interface CreateDashboardRequest {
 
 interface UpdateDashboardAppearanceRequest {
   appearance: DashboardAppearance;
-}
-
-interface UpdateDashboardLayoutRequest {
-  layout: DashboardLayout;
 }
 
 export async function fetchDashboards(): Promise<Dashboard[]> {
@@ -60,9 +54,10 @@ export async function updateDashboardLayout(
   dashboardId: string,
   layout: DashboardLayout,
 ): Promise<Dashboard> {
-  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, {
-    layout,
-  } satisfies UpdateDashboardLayoutRequest);
+  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}/update`, {
+    fields: ["layout"],
+    dashboard: { layout },
+  });
   return response.data;
 }
 
@@ -91,15 +86,5 @@ export async function importDashboard(
     `/api/dashboards/import`,
     snapshot,
   );
-  return response.data;
-}
-
-export async function batchUpdate(
-  dashboardId: string,
-  ops: BatchOperation[],
-): Promise<BatchResponse> {
-  const response = await httpClient.post<BatchResponse>(`/api/dashboards/${dashboardId}/batch`, {
-    ops,
-  });
   return response.data;
 }

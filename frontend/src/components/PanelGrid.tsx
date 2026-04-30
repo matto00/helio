@@ -21,7 +21,7 @@ import {
   dashboardGridCols,
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
-import { saveDashboardBatch } from "../features/dashboards/dashboardsSlice";
+import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import { deletePanel, duplicatePanel, updatePanelTitle } from "../features/panels/panelsSlice";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
@@ -238,12 +238,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
     }
 
     inFlightLayoutRef.current = nextLayout;
-    void dispatch(
-      saveDashboardBatch({
-        dashboardId,
-        ops: [{ op: "panelLayout", v: 1, layout: nextLayout }],
-      }),
-    )
+    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
       .unwrap()
       .catch(() => {
         // Keep local drag UX responsive; retry happens on the next layout change.

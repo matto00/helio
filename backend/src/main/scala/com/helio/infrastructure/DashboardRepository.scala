@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.api.{BatchOperation, DashboardAppearanceOp, DashboardLayoutPayload, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols, PanelAppearanceOp, PanelLayoutOp, RequestValidation, UserPreferenceOp}
+import com.helio.api.{DashboardLayoutPayload, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols, RequestValidation}
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -180,80 +180,6 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           ))
         }
     }
-
-    db.run(action)
-  }
-
-  def batchUpdate(
-      dashboardId: DashboardId,
-      ops: Vector[BatchOperation]
-  ): Future[Option[(Dashboard, Vector[Panel])]] = {
-    val panelTable = TableQuery[PanelRepository.PanelTable]
-    val now = Instant.now()
-
-    def opToDbio(op: BatchOperation): DBIO[Unit] = op match {
-      case PanelLayoutOp(_, layout) =>
-        val domainLayout = DashboardLayoutPayload.toDomain(layout)
-        table
-          .filter(_.id === dashboardId.value)
-          .map(r => (r.layout, r.lastUpdated))
-          .update((domainLayout.toJson.compactPrint, now))
-          .map(_ => ())
-
-      case DashboardAppearanceOp(_, appearance) =>
-        val domainAppearance = DashboardAppearance(
-          background     = RequestValidation.normalizeDashboardBackground(appearance.background),
-          gridBackground = RequestValidation.normalizeDashboardGridBackground(appearance.gridBackground)
-        )
-        table
-          .filter(_.id === dashboardId.value)
-          .map(r => (r.appearance, r.lastUpdated))
-          .update((domainAppearance.toJson.compactPrint, now))
-          .map(_ => ())
-
-      case PanelAppearanceOp(_, panelId, appearancePayload) =>
-        panelTable
-          .filter(p => p.id === panelId && p.dashboardId === dashboardId.value)
-          .result.headOption
-          .flatMap {
-            case None =>
-              DBIO.failed(
-                new NoSuchElementException(s"Panel '$panelId' not found in dashboard '${dashboardId.value}'")
-              )
-            case Some(panelRow) =>
-              val currentAppearance = panelRow.appearance.parseJson.convertTo[PanelAppearance]
-              val newAppearance = PanelAppearance(
-                background   = appearancePayload.background.getOrElse(currentAppearance.background),
-                color        = appearancePayload.color.getOrElse(currentAppearance.color),
-                transparency = appearancePayload.transparency.getOrElse(currentAppearance.transparency),
-                chart        = appearancePayload.chart.orElse(currentAppearance.chart)
-              )
-              panelTable
-                .filter(_.id === panelId)
-                .map(p => (p.appearance, p.lastUpdated))
-                .update((newAppearance.toJson.compactPrint, now))
-                .map(_ => ())
-          }
-
-      case UserPreferenceOp(_, _) =>
-        // No backing table yet — acknowledge without persisting
-        DBIO.successful(())
-    }
-
-    val action = table.filter(_.id === dashboardId.value).result.headOption.flatMap {
-      case None => DBIO.successful(Option.empty[(Dashboard, Vector[Panel])])
-      case Some(_) =>
-        DBIO.seq(ops.map(opToDbio): _*)
-          .andThen(table.filter(_.id === dashboardId.value).result.headOption)
-          .flatMap {
-            case None => DBIO.successful(Option.empty[(Dashboard, Vector[Panel])])
-            case Some(updatedRow) =>
-              panelTable.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
-                .map { panelRows =>
-                  Some((rowToDomain(updatedRow), panelRows.map(panelRowToDomain).toVector))
-                }
-          }
-    }.transactionally
 
     db.run(action)
   }

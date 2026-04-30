@@ -1671,113 +1671,126 @@ class ApiRoutesSpec
       }
     }
 
-    // ── Batch update endpoint ──────────────────────────────────────────────────
+    // ── Dashboard /update endpoint ────────────────────────────────────────────
 
-    "batch update applies panelLayout and dashboardAppearance ops and returns updated state" in {
+    "dashboard update endpoint applies layout changes" in {
       cleanDb()
       var dashboardId = ""
       var panelId     = ""
 
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Test"))) ~> routes() ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Update Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
       Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
-      val batchReq = BatchRequest(Vector(
-        PanelLayoutOp(1, DashboardLayoutPayload(
-          lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 6, 4)),
-          md = Vector.empty,
-          sm = Vector.empty,
-          xs = Vector.empty
-        )),
-        DashboardAppearanceOp(1, DashboardAppearancePayload(Some("#1e293b"), Some("#0f172a")))
-      ))
+      val updateReq = UpdateDashboardBatchRequest(
+        fields = Vector("layout"),
+        dashboard = UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout     = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 6, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      )
 
-      Post(s"/api/dashboards/$dashboardId/batch", batchReq) ~> routes() ~> check {
+      Patch(s"/api/dashboards/$dashboardId/update", updateReq) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val response = responseAs[BatchResponse]
-        response.dashboard.appearance.background shouldBe "#1e293b"
-        response.dashboard.appearance.gridBackground shouldBe "#0f172a"
-        response.dashboard.layout.lg should contain only DashboardLayoutItemResponse(panelId, 0, 0, 6, 4)
-        response.panels should have size 1
-        response.panels.head.id shouldBe panelId
+        val response = responseAs[DashboardResponse]
+        response.layout.lg should contain only DashboardLayoutItemResponse(panelId, 0, 0, 6, 4)
       }
     }
 
-    "batch update rolls back all ops when one op references a non-existent panel" in {
+    "dashboard update endpoint returns 400 when no fields provided" in {
       cleanDb()
       var dashboardId = ""
-      var panelId     = ""
 
-      Post("/api/dashboards", CreateDashboardRequest(Some("Rollback Test"))) ~> routes() ~> check {
+      Post("/api/dashboards", CreateDashboardRequest(Some("Validation Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel A"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
 
-      val originalLayout = DashboardLayoutPayload(
-        lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
-        md = Vector.empty,
-        sm = Vector.empty,
-        xs = Vector.empty
-      )
-      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(None, None, Some(originalLayout))) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      val batchReq = BatchRequest(Vector(
-        PanelLayoutOp(1, DashboardLayoutPayload(
-          lg = Vector(DashboardLayoutItemPayload(panelId, 5, 5, 8, 8)),
-          md = Vector.empty,
-          sm = Vector.empty,
-          xs = Vector.empty
-        )),
-        PanelAppearanceOp(1, "non-existent-panel-id", PanelAppearancePayload(Some("#ff0000"), None, None, None))
-      ))
-
-      Post(s"/api/dashboards/$dashboardId/batch", batchReq) ~> routes() ~> check {
+      Patch(
+        s"/api/dashboards/$dashboardId/update",
+        UpdateDashboardBatchRequest(fields = Vector.empty, dashboard = UpdateDashboardRequest(None, None, None))
+      ) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
       }
+    }
 
-      Get("/api/dashboards") ~> routes() ~> check {
-        val dashboard = responseAs[DashboardsResponse].items.find(_.id == dashboardId).get
-        dashboard.layout.lg should contain only DashboardLayoutItemResponse(panelId, 0, 0, 4, 4)
+    // ── Panels updateBatch endpoint ───────────────────────────────────────────
+
+    "panels updateBatch applies appearance updates to multiple panels" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId1    = ""
+      var panelId2    = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Panel Batch Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel 1"), None)) ~> routes() ~> check {
+        panelId1 = responseAs[PanelResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel 2"), None)) ~> routes() ~> check {
+        panelId2 = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None)), None),
+          PanelBatchItem(panelId2, None, Some(PanelAppearancePayload(Some("#222222"), None, None, None)), None)
+        )
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[UpdatePanelsBatchResponse]
+        response.panels should have size 2
+        response.panels.map(_.appearance.background) should contain allOf ("#111111", "#222222")
       }
     }
 
-    "batch update returns 400 for an unknown op type" in {
+    "panels updateBatch returns 404 for an unknown panel id" in {
       cleanDb()
-      var dashboardId = ""
 
-      Post("/api/dashboards", CreateDashboardRequest(Some("Unknown Op Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem("non-existent-id", None, Some(PanelAppearancePayload(Some("#ff0000"), None, None, None)), None))
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
       }
+    }
+
+    "panels updateBatch returns 400 for empty panels array" in {
+      cleanDb()
 
       Post(
-        s"/api/dashboards/$dashboardId/batch",
-        HttpEntity(
-          ContentTypes.`application/json`,
-          s"""{"ops":[{"op":"unknownOpType","v":1}]}"""
-        )
-      ) ~> Route.seal(routes()) ~> check {
+        "/api/panels/updateBatch",
+        UpdatePanelsBatchRequest(fields = Vector.empty, panels = Vector.empty)
+      ) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("panels must not be empty")
       }
     }
 
-    "batch update returns 400 for an empty ops array" in {
+    // ── Users /me/update endpoint ─────────────────────────────────────────────
+
+    "users me/update returns 204 (stub)" in {
       cleanDb()
-      var dashboardId = ""
 
-      Post("/api/dashboards", CreateDashboardRequest(Some("Empty Ops Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      Post(s"/api/dashboards/$dashboardId/batch", BatchRequest(Vector.empty)) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse] shouldBe ErrorResponse("ops must not be empty")
+      Patch(
+        "/api/users/me/update",
+        UpdateUserPreferenceRequest(fields = Vector("zoomLevel"), user = UserPreferencePayload(Some(1.25)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
       }
     }
   }
