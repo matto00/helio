@@ -6,7 +6,7 @@ resource-oriented endpoints:
 
 - `PATCH /api/dashboards/:id/update` — partial dashboard field update
 - `POST /api/panels/updateBatch` — multi-panel update (any fields)
-- `PATCH /api/users/:id/update` — user preference update (noop for now)
+- `PATCH /api/users/me/update` — user preference update (noop for now, returns 204)
 
 The branch already has the old batch implementation committed. All old batch code must be removed.
 
@@ -47,19 +47,19 @@ accidental overwrites when only one field was intended to change and is consiste
 `PATCH /api/panels/:id` semantics (which accept any subset of panel fields). It also leaves a clear
 extension path for future versioning.
 
-### D4: `users/:id/update` returns 200 immediately
+### D4: `users/me/update` returns 204 No Content
 
 No `user_preferences` table exists. The route is scaffolded to accept the payload, validate its
-shape, and return `200 OK` with an empty `{}` body. This unblocks frontend development without
-database work.
+shape, and return `204 No Content`. The authenticated user identity is derived from the session
+token — no `:id` path parameter needed. This unblocks frontend development without database work.
 
 ### D5: Schema approach — per-endpoint schemas replacing batch schemas
 
 `schemas/batch-request.schema.json` and `schemas/batch-response.schema.json` are replaced with three
 new per-endpoint schemas:
-- `schemas/dashboard-update-request.schema.json`
-- `schemas/panel-batch-update-request.schema.json`
-- `schemas/user-update-request.schema.json`
+- `schemas/update-dashboard-request.schema.json`
+- `schemas/update-panels-batch-request.schema.json`
+- `schemas/update-panels-batch-response.schema.json`
 
 This mirrors the rest of the schemas directory (one schema per endpoint shape) and is cleaner than
 keeping a now-inaccurate "batch" name.
@@ -77,7 +77,7 @@ keeping a now-inaccurate "batch" name.
 2. Remove old batch thunk + service from frontend
 3. Add three new backend routes + codecs
 4. Add new frontend thunks + services
-5. Update `PanelGrid.tsx` layout flush to call `panels/updateBatch`
+5. Update `PanelGrid.tsx` layout flush to call `PATCH /api/dashboards/:id/update` (layout is a dashboard-level attribute)
 6. Replace batch schemas with per-endpoint schemas
 7. All in one commit
 
