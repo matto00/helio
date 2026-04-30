@@ -1670,6 +1670,129 @@ class ApiRoutesSpec
         responseAs[ErrorResponse].message should include("nonexistent-id")
       }
     }
+
+    // ── Dashboard /update endpoint ────────────────────────────────────────────
+
+    "dashboard update endpoint applies layout changes" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Update Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val updateReq = UpdateDashboardBatchRequest(
+        fields = Vector("layout"),
+        dashboard = UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout     = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 6, 4)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      )
+
+      Patch(s"/api/dashboards/$dashboardId/update", updateReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[DashboardResponse]
+        response.layout.lg should contain only DashboardLayoutItemResponse(panelId, 0, 0, 6, 4)
+      }
+    }
+
+    "dashboard update endpoint returns 400 when no fields provided" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Validation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Patch(
+        s"/api/dashboards/$dashboardId/update",
+        UpdateDashboardBatchRequest(fields = Vector.empty, dashboard = UpdateDashboardRequest(None, None, None))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // ── Panels updateBatch endpoint ───────────────────────────────────────────
+
+    "panels updateBatch applies appearance updates to multiple panels" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId1    = ""
+      var panelId2    = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Panel Batch Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel 1"), None)) ~> routes() ~> check {
+        panelId1 = responseAs[PanelResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel 2"), None)) ~> routes() ~> check {
+        panelId2 = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None)), None),
+          PanelBatchItem(panelId2, None, Some(PanelAppearancePayload(Some("#222222"), None, None, None)), None)
+        )
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[UpdatePanelsBatchResponse]
+        response.panels should have size 2
+        response.panels.map(_.appearance.background) should contain allOf ("#111111", "#222222")
+      }
+    }
+
+    "panels updateBatch returns 404 for an unknown panel id" in {
+      cleanDb()
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem("non-existent-id", None, Some(PanelAppearancePayload(Some("#ff0000"), None, None, None)), None))
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "panels updateBatch returns 400 for empty panels array" in {
+      cleanDb()
+
+      Post(
+        "/api/panels/updateBatch",
+        UpdatePanelsBatchRequest(fields = Vector.empty, panels = Vector.empty)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse] shouldBe ErrorResponse("panels must not be empty")
+      }
+    }
+
+    // ── Users /me/update endpoint ─────────────────────────────────────────────
+
+    "users me/update returns 204 (stub)" in {
+      cleanDb()
+
+      Patch(
+        "/api/users/me/update",
+        UpdateUserPreferenceRequest(fields = Vector("zoomLevel"), user = UserPreferencePayload(Some(1.25)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
   }
 
   // ── Session middleware — 401 tests ───────────────────────────────────────────

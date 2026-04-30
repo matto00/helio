@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.api.{DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols}
+import com.helio.api.{DashboardLayoutPayload, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols, RequestValidation}
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._

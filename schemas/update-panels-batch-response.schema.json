@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "update-panels-batch-response.schema.json",
+  "title": "UpdatePanelsBatchResponse",
+  "description": "Response for POST /api/panels/updateBatch",
+  "type": "object",
+  "required": ["panels"],
+  "additionalProperties": false,
+  "properties": {
+    "panels": {
+      "type": "array",
+      "items": { "$ref": "panel.schema.json" }
+    }
+  }
+}

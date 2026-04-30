@@ -1,4 +1,10 @@
-import type { Panel, PanelAppearance, PanelType } from "../types/models";
+import type {
+  Panel,
+  PanelAppearance,
+  PanelType,
+  UpdatePanelsBatchRequest,
+  UpdatePanelsBatchResponse,
+} from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface PanelsResponse {
@@ -54,6 +60,16 @@ export async function updatePanelAppearance(
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
     appearance,
   } satisfies UpdatePanelAppearanceRequest);
+  return response.data;
+}
+
+export async function updatePanelsBatch(
+  request: UpdatePanelsBatchRequest,
+): Promise<UpdatePanelsBatchResponse> {
+  const response = await httpClient.post<UpdatePanelsBatchResponse>(
+    "/api/panels/updateBatch",
+    request,
+  );
   return response.data;
 }
 

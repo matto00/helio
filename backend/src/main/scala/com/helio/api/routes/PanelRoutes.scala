@@ -44,6 +44,37 @@ final class PanelRoutes(
   val routes: Route =
     pathPrefix("panels") {
       concat(
+        path("updateBatch") {
+          post {
+            entity(as[UpdatePanelsBatchRequest]) { request =>
+              if (request.panels.isEmpty) {
+                complete(StatusCodes.BadRequest, ErrorResponse("panels must not be empty"))
+              } else {
+                onSuccess(Future.traverse(request.panels)(item => panelRepo.findById(PanelId(item.id)))) { panelOpts =>
+                  val missing = request.panels.zip(panelOpts).collectFirst { case (item, None) => item.id }
+                  missing match {
+                    case Some(id) =>
+                      complete(StatusCodes.NotFound, ErrorResponse(s"Panel '$id' not found"))
+                    case None =>
+                      val panels = panelOpts.flatten
+                      panels.find(_.ownerId != user.id) match {
+                        case Some(_) =>
+                          complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                        case None =>
+                          val now = Instant.now()
+                          onComplete(panelRepo.batchUpdate(request.panels, now)) {
+                            case scala.util.Success(updated) =>
+                              complete(UpdatePanelsBatchResponse(updated.map(PanelResponse.fromDomain)))
+                            case scala.util.Failure(ex) =>
+                              complete(StatusCodes.BadRequest, ErrorResponse(ex.getMessage))
+                          }
+                      }
+                  }
+                }
+              }
+            }
+          }
+        },
         pathEndOrSingleSlash {
           post {
             entity(as[CreatePanelRequest]) { request =>

@@ -182,3 +182,41 @@ export interface AuthResponse {
   expiresAt: string;
   user: User;
 }
+
+// ── Update API types ─────────────────────────────────────────────────────────
+
+export interface DashboardUpdatePayload {
+  name?: string;
+  appearance?: DashboardAppearance;
+  layout?: DashboardLayout;
+}
+
+export interface UpdateDashboardBatchRequest {
+  fields: string[];
+  dashboard: DashboardUpdatePayload;
+}
+
+export interface PanelBatchItem {
+  id: string;
+  title?: string;
+  appearance?: PanelAppearance;
+  type?: string;
+}
+
+export interface UpdatePanelsBatchRequest {
+  fields: string[];
+  panels: PanelBatchItem[];
+}
+
+export interface UpdatePanelsBatchResponse {
+  panels: Panel[];
+}
+
+export interface UserPreferencePayload {
+  zoomLevel?: number;
+}
+
+export interface UpdateUserPreferenceRequest {
+  fields: string[];
+  user: UserPreferencePayload;
+}

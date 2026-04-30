@@ -104,6 +104,7 @@ Click any panel to open a full-screen modal. Two modes: view (read-only, content
 > Separate Data Sources, Data Pipelines, and Type Registry into distinct first-class views. Establish the pipeline as the canonical transformation layer. Type Registry becomes the only binding target for panels.
 
 **Architecture:**
+
 ```
 Data Source  →  Data Pipeline  →  Type Registry  →  Panel
 (raw data)      (transformations)  (named schema)    (display)
@@ -150,7 +151,7 @@ User-triggered pipeline execution from the pipeline tab. The backend runs the pi
 - Run status indicator: in-progress / succeeded / failed with error message
 - "Last run" timestamp and row count displayed in the pipeline list and detail view
 
-### Epic: Spark Integration *(Stretch within v1.3)*
+### Epic: Spark Integration _(Stretch within v1.3)_
 
 Self-hosted Apache Spark as the pipeline execution backend for optimized, scalable processing. Decouples pipeline execution from the application server.
 
@@ -160,7 +161,7 @@ Self-hosted Apache Spark as the pipeline execution backend for optimized, scalab
 - Async job tracking: run status (queued / running / succeeded / failed) polled from Spark
 - Job history & logs: per-pipeline run history with duration, row count, and error output accessible in the pipeline tab
 
-### Epic: Spark-Backed Panel Queries *(Stretch within v1.3)*
+### Epic: Spark-Backed Panel Queries _(Stretch within v1.3)_
 
 Once pipelines run on Spark, panel data reads should also go through Spark rather than querying the DataType snapshot store directly. This gives panels the full power of Spark for filtering, aggregation, and field projection at query time — and keeps the execution model consistent end-to-end.
 
@@ -181,7 +182,7 @@ Enforce the pipeline → DataType → Panel binding chain. Panels may no longer 
 
 ---
 
-## v1.4 — Unstructured Data *(Stretch)*
+## v1.4 — Unstructured Data _(Stretch)_
 
 > **Linear project:** `Helio v1.4 — Unstructured Data`
 > Extend sources and the Type Registry to handle unstructured content. Foundation for agentic workflows.
@@ -205,7 +206,7 @@ Enforce the pipeline → DataType → Panel binding chain. Panels may no longer 
 
 ---
 
-## v2.0 — Agentic Dashboard Creation *(Future)*
+## v2.0 — Agentic Dashboard Creation _(Future)_
 
 > **Linear project:** `Helio v2.0 — Agentic Dashboard Creation`
 > An AI agent creates dashboards from a natural-language goal using the user's registered DataTypes, pipelines, and sources as context.

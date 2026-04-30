@@ -7,11 +7,18 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
+  updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
 import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
 import type { RootState } from "../../store/store";
-import type { Panel, PanelAppearance, PanelType } from "../../types/models";
+import type {
+  Panel,
+  PanelAppearance,
+  PanelType,
+  UpdatePanelsBatchRequest,
+  UpdatePanelsBatchResponse,
+} from "../../types/models";
 
 interface PanelsState {
   items: Panel[];
@@ -144,6 +151,18 @@ export const updatePanelBinding = createAsyncThunk<
   },
 );
 
+export const updatePanelsBatch = createAsyncThunk<
+  UpdatePanelsBatchResponse,
+  UpdatePanelsBatchRequest,
+  { rejectValue: string }
+>("panels/updatePanelsBatch", async (request, { rejectWithValue }) => {
+  try {
+    return await updatePanelsBatchRequest(request);
+  } catch {
+    return rejectWithValue("Failed to update panels.");
+  }
+});
+
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
@@ -197,6 +216,10 @@ const panelsSlice = createSlice({
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
+      })
+      .addCase(updatePanelsBatch.fulfilled, (state, action) => {
+        const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
+        state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
         state.items = action.payload.panels;

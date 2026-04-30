@@ -11,6 +11,7 @@ import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelR
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success}
 
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
@@ -104,6 +105,55 @@ final class DashboardRoutes(
                   case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                   case Some(snapshot) => complete(snapshot)
                 }
+            }
+          }
+        },
+        path(Segment / "update") { dashboardId =>
+          patch {
+            entity(as[UpdateDashboardBatchRequest]) { request =>
+              validateDashboardUpdateRequest(request.dashboard) match {
+                case Left(error) =>
+                  complete(StatusCodes.BadRequest, ErrorResponse(error))
+                case Right((nameOpt, appearanceOpt, layoutOpt)) =>
+                  onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                    case None =>
+                      complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                    case Some(existing) if existing.ownerId != user.id =>
+                      complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                    case Some(existing) =>
+                      val now = Instant.now()
+                      nameOpt match {
+                        case Some(name) =>
+                          onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
+                            case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                            case Some(renamed) =>
+                              if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
+                                complete(DashboardResponse.fromDomain(renamed))
+                              } else {
+                                val updated = renamed.copy(
+                                  appearance = appearanceOpt.getOrElse(renamed.appearance),
+                                  layout     = layoutOpt.getOrElse(renamed.layout),
+                                  meta       = renamed.meta.copy(lastUpdated = now)
+                                )
+                                onSuccess(dashboardRepo.update(updated)) {
+                                  case Some(d) => complete(DashboardResponse.fromDomain(d))
+                                  case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                                }
+                              }
+                          }
+                        case None =>
+                          val updated = existing.copy(
+                            appearance = appearanceOpt.getOrElse(existing.appearance),
+                            layout     = layoutOpt.getOrElse(existing.layout),
+                            meta       = existing.meta.copy(lastUpdated = now)
+                          )
+                          onSuccess(dashboardRepo.update(updated)) {
+                            case Some(d) => complete(DashboardResponse.fromDomain(d))
+                            case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                          }
+                      }
+                  }
+              }
             }
           }
         },

@@ -69,6 +69,15 @@ final case class DashboardSnapshotPayload(
 )
 final case class ErrorResponse(message: String)
 
+// ── Update API types ──────────────────────────────────────────────────────────
+
+final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
+final case class PanelBatchItem(id: String, title: Option[String], appearance: Option[PanelAppearancePayload], `type`: Option[String])
+final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector[PanelBatchItem])
+final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
+final case class UserPreferencePayload(zoomLevel: Option[Double])
+final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
+
 // ── Google OAuth types ────────────────────────────────────────────────────────
 final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String])
 
@@ -596,4 +605,12 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
+
+  // Update API formats
+  implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
+  implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem]                           = jsonFormat4(PanelBatchItem.apply)
+  implicit val updatePanelsBatchRequestFormat: RootJsonFormat[UpdatePanelsBatchRequest]       = jsonFormat2(UpdatePanelsBatchRequest.apply)
+  implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse]     = jsonFormat1(UpdatePanelsBatchResponse.apply)
+  implicit val userPreferencePayloadFormat: RootJsonFormat[UserPreferencePayload]             = jsonFormat1(UserPreferencePayload.apply)
+  implicit val updateUserPreferenceRequestFormat: RootJsonFormat[UpdateUserPreferenceRequest] = jsonFormat2(UpdateUserPreferenceRequest.apply)
 }

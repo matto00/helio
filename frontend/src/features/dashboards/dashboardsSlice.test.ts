@@ -388,4 +388,55 @@ describe("dashboardsSlice", () => {
       expect(nextState.items).toEqual(twoItemState.items);
     });
   });
+
+  it("updates dashboard layout in state after updateDashboardLayout.fulfilled", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const updatedLayout = {
+      lg: [{ panelId: "panel-1", x: 0, y: 0, w: 6, h: 5 }],
+      md: [],
+      sm: [],
+      xs: [],
+    };
+
+    const nextState = dashboardsReducer(
+      initialState,
+      updateDashboardLayout.fulfilled(
+        {
+          id: "dashboard-1",
+          name: "Operations",
+          meta: { ...defaultMeta, lastUpdated: "2026-04-30T10:00:00Z" },
+          appearance: defaultAppearance,
+          layout: updatedLayout,
+        },
+        "request-layout",
+        { dashboardId: "dashboard-1", layout: updatedLayout },
+      ),
+    );
+
+    expect(nextState.items[0].layout.lg).toHaveLength(1);
+    expect(nextState.items[0].layout.lg[0]).toMatchObject({
+      panelId: "panel-1",
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 5,
+    });
+    expect(nextState.items[0].meta.lastUpdated).toBe("2026-04-30T10:00:00Z");
+  });
 });

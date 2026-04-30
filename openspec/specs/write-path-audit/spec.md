@@ -59,7 +59,7 @@ resulting in a single PATCH call per drag-stop or resize-stop interaction, not o
 
 | # | Endpoint | Method | Trigger | Payload Fields | Calls per Interaction |
 |---|----------|--------|---------|----------------|-----------------------|
-| 1 | `PATCH /api/dashboards/:id` | PATCH | Panel drag or resize stop | `{ layout: DashboardLayout }` | 1 per stop (debounced 250 ms) |
+| 1 | `PATCH /api/dashboards/:id/update` | PATCH | Panel drag or resize stop | `{ fields: ["layout"], dashboard: { layout: DashboardLayout } }` | 1 per stop (debounced 250 ms) |
 | 2 | `PATCH /api/dashboards/:id` | PATCH | Dashboard appearance save | `{ appearance: { background, gridBackground } }` | 1 per save |
 | 3 | `PATCH /api/dashboards/:id` | PATCH | Dashboard rename commit | `{ name }` | 1 per rename |
 | 4 | `POST /api/dashboards` | POST | Dashboard create | `{ name }` | 1 per create |
@@ -73,7 +73,7 @@ resulting in a single PATCH call per drag-stop or resize-stop interaction, not o
 
 ### Payload Shape Details
 
-**1. Layout update** — `PATCH /api/dashboards/:id`
+**1. Layout update** — `PATCH /api/dashboards/:id/update`
 
 Sends the full 4-breakpoint layout covering all N panels in the dashboard (4N items total).
 Debounced 250 ms in `PanelGrid.tsx`; fires once per drag/resize-stop. An in-flight
@@ -81,9 +81,12 @@ deduplication guard (`inFlightLayoutRef`) suppresses a duplicate concurrent call
 
 ```json
 {
-  "layout": {
-    "lg": [{ "panelId": "...", "x": 0, "y": 0, "w": 6, "h": 5 }],
-    "md": [...], "sm": [...], "xs": [...]
+  "fields": ["layout"],
+  "dashboard": {
+    "layout": {
+      "lg": [{ "panelId": "...", "x": 0, "y": 0, "w": 6, "h": 5 }],
+      "md": [...], "sm": [...], "xs": [...]
+    }
   }
 }
 ```
@@ -165,8 +168,10 @@ interaction results in 2 HTTP calls: the POST plus a `GET /api/dashboards/:id/pa
 ~20 layout PATCHes + 10 panel PATCHes + 3 dashboard PATCHes + 6 calls from add/duplicate = **~39 write calls**
 
 **Key observation**: layout PATCHes dominate in heavy sessions. Each carries the full
-4-breakpoint layout for all panels (payload size grows linearly with panel count). A batch
-endpoint could coalesce multiple layout updates and mixed-type mutations into a single round-trip.
+4-breakpoint layout for all panels (payload size grows linearly with panel count). HEL-155
+introduced `PATCH /api/dashboards/:id/update` and `POST /api/panels/updateBatch` to provide
+clean resource-scoped write paths; layout still fires once per drag/resize-stop via the dashboard
+update endpoint.
 
 ### Source Locations
 

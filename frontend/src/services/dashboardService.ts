@@ -19,10 +19,6 @@ interface UpdateDashboardAppearanceRequest {
   appearance: DashboardAppearance;
 }
 
-interface UpdateDashboardLayoutRequest {
-  layout: DashboardLayout;
-}
-
 export async function fetchDashboards(): Promise<Dashboard[]> {
   const response = await httpClient.get<DashboardsResponse>("/api/dashboards");
   return response.data.items;
@@ -58,9 +54,10 @@ export async function updateDashboardLayout(
   dashboardId: string,
   layout: DashboardLayout,
 ): Promise<Dashboard> {
-  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}`, {
-    layout,
-  } satisfies UpdateDashboardLayoutRequest);
+  const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}/update`, {
+    fields: ["layout"],
+    dashboard: { layout },
+  });
   return response.data;
 }
 

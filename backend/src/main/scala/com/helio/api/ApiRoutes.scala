@@ -76,6 +76,16 @@ final class ApiRoutes(
                     }
                   }
                 },
+                pathPrefix("users") {
+                  path("me" / "update") {
+                    patch {
+                      entity(as[UpdateUserPreferenceRequest]) { _ =>
+                        // No user_preferences table yet — acknowledge without persisting
+                        complete(StatusCodes.NoContent)
+                      }
+                    }
+                  }
+                },
                 new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
                 new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,

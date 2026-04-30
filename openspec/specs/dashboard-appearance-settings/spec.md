@@ -12,9 +12,15 @@ Dashboard resources MUST include a nested `appearance` object that carries dashb
 ### Requirement: Dashboard appearance settings are persisted through resource updates
 The backend MUST persist supported dashboard appearance settings so they are returned on subsequent reads.
 
-#### Scenario: Dashboard background is updated
+#### Scenario: Dashboard background is updated via PATCH /api/dashboards/:id
 - **GIVEN** an existing dashboard
-- **WHEN** a client submits an update that changes the dashboard `appearance`
+- **WHEN** a client submits `PATCH /api/dashboards/:id` with an `appearance` field
+- **THEN** the dashboard stores the updated background settings
+- **AND** a later fetch for that dashboard returns the saved `appearance`
+
+#### Scenario: Dashboard background is updated via PATCH /api/dashboards/:id/update
+- **GIVEN** an existing dashboard
+- **WHEN** a client submits `PATCH /api/dashboards/:id/update` with `{ "fields": ["appearance"], "dashboard": { "appearance": { ... } } }`
 - **THEN** the dashboard stores the updated background settings
 - **AND** a later fetch for that dashboard returns the saved `appearance`
 
