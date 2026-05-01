@@ -1,6 +1,20 @@
+## ADDED Requirements
+
+### Requirement: lastSavedAt timestamp is tracked in panelsSlice
+The frontend MUST store a `lastSavedAt: number | null` field in `panelsSlice` state
+that is set to `Date.now()` whenever `updatePanelsBatch` fulfills successfully.
+
+#### Scenario: lastSavedAt is updated on successful flush
+- **WHEN** `updatePanelsBatch` fulfills
+- **THEN** `state.lastSavedAt` is set to the current Unix timestamp in milliseconds
+
+#### Scenario: lastSavedAt starts as null
+- **WHEN** the application initializes
+- **THEN** `state.lastSavedAt` is `null`
+
 ## MODIFIED Requirements
 
-### Requirement: Accumulated panel changes are flushed via batch endpoint on a 30-second interval
+### Requirement: Accumulated panel changes are flushed via batch endpoint on a debounce
 The frontend MUST flush the `pendingPanelUpdates` map to `POST /api/panels/updateBatch`
 on a 30-second `setInterval` whenever the map is non-empty, using the existing `updatePanelsBatch` thunk.
 The timer MUST reset to 30 seconds after any manual "Save now" flush.
@@ -28,14 +42,3 @@ The timer MUST reset to 30 seconds after any manual "Save now" flush.
 - **THEN** the interval timer is cancelled
 - **AND** any un-flushed updates are discarded (no flush on unmount)
 
-### Requirement: lastSavedAt timestamp is tracked in panelsSlice
-The frontend MUST store a `lastSavedAt: number | null` field in `panelsSlice` state
-that is set to `Date.now()` whenever `updatePanelsBatch` fulfills successfully.
-
-#### Scenario: lastSavedAt is updated on successful flush
-- **WHEN** `updatePanelsBatch` fulfills
-- **THEN** `state.lastSavedAt` is set to the current Unix timestamp in milliseconds
-
-#### Scenario: lastSavedAt starts as null
-- **WHEN** the application initializes
-- **THEN** `state.lastSavedAt` is `null`
