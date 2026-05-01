@@ -1,0 +1,31 @@
+.save-state-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.save-state-indicator__label {
+  font-size: 12px;
+  color: var(--color-text-muted, #888);
+  white-space: nowrap;
+}
+
+.save-state-indicator__save-now {
+  font-size: 12px;
+  color: var(--color-accent, #6366f1);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.save-state-indicator:hover .save-state-indicator__save-now {
+  opacity: 1;
+  pointer-events: auto;
+}

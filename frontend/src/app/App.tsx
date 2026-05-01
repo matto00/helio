@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   NavLink,
   Navigate,
@@ -18,6 +18,7 @@ import { DashboardList } from "../components/DashboardList";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
+import { SaveStateIndicator } from "../components/SaveStateIndicator";
 import { SourcesPage } from "../components/SourcesPage";
 import { UserMenu } from "../components/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/authSlice";
@@ -38,6 +39,7 @@ import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
+import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
 
 /** The authenticated app shell - rendered only when the user is signed in. */
 function AppShell() {
@@ -46,12 +48,38 @@ function AppShell() {
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
+  const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
   const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
+  const flushFnRef = useRef<(() => void) | null>(null);
+
+  const registerFlush = useCallback((fn: (() => void) | null) => {
+    flushFnRef.current = fn;
+  }, []);
+
+  const flush = useCallback(() => {
+    flushFnRef.current?.();
+  }, []);
+
+  const saveStateContextValue: SaveStateContextValue = useMemo(
+    () => ({ registerFlush, flush }),
+    [registerFlush, flush],
+  );
+
+  // beforeunload guard: warn when there are pending changes
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (Object.keys(pendingPanelUpdates).length > 0) {
+        event.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pendingPanelUpdates]);
 
   const canUndo = useAppSelector(selectCanUndo(selectedDashboardId));
   const canRedo = useAppSelector(selectCanRedo(selectedDashboardId));
@@ -106,103 +134,110 @@ function AppShell() {
       : undefined;
 
   return (
-    <main className="app-shell" style={shellStyle}>
-      {/* -- COMMAND BAR -- */}
-      <header className="app-command-bar">
-        <div className="app-command-bar__left">
-          <span className="app-command-bar__logo">
-            <OrbitMark />
-            <span className="app-command-bar__wordmark">Helio</span>
-          </span>
-          <span className="app-command-bar__sep" aria-hidden="true" />
-          <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
-            <span>{onDashboardView ? "Dashboards" : "Data Sources"}</span>
+    <SaveStateContext.Provider value={saveStateContextValue}>
+      <main className="app-shell" style={shellStyle}>
+        {/* -- COMMAND BAR -- */}
+        <header className="app-command-bar">
+          <div className="app-command-bar__left">
+            <span className="app-command-bar__logo">
+              <OrbitMark />
+              <span className="app-command-bar__wordmark">Helio</span>
+            </span>
+            <span className="app-command-bar__sep" aria-hidden="true" />
+            <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
+              <span>{onDashboardView ? "Dashboards" : "Data Sources"}</span>
+              {onDashboardView && selectedDashboard !== null && (
+                <>
+                  <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                    /
+                  </span>
+                  <span className="app-command-bar__breadcrumb-current">
+                    {selectedDashboardName}
+                  </span>
+                </>
+              )}
+            </nav>
             {onDashboardView && selectedDashboard !== null && (
+              <SaveStateIndicator onSaveNow={flush} />
+            )}
+          </div>
+          <div className="app-command-bar__right">
+            {onDashboardView && (
               <>
-                <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
-                  /
-                </span>
-                <span className="app-command-bar__breadcrumb-current">{selectedDashboardName}</span>
+                <button
+                  type="button"
+                  className="undo-redo-btn"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  aria-label="Undo layout change"
+                  title="Undo (Ctrl+Z)"
+                >
+                  ↩ Undo
+                </button>
+                <button
+                  type="button"
+                  className="undo-redo-btn"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  aria-label="Redo layout change"
+                  title="Redo (Ctrl+Shift+Z)"
+                >
+                  Redo ↪
+                </button>
               </>
             )}
-          </nav>
-        </div>
-        <div className="app-command-bar__right">
-          {onDashboardView && (
-            <>
-              <button
-                type="button"
-                className="undo-redo-btn"
-                onClick={handleUndo}
-                disabled={!canUndo}
-                aria-label="Undo layout change"
-                title="Undo (Ctrl+Z)"
-              >
-                ↩ Undo
-              </button>
-              <button
-                type="button"
-                className="undo-redo-btn"
-                onClick={handleRedo}
-                disabled={!canRedo}
-                aria-label="Redo layout change"
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                Redo ↪
-              </button>
-            </>
-          )}
-          {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
-          {authStatus === "authenticated" && currentUser !== null && (
-            <UserMenu
-              currentUser={currentUser}
-              theme={theme}
-              toggleTheme={toggleTheme}
-              accentColor={accentColor}
-              setAccentColor={setAccentColor}
-              onLogout={() => void handleLogout()}
-            />
-          )}
-        </div>
-      </header>
+            {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+            {authStatus === "authenticated" && currentUser !== null && (
+              <UserMenu
+                currentUser={currentUser}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
+                onLogout={() => void handleLogout()}
+              />
+            )}
+          </div>
+        </header>
 
-      {/* -- BODY (sidebar + content) -- */}
-      <div className="app-body">
-        {isDashboardListCollapsed ? (
-          <button
-            type="button"
-            className="app-sidebar-toggle"
-            aria-label="Expand dashboard list"
-            onClick={() => setIsDashboardListCollapsed(false)}
-          >
-            <PanelLeftOpen size={14} />
-          </button>
-        ) : (
-          <aside className="app-sidebar">
-            <nav className="app-sidebar__nav" aria-label="Main navigation">
-              <NavLink to="/" end className="app-sidebar__nav-link">
-                Dashboards
-              </NavLink>
-              <NavLink to="/sources" className="app-sidebar__nav-link">
-                Data Sources
-              </NavLink>
-            </nav>
-            <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+        {/* -- BODY (sidebar + content) -- */}
+        <div className="app-body">
+          {isDashboardListCollapsed ? (
             <button
               type="button"
-              className="app-sidebar-collapse"
-              aria-label="Collapse dashboard list"
-              onClick={() => setIsDashboardListCollapsed(true)}
+              className="app-sidebar-toggle"
+              aria-label="Expand dashboard list"
+              onClick={() => setIsDashboardListCollapsed(false)}
             >
-              <PanelLeftClose size={14} />
+              <PanelLeftOpen size={14} />
             </button>
-          </aside>
-        )}
-        <section className="app-content">
-          <Outlet />
-        </section>
-      </div>
-    </main>
+          ) : (
+            <aside className="app-sidebar">
+              <nav className="app-sidebar__nav" aria-label="Main navigation">
+                <NavLink to="/" end className="app-sidebar__nav-link">
+                  Dashboards
+                </NavLink>
+                <NavLink to="/sources" className="app-sidebar__nav-link">
+                  Data Sources
+                </NavLink>
+              </nav>
+              <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+              <button
+                type="button"
+                className="app-sidebar-collapse"
+                aria-label="Collapse dashboard list"
+                onClick={() => setIsDashboardListCollapsed(true)}
+              >
+                <PanelLeftClose size={14} />
+              </button>
+            </aside>
+          )}
+          <section className="app-content">
+            <Outlet />
+          </section>
+        </div>
+      </main>
+    </SaveStateContext.Provider>
   );
 }
 

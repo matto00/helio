@@ -253,4 +253,26 @@ describe("panelsSlice", () => {
 
     expect(afterReject.pendingPanelUpdates["panel-1"]).toEqual({ title: "Unsaved" });
   });
+
+  // Task 6.2 — lastSavedAt
+  it("lastSavedAt starts as null in initial state", () => {
+    const state = panelsReducer(undefined, { type: "@@INIT" });
+    expect(state.lastSavedAt).toBeNull();
+  });
+
+  it("lastSavedAt is set to a timestamp when updatePanelsBatch fulfills", () => {
+    const before = Date.now();
+    const nextState = panelsReducer(
+      undefined,
+      updatePanelsBatch.fulfilled({ panels: [basePanel] }, "req-batch", {
+        fields: ["title"],
+        panels: [{ id: "panel-1", title: "Saved" }],
+      }),
+    );
+    const after = Date.now();
+
+    expect(nextState.lastSavedAt).not.toBeNull();
+    expect(nextState.lastSavedAt).toBeGreaterThanOrEqual(before);
+    expect(nextState.lastSavedAt).toBeLessThanOrEqual(after);
+  });
 });
