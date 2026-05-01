@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import {
   createPanel as createPanelRequest,
@@ -15,7 +15,9 @@ import type { RootState } from "../../store/store";
 import type {
   Panel,
   PanelAppearance,
+  PanelBatchItem,
   PanelType,
+  PanelUpdateFields,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../../types/models";
@@ -25,6 +27,7 @@ interface PanelsState {
   loadedDashboardId: string | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  pendingPanelUpdates: Record<string, PanelUpdateFields>;
 }
 
 const initialState: PanelsState = {
@@ -32,6 +35,7 @@ const initialState: PanelsState = {
   loadedDashboardId: null,
   status: "idle",
   error: null,
+  pendingPanelUpdates: {},
 };
 
 export const fetchPanels = createAsyncThunk<
@@ -175,6 +179,22 @@ const panelsSlice = createSlice({
       state.loadedDashboardId = null;
       state.status = "idle";
     },
+    accumulatePanelUpdate(
+      state,
+      action: PayloadAction<{ panelId: string; fields: PanelUpdateFields }>,
+    ) {
+      const { panelId, fields } = action.payload;
+      state.pendingPanelUpdates[panelId] = {
+        ...state.pendingPanelUpdates[panelId],
+        ...fields,
+      };
+      state.items = state.items.map((panel) =>
+        panel.id === panelId ? { ...panel, ...fields } : panel,
+      );
+    },
+    clearPendingPanelUpdates(state) {
+      state.pendingPanelUpdates = {};
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -236,5 +256,23 @@ const panelsSlice = createSlice({
   },
 });
 
-export const { markDashboardPanelsStale } = panelsSlice.actions;
+export const { markDashboardPanelsStale, accumulatePanelUpdate, clearPendingPanelUpdates } =
+  panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
+
+export function buildBatchRequest(
+  pending: Record<string, PanelUpdateFields>,
+): UpdatePanelsBatchRequest {
+  const allFields = new Set<string>();
+  const panels: PanelBatchItem[] = [];
+
+  for (const [id, fields] of Object.entries(pending)) {
+    Object.keys(fields).forEach((key) => allFields.add(key));
+    panels.push({ id, ...fields });
+  }
+
+  return {
+    fields: Array.from(allFields),
+    panels,
+  };
+}

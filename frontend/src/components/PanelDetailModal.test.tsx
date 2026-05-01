@@ -218,14 +218,10 @@ describe("PanelDetailModal", () => {
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
-  it("calls updatePanelAppearance and closes on Appearance Save", async () => {
-    updateAppearanceMock.mockResolvedValue({
-      ...testPanel,
-      appearance: { background: "#000000", color: "inherit", transparency: 0 },
-    });
-
+  // Task 5.5 — saving appearance dispatches accumulatePanelUpdate instead of updatePanelAppearance
+  it("dispatches accumulatePanelUpdate and closes on Appearance Save without calling the service", () => {
     const onClose = jest.fn();
-    renderModal(onClose);
+    const { store } = renderModal(onClose);
 
     fireEvent.change(screen.getByLabelText("Revenue background color"), {
       target: { value: "#000000" },
@@ -233,29 +229,16 @@ describe("PanelDetailModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
 
-    await waitFor(() => {
-      expect(updateAppearanceMock).toHaveBeenCalledWith(
-        "p1",
-        expect.objectContaining({ background: "#000000" }),
-      );
-    });
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-  });
+    // Dialog should close synchronously
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
 
-  it("shows an inline error when Appearance Save fails", async () => {
-    updateAppearanceMock.mockRejectedValue(new Error("Network error"));
-
-    renderModal();
-
-    fireEvent.change(screen.getByLabelText("Revenue background color"), {
-      target: { value: "#ff0000" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Failed to save panel appearance.")).toBeInTheDocument();
-    });
+    // The appearance change should be in pendingPanelUpdates, not sent to the server
+    expect(updateAppearanceMock).not.toHaveBeenCalled();
+    expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
+    expect(store.getState().panels.pendingPanelUpdates["p1"].appearance?.background).toBe(
+      "#000000",
+    );
   });
 
   it("closes without saving when Cancel is clicked and form is clean", () => {

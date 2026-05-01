@@ -23,7 +23,14 @@ import {
 } from "../features/dashboards/dashboardLayout";
 import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
-import { deletePanel, duplicatePanel, updatePanelTitle } from "../features/panels/panelsSlice";
+import {
+  accumulatePanelUpdate,
+  buildBatchRequest,
+  clearPendingPanelUpdates,
+  deletePanel,
+  duplicatePanel,
+  updatePanelsBatch,
+} from "../features/panels/panelsSlice";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
@@ -202,7 +209,9 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const persistedLayoutRef = useRef(resolvedLayout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
+  const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
 
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
@@ -224,6 +233,38 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
     },
     [],
   );
+
+  // Task 2.2: cleanup panel flush timer on unmount
+  useEffect(
+    () => () => {
+      if (panelFlushTimerRef.current !== null) {
+        clearTimeout(panelFlushTimerRef.current);
+        panelFlushTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
+  // Task 2.3: debounced flush of accumulated panel updates
+  useEffect(() => {
+    if (Object.keys(pendingPanelUpdates).length === 0) {
+      return;
+    }
+    if (panelFlushTimerRef.current !== null) {
+      clearTimeout(panelFlushTimerRef.current);
+    }
+    panelFlushTimerRef.current = setTimeout(() => {
+      panelFlushTimerRef.current = null;
+      void dispatch(updatePanelsBatch(buildBatchRequest(pendingPanelUpdates)))
+        .unwrap()
+        .then(() => {
+          dispatch(clearPendingPanelUpdates());
+        })
+        .catch(() => {
+          // Network or server error — retain pending updates; next accumulation retries
+        });
+    }, 250);
+  }, [pendingPanelUpdates, dispatch]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -268,7 +309,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
     setEditingTitleError(null);
   }
 
-  async function commitTitleEdit(panelId: string) {
+  function commitTitleEdit(panelId: string) {
     if (titleCancelledRef.current) return;
     const trimmed = editingTitle.trim();
     if (trimmed.length === 0) {
@@ -277,12 +318,12 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
     }
     setEditingTitleId(null);
     setEditingTitleError(null);
-    await dispatch(updatePanelTitle({ panelId, title: trimmed }));
+    dispatch(accumulatePanelUpdate({ panelId, fields: { title: trimmed } }));
   }
 
   function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>, panelId: string) {
     if (event.key === "Enter") {
-      void commitTitleEdit(panelId);
+      commitTitleEdit(panelId);
     } else if (event.key === "Escape") {
       cancelEditingTitle();
     }
@@ -361,7 +402,7 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
                           setEditingTitleError(null);
                         }}
                         onKeyDown={(e) => handleTitleKeyDown(e, panel.id)}
-                        onBlur={() => void commitTitleEdit(panel.id)}
+                        onBlur={() => commitTitleEdit(panel.id)}
                       />
                       <InlineError error={editingTitleError} />
                     </>

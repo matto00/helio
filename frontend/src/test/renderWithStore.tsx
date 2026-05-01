@@ -106,6 +106,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           loadedDashboardId: preloadedState.panels?.loadedDashboardId ?? null,
           status: preloadedState.panels?.status ?? "idle",
           error: preloadedState.panels?.error ?? null,
+          pendingPanelUpdates: {},
         },
         dataTypes: {
           items: preloadedState.dataTypes?.items ?? [],
