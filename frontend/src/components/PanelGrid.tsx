@@ -30,6 +30,7 @@ import {
   clearPendingPanelUpdates,
   deletePanel,
   duplicatePanel,
+  resetPanelSaveState,
   updatePanelsBatch,
 } from "../features/panels/panelsSlice";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
@@ -257,52 +258,6 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
     [],
   );
 
-  /** Flush all pending panel updates immediately. Shared by the interval and "Save now". */
-  const flushPanelUpdates = useCallback(() => {
-    const pending = pendingPanelUpdatesRef.current;
-    if (Object.keys(pending).length === 0) return;
-    void dispatch(updatePanelsBatch(buildBatchRequest(pending)))
-      .unwrap()
-      .then(() => {
-        dispatch(clearPendingPanelUpdates());
-      })
-      .catch(() => {
-        // Network or server error — retain pending updates; next interval tick retries
-      });
-  }, [dispatch]);
-
-  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
-  const flushAndReset = useCallback(() => {
-    flushPanelUpdates();
-    if (panelFlushTimerRef.current !== null) {
-      clearInterval(panelFlushTimerRef.current);
-    }
-    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
-  }, [flushPanelUpdates]);
-
-  // Start a 30-second auto-save interval on mount; cancel on unmount.
-  useEffect(() => {
-    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
-    return () => {
-      if (panelFlushTimerRef.current !== null) {
-        clearInterval(panelFlushTimerRef.current);
-        panelFlushTimerRef.current = null;
-      }
-    };
-  }, [flushPanelUpdates]);
-
-  // Register the flush+reset function with the context so AppShell can invoke it.
-  const { registerFlush } = useSaveState();
-  useEffect(() => {
-    registerFlush(flushAndReset);
-    return () => registerFlush(null);
-  }, [registerFlush, flushAndReset]);
-
-  /**
-   * Expose an imperative handle so callers with a ref can also trigger flush+reset.
-   */
-  useImperativeHandle(ref, () => ({ flushAndReset }), [flushAndReset]);
-
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
     if (areDashboardLayoutsEqual(nextLayout, persistedLayoutRef.current)) {
@@ -330,6 +285,68 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
         }
       });
   }, [dashboardId, dispatch]);
+
+  /** Flush all pending panel updates immediately. Shared by the interval and "Save now". */
+  const flushPanelUpdates = useCallback(() => {
+    const pending = pendingPanelUpdatesRef.current;
+    if (Object.keys(pending).length === 0) return;
+    void dispatch(updatePanelsBatch(buildBatchRequest(pending)))
+      .unwrap()
+      .then(() => {
+        dispatch(clearPendingPanelUpdates());
+      })
+      .catch(() => {
+        // Network or server error — retain pending updates; next interval tick retries
+      });
+  }, [dispatch]);
+
+  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
+  const flushAndReset = useCallback(() => {
+    flushPanelUpdates();
+    persistLayout();
+    if (panelFlushTimerRef.current !== null) {
+      clearInterval(panelFlushTimerRef.current);
+    }
+    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+  }, [flushPanelUpdates, persistLayout]);
+
+  // Start a 30-second auto-save interval on mount; cancel on unmount.
+  useEffect(() => {
+    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+    return () => {
+      if (panelFlushTimerRef.current !== null) {
+        clearInterval(panelFlushTimerRef.current);
+        panelFlushTimerRef.current = null;
+      }
+    };
+  }, [flushPanelUpdates]);
+
+  // Reset save state when the user switches to a different dashboard.
+  const isFirstRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+    flushPanelUpdates();
+    dispatch(resetPanelSaveState());
+    if (panelFlushTimerRef.current !== null) {
+      clearInterval(panelFlushTimerRef.current);
+    }
+    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+  }, [dashboardId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Register the flush+reset function with the context so AppShell can invoke it.
+  const { registerFlush } = useSaveState();
+  useEffect(() => {
+    registerFlush(flushAndReset);
+    return () => registerFlush(null);
+  }, [registerFlush, flushAndReset]);
+
+  /**
+   * Expose an imperative handle so callers with a ref can also trigger flush+reset.
+   */
+  useImperativeHandle(ref, () => ({ flushAndReset }), [flushAndReset]);
 
   function startEditingTitle(panelId: string, currentTitle: string) {
     setConfirmDeletePanelId(null);

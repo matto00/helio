@@ -210,6 +210,10 @@ const panelsSlice = createSlice({
     clearPendingPanelUpdates(state) {
       state.pendingPanelUpdates = {};
     },
+    resetPanelSaveState(state) {
+      state.pendingPanelUpdates = {};
+      state.lastSavedAt = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -277,8 +281,12 @@ const panelsSlice = createSlice({
   },
 });
 
-export const { markDashboardPanelsStale, accumulatePanelUpdate, clearPendingPanelUpdates } =
-  panelsSlice.actions;
+export const {
+  markDashboardPanelsStale,
+  accumulatePanelUpdate,
+  clearPendingPanelUpdates,
+  resetPanelSaveState,
+} = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
 
 export function buildBatchRequest(
