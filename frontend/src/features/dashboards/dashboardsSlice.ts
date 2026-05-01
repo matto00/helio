@@ -26,6 +26,7 @@ interface DashboardsState {
   selectedDashboardId: string | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  hasPendingLayout: boolean;
 }
 
 const initialState: DashboardsState = {
@@ -33,6 +34,7 @@ const initialState: DashboardsState = {
   selectedDashboardId: null,
   status: "idle",
   error: null,
+  hasPendingLayout: false,
 };
 
 // The backend guarantees dashboards are returned sorted by lastUpdated desc,
@@ -183,6 +185,9 @@ const dashboardsSlice = createSlice({
         dashboard.layout = layout;
       }
     },
+    setLayoutPending(state, action: PayloadAction<boolean>) {
+      state.hasPendingLayout = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -217,6 +222,7 @@ const dashboardsSlice = createSlice({
         );
       })
       .addCase(updateDashboardLayout.fulfilled, (state, action) => {
+        state.hasPendingLayout = false;
         state.items = state.items.map((dashboard) =>
           dashboard.id === action.payload.id ? action.payload : dashboard,
         );
@@ -247,5 +253,6 @@ const dashboardsSlice = createSlice({
   },
 });
 
-export const { setSelectedDashboardId, setDashboardLayoutLocally } = dashboardsSlice.actions;
+export const { setSelectedDashboardId, setDashboardLayoutLocally, setLayoutPending } =
+  dashboardsSlice.actions;
 export const dashboardsReducer = dashboardsSlice.reducer;

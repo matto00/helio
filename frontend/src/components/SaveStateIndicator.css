@@ -7,34 +7,21 @@
 
 .save-state-indicator__label {
   font-size: 12px;
-  color: var(--color-text-muted, #888);
+  color: var(--app-text-muted);
   white-space: nowrap;
 }
 
 .save-state-indicator__save-now {
-  font-size: 11px;
-  color: var(--color-accent, #6366f1);
-  background: none;
-  border: 1px solid var(--color-accent, #6366f1);
-  border-radius: 10px;
-  padding: 1px 8px;
-  cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transition:
     opacity 0.15s ease,
-    background-color 0.1s ease,
-    color 0.1s ease;
-  white-space: nowrap;
-  line-height: 1.5;
+    border-color var(--app-transition),
+    color var(--app-transition),
+    background-color var(--app-transition);
 }
 
 .save-state-indicator:hover .save-state-indicator__save-now {
   opacity: 1;
   pointer-events: auto;
-}
-
-.save-state-indicator__save-now:hover {
-  background-color: var(--color-accent, #6366f1);
-  color: #fff;
 }

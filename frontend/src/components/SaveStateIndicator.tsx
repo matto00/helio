@@ -8,15 +8,11 @@ interface SaveStateIndicatorProps {
 
 export function SaveStateIndicator({ onSaveNow }: SaveStateIndicatorProps) {
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
+  const hasPendingLayout = useAppSelector((state) => state.dashboards.hasPendingLayout);
   const lastSavedAt = useAppSelector((state) => state.panels.lastSavedAt);
   const relativeTime = useRelativeTime(lastSavedAt);
 
-  const isDirty = Object.keys(pendingPanelUpdates).length > 0;
-
-  function handleSaveNow() {
-    if (!isDirty) return;
-    onSaveNow();
-  }
+  const isDirty = Object.keys(pendingPanelUpdates).length > 0 || hasPendingLayout;
 
   return (
     <div className="save-state-indicator">
@@ -25,8 +21,8 @@ export function SaveStateIndicator({ onSaveNow }: SaveStateIndicatorProps) {
       </span>
       <button
         type="button"
-        className="save-state-indicator__save-now"
-        onClick={handleSaveNow}
+        className="save-state-indicator__save-now cmd-btn"
+        onClick={isDirty ? onSaveNow : undefined}
         aria-label="Save now"
       >
         Save now

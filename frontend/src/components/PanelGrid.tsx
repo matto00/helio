@@ -22,7 +22,7 @@ import {
   dashboardGridCols,
   resolveDashboardLayout,
 } from "../features/dashboards/dashboardLayout";
-import { updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { setLayoutPending, updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import {
   accumulatePanelUpdate,
@@ -227,7 +227,6 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   const latestLayoutRef = useRef(resolvedLayout);
   const persistedLayoutRef = useRef(resolvedLayout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelFlushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
@@ -247,16 +246,6 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
       inFlightLayoutRef.current = null;
     }
   }, [resolvedLayout]);
-
-  useEffect(
-    () => () => {
-      if (persistTimerRef.current !== null) {
-        clearTimeout(persistTimerRef.current);
-        persistTimerRef.current = null;
-      }
-    },
-    [],
-  );
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -300,26 +289,31 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
       });
   }, [dispatch]);
 
-  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
-  const flushAndReset = useCallback(() => {
+  /** Flush both pending panel updates and any pending layout change. */
+  const flushAll = useCallback(() => {
     flushPanelUpdates();
     persistLayout();
+  }, [flushPanelUpdates, persistLayout]);
+
+  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
+  const flushAndReset = useCallback(() => {
+    flushAll();
     if (panelFlushTimerRef.current !== null) {
       clearInterval(panelFlushTimerRef.current);
     }
-    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
-  }, [flushPanelUpdates, persistLayout]);
+    panelFlushTimerRef.current = setInterval(flushAll, 30_000);
+  }, [flushAll]);
 
   // Start a 30-second auto-save interval on mount; cancel on unmount.
   useEffect(() => {
-    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+    panelFlushTimerRef.current = setInterval(flushAll, 30_000);
     return () => {
       if (panelFlushTimerRef.current !== null) {
         clearInterval(panelFlushTimerRef.current);
         panelFlushTimerRef.current = null;
       }
     };
-  }, [flushPanelUpdates]);
+  }, [flushAll]);
 
   // Reset save state when the user switches to a different dashboard.
   const isFirstRenderRef = useRef(true);
@@ -429,14 +423,11 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
           if (nextLayouts === undefined) {
             return;
           }
-          latestLayoutRef.current = fromResponsiveLayouts(panels, nextLayouts);
-          if (persistTimerRef.current !== null) {
-            clearTimeout(persistTimerRef.current);
+          const next = fromResponsiveLayouts(panels, nextLayouts);
+          latestLayoutRef.current = next;
+          if (!areDashboardLayoutsEqual(next, persistedLayoutRef.current)) {
+            dispatch(setLayoutPending(true));
           }
-          persistTimerRef.current = setTimeout(() => {
-            persistTimerRef.current = null;
-            persistLayout();
-          }, 250);
         }}
       >
         {panels.map((panel) => (
