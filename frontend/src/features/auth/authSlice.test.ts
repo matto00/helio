@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import * as authService from "../../services/authService";
 import * as httpClient from "../../services/httpClient";
+import { applyAccentTokens } from "../../theme/appearance";
 import type { AuthResponse, User } from "../../types/models";
 import {
   authReducer,
@@ -11,6 +12,7 @@ import {
   logout,
   rehydrateAuth,
   setAuth,
+  updateUserPreferences,
 } from "./authSlice";
 
 jest.mock("../../services/authService");
@@ -18,9 +20,11 @@ jest.mock("../../services/httpClient", () => ({
   httpClient: { defaults: { headers: { common: {} } } },
   setAuthToken: jest.fn(),
 }));
+jest.mock("../../theme/appearance");
 
 const mockedAuthService = jest.mocked(authService);
 const mockedSetAuthToken = jest.mocked(httpClient.setAuthToken);
+const mockedApplyAccentTokens = jest.mocked(applyAccentTokens);
 
 const testUser: User = {
   id: "user-1",
@@ -227,5 +231,71 @@ describe("handleOAuthCallback thunk", () => {
       "code-abc",
       "csrf-state-xyz",
     );
+  });
+});
+
+describe("updateUserPreferences thunk", () => {
+  beforeEach(() => {
+    mockedApplyAccentTokens.mockClear();
+    mockedSetAuthToken.mockClear();
+    sessionStorage.clear();
+  });
+
+  it("updates currentUser.preferences on successful update", async () => {
+    const preferences = { accentColor: "#3b82f6", zoomLevels: { "dash-1": 1.5 } };
+    mockedAuthService.updateUserPreferencesRequest.mockResolvedValue(preferences);
+
+    // First set up an authenticated user
+    mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
+    const store = makeStore();
+    await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
+
+    // Now update preferences
+    await store.dispatch(
+      updateUserPreferences({
+        fields: ["accentColor"],
+        user: { accentColor: "#3b82f6" },
+      }),
+    );
+
+    const state = store.getState().auth;
+    expect(state.currentUser?.preferences).toEqual(preferences);
+  });
+});
+
+describe("rehydrateAuth with preferences", () => {
+  beforeEach(() => {
+    mockedApplyAccentTokens.mockClear();
+    mockedSetAuthToken.mockClear();
+    sessionStorage.clear();
+  });
+
+  it("calls applyAccentTokens when user has accentColor preference", async () => {
+    const userWithPrefs: User = {
+      ...testUser,
+      preferences: {
+        accentColor: "#f97316",
+        zoomLevels: {},
+      },
+    };
+
+    sessionStorage.setItem("helio_auth_token", "valid-token");
+    mockedAuthService.getMeRequest.mockResolvedValue(userWithPrefs);
+
+    const store = makeStore();
+    await store.dispatch(rehydrateAuth());
+
+    expect(mockedApplyAccentTokens).toHaveBeenCalledWith("#f97316");
+    expect(store.getState().auth.currentUser).toEqual(userWithPrefs);
+  });
+
+  it("does not call applyAccentTokens when user has no accent color", async () => {
+    sessionStorage.setItem("helio_auth_token", "valid-token");
+    mockedAuthService.getMeRequest.mockResolvedValue(testUser);
+
+    const store = makeStore();
+    await store.dispatch(rehydrateAuth());
+
+    expect(mockedApplyAccentTokens).not.toHaveBeenCalled();
   });
 });

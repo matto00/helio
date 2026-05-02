@@ -75,7 +75,7 @@ final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: 
 final case class PanelBatchItem(id: String, title: Option[String], appearance: Option[PanelAppearancePayload], `type`: Option[String])
 final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector[PanelBatchItem])
 final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
-final case class UserPreferencePayload(zoomLevel: Option[Double])
+final case class UserPreferencePayload(zoomLevel: Option[Double], accentColor: Option[String], dashboardId: Option[String])
 final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
 
 // ── Google OAuth types ────────────────────────────────────────────────────────
@@ -84,7 +84,8 @@ final case class GoogleProfile(sub: String, email: Option[String], name: Option[
 // ── Auth API types ────────────────────────────────────────────────────────────
 final case class RegisterRequest(email: String, password: String, displayName: Option[String])
 final case class LoginRequest(email: String, password: String)
-final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String, avatarUrl: Option[String] = None)
+final case class UserPreferences(accentColor: Option[String], zoomLevels: Map[String, Double])
+final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String, avatarUrl: Option[String] = None, preferences: Option[UserPreferences] = None)
 final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
 final case class CreateDashboardRequest(name: Option[String])
 final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
@@ -585,7 +586,8 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // Auth API formats
   implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
-  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat5(UserResponse.apply)
+  implicit val userPreferencesFormat: RootJsonFormat[UserPreferences] = jsonFormat2(UserPreferences.apply)
+  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat6(UserResponse.apply)
   implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat3(AuthResponse.apply)
 
   // Google OAuth formats
@@ -611,6 +613,6 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem]                           = jsonFormat4(PanelBatchItem.apply)
   implicit val updatePanelsBatchRequestFormat: RootJsonFormat[UpdatePanelsBatchRequest]       = jsonFormat2(UpdatePanelsBatchRequest.apply)
   implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse]     = jsonFormat1(UpdatePanelsBatchResponse.apply)
-  implicit val userPreferencePayloadFormat: RootJsonFormat[UserPreferencePayload]             = jsonFormat1(UserPreferencePayload.apply)
+  implicit val userPreferencePayloadFormat: RootJsonFormat[UserPreferencePayload]             = jsonFormat3(UserPreferencePayload.apply)
   implicit val updateUserPreferenceRequestFormat: RootJsonFormat[UpdateUserPreferenceRequest] = jsonFormat2(UpdateUserPreferenceRequest.apply)
 }

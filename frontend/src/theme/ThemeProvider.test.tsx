@@ -101,4 +101,20 @@ describe("ThemeProvider", () => {
 
     await waitFor(() => expect(window.localStorage.getItem(AccentStorageKey)).toBe("#3b82f6"));
   });
+
+  it("invokes onAccentChange callback when accent color is set", async () => {
+    const onAccentChange = jest.fn();
+
+    render(
+      <ThemeProvider onAccentChange={onAccentChange}>
+        <AccentConsumer />
+      </ThemeProvider>,
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Set blue" }));
+    });
+
+    await waitFor(() => expect(onAccentChange).toHaveBeenCalledWith("#3b82f6"));
+  });
 });

@@ -10,7 +10,13 @@ import {
   updateUserPreferencesRequest,
 } from "../../services/authService";
 import { setAuthToken } from "../../services/httpClient";
-import type { AuthResponse, UpdateUserPreferenceRequest, User } from "../../types/models";
+import { applyAccentTokens } from "../../theme/appearance";
+import type {
+  AuthResponse,
+  UpdateUserPreferenceRequest,
+  User,
+  UserPreferences,
+} from "../../types/models";
 
 interface AuthRootState {
   auth: AuthState;
@@ -109,12 +115,12 @@ export const logout = createAsyncThunk<void, void, { state: AuthRootState }>(
 );
 
 export const updateUserPreferences = createAsyncThunk<
-  void,
+  UserPreferences,
   UpdateUserPreferenceRequest,
   { rejectValue: string }
 >("auth/updateUserPreferences", async (request, { rejectWithValue }) => {
   try {
-    await updateUserPreferencesRequest(request);
+    return await updateUserPreferencesRequest(request);
   } catch {
     return rejectWithValue("Failed to update user preferences.");
   }
@@ -150,6 +156,9 @@ const authSlice = createSlice({
           state.token = action.payload.token;
           state.currentUser = action.payload.user;
           state.status = "authenticated";
+          if (action.payload.user.preferences?.accentColor) {
+            applyAccentTokens(action.payload.user.preferences.accentColor);
+          }
         } else {
           state.status = "unauthenticated";
         }
@@ -169,6 +178,9 @@ const authSlice = createSlice({
         state.status = "authenticated";
         setAuthToken(action.payload.token);
         sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
+        if (action.payload.user.preferences?.accentColor) {
+          applyAccentTokens(action.payload.user.preferences.accentColor);
+        }
       })
       .addCase(login.rejected, (state) => {
         state.status = "unauthenticated";
@@ -183,6 +195,9 @@ const authSlice = createSlice({
         state.status = "authenticated";
         setAuthToken(action.payload.token);
         sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
+        if (action.payload.user.preferences?.accentColor) {
+          applyAccentTokens(action.payload.user.preferences.accentColor);
+        }
       })
       .addCase(register.rejected, (state) => {
         state.status = "unauthenticated";
@@ -197,6 +212,9 @@ const authSlice = createSlice({
         state.status = "authenticated";
         setAuthToken(action.payload.token);
         sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
+        if (action.payload.user.preferences?.accentColor) {
+          applyAccentTokens(action.payload.user.preferences.accentColor);
+        }
       })
       .addCase(handleOAuthCallback.rejected, (state) => {
         state.token = null;
@@ -206,6 +224,12 @@ const authSlice = createSlice({
       // logout — clearAuth is dispatched from the thunk, handled by reducers
       .addCase(logout.fulfilled, () => {
         // state is already cleared by the clearAuth action dispatched inside the thunk
+      })
+      // updateUserPreferences
+      .addCase(updateUserPreferences.fulfilled, (state, action) => {
+        if (state.currentUser) {
+          state.currentUser.preferences = action.payload;
+        }
       });
   },
 });

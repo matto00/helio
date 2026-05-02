@@ -1,12 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { Provider } from "react-redux";
+import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { App } from "./app/App";
 import { OverlayProvider } from "./components/OverlayProvider";
+import { updateUserPreferences } from "./features/auth/authSlice";
 import { setupAuthInterceptor } from "./services/httpClient";
-import { store } from "./store/store";
+import { store, type RootState, type AppDispatch } from "./store/store";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
 
@@ -20,16 +21,36 @@ setupAuthInterceptor(
   },
 );
 
+function ThemedApp() {
+  const dispatch = useDispatch<AppDispatch>();
+  const isAuthenticated = useSelector((state: RootState) => state.auth.status === "authenticated");
+
+  function handleAccentChange(color: string) {
+    if (isAuthenticated) {
+      dispatch(
+        updateUserPreferences({
+          fields: ["accentColor"],
+          user: { accentColor: color },
+        }),
+      );
+    }
+  }
+
+  return (
+    <ThemeProvider onAccentChange={handleAccentChange}>
+      <OverlayProvider>
+        <App />
+      </OverlayProvider>
+    </ThemeProvider>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider>
-        <Provider store={store}>
-          <OverlayProvider>
-            <App />
-          </OverlayProvider>
-        </Provider>
-      </ThemeProvider>
+      <Provider store={store}>
+        <ThemedApp />
+      </Provider>
     </BrowserRouter>
   </React.StrictMode>,
 );

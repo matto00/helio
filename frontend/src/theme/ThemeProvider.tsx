@@ -28,7 +28,11 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({ children }: PropsWithChildren) {
+interface ThemeProviderProps extends PropsWithChildren {
+  onAccentChange?: (color: string) => void;
+}
+
+export function ThemeProvider({ children, onAccentChange }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   const [accentColor, setAccentColor] = useState<string>(() => getInitialAccentColor());
 
@@ -41,7 +45,8 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     applyAccentTokens(accentColor);
     window.localStorage.setItem(AccentStorageKey, accentColor);
-  }, [accentColor]);
+    onAccentChange?.(accentColor);
+  }, [accentColor, onAccentChange]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({

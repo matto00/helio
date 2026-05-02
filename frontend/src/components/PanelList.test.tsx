@@ -13,6 +13,10 @@ jest.mock("../services/panelService", () => ({
   updatePanelAppearance: jest.fn(),
 }));
 
+jest.mock("../services/authService", () => ({
+  updateUserPreferencesRequest: jest.fn().mockResolvedValue({ accentColor: null, zoomLevels: {} }),
+}));
+
 const defaultMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",
@@ -401,5 +405,115 @@ describe("PanelList", () => {
     );
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-1"));
     expect(screen.getByRole("heading", { name: "Forecast" })).toBeInTheDocument();
+  });
+
+  it("zoom controls appear when a dashboard is selected", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        token: "test-token",
+      },
+    });
+
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset zoom" })).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("clicking zoom in increases the zoom level", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        token: "test-token",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByText("110%")).toBeInTheDocument();
+  });
+
+  it("clicking zoom out decreases the zoom level", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        token: "test-token",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByText("90%")).toBeInTheDocument();
   });
 });

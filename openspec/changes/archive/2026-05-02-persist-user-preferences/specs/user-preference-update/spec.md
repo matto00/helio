@@ -1,6 +1,6 @@
-## Requirements
+## MODIFIED Requirements
 
-### Requirement: PATCH /api/users/me/update endpoint persists preferences and returns 200
+### Requirement: PATCH /api/users/me/update endpoint exists
 The backend MUST expose a `PATCH /api/users/me/update` endpoint that accepts a user preference
 payload, persists the specified fields to the database, and returns HTTP 200 OK with the updated
 preferences object. The authenticated user's identity is derived from the session token — no `:id`
@@ -23,3 +23,9 @@ path parameter is required.
 #### Scenario: Unauthenticated request is rejected
 - **WHEN** a client sends `PATCH /api/users/me/update` without a valid session token
 - **THEN** the backend returns HTTP 401 Unauthorized
+
+## REMOVED Requirements
+
+### Requirement: User preference update is a noop on the backend
+**Reason**: The user_preferences table now exists (V18 migration) and the endpoint fully persists data.
+**Migration**: Use `PATCH /api/users/me/update` which now returns 200 with updated preferences.
