@@ -68,3 +68,42 @@ The `theme.css` file SHALL define `.eyebrow`, `.wordmark`, and `.mono` utility c
 - **WHEN** a component applies the class `eyebrow`, `wordmark`, or `mono`
 - **THEN** the appropriate typographic styles SHALL be applied without requiring additional component-specific CSS
 
+### Requirement: Dashboard zoom level UI in PanelList
+The system SHALL provide zoom level controls (increase, decrease, reset) in the `PanelList` header
+area, visible when a dashboard is selected and has panels. Zoom is applied as a CSS scale transform
+to the panel grid, clamped to [0.5, 2.0].
+
+#### Scenario: Zoom controls are visible when a dashboard is selected
+- **WHEN** a dashboard is selected and panels are rendered
+- **THEN** zoom in (+), zoom out (-), and reset (100%) buttons SHALL be visible in the PanelList header
+
+#### Scenario: Zoom out decreases the panel grid scale
+- **WHEN** the user clicks the zoom out (-) button
+- **THEN** the panel grid SHALL render at a smaller CSS scale (min: 0.5)
+
+#### Scenario: Zoom in increases the panel grid scale
+- **WHEN** the user clicks the zoom in (+) button
+- **THEN** the panel grid SHALL render at a larger CSS scale (max: 2.0)
+
+#### Scenario: Reset restores 100% zoom
+- **WHEN** the user clicks the reset button
+- **THEN** the panel grid scale SHALL return to 1.0
+
+#### Scenario: Zoom change dispatches updateUserPreferences
+- **WHEN** the user changes the zoom level while authenticated
+- **THEN** `updateUserPreferences` SHALL be dispatched with `{ fields: ["zoomLevel"], user: { zoomLevel: <n>, dashboardId: "<id>" } }`
+
+### Requirement: Dashboard zoom level is restored from backend on dashboard load
+The system SHALL restore the saved zoom level for the selected dashboard from the user's preferences
+when a dashboard is loaded.
+
+#### Scenario: Zoom level is restored when switching to a dashboard
+- **WHEN** a dashboard is selected
+- **AND** the current user has a saved zoom level for that dashboard in `preferences.zoomLevels`
+- **THEN** the panel grid SHALL render at the saved zoom level
+
+#### Scenario: Default zoom when no saved level exists
+- **WHEN** a dashboard is selected
+- **AND** no saved zoom level exists for that dashboard
+- **THEN** the panel grid SHALL render at zoom level 1.0 (100%)
+
