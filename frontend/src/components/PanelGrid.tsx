@@ -1,9 +1,10 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import {
+import React, {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -41,6 +42,7 @@ import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { useSaveState } from "../context/SaveStateContext";
 import "./PanelGrid.css";
 
 interface PanelGridConfig {
@@ -113,6 +115,11 @@ function createLayouts(layout: DashboardLayout): NonNullable<ResponsiveGridLayou
       minH: panelGridConfig.itemHeights.min,
     })),
   };
+}
+
+export interface PanelGridHandle {
+  /** Immediately flush pending panel updates and reset the auto-save timer. */
+  flushAndReset: () => void;
 }
 
 interface PanelGridProps {
@@ -191,7 +198,10 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
   );
 }
 
-export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
+export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(function PanelGrid(
+  { dashboardId, layout, panels },
+  ref,
+) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
@@ -209,9 +219,14 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
   const persistedLayoutRef = useRef(resolvedLayout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const panelFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelFlushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
+  // Keep a ref so the interval callback always reads the latest value without re-registering.
+  const pendingPanelUpdatesRef = useRef(pendingPanelUpdates);
+  useEffect(() => {
+    pendingPanelUpdatesRef.current = pendingPanelUpdates;
+  });
 
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
@@ -234,37 +249,51 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
     [],
   );
 
-  // Task 2.2: cleanup panel flush timer on unmount
-  useEffect(
-    () => () => {
+  /** Flush all pending panel updates immediately. Shared by the interval and "Save now". */
+  const flushPanelUpdates = useCallback(() => {
+    const pending = pendingPanelUpdatesRef.current;
+    if (Object.keys(pending).length === 0) return;
+    void dispatch(updatePanelsBatch(buildBatchRequest(pending)))
+      .unwrap()
+      .then(() => {
+        dispatch(clearPendingPanelUpdates());
+      })
+      .catch(() => {
+        // Network or server error — retain pending updates; next interval tick retries
+      });
+  }, [dispatch]);
+
+  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
+  const flushAndReset = useCallback(() => {
+    flushPanelUpdates();
+    if (panelFlushTimerRef.current !== null) {
+      clearInterval(panelFlushTimerRef.current);
+    }
+    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+  }, [flushPanelUpdates]);
+
+  // Start a 30-second auto-save interval on mount; cancel on unmount.
+  useEffect(() => {
+    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
+    return () => {
       if (panelFlushTimerRef.current !== null) {
-        clearTimeout(panelFlushTimerRef.current);
+        clearInterval(panelFlushTimerRef.current);
         panelFlushTimerRef.current = null;
       }
-    },
-    [],
-  );
+    };
+  }, [flushPanelUpdates]);
 
-  // Task 2.3: debounced flush of accumulated panel updates
+  // Register the flush+reset function with the context so AppShell can invoke it.
+  const { registerFlush } = useSaveState();
   useEffect(() => {
-    if (Object.keys(pendingPanelUpdates).length === 0) {
-      return;
-    }
-    if (panelFlushTimerRef.current !== null) {
-      clearTimeout(panelFlushTimerRef.current);
-    }
-    panelFlushTimerRef.current = setTimeout(() => {
-      panelFlushTimerRef.current = null;
-      void dispatch(updatePanelsBatch(buildBatchRequest(pendingPanelUpdates)))
-        .unwrap()
-        .then(() => {
-          dispatch(clearPendingPanelUpdates());
-        })
-        .catch(() => {
-          // Network or server error — retain pending updates; next accumulation retries
-        });
-    }, 250);
-  }, [pendingPanelUpdates, dispatch]);
+    registerFlush(flushAndReset);
+    return () => registerFlush(null);
+  }, [registerFlush, flushAndReset]);
+
+  /**
+   * Expose an imperative handle so callers with a ref can also trigger flush+reset.
+   */
+  useImperativeHandle(ref, () => ({ flushAndReset }), [flushAndReset]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -483,4 +512,4 @@ export function PanelGrid({ dashboardId, layout, panels }: PanelGridProps) {
       ) : null}
     </div>
   );
-}
+});

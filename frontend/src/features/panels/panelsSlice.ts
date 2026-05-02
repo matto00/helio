@@ -28,6 +28,7 @@ interface PanelsState {
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   pendingPanelUpdates: Record<string, PanelUpdateFields>;
+  lastSavedAt: number | null;
 }
 
 const initialState: PanelsState = {
@@ -36,6 +37,7 @@ const initialState: PanelsState = {
   status: "idle",
   error: null,
   pendingPanelUpdates: {},
+  lastSavedAt: null,
 };
 
 export const fetchPanels = createAsyncThunk<
@@ -240,6 +242,7 @@ const panelsSlice = createSlice({
       .addCase(updatePanelsBatch.fulfilled, (state, action) => {
         const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
         state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
+        state.lastSavedAt = Date.now();
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
         state.items = action.payload.panels;
