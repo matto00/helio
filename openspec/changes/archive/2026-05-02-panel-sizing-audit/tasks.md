@@ -7,7 +7,7 @@
 ## 2. Cleanup
 
 - [x] 2.1 Remove stale `openspec/changes/batch-update-api-endpoint/` directory (was never archived and has no pending work)
-- [ ] 2.2 Commit cleanup alongside the spec in the same PR
+- [x] 2.2 Commit cleanup alongside the spec in the same PR
 
 ## 3. Verification
 
