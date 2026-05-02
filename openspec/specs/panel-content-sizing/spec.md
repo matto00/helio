@@ -33,15 +33,33 @@ The metric panel (`panel-content--metric`) SHALL use `padding: 12px 16px`, `gap:
 - **THEN** the two-line metric content (value + label) occupies approximately 44px of content height, leaving ~226px unused — classified as SPARSE (content utilization < 60%)
 
 ### Requirement: Text panel sizing
-The text panel (`panel-content--text`) SHALL use `padding: 12px 16px` (inherited from `.panel-content`), `gap: 8px` between lines, and live content at `font-size: 0.9rem` (14.4px). Placeholder skeleton lines SHALL be `height: 10px` with `border-radius: 4px`: the long line at 85% width and the short line at 60% width.
+The text panel (`panel-content--text`) SHALL use `padding: 12px 16px` (inherited from `.panel-content`),
+`gap: 8px` between lines, and `overflow-y: auto` to confine content within the panel boundary.
+Live content SHALL use font-size that scales with the container height via container queries
+(defined in the `panel-container-queries` spec):
+- Compact (`height < 180px`): `0.78rem`
+- Default (`height 180px–279px`): `0.9rem`
+- Spacious (`height >= 280px`): `1.1rem`
 
-#### Scenario: Text panel with bound data
-- **WHEN** a text panel has bound content, the text SHALL render at 0.9rem (14.4px) left-aligned with `white-space: pre-wrap`
-- **THEN** the content fills the panel width and wraps naturally at the container boundary
+Placeholder skeleton lines SHALL be `height: 10px` with `border-radius: 4px`: the long line at
+85% width and the short line at 60% width.
+
+#### Scenario: Text panel with bound data at default height
+- **WHEN** a text panel has bound content at the default height (180px–279px)
+- **THEN** the text SHALL render at `0.9rem` left-aligned with `white-space: pre-wrap`
+- **AND** the content fills the panel width and wraps naturally at the container boundary
+
+#### Scenario: Text panel with bound data at spacious height
+- **WHEN** a text panel has bound content and the container height is >= 280px
+- **THEN** the text SHALL render at `1.1rem`
 
 #### Scenario: Text panel sparseness at default height
 - **WHEN** a text panel is rendered at the default height with short text content
 - **THEN** a single short string occupies < 20px of content area, classified as SPARSE
+
+#### Scenario: Text panel content overflow at spacious height
+- **WHEN** a text panel has long content and the container height is >= 280px
+- **THEN** the `.panel-content--text` element scrolls rather than overflowing the panel boundary
 
 ### Requirement: Table panel sizing
 The table panel (`panel-content--table`) SHALL use `padding: 8px 12px` (overrides the base `.panel-content` 12px/16px), cell padding of `4px 8px`, cell height of `18px`, and font-size of `0.78rem` (12.48px). Header cells SHALL have `background: var(--app-accent-surface)` and `border: 1px solid var(--app-border-subtle)`.
