@@ -42,7 +42,8 @@ final case class PanelResponse(
     appearance: PanelAppearanceResponse,
     typeId: Option[String],
     fieldMapping: Option[JsValue],
-    ownerId: String
+    ownerId: String,
+    content: Option[String] = None
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
@@ -55,7 +56,8 @@ final case class DashboardSnapshotPanelEntry(
     `type`: String,
     appearance: PanelAppearancePayload,
     typeId: Option[String],
-    fieldMapping: Option[JsValue]
+    fieldMapping: Option[JsValue],
+    content: Option[String]
 )
 final case class DashboardSnapshotDashboardEntry(
     name: String,
@@ -88,7 +90,7 @@ final case class UserPreferences(accentColor: Option[String], zoomLevels: Map[St
 final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String, avatarUrl: Option[String] = None, preferences: Option[UserPreferences] = None)
 final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
 final case class CreateDashboardRequest(name: Option[String])
-final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String])
+final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String], content: Option[String] = None)
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
@@ -100,7 +102,8 @@ final case class UpdatePanelRequest(
     appearance: Option[PanelAppearancePayload],
     `type`: Option[String],
     typeId: Option[Option[String]],
-    fieldMapping: Option[Option[JsValue]]
+    fieldMapping: Option[Option[JsValue]],
+    content: Option[String] = None
 )
 
 // ── Permission API types ──────────────────────────────────────────────────────
@@ -243,7 +246,8 @@ object PanelResponse {
       appearance   = PanelAppearanceResponse.fromDomain(panel.appearance),
       typeId       = panel.typeId.map(_.value),
       fieldMapping = panel.fieldMapping,
-      ownerId = panel.ownerId.value
+      ownerId      = panel.ownerId.value,
+      content      = panel.content
     )
 }
 
@@ -391,7 +395,8 @@ object DashboardSnapshotPanelEntry {
         chart        = panel.appearance.chart
       ),
       typeId       = panel.typeId.map(_.value),
-      fieldMapping = panel.fieldMapping
+      fieldMapping = panel.fieldMapping,
+      content      = panel.content
     )
 }
 
@@ -475,7 +480,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat6(
     DashboardResponse.apply
   )
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat9(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat10(PanelResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse] = jsonFormat1(
     DashboardsResponse.apply
   )
@@ -492,7 +497,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest] = jsonFormat1(
     CreateDashboardRequest.apply
   )
-  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat3(
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat4(
     CreatePanelRequest.apply
   )
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat3(
@@ -515,6 +520,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
           case None    => fields("fieldMapping") = JsNull
           case Some(v) => fields("fieldMapping") = v
         }
+        r.content.foreach(v => fields("content") = JsString(v))
         JsObject(fields.toMap)
       }
 
@@ -534,7 +540,8 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
             case None         => None
             case Some(JsNull) => Some(None)
             case Some(v)      => Some(Some(v))
-          }
+          },
+          content = obj.fields.get("content").map(_.convertTo[String])
         )
       }
     }
@@ -604,7 +611,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   // Snapshot API formats
-  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
+  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat7(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 

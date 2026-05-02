@@ -266,6 +266,7 @@ describe("App", () => {
               typeId: null,
               fieldMapping: null,
               refreshInterval: null,
+              content: null,
             },
           ]
         : [
@@ -283,6 +284,7 @@ describe("App", () => {
               typeId: null,
               fieldMapping: null,
               refreshInterval: null,
+              content: null,
             },
           ],
     );
@@ -434,6 +436,7 @@ describe("App", () => {
         typeId: null,
         fieldMapping: null,
         refreshInterval: null,
+        content: null,
       },
     ]);
 

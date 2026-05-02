@@ -214,6 +214,7 @@ describe("PanelList", () => {
       typeId: null,
       fieldMapping: null,
       refreshInterval: null,
+      content: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -253,6 +254,7 @@ describe("PanelList", () => {
       typeId: null,
       fieldMapping: null,
       refreshInterval: null,
+      content: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -295,6 +297,7 @@ describe("PanelList", () => {
       typeId: null,
       fieldMapping: null,
       refreshInterval: null,
+      content: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -373,6 +376,7 @@ describe("PanelList", () => {
       typeId: null,
       fieldMapping: null,
       refreshInterval: null,
+      content: null,
     });
     fetchPanelsMock.mockResolvedValue([
       {
@@ -385,6 +389,7 @@ describe("PanelList", () => {
         typeId: null,
         fieldMapping: null,
         refreshInterval: null,
+        content: null,
       },
       {
         id: "panel-2",
@@ -396,6 +401,7 @@ describe("PanelList", () => {
         typeId: null,
         fieldMapping: null,
         refreshInterval: null,
+        content: null,
       },
     ]);
 

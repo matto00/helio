@@ -39,6 +39,7 @@ const testPanel = {
   typeId: null,
   fieldMapping: null,
   refreshInterval: null,
+  content: null,
 };
 
 const chartTestPanel = {
@@ -181,6 +182,7 @@ describe("PanelDetailModal", () => {
       typeId: "dt-1",
       fieldMapping: null,
       refreshInterval: null,
+      content: null,
     });
     const onClose = jest.fn();
     renderModalWithDataType(onClose);

@@ -26,7 +26,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
       ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.map(_.parseJson)
+      fieldMapping = row.fieldMapping.map(_.parseJson),
+      content      = row.content
     )
 
   private def domainToRow(p: Panel): PanelRow =
@@ -41,7 +42,8 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       panelType    = PanelType.asString(p.panelType),
       typeId       = p.typeId.map(_.value),
       fieldMapping = p.fieldMapping.map(_.compactPrint),
-      ownerId      = UUID.fromString(p.ownerId.value)
+      ownerId      = UUID.fromString(p.ownerId.value),
+      content      = p.content
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -127,6 +129,15 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
+  def updateContent(id: PanelId, content: Option[String], lastUpdated: Instant): Future[Option[Panel]] =
+    db.run(
+      table
+        .filter(_.id === id.value)
+        .map(r => (r.content, r.lastUpdated))
+        .update((content, lastUpdated))
+        .andThen(table.filter(_.id === id.value).result.headOption)
+    ).map(_.map(rowToDomain))
+
   def updateTypeBinding(
       id: PanelId,
       typeId: Option[DataTypeId],
@@ -205,7 +216,8 @@ object PanelRepository {
       panelType: String,
       typeId: Option[String],
       fieldMapping: Option[String],
-      ownerId: java.util.UUID
+      ownerId: java.util.UUID,
+      content: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -220,7 +232,8 @@ object PanelRepository {
     def typeId       = column[Option[String]]("type_id")
     def fieldMapping = column[Option[String]]("field_mapping")
     def ownerId      = column[java.util.UUID]("owner_id")
+    def content      = column[Option[String]]("content")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content).mapTo[PanelRow]
   }
 }

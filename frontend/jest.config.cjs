@@ -7,5 +7,6 @@ module.exports = {
   moduleNameMapper: {
     "\\.(css)$": "<rootDir>/src/test/styleMock.js",
     "^.*/config/env$": "<rootDir>/src/test/envMock.ts",
+    "^react-markdown$": "<rootDir>/src/test/reactMarkdownMock.tsx",
   },
 };

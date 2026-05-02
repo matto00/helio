@@ -1,6 +1,7 @@
 import "./PanelContent.css";
 import type { MappedPanelData, PanelAppearance, PanelType } from "../types/models";
 import { ChartPanel } from "./ChartPanel";
+import { MarkdownPanel } from "./MarkdownPanel";
 
 interface MetricContentProps {
   data?: MappedPanelData | null;
@@ -117,6 +118,7 @@ export interface PanelContentProps {
   error?: string | null;
   noData?: boolean;
   appearance?: PanelAppearance;
+  content?: string | null;
 }
 
 export function PanelContent({
@@ -129,6 +131,7 @@ export function PanelContent({
   error,
   noData,
   appearance,
+  content,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -173,6 +176,8 @@ export function PanelContent({
       return <TextContent data={data} />;
     case "table":
       return <TableContent data={data} rawRows={rawRows} headers={headers} />;
+    case "markdown":
+      return <MarkdownPanel content={content ?? null} />;
     default:
       return <MetricContent data={data} />;
   }

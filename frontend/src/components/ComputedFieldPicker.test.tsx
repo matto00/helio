@@ -48,6 +48,7 @@ const testPanel = {
   typeId: "dt-1",
   fieldMapping: null,
   refreshInterval: null,
+  content: null,
 };
 
 function renderModal() {

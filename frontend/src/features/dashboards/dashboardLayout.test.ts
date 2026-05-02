@@ -22,6 +22,7 @@ const makePanel = (id: string) => ({
   typeId: null,
   fieldMapping: null,
   refreshInterval: null,
+  content: null,
 });
 
 const panels = [makePanel("panel-1"), makePanel("panel-2")];

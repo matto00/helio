@@ -1,0 +1,25 @@
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added `Markdown` case object to `PanelType`, updated `fromString`/`asString`, added `content: Option[String]` to `Panel`
+- `backend/src/main/resources/db/migration/V19__panel_content.sql` — Flyway migration adding `content TEXT` column to `panels` table
+- `backend/src/main/scala/com/helio/infrastructure/PanelRepository.scala` — Added `content` to Slick `PanelRow`, mapping, and `updateContent` method; `duplicate()` carries content via `source.copy()`
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `content` to `PanelResponse`, `CreatePanelRequest`, `UpdatePanelRequest` (default `= None`), and `DashboardSnapshotPanelEntry`; custom JSON read/write for `content` in `UpdatePanelRequest`
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — Accept `content` on POST create and PATCH update; `applyContentUpdate` helper chained into PATCH pipeline
+- `backend/src/test/scala/com/helio/domain/PanelTypeSpec.scala` — New file: ScalaTest cases for `PanelType.fromString("markdown")` and round-trip
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala` — Added `content` to `panelRowToDomain` and import panel constructor; fixed missing `content` arg in `importSnapshot` `PanelRow` construction
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Added integration tests for markdown panel POST (with/without content) and PATCH content update; added missing `content = None` arg to `DashboardSnapshotPanelEntry` fixture
+- `frontend/src/types/models.ts` — Added `"markdown"` to `PanelType` union; added `content: string | null` to `Panel` interface
+- `frontend/src/services/panelService.ts` — Added `updatePanelContent` service function (PATCH with content)
+- `frontend/src/features/panels/panelsSlice.ts` — Added `updatePanelContent` thunk and fulfilled reducer
+- `frontend/src/features/panels/panelsSlice.test.ts` — Added `content: null` to `basePanel` fixture; added `updatePanelContent.fulfilled` test
+- `frontend/src/components/MarkdownPanel.tsx` — New file: CommonMark renderer via react-markdown; placeholder when content is null/empty
+- `frontend/src/components/MarkdownPanel.css` — New file: CSS for markdown panel and empty placeholder
+- `frontend/src/components/MarkdownPanel.test.tsx` — New file: Jest tests for MarkdownPanel with and without content
+- `frontend/src/components/PanelContent.tsx` — Wired `MarkdownPanel` into the `"markdown"` case of the panel type switch; passes `content` prop
+- `frontend/src/components/PanelDetailModal.tsx` — Added `"content"` tab for markdown panels with textarea; dispatches `updatePanelContent` on save; contentDirty guard in discard-warning logic
+- `frontend/src/components/PanelDetailModal.css` — Added `.panel-detail-modal__markdown-textarea` styles
+- `frontend/src/components/PanelList.tsx` — Added `"markdown"` to the `PANEL_TYPES` array in the panel create form
+- `frontend/src/features/panels/panelSlots.ts` — Added `markdown: []` (no data binding slots)
+- `frontend/src/test/reactMarkdownMock.tsx` — New file: lightweight test double for react-markdown
+- `frontend/jest.config.cjs` — Added `moduleNameMapper` entry mapping `react-markdown` to the test mock (ESM-only package not parseable by CJS Jest)
+- `frontend/src/hooks/usePanelData.test.ts` — Added `as Panel` assertion to `makePanel` to satisfy stricter `content` type requirement
+- `package.json` — Added `react-markdown ^10.1.0` dependency
+- `package-lock.json` — Updated lock file for react-markdown and its transitive deps

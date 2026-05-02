@@ -120,7 +120,7 @@ export interface Dashboard {
   layout: DashboardLayout;
 }
 
-export type PanelType = "metric" | "chart" | "text" | "table";
+export type PanelType = "metric" | "chart" | "text" | "table" | "markdown";
 
 export interface PanelUpdateFields {
   title?: string;
@@ -138,6 +138,7 @@ export interface Panel {
   typeId: string | null;
   fieldMapping: Record<string, string> | null;
   refreshInterval: number | null;
+  content: string | null;
 }
 
 export type MappedPanelData = Record<string, string>;
@@ -158,6 +159,7 @@ export interface DashboardSnapshotPanelEntry {
   };
   typeId?: string | null;
   fieldMapping?: Record<string, string> | null;
+  content?: string | null;
 }
 
 export interface DashboardSnapshotDashboardEntry {

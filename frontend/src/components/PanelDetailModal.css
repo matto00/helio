@@ -554,3 +554,22 @@
   border-radius: var(--app-radius-sm);
   overflow: hidden;
 }
+
+.panel-detail-modal__markdown-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-sizing: border-box;
+}
+
+.panel-detail-modal__markdown-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent, #5a7ff2);
+}

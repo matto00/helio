@@ -38,8 +38,9 @@ function makePanel(overrides: Partial<Panel> = {}): Panel {
     typeId: null,
     fieldMapping: null,
     refreshInterval: null,
+    content: null,
     ...overrides,
-  };
+  } as Panel;
 }
 
 const csvSource: DataSource = {

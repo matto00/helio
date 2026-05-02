@@ -26,7 +26,8 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
       panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
       ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.map(_.parseJson)
+      fieldMapping = row.fieldMapping.map(_.parseJson),
+      content      = row.content
     )
 
   private def rowToDomain(row: DashboardRow): Dashboard =
@@ -230,10 +231,11 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
           transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency),
           chart        = entry.appearance.chart
         ).toJson.compactPrint,
-        panelType   = PanelType.asString(panelType),
-        typeId      = entry.typeId,
+        panelType    = PanelType.asString(panelType),
+        typeId       = entry.typeId,
         fieldMapping = entry.fieldMapping.map(_.compactPrint),
-        ownerId      = UUID.fromString(ownerId.value)
+        ownerId      = UUID.fromString(ownerId.value),
+        content      = entry.content
       )
     }
 
