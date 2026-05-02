@@ -160,12 +160,14 @@ export function PanelContent({
       return <MetricContent data={data} />;
     case "chart":
       return (
-        <ChartPanel
-          appearance={appearance}
-          rawRows={rawRows}
-          headers={headers}
-          fieldMapping={fieldMapping}
-        />
+        <div className="panel-content panel-content--chart">
+          <ChartPanel
+            appearance={appearance}
+            rawRows={rawRows}
+            headers={headers}
+            fieldMapping={fieldMapping}
+          />
+        </div>
       );
     case "text":
       return <TextContent data={data} />;

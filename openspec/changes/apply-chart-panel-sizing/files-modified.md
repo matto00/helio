@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelContent.css` — added `.panel-content--chart { padding: 0; }` rule to override base panel-content padding for chart panels
+- `frontend/src/components/PanelContent.tsx` — wrapped the chart case return with `<div className="panel-content panel-content--chart">` so ECharts has a flex-fill container with `flex: 1` and `min-height: 0`
+- `openspec/changes/apply-chart-panel-sizing/tasks.md` — all 5 tasks marked complete
