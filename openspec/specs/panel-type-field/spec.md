@@ -3,7 +3,7 @@ Defines the persisted panel type field, its valid values, and the DataType bindi
 ## Requirements
 ### Requirement: Panel has a persisted type field
 Every panel SHALL have a `type` field persisted in the database with one of the values:
-`metric`, `chart`, `text`, `table`, `markdown`. The default value SHALL be `metric`.
+`metric`, `chart`, `text`, `table`, `markdown`, `image`. The default value SHALL be `metric`.
 
 #### Scenario: New panel created without type defaults to metric
 - **WHEN** a panel is created without a `type` field in the request body
@@ -17,6 +17,10 @@ Every panel SHALL have a `type` field persisted in the database with one of the 
 - **WHEN** a panel is created with `type: "markdown"` in the request body
 - **THEN** the created panel has `type: "markdown"` in the response
 
+#### Scenario: New panel created with image type
+- **WHEN** a panel is created with `type: "image"` in the request body
+- **THEN** the created panel has `type: "image"` in the response
+
 #### Scenario: Panel response always includes type
 - **WHEN** any panel is retrieved via `GET /api/dashboards/:id/panels`
 - **THEN** each panel object in the response includes a `type` field with a valid type value
@@ -28,13 +32,18 @@ The `PATCH /api/panels/:id` endpoint SHALL accept an optional `type` field and u
 - **WHEN** a PATCH request is sent with `type: "table"`
 - **THEN** the response includes the panel with `type: "table"`
 
+#### Scenario: PATCH updates panel type to image
+- **WHEN** a PATCH request is sent with `type: "image"`
+- **THEN** the response includes the panel with `type: "image"`
+
 #### Scenario: PATCH without type leaves type unchanged
 - **WHEN** a PATCH request is sent without a `type` field
 - **THEN** the panel's existing type is preserved in the response
 
 ### Requirement: Invalid type values are rejected
 The API SHALL reject panel create and update requests that supply an unrecognised `type` value
-with a 400 Bad Request response. Valid type values are: `metric`, `chart`, `text`, `table`, `markdown`.
+with a 400 Bad Request response. Valid type values are: `metric`, `chart`, `text`, `table`,
+`markdown`, `image`.
 
 #### Scenario: Unknown type is rejected on create
 - **WHEN** `POST /api/panels` is called with `type: "unknown"`
@@ -98,4 +107,16 @@ SHALL be ignored.
 #### Scenario: PATCH without content leaves content unchanged
 - **WHEN** `PATCH /api/panels/:id` is sent without a `content` field
 - **THEN** the panel's existing content is preserved in the response
+
+### Requirement: Panel response includes imageUrl and imageFit fields
+Every panel response SHALL include `imageUrl` (string or null) and `imageFit` (string or null).
+For non-image panels both fields SHALL be null.
+
+#### Scenario: Image panel response includes non-null imageUrl and imageFit
+- **WHEN** an image panel with a stored URL and fit is retrieved
+- **THEN** the response includes non-null `imageUrl` and `imageFit`
+
+#### Scenario: Non-image panel response has null image fields
+- **WHEN** a panel with type other than `image` is retrieved
+- **THEN** the response includes `imageUrl: null` and `imageFit: null`
 

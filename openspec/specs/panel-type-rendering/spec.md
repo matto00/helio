@@ -3,8 +3,8 @@ Defines how each panel type renders its body content area inside the dashboard g
 ## Requirements
 ### Requirement: Each panel type renders a visually distinct body
 The panel grid MUST render a different body content area for each panel type (`metric`, `chart`,
-`text`, `table`, `markdown`). When a panel has live mapped data or content, it SHALL display that
-data; when unbound or empty, it SHALL display an appropriate placeholder.
+`text`, `table`, `markdown`, `image`). When a panel has live mapped data or content, it SHALL
+display that data; when unbound or empty, it SHALL display an appropriate placeholder.
 
 The metric panel body SHALL render three lines when trend data is present: value, label, and trend
 indicator. When `trend` is absent the metric panel body renders value and label only (two lines).
@@ -53,6 +53,14 @@ indicator. When `trend` is absent the metric panel body renders value and label 
 - **WHEN** a panel with `type: "markdown"` has null or empty `content`
 - **THEN** the panel body shows a faded placeholder indicating the user should add content
 
+#### Scenario: Image panel with URL renders the image
+- **WHEN** a panel with `type: "image"` has a non-null `imageUrl`
+- **THEN** the panel body shows an `<img>` element with `src` set to `imageUrl` and `object-fit` set to the `imageFit` value (defaulting to `contain`)
+
+#### Scenario: Image panel without URL renders a placeholder
+- **WHEN** a panel with `type: "image"` has a null `imageUrl`
+- **THEN** the panel body shows a grey placeholder with an image icon
+
 ### Requirement: Unknown panel types degrade gracefully
 If a panel has an unrecognised or missing type value, the grid MUST render a fallback body rather than crashing or leaving the body blank.
 
@@ -82,4 +90,12 @@ as a selectable option alongside the existing types.
 #### Scenario: Markdown appears in type selector
 - **WHEN** the panel type selector is opened
 - **THEN** `markdown` is listed as a valid selectable type
+
+### Requirement: Panel type selector includes image option
+The panel type selector (used when creating or changing a panel's type) SHALL include `image`
+as a selectable option alongside the existing types.
+
+#### Scenario: Image appears in type selector
+- **WHEN** the panel type selector is opened
+- **THEN** `image` is listed as a valid selectable type
 
