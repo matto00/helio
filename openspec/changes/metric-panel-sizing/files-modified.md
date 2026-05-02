@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelContent.css` — added trend indicator base styles, directional modifier classes (--up, --down, --flat), and label + trend container query overrides at compact/spacious breakpoints
+- `frontend/src/components/PanelContent.tsx` — updated MetricContent to render .panel-content__metric-trend when data.trend is present, with direction class derived from the string's leading character
+- `frontend/src/components/PanelContent.test.tsx` — added 5 tests covering trend indicator rendering for positive, negative, neutral, absent, and unbound states

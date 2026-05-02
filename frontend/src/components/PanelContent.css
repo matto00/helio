@@ -125,11 +125,39 @@
   word-break: break-word;
 }
 
+/* Trend indicator */
+
+.panel-content__metric-trend {
+  font-size: 0.7rem;
+  color: var(--app-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.panel-content__metric-trend--up {
+  color: var(--app-success, #3db87b);
+}
+
+.panel-content__metric-trend--down {
+  color: var(--app-danger, #e05252);
+}
+
+.panel-content__metric-trend--flat {
+  color: var(--app-text-muted);
+}
+
 /* Container Query: Metric compact height (< 180px) */
 
 @container panel-card (max-height: 179px) {
   .panel-content__metric-value {
     font-size: 1.25rem;
+  }
+
+  .panel-content__metric-label {
+    font-size: 0.65rem;
+  }
+
+  .panel-content__metric-trend {
+    font-size: 0.6rem;
   }
 }
 
@@ -138,6 +166,14 @@
 @container panel-card (min-height: 280px) {
   .panel-content__metric-value {
     font-size: 2.5rem;
+  }
+
+  .panel-content__metric-label {
+    font-size: 0.85rem;
+  }
+
+  .panel-content__metric-trend {
+    font-size: 0.8rem;
   }
 }
 
