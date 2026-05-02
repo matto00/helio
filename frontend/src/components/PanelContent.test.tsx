@@ -149,3 +149,47 @@ describe("PanelContent — live table data", () => {
     expect(rows.length).toBe(2);
   });
 });
+
+describe("PanelContent — metric trend indicator", () => {
+  it("renders trend indicator with --up class when trend starts with '+'", () => {
+    const { container } = render(
+      <PanelContent type="metric" data={{ value: "100", label: "Revenue", trend: "+3.2%" }} />,
+    );
+    const trend = container.querySelector(".panel-content__metric-trend");
+    expect(trend).toBeInTheDocument();
+    expect(trend).toHaveClass("panel-content__metric-trend--up");
+    expect(trend).toHaveTextContent("+3.2%");
+  });
+
+  it("renders trend indicator with --down class when trend starts with '-'", () => {
+    const { container } = render(
+      <PanelContent type="metric" data={{ value: "100", label: "Revenue", trend: "-1.1%" }} />,
+    );
+    const trend = container.querySelector(".panel-content__metric-trend");
+    expect(trend).toBeInTheDocument();
+    expect(trend).toHaveClass("panel-content__metric-trend--down");
+    expect(trend).toHaveTextContent("-1.1%");
+  });
+
+  it("renders trend indicator with --flat class for neutral trend string", () => {
+    const { container } = render(
+      <PanelContent type="metric" data={{ value: "100", label: "Revenue", trend: "0%" }} />,
+    );
+    const trend = container.querySelector(".panel-content__metric-trend");
+    expect(trend).toBeInTheDocument();
+    expect(trend).toHaveClass("panel-content__metric-trend--flat");
+    expect(trend).toHaveTextContent("0%");
+  });
+
+  it("does not render trend indicator when data.trend is not present", () => {
+    const { container } = render(
+      <PanelContent type="metric" data={{ value: "100", label: "Revenue" }} />,
+    );
+    expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
+  });
+
+  it("does not render trend indicator when panel is unbound (no data)", () => {
+    const { container } = render(<PanelContent type="metric" />);
+    expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
+  });
+});
