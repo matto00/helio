@@ -1,4 +1,5 @@
 import type {
+  ImageFit,
   Panel,
   PanelAppearance,
   PanelType,
@@ -89,5 +90,17 @@ export async function updatePanelBinding(
 
 export async function updatePanelContent(panelId: string, content: string): Promise<Panel> {
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { content });
+  return response.data;
+}
+
+export async function updatePanelImage(
+  panelId: string,
+  imageUrl: string,
+  imageFit: ImageFit,
+): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
+    imageUrl,
+    imageFit,
+  });
   return response.data;
 }

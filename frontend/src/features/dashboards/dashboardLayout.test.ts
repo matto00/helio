@@ -23,6 +23,8 @@ const makePanel = (id: string) => ({
   fieldMapping: null,
   refreshInterval: null,
   content: null,
+  imageUrl: null,
+  imageFit: null,
 });
 
 const panels = [makePanel("panel-1"), makePanel("panel-2")];

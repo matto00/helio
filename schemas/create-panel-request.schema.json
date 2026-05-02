@@ -15,7 +15,10 @@
     },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table"]
+      "enum": ["metric", "chart", "text", "table", "markdown", "image"]
+    },
+    "content": {
+      "type": ["string", "null"]
     }
   },
   "additionalProperties": false

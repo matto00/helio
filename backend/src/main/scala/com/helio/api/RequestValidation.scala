@@ -60,6 +60,15 @@ object RequestValidation {
   def normalizeLayoutSpan(value: Int): Int =
     math.max(1, value)
 
+  private val ValidImageFitValues = Set("contain", "cover", "fill")
+
+  def validateImageFit(imageFit: Option[String]): Either[String, Option[String]] =
+    imageFit match {
+      case None      => Right(None)
+      case Some(fit) if ValidImageFitValues.contains(fit) => Right(Some(fit))
+      case Some(fit) => Left(s"Invalid imageFit value: '$fit'. Valid values: contain, cover, fill")
+    }
+
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
 }

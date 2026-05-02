@@ -8,12 +8,14 @@ import {
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
   updatePanelContent as updatePanelContentRequest,
+  updatePanelImage as updatePanelImageRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
 import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
 import type { RootState } from "../../store/store";
 import type {
+  ImageFit,
   Panel,
   PanelAppearance,
   PanelBatchItem,
@@ -170,6 +172,18 @@ export const updatePanelContent = createAsyncThunk<
   }
 });
 
+export const updatePanelImage = createAsyncThunk<
+  Panel,
+  { panelId: string; imageUrl: string; imageFit: ImageFit },
+  { rejectValue: string }
+>("panels/updatePanelImage", async ({ panelId, imageUrl, imageFit }, { rejectWithValue }) => {
+  try {
+    return await updatePanelImageRequest(panelId, imageUrl, imageFit);
+  } catch {
+    return rejectWithValue("Failed to update panel image.");
+  }
+});
+
 export const updatePanelsBatch = createAsyncThunk<
   UpdatePanelsBatchResponse,
   UpdatePanelsBatchRequest,
@@ -257,6 +271,11 @@ const panelsSlice = createSlice({
         );
       })
       .addCase(updatePanelContent.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
+      .addCase(updatePanelImage.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );

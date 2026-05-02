@@ -39,6 +39,8 @@ function makePanel(overrides: Partial<Panel> = {}): Panel {
     fieldMapping: null,
     refreshInterval: null,
     content: null,
+    imageUrl: null,
+    imageFit: null,
     ...overrides,
   } as Panel;
 }

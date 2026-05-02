@@ -27,7 +27,9 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
       ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
       fieldMapping = row.fieldMapping.map(_.parseJson),
-      content      = row.content
+      content      = row.content,
+      imageUrl     = row.imageUrl,
+      imageFit     = row.imageFit
     )
 
   private def rowToDomain(row: DashboardRow): Dashboard =
@@ -235,7 +237,9 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         typeId       = entry.typeId,
         fieldMapping = entry.fieldMapping.map(_.compactPrint),
         ownerId      = UUID.fromString(ownerId.value),
-        content      = entry.content
+        content      = entry.content,
+        imageUrl     = entry.imageUrl,
+        imageFit     = entry.imageFit
       )
     }
 

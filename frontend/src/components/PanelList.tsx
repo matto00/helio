@@ -19,6 +19,7 @@ const PANEL_TYPES: { value: PanelType; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "table", label: "Table" },
   { value: "markdown", label: "Markdown" },
+  { value: "image", label: "Image" },
 ];
 export function PanelList() {
   const dispatch = useAppDispatch();
