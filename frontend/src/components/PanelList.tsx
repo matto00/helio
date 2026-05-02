@@ -289,6 +289,7 @@ export function PanelList() {
             dashboardId={selectedDashboardId}
             layout={selectedDashboard?.layout ?? defaultDashboardLayout}
             panels={items}
+            zoomLevel={zoomLevel}
           />
         </div>
       ) : null}

@@ -13,7 +13,7 @@ import React, {
 } from "react";
 import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
 
-import { noCompactor } from "react-grid-layout/core";
+import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
@@ -126,6 +126,7 @@ interface PanelGridProps {
   dashboardId: string;
   layout: DashboardLayout;
   panels: Panel[];
+  zoomLevel?: number;
 }
 
 function getPanelCardStyle(panel: Panel, theme: "dark" | "light"): CSSProperties {
@@ -199,7 +200,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
 }
 
 export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(function PanelGrid(
-  { dashboardId, layout, panels },
+  { dashboardId, layout, panels, zoomLevel = 1.0 },
   ref,
 ) {
   const dispatch = useAppDispatch();
@@ -213,6 +214,12 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
+  // positionStrategy with createScaledStrategy(zoomLevel) corrects drag and resize coordinate
+  // offsets that arise when a CSS scale() transform is applied to the grid's ancestor element.
+  // react-grid-layout@2.2.2 exposes positionStrategy as the modern replacement for the legacy
+  // transformScale prop; createScaledStrategy() is the built-in factory for scale-aware
+  // coordinate remapping.
+  const scaledPositionStrategy = useMemo(() => createScaledStrategy(zoomLevel), [zoomLevel]);
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
   const latestLayoutRef = useRef(resolvedLayout);
@@ -371,6 +378,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactorPreventCollision}
+        positionStrategy={scaledPositionStrategy}
         onDragStart={() => {
           preInteractionLayoutRef.current = latestLayoutRef.current;
         }}
