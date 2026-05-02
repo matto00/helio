@@ -10,7 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import scala.util.{Failure, Success}
 
@@ -24,6 +24,7 @@ final class ApiRoutes(
     connector: RestApiConnector,
     userRepo: UserRepository,
     userSessionRepo: UserSessionRepository,
+    userPreferenceRepo: UserPreferenceRepository,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -65,10 +66,16 @@ final class ApiRoutes(
                 pathPrefix("auth") {
                   path("me") {
                     get {
-                      onComplete(userRepo.findById(authenticatedUser.id)) {
-                        case Success(Some(user)) =>
-                          complete(StatusCodes.OK, UserResponse.fromDomain(user))
-                        case Success(None) =>
+                      val userFuture = userRepo.findById(authenticatedUser.id)
+                      val prefsFuture = userPreferenceRepo.getPreferences(authenticatedUser.id)
+
+                      onComplete(userFuture.zip(prefsFuture)) {
+                        case Success((Some(user), prefs)) =>
+                          val userResponse = UserResponse.fromDomain(user).copy(
+                            preferences = Some(UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                          )
+                          complete(StatusCodes.OK, userResponse)
+                        case Success((None, _)) =>
                           complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
                         case Failure(ex) =>
                           complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
@@ -79,9 +86,32 @@ final class ApiRoutes(
                 pathPrefix("users") {
                   path("me" / "update") {
                     patch {
-                      entity(as[UpdateUserPreferenceRequest]) { _ =>
-                        // No user_preferences table yet — acknowledge without persisting
-                        complete(StatusCodes.NoContent)
+                      entity(as[UpdateUserPreferenceRequest]) { req =>
+                        val userId = authenticatedUser.id
+                        val futures = scala.collection.mutable.ListBuffer[scala.concurrent.Future[Unit]]()
+
+                        if (req.fields.contains("accentColor")) {
+                          req.user.accentColor.foreach { color =>
+                            futures += userPreferenceRepo.upsertGlobalPrefs(userId, color)
+                          }
+                        }
+
+                        if (req.fields.contains("zoomLevel")) {
+                          for {
+                            zoom <- req.user.zoomLevel
+                            dashId <- req.user.dashboardId
+                          } {
+                            futures += userPreferenceRepo.upsertDashboardZoom(userId, com.helio.domain.DashboardId(dashId), zoom)
+                          }
+                        }
+
+                        val updateFuture = scala.concurrent.Future.sequence(futures.toSeq)
+                        onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
+                          case Success(prefs) =>
+                            complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                          case Failure(ex) =>
+                            complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                        }
                       }
                     }
                   }

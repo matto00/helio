@@ -1,8 +1,9 @@
 import type { CSSProperties, FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import "./PanelList.css";
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { updateUserPreferences } from "../features/auth/authSlice";
 import { createPanel } from "../features/panels/panelsSlice";
 import { PanelGrid } from "./PanelGrid";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -24,13 +25,25 @@ export function PanelList() {
   const { theme } = useTheme();
   const { items: dashboards, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const { items, status, error } = useAppSelector((state) => state.panels);
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const [title, setTitle] = useState("");
   const [panelType, setPanelType] = useState<PanelType>("metric");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1.0);
   const selectedDashboard =
     dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
+
+  // Restore zoom level from user preferences when dashboard changes
+  useEffect(() => {
+    if (selectedDashboardId && currentUser?.preferences?.zoomLevels) {
+      const savedZoom = currentUser.preferences.zoomLevels[selectedDashboardId];
+      setZoomLevel(savedZoom ?? 1.0);
+    } else {
+      setZoomLevel(1.0);
+    }
+  }, [selectedDashboardId, currentUser?.preferences?.zoomLevels]);
 
   async function handleCreatePanel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +72,33 @@ export function PanelList() {
     }
   }
 
+  function handleZoomChange(delta: number) {
+    if (!selectedDashboardId) {
+      return;
+    }
+    const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
+    setZoomLevel(newZoom);
+    dispatch(
+      updateUserPreferences({
+        fields: ["zoomLevel"],
+        user: { zoomLevel: newZoom, dashboardId: selectedDashboardId },
+      }),
+    );
+  }
+
+  function handleZoomReset() {
+    if (!selectedDashboardId) {
+      return;
+    }
+    setZoomLevel(1.0);
+    dispatch(
+      updateUserPreferences({
+        fields: ["zoomLevel"],
+        user: { zoomLevel: 1.0, dashboardId: selectedDashboardId },
+      }),
+    );
+  }
+
   return (
     <section
       className="panel-list"
@@ -80,6 +120,38 @@ export function PanelList() {
           <span className="panel-list__count">
             {items.length} panel{items.length === 1 ? "" : "s"}
           </span>
+          {selectedDashboardId ? (
+            <div className="panel-list__zoom-controls">
+              <button
+                type="button"
+                className="panel-list__zoom-button"
+                aria-label="Zoom out"
+                onClick={() => handleZoomChange(-0.1)}
+                disabled={zoomLevel <= 0.5}
+              >
+                −
+              </button>
+              <span className="panel-list__zoom-level">{Math.round(zoomLevel * 100)}%</span>
+              <button
+                type="button"
+                className="panel-list__zoom-button"
+                aria-label="Zoom in"
+                onClick={() => handleZoomChange(0.1)}
+                disabled={zoomLevel >= 2.0}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="panel-list__zoom-reset"
+                aria-label="Reset zoom"
+                onClick={handleZoomReset}
+                disabled={zoomLevel === 1.0}
+              >
+                Reset
+              </button>
+            </div>
+          ) : null}
           <button
             type="button"
             className="panel-list__add"
@@ -163,12 +235,25 @@ export function PanelList() {
         </div>
       ) : null}
       {items.length > 0 && selectedDashboardId !== null ? (
-        <PanelGrid
-          key={selectedDashboardId}
-          dashboardId={selectedDashboardId}
-          layout={selectedDashboard?.layout ?? defaultDashboardLayout}
-          panels={items}
-        />
+        <div
+          className="panel-list__zoom-container"
+          style={
+            {
+              "--zoom-level": zoomLevel,
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: "top left",
+              height: `${100 / zoomLevel}%`,
+              width: `${100 / zoomLevel}%`,
+            } as CSSProperties
+          }
+        >
+          <PanelGrid
+            key={selectedDashboardId}
+            dashboardId={selectedDashboardId}
+            layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+            panels={items}
+          />
+        </div>
       ) : null}
     </section>
   );

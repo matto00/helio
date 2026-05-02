@@ -16,6 +16,7 @@ import com.helio.infrastructure.{
   PanelRepository,
   ResourcePermissionRepository,
   SlickUserSessionRepository,
+  UserPreferenceRepository,
   UserRepository,
   UserSessionRepository
 }
@@ -54,6 +55,7 @@ class ComputedFieldsRoutesSpec
   private var dataSourceRepo: DataSourceRepository          = _
   private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                      = _
+  private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
 
   override def beforeAll(): Unit = {
@@ -65,12 +67,13 @@ class ComputedFieldsRoutesSpec
       .load()
       .migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dashboardRepo   = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo       = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo  = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo    = new DataTypeRepository(db)(typedSystem.executionContext)
-    userRepo        = new UserRepository(db)(typedSystem.executionContext)
-    permissionRepo  = new ResourcePermissionRepository(db)(typedSystem.executionContext)
+    dashboardRepo      = new DashboardRepository(db)(typedSystem.executionContext)
+    panelRepo          = new PanelRepository(db)(typedSystem.executionContext)
+    dataSourceRepo     = new DataSourceRepository(db)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
+    userRepo           = new UserRepository(db)(typedSystem.executionContext)
+    userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
+    permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -115,7 +118,7 @@ class ComputedFieldsRoutesSpec
     } {
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
-        stubFileSystem, connector, userRepo, stubSessionRepo
+        stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo
       ).routes
     }
   }

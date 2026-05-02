@@ -175,12 +175,18 @@ export interface DashboardSnapshot {
   panels: DashboardSnapshotPanelEntry[];
 }
 
+export interface UserPreferences {
+  accentColor: string | null;
+  zoomLevels: Record<string, number>;
+}
+
 export interface User {
   id: string;
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
   createdAt: string;
+  preferences?: UserPreferences;
 }
 
 export interface AuthResponse {
@@ -220,6 +226,8 @@ export interface UpdatePanelsBatchResponse {
 
 export interface UserPreferencePayload {
   zoomLevel?: number;
+  accentColor?: string;
+  dashboardId?: string;
 }
 
 export interface UpdateUserPreferenceRequest {

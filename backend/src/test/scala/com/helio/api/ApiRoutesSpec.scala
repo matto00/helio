@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -35,6 +35,7 @@ class ApiRoutesSpec
   private var dataSourceRepo: DataSourceRepository          = _
   private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                      = _
+  private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var realSessionRepo: SlickUserSessionRepository   = _
 
@@ -53,13 +54,14 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    dashboardRepo   = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo       = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo  = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo    = new DataTypeRepository(db)(typedSystem.executionContext)
-    userRepo        = new UserRepository(db)(typedSystem.executionContext)
-    permissionRepo  = new ResourcePermissionRepository(db)(typedSystem.executionContext)
-    realSessionRepo = new SlickUserSessionRepository(db)(typedSystem.executionContext)
+    dashboardRepo      = new DashboardRepository(db)(typedSystem.executionContext)
+    panelRepo          = new PanelRepository(db)(typedSystem.executionContext)
+    dataSourceRepo     = new DataSourceRepository(db)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
+    userRepo           = new UserRepository(db)(typedSystem.executionContext)
+    userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
+    permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
+    realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -111,11 +113,11 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
   import org.apache.pekko.http.scaladsl.model.headers.Authorization
@@ -1781,18 +1783,6 @@ class ApiRoutesSpec
       }
     }
 
-    // ── Users /me/update endpoint ─────────────────────────────────────────────
-
-    "users me/update returns 204 (stub)" in {
-      cleanDb()
-
-      Patch(
-        "/api/users/me/update",
-        UpdateUserPreferenceRequest(fields = Vector("zoomLevel"), user = UserPreferencePayload(Some(1.25)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.NoContent
-      }
-    }
   }
 
   // ── Session middleware — 401 tests ───────────────────────────────────────────
@@ -2755,6 +2745,57 @@ class ApiRoutesSpec
       Patch(s"/api/panels/$panelId", HttpEntity(ContentTypes.`application/json`, patchBody)) ~> otherUserRoutes() ~> check {
         status shouldBe StatusCodes.Forbidden
         responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+      }
+    }
+  }
+
+  "PATCH /api/users/me/update" should {
+    "return 200 with updated preferences when updating accent color" in {
+      cleanDb()
+      val body = """{"fields":["accentColor"],"user":{"accentColor":"#3b82f6"}}"""
+      Patch("/api/users/me/update", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val prefs = responseAs[UserPreferences]
+        prefs.accentColor shouldBe Some("#3b82f6")
+        prefs.zoomLevels shouldBe Map.empty
+      }
+    }
+
+    "return 200 with updated preferences when updating zoom level" in {
+      cleanDb()
+      // First, create a dashboard
+      Post("/api/dashboards", CreateDashboardRequest(Some("Test"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val dashboard = responseAs[DashboardResponse]
+
+        // Now update zoom level for that dashboard
+        val body = s"""{"fields":["zoomLevel"],"user":{"zoomLevel":1.5,"dashboardId":"${dashboard.id}"}}"""
+        Patch("/api/users/me/update", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+          status shouldBe StatusCodes.OK
+          val prefs = responseAs[UserPreferences]
+          prefs.zoomLevels should contain key dashboard.id
+          prefs.zoomLevels(dashboard.id) shouldBe 1.5
+        }
+      }
+    }
+  }
+
+  "GET /api/auth/me" should {
+    "return user with preferences field" in {
+      cleanDb()
+      // Save some preferences first
+      val saveBody = """{"fields":["accentColor"],"user":{"accentColor":"#f97316"}}"""
+      Patch("/api/users/me/update", HttpEntity(ContentTypes.`application/json`, saveBody)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // Now fetch /api/auth/me and verify preferences are included
+      Get("/api/auth/me") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val user = responseAs[UserResponse]
+        user.id shouldBe testUserId
+        user.preferences should not be None
+        user.preferences.get.accentColor shouldBe Some("#f97316")
       }
     }
   }

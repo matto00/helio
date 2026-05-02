@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Await
@@ -45,6 +45,7 @@ object Main {
       val dataTypeRepo       = new DataTypeRepository(db)
       val userRepo           = new UserRepository(db)
       val userSessionRepo    = new SlickUserSessionRepository(db)
+      val userPreferenceRepo = new UserPreferenceRepository(db)
       val permissionRepo     = new ResourcePermissionRepository(db)
       val fileSystem         = LocalFileSystem.fromEnv()
 
@@ -73,6 +74,7 @@ object Main {
         connector,
         userRepo,
         userSessionRepo,
+        userPreferenceRepo,
         googleClientId,
         googleClientSecret,
         googleRedirectUri,

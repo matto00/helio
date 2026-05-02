@@ -1,0 +1,18 @@
+- `backend/src/main/resources/db/migration/V18__user_preferences.sql` — Flyway migration: add TEXT `preferences` column to `users`, create `user_dashboard_zoom` join table (user_id UUID, dashboard_id TEXT, zoom_level DOUBLE PRECISION)
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Wire `PATCH /api/users/me/update` to persist via `UserPreferenceRepository` and return 200 with preferences; wire `GET /api/auth/me` to load and include preferences
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Add `UserPreferences` response type; extend `UserPreferencePayload` with `accentColor` and `dashboardId`; extend `UserResponse` with `preferences`
+- `backend/src/main/scala/com/helio/app/Main.scala` — Instantiate `UserPreferenceRepository` and wire into `ApiRoutes`
+- `backend/src/main/scala/com/helio/infrastructure/UserPreferenceRepository.scala` — New Slick repository: `getPreferences`, `upsertGlobalPrefs`, `upsertDashboardZoom` with correct TEXT/UUID column types
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Add real preference persistence tests; remove old 204 stub; fix routing helpers to pass `userPreferenceRepo`
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — Pass `userPreferenceRepo` to `ApiRoutes` constructor
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — Pass `userPreferenceRepo` to `ApiRoutes` constructor
+- `frontend/src/types/models.ts` — Add `UserPreferences` interface; extend `User` with `preferences?`; extend `UserPreferencePayload` with `accentColor?` and `dashboardId?`
+- `frontend/src/services/authService.ts` — Update `updateUserPreferencesRequest` to return `UserPreferences` from 200 response
+- `frontend/src/features/auth/authSlice.ts` — `updateUserPreferences` thunk updates `currentUser.preferences`; auth reducers call `applyAccentTokens` when preferences contain `accentColor`
+- `frontend/src/features/auth/authSlice.test.ts` — Tests for `updateUserPreferences.fulfilled` and `rehydrateAuth` accent color restoration
+- `frontend/src/components/PanelList.tsx` — Per-dashboard zoom state; restore from preferences on dashboard change; zoom in/out/reset controls; scale-transform wrapper around PanelGrid
+- `frontend/src/components/PanelList.test.tsx` — Tests for zoom controls visibility and +/− interaction
+- `frontend/src/theme/ThemeProvider.tsx` — Accept `onAccentChange` prop; call it in accent color effect
+- `frontend/src/theme/ThemeProvider.test.tsx` — Test that `onAccentChange` is invoked when accent color changes
+- `frontend/src/main.tsx` — `ThemedApp` wrapper dispatches `updateUserPreferences` on accent change when authenticated; passes `onAccentChange` to `ThemeProvider`
+- `frontend/src/test/renderWithStore.tsx` — Extend `TestState` with optional `auth` field to support preloading auth state in tests

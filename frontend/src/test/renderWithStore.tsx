@@ -22,6 +22,7 @@ import type {
   PanelAppearance,
   PanelType,
   ResourceMeta,
+  User,
 } from "../types/models";
 
 const defaultMeta: ResourceMeta = {
@@ -31,6 +32,11 @@ const defaultMeta: ResourceMeta = {
 };
 
 interface TestState {
+  auth?: {
+    status?: "idle" | "loading" | "authenticated" | "unauthenticated";
+    currentUser?: User | null;
+    token?: string | null;
+  };
   dashboards?: {
     items: Array<{
       id: string;
@@ -80,6 +86,13 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
 
   const normalizedState = preloadedState
     ? {
+        ...(preloadedState.auth !== undefined && {
+          auth: {
+            status: preloadedState.auth.status ?? "idle",
+            currentUser: preloadedState.auth.currentUser ?? null,
+            token: preloadedState.auth.token ?? null,
+          },
+        }),
         dashboards: {
           items:
             preloadedState.dashboards?.items.map((dashboard) => ({

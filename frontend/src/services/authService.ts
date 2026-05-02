@@ -1,4 +1,9 @@
-import type { AuthResponse, UpdateUserPreferenceRequest, User } from "../types/models";
+import type {
+  AuthResponse,
+  UpdateUserPreferenceRequest,
+  User,
+  UserPreferences,
+} from "../types/models";
 import { httpClient } from "./httpClient";
 
 interface LoginPayload {
@@ -33,8 +38,12 @@ export async function getMeRequest(): Promise<User> {
 
 export async function updateUserPreferencesRequest(
   request: UpdateUserPreferenceRequest,
-): Promise<void> {
-  await httpClient.patch("/api/users/me/update", request);
+): Promise<UserPreferences> {
+  const response = await httpClient.patch<{ preferences: UserPreferences }>(
+    "/api/users/me/update",
+    request,
+  );
+  return response.data.preferences;
 }
 
 export async function oauthCallbackRequest(code: string, state?: string): Promise<AuthResponse> {
