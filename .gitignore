@@ -9,6 +9,7 @@ backend/project/
 backend/.bloop/
 backend/.bsp/
 backend/.metals/
+backend/.ivy2/
 coverage/
 .DS_Store
 *.log
