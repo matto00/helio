@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./MarkdownPanel.css";
 
 interface MarkdownPanelProps {
@@ -18,7 +19,7 @@ export function MarkdownPanel({ content }: MarkdownPanelProps) {
 
   return (
     <div className="markdown-panel">
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
 }

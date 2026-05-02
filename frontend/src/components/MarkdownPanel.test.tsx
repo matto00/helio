@@ -2,10 +2,26 @@ import { render, screen } from "@testing-library/react";
 
 import { MarkdownPanel } from "./MarkdownPanel";
 
+// react-markdown and remark-gfm are mocked in jest.config.cjs.
+// The mock renders raw content as text, so tests verify content is passed
+// through correctly. Actual HTML rendering (headings, tables, checkboxes)
+// is covered by react-markdown and remark-gfm's own test suites.
+
 describe("MarkdownPanel — with content", () => {
-  it("renders markdown content via ReactMarkdown", () => {
+  it("passes markdown content to the renderer", () => {
     render(<MarkdownPanel content="# Hello World" />);
     expect(screen.getByTestId("markdown-content")).toHaveTextContent("# Hello World");
+  });
+
+  it("passes GFM table syntax to the renderer", () => {
+    const table = "| Name | Value |\n|------|-------|\n| Foo  | Bar   |";
+    render(<MarkdownPanel content={table} />);
+    expect(screen.getByTestId("markdown-content")).toHaveTextContent("Name");
+  });
+
+  it("passes GFM task list syntax to the renderer", () => {
+    render(<MarkdownPanel content={"- [x] Done\n- [ ] Todo"} />);
+    expect(screen.getByTestId("markdown-content")).toHaveTextContent("Done");
   });
 });
 
