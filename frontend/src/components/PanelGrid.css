@@ -24,6 +24,8 @@
 }
 
 .panel-grid-card {
+  container-type: size;
+  container-name: panel-card;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -205,5 +207,43 @@
 
   .panel-grid-card__footer {
     flex-direction: column;
+  }
+}
+
+/* Container Query: Compact width (< 220px) */
+
+@container panel-card (max-width: 219px) {
+  .panel-grid-card {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .panel-grid-card__title {
+    font-size: 0.85rem;
+  }
+}
+
+/* Container Query: Compact height (< 180px) */
+
+@container panel-card (max-height: 179px) {
+  .panel-grid-card {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .panel-grid-card__title {
+    font-size: 0.85rem;
+  }
+}
+
+/* Container Query: Spacious (>= 420px wide and >= 280px tall) */
+
+@container panel-card (min-width: 420px) and (min-height: 280px) {
+  .panel-grid-card {
+    padding: 20px;
+  }
+
+  .panel-grid-card__title {
+    font-size: 1.1rem;
   }
 }

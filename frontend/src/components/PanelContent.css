@@ -124,3 +124,37 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Container Query: Metric compact height (< 180px) */
+
+@container panel-card (max-height: 179px) {
+  .panel-content__metric-value {
+    font-size: 1.25rem;
+  }
+}
+
+/* Container Query: Metric spacious height (>= 280px) */
+
+@container panel-card (min-height: 280px) {
+  .panel-content__metric-value {
+    font-size: 2.5rem;
+  }
+}
+
+/* Container Query: Table compact height (< 180px) */
+
+@container panel-card (max-height: 179px) {
+  .panel-content__table th,
+  .panel-content__table td {
+    padding: 2px 6px;
+    height: 14px;
+  }
+}
+
+/* Container Query: Text live compact height (< 180px) */
+
+@container panel-card (max-height: 179px) {
+  .panel-content__text-live {
+    font-size: 0.78rem;
+  }
+}
