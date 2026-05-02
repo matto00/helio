@@ -1,0 +1,3 @@
+- `openspec/specs/panel-content-sizing/spec.md` — new spec documenting panel content sizing baseline (HEL-158 deliverable)
+- `openspec/changes/panel-sizing-audit/` — new OpenSpec change artifacts (proposal, design, tasks, specs, ticket)
+- `openspec/changes/batch-update-api-endpoint/` — deleted (stale, never archived, requested cleanup)
