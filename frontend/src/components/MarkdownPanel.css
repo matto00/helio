@@ -65,6 +65,19 @@
   color: var(--color-accent, #5a7ff2);
 }
 
+.markdown-panel .contains-task-list {
+  padding-left: 1.25em;
+}
+
+.markdown-panel .task-list-item {
+  list-style: none;
+}
+
+.markdown-panel .task-list-item input[type="checkbox"] {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
+
 .markdown-panel--empty {
   display: flex;
   align-items: center;
