@@ -6,6 +6,7 @@ import {
   panelsReducer,
   updatePanelAppearance,
   updatePanelBinding,
+  updatePanelContent,
   updatePanelsBatch,
 } from "./panelsSlice";
 import { importDashboard } from "../dashboards/dashboardsSlice";
@@ -32,6 +33,7 @@ const basePanel = {
   typeId: null,
   fieldMapping: null,
   refreshInterval: null,
+  content: null,
 };
 
 describe("panelsSlice", () => {
@@ -252,6 +254,26 @@ describe("panelsSlice", () => {
     );
 
     expect(afterReject.pendingPanelUpdates["panel-1"]).toEqual({ title: "Unsaved" });
+  });
+
+  it("replaces the updated panel when updatePanelContent fulfills", () => {
+    const markdownPanel = { ...basePanel, type: "markdown" as const, content: null };
+    const initialState = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([markdownPanel], "request-id", "dashboard-1"),
+    );
+
+    const nextState = panelsReducer(
+      initialState,
+      updatePanelContent.fulfilled(
+        { ...markdownPanel, content: "## Updated content" },
+        "request-id-4",
+        { panelId: "panel-1", content: "## Updated content" },
+      ),
+    );
+
+    expect(nextState.items[0].content).toBe("## Updated content");
+    expect(nextState.items[0].type).toBe("markdown");
   });
 
   // Task 6.2 — lastSavedAt

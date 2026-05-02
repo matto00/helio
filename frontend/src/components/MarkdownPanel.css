@@ -1,0 +1,94 @@
+.markdown-panel {
+  overflow: auto;
+  height: 100%;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--panel-text-override, inherit);
+}
+
+.markdown-panel p,
+.markdown-panel ul,
+.markdown-panel ol,
+.markdown-panel blockquote,
+.markdown-panel pre {
+  margin: 0 0 0.75em;
+}
+
+.markdown-panel p:last-child,
+.markdown-panel ul:last-child,
+.markdown-panel ol:last-child,
+.markdown-panel blockquote:last-child,
+.markdown-panel pre:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-panel h1,
+.markdown-panel h2,
+.markdown-panel h3,
+.markdown-panel h4,
+.markdown-panel h5,
+.markdown-panel h6 {
+  margin: 0 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown-panel code {
+  font-family: monospace;
+  font-size: 0.85em;
+  background: rgba(128, 128, 128, 0.15);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.markdown-panel pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown-panel pre {
+  background: rgba(128, 128, 128, 0.1);
+  padding: 0.75em 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.markdown-panel blockquote {
+  border-left: 3px solid rgba(128, 128, 128, 0.4);
+  padding-left: 1em;
+  margin-left: 0;
+  opacity: 0.8;
+}
+
+.markdown-panel a {
+  color: var(--color-accent, #5a7ff2);
+}
+
+.markdown-panel .contains-task-list {
+  padding-left: 1.25em;
+}
+
+.markdown-panel .task-list-item {
+  list-style: none;
+}
+
+.markdown-panel .task-list-item input[type="checkbox"] {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
+
+.markdown-panel--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.markdown-panel__placeholder {
+  font-size: 0.8rem;
+  opacity: 0.5;
+  font-style: italic;
+  text-align: center;
+  padding: 1em;
+}

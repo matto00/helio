@@ -5,7 +5,11 @@ import { Link } from "react-router-dom";
 import "./PanelDetailModal.css";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { PANEL_SLOTS } from "../features/panels/panelSlots";
-import { accumulatePanelUpdate, updatePanelBinding } from "../features/panels/panelsSlice";
+import {
+  accumulatePanelUpdate,
+  updatePanelBinding,
+  updatePanelContent,
+} from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import {
   clampTransparency,
@@ -16,7 +20,7 @@ import {
 import type { ChartAppearance, Panel, PanelAppearance } from "../types/models";
 import { InlineError } from "./InlineError";
 
-type Tab = "appearance" | "data";
+type Tab = "appearance" | "data" | "content";
 
 const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
   seriesColors: [
@@ -99,6 +103,13 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [isDataSaving, setIsDataSaving] = useState(false);
   const [dataSaveError, setDataSaveError] = useState<string | null>(null);
 
+  // Markdown content state (for markdown panels only)
+  const initialContent = panel.content ?? "";
+  const [markdownContent, setMarkdownContent] = useState(initialContent);
+  const [isContentSaving, setIsContentSaving] = useState(false);
+  const [contentSaveError, setContentSaveError] = useState<string | null>(null);
+  const contentDirty = markdownContent !== initialContent;
+
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
 
   const isDirty =
@@ -112,8 +123,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     refreshInterval !== initialRefreshInterval ||
     JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping);
 
-  const isAnyDirtyRef = useRef(isDirty || dataDirty);
-  isAnyDirtyRef.current = isDirty || dataDirty;
+  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty);
+  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty;
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -155,11 +166,26 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   }
 
   function handleCancel() {
-    if (isDirty || dataDirty) {
+    if (isDirty || dataDirty || contentDirty) {
       setShowDiscardWarning(true);
     } else {
       dialogRef.current?.close();
       onCloseRef.current();
+    }
+  }
+
+  async function handleContentSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsContentSaving(true);
+    setContentSaveError(null);
+    try {
+      await dispatch(updatePanelContent({ panelId: panel.id, content: markdownContent })).unwrap();
+      dialogRef.current?.close();
+      onCloseRef.current();
+    } catch {
+      setContentSaveError("Failed to save content.");
+    } finally {
+      setIsContentSaving(false);
     }
   }
 
@@ -241,18 +267,52 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
           >
             Appearance
           </button>
-          <button
-            type="button"
-            role="tab"
-            className="panel-detail-modal__tab"
-            aria-selected={activeTab === "data"}
-            onClick={() => handleTabChange("data")}
-          >
-            Data
-          </button>
+          {panel.type === "markdown" ? (
+            <button
+              type="button"
+              role="tab"
+              className="panel-detail-modal__tab"
+              aria-selected={activeTab === "content"}
+              onClick={() => setActiveTab("content")}
+            >
+              Content
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="tab"
+              className="panel-detail-modal__tab"
+              aria-selected={activeTab === "data"}
+              onClick={() => handleTabChange("data")}
+            >
+              Data
+            </button>
+          )}
         </div>
 
-        {activeTab === "appearance" ? (
+        {activeTab === "content" ? (
+          <form
+            id="panel-detail-content-form"
+            className="panel-detail-modal__content"
+            onSubmit={handleContentSubmit}
+          >
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="markdown-content">
+                Markdown content
+              </label>
+              <textarea
+                id="markdown-content"
+                className="panel-detail-modal__markdown-textarea"
+                value={markdownContent}
+                onChange={(e) => setMarkdownContent(e.target.value)}
+                aria-label="Markdown content"
+                placeholder="# Hello&#10;Write your markdown here…"
+                rows={12}
+              />
+            </div>
+            <InlineError error={contentSaveError} />
+          </form>
+        ) : activeTab === "appearance" ? (
           <form
             id="panel-detail-appearance-form"
             className="panel-detail-modal__content"
@@ -678,6 +738,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               aria-label="Save panel style"
             >
               Save
+            </button>
+          ) : activeTab === "content" ? (
+            <button
+              type="submit"
+              form="panel-detail-content-form"
+              className="panel-detail-modal__btn panel-detail-modal__btn--save"
+              aria-label="Save markdown content"
+              disabled={isContentSaving}
+            >
+              {isContentSaving ? "Saving..." : "Save"}
             </button>
           ) : (
             <button

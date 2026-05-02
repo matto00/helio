@@ -41,26 +41,29 @@ object ResourceType {
 
 sealed trait PanelType
 object PanelType {
-  case object Metric extends PanelType
-  case object Chart  extends PanelType
-  case object Text   extends PanelType
-  case object Table  extends PanelType
+  case object Metric   extends PanelType
+  case object Chart    extends PanelType
+  case object Text     extends PanelType
+  case object Table    extends PanelType
+  case object Markdown extends PanelType
 
   val Default: PanelType = Metric
 
   def fromString(s: String): Either[String, PanelType] = s match {
-    case "metric" => Right(Metric)
-    case "chart"  => Right(Chart)
-    case "text"   => Right(Text)
-    case "table"  => Right(Table)
-    case other    => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table")
+    case "metric"   => Right(Metric)
+    case "chart"    => Right(Chart)
+    case "text"     => Right(Text)
+    case "table"    => Right(Table)
+    case "markdown" => Right(Markdown)
+    case other      => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown")
   }
 
   def asString(t: PanelType): String = t match {
-    case Metric => "metric"
-    case Chart  => "chart"
-    case Text   => "text"
-    case Table  => "table"
+    case Metric   => "metric"
+    case Chart    => "chart"
+    case Text     => "text"
+    case Table    => "table"
+    case Markdown => "markdown"
   }
 }
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)
@@ -128,7 +131,8 @@ final case class Panel(
     panelType: PanelType,
     ownerId: UserId,
     typeId: Option[DataTypeId] = None,
-    fieldMapping: Option[JsValue] = None
+    fieldMapping: Option[JsValue] = None,
+    content: Option[String] = None
 )
 
 sealed trait SourceType

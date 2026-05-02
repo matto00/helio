@@ -1642,7 +1642,8 @@ class ApiRoutesSpec
             `type`       = "unknown_type",
             appearance   = PanelAppearancePayload(None, None, None, None),
             typeId       = None,
-            fieldMapping = None
+            fieldMapping = None,
+            content      = None
           )
         )
       )
@@ -2796,6 +2797,74 @@ class ApiRoutesSpec
         user.id shouldBe testUserId
         user.preferences should not be None
         user.preferences.get.accentColor shouldBe Some("#f97316")
+      }
+    }
+  }
+
+  "POST /api/panels with type: markdown" should {
+    "return 201 with content field present" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("MD Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Notes"), Some("markdown"), Some("# Hello"))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.`type`  shouldBe "markdown"
+        response.content shouldBe Some("# Hello")
+      }
+    }
+
+    "return null content when no content is provided" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("MD Test 2"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Empty"), Some("markdown"), None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.`type`  shouldBe "markdown"
+        response.content shouldBe None
+      }
+    }
+  }
+
+  "PATCH /api/panels/:id updating content" should {
+    "update content on a markdown panel and return 200" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("MD PATCH Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Notes"), Some("markdown"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`, """{"content":"## Updated"}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.content shouldBe Some("## Updated")
       }
     }
   }

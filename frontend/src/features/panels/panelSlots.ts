@@ -18,4 +18,5 @@ export const PANEL_SLOTS: Record<PanelType, PanelSlot[]> = {
   ],
   table: [{ key: "columns", label: "Columns" }],
   text: [{ key: "content", label: "Content" }],
+  markdown: [],
 };

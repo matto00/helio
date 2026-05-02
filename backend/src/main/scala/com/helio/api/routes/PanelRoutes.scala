@@ -104,7 +104,8 @@ final class PanelRoutes(
                               meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
                               appearance  = PanelAppearance.Default,
                               panelType   = panelType,
-                              ownerId     = user.id
+                              ownerId     = user.id,
+                              content     = request.content
                             )
                             onSuccess(panelRepo.insert(panel)) { created =>
                               complete(StatusCodes.Created, PanelResponse.fromDomain(created))
@@ -159,7 +160,8 @@ final class PanelRoutes(
                         case ResourceAccess.Editor | ResourceAccess.Owner =>
                     val trimmedTitle  = request.title.map(_.trim)
                     val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
-                    val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined
+                    val hasContent    = request.content.isDefined
+                    val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined || hasContent
 
                     if (trimmedTitle.contains("")) {
                       complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
@@ -189,6 +191,13 @@ final class PanelRoutes(
                               }
                             }
 
+                          def applyContentUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
+                            if (!hasContent) Future.successful(panelOpt)
+                            else panelOpt match {
+                              case None    => Future.successful(None)
+                              case Some(_) => panelRepo.updateContent(PanelId(panelId), request.content, now)
+                            }
+
                           def applyBindingUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
                             if (!hasBinding) Future.successful(panelOpt)
                             else panelOpt match {
@@ -207,13 +216,14 @@ final class PanelRoutes(
                                 case Some(title) =>
                                   panelRepo.updateTitle(PanelId(panelId), title, now).flatMap { result =>
                                     appearanceOpt match {
-                                      case None             => applyTypeUpdate(result)
+                                      case None             => applyTypeUpdate(result).flatMap(applyContentUpdate)
                                       case Some(appearance) =>
                                         result match {
                                           case None    => Future.successful(None)
                                           case Some(_) =>
                                             panelRepo.updateAppearance(PanelId(panelId), appearance, now)
                                               .flatMap(applyTypeUpdate)
+                                              .flatMap(applyContentUpdate)
                                         }
                                     }
                                   }
@@ -222,8 +232,13 @@ final class PanelRoutes(
                                     case Some(appearance) =>
                                       panelRepo.updateAppearance(PanelId(panelId), appearance, now)
                                         .flatMap(applyTypeUpdate)
+                                        .flatMap(applyContentUpdate)
                                     case None =>
-                                      panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
+                                      if (panelTypeOpt.isDefined)
+                                        panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
+                                          .flatMap(applyContentUpdate)
+                                      else
+                                        panelRepo.updateContent(PanelId(panelId), request.content, now)
                                   }
                               }
                               titleFuture

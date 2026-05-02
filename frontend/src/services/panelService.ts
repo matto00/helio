@@ -86,3 +86,8 @@ export async function updatePanelBinding(
   });
   return response.data;
 }
+
+export async function updatePanelContent(panelId: string, content: string): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { content });
+  return response.data;
+}
