@@ -34,6 +34,8 @@ const basePanel = {
   fieldMapping: null,
   refreshInterval: null,
   content: null,
+  imageUrl: null,
+  imageFit: null,
 };
 
 describe("panelsSlice", () => {

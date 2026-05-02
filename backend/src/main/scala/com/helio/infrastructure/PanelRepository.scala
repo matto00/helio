@@ -27,7 +27,9 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       ownerId      = UserId(row.ownerId.toString),
       typeId       = row.typeId.map(DataTypeId(_)),
       fieldMapping = row.fieldMapping.map(_.parseJson),
-      content      = row.content
+      content      = row.content,
+      imageUrl     = row.imageUrl,
+      imageFit     = row.imageFit
     )
 
   private def domainToRow(p: Panel): PanelRow =
@@ -43,7 +45,9 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       typeId       = p.typeId.map(_.value),
       fieldMapping = p.fieldMapping.map(_.compactPrint),
       ownerId      = UUID.fromString(p.ownerId.value),
-      content      = p.content
+      content      = p.content,
+      imageUrl     = p.imageUrl,
+      imageFit     = p.imageFit
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -138,6 +142,27 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
+  /** Update image_url and/or image_fit. A None argument means "leave existing value unchanged". */
+  def updateImage(
+      id: PanelId,
+      imageUrl: Option[String],
+      imageFit: Option[String],
+      lastUpdated: Instant
+  ): Future[Option[Panel]] = {
+    val action = table.filter(_.id === id.value).result.headOption.flatMap {
+      case None => DBIO.successful(None): DBIO[Option[PanelRow]]
+      case Some(existing) =>
+        val newUrl = imageUrl.orElse(existing.imageUrl)
+        val newFit = imageFit.orElse(existing.imageFit)
+        table
+          .filter(_.id === id.value)
+          .map(r => (r.imageUrl, r.imageFit, r.lastUpdated))
+          .update((newUrl, newFit, lastUpdated))
+          .flatMap(_ => table.filter(_.id === id.value).result.headOption): DBIO[Option[PanelRow]]
+    }.transactionally
+    db.run(action).map(_.map(rowToDomain))
+  }
+
   def updateTypeBinding(
       id: PanelId,
       typeId: Option[DataTypeId],
@@ -217,7 +242,9 @@ object PanelRepository {
       typeId: Option[String],
       fieldMapping: Option[String],
       ownerId: java.util.UUID,
-      content: Option[String]
+      content: Option[String],
+      imageUrl: Option[String],
+      imageFit: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -233,7 +260,9 @@ object PanelRepository {
     def fieldMapping = column[Option[String]]("field_mapping")
     def ownerId      = column[java.util.UUID]("owner_id")
     def content      = column[Option[String]]("content")
+    def imageUrl     = column[Option[String]]("image_url")
+    def imageFit     = column[Option[String]]("image_fit")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit).mapTo[PanelRow]
   }
 }

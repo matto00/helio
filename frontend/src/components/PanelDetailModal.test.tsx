@@ -11,6 +11,8 @@ jest.mock("../services/panelService", () => ({
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn(),
   updatePanelBinding: jest.fn(),
+  updatePanelContent: jest.fn(),
+  updatePanelImage: jest.fn(),
 }));
 
 jest.mock("../services/dataTypeService", () => ({
@@ -40,6 +42,8 @@ const testPanel = {
   fieldMapping: null,
   refreshInterval: null,
   content: null,
+  imageUrl: null,
+  imageFit: null,
 };
 
 const chartTestPanel = {

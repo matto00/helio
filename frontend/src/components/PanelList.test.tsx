@@ -215,6 +215,8 @@ describe("PanelList", () => {
       fieldMapping: null,
       refreshInterval: null,
       content: null,
+      imageUrl: null,
+      imageFit: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -255,6 +257,8 @@ describe("PanelList", () => {
       fieldMapping: null,
       refreshInterval: null,
       content: null,
+      imageUrl: null,
+      imageFit: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -298,6 +302,8 @@ describe("PanelList", () => {
       fieldMapping: null,
       refreshInterval: null,
       content: null,
+      imageUrl: null,
+      imageFit: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -377,6 +383,8 @@ describe("PanelList", () => {
       fieldMapping: null,
       refreshInterval: null,
       content: null,
+      imageUrl: null,
+      imageFit: null,
     });
     fetchPanelsMock.mockResolvedValue([
       {
@@ -390,6 +398,8 @@ describe("PanelList", () => {
         fieldMapping: null,
         refreshInterval: null,
         content: null,
+        imageUrl: null,
+        imageFit: null,
       },
       {
         id: "panel-2",
@@ -402,6 +412,8 @@ describe("PanelList", () => {
         fieldMapping: null,
         refreshInterval: null,
         content: null,
+        imageUrl: null,
+        imageFit: null,
       },
     ]);
 
@@ -805,5 +817,27 @@ describe("PanelList", () => {
 
     const afterZoomOut = MockPanelGrid.mock.calls[MockPanelGrid.mock.calls.length - 1][0];
     expect(afterZoomOut.zoomLevel).toBeCloseTo(0.9);
+  });
+
+  it("image option appears in the type selector", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+
+    expect(screen.getByRole("radio", { name: "Image" })).toBeInTheDocument();
   });
 });

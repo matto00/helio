@@ -87,6 +87,8 @@ const testPanel = {
   fieldMapping: null,
   refreshInterval: null,
   content: null,
+  imageUrl: null,
+  imageFit: null,
 };
 
 const emptyLayout = { lg: [], md: [], sm: [], xs: [] };

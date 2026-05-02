@@ -267,6 +267,8 @@ describe("App", () => {
               fieldMapping: null,
               refreshInterval: null,
               content: null,
+              imageUrl: null,
+              imageFit: null,
             },
           ]
         : [
@@ -285,6 +287,8 @@ describe("App", () => {
               fieldMapping: null,
               refreshInterval: null,
               content: null,
+              imageUrl: null,
+              imageFit: null,
             },
           ],
     );
@@ -437,6 +441,8 @@ describe("App", () => {
         fieldMapping: null,
         refreshInterval: null,
         content: null,
+        imageUrl: null,
+        imageFit: null,
       },
     ]);
 

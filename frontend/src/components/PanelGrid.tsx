@@ -197,6 +197,8 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       error={error}
       noData={noData}
       content={panel.content}
+      imageUrl={panel.imageUrl}
+      imageFit={panel.imageFit}
     />
   );
 }

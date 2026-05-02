@@ -20,7 +20,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table"]
+      "enum": ["metric", "chart", "text", "table", "markdown", "image"]
     },
     "meta": {
       "$ref": "https://helio.local/schemas/resource-meta.schema.json"
@@ -31,6 +31,22 @@
     "ownerId": {
       "type": "string",
       "minLength": 1
+    },
+    "typeId": {
+      "type": ["string", "null"]
+    },
+    "fieldMapping": {
+      "type": ["object", "null"]
+    },
+    "content": {
+      "type": ["string", "null"]
+    },
+    "imageUrl": {
+      "type": ["string", "null"]
+    },
+    "imageFit": {
+      "type": ["string", "null"],
+      "enum": ["contain", "cover", "fill", null]
     }
   },
   "additionalProperties": false

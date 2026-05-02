@@ -1,6 +1,5 @@
-## Purpose
-Defines the panel type selector control available in the panel create form and its reset behavior.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Panel create form includes a type selector
 The panel create form MUST present a type selector control offering all available panel types
 (`metric`, `chart`, `text`, `table`, `image`) with `metric` pre-selected.
@@ -38,4 +37,3 @@ The type selector MUST reset to `metric` when the create form is closed (whether
 - **WHEN** the user cancels the create form
 - **AND** reopens it
 - **THEN** the type selector shows `metric` as the selected option
-

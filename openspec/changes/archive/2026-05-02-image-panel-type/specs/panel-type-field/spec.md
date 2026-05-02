@@ -1,6 +1,5 @@
-## Purpose
-Defines the persisted panel type field, its valid values, and the DataType binding fields on panel resources.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Panel has a persisted type field
 Every panel SHALL have a `type` field persisted in the database with one of the values:
 `metric`, `chart`, `text`, `table`, `markdown`, `image`. The default value SHALL be `metric`.
@@ -108,6 +107,8 @@ SHALL be ignored.
 - **WHEN** `PATCH /api/panels/:id` is sent without a `content` field
 - **THEN** the panel's existing content is preserved in the response
 
+## ADDED Requirements
+
 ### Requirement: Panel response includes imageUrl and imageFit fields
 Every panel response SHALL include `imageUrl` (string or null) and `imageFit` (string or null).
 For non-image panels both fields SHALL be null.
@@ -119,4 +120,3 @@ For non-image panels both fields SHALL be null.
 #### Scenario: Non-image panel response has null image fields
 - **WHEN** a panel with type other than `image` is retrieved
 - **THEN** the response includes `imageUrl: null` and `imageFit: null`
-

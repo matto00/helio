@@ -1,6 +1,7 @@
 import "./PanelContent.css";
 import type { MappedPanelData, PanelAppearance, PanelType } from "../types/models";
 import { ChartPanel } from "./ChartPanel";
+import { ImagePanel } from "./ImagePanel";
 import { MarkdownPanel } from "./MarkdownPanel";
 
 interface MetricContentProps {
@@ -119,6 +120,8 @@ export interface PanelContentProps {
   noData?: boolean;
   appearance?: PanelAppearance;
   content?: string | null;
+  imageUrl?: string | null;
+  imageFit?: string | null;
 }
 
 export function PanelContent({
@@ -132,6 +135,8 @@ export function PanelContent({
   noData,
   appearance,
   content,
+  imageUrl,
+  imageFit,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -178,6 +183,8 @@ export function PanelContent({
       return <TableContent data={data} rawRows={rawRows} headers={headers} />;
     case "markdown":
       return <MarkdownPanel content={content ?? null} />;
+    case "image":
+      return <ImagePanel imageUrl={imageUrl ?? null} imageFit={imageFit ?? null} />;
     default:
       return <MetricContent data={data} />;
   }

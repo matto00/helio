@@ -120,7 +120,9 @@ export interface Dashboard {
   layout: DashboardLayout;
 }
 
-export type PanelType = "metric" | "chart" | "text" | "table" | "markdown";
+export type PanelType = "metric" | "chart" | "text" | "table" | "markdown" | "image";
+
+export type ImageFit = "contain" | "cover" | "fill";
 
 export interface PanelUpdateFields {
   title?: string;
@@ -139,6 +141,8 @@ export interface Panel {
   fieldMapping: Record<string, string> | null;
   refreshInterval: number | null;
   content: string | null;
+  imageUrl: string | null;
+  imageFit: ImageFit | null;
 }
 
 export type MappedPanelData = Record<string, string>;

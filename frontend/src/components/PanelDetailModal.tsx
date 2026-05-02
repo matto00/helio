@@ -9,6 +9,7 @@ import {
   accumulatePanelUpdate,
   updatePanelBinding,
   updatePanelContent,
+  updatePanelImage,
 } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import {
@@ -17,10 +18,10 @@ import {
   panelAppearanceEditorFallback,
   panelTextEditorFallback,
 } from "../theme/appearance";
-import type { ChartAppearance, Panel, PanelAppearance } from "../types/models";
+import type { ChartAppearance, ImageFit, Panel, PanelAppearance } from "../types/models";
 import { InlineError } from "./InlineError";
 
-type Tab = "appearance" | "data" | "content";
+type Tab = "appearance" | "data" | "content" | "image";
 
 const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
   seriesColors: [
@@ -110,6 +111,15 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [contentSaveError, setContentSaveError] = useState<string | null>(null);
   const contentDirty = markdownContent !== initialContent;
 
+  // Image state (for image panels only)
+  const initialImageUrl = panel.imageUrl ?? "";
+  const initialImageFit: ImageFit = panel.imageFit ?? "contain";
+  const [imageUrl, setImageUrl] = useState(initialImageUrl);
+  const [imageFit, setImageFit] = useState<ImageFit>(initialImageFit);
+  const [isImageSaving, setIsImageSaving] = useState(false);
+  const [imageSaveError, setImageSaveError] = useState<string | null>(null);
+  const imageDirty = imageUrl !== initialImageUrl || imageFit !== initialImageFit;
+
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
 
   const isDirty =
@@ -123,8 +133,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     refreshInterval !== initialRefreshInterval ||
     JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping);
 
-  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty);
-  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty;
+  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty || imageDirty);
+  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty || imageDirty;
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -166,7 +176,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   }
 
   function handleCancel() {
-    if (isDirty || dataDirty || contentDirty) {
+    if (isDirty || dataDirty || contentDirty || imageDirty) {
       setShowDiscardWarning(true);
     } else {
       dialogRef.current?.close();
@@ -186,6 +196,21 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       setContentSaveError("Failed to save content.");
     } finally {
       setIsContentSaving(false);
+    }
+  }
+
+  async function handleImageSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsImageSaving(true);
+    setImageSaveError(null);
+    try {
+      await dispatch(updatePanelImage({ panelId: panel.id, imageUrl, imageFit })).unwrap();
+      dialogRef.current?.close();
+      onCloseRef.current();
+    } catch {
+      setImageSaveError("Failed to save image settings.");
+    } finally {
+      setIsImageSaving(false);
     }
   }
 
@@ -277,6 +302,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             >
               Content
             </button>
+          ) : panel.type === "image" ? (
+            <button
+              type="button"
+              role="tab"
+              className="panel-detail-modal__tab"
+              aria-selected={activeTab === "image"}
+              onClick={() => setActiveTab("image")}
+            >
+              Image
+            </button>
           ) : (
             <button
               type="button"
@@ -290,7 +325,45 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
           )}
         </div>
 
-        {activeTab === "content" ? (
+        {activeTab === "image" ? (
+          <form
+            id="panel-detail-image-form"
+            className="panel-detail-modal__content"
+            onSubmit={handleImageSubmit}
+          >
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="image-url">
+                Image URL
+              </label>
+              <input
+                id="image-url"
+                type="text"
+                className="panel-detail-modal__type-search"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                aria-label="Image URL"
+                placeholder="https://example.com/image.png"
+              />
+            </div>
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="image-fit">
+                Image fit
+              </label>
+              <select
+                id="image-fit"
+                className="panel-detail-modal__mapping-select"
+                value={imageFit}
+                onChange={(e) => setImageFit(e.target.value as ImageFit)}
+                aria-label="Image fit"
+              >
+                <option value="contain">Contain</option>
+                <option value="cover">Cover</option>
+                <option value="fill">Fill</option>
+              </select>
+            </div>
+            <InlineError error={imageSaveError} />
+          </form>
+        ) : activeTab === "content" ? (
           <form
             id="panel-detail-content-form"
             className="panel-detail-modal__content"
@@ -748,6 +821,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               disabled={isContentSaving}
             >
               {isContentSaving ? "Saving..." : "Save"}
+            </button>
+          ) : activeTab === "image" ? (
+            <button
+              type="submit"
+              form="panel-detail-image-form"
+              className="panel-detail-modal__btn panel-detail-modal__btn--save"
+              aria-label="Save image settings"
+              disabled={isImageSaving}
+            >
+              {isImageSaving ? "Saving..." : "Save"}
             </button>
           ) : (
             <button

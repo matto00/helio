@@ -1,6 +1,5 @@
-## Purpose
-Defines how each panel type renders its body content area inside the dashboard grid, including placeholder states when no data is bound and live states when data is present.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Each panel type renders a visually distinct body
 The panel grid MUST render a different body content area for each panel type (`metric`, `chart`,
 `text`, `table`, `markdown`, `image`). When a panel has live mapped data or content, it SHALL
@@ -61,35 +60,7 @@ indicator. When `trend` is absent the metric panel body renders value and label 
 - **WHEN** a panel with `type: "image"` has a null `imageUrl`
 - **THEN** the panel body shows a grey placeholder with an image icon
 
-### Requirement: Unknown panel types degrade gracefully
-If a panel has an unrecognised or missing type value, the grid MUST render a fallback body rather than crashing or leaving the body blank.
-
-#### Scenario: Panel with unknown type falls back to metric rendering
-- **WHEN** a panel with an unrecognised type is displayed
-- **THEN** the metric placeholder is shown as a safe fallback
-
-### Requirement: Type badge is visible on each panel card
-Each panel card in the grid MUST display the panel's type as a small visible label so users can identify the type at a glance without relying solely on the placeholder content.
-
-#### Scenario: Type badge shown on panel card
-- **WHEN** any panel is displayed in the grid
-- **THEN** a small type badge (e.g. "metric", "chart") is visible on the card
-
-### Requirement: Markdown panel type badge is displayed correctly
-The type badge on a markdown panel card SHALL display the label "markdown" (consistent with other
-panel type badges).
-
-#### Scenario: Markdown panel shows markdown type badge
-- **WHEN** a markdown panel is displayed in the grid
-- **THEN** a small type badge reading "markdown" is visible on the card
-
-### Requirement: Panel type selector includes markdown option
-The panel type selector (used when creating or changing a panel's type) SHALL include `markdown`
-as a selectable option alongside the existing types.
-
-#### Scenario: Markdown appears in type selector
-- **WHEN** the panel type selector is opened
-- **THEN** `markdown` is listed as a valid selectable type
+## ADDED Requirements
 
 ### Requirement: Panel type selector includes image option
 The panel type selector (used when creating or changing a panel's type) SHALL include `image`
@@ -98,4 +69,3 @@ as a selectable option alongside the existing types.
 #### Scenario: Image appears in type selector
 - **WHEN** the panel type selector is opened
 - **THEN** `image` is listed as a valid selectable type
-
