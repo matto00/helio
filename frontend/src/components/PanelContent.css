@@ -37,6 +37,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  overflow-y: auto;
 }
 
 .panel-content__text-line {
@@ -198,5 +199,13 @@
 @container panel-card (max-height: 179px) {
   .panel-content__text-live {
     font-size: 0.78rem;
+  }
+}
+
+/* Container Query: Text live spacious height (>= 280px) */
+
+@container panel-card (min-height: 280px) {
+  .panel-content__text-live {
+    font-size: 1.1rem;
   }
 }
