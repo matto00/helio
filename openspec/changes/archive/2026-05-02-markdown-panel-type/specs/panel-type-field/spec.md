@@ -20,6 +20,18 @@ Every panel SHALL have a `type` field persisted in the database with one of the 
 - **WHEN** any panel is retrieved via `GET /api/dashboards/:id/panels`
 - **THEN** each panel object in the response includes a `type` field with a valid type value
 
+### Requirement: Invalid type values are rejected
+The API SHALL reject panel create and update requests that supply an unrecognised `type` value
+with a 400 Bad Request response. Valid type values are: `metric`, `chart`, `text`, `table`, `markdown`.
+
+#### Scenario: Unknown type is rejected on create
+- **WHEN** `POST /api/panels` is called with `type: "unknown"`
+- **THEN** the response is 400 Bad Request
+
+#### Scenario: Unknown type is rejected on update
+- **WHEN** `PATCH /api/panels/:id` is called with `type: "unknown"`
+- **THEN** the response is 400 Bad Request
+
 ## ADDED Requirements
 
 ### Requirement: Panel response includes a content field
@@ -47,17 +59,3 @@ SHALL be ignored.
 #### Scenario: PATCH without content leaves content unchanged
 - **WHEN** `PATCH /api/panels/:id` is sent without a `content` field
 - **THEN** the panel's existing content is preserved in the response
-
-## MODIFIED Requirements
-
-### Requirement: Invalid type values are rejected
-The API SHALL reject panel create and update requests that supply an unrecognised `type` value
-with a 400 Bad Request response. Valid type values are: `metric`, `chart`, `text`, `table`, `markdown`.
-
-#### Scenario: Unknown type is rejected on create
-- **WHEN** `POST /api/panels` is called with `type: "unknown"`
-- **THEN** the response is 400 Bad Request
-
-#### Scenario: Unknown type is rejected on update
-- **WHEN** `PATCH /api/panels/:id` is called with `type: "unknown"`
-- **THEN** the response is 400 Bad Request

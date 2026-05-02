@@ -3,8 +3,8 @@ Defines how each panel type renders its body content area inside the dashboard g
 ## Requirements
 ### Requirement: Each panel type renders a visually distinct body
 The panel grid MUST render a different body content area for each panel type (`metric`, `chart`,
-`text`, `table`). When a panel has live mapped data, it SHALL display that data; when unbound
-(no `typeId`), it SHALL display an appropriate placeholder.
+`text`, `table`, `markdown`). When a panel has live mapped data or content, it SHALL display that
+data; when unbound or empty, it SHALL display an appropriate placeholder.
 
 The metric panel body SHALL render three lines when trend data is present: value, label, and trend
 indicator. When `trend` is absent the metric panel body renders value and label only (two lines).
@@ -45,6 +45,14 @@ indicator. When `trend` is absent the metric panel body renders value and label 
 - **WHEN** a panel with `type: "table"` has a `typeId` and data has been fetched
 - **THEN** the panel body shows actual column headers and data rows from the preview response
 
+#### Scenario: Markdown panel with content renders CommonMark HTML
+- **WHEN** a panel with `type: "markdown"` has non-null and non-empty `content` in the grid
+- **THEN** the panel body renders the content as CommonMark-compliant HTML (headings, paragraphs, lists)
+
+#### Scenario: Markdown panel with no content renders placeholder
+- **WHEN** a panel with `type: "markdown"` has null or empty `content`
+- **THEN** the panel body shows a faded placeholder indicating the user should add content
+
 ### Requirement: Unknown panel types degrade gracefully
 If a panel has an unrecognised or missing type value, the grid MUST render a fallback body rather than crashing or leaving the body blank.
 
@@ -58,4 +66,20 @@ Each panel card in the grid MUST display the panel's type as a small visible lab
 #### Scenario: Type badge shown on panel card
 - **WHEN** any panel is displayed in the grid
 - **THEN** a small type badge (e.g. "metric", "chart") is visible on the card
+
+### Requirement: Markdown panel type badge is displayed correctly
+The type badge on a markdown panel card SHALL display the label "markdown" (consistent with other
+panel type badges).
+
+#### Scenario: Markdown panel shows markdown type badge
+- **WHEN** a markdown panel is displayed in the grid
+- **THEN** a small type badge reading "markdown" is visible on the card
+
+### Requirement: Panel type selector includes markdown option
+The panel type selector (used when creating or changing a panel's type) SHALL include `markdown`
+as a selectable option alongside the existing types.
+
+#### Scenario: Markdown appears in type selector
+- **WHEN** the panel type selector is opened
+- **THEN** `markdown` is listed as a valid selectable type
 
