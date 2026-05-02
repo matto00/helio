@@ -49,6 +49,8 @@ From the orchestrator:
 - `CHANGE_NAME`: OpenSpec change name
 - `TICKET_ID`: Linear issue identifier
 - `CYCLE`: current cycle number (1, 2, or 3)
+- `DEV_PORT`: frontend port assigned by the orchestrator (default 5173)
+- `BACKEND_PORT`: backend port assigned by the orchestrator (default 8080)
 
 ---
 
@@ -134,17 +136,58 @@ files changed, the frontend likely isn't wired to the new behavior yet
 
 ### Dev server setup
 
-Start the dev server if not already running. Use `DEV_PORT` (default 5173) so that
-parallel orchestrator sessions do not collide on the same port:
+**Step 1 — ensure `.env` is present in the worktree:**
+
+The worktree does not inherit gitignored files. Copy it from the main worktree
+before starting anything:
 
 ```bash
-PORT=${DEV_PORT:-5173} npm run dev &
+if [ ! -f "$WORKTREE_PATH/backend/.env" ]; then
+  cp /home/matt/Development/helio/backend/.env "$WORKTREE_PATH/backend/.env"
+fi
+```
+
+**Step 2 — ensure the backend is running on `BACKEND_PORT`:**
+
+The Vite dev server proxies `/api` and `/health` to `localhost:$BACKEND_PORT`. Without a
+live backend, all API calls (including login) will fail and Phase 3 cannot
+proceed.
+
+```bash
+BACKEND_PORT=${BACKEND_PORT:-8080}
+
+# Check if a backend is already healthy on this port
+if curl -sf http://localhost:${BACKEND_PORT}/health > /dev/null 2>&1; then
+  echo "Backend already running on ${BACKEND_PORT} — reusing it"
+else
+  # Start the worktree's backend on the assigned port, with CORS whitelisting the frontend origin
+  cd "$WORKTREE_PATH/backend" && PORT=$BACKEND_PORT CORS_ALLOWED_ORIGINS=http://localhost:${DEV_PORT:-5173} sbt run &
+  # Wait up to 5 minutes for it to become healthy
+  timeout 300 bash -c "until curl -sf http://localhost:${BACKEND_PORT}/health > /dev/null 2>&1; do sleep 5; done" \
+    || echo "BACKEND_TIMEOUT"
+fi
+```
+
+If the backend fails to start or times out:
+
+1. Include the startup log excerpt in the report
+2. Tag as `BLOCKER` — environmental, requires human intervention
+
+**Step 3 — start the frontend dev server:**
+
+Use `DEV_PORT` (default 5173) so that parallel orchestrator sessions do not
+collide on the same port:
+
+```bash
+cd "$WORKTREE_PATH/frontend" && PORT=${DEV_PORT:-5173} BACKEND_PORT=${BACKEND_PORT:-8080} npm run dev &
+# Wait for Vite to be ready
+timeout 60 bash -c "until curl -sf http://localhost:${DEV_PORT:-5173} > /dev/null 2>&1; do sleep 2; done"
 ```
 
 Use `http://localhost:${DEV_PORT:-5173}` as the Playwright base URL for all
 navigation calls in this session.
 
-If startup fails:
+If the frontend startup fails:
 
 1. Diagnose — port conflict, missing deps, build error
 2. Include diagnosis in report
