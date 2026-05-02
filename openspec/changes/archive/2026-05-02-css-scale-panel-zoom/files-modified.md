@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelList.css` — added `overflow: hidden` to `.panel-list` and all zoom-related CSS rules (`.panel-list__zoom-container`, `.panel-list__zoom-controls`, `.panel-list__zoom-button`, `.panel-list__zoom-level`, `.panel-list__zoom-reset`)
+- `frontend/src/components/PanelList.test.tsx` — added two tests: scale transform inline styles with compensated dimensions, and zoom level restoration from user preferences
+- `openspec/changes/css-scale-panel-zoom/tasks.md` — marked all tasks complete
