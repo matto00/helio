@@ -193,3 +193,17 @@ describe("PanelContent — metric trend indicator", () => {
     expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
   });
 });
+
+describe("PanelContent — live text data", () => {
+  it("renders .panel-content__text-live element when text panel has live content", () => {
+    const { container } = render(<PanelContent type="text" data={{ content: "Hello world" }} />);
+    expect(container.querySelector(".panel-content__text-live")).toBeInTheDocument();
+  });
+
+  it("text-live element displays the bound content", () => {
+    const { container } = render(<PanelContent type="text" data={{ content: "Sample text" }} />);
+    const liveEl = container.querySelector(".panel-content__text-live");
+    expect(liveEl).toBeInTheDocument();
+    expect(liveEl).toHaveTextContent("Sample text");
+  });
+});

@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelContent.css` — added `overflow-y: auto` to `.panel-content--text` (task 1.1) and spacious container query block for `.panel-content__text-live` at `min-height: 280px` → `font-size: 1.1rem` (task 1.2)
+- `frontend/src/components/PanelContent.test.tsx` — added "PanelContent — live text data" describe block with two tests: one asserting `.panel-content__text-live` is rendered for live content, one asserting it contains the bound text (tasks 2.1, 2.2)
+- `openspec/changes/text-panel-sizing/tasks.md` — all four tasks marked `[x]` complete
