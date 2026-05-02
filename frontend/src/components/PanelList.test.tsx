@@ -608,4 +608,108 @@ describe("PanelList", () => {
 
     expect(screen.getByText("170%")).toBeInTheDocument();
   });
+
+  describe("zoom gesture (Ctrl+scroll and pinch)", () => {
+    const gestureStore = {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [
+          {
+            id: "panel-1",
+            dashboardId: "dashboard-1",
+            title: "Revenue Pulse",
+            type: "metric" as const,
+            meta: defaultMeta,
+            appearance: defaultPanelAppearance,
+          },
+        ],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded" as const,
+      },
+    };
+
+    it("Ctrl+scroll down (deltaY=100) decreases zoom by 0.1", () => {
+      const { container } = renderWithStore(<PanelList />, gestureStore);
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      expect(screen.getByText("100%")).toBeInTheDocument();
+      fireEvent.wheel(zoomContainer, { deltaY: 100, ctrlKey: true, deltaMode: 0 });
+      expect(screen.getByText("90%")).toBeInTheDocument();
+    });
+
+    it("Ctrl+scroll up (deltaY=-100) increases zoom by 0.1", () => {
+      const { container } = renderWithStore(<PanelList />, gestureStore);
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      fireEvent.wheel(zoomContainer, { deltaY: -100, ctrlKey: true, deltaMode: 0 });
+      expect(screen.getByText("110%")).toBeInTheDocument();
+    });
+
+    it("plain scroll (no modifier key) does not change zoom level", () => {
+      const { container } = renderWithStore(<PanelList />, gestureStore);
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      fireEvent.wheel(zoomContainer, { deltaY: 100, ctrlKey: false, deltaMode: 0 });
+      expect(screen.getByText("100%")).toBeInTheDocument();
+    });
+
+    it("zoom is clamped at 0.5 minimum (Ctrl+scroll down at min)", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        ...gestureStore,
+        auth: {
+          status: "authenticated" as const,
+          currentUser: {
+            id: "user-1",
+            email: "test@example.com",
+            displayName: "Test User",
+            avatarUrl: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            preferences: { accentColor: null, zoomLevels: { "dashboard-1": 0.5 } },
+          },
+          token: "test-token",
+        },
+      });
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      expect(screen.getByText("50%")).toBeInTheDocument();
+      fireEvent.wheel(zoomContainer, { deltaY: 100, ctrlKey: true, deltaMode: 0 });
+      expect(screen.getByText("50%")).toBeInTheDocument();
+    });
+
+    it("zoom is clamped at 2.0 maximum (Ctrl+scroll up at max)", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        ...gestureStore,
+        auth: {
+          status: "authenticated" as const,
+          currentUser: {
+            id: "user-1",
+            email: "test@example.com",
+            displayName: "Test User",
+            avatarUrl: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            preferences: { accentColor: null, zoomLevels: { "dashboard-1": 2.0 } },
+          },
+          token: "test-token",
+        },
+      });
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      expect(screen.getByText("200%")).toBeInTheDocument();
+      fireEvent.wheel(zoomContainer, { deltaY: -100, ctrlKey: true, deltaMode: 0 });
+      expect(screen.getByText("200%")).toBeInTheDocument();
+    });
+
+    it("deltaMode=1 (line) wheel event is normalized correctly (deltaY=1 line to 24px effective)", () => {
+      const { container } = renderWithStore(<PanelList />, gestureStore);
+      const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
+      fireEvent.wheel(zoomContainer, { deltaY: 5, ctrlKey: true, deltaMode: 1 });
+      expect(screen.getByText("90%")).toBeInTheDocument();
+    });
+  });
 });

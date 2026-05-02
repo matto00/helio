@@ -1,5 +1,5 @@
 import type { CSSProperties, FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import "./PanelList.css";
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
@@ -19,7 +19,6 @@ const PANEL_TYPES: { value: PanelType; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "table", label: "Table" },
 ];
-
 export function PanelList() {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
@@ -32,6 +31,7 @@ export function PanelList() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selectedDashboard =
     dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
 
@@ -72,19 +72,22 @@ export function PanelList() {
     }
   }
 
-  function handleZoomChange(delta: number) {
-    if (!selectedDashboardId) {
-      return;
-    }
-    const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
-    setZoomLevel(newZoom);
-    dispatch(
-      updateUserPreferences({
-        fields: ["zoomLevel"],
-        user: { zoomLevel: newZoom, dashboardId: selectedDashboardId },
-      }),
-    );
-  }
+  const handleZoomChange = useCallback(
+    (delta: number) => {
+      if (!selectedDashboardId) {
+        return;
+      }
+      const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
+      setZoomLevel(newZoom);
+      dispatch(
+        updateUserPreferences({
+          fields: ["zoomLevel"],
+          user: { zoomLevel: newZoom, dashboardId: selectedDashboardId },
+        }),
+      );
+    },
+    [selectedDashboardId, zoomLevel, dispatch],
+  );
 
   function handleZoomReset() {
     if (!selectedDashboardId) {
@@ -98,6 +101,39 @@ export function PanelList() {
       }),
     );
   }
+
+  // Ctrl+scroll and trackpad-pinch zoom gesture handler.
+  // React registers onWheel as passive since React 17, so a native listener
+  // with { passive: false } is required to call preventDefault() and suppress
+  // OS/browser default zoom behaviour.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    function handleWheel(event: WheelEvent) {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+
+      // Normalize for deltaMode: DOM_DELTA_PIXEL=0, DOM_DELTA_LINE=1, DOM_DELTA_PAGE=2
+      const normalizedDelta =
+        event.deltaMode === 1
+          ? event.deltaY * 24
+          : event.deltaMode === 2
+            ? event.deltaY * 600
+            : event.deltaY;
+
+      // Snap to nearest 0.1 zoom step (100 px ≡ 1 step of 0.1).
+      // Positive deltaY = scroll down = zoom out, so negate.
+      const snappedDelta = -(Math.round(normalizedDelta / 100) / 10);
+
+      if (snappedDelta !== 0) {
+        handleZoomChange(snappedDelta);
+      }
+    }
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, [handleZoomChange]);
 
   return (
     <section
@@ -236,6 +272,7 @@ export function PanelList() {
       ) : null}
       {items.length > 0 && selectedDashboardId !== null ? (
         <div
+          ref={containerRef}
           className="panel-list__zoom-container"
           style={
             {

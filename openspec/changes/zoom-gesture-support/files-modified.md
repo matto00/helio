@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelList.tsx` — added `useRef` + `useCallback`, `containerRef` attached to zoom-container div, non-passive wheel `useEffect` with Ctrl/Meta guard, deltaMode normalization, 0.1-step snap, and cleanup
+- `frontend/src/components/PanelList.test.tsx` — added 6 gesture tests covering Ctrl+scroll down/up, plain scroll passthrough, min/max clamp, and deltaMode=1 line normalization
+- `openspec/changes/zoom-gesture-support/tasks.md` — all 10 tasks marked `[x]`
