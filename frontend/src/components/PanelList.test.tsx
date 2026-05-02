@@ -516,4 +516,96 @@ describe("PanelList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
     expect(screen.getByText("90%")).toBeInTheDocument();
   });
+
+  it("zoom container receives scale transform and compensated dimensions when zoom is non-default", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [
+          {
+            id: "panel-1",
+            dashboardId: "dashboard-1",
+            title: "Revenue Pulse",
+            type: "metric" as const,
+            meta: defaultMeta,
+            appearance: defaultPanelAppearance,
+          },
+        ],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+          preferences: {
+            accentColor: null,
+            zoomLevels: { "dashboard-1": 1.5 },
+          },
+        },
+        token: "test-token",
+      },
+    });
+
+    const zoomContainer = document.querySelector(".panel-list__zoom-container") as HTMLElement;
+    expect(zoomContainer).not.toBeNull();
+    expect(zoomContainer.style.transform).toBe("scale(1.5)");
+    expect(zoomContainer.style.transformOrigin).toBe("top left");
+    expect(zoomContainer.style.width).toBe(`${100 / 1.5}%`);
+    expect(zoomContainer.style.height).toBe(`${100 / 1.5}%`);
+  });
+
+  it("zoom level is restored from user preferences when a dashboard is selected", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+          preferences: {
+            accentColor: null,
+            zoomLevels: { "dashboard-1": 1.7 },
+          },
+        },
+        token: "test-token",
+      },
+    });
+
+    expect(screen.getByText("170%")).toBeInTheDocument();
+  });
 });

@@ -6,6 +6,7 @@
   background: var(--dashboard-grid-background-override, transparent);
   box-shadow: none;
   backdrop-filter: none;
+  overflow: hidden;
   transition: background-color var(--app-transition);
 }
 
@@ -71,6 +72,75 @@
 .panel-list__add:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
+}
+
+.panel-list__zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-list__zoom-level {
+  padding: 3px 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 999px;
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: center;
+}
+
+.panel-list__zoom-button,
+.panel-list__zoom-reset {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 6px;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.panel-list__zoom-button {
+  width: 26px;
+  padding: 0;
+}
+
+.panel-list__zoom-reset {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 8px;
+}
+
+.panel-list__zoom-button:hover:not(:disabled),
+.panel-list__zoom-reset:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+}
+
+.panel-list__zoom-button:disabled,
+.panel-list__zoom-reset:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.panel-list__zoom-button:focus-visible,
+.panel-list__zoom-reset:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.panel-list__zoom-container {
+  /* Structural only — dimensions and transform are applied via inline styles */
 }
 
 .panel-list__create {
