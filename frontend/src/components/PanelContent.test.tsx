@@ -150,6 +150,43 @@ describe("PanelContent — live table data", () => {
   });
 });
 
+describe("PanelContent — TableContent sizing", () => {
+  it("2.1 renders .panel-content--table container when data rows are provided", () => {
+    const { container } = render(
+      <PanelContent
+        type="table"
+        rawRows={[
+          ["Alice", "30"],
+          ["Bob", "25"],
+        ]}
+        headers={["Name", "Age"]}
+      />,
+    );
+    expect(container.querySelector(".panel-content--table")).toBeInTheDocument();
+  });
+
+  it("2.2 renders placeholder table inside .panel-content--table when no data", () => {
+    const { container } = render(<PanelContent type="table" />);
+    const tableContainer = container.querySelector(".panel-content--table");
+    expect(tableContainer).toBeInTheDocument();
+    expect(tableContainer?.querySelector("table")).toBeInTheDocument();
+  });
+
+  it("2.3 renders correct number of <tr> rows for given rawRows", () => {
+    const { container } = render(<PanelContent type="table" rawRows={[["A"], ["B"], ["C"]]} />);
+    const rows = container.querySelectorAll("tbody tr");
+    expect(rows.length).toBe(3);
+  });
+
+  it("2.4 renders column headers from headers prop when provided", () => {
+    render(
+      <PanelContent type="table" rawRows={[["val1", "val2"]]} headers={["Column A", "Column B"]} />,
+    );
+    expect(screen.getByText("Column A")).toBeInTheDocument();
+    expect(screen.getByText("Column B")).toBeInTheDocument();
+  });
+});
+
 describe("PanelContent — metric trend indicator", () => {
   it("renders trend indicator with --up class when trend starts with '+'", () => {
     const { container } = render(
@@ -191,5 +228,19 @@ describe("PanelContent — metric trend indicator", () => {
   it("does not render trend indicator when panel is unbound (no data)", () => {
     const { container } = render(<PanelContent type="metric" />);
     expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
+  });
+});
+
+describe("PanelContent — live text data", () => {
+  it("renders .panel-content__text-live element when text panel has live content", () => {
+    const { container } = render(<PanelContent type="text" data={{ content: "Hello world" }} />);
+    expect(container.querySelector(".panel-content__text-live")).toBeInTheDocument();
+  });
+
+  it("text-live element displays the bound content", () => {
+    const { container } = render(<PanelContent type="text" data={{ content: "Sample text" }} />);
+    const liveEl = container.querySelector(".panel-content__text-live");
+    expect(liveEl).toBeInTheDocument();
+    expect(liveEl).toHaveTextContent("Sample text");
   });
 });
