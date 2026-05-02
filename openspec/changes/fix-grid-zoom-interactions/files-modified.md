@@ -1,0 +1,7 @@
+- `frontend/src/components/PanelGrid.tsx` — added `zoomLevel?: number` prop (default `1.0`) to `PanelGridProps`; memoized `createScaledStrategy(zoomLevel)` and passed as `positionStrategy` to `<Responsive>`, correcting drag/resize coordinate offsets at non-100% zoom; added explanatory comment describing why `positionStrategy`/`createScaledStrategy()` is the correct modern API
+- `frontend/src/components/PanelList.tsx` — forwarded `zoomLevel={zoomLevel}` state to `<PanelGrid>` so the grid receives the current CSS scale factor
+- `frontend/src/components/PanelGrid.test.tsx` — added mocking-rationale comment block explaining jsdom constraints and what was manually verified; added AC coverage test confirming rename interaction dispatches correctly at `zoomLevel={0.5}` with explanatory comment covering why delete/context-menu are also unaffected at any zoom
+- `frontend/src/components/PanelList.test.tsx` — mocked `./PanelGrid`; added test asserting `PanelGrid` receives the updated `zoomLevel` prop after zoom-in and zoom-out interactions
+- `openspec/changes/fix-grid-zoom-interactions/proposal.md` — updated to reflect `positionStrategy`/`createScaledStrategy()` as the correct API instead of legacy `transformScale`
+- `openspec/changes/fix-grid-zoom-interactions/design.md` — updated Context, Decision, and Risk sections to reflect `positionStrategy` with `createScaledStrategy()` from `react-grid-layout@2.2.2`, replacing references to the legacy `transformScale` prop
+- `openspec/changes/fix-grid-zoom-interactions/tasks.md` — all five tasks marked complete

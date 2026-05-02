@@ -5,7 +5,38 @@ import {
   fetchPanels as fetchPanelsRequest,
 } from "../services/panelService";
 import { renderWithStore } from "../test/renderWithStore";
+import { PanelGrid } from "./PanelGrid";
 import { PanelList } from "./PanelList";
+
+jest.mock("./PanelGrid", () => {
+  const React = require("react") as typeof import("react");
+  return {
+    PanelGrid: jest.fn(
+      ({ panels }: { panels: { id: string; title: string }[]; zoomLevel?: number }) =>
+        React.createElement(
+          "div",
+          null,
+          ...panels.map((p) =>
+            React.createElement(
+              "div",
+              { key: p.id },
+              React.createElement("h3", null, p.title),
+              React.createElement("button", {
+                type: "button",
+                "aria-label": `Move ${p.title} panel`,
+              }),
+              React.createElement("button", {
+                type: "button",
+                "aria-label": `${p.title} panel actions`,
+              }),
+            ),
+          ),
+        ),
+    ),
+  };
+});
+
+const MockPanelGrid = jest.mocked(PanelGrid);
 
 jest.mock("../services/panelService", () => ({
   createPanel: jest.fn(),
@@ -46,6 +77,7 @@ const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 
 describe("PanelList", () => {
   beforeEach(() => {
+    MockPanelGrid.mockClear();
     createPanelMock.mockReset();
     fetchPanelsMock.mockReset();
   });
@@ -711,5 +743,61 @@ describe("PanelList", () => {
       fireEvent.wheel(zoomContainer, { deltaY: 5, ctrlKey: true, deltaMode: 1 });
       expect(screen.getByText("90%")).toBeInTheDocument();
     });
+  });
+
+  it("passes updated zoomLevel to PanelGrid when zoom controls are used", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: "dashboard-1",
+      },
+      panels: {
+        items: [
+          {
+            id: "panel-1",
+            dashboardId: "dashboard-1",
+            title: "Revenue Pulse",
+            type: "metric" as const,
+            meta: defaultMeta,
+            appearance: defaultPanelAppearance,
+          },
+        ],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      auth: {
+        status: "authenticated",
+        currentUser: {
+          id: "user-1",
+          email: "test@example.com",
+          displayName: "Test User",
+          avatarUrl: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        token: "test-token",
+      },
+    });
+
+    const initialCall = MockPanelGrid.mock.calls[MockPanelGrid.mock.calls.length - 1][0];
+    expect(initialCall.zoomLevel).toBe(1.0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+
+    const afterZoomIn = MockPanelGrid.mock.calls[MockPanelGrid.mock.calls.length - 1][0];
+    expect(afterZoomIn.zoomLevel).toBeCloseTo(1.1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+
+    const afterZoomOut = MockPanelGrid.mock.calls[MockPanelGrid.mock.calls.length - 1][0];
+    expect(afterZoomOut.zoomLevel).toBeCloseTo(0.9);
   });
 });
