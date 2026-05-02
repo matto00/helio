@@ -32,6 +32,7 @@ jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   updatePanelAppearance: jest.fn(),
   updatePanelBinding: jest.fn(),
+  updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
 
 jest.mock("../services/dataTypeService", () => ({
@@ -404,7 +405,7 @@ describe("App", () => {
     );
   });
 
-  it("saves panel appearance changes", async () => {
+  it("saves panel appearance changes optimistically via accumulatePanelUpdate", async () => {
     fetchDashboardsMock.mockResolvedValue([
       {
         id: "dashboard-1",
@@ -435,27 +436,8 @@ describe("App", () => {
         refreshInterval: null,
       },
     ]);
-    updatePanelAppearanceMock.mockResolvedValue({
-      id: "panel-1",
-      dashboardId: "dashboard-1",
-      title: "Revenue Pulse",
-      type: "metric" as const,
-      meta: {
-        createdBy: "system",
-        createdAt: "2026-03-14T13:00:00Z",
-        lastUpdated: "2026-03-14T14:00:00Z",
-      },
-      appearance: {
-        background: "#101828",
-        color: "#f8fafc",
-        transparency: 0.35,
-      },
-      typeId: null,
-      fieldMapping: null,
-      refreshInterval: null,
-    });
 
-    renderApp();
+    const { store } = renderApp();
 
     const panelActionsButton = await screen.findByRole("button", {
       name: "Revenue Pulse panel actions",
@@ -480,12 +462,15 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
 
+    // Dialog closes synchronously; the individual PATCH service is no longer called
+    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
+
+    // Appearance is staged in pendingPanelUpdates for the debounced batch flush
     await waitFor(() =>
-      expect(updatePanelAppearanceMock).toHaveBeenCalledWith("panel-1", {
-        background: "#101828",
-        color: "#f8fafc",
-        transparency: 0.35,
-      }),
+      expect(store.getState().panels.pendingPanelUpdates["panel-1"]).toBeDefined(),
+    );
+    expect(store.getState().panels.pendingPanelUpdates["panel-1"].appearance?.background).toBe(
+      "#101828",
     );
   });
 });

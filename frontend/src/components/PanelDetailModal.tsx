@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import "./PanelDetailModal.css";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { PANEL_SLOTS } from "../features/panels/panelSlots";
-import { updatePanelAppearance, updatePanelBinding } from "../features/panels/panelsSlice";
+import { accumulatePanelUpdate, updatePanelBinding } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import {
   clampTransparency,
@@ -74,8 +74,6 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [background, setBackground] = useState(initialBackground);
   const [color, setColor] = useState(initialColor);
   const [transparency, setTransparency] = useState(initialTransparency);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Chart appearance state (for chart panels only)
   const initialChart: ChartAppearance = {
@@ -172,30 +170,22 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     }
   }
 
-  async function handleAppearanceSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleAppearanceSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      const appearancePayload: PanelAppearance = {
-        background,
-        color,
-        transparency: clampTransparency(transparency / 100),
-        ...(panel.type === "chart" ? { chart: chartAppearance } : {}),
-      };
-      await dispatch(
-        updatePanelAppearance({
-          panelId: panel.id,
-          appearance: appearancePayload,
-        }),
-      ).unwrap();
-      dialogRef.current?.close();
-      onCloseRef.current();
-    } catch {
-      setSaveError("Failed to save panel appearance.");
-    } finally {
-      setIsSaving(false);
-    }
+    const appearancePayload: PanelAppearance = {
+      background,
+      color,
+      transparency: clampTransparency(transparency / 100),
+      ...(panel.type === "chart" ? { chart: chartAppearance } : {}),
+    };
+    dispatch(
+      accumulatePanelUpdate({
+        panelId: panel.id,
+        fields: { appearance: appearancePayload },
+      }),
+    );
+    dialogRef.current?.close();
+    onCloseRef.current();
   }
 
   async function handleDataSubmit(e: FormEvent<HTMLFormElement>) {
@@ -502,7 +492,6 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                 </div>
               </div>
             )}
-            <InlineError error={saveError} />
           </form>
         ) : (
           <form
@@ -687,9 +676,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               form="panel-detail-appearance-form"
               className="panel-detail-modal__btn panel-detail-modal__btn--save"
               aria-label="Save panel style"
-              disabled={isSaving}
             >
-              {isSaving ? "Saving..." : "Save"}
+              Save
             </button>
           ) : (
             <button

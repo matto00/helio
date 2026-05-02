@@ -1,9 +1,12 @@
 import {
+  accumulatePanelUpdate,
+  clearPendingPanelUpdates,
   createPanel,
   fetchPanels,
   panelsReducer,
   updatePanelAppearance,
   updatePanelBinding,
+  updatePanelsBatch,
 } from "./panelsSlice";
 import { importDashboard } from "../dashboards/dashboardsSlice";
 
@@ -163,5 +166,91 @@ describe("panelsSlice", () => {
     expect(nextState.items[0].typeId).toBe("dt-1");
     expect(nextState.items[0].fieldMapping).toEqual({ value: "count" });
     expect(nextState.items[0].refreshInterval).toBe(300);
+  });
+
+  // Task 5.1 — accumulatePanelUpdate merges fields and patches items; clearPendingPanelUpdates resets
+  it("accumulatePanelUpdate merges fields into pendingPanelUpdates and patches items optimistically", () => {
+    const withPanel = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "req", "dashboard-1"),
+    );
+
+    const nextState = panelsReducer(
+      withPanel,
+      accumulatePanelUpdate({ panelId: "panel-1", fields: { title: "Updated" } }),
+    );
+
+    expect(nextState.pendingPanelUpdates["panel-1"]).toEqual({ title: "Updated" });
+    expect(nextState.items[0].title).toBe("Updated");
+  });
+
+  it("clearPendingPanelUpdates resets the pending map to empty", () => {
+    const withPanel = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "req", "dashboard-1"),
+    );
+    const withPending = panelsReducer(
+      withPanel,
+      accumulatePanelUpdate({ panelId: "panel-1", fields: { title: "Staged" } }),
+    );
+
+    const cleared = panelsReducer(withPending, clearPendingPanelUpdates());
+
+    expect(cleared.pendingPanelUpdates).toEqual({});
+    // optimistic patch in items is preserved after clear
+    expect(cleared.items[0].title).toBe("Staged");
+  });
+
+  // Task 5.2 — two accumulations for the same panel ID merge (later write wins per field)
+  it("two accumulatePanelUpdate calls for the same panel merge with last-write-wins semantics", () => {
+    const withPanel = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "req", "dashboard-1"),
+    );
+
+    const after1 = panelsReducer(
+      withPanel,
+      accumulatePanelUpdate({
+        panelId: "panel-1",
+        fields: { title: "First title", type: "chart" },
+      }),
+    );
+    const after2 = panelsReducer(
+      after1,
+      accumulatePanelUpdate({
+        panelId: "panel-1",
+        fields: { title: "Second title" },
+      }),
+    );
+
+    expect(after2.pendingPanelUpdates["panel-1"]).toEqual({
+      title: "Second title",
+      type: "chart",
+    });
+    expect(after2.items[0].title).toBe("Second title");
+    expect(after2.items[0].type).toBe("chart");
+  });
+
+  // Task 5.3 — failed updatePanelsBatch does NOT clear pendingPanelUpdates
+  it("a rejected updatePanelsBatch does not clear pendingPanelUpdates", () => {
+    const withPanel = panelsReducer(
+      undefined,
+      fetchPanels.fulfilled([basePanel], "req", "dashboard-1"),
+    );
+    const withPending = panelsReducer(
+      withPanel,
+      accumulatePanelUpdate({ panelId: "panel-1", fields: { title: "Unsaved" } }),
+    );
+
+    // Simulate a rejected batch (the slice has no handler for updatePanelsBatch.rejected)
+    const afterReject = panelsReducer(
+      withPending,
+      updatePanelsBatch.rejected(null, "req-batch", {
+        fields: ["title"],
+        panels: [{ id: "panel-1", title: "Unsaved" }],
+      }),
+    );
+
+    expect(afterReject.pendingPanelUpdates["panel-1"]).toEqual({ title: "Unsaved" });
   });
 });

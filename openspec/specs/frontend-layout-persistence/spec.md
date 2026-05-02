@@ -1,4 +1,10 @@
-## ADDED Requirements
+## Purpose
+
+Defines how the frontend loads, persists, and reconciles dashboard panel layouts. Covers hydration
+from saved backend state, debounced persistence of drag/resize changes, undo/redo persistence, and
+fallback position computation for panels missing from saved layouts.
+
+## Requirements
 
 ### Requirement: The frontend hydrates the grid from saved dashboard layouts
 The frontend MUST load saved dashboard layout state into the panel grid when a dashboard is selected.
@@ -49,3 +55,15 @@ The frontend MUST safely reconcile saved layouts with the currently loaded panel
 - **WHEN** a new panel is created and the panel list is refreshed
 - **THEN** the new panel receives a fallback position in the first available horizontal slot adjacent to existing panels
 - **AND** it does not stack at x=0, y=0 on top of or below an existing panel at that position
+
+### Requirement: Panel flush debounce runs alongside layout flush debounce
+The frontend MUST run an independent 250 ms panel-flush debounce timer in addition to the
+existing layout debounce, both co-located in PanelGrid. The two timers are independent — a
+layout change does not reset the panel flush timer, and vice versa.
+
+#### Scenario: Layout and panel flushes are independent
+- **GIVEN** a panel title has been accumulated and a layout drag has also occurred
+- **WHEN** each respective 250 ms debounce settles
+- **THEN** the layout flush sends `PATCH /api/dashboards/:id/update` as before
+- **AND** the panel flush sends `POST /api/panels/updateBatch` independently
+- **AND** neither flush waits for or is blocked by the other

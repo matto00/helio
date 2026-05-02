@@ -122,6 +122,12 @@ export interface Dashboard {
 
 export type PanelType = "metric" | "chart" | "text" | "table";
 
+export interface PanelUpdateFields {
+  title?: string;
+  appearance?: PanelAppearance;
+  type?: PanelType;
+}
+
 export interface Panel {
   id: string;
   dashboardId: string;
