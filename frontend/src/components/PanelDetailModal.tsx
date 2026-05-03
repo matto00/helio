@@ -75,7 +75,11 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
   const sources = useAppSelector((state) => state.sources);
-  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(panel, dataTypes, sources);
+  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(
+    panel,
+    dataTypes,
+    sources,
+  );
 
   // Modal mode: "view" is the default on open; "edit" shows the full editing UI
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
@@ -339,7 +343,11 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   );
 
   return (
-    <dialog ref={dialogRef} className={`panel-detail-modal${modalMode === "view" ? " panel-detail-modal--view" : ""}`} aria-label={`${panel.title} settings`}>
+    <dialog
+      ref={dialogRef}
+      className={`panel-detail-modal${modalMode === "view" ? " panel-detail-modal--view" : ""}`}
+      aria-label={`${panel.title} settings`}
+    >
       <div className="panel-detail-modal__inner">
         <header className="panel-detail-modal__header">
           <span className="panel-detail-modal__title">{panel.title}</span>
