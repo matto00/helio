@@ -13,6 +13,7 @@ import {
   updatePanelImage,
 } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { usePanelData } from "../hooks/usePanelData";
 import {
   clampTransparency,
   getColorInputValue,
@@ -73,6 +74,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
 
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
+  const sources = useAppSelector((state) => state.sources);
+  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(panel, dataTypes, sources);
 
   // Modal mode: "view" is the default on open; "edit" shows the full editing UI
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
@@ -336,10 +339,10 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   );
 
   return (
-    <dialog ref={dialogRef} className="panel-detail-modal" aria-label={`${panel.title} settings`}>
+    <dialog ref={dialogRef} className={`panel-detail-modal${modalMode === "view" ? " panel-detail-modal--view" : ""}`} aria-label={`${panel.title} settings`}>
       <div className="panel-detail-modal__inner">
         <header className="panel-detail-modal__header">
-          <span className="panel-detail-modal__title">Panel: &ldquo;{panel.title}&rdquo;</span>
+          <span className="panel-detail-modal__title">{panel.title}</span>
           <div className="panel-detail-modal__header-actions">
             {modalMode === "view" && (
               <button
@@ -366,6 +369,13 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
           <div className="panel-detail-modal__view-body">
             <PanelContent
               type={panel.type}
+              data={data}
+              rawRows={rawRows}
+              headers={headers}
+              fieldMapping={panel.fieldMapping}
+              isLoading={isLoading}
+              error={error}
+              noData={noData}
               content={panel.content}
               imageUrl={panel.imageUrl}
               imageFit={panel.imageFit}

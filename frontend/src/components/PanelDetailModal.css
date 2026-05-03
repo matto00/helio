@@ -10,8 +10,17 @@
   overflow: hidden;
 }
 
+.panel-detail-modal--view {
+  width: min(1200px, 96vw);
+  height: min(88vh, 900px);
+}
+
 .panel-detail-modal::backdrop {
   background: rgb(0 0 0 / 0.55);
+}
+
+.panel-detail-modal--view::backdrop {
+  background: rgb(0 0 0 / 0.35);
 }
 
 .panel-detail-modal__inner {

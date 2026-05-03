@@ -19,9 +19,10 @@
 }
 
 .panel-list__header-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .panel-list__header h2 {
@@ -72,6 +73,12 @@
 .panel-list__add:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
+}
+
+.panel-list__panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-list__zoom-controls {

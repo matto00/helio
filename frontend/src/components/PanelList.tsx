@@ -118,9 +118,6 @@ export function PanelList() {
     >
       <header className="panel-list__header">
         <div className="panel-list__header-actions">
-          <span className="panel-list__count">
-            {items.length} panel{items.length === 1 ? "" : "s"}
-          </span>
           {selectedDashboardId ? (
             <div className="panel-list__zoom-controls">
               <button
@@ -153,15 +150,20 @@ export function PanelList() {
               </button>
             </div>
           ) : null}
-          <button
-            type="button"
-            className="panel-list__add"
-            aria-label="Add panel"
-            onClick={() => setIsModalOpen(true)}
-            disabled={selectedDashboardId === null}
-          >
-            <span aria-hidden="true">+</span>
-          </button>
+          <div className="panel-list__panel-actions">
+            <span className="panel-list__count">
+              {items.length} panel{items.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              className="panel-list__add"
+              aria-label="Add panel"
+              onClick={() => setIsModalOpen(true)}
+              disabled={selectedDashboardId === null}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
         </div>
       </header>
       {isModalOpen ? <PanelCreationModal onClose={() => setIsModalOpen(false)} /> : null}
