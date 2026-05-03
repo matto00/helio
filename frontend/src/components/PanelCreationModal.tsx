@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import "./PanelCreationModal.css";
@@ -45,6 +45,10 @@ const PANEL_TYPES: { value: PanelType; label: string; icon: string; description:
   },
 ];
 
+// Selector for all keyboard-focusable elements inside the modal.
+const FOCUSABLE_SELECTORS =
+  'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 type Step = "type-select" | "template-select" | "name-entry";
 
 interface PanelCreationModalProps {
@@ -63,13 +67,69 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // 1.1 — Dirty when the user has selected a type, selected a template, or typed a title.
+  const isDirty = selectedType !== null || selectedTemplate !== null || title !== "";
+
   useEffect(() => {
     dialogRef.current?.showModal();
+  }, []);
+
+  // 1.6 / 1.7 — Focus trap: Tab/Shift+Tab cycle only through modal-internal focusable elements.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    function handleFocusTrapKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+
+      const focusable = Array.from(dialog!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        // Shift+Tab from first → wrap to last
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        // Tab from last → wrap to first
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    dialog.addEventListener("keydown", handleFocusTrapKeyDown);
+    return () => {
+      dialog.removeEventListener("keydown", handleFocusTrapKeyDown);
+    };
   }, []);
 
   function handleClose() {
     dialogRef.current?.close();
     onClose();
+  }
+
+  // 1.2 — Shared dismiss helper: prompts when dirty, closes directly when clean.
+  function handleDismiss() {
+    if (isDirty) {
+      if (window.confirm("Discard changes? Any data you've entered will be lost.")) {
+        handleClose();
+      }
+    } else {
+      handleClose();
+    }
+  }
+
+  // 1.4 — Backdrop click: close when the click target is the <dialog> itself (not inner content).
+  function handleBackdropClick(e: MouseEvent<HTMLDialogElement>) {
+    if (e.target === dialogRef.current) {
+      handleDismiss();
+    }
   }
 
   function handleTypeSelect(type: PanelType) {
@@ -136,15 +196,23 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
       className={`panel-creation-modal${step === "name-entry" ? " panel-creation-modal--wide" : ""}`}
       aria-label="Create panel"
       onClose={onClose}
+      // 1.3 — Intercept native Escape (cancel event) and route through handleDismiss.
+      onCancel={(e) => {
+        e.preventDefault();
+        handleDismiss();
+      }}
+      // 1.4 — Backdrop click handler.
+      onClick={handleBackdropClick}
     >
       <div className="panel-creation-modal__inner">
         <header className="panel-creation-modal__header">
           <h2 className="panel-creation-modal__title">{getStepTitle()}</h2>
+          {/* 1.5 — Close button now routes through handleDismiss for dirty-state guard. */}
           <button
             type="button"
             className="panel-creation-modal__close"
             aria-label="Close modal"
-            onClick={handleClose}
+            onClick={handleDismiss}
           >
             ✕
           </button>
