@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../features/panels/panelsSlice";
+import { PANEL_TEMPLATES } from "../features/panels/panelTemplates";
+import type { PanelTemplate } from "../features/panels/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { InlineError } from "./InlineError";
 import type { PanelType } from "../types/models";
@@ -42,7 +44,7 @@ const PANEL_TYPES: { value: PanelType; label: string; icon: string; description:
   },
 ];
 
-type Step = "type-select" | "name-entry";
+type Step = "type-select" | "template-select" | "name-entry";
 
 interface PanelCreationModalProps {
   onClose: () => void;
@@ -55,6 +57,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
   const [step, setStep] = useState<Step>("type-select");
   const [selectedType, setSelectedType] = useState<PanelType | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<PanelTemplate | null>(null);
   const [title, setTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -70,11 +73,22 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
   function handleTypeSelect(type: PanelType) {
     setSelectedType(type);
+    setStep("template-select");
+  }
+
+  function handleTemplateSelect(template: PanelTemplate | null) {
+    setSelectedTemplate(template);
+    setTitle(template?.defaults.title ?? "");
     setStep("name-entry");
   }
 
-  function handleBack() {
+  function handleBackFromTemplate() {
     setStep("type-select");
+    setSelectedTemplate(null);
+  }
+
+  function handleBackFromName() {
+    setStep("template-select");
     setCreateError(null);
   }
 
@@ -107,6 +121,14 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     }
   }
 
+  function getStepTitle(): string {
+    if (step === "type-select") return "Choose panel type";
+    if (step === "template-select") return "Choose a template";
+    return "Name your panel";
+  }
+
+  const templates = selectedType ? PANEL_TEMPLATES[selectedType] : [];
+
   return (
     <dialog
       ref={dialogRef}
@@ -116,9 +138,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     >
       <div className="panel-creation-modal__inner">
         <header className="panel-creation-modal__header">
-          <h2 className="panel-creation-modal__title">
-            {step === "type-select" ? "Choose panel type" : "Name your panel"}
-          </h2>
+          <h2 className="panel-creation-modal__title">{getStepTitle()}</h2>
           <button
             type="button"
             className="panel-creation-modal__close"
@@ -129,7 +149,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           </button>
         </header>
 
-        {step === "type-select" ? (
+        {step === "type-select" && (
           <div className="panel-creation-modal__type-grid" role="group" aria-label="Panel type">
             {PANEL_TYPES.map(({ value, label, icon, description }) => (
               <button
@@ -147,7 +167,54 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
               </button>
             ))}
           </div>
-        ) : (
+        )}
+
+        {step === "template-select" && (
+          <div className="panel-creation-modal__template-step">
+            <div
+              className="panel-creation-modal__template-grid"
+              role="group"
+              aria-label="Panel template"
+            >
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className="panel-creation-modal__template-card"
+                  aria-label={template.label}
+                  onClick={() => handleTemplateSelect(template)}
+                >
+                  <span className="panel-creation-modal__template-label">{template.label}</span>
+                  <span className="panel-creation-modal__template-description">
+                    {template.description}
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                className="panel-creation-modal__template-card panel-creation-modal__template-card--blank"
+                aria-label="Start blank"
+                onClick={() => handleTemplateSelect(null)}
+              >
+                <span className="panel-creation-modal__template-label">Start blank</span>
+                <span className="panel-creation-modal__template-description">
+                  Begin with an empty panel
+                </span>
+              </button>
+            </div>
+            <div className="panel-creation-modal__actions">
+              <button
+                type="button"
+                className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
+                onClick={handleBackFromTemplate}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "name-entry" && (
           <form className="panel-creation-modal__form" onSubmit={(e) => void handleCreate(e)}>
             <div className="panel-creation-modal__field">
               <label className="panel-creation-modal__label" htmlFor="panel-create-title">
@@ -169,7 +236,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
               <button
                 type="button"
                 className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
-                onClick={handleBack}
+                onClick={handleBackFromName}
               >
                 Back
               </button>

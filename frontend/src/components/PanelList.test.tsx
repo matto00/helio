@@ -255,6 +255,7 @@ describe("PanelList", () => {
     // Open modal, select metric type, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "New Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -302,6 +303,7 @@ describe("PanelList", () => {
     // Open modal, select chart type, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Chart" },
     });
@@ -351,6 +353,7 @@ describe("PanelList", () => {
     // Open modal, select table, create
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Table Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -484,6 +487,7 @@ describe("PanelList", () => {
     // Open modal, select type, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Add panel" }));
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Forecast" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 

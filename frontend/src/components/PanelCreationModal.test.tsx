@@ -104,27 +104,28 @@ describe("PanelCreationModal", () => {
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
-  it("selecting a type advances to the name-entry step", () => {
+  it("selecting a type advances to the template-select step", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
 
-    expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create panel" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
-  it("back button returns to the type-select step", () => {
+  it("back button on name-entry step returns to the template-select step", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
   });
 
   it("submitting dispatches createPanel with the selected type and title", async () => {
@@ -150,6 +151,7 @@ describe("PanelCreationModal", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Pulse" },
     });
@@ -183,6 +185,7 @@ describe("PanelCreationModal", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "My Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -196,6 +199,7 @@ describe("PanelCreationModal", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Broken Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -217,7 +221,59 @@ describe("PanelCreationModal", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     expect(screen.getByRole("button", { name: "Create panel" })).toBeDisabled();
+  });
+
+  it("selecting a template pre-fills the title input on the name-entry step", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "KPI Metric" }));
+
+    const titleInput = screen.getByLabelText("Panel title") as HTMLInputElement;
+    expect(titleInput.value).toBe("KPI Metric");
+  });
+
+  it('"Start blank" card leaves the title input empty', () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const titleInput = screen.getByLabelText("Panel title") as HTMLInputElement;
+    expect(titleInput.value).toBe("");
+  });
+
+  it("Back on template-select step returns to the type-select step", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.queryByRole("group", { name: "Panel template" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
+  });
+
+  it("modal resets template selection on close and reopen", () => {
+    const onClose = jest.fn();
+    const { unmount } = renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    unmount();
+
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Panel template" })).not.toBeInTheDocument();
   });
 });
