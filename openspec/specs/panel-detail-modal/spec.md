@@ -1,5 +1,10 @@
+# panel-detail-modal Specification
+
+## Purpose
+The panel detail modal provides panel-level customization (appearance and data configuration) accessible from the panel actions menu and from a direct click on the panel card body.
+## Requirements
 ### Requirement: Panel detail modal opens from the actions menu
-The "Customize" action in the panel actions menu MUST open the panel detail modal for that panel.
+The "Customize" action in the panel actions menu MUST open the panel detail modal for that panel. Panel body click is also a trigger — see the ADDED requirement below.
 
 #### Scenario: Customize action opens the modal
 - **WHEN** the user clicks "Customize" in a panel's actions menu
@@ -53,3 +58,11 @@ Clicking Save MUST dispatch the appearance update and close the modal on success
 - **WHEN** the user modifies appearance values and clicks Save
 - **THEN** the appearance update is submitted to the backend
 - **AND** the modal closes on success
+
+### Requirement: Panel detail modal opens from the panel body click
+The panel detail modal MUST also open when the user clicks the panel card body (not on an interactive control), as defined in the `panel-body-click` capability. Both triggers open the same modal.
+
+#### Scenario: Panel body click opens the modal
+- **WHEN** the user clicks the panel body (not on a drag handle, actions menu, title input, or resize handle)
+- **THEN** the panel detail modal opens for that panel
+
