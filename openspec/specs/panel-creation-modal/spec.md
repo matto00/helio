@@ -1,3 +1,8 @@
+# panel-creation-modal Specification
+
+## Purpose
+Defines the two-step panel creation modal: type selection followed by title entry with live preview.
+## Requirements
 ### Requirement: Panel creation opens a type-first modal
 When the user initiates panel creation, the UI MUST open a modal dialog. The modal MUST display a type selection step before any other configuration is shown.
 
@@ -23,12 +28,15 @@ The type picker step MUST offer all available panel types as selectable options.
 - **AND** the user can proceed to the next step
 
 ### Requirement: Modal second step collects the panel title
-After type selection, the modal MUST present a title input and a create button. No other fields SHALL appear in this step.
+After type selection, the modal MUST present a title input, a create button, and a live panel
+preview pane. The form inputs SHALL be displayed in one column and the preview SHALL be displayed
+in a second column on viewports 600 px and wider.
 
 #### Scenario: Title step follows type selection
 - **WHEN** the user has selected a type and proceeds
 - **THEN** a title input field is shown
 - **AND** a "Create panel" button is available
+- **AND** a live preview pane is shown alongside the form displaying the selected panel type
 
 #### Scenario: Create button submits with selected type
 - **WHEN** the user enters a valid title and clicks "Create panel"
@@ -69,3 +77,4 @@ All modal-local state (selected type, entered title, error) MUST reset when the 
 - **WHEN** the user creates a panel and the modal closes
 - **AND** the user opens the modal again
 - **THEN** the type picker step is shown with no type pre-selected
+
