@@ -7,14 +7,39 @@ import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { InlineError } from "./InlineError";
 import type { PanelType } from "../types/models";
 
-const PANEL_TYPES: { value: PanelType; label: string; icon: string }[] = [
-  { value: "metric", label: "Metric", icon: "📊" },
-  { value: "chart", label: "Chart", icon: "📈" },
-  { value: "text", label: "Text", icon: "T" },
-  { value: "table", label: "Table", icon: "⊞" },
-  { value: "markdown", label: "Markdown", icon: "M↓" },
-  { value: "image", label: "Image", icon: "🖼" },
-  { value: "divider", label: "Divider", icon: "—" },
+const PANEL_TYPES: { value: PanelType; label: string; icon: string; description: string }[] = [
+  {
+    value: "metric",
+    label: "Metric",
+    icon: "📊",
+    description: "Display a single KPI value or stat",
+  },
+  {
+    value: "chart",
+    label: "Chart",
+    icon: "📈",
+    description: "Visualize trends with line, bar, or pie",
+  },
+  { value: "text", label: "Text", icon: "T", description: "Add freeform text or headings" },
+  {
+    value: "table",
+    label: "Table",
+    icon: "⊞",
+    description: "Show structured data in rows and columns",
+  },
+  {
+    value: "markdown",
+    label: "Markdown",
+    icon: "M↓",
+    description: "Write formatted content with Markdown",
+  },
+  { value: "image", label: "Image", icon: "🖼", description: "Embed an image from a URL" },
+  {
+    value: "divider",
+    label: "Divider",
+    icon: "—",
+    description: "Separate sections with a visual line",
+  },
 ];
 
 type Step = "type-select" | "name-entry";
@@ -106,7 +131,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
         {step === "type-select" ? (
           <div className="panel-creation-modal__type-grid" role="group" aria-label="Panel type">
-            {PANEL_TYPES.map(({ value, label, icon }) => (
+            {PANEL_TYPES.map(({ value, label, icon, description }) => (
               <button
                 key={value}
                 type="button"
@@ -118,6 +143,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                   {icon}
                 </span>
                 <span className="panel-creation-modal__type-label">{label}</span>
+                <span className="panel-creation-modal__type-description">{description}</span>
               </button>
             ))}
           </div>

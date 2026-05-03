@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelCreationModal.tsx` — added `description` field to PANEL_TYPES, destructured and rendered description span in card JSX
+- `frontend/src/components/PanelCreationModal.css` — added type-description class, focus-visible styling, widened modal to 600px, 3-column grid
+- `frontend/src/components/PanelCreationModal.test.tsx` — updated existing test to assert description visible, added new test for all 7 descriptions
