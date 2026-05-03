@@ -1,8 +1,9 @@
 ## MODIFIED Requirements
 
-### Requirement: Modal second step presents template options for the chosen type
-After type selection, the modal MUST present a template picker as Step 2. The title/configure step becomes
-Step 3. The requirement that "the second step collects the panel title" is superseded by this requirement.
+### Requirement: Modal second step collects the panel title
+After type selection, the modal MUST present a template picker as Step 2 before the title form (Step 3).
+The original "second step is the title form" is replaced by the template-select step inserting between
+type selection and title entry.
 
 #### Scenario: Template step follows type selection
 - **WHEN** the user selects a panel type card
