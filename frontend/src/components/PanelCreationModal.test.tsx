@@ -80,6 +80,21 @@ describe("PanelCreationModal", () => {
     expect(screen.getByRole("button", { name: "Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Divider" })).toBeInTheDocument();
+    // at least one description is visible
+    expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
+  });
+
+  it("each type card renders with a non-empty description", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
+    expect(screen.getByText("Visualize trends with line, bar, or pie")).toBeInTheDocument();
+    expect(screen.getByText("Add freeform text or headings")).toBeInTheDocument();
+    expect(screen.getByText("Show structured data in rows and columns")).toBeInTheDocument();
+    expect(screen.getByText("Write formatted content with Markdown")).toBeInTheDocument();
+    expect(screen.getByText("Embed an image from a URL")).toBeInTheDocument();
+    expect(screen.getByText("Separate sections with a visual line")).toBeInTheDocument();
   });
 
   it("does not show the title input on the type-select step", () => {
