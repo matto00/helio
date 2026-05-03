@@ -1,6 +1,8 @@
+# panel-creation-modal Specification
+
 ## Purpose
-Defines the type-first panel creation modal: its step flow, type picker, dismiss behaviour, error handling,
-and state reset. This spec is the contract for the multi-step dialog that guides users through panel creation.
+Defines the three-step panel creation modal: type selection, template selection, and title entry with live
+preview. This spec is the contract for the multi-step dialog that guides users through panel creation.
 ## Requirements
 ### Requirement: Panel creation opens a type-first modal
 When the user initiates panel creation, the UI MUST open a modal dialog. The modal MUST display a type selection step before any other configuration is shown.
@@ -26,10 +28,10 @@ The type picker step MUST offer all available panel types as selectable options.
 - **THEN** the selection is highlighted
 - **AND** the user can proceed to the next step
 
-### Requirement: Modal second step collects the panel title
+### Requirement: Modal second step selects a template, third step names the panel
 After type selection, the modal MUST present a template picker as Step 2 before the title form (Step 3).
-The original "second step is the title form" is replaced by the template-select step inserting between
-type selection and title entry.
+The title form (Step 3) MUST display a live panel preview pane alongside the form inputs. The form SHALL
+be displayed in one column and the preview in a second column on viewports 600 px and wider.
 
 #### Scenario: Template step follows type selection
 - **WHEN** the user selects a panel type card
