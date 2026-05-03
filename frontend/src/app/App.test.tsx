@@ -465,6 +465,12 @@ describe("App", () => {
     const customizePanelButton = await screen.findByRole("menuitem", { name: "Customize" });
     fireEvent.click(customizePanelButton);
 
+    // Modal opens in view mode by default, click Edit to enter edit mode
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
     await waitFor(() =>
       expect(screen.getByLabelText("Revenue Pulse background color")).toBeInTheDocument(),
     );

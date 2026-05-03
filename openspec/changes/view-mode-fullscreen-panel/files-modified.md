@@ -1,0 +1,5 @@
+- `frontend/src/components/PanelDetailModal.tsx` — added `modalMode` state/ref, view mode body with PanelContent, Edit button in header, discard-warning bypass for view mode
+- `frontend/src/components/PanelDetailModal.css` — added `.panel-detail-modal__header-actions`, `.panel-detail-modal__edit-btn`, and `.panel-detail-modal__view-body` rules
+- `frontend/src/components/PanelDetailModal.test.tsx` — updated task-2.1 test, added tasks 2.2–2.5 tests, updated all existing edit-mode tests to enter edit mode first
+- `frontend/src/components/ComputedFieldPicker.test.tsx` — updated to click Edit panel before the Data tab (modal now opens in view mode)
+- `frontend/src/app/App.test.tsx` — updated panel appearance test to click Edit panel before accessing appearance controls

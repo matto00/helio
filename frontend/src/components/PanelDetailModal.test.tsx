@@ -162,20 +162,51 @@ describe("PanelDetailModal", () => {
     expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalled();
   });
 
-  it("renders the Appearance tab by default with color and transparency controls", () => {
+  it("opens in view mode by default — Edit button visible, no tab bar", () => {
     renderModal();
-    expect(screen.getByRole("tab", { name: "Appearance" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByLabelText("Revenue background color")).toBeInTheDocument();
-    expect(screen.getByLabelText("Revenue text color")).toBeInTheDocument();
-    expect(screen.getByLabelText("Revenue transparency")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Appearance" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("modal opens in view mode — tab bar not visible, Edit button visible", () => {
+    renderModal();
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("clicking Edit button transitions to edit mode — Appearance tab visible and selected", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    const appearanceTab = screen.getByRole("tab", { name: "Appearance" });
+    expect(appearanceTab).toBeInTheDocument();
+    expect(appearanceTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("close from view mode is immediate — no discard warning shown", () => {
+    const onClose = jest.fn();
+    renderModal(onClose);
+    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+  });
+
+  it("close from edit mode with unsaved changes still shows discard warning", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
+      target: { value: "50" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
   it("switches to the Data tab and shows the type search input", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     expect(screen.getByRole("tab", { name: "Data" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
@@ -184,6 +215,7 @@ describe("PanelDetailModal", () => {
   it("shows a Save button on the Data tab", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     expect(screen.getByRole("button", { name: "Save data binding" })).toBeInTheDocument();
   });
@@ -191,6 +223,7 @@ describe("PanelDetailModal", () => {
   it("dispatches fetchDataTypes when Data tab is activated", async () => {
     fetchDataTypesMock.mockResolvedValue([testDataType]);
     renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     await waitFor(() => expect(fetchDataTypesMock).toHaveBeenCalled());
   });
@@ -198,6 +231,7 @@ describe("PanelDetailModal", () => {
   it("shows the DataType list when data types are loaded", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     expect(screen.getByRole("listbox", { name: "Data types" })).toBeInTheDocument();
     expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
@@ -206,6 +240,7 @@ describe("PanelDetailModal", () => {
   it("shows field mapping slots after selecting a DataType", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     // metric panel: value, label, unit slots
@@ -217,6 +252,7 @@ describe("PanelDetailModal", () => {
   it("filters the DataType list by search query", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.change(screen.getByLabelText("Search data types"), {
       target: { value: "xyz" },
@@ -236,6 +272,7 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     renderModalWithDataType(onClose);
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
@@ -249,6 +286,7 @@ describe("PanelDetailModal", () => {
     updateBindingMock.mockRejectedValue(new Error("Network error"));
     renderModalWithDataType();
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
@@ -262,6 +300,7 @@ describe("PanelDetailModal", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
@@ -274,6 +313,7 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     const { store } = renderModal(onClose);
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Revenue background color"), {
       target: { value: "#000000" },
     });
@@ -295,6 +335,7 @@ describe("PanelDetailModal", () => {
   it("closes without saving when Cancel is clicked and form is clean", () => {
     const onClose = jest.fn();
     renderModal(onClose);
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
     expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -304,6 +345,7 @@ describe("PanelDetailModal", () => {
   it("shows discard warning when Cancel is clicked with unsaved appearance changes", () => {
     renderModal();
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
@@ -317,6 +359,7 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     renderModal(onClose);
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
@@ -332,6 +375,7 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     renderModal(onClose);
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
@@ -346,6 +390,7 @@ describe("PanelDetailModal", () => {
   describe("Chart section", () => {
     it("renders Chart section on Appearance tab for chart panels", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByLabelText("Show legend")).toBeInTheDocument();
       expect(screen.getByLabelText("Enable tooltip")).toBeInTheDocument();
       expect(screen.getByLabelText("Show X-axis label")).toBeInTheDocument();
@@ -360,33 +405,39 @@ describe("PanelDetailModal", () => {
 
     it("renders 8 series color swatches for chart panels", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       const swatches = screen.getAllByLabelText(/Series color/);
       expect(swatches).toHaveLength(8);
     });
 
     it("shows legend position selector when legend is visible", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByLabelText("Legend position")).toBeInTheDocument();
     });
 
     it("hides legend position selector when legend is toggled off", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       fireEvent.click(screen.getByLabelText("Show legend"));
       expect(screen.queryByLabelText("Legend position")).not.toBeInTheDocument();
     });
 
     it("shows X-axis label text input when X-axis label is enabled", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByLabelText("X-axis label text")).toBeInTheDocument();
     });
 
     it("shows Y-axis label text input when Y-axis label is enabled", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByLabelText("Y-axis label text")).toBeInTheDocument();
     });
 
     it("hides X-axis label text input when toggled off", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       fireEvent.click(screen.getByLabelText("Show X-axis label"));
       expect(screen.queryByLabelText("X-axis label text")).not.toBeInTheDocument();
     });
@@ -395,6 +446,7 @@ describe("PanelDetailModal", () => {
   describe("Chart type selector", () => {
     it("renders chart type radio buttons for chart panels", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByLabelText("Chart type bar")).toBeInTheDocument();
       expect(screen.getByLabelText("Chart type line")).toBeInTheDocument();
       expect(screen.getByLabelText("Chart type pie")).toBeInTheDocument();
@@ -409,12 +461,14 @@ describe("PanelDetailModal", () => {
 
     it("defaults to line chart type", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       const lineRadio = screen.getByLabelText("Chart type line") as HTMLInputElement;
       expect(lineRadio.checked).toBe(true);
     });
 
     it("updates the preview when a chart type is selected", () => {
       renderChartModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       const pieRadio = screen.getByLabelText("Chart type pie");
       fireEvent.click(pieRadio);
       expect((pieRadio as HTMLInputElement).checked).toBe(true);
@@ -426,16 +480,19 @@ describe("PanelDetailModal", () => {
   describe("Divider section", () => {
     it("shows a Divider tab for divider panels", () => {
       renderDividerModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
     });
 
     it("does not show a Divider tab for non-divider panels", () => {
       renderModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
     });
 
     it("shows divider orientation, weight, and color controls on the Divider tab", () => {
       renderDividerModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
       expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
       expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
@@ -451,6 +508,7 @@ describe("PanelDetailModal", () => {
 
     it("shows a Save divider settings button on the Divider tab", () => {
       renderDividerModal();
+      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
       fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
       expect(screen.getByRole("button", { name: "Save divider settings" })).toBeInTheDocument();
     });
@@ -467,16 +525,19 @@ describe("PanelDetailModal -- divider panel", () => {
 
   it("shows the Divider tab for divider panels", () => {
     renderDividerModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
   });
 
   it("does not show the Divider tab for non-divider panels", () => {
     renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
   });
 
   it("shows divider controls when Divider tab is active", () => {
     renderDividerModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
     expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
     expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
@@ -500,6 +561,7 @@ describe("PanelDetailModal -- divider panel", () => {
     updateDividerMock.mockResolvedValue({ ...dividerTestPanelNullColor, dividerColor: null });
     renderDividerModalNullColor();
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
     fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
 
@@ -517,6 +579,7 @@ describe("PanelDetailModal -- divider panel", () => {
     updateDividerMock.mockResolvedValue({ ...dividerTestPanel, dividerColor: "#ff0000" });
     renderDividerModal();
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
     fireEvent.change(screen.getByLabelText("Divider color"), { target: { value: "#ff0000" } });
     fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
