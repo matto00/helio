@@ -45,7 +45,10 @@ final case class PanelResponse(
     ownerId: String,
     content: Option[String] = None,
     imageUrl: Option[String] = None,
-    imageFit: Option[String] = None
+    imageFit: Option[String] = None,
+    dividerOrientation: Option[String] = None,
+    dividerWeight: Option[Int] = None,
+    dividerColor: Option[String] = None
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class PanelsResponse(items: Vector[PanelResponse])
@@ -61,7 +64,10 @@ final case class DashboardSnapshotPanelEntry(
     fieldMapping: Option[JsValue],
     content: Option[String],
     imageUrl: Option[String] = None,
-    imageFit: Option[String] = None
+    imageFit: Option[String] = None,
+    dividerOrientation: Option[String] = None,
+    dividerWeight: Option[Int] = None,
+    dividerColor: Option[String] = None
 )
 final case class DashboardSnapshotDashboardEntry(
     name: String,
@@ -109,7 +115,10 @@ final case class UpdatePanelRequest(
     fieldMapping: Option[Option[JsValue]],
     content: Option[String] = None,
     imageUrl: Option[String] = None,
-    imageFit: Option[String] = None
+    imageFit: Option[String] = None,
+    dividerOrientation: Option[String] = None,
+    dividerWeight: Option[Int] = None,
+    dividerColor: Option[String] = None
 )
 
 // ── Permission API types ──────────────────────────────────────────────────────
@@ -253,9 +262,12 @@ object PanelResponse {
       typeId       = panel.typeId.map(_.value),
       fieldMapping = panel.fieldMapping,
       ownerId      = panel.ownerId.value,
-      content      = panel.content,
-      imageUrl     = panel.imageUrl,
-      imageFit     = panel.imageFit
+      content             = panel.content,
+      imageUrl            = panel.imageUrl,
+      imageFit            = panel.imageFit,
+      dividerOrientation  = panel.dividerOrientation,
+      dividerWeight       = panel.dividerWeight,
+      dividerColor        = panel.dividerColor
     )
 }
 
@@ -404,9 +416,12 @@ object DashboardSnapshotPanelEntry {
       ),
       typeId       = panel.typeId.map(_.value),
       fieldMapping = panel.fieldMapping,
-      content      = panel.content,
-      imageUrl     = panel.imageUrl,
-      imageFit     = panel.imageFit
+      content             = panel.content,
+      imageUrl            = panel.imageUrl,
+      imageFit            = panel.imageFit,
+      dividerOrientation  = panel.dividerOrientation,
+      dividerWeight       = panel.dividerWeight,
+      dividerColor        = panel.dividerColor
     )
 }
 
@@ -490,7 +505,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse] = jsonFormat6(
     DashboardResponse.apply
   )
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat12(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse] = jsonFormat15(PanelResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse] = jsonFormat1(
     DashboardsResponse.apply
   )
@@ -533,6 +548,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
         r.content.foreach(v => fields("content") = JsString(v))
         r.imageUrl.foreach(v => fields("imageUrl") = JsString(v))
         r.imageFit.foreach(v => fields("imageFit") = JsString(v))
+        r.dividerOrientation.foreach(v => fields("dividerOrientation") = JsString(v))
+        r.dividerWeight.foreach(v => fields("dividerWeight") = JsNumber(v))
+        r.dividerColor.foreach(v => fields("dividerColor") = JsString(v))
         JsObject(fields.toMap)
       }
 
@@ -553,9 +571,12 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
             case Some(JsNull) => Some(None)
             case Some(v)      => Some(Some(v))
           },
-          content  = obj.fields.get("content").map(_.convertTo[String]),
-          imageUrl = obj.fields.get("imageUrl").map(_.convertTo[String]),
-          imageFit = obj.fields.get("imageFit").map(_.convertTo[String])
+          content             = obj.fields.get("content").map(_.convertTo[String]),
+          imageUrl            = obj.fields.get("imageUrl").map(_.convertTo[String]),
+          imageFit            = obj.fields.get("imageFit").map(_.convertTo[String]),
+          dividerOrientation  = obj.fields.get("dividerOrientation").map(_.convertTo[String]),
+          dividerWeight       = obj.fields.get("dividerWeight").map(_.convertTo[Int]),
+          dividerColor        = obj.fields.get("dividerColor").map(_.convertTo[String])
         )
       }
     }
@@ -625,7 +646,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   // Snapshot API formats
-  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat9(DashboardSnapshotPanelEntry.apply)
+  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat12(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 

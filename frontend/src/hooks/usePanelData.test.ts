@@ -41,6 +41,9 @@ function makePanel(overrides: Partial<Panel> = {}): Panel {
     content: null,
     imageUrl: null,
     imageFit: null,
+    dividerOrientation: null,
+    dividerWeight: null,
+    dividerColor: null,
     ...overrides,
   } as Panel;
 }

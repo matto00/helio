@@ -69,6 +69,15 @@ object RequestValidation {
       case Some(fit) => Left(s"Invalid imageFit value: '$fit'. Valid values: contain, cover, fill")
     }
 
+  private val ValidDividerOrientationValues = Set("horizontal", "vertical")
+
+  def validateDividerOrientation(orientation: Option[String]): Either[String, Option[String]] =
+    orientation match {
+      case None                                                            => Right(None)
+      case Some(o) if ValidDividerOrientationValues.contains(o)           => Right(Some(o))
+      case Some(o) => Left(s"Invalid dividerOrientation value: '$o'. Valid values: horizontal, vertical")
+    }
+
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
 }

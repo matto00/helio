@@ -162,14 +162,19 @@ final class PanelRoutes(
                     val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
                     val hasContent    = request.content.isDefined
                     val hasImage      = request.imageUrl.isDefined || request.imageFit.isDefined
+                    val hasDivider    = request.dividerOrientation.isDefined || request.dividerWeight.isDefined || request.dividerColor.isDefined
                     val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined || hasContent
 
                     if (trimmedTitle.contains("")) {
                       complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
-                    } else if (!hasOtherField && !hasBinding && !hasImage) {
+                    } else if (!hasOtherField && !hasBinding && !hasImage && !hasDivider) {
                       complete(StatusCodes.BadRequest, ErrorResponse("at least one field is required"))
                     } else {
                       RequestValidation.validateImageFit(request.imageFit) match {
+                        case Left(err) =>
+                          complete(StatusCodes.BadRequest, ErrorResponse(err))
+                        case Right(_) =>
+                      RequestValidation.validateDividerOrientation(request.dividerOrientation) match {
                         case Left(err) =>
                           complete(StatusCodes.BadRequest, ErrorResponse(err))
                         case Right(_) =>
@@ -220,6 +225,13 @@ final class PanelRoutes(
                               case Some(_) => panelRepo.updateImage(PanelId(panelId), request.imageUrl, request.imageFit, now)
                             }
 
+                          def applyDividerUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
+                            if (!hasDivider) Future.successful(panelOpt)
+                            else panelOpt match {
+                              case None    => Future.successful(None)
+                              case Some(_) => panelRepo.updateDividerFields(PanelId(panelId), request.dividerOrientation, request.dividerWeight, request.dividerColor, now)
+                            }
+
                           val coreFuture: Future[Option[Panel]] =
                             if (!hasOtherField) {
                               panelRepo.findById(PanelId(panelId))
@@ -256,13 +268,14 @@ final class PanelRoutes(
                               titleFuture
                             }
 
-                          onSuccess(coreFuture.flatMap(applyBindingUpdate).flatMap(applyImageUpdate).flatMap {
+                          onSuccess(coreFuture.flatMap(applyBindingUpdate).flatMap(applyImageUpdate).flatMap(applyDividerUpdate).flatMap {
                             case None        => Future.successful(None)
                             case Some(panel) => resolveTypeBinding(panel).map(Some(_))
                           }) {
                             case Some(panel) => complete(PanelResponse.fromDomain(panel))
                             case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                           }
+                      }
                       }
                       }
                     }

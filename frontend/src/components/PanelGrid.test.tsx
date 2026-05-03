@@ -89,6 +89,9 @@ const testPanel = {
   content: null,
   imageUrl: null,
   imageFit: null,
+  dividerOrientation: null,
+  dividerWeight: null,
+  dividerColor: null,
 };
 
 const emptyLayout = { lg: [], md: [], sm: [], xs: [] };

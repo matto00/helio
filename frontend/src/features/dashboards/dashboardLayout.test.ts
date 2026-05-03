@@ -25,6 +25,9 @@ const makePanel = (id: string) => ({
   content: null,
   imageUrl: null,
   imageFit: null,
+  dividerOrientation: null,
+  dividerWeight: null,
+  dividerColor: null,
 });
 
 const panels = [makePanel("panel-1"), makePanel("panel-2")];

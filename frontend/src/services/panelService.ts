@@ -1,4 +1,5 @@
 import type {
+  DividerOrientation,
   ImageFit,
   Panel,
   PanelAppearance,
@@ -101,6 +102,20 @@ export async function updatePanelImage(
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
     imageUrl,
     imageFit,
+  });
+  return response.data;
+}
+
+export async function updatePanelDivider(
+  panelId: string,
+  dividerOrientation: DividerOrientation,
+  dividerWeight: number,
+  dividerColor: string | null,
+): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
+    dividerOrientation,
+    dividerWeight,
+    dividerColor,
   });
   return response.data;
 }

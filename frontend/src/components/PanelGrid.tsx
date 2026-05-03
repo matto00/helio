@@ -199,6 +199,9 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       content={panel.content}
       imageUrl={panel.imageUrl}
       imageFit={panel.imageFit}
+      dividerOrientation={panel.dividerOrientation}
+      dividerWeight={panel.dividerWeight}
+      dividerColor={panel.dividerColor}
     />
   );
 }

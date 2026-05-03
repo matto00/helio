@@ -8,6 +8,7 @@ import {
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
   updatePanelContent as updatePanelContentRequest,
+  updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTitle as updatePanelTitleRequest,
@@ -15,6 +16,7 @@ import {
 import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
 import type { RootState } from "../../store/store";
 import type {
+  DividerOrientation,
   ImageFit,
   Panel,
   PanelAppearance,
@@ -184,6 +186,31 @@ export const updatePanelImage = createAsyncThunk<
   }
 });
 
+export const updatePanelDivider = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    dividerOrientation: DividerOrientation;
+    dividerWeight: number;
+    dividerColor: string | null;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelDivider",
+  async ({ panelId, dividerOrientation, dividerWeight, dividerColor }, { rejectWithValue }) => {
+    try {
+      return await updatePanelDividerRequest(
+        panelId,
+        dividerOrientation,
+        dividerWeight,
+        dividerColor,
+      );
+    } catch {
+      return rejectWithValue("Failed to update divider settings.");
+    }
+  },
+);
+
 export const updatePanelsBatch = createAsyncThunk<
   UpdatePanelsBatchResponse,
   UpdatePanelsBatchRequest,
@@ -276,6 +303,11 @@ const panelsSlice = createSlice({
         );
       })
       .addCase(updatePanelImage.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
+      .addCase(updatePanelDivider.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );

@@ -28,8 +28,11 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       typeId       = row.typeId.map(DataTypeId(_)),
       fieldMapping = row.fieldMapping.map(_.parseJson),
       content      = row.content,
-      imageUrl     = row.imageUrl,
-      imageFit     = row.imageFit
+      imageUrl            = row.imageUrl,
+      imageFit            = row.imageFit,
+      dividerOrientation  = row.dividerOrientation,
+      dividerWeight       = row.dividerWeight,
+      dividerColor        = row.dividerColor
     )
 
   private def domainToRow(p: Panel): PanelRow =
@@ -46,8 +49,11 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
       fieldMapping = p.fieldMapping.map(_.compactPrint),
       ownerId      = UUID.fromString(p.ownerId.value),
       content      = p.content,
-      imageUrl     = p.imageUrl,
-      imageFit     = p.imageFit
+      imageUrl            = p.imageUrl,
+      imageFit            = p.imageFit,
+      dividerOrientation  = p.dividerOrientation,
+      dividerWeight       = p.dividerWeight,
+      dividerColor        = p.dividerColor
     )
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
@@ -163,6 +169,30 @@ class PanelRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Executio
     db.run(action).map(_.map(rowToDomain))
   }
 
+  /** Update divider_orientation, divider_weight, and/or divider_color.
+   *  A None argument means "leave existing value unchanged". */
+  def updateDividerFields(
+      id: PanelId,
+      dividerOrientation: Option[String],
+      dividerWeight: Option[Int],
+      dividerColor: Option[String],
+      lastUpdated: Instant
+  ): Future[Option[Panel]] = {
+    val action = table.filter(_.id === id.value).result.headOption.flatMap {
+      case None => DBIO.successful(None): DBIO[Option[PanelRow]]
+      case Some(existing) =>
+        val newOrientation = dividerOrientation.orElse(existing.dividerOrientation)
+        val newWeight      = dividerWeight.orElse(existing.dividerWeight)
+        val newColor       = dividerColor.orElse(existing.dividerColor)
+        table
+          .filter(_.id === id.value)
+          .map(r => (r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
+          .update((newOrientation, newWeight, newColor, lastUpdated))
+          .flatMap(_ => table.filter(_.id === id.value).result.headOption): DBIO[Option[PanelRow]]
+    }.transactionally
+    db.run(action).map(_.map(rowToDomain))
+  }
+
   def updateTypeBinding(
       id: PanelId,
       typeId: Option[DataTypeId],
@@ -244,7 +274,10 @@ object PanelRepository {
       ownerId: java.util.UUID,
       content: Option[String],
       imageUrl: Option[String],
-      imageFit: Option[String]
+      imageFit: Option[String],
+      dividerOrientation: Option[String],
+      dividerWeight: Option[Int],
+      dividerColor: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -260,9 +293,12 @@ object PanelRepository {
     def fieldMapping = column[Option[String]]("field_mapping")
     def ownerId      = column[java.util.UUID]("owner_id")
     def content      = column[Option[String]]("content")
-    def imageUrl     = column[Option[String]]("image_url")
-    def imageFit     = column[Option[String]]("image_fit")
+    def imageUrl            = column[Option[String]]("image_url")
+    def imageFit            = column[Option[String]]("image_fit")
+    def dividerOrientation  = column[Option[String]]("divider_orientation")
+    def dividerWeight       = column[Option[Int]]("divider_weight")
+    def dividerColor        = column[Option[String]]("divider_color")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor).mapTo[PanelRow]
   }
 }
