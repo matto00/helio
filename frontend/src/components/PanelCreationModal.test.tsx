@@ -1,8 +1,17 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelCreationModal } from "./PanelCreationModal";
+import type { PanelContentProps } from "./PanelContent";
+
+// Mock PanelContent to avoid ECharts canvas requirements in jsdom and to
+// allow asserting which panel type the preview receives.
+jest.mock("./PanelContent", () => ({
+  PanelContent: ({ type }: PanelContentProps) => (
+    <div data-testid="panel-content" data-panel-type={type} />
+  ),
+}));
 
 jest.mock("../services/panelService", () => ({
   createPanel: jest.fn(),
@@ -219,5 +228,56 @@ describe("PanelCreationModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Image" }));
 
     expect(screen.getByRole("button", { name: "Create panel" })).toBeDisabled();
+  });
+});
+
+describe("PanelCreationModal — live preview", () => {
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  it("2.1 preview renders the correct panel type on the name-entry step", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+
+    const previewContent = screen.getByTestId("panel-content");
+    expect(previewContent).toHaveAttribute("data-panel-type", "metric");
+  });
+
+  it("2.2 preview title reflects the current title input value", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), {
+      target: { value: "Revenue Pulse" },
+    });
+
+    const preview = screen.getByTestId("panel-creation-preview");
+    expect(within(preview).getByText("Revenue Pulse")).toBeInTheDocument();
+  });
+
+  it("2.3 preview shows 'Untitled' placeholder when title input is empty", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+
+    const preview = screen.getByTestId("panel-creation-preview");
+    expect(within(preview).getByText("Untitled")).toBeInTheDocument();
+  });
+
+  it("2.4 preview is not rendered on the type-select step", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    expect(screen.queryByTestId("panel-creation-preview")).not.toBeInTheDocument();
   });
 });

@@ -1,0 +1,4 @@
+- `frontend/src/components/PanelCreationPreview.tsx` — new component wrapping `PanelContent` in a panel card frame with title display and "Untitled" placeholder
+- `frontend/src/components/PanelCreationModal.tsx` — adds `PanelCreationPreview` import, widens modal on name-entry step, wraps form + preview in two-column layout
+- `frontend/src/components/PanelCreationModal.css` — adds `--wide` modifier, two-column `__name-entry` layout, preview card styles, and responsive breakpoint (hide preview below 600 px)
+- `frontend/src/components/PanelCreationModal.test.tsx` — mocks `PanelContent` to avoid ECharts canvas in jsdom; adds four preview tests (type, title, Untitled placeholder, absent on type-select step)

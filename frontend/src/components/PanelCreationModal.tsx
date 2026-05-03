@@ -6,6 +6,7 @@ import { createPanel } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { InlineError } from "./InlineError";
 import type { PanelType } from "../types/models";
+import { PanelCreationPreview } from "./PanelCreationPreview";
 
 const PANEL_TYPES: { value: PanelType; label: string; icon: string; description: string }[] = [
   {
@@ -110,7 +111,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   return (
     <dialog
       ref={dialogRef}
-      className="panel-creation-modal"
+      className={`panel-creation-modal${step === "name-entry" ? " panel-creation-modal--wide" : ""}`}
       aria-label="Create panel"
       onClose={onClose}
     >
@@ -148,40 +149,43 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             ))}
           </div>
         ) : (
-          <form className="panel-creation-modal__form" onSubmit={(e) => void handleCreate(e)}>
-            <div className="panel-creation-modal__field">
-              <label className="panel-creation-modal__label" htmlFor="panel-create-title">
-                Panel title
-              </label>
-              <input
-                id="panel-create-title"
-                className="panel-creation-modal__input"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Revenue Pulse"
-                aria-label="Panel title"
-                autoFocus
-              />
-            </div>
-            <InlineError error={createError} />
-            <div className="panel-creation-modal__actions">
-              <button
-                type="button"
-                className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
-                onClick={handleBack}
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                className="panel-creation-modal__btn panel-creation-modal__btn--primary"
-                disabled={isCreating || title.trim().length === 0}
-              >
-                {isCreating ? "Creating..." : "Create panel"}
-              </button>
-            </div>
-          </form>
+          <div className="panel-creation-modal__name-entry">
+            <form className="panel-creation-modal__form" onSubmit={(e) => void handleCreate(e)}>
+              <div className="panel-creation-modal__field">
+                <label className="panel-creation-modal__label" htmlFor="panel-create-title">
+                  Panel title
+                </label>
+                <input
+                  id="panel-create-title"
+                  className="panel-creation-modal__input"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Revenue Pulse"
+                  aria-label="Panel title"
+                  autoFocus
+                />
+              </div>
+              <InlineError error={createError} />
+              <div className="panel-creation-modal__actions">
+                <button
+                  type="button"
+                  className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
+                  onClick={handleBack}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="panel-creation-modal__btn panel-creation-modal__btn--primary"
+                  disabled={isCreating || title.trim().length === 0}
+                >
+                  {isCreating ? "Creating..." : "Create panel"}
+                </button>
+              </div>
+            </form>
+            <PanelCreationPreview type={selectedType!} title={title} />
+          </div>
         )}
       </div>
     </dialog>

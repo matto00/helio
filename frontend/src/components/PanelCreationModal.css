@@ -9,6 +9,10 @@
   color: var(--app-text);
 }
 
+.panel-creation-modal--wide {
+  max-width: 840px;
+}
+
 .panel-creation-modal::backdrop {
   background: rgba(7, 11, 20, 0.72);
 }
@@ -177,4 +181,62 @@
 .panel-creation-modal__btn--primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Name-entry two-column layout */
+.panel-creation-modal__name-entry {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Panel creation preview */
+.panel-creation-preview__frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  height: 200px;
+  overflow: hidden;
+  box-shadow: var(--app-shadow-card);
+}
+
+.panel-creation-preview__header {
+  flex-shrink: 0;
+}
+
+.panel-creation-preview__title {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-creation-preview__title--placeholder {
+  color: var(--app-text-muted);
+  font-style: italic;
+}
+
+.panel-creation-preview__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Responsive: single column below 600 px — hide preview */
+@media (max-width: 600px) {
+  .panel-creation-modal__name-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-creation-preview {
+    display: none;
+  }
 }
