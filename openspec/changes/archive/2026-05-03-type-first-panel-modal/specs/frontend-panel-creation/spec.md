@@ -15,8 +15,6 @@ The frontend MUST create panels through the backend API in the context of the se
 - **WHEN** the frontend submits the create request
 - **THEN** the request body includes the `type` field with the provided value
 
-## MODIFIED Requirements
-
 ### Requirement: Panel list refreshes after successful create
 The frontend MUST refresh selected-dashboard panels after a successful panel creation.
 
@@ -25,8 +23,6 @@ The frontend MUST refresh selected-dashboard panels after a successful panel cre
 - **WHEN** the create flow completes
 - **THEN** the frontend refreshes panels for the selected dashboard
 - **AND** the newly created panel appears in rendered panel content
-
-## MODIFIED Requirements
 
 ### Requirement: Inline panel creation exposes simple explicit feedback
 The panel create modal MUST provide inline loading and failure feedback within the modal dialog.

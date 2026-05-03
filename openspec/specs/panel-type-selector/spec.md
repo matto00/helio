@@ -1,41 +1,40 @@
 ## Purpose
-Defines the panel type selector control available in the panel create form and its reset behavior.
+Defines the panel type picker control within the panel creation modal and its reset behavior.
 ## Requirements
-### Requirement: Panel create form includes a type selector
-The panel create form MUST present a type selector control offering all available panel types
-(`metric`, `chart`, `text`, `table`, `image`) with `metric` pre-selected.
+### Requirement: Panel create modal includes a type picker as step one
+The panel creation modal MUST present a type picker as its first step, offering all available panel types. The type picker SHALL be the only content on step one; no title input or other fields SHALL appear at this step.
 
-#### Scenario: Type selector appears when create form opens
-- **WHEN** the user opens the panel create form
-- **THEN** a type selector is visible with all five type options including `image`
-- **AND** `metric` is the pre-selected option
+#### Scenario: Type picker appears when creation modal opens
+- **WHEN** the user opens the panel creation modal
+- **THEN** a type picker is visible with all available type options: metric, chart, text, table, markdown, image, divider
+- **AND** no type is pre-selected
 
-#### Scenario: User selects a non-default type
-- **WHEN** the user selects `chart` from the type selector
-- **AND** submits the form with a valid title
+#### Scenario: User selects a non-default type and creates
+- **WHEN** the user selects `chart` from the type picker
+- **AND** proceeds to the title step and submits with a valid title
 - **THEN** the created panel has `type: "chart"`
 
 #### Scenario: User selects image type
-- **WHEN** the user selects `image` from the type selector
-- **AND** submits the form with a valid title
+- **WHEN** the user selects `image` from the type picker
+- **AND** proceeds to the title step and submits with a valid title
 - **THEN** the created panel has `type: "image"`
 
-#### Scenario: User submits without changing the type
-- **WHEN** the user submits the create form without interacting with the type selector
-- **THEN** the created panel has `type: "metric"`
+#### Scenario: User must select a type before proceeding
+- **WHEN** the panel creation modal opens
+- **THEN** no type is pre-selected
+- **AND** the user cannot proceed to the title step until a type is chosen
 
-### Requirement: Type selector resets on form dismiss
-The type selector MUST reset to `metric` when the create form is closed (whether by cancel or successful submission).
+### Requirement: Type picker resets on modal close
+The type picker MUST reset to an unselected state when the modal is closed, whether by cancel, Escape, or successful submission.
 
-#### Scenario: Selector resets after successful create
+#### Scenario: Picker resets after successful create
 - **GIVEN** the user selected `table` and created a panel
-- **WHEN** the create form closes
-- **AND** the user reopens the create form
-- **THEN** the type selector shows `metric` as the selected option
+- **WHEN** the modal closes
+- **AND** the user reopens the creation modal
+- **THEN** the type picker shows no type pre-selected
 
-#### Scenario: Selector resets on cancel
-- **GIVEN** the user selected `image` in the type selector
-- **WHEN** the user cancels the create form
+#### Scenario: Picker resets on cancel
+- **GIVEN** the user selected `image` in the type picker
+- **WHEN** the user cancels or closes the modal
 - **AND** reopens it
-- **THEN** the type selector shows `metric` as the selected option
-
+- **THEN** the type picker shows no type pre-selected
