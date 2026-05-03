@@ -2,11 +2,12 @@
 Defines the panel type picker control within the panel creation modal and its reset behavior.
 ## Requirements
 ### Requirement: Panel create modal includes a type picker as step one
-The panel creation modal MUST present a type picker as its first step, offering all available panel types. The type picker SHALL be the only content on step one; no title input or other fields SHALL appear at this step.
+The panel creation modal MUST present a type picker as its first step, offering all available panel types as a visual card grid. Each card MUST display an icon, the panel type name, and a one-line description. The type picker SHALL be the only content on step one; no title input or other fields SHALL appear at this step.
 
 #### Scenario: Type picker appears when creation modal opens
 - **WHEN** the user opens the panel creation modal
 - **THEN** a type picker is visible with all available type options: metric, chart, text, table, markdown, image, divider
+- **AND** each card shows an icon, the type name, and a one-line description
 - **AND** no type is pre-selected
 
 #### Scenario: User selects a non-default type and creates
@@ -38,3 +39,4 @@ The type picker MUST reset to an unselected state when the modal is closed, whet
 - **WHEN** the user cancels or closes the modal
 - **AND** reopens it
 - **THEN** the type picker shows no type pre-selected
+
