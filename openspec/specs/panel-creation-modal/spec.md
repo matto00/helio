@@ -1,7 +1,8 @@
 # panel-creation-modal Specification
 
 ## Purpose
-Defines the two-step panel creation modal: type selection followed by title entry with live preview.
+Defines the three-step panel creation modal: type selection, template selection, and title entry with live
+preview. This spec is the contract for the multi-step dialog that guides users through panel creation.
 ## Requirements
 ### Requirement: Panel creation opens a type-first modal
 When the user initiates panel creation, the UI MUST open a modal dialog. The modal MUST display a type selection step before any other configuration is shown.
@@ -27,21 +28,26 @@ The type picker step MUST offer all available panel types as selectable options.
 - **THEN** the selection is highlighted
 - **AND** the user can proceed to the next step
 
-### Requirement: Modal second step collects the panel title
-After type selection, the modal MUST present a title input, a create button, and a live panel
-preview pane. The form inputs SHALL be displayed in one column and the preview SHALL be displayed
-in a second column on viewports 600 px and wider.
+### Requirement: Modal second step selects a template, third step names the panel
+After type selection, the modal MUST present a template picker as Step 2 before the title form (Step 3).
+The title form (Step 3) MUST display a live panel preview pane alongside the form inputs. The form SHALL
+be displayed in one column and the preview in a second column on viewports 600 px and wider.
 
-#### Scenario: Title step follows type selection
-- **WHEN** the user has selected a type and proceeds
-- **THEN** a title input field is shown
-- **AND** a "Create panel" button is available
-- **AND** a live preview pane is shown alongside the form displaying the selected panel type
+#### Scenario: Template step follows type selection
+- **WHEN** the user selects a panel type card
+- **THEN** the template-select step is shown
+- **AND** template cards for that panel type are displayed
+- **AND** a "Start blank" card is shown at the end of the grid
 
-#### Scenario: Create button submits with selected type
-- **WHEN** the user enters a valid title and clicks "Create panel"
-- **THEN** the frontend submits a panel-create request with the selected type and title
-- **AND** the modal closes on success
+#### Scenario: Template selection advances to name entry
+- **WHEN** the user selects a template card or the "Start blank" card
+- **THEN** the name-entry step is shown
+
+#### Scenario: User can navigate back from template step
+- **WHEN** the user is on the template-select step
+- **AND** clicks the Back button
+- **THEN** the type-select step is shown
+- **AND** no template selection is retained
 
 ### Requirement: Modal dismisses without creating a panel
 The user MUST be able to cancel the modal at any step without creating a panel.
@@ -65,12 +71,14 @@ If the panel create API call fails, the modal MUST display an inline error messa
 - **AND** the modal remains open for the user to retry
 
 ### Requirement: Modal state resets on close
-All modal-local state (selected type, entered title, error) MUST reset when the modal is closed, regardless of whether a panel was created.
+All modal-local state (selected type, selected template, entered title, error) MUST reset when the modal
+is closed, regardless of whether a panel was created.
 
 #### Scenario: Modal resets after cancel
 - **WHEN** the user cancels or closes the modal without creating a panel
 - **AND** reopens the modal
 - **THEN** the type picker step is shown with no type pre-selected
+- **AND** any previously selected template is cleared
 - **AND** any previously entered title is cleared
 
 #### Scenario: Modal resets after successful create

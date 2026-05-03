@@ -1,0 +1,6 @@
+- `frontend/src/features/panels/panelTemplates.ts` -- New file: PanelTemplate interface and PANEL_TEMPLATES constant with 2 hardcoded templates per panel type (metric, chart, text, table, markdown, image, divider)
+- `frontend/src/components/PanelCreationModal.tsx` -- Inserted template-select step (Step 2) between type-select and name-entry; new handleTemplateSelect/handleBackFromTemplate/handleBackFromName handlers; updated header title logic
+- `frontend/src/components/PanelCreationModal.css` -- Added styles for template-select grid, template cards, and dashed-border Start blank card variant
+- `frontend/src/components/PanelCreationModal.test.tsx` -- Updated existing tests to navigate through template-select step; added 4 new tests covering template pre-fill, Start blank, back navigation, and modal reset
+- `frontend/src/components/PanelList.test.tsx` -- Updated 4 tests that drive the creation modal through PanelList to include the new template-select step
+- `openspec/changes/starter-templates-panel-type/tasks.md` -- All 15 tasks marked complete
