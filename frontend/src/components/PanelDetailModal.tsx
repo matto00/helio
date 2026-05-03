@@ -9,6 +9,7 @@ import {
   accumulatePanelUpdate,
   updatePanelBinding,
   updatePanelContent,
+  updatePanelDivider,
   updatePanelImage,
 } from "../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -18,10 +19,16 @@ import {
   panelAppearanceEditorFallback,
   panelTextEditorFallback,
 } from "../theme/appearance";
-import type { ChartAppearance, ImageFit, Panel, PanelAppearance } from "../types/models";
+import type {
+  ChartAppearance,
+  DividerOrientation,
+  ImageFit,
+  Panel,
+  PanelAppearance,
+} from "../types/models";
 import { InlineError } from "./InlineError";
 
-type Tab = "appearance" | "data" | "content" | "image";
+type Tab = "appearance" | "data" | "content" | "image" | "divider";
 
 const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
   seriesColors: [
@@ -120,6 +127,22 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [imageSaveError, setImageSaveError] = useState<string | null>(null);
   const imageDirty = imageUrl !== initialImageUrl || imageFit !== initialImageFit;
 
+  // Divider state (for divider panels only)
+  const initialDividerOrientation: DividerOrientation =
+    (panel.dividerOrientation as DividerOrientation) ?? "horizontal";
+  const initialDividerWeight = panel.dividerWeight ?? 1;
+  const initialDividerColor = panel.dividerColor ?? "#cccccc";
+  const [dividerOrientation, setDividerOrientation] =
+    useState<DividerOrientation>(initialDividerOrientation);
+  const [dividerWeight, setDividerWeight] = useState(initialDividerWeight);
+  const [dividerColor, setDividerColor] = useState(initialDividerColor);
+  const [isDividerSaving, setIsDividerSaving] = useState(false);
+  const [dividerSaveError, setDividerSaveError] = useState<string | null>(null);
+  const dividerDirty =
+    dividerOrientation !== initialDividerOrientation ||
+    dividerWeight !== initialDividerWeight ||
+    dividerColor !== initialDividerColor;
+
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
 
   const isDirty =
@@ -133,8 +156,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     refreshInterval !== initialRefreshInterval ||
     JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping);
 
-  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty || imageDirty);
-  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty || imageDirty;
+  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty || imageDirty || dividerDirty);
+  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty || imageDirty || dividerDirty;
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -176,7 +199,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   }
 
   function handleCancel() {
-    if (isDirty || dataDirty || contentDirty || imageDirty) {
+    if (isDirty || dataDirty || contentDirty || imageDirty || dividerDirty) {
       setShowDiscardWarning(true);
     } else {
       dialogRef.current?.close();
@@ -211,6 +234,33 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       setImageSaveError("Failed to save image settings.");
     } finally {
       setIsImageSaving(false);
+    }
+  }
+
+  async function handleDividerSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsDividerSaving(true);
+    setDividerSaveError(null);
+    try {
+      // When the stored color is null and the picker is still at the initial
+      // fallback (#cccccc), preserve null so the CSS design-token default is
+      // kept in the DB rather than being silently overwritten on a no-op Save.
+      const resolvedColor =
+        panel.dividerColor === null && dividerColor === "#cccccc" ? null : dividerColor;
+      await dispatch(
+        updatePanelDivider({
+          panelId: panel.id,
+          dividerOrientation,
+          dividerWeight,
+          dividerColor: resolvedColor,
+        }),
+      ).unwrap();
+      dialogRef.current?.close();
+      onCloseRef.current();
+    } catch {
+      setDividerSaveError("Failed to save divider settings.");
+    } finally {
+      setIsDividerSaving(false);
     }
   }
 
@@ -312,6 +362,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             >
               Image
             </button>
+          ) : panel.type === "divider" ? (
+            <button
+              type="button"
+              role="tab"
+              className="panel-detail-modal__tab"
+              aria-selected={activeTab === "divider"}
+              onClick={() => setActiveTab("divider")}
+            >
+              Divider
+            </button>
           ) : (
             <button
               type="button"
@@ -384,6 +444,56 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               />
             </div>
             <InlineError error={contentSaveError} />
+          </form>
+        ) : activeTab === "divider" ? (
+          <form
+            id="panel-detail-divider-form"
+            className="panel-detail-modal__content"
+            onSubmit={handleDividerSubmit}
+          >
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="divider-orientation">
+                Orientation
+              </label>
+              <select
+                id="divider-orientation"
+                className="panel-detail-modal__mapping-select"
+                value={dividerOrientation}
+                onChange={(e) => setDividerOrientation(e.target.value as DividerOrientation)}
+                aria-label="Divider orientation"
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
+            </div>
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="divider-weight">
+                Weight (px)
+              </label>
+              <input
+                id="divider-weight"
+                type="number"
+                min="1"
+                max="100"
+                className="panel-detail-modal__type-search"
+                value={dividerWeight}
+                onChange={(e) => setDividerWeight(Math.max(1, Number(e.target.value)))}
+                aria-label="Divider weight"
+              />
+            </div>
+            <div className="panel-detail-modal__data-section">
+              <label className="panel-detail-modal__data-label" htmlFor="divider-color">
+                Color
+              </label>
+              <input
+                id="divider-color"
+                type="color"
+                value={dividerColor}
+                onChange={(e) => setDividerColor(e.target.value)}
+                aria-label="Divider color"
+              />
+            </div>
+            <InlineError error={dividerSaveError} />
           </form>
         ) : activeTab === "appearance" ? (
           <form
@@ -831,6 +941,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               disabled={isImageSaving}
             >
               {isImageSaving ? "Saving..." : "Save"}
+            </button>
+          ) : activeTab === "divider" ? (
+            <button
+              type="submit"
+              form="panel-detail-divider-form"
+              className="panel-detail-modal__btn panel-detail-modal__btn--save"
+              aria-label="Save divider settings"
+              disabled={isDividerSaving}
+            >
+              {isDividerSaving ? "Saving..." : "Save"}
             </button>
           ) : (
             <button

@@ -217,6 +217,9 @@ describe("PanelList", () => {
       content: null,
       imageUrl: null,
       imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -259,6 +262,9 @@ describe("PanelList", () => {
       content: null,
       imageUrl: null,
       imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -304,6 +310,9 @@ describe("PanelList", () => {
       content: null,
       imageUrl: null,
       imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -385,6 +394,9 @@ describe("PanelList", () => {
       content: null,
       imageUrl: null,
       imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
     });
     fetchPanelsMock.mockResolvedValue([
       {
@@ -400,6 +412,9 @@ describe("PanelList", () => {
         content: null,
         imageUrl: null,
         imageFit: null,
+        dividerOrientation: null,
+        dividerWeight: null,
+        dividerColor: null,
       },
       {
         id: "panel-2",
@@ -414,6 +429,9 @@ describe("PanelList", () => {
         content: null,
         imageUrl: null,
         imageFit: null,
+        dividerOrientation: null,
+        dividerWeight: null,
+        dividerColor: null,
       },
     ]);
 

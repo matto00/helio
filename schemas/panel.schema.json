@@ -20,7 +20,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table", "markdown", "image"]
+      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
     },
     "meta": {
       "$ref": "https://helio.local/schemas/resource-meta.schema.json"
@@ -47,6 +47,18 @@
     "imageFit": {
       "type": ["string", "null"],
       "enum": ["contain", "cover", "fill", null]
+    },
+    "dividerOrientation": {
+      "type": ["string", "null"],
+      "enum": ["horizontal", "vertical", null]
+    },
+    "dividerWeight": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "dividerColor": {
+      "type": ["string", "null"],
+      "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
     }
   },
   "additionalProperties": false

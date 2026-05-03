@@ -269,6 +269,9 @@ describe("App", () => {
               content: null,
               imageUrl: null,
               imageFit: null,
+              dividerOrientation: null,
+              dividerWeight: null,
+              dividerColor: null,
             },
           ]
         : [
@@ -289,6 +292,9 @@ describe("App", () => {
               content: null,
               imageUrl: null,
               imageFit: null,
+              dividerOrientation: null,
+              dividerWeight: null,
+              dividerColor: null,
             },
           ],
     );
@@ -443,6 +449,9 @@ describe("App", () => {
         content: null,
         imageUrl: null,
         imageFit: null,
+        dividerOrientation: null,
+        dividerWeight: null,
+        dividerColor: null,
       },
     ]);
 

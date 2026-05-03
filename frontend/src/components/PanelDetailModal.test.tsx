@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../services/panelService";
 import { updatePanelBinding as updatePanelBindingRequest } from "../services/panelService";
+import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
 import { PanelDetailModal } from "./PanelDetailModal";
@@ -13,6 +14,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelBinding: jest.fn(),
   updatePanelContent: jest.fn(),
   updatePanelImage: jest.fn(),
+  updatePanelDivider: jest.fn(),
 }));
 
 jest.mock("../services/dataTypeService", () => ({
@@ -21,6 +23,7 @@ jest.mock("../services/dataTypeService", () => ({
 
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const updateBindingMock = jest.mocked(updatePanelBindingRequest);
+const updateDividerMock = jest.mocked(updatePanelDividerRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
 const testPanel = {
@@ -44,11 +47,30 @@ const testPanel = {
   content: null,
   imageUrl: null,
   imageFit: null,
+  dividerOrientation: null,
+  dividerWeight: null,
+  dividerColor: null,
 };
 
 const chartTestPanel = {
   ...testPanel,
   type: "chart" as const,
+};
+const dividerTestPanel = {
+  ...testPanel,
+  type: "divider" as const,
+  dividerOrientation: "horizontal" as const,
+  dividerWeight: 1,
+  dividerColor: "#cccccc",
+};
+
+// Divider panel whose color is null (DB default — uses CSS design token at render time)
+const dividerTestPanelNullColor = {
+  ...testPanel,
+  type: "divider" as const,
+  dividerOrientation: "horizontal" as const,
+  dividerWeight: 1,
+  dividerColor: null,
 };
 
 const testDataType = {
@@ -100,10 +122,33 @@ function renderChartModal(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={chartTestPanel} onClose={onClose} />);
 }
 
+function renderDividerModal(onClose = jest.fn()) {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={dividerTestPanel} onClose={onClose} />);
+}
+
+function renderDividerModalNullColor(onClose = jest.fn()) {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={dividerTestPanelNullColor} onClose={onClose} />);
+}
+
 describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
     updateBindingMock.mockReset();
+    updateDividerMock.mockReset();
     fetchDataTypesMock.mockReset();
   });
 
@@ -376,5 +421,108 @@ describe("PanelDetailModal", () => {
       const barRadio = screen.getByLabelText("Chart type bar") as HTMLInputElement;
       expect(barRadio.checked).toBe(false);
     });
+  });
+
+  describe("Divider section", () => {
+    it("shows a Divider tab for divider panels", () => {
+      renderDividerModal();
+      expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
+    });
+
+    it("does not show a Divider tab for non-divider panels", () => {
+      renderModal();
+      expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
+    });
+
+    it("shows divider orientation, weight, and color controls on the Divider tab", () => {
+      renderDividerModal();
+      fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
+      expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
+      expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
+      expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
+    });
+
+    it("does not show divider controls when the panel is a metric", () => {
+      renderModal();
+      expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Divider weight")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Divider color")).not.toBeInTheDocument();
+    });
+
+    it("shows a Save divider settings button on the Divider tab", () => {
+      renderDividerModal();
+      fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
+      expect(screen.getByRole("button", { name: "Save divider settings" })).toBeInTheDocument();
+    });
+  });
+});
+
+describe("PanelDetailModal -- divider panel", () => {
+  beforeEach(() => {
+    updateAppearanceMock.mockReset();
+    updateBindingMock.mockReset();
+    updateDividerMock.mockReset();
+    fetchDataTypesMock.mockReset();
+  });
+
+  it("shows the Divider tab for divider panels", () => {
+    renderDividerModal();
+    expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
+  });
+
+  it("does not show the Divider tab for non-divider panels", () => {
+    renderModal();
+    expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
+  });
+
+  it("shows divider controls when Divider tab is active", () => {
+    renderDividerModal();
+    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
+    expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
+    expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
+  });
+
+  it("does not show divider controls on the appearance tab", () => {
+    renderDividerModal();
+    expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
+  });
+
+  it("does not show divider controls for non-divider panels", () => {
+    renderModal();
+    expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
+  });
+
+  it("preserves null color on no-op Save when stored dividerColor is null", async () => {
+    // When dividerColor is null in the DB, the picker shows #cccccc as a UI fallback.
+    // Saving without changing the color should send null (not #cccccc) to keep the
+    // CSS design-token default active rather than hardcoding a value.
+    updateDividerMock.mockResolvedValue({ ...dividerTestPanelNullColor, dividerColor: null });
+    renderDividerModalNullColor();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
+
+    await waitFor(() =>
+      expect(updateDividerMock).toHaveBeenCalledWith(
+        testPanel.id,
+        "horizontal",
+        1,
+        null, // null preserved — not "#cccccc"
+      ),
+    );
+  });
+
+  it("passes an explicit color through when the user picks a non-fallback value", async () => {
+    updateDividerMock.mockResolvedValue({ ...dividerTestPanel, dividerColor: "#ff0000" });
+    renderDividerModal();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
+    fireEvent.change(screen.getByLabelText("Divider color"), { target: { value: "#ff0000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
+
+    await waitFor(() =>
+      expect(updateDividerMock).toHaveBeenCalledWith(testPanel.id, "horizontal", 1, "#ff0000"),
+    );
   });
 });

@@ -1,6 +1,7 @@
 import "./PanelContent.css";
 import type { MappedPanelData, PanelAppearance, PanelType } from "../types/models";
 import { ChartPanel } from "./ChartPanel";
+import { DividerPanel } from "./DividerPanel";
 import { ImagePanel } from "./ImagePanel";
 import { MarkdownPanel } from "./MarkdownPanel";
 
@@ -122,6 +123,9 @@ export interface PanelContentProps {
   content?: string | null;
   imageUrl?: string | null;
   imageFit?: string | null;
+  dividerOrientation?: string | null;
+  dividerWeight?: number | null;
+  dividerColor?: string | null;
 }
 
 export function PanelContent({
@@ -137,6 +141,9 @@ export function PanelContent({
   content,
   imageUrl,
   imageFit,
+  dividerOrientation,
+  dividerWeight,
+  dividerColor,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -185,6 +192,14 @@ export function PanelContent({
       return <MarkdownPanel content={content ?? null} />;
     case "image":
       return <ImagePanel imageUrl={imageUrl ?? null} imageFit={imageFit ?? null} />;
+    case "divider":
+      return (
+        <DividerPanel
+          orientation={dividerOrientation ?? null}
+          weight={dividerWeight ?? null}
+          color={dividerColor ?? null}
+        />
+      );
     default:
       return <MetricContent data={data} />;
   }

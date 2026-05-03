@@ -24,6 +24,10 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
     "return Left for unknown types" in {
       PanelType.fromString("unknown").isLeft shouldBe true
     }
+
+    "parse divider as Divider" in {
+      PanelType.fromString("divider") shouldBe Right(PanelType.Divider)
+    }
   }
 
   "PanelType.asString" should {
@@ -35,8 +39,12 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.asString(PanelType.Image) shouldBe "image"
     }
 
+    "serialise Divider as divider" in {
+      PanelType.asString(PanelType.Divider) shouldBe "divider"
+    }
+
     "round-trip all types" in {
-      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image)
+      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider)
       all.foreach { t =>
         PanelType.fromString(PanelType.asString(t)) shouldBe Right(t)
       }

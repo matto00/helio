@@ -2868,4 +2868,128 @@ class ApiRoutesSpec
       }
     }
   }
+
+  "PATCH /api/panels/:id updating divider fields" should {
+
+    "set dividerOrientation, dividerWeight, and dividerColor and return 200" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Divider Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rule"), Some("divider"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+        val resp = responseAs[PanelResponse]
+        resp.`type` shouldBe "divider"
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`,
+          """{"dividerOrientation":"vertical","dividerWeight":4,"dividerColor":"#ff0000"}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PanelResponse]
+        resp.dividerOrientation shouldBe Some("vertical")
+        resp.dividerWeight      shouldBe Some(4)
+        resp.dividerColor       shouldBe Some("#ff0000")
+      }
+    }
+
+    "leave divider fields unchanged when not sent in PATCH" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Divider No-op Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Ruled"), Some("divider"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`,
+          """{"dividerOrientation":"horizontal","dividerWeight":3,"dividerColor":"#0000ff"}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`, """{"title":"Renamed Rule"}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PanelResponse]
+        resp.dividerOrientation shouldBe Some("horizontal")
+        resp.dividerWeight      shouldBe Some(3)
+        resp.dividerColor       shouldBe Some("#0000ff")
+      }
+    }
+
+    "reject invalid dividerOrientation with 400" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Divider Validation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Bad Rule"), Some("divider"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`, """{"dividerOrientation":"diagonal"}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "GET /api/dashboards/:id/panels — divider fields on non-divider panel" should {
+
+    "return null divider fields for a non-divider panel" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Null Divider Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("KPI"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.dividerOrientation shouldBe None
+        panel.dividerWeight      shouldBe None
+        panel.dividerColor       shouldBe None
+      }
+    }
+  }
+
 }

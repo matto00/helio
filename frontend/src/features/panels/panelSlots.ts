@@ -20,4 +20,5 @@ export const PANEL_SLOTS: Record<PanelType, PanelSlot[]> = {
   text: [{ key: "content", label: "Content" }],
   markdown: [],
   image: [],
+  divider: [],
 };

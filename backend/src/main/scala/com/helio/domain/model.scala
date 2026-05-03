@@ -47,6 +47,7 @@ object PanelType {
   case object Table    extends PanelType
   case object Markdown extends PanelType
   case object Image    extends PanelType
+  case object Divider  extends PanelType
 
   val Default: PanelType = Metric
 
@@ -57,7 +58,8 @@ object PanelType {
     case "table"    => Right(Table)
     case "markdown" => Right(Markdown)
     case "image"    => Right(Image)
-    case other      => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image")
+    case "divider"  => Right(Divider)
+    case other      => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider")
   }
 
   def asString(t: PanelType): String = t match {
@@ -67,6 +69,7 @@ object PanelType {
     case Table    => "table"
     case Markdown => "markdown"
     case Image    => "image"
+    case Divider  => "divider"
   }
 }
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)
@@ -137,7 +140,10 @@ final case class Panel(
     fieldMapping: Option[JsValue] = None,
     content: Option[String] = None,
     imageUrl: Option[String] = None,
-    imageFit: Option[String] = None
+    imageFit: Option[String] = None,
+    dividerOrientation: Option[String] = None,
+    dividerWeight: Option[Int] = None,
+    dividerColor: Option[String] = None
 )
 
 sealed trait SourceType

@@ -51,6 +51,9 @@ const testPanel = {
   content: null,
   imageUrl: null,
   imageFit: null,
+  dividerOrientation: null,
+  dividerWeight: null,
+  dividerColor: null,
 };
 
 function renderModal() {

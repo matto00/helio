@@ -1,0 +1,30 @@
+- `schemas/panel.schema.json` — Added "divider" to the `type` enum; added `dividerOrientation`, `dividerWeight`, `dividerColor` optional properties
+- `schemas/create-panel-request.schema.json` — Added "divider" to the `type` enum so the create endpoint accepts divider panels
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added `Divider` to `PanelType` sealed trait; added `dividerOrientation`, `dividerWeight`, `dividerColor` fields to `Panel`
+- `backend/src/main/scala/com/helio/infrastructure/PanelRepository.scala` — Added divider columns to `PanelRow`/`PanelTable`; updated `rowToDomain`/`domainToRow`; added `updateDividerFields` method
+- `backend/src/main/resources/db/migration/V21__divider_panel_type.sql` — Flyway migration adding `divider_orientation`, `divider_weight`, `divider_color` nullable columns to `panels`
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added divider fields to `PanelResponse`, `UpdatePanelRequest`, `DashboardSnapshotPanelEntry` and their serialization/deserialization
+- `backend/src/main/scala/com/helio/api/RequestValidation.scala` — Added `validateDividerOrientation` for enum validation
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — Wired `updateDividerFields` into PATCH handler; added `hasDivider` flag and orientation validation
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala` — Updated `panelRowToDomain` and import snapshot `PanelRow` construction to include divider fields
+- `backend/src/test/scala/com/helio/domain/PanelTypeSpec.scala` — Added divider `fromString`/`asString` tests
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Added integration tests for PATCH divider fields and null divider fields on non-divider panels
+- `frontend/src/types/models.ts` — Added "divider" to `PanelType` union; added `DividerOrientation` type; added divider fields to `Panel` interface
+- `frontend/src/features/panels/panelSlots.ts` — Added `divider: []` entry to `PANEL_SLOTS`
+- `frontend/src/features/panels/panelsSlice.ts` — Added `updatePanelDivider` async thunk (`dividerColor: string | null`) and reducer case
+- `frontend/src/services/panelService.ts` — Added `updatePanelDivider` service function (accepts `dividerColor: string | null`)
+- `frontend/src/components/PanelList.tsx` — Added divider entry to `PANEL_TYPES`
+- `frontend/src/components/PanelContent.tsx` — Added `DividerPanel` import and "divider" case in switch; added divider props to interface and component
+- `frontend/src/components/PanelGrid.tsx` — Pass divider props to `PanelContent`
+- `frontend/src/components/DividerPanel.tsx` — New component rendering horizontal/vertical rule with configurable thickness and color
+- `frontend/src/components/DividerPanel.css` — Styles for the divider panel component
+- `frontend/src/components/DividerPanel.test.tsx` — Jest tests: horizontal/vertical render, default weight/color, configured values
+- `frontend/src/components/PanelDetailModal.tsx` — Added "divider" tab; imports `DividerOrientation` from models (not locally); null-color guard in `handleDividerSubmit` preserves DB null on no-op Save
+- `frontend/src/components/PanelDetailModal.test.tsx` — Added divider fixtures including null-color variant; tests for tab, controls, and null-color preservation
+- `frontend/src/app/App.test.tsx` — Updated panel fixtures with divider fields
+- `frontend/src/components/ComputedFieldPicker.test.tsx` — Updated panel fixtures with divider fields
+- `frontend/src/components/PanelGrid.test.tsx` — Updated panel fixtures with divider fields
+- `frontend/src/components/PanelList.test.tsx` — Updated panel fixtures with divider fields
+- `frontend/src/features/dashboards/dashboardLayout.test.ts` — Updated panel fixtures with divider fields
+- `frontend/src/features/panels/panelsSlice.test.ts` — Updated panel fixtures with divider fields
+- `frontend/src/hooks/usePanelData.test.ts` — Updated panel fixtures with divider fields

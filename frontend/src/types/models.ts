@@ -120,9 +120,11 @@ export interface Dashboard {
   layout: DashboardLayout;
 }
 
-export type PanelType = "metric" | "chart" | "text" | "table" | "markdown" | "image";
+export type PanelType = "metric" | "chart" | "text" | "table" | "markdown" | "image" | "divider";
 
 export type ImageFit = "contain" | "cover" | "fill";
+
+export type DividerOrientation = "horizontal" | "vertical";
 
 export interface PanelUpdateFields {
   title?: string;
@@ -143,6 +145,9 @@ export interface Panel {
   content: string | null;
   imageUrl: string | null;
   imageFit: ImageFit | null;
+  dividerOrientation: DividerOrientation | null;
+  dividerWeight: number | null;
+  dividerColor: string | null;
 }
 
 export type MappedPanelData = Record<string, string>;
