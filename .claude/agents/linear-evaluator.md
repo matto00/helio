@@ -138,8 +138,9 @@ files changed, the frontend likely isn't wired to the new behavior yet
 
 **Step 1 — ensure `.env` is present in the worktree:**
 
-The worktree does not inherit gitignored files. Copy it from the main worktree
-before starting anything:
+The orchestrator's worktree setup copies `.env` from the main repo, so it is
+usually already present. The check below is a safety net — do not block on it
+or report an error if the copy is skipped:
 
 ```bash
 if [ ! -f "$WORKTREE_PATH/backend/.env" ]; then
@@ -152,6 +153,13 @@ fi
 The Vite dev server proxies `/api` and `/health` to `localhost:$BACKEND_PORT`. Without a
 live backend, all API calls (including login) will fail and Phase 3 cannot
 proceed.
+
+> **CORS requirement:** The backend reads `CORS_ALLOWED_ORIGINS` at startup
+> and defaults to `http://localhost:5173`. When `DEV_PORT` differs from 5173,
+> the backend **must** be started with `CORS_ALLOWED_ORIGINS=http://localhost:${DEV_PORT}`.
+> Omitting it causes the browser to reject every API response as cross-origin —
+> login fails and Phase 3 cannot proceed. The startup command below already
+> includes this; do not remove it.
 
 ```bash
 BACKEND_PORT=${BACKEND_PORT:-8080}
