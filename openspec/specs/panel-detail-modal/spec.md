@@ -11,14 +11,14 @@ The "Customize" action in the panel actions menu MUST open the panel detail moda
 - **THEN** the panel detail modal opens with the panel's title in the header
 
 ### Requirement: Panel detail modal has Appearance and Data tabs
-The modal MUST present an Appearance tab and a Data tab. The Appearance tab MUST be active by default.
+The modal MUST present an Appearance tab and a Data tab. The Appearance tab MUST be active by default **when in edit mode**. Tabs are not visible in view mode.
 
-#### Scenario: Appearance tab is active on open
-- **WHEN** the modal opens
+#### Scenario: Appearance tab is active on entering edit mode
+- **WHEN** the user clicks Edit to enter edit mode
 - **THEN** the Appearance tab is selected and its content is visible
 
-#### Scenario: User switches to the Data tab
-- **WHEN** the user clicks the Data tab
+#### Scenario: User switches to the Data tab in edit mode
+- **WHEN** the user clicks the Data tab while in edit mode
 - **THEN** the Data tab content is shown and Appearance tab content is hidden
 
 ### Requirement: Data tab shows a placeholder
