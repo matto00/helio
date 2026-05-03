@@ -1,0 +1,167 @@
+.panel-creation-modal {
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow-soft);
+  padding: 0;
+  max-width: 520px;
+  width: 100%;
+  color: var(--app-text);
+}
+
+.panel-creation-modal::backdrop {
+  background: rgba(7, 11, 20, 0.72);
+}
+
+.panel-creation-modal__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem;
+}
+
+.panel-creation-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-creation-modal__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.panel-creation-modal__close {
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color var(--app-transition);
+}
+
+.panel-creation-modal__close:hover {
+  color: var(--app-text);
+}
+
+/* Type selection grid */
+.panel-creation-modal__type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.panel-creation-modal__type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background var(--app-transition);
+  font-size: 0.875rem;
+}
+
+.panel-creation-modal__type-card:hover {
+  border-color: var(--app-accent);
+  background: var(--app-surface-strong);
+}
+
+.panel-creation-modal__type-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.panel-creation-modal__type-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Name entry form */
+.panel-creation-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel-creation-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.panel-creation-modal__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+}
+
+.panel-creation-modal__input {
+  padding: 0.5625rem 0.875rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 10px;
+  color: var(--app-text);
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color var(--app-transition);
+}
+
+.panel-creation-modal__input:focus {
+  border-color: var(--app-accent);
+}
+
+.panel-creation-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.panel-creation-modal__btn {
+  padding: 0.5rem 1.125rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--app-transition),
+    color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.panel-creation-modal__btn--secondary {
+  border: 1px solid var(--app-border-strong);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.panel-creation-modal__btn--secondary:hover {
+  color: var(--app-text);
+  border-color: var(--app-text-muted);
+}
+
+.panel-creation-modal__btn--primary {
+  border: none;
+  background: var(--app-accent);
+  color: #fff;
+}
+
+.panel-creation-modal__btn--primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.panel-creation-modal__btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -8,6 +8,17 @@ import { renderWithStore } from "../test/renderWithStore";
 import { PanelGrid } from "./PanelGrid";
 import { PanelList } from "./PanelList";
 
+// PanelCreationModal uses <dialog> showModal/close which jsdom doesn't implement.
+// Stub showModal to set the `open` attribute so dialog contents are accessible.
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  });
+});
+
 jest.mock("./PanelGrid", () => {
   const React = require("react") as typeof import("react");
   return {
@@ -151,7 +162,7 @@ describe("PanelList", () => {
     expect(within(emptyState).getByRole("button", { name: "Add panel" })).toBeInTheDocument();
   });
 
-  it("clicking 'Add panel' in the empty state opens the create form", () => {
+  it("clicking 'Add panel' in the empty state opens the creation modal", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [
@@ -175,10 +186,12 @@ describe("PanelList", () => {
     const emptyState = screen.getByRole("heading", { name: "No panels yet" }).closest("div")!;
     fireEvent.click(within(emptyState).getByRole("button", { name: "Add panel" }));
 
-    expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
+    // Modal type-select step is shown
+    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
   });
 
-  it("renders the type selector with metric pre-selected when create form opens", () => {
+  it("clicking 'Add panel' header button opens the creation modal at type-select step", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [
@@ -197,13 +210,13 @@ describe("PanelList", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
 
-    expect(screen.getByRole("radio", { name: "Metric" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Chart" })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: "Text" })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: "Table" })).not.toBeChecked();
+    // Modal is open at type-select step — no radio buttons, type cards instead
+    expect(screen.queryByRole("radio", { name: "Metric" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
   });
 
-  it("submitting without changing type calls createPanel with type metric", async () => {
+  it("selecting metric and submitting calls createPanel with type metric", async () => {
     createPanelMock.mockResolvedValue({
       id: "panel-2",
       dashboardId: "dashboard-1",
@@ -239,7 +252,9 @@ describe("PanelList", () => {
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
     });
 
+    // Open modal, select metric type, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "New Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -284,11 +299,12 @@ describe("PanelList", () => {
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
     });
 
+    // Open modal, select chart type, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Chart" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: "Chart" }));
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
@@ -296,7 +312,7 @@ describe("PanelList", () => {
     );
   });
 
-  it("type selector resets to metric after successful create", async () => {
+  it("modal resets to type-select step after successful create", async () => {
     createPanelMock.mockResolvedValue({
       id: "panel-2",
       dashboardId: "dashboard-1",
@@ -332,17 +348,18 @@ describe("PanelList", () => {
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
     });
 
-    // Open form, select table, create
+    // Open modal, select table, create
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Table Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() => expect(createPanelMock).toHaveBeenCalled());
 
-    // Reopen form — selector should be back to metric
+    // Reopen modal — should start at type-select step with no pre-selection
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
-    expect(screen.getByRole("radio", { name: "Metric" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
   it("renders panel content inside the dashboard grid foundation", () => {
@@ -380,7 +397,7 @@ describe("PanelList", () => {
     expect(screen.getByRole("button", { name: "Revenue Pulse panel actions" })).toBeInTheDocument();
   });
 
-  it("creates a panel inline and refreshes selected dashboard panels", async () => {
+  it("creates a panel via modal and refreshes selected dashboard panels", async () => {
     createPanelMock.mockResolvedValue({
       id: "panel-2",
       dashboardId: "dashboard-1",
@@ -464,7 +481,9 @@ describe("PanelList", () => {
       },
     });
 
+    // Open modal, select type, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Add panel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Forecast" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -837,7 +856,7 @@ describe("PanelList", () => {
     expect(afterZoomOut.zoomLevel).toBeCloseTo(0.9);
   });
 
-  it("image option appears in the type selector", () => {
+  it("image option appears in the modal type picker", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [
@@ -856,6 +875,6 @@ describe("PanelList", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
 
-    expect(screen.getByRole("radio", { name: "Image" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
   });
 });
