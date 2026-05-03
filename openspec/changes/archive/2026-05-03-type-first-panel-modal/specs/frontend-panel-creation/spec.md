@@ -1,3 +1,5 @@
+## MODIFIED Requirements
+
 ### Requirement: Frontend panel creation is backend-backed
 The frontend MUST create panels through the backend API in the context of the selected dashboard. The create request MUST include the `type` selected by the user in the type-first modal; there is no default type assumed by the UI — the user MUST explicitly select a type before the create request is submitted.
 

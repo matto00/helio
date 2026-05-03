@@ -1,0 +1,5 @@
+- `frontend/src/components/PanelCreationModal.tsx` — new two-step modal component (type picker → title entry)
+- `frontend/src/components/PanelCreationModal.css` — styles for modal, type card grid, and name-entry form
+- `frontend/src/components/PanelCreationModal.test.tsx` — unit tests for modal step transitions, create dispatch, error handling, and close behaviour
+- `frontend/src/components/PanelList.tsx` — removed inline create form; replaced with `PanelCreationModal`; fixed pre-existing `setState-in-effect` lint error with derived zoom state pattern
+- `frontend/src/components/PanelList.test.tsx` — updated tests from radio-based inline form assertions to modal-based assertions; added `showModal`/`close` stubs
