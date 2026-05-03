@@ -10,8 +10,17 @@
   overflow: hidden;
 }
 
+.panel-detail-modal--view {
+  width: min(1200px, 96vw);
+  height: min(88vh, 900px);
+}
+
 .panel-detail-modal::backdrop {
   background: rgb(0 0 0 / 0.55);
+}
+
+.panel-detail-modal--view::backdrop {
+  background: rgb(0 0 0 / 0.35);
 }
 
 .panel-detail-modal__inner {
@@ -68,6 +77,48 @@
 .panel-detail-modal__close:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
+}
+
+/* Header actions (Edit button + close button group) */
+
+.panel-detail-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.panel-detail-modal__edit-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--app-accent);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.panel-detail-modal__edit-btn:hover {
+  background: var(--app-accent);
+  color: var(--app-surface-strong);
+}
+
+.panel-detail-modal__edit-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* View mode content area */
+
+.panel-detail-modal__view-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Tab bar */

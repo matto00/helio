@@ -209,7 +209,7 @@ function AppShell() {
               aria-label="Expand dashboard list"
               onClick={() => setIsDashboardListCollapsed(false)}
             >
-              <PanelLeftOpen size={14} />
+              <PanelLeftOpen size={18} />
             </button>
           ) : (
             <aside className="app-sidebar">
@@ -228,7 +228,7 @@ function AppShell() {
                 aria-label="Collapse dashboard list"
                 onClick={() => setIsDashboardListCollapsed(true)}
               >
-                <PanelLeftClose size={14} />
+                <PanelLeftClose size={18} />
               </button>
             </aside>
           )}
