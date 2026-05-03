@@ -1,0 +1,2 @@
+- `frontend/src/components/PanelCreationModal.tsx` — Added `isDirty` derived state, `handleDismiss` dismiss helper, `onCancel` handler for Escape key, `onClick` backdrop-click handler, close-button wired to `handleDismiss`, and Tab/Shift+Tab focus-trap `keydown` effect
+- `frontend/src/components/PanelCreationModal.test.tsx` — Added 8 new accessibility tests covering Escape dismiss (clean/dirty/accept/cancel), backdrop click dismiss (clean/dirty), close-button dirty-state guard, and focus-wrap Tab/Shift+Tab

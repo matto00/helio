@@ -340,3 +340,145 @@ describe("PanelCreationModal — live preview", () => {
     expect(screen.queryByTestId("panel-creation-preview")).not.toBeInTheDocument();
   });
 });
+
+describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
+  const FOCUSABLE =
+    'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 2.1 — Escape on clean modal closes without confirmation
+  it("2.1 Escape on clean modal closes without confirmation", () => {
+    const onClose = jest.fn();
+    const confirmSpy = jest.spyOn(window, "confirm");
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // 2.2 — Escape on dirty modal (type selected) shows confirm and closes on accept
+  it("2.2 Escape on dirty modal (type selected) shows confirm and closes on accept", () => {
+    const onClose = jest.fn();
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // 2.3 — Escape on dirty modal (type selected) shows confirm and stays open on cancel
+  it("2.3 Escape on dirty modal (type selected) shows confirm and stays open on cancel", () => {
+    const onClose = jest.fn();
+    jest.spyOn(window, "confirm").mockReturnValue(false);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog).toHaveAttribute("open");
+  });
+
+  // 2.4 — Click outside on clean modal closes without confirmation
+  it("2.4 click outside on clean modal closes without confirmation", () => {
+    const onClose = jest.fn();
+    const confirmSpy = jest.spyOn(window, "confirm");
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent.click(dialog);
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // 2.5 — Click outside on dirty modal shows confirm and closes on accept
+  it("2.5 click outside on dirty modal shows confirm and closes on accept", () => {
+    const onClose = jest.fn();
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent.click(dialog);
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // 2.6 — Close button on dirty modal shows confirm and closes on accept
+  it("2.6 close button on dirty modal shows confirm and closes on accept", () => {
+    const onClose = jest.fn();
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // 2.7 — Tab from last focusable element wraps to first
+  it("2.7 Tab from last focusable element wraps focus to first", () => {
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, baseStore);
+
+    const dialog = document.querySelector("dialog")!;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+    expect(focusable.length).toBeGreaterThan(1);
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    last.focus();
+    expect(document.activeElement).toBe(last);
+
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: false });
+
+    expect(document.activeElement).toBe(first);
+  });
+
+  // 2.8 — Shift+Tab from first focusable element wraps to last
+  it("2.8 Shift+Tab from first focusable element wraps focus to last", () => {
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, baseStore);
+
+    const dialog = document.querySelector("dialog")!;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+    expect(focusable.length).toBeGreaterThan(1);
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    first.focus();
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+
+    expect(document.activeElement).toBe(last);
+  });
+});
