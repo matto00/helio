@@ -218,6 +218,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   const [editingTitle, setEditingTitle] = useState("");
   const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
   const titleCancelledRef = useRef(false);
+  const mousedownPos = useRef<{ x: number; y: number } | null>(null);
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
@@ -382,6 +383,17 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
     }
   }
 
+  function handlePanelCardMouseDown(e: React.MouseEvent<HTMLElement>) {
+    mousedownPos.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function handlePanelCardClick(panelId: string, e: React.MouseEvent<HTMLElement>) {
+    const pos = mousedownPos.current;
+    if (pos !== null && Math.abs(e.clientX - pos.x) + Math.abs(e.clientY - pos.y) > 5) return;
+    if ((e.target as Element).closest("button, input, a, .react-resizable-handle")) return;
+    setDetailPanelId(panelId);
+  }
+
   return (
     <div ref={containerRef} className="panel-grid-shell">
       <Responsive
@@ -437,7 +449,12 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
       >
         {panels.map((panel) => (
           <div key={panel.id}>
-            <article className="panel-grid-card" style={getPanelCardStyle(panel, theme)}>
+            <article
+              className="panel-grid-card"
+              style={getPanelCardStyle(panel, theme)}
+              onMouseDown={handlePanelCardMouseDown}
+              onClick={(e) => handlePanelCardClick(panel.id, e)}
+            >
               <div className="panel-grid-card__top">
                 <div className="panel-grid-card__title-area">
                   {editingTitleId === panel.id ? (

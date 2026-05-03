@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelGrid.tsx` — added `mousedownPos` ref, `handlePanelCardMouseDown` and `handlePanelCardClick` handlers, and attached them to each `<article class="panel-grid-card">` element
+- `frontend/src/components/PanelGrid.css` — added `cursor: pointer` to `.panel-grid-card` to signal clickability
+- `frontend/src/components/PanelGrid.test.tsx` — added 4 new tests covering: panel body click opens modal, drag suppression, drag handle exclusion, actions menu trigger exclusion

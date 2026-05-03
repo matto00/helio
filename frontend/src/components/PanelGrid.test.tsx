@@ -239,4 +239,72 @@ describe("PanelGrid", () => {
     // Debounce timer has not yet fired — batch endpoint not called yet
     expect(updatePanelsBatchMock).not.toHaveBeenCalled();
   });
+
+  // ─── Panel body click opens detail modal ─────────────────────────────────────
+  // Tasks 2.1–2.4: verify the mousedown-displacement + target-exclusion logic.
+  // HTMLDialogElement.prototype.showModal is mocked to set the open attribute so
+  // PanelDetailModal is accessible via getByRole('dialog') in jsdom.
+  describe("panel body click opens detail modal", () => {
+    beforeEach(() => {
+      HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+        this.setAttribute("open", "");
+      });
+      HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+        this.removeAttribute("open");
+      });
+    });
+
+    // 2.1 — clicking the panel body (no significant displacement) opens the modal
+    it("clicking the panel body opens the detail modal", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      const article = screen.getByRole("article");
+      fireEvent.mouseDown(article, { clientX: 10, clientY: 10 });
+      fireEvent.click(article, { clientX: 10, clientY: 10 });
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    // 2.2 — simulated drag: mousedown then click with large displacement suppresses modal
+    it("simulated drag (large pointer displacement) does NOT open the modal", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      const article = screen.getByRole("article");
+      fireEvent.mouseDown(article, { clientX: 0, clientY: 0 });
+      fireEvent.click(article, { clientX: 50, clientY: 0 });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // 2.3 — clicking the drag handle button does not open modal (button exclusion)
+    it("clicking the drag handle button does NOT open the modal", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      const dragHandle = screen.getByRole("button", { name: "Move Revenue panel" });
+      fireEvent.mouseDown(dragHandle, { clientX: 0, clientY: 0 });
+      fireEvent.click(dragHandle, { clientX: 0, clientY: 0 });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // 2.4 — clicking the actions menu trigger does not open modal (button exclusion)
+    it("clicking the actions menu trigger does NOT open the modal", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      const menuTrigger = screen.getByRole("button", { name: "Revenue panel actions" });
+      fireEvent.mouseDown(menuTrigger, { clientX: 0, clientY: 0 });
+      fireEvent.click(menuTrigger, { clientX: 0, clientY: 0 });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 });
