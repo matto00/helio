@@ -126,6 +126,17 @@ export type ImageFit = "contain" | "cover" | "fill";
 
 export type DividerOrientation = "horizontal" | "vertical";
 
+// ── Panel creation initial type-specific config ──────────────────────────────
+
+/** Optional config fields collected in step 3 of the panel creation modal
+ *  for panel types that benefit from initial configuration. */
+export type MetricTypeConfig = { type: "metric"; valueLabel?: string; unit?: string };
+export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie" };
+export type ImageTypeConfig = { type: "image"; imageUrl?: string };
+export type DividerTypeConfig = { type: "divider"; dividerOrientation?: DividerOrientation };
+
+export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig | DividerTypeConfig;
+
 export interface PanelUpdateFields {
   title?: string;
   appearance?: PanelAppearance;
