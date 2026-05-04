@@ -203,6 +203,31 @@ describe("PanelDetailModal", () => {
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
+  it("pressing E in view mode transitions to edit mode", () => {
+    renderModal();
+    const dialog = screen.getByRole("dialog", { name: "Revenue settings" });
+    fireEvent.keyDown(dialog, { key: "e" });
+    expect(screen.getByRole("tab", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
+  });
+
+  it("pressing E when focus is on an input element inside the modal does not change mode", () => {
+    renderModal();
+    const dialog = screen.getByRole("dialog", { name: "Revenue settings" });
+
+    // Append a text input as a child of the dialog to simulate a focused form field
+    const input = document.createElement("input");
+    input.type = "text";
+    dialog.appendChild(input);
+
+    // Fire keydown on the input — it bubbles to the dialog with e.target = input
+    fireEvent.keyDown(input, { key: "e" });
+
+    // Should still be in view mode
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
   it("switches to the Data tab and shows the type search input", () => {
     fetchDataTypesMock.mockResolvedValue([]);
     renderModal();
