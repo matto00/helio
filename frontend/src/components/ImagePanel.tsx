@@ -6,8 +6,18 @@ interface ImagePanelProps {
   imageFit: string | null;
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export function ImagePanel({ imageUrl, imageFit }: ImagePanelProps) {
-  if (!imageUrl) {
+  const safeUrl = imageUrl && isSafeUrl(imageUrl) ? imageUrl : null;
+  if (!safeUrl) {
     return (
       <div className="image-panel image-panel--empty">
         <span className="image-panel__placeholder-icon" aria-hidden="true">
@@ -24,7 +34,7 @@ export function ImagePanel({ imageUrl, imageFit }: ImagePanelProps) {
 
   return (
     <div className="image-panel">
-      <img className="image-panel__img" src={imageUrl} alt="" style={{ objectFit }} />
+      <img className="image-panel__img" src={safeUrl} alt="" style={{ objectFit }} />
     </div>
   );
 }
