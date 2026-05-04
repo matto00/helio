@@ -149,7 +149,8 @@ describe("PanelDetailModal", () => {
     updateAppearanceMock.mockReset();
     updateBindingMock.mockReset();
     updateDividerMock.mockReset();
-    fetchDataTypesMock.mockReset();
+    // Default to resolving with empty array so data-type fetch does not crash tests
+    fetchDataTypesMock.mockResolvedValue([]);
   });
 
   it("shows the panel title in the header", () => {
@@ -176,12 +177,34 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("clicking Edit button transitions to edit mode — Appearance tab visible and selected", () => {
+  // 2.1 — Edit mode shows unified form with no tab bar
+  it("clicking Edit transitions to edit mode with a unified form — no tab bar present", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    const appearanceTab = screen.getByRole("tab", { name: "Appearance" });
-    expect(appearanceTab).toBeInTheDocument();
-    expect(appearanceTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    // Appearance section heading and controls are visible
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Revenue background color")).toBeInTheDocument();
+  });
+
+  // 2.1 — Data-capable panels show Appearance and Data sections
+  it("metric panel edit mode shows Appearance and Data sections without a tab bar", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  // 2.1 — Divider panels show Appearance and Divider sections
+  it("divider panel edit mode shows Appearance and Divider sections without a tab bar", () => {
+    renderDividerModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Divider" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Data" })).not.toBeInTheDocument();
   });
 
   it("close from view mode is immediate — no discard warning shown", () => {
@@ -207,8 +230,9 @@ describe("PanelDetailModal", () => {
     renderModal();
     const dialog = screen.getByRole("dialog", { name: "Revenue settings" });
     fireEvent.keyDown(dialog, { key: "e" });
-    expect(screen.getByRole("tab", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
   it("pressing E when focus is on an input element inside the modal does not change mode", () => {
@@ -228,45 +252,29 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
-  it("switches to the Data tab and shows the type search input", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
+  it("data section shows the type search input for data-capable panels in edit mode", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
-    expect(screen.getByRole("tab", { name: "Data" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
   });
 
-  it("shows a Save button on the Data tab", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
-    renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
-    expect(screen.getByRole("button", { name: "Save data binding" })).toBeInTheDocument();
-  });
-
-  it("dispatches fetchDataTypes when Data tab is activated", async () => {
+  it("dispatches fetchDataTypes when edit mode is entered for data-capable panels", async () => {
     fetchDataTypesMock.mockResolvedValue([testDataType]);
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     await waitFor(() => expect(fetchDataTypesMock).toHaveBeenCalled());
   });
 
   it("shows the DataType list when data types are loaded", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     expect(screen.getByRole("listbox", { name: "Data types" })).toBeInTheDocument();
     expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
   });
 
   it("shows field mapping slots after selecting a DataType", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     // metric panel: value, label, unit slots
     expect(screen.getByLabelText("Value field")).toBeInTheDocument();
@@ -275,18 +283,15 @@ describe("PanelDetailModal", () => {
   });
 
   it("filters the DataType list by search query", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.change(screen.getByLabelText("Search data types"), {
       target: { value: "xyz" },
     });
     expect(screen.queryByText("Sales Metrics")).not.toBeInTheDocument();
   });
 
-  it("saves binding and closes on Data tab Save", async () => {
-    fetchDataTypesMock.mockResolvedValue([]);
+  it("saves binding and closes on unified Save", async () => {
     updateBindingMock.mockResolvedValue({
       ...testPanel,
       typeId: "dt-1",
@@ -298,23 +303,20 @@ describe("PanelDetailModal", () => {
     renderModalWithDataType(onClose);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() => expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it("shows an inline error when Data tab Save fails", async () => {
-    fetchDataTypesMock.mockResolvedValue([]);
+  it("shows an inline error when data Save fails", async () => {
     updateBindingMock.mockRejectedValue(new Error("Network error"));
     renderModalWithDataType();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save data binding" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() => {
       expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
@@ -322,15 +324,39 @@ describe("PanelDetailModal", () => {
   });
 
   it("shows discard warning when Cancel is clicked with unsaved data changes", () => {
-    fetchDataTypesMock.mockResolvedValue([]);
     renderModalWithDataType();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Data" }));
     fireEvent.click(screen.getByText("Sales Metrics"));
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
 
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+  });
+
+  // 2.2 — Title field pre-filled
+  it("title field is pre-filled with the current panel title", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    const titleInput = screen.getByLabelText("Panel title") as HTMLInputElement;
+    expect(titleInput.value).toBe("Revenue");
+  });
+
+  // 2.2 — Title update dispatched on save
+  it("saving with a changed title dispatches the updated title via accumulatePanelUpdate", () => {
+    const onClose = jest.fn();
+    const { store } = renderModal(onClose);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), {
+      target: { value: "New Title" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
+
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
+    expect(store.getState().panels.pendingPanelUpdates["p1"].title).toBe("New Title");
   });
 
   // Task 5.5 — saving appearance dispatches accumulatePanelUpdate instead of updatePanelAppearance
@@ -343,9 +369,9 @@ describe("PanelDetailModal", () => {
       target: { value: "#000000" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Dialog should close synchronously
+    // Dialog should close synchronously (data not dirty — only appearance via accumulatePanelUpdate)
     expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
 
@@ -355,6 +381,50 @@ describe("PanelDetailModal", () => {
     expect(store.getState().panels.pendingPanelUpdates["p1"].appearance?.background).toBe(
       "#000000",
     );
+  });
+
+  // 2.3 — Unified save dispatches appearance + data binding in sequence
+  it("unified save dispatches appearance and data binding in sequence when both are dirty", async () => {
+    updateBindingMock.mockResolvedValue({
+      ...testPanel,
+      typeId: "dt-1",
+      fieldMapping: null,
+      refreshInterval: null,
+      content: null,
+    });
+    const onClose = jest.fn();
+    const { store } = renderModalWithDataType(onClose);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    // Make appearance dirty
+    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
+      target: { value: "50" },
+    });
+    // Make data dirty
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
+
+    // Appearance accumulated into pending updates
+    expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
+    // Data binding sent to the server
+    await waitFor(() => expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  // 2.4 — Section-level inline error on data save failure; modal stays open
+  it("section-level inline error appears when data save fails and modal stays open", async () => {
+    updateBindingMock.mockRejectedValue(new Error("Network error"));
+    renderModalWithDataType();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.click(screen.getByText("Sales Metrics"));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
+    });
+    // Modal must remain open
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
   it("closes without saving when Cancel is clicked and form is clean", () => {
@@ -503,22 +573,21 @@ describe("PanelDetailModal", () => {
   });
 
   describe("Divider section", () => {
-    it("shows a Divider tab for divider panels", () => {
+    it("shows Divider section heading for divider panels in edit mode", () => {
       renderDividerModal();
       fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Divider" })).toBeInTheDocument();
     });
 
-    it("does not show a Divider tab for non-divider panels", () => {
+    it("does not show Divider section for non-divider panels", () => {
       renderModal();
       fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Divider" })).not.toBeInTheDocument();
     });
 
-    it("shows divider orientation, weight, and color controls on the Divider tab", () => {
+    it("shows divider orientation, weight, and color controls in edit mode", () => {
       renderDividerModal();
       fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
       expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
       expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
       expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
@@ -531,11 +600,10 @@ describe("PanelDetailModal", () => {
       expect(screen.queryByLabelText("Divider color")).not.toBeInTheDocument();
     });
 
-    it("shows a Save divider settings button on the Divider tab", () => {
+    it("shows a unified Save button in edit mode", () => {
       renderDividerModal();
       fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
-      expect(screen.getByRole("button", { name: "Save divider settings" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save panel settings" })).toBeInTheDocument();
     });
   });
 });
@@ -545,31 +613,24 @@ describe("PanelDetailModal -- divider panel", () => {
     updateAppearanceMock.mockReset();
     updateBindingMock.mockReset();
     updateDividerMock.mockReset();
-    fetchDataTypesMock.mockReset();
+    fetchDataTypesMock.mockResolvedValue([]);
   });
 
-  it("shows the Divider tab for divider panels", () => {
+  it("shows Divider section controls in edit mode for divider panels", () => {
     renderDividerModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.getByRole("tab", { name: "Divider" })).toBeInTheDocument();
-  });
-
-  it("does not show the Divider tab for non-divider panels", () => {
-    renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.queryByRole("tab", { name: "Divider" })).not.toBeInTheDocument();
-  });
-
-  it("shows divider controls when Divider tab is active", () => {
-    renderDividerModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
     expect(screen.getByLabelText("Divider orientation")).toBeInTheDocument();
     expect(screen.getByLabelText("Divider weight")).toBeInTheDocument();
     expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
   });
 
-  it("does not show divider controls on the appearance tab", () => {
+  it("does not show Divider section for non-divider panels", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    expect(screen.queryByRole("heading", { name: "Divider" })).not.toBeInTheDocument();
+  });
+
+  it("does not show divider controls in view mode", () => {
     renderDividerModal();
     expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
   });
@@ -579,22 +640,27 @@ describe("PanelDetailModal -- divider panel", () => {
     expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
   });
 
-  it("preserves null color on no-op Save when stored dividerColor is null", async () => {
+  it("preserves null color when other divider settings change: sends null instead of #cccccc", async () => {
     // When dividerColor is null in the DB, the picker shows #cccccc as a UI fallback.
-    // Saving without changing the color should send null (not #cccccc) to keep the
-    // CSS design-token default active rather than hardcoding a value.
-    updateDividerMock.mockResolvedValue({ ...dividerTestPanelNullColor, dividerColor: null });
+    // If the user changes another field (e.g. weight) but leaves color at the fallback,
+    // null must be passed — not "#cccccc" — so the CSS design-token default stays active.
+    updateDividerMock.mockResolvedValue({
+      ...dividerTestPanelNullColor,
+      dividerWeight: 2,
+      dividerColor: null,
+    });
     renderDividerModalNullColor();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
+    // Change weight to make the divider section dirty (leave color at the #cccccc fallback)
+    fireEvent.change(screen.getByLabelText("Divider weight"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
       expect(updateDividerMock).toHaveBeenCalledWith(
         testPanel.id,
         "horizontal",
-        1,
+        2,
         null, // null preserved — not "#cccccc"
       ),
     );
@@ -605,9 +671,8 @@ describe("PanelDetailModal -- divider panel", () => {
     renderDividerModal();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Divider" }));
     fireEvent.change(screen.getByLabelText("Divider color"), { target: { value: "#ff0000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save divider settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
       expect(updateDividerMock).toHaveBeenCalledWith(testPanel.id, "horizontal", 1, "#ff0000"),

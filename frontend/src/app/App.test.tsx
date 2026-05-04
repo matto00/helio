@@ -484,7 +484,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Revenue Pulse transparency"), {
       target: { value: "35" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save panel style" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     // Dialog closes synchronously; the individual PATCH service is no longer called
     expect(updatePanelAppearanceMock).not.toHaveBeenCalled();

@@ -1,5 +1,8 @@
-## ADDED Requirements
+# panel-datatype-binding Specification
 
+## Purpose
+Defines requirements for binding a panel to a registered DataType, including the API contract for typeId/fieldMapping/refreshInterval fields, the frontend UI for configuring the binding, and how data is persisted and saved.
+## Requirements
 ### Requirement: Panel can be bound to a DataType
 A panel SHALL have optional `typeId`, `fieldMapping`, and `refreshInterval` properties. `typeId` references a registered DataType; `fieldMapping` is a JSON object mapping panel display slot names to DataType field names; `refreshInterval` is the polling interval in seconds (null means manual).
 
@@ -23,19 +26,19 @@ The existing `PATCH /api/panels/:id` endpoint SHALL accept optional `typeId` (st
 - **THEN** the response is 200 with `typeId` and `fieldMapping` set to `null`
 
 ### Requirement: User can bind a panel to a DataType
-The panel detail modal Data tab SHALL allow the user to select a registered DataType from a searchable dropdown showing type name, source type badge, and field count. Selecting a DataType SHALL populate the field mapping section.
+The panel detail modal's unified edit mode form SHALL include a Data section (for data-capable panel types) that allows the user to select a registered DataType from a searchable dropdown showing type name, source type badge, and field count. Selecting a DataType SHALL populate the field mapping section within the same form.
 
-#### Scenario: DataType list is loaded when Data tab is opened
-- **WHEN** the user clicks the "Data" tab in the panel detail modal
-- **THEN** the registered DataTypes are fetched and displayed in a searchable dropdown
+#### Scenario: DataType list is shown in the Data section when edit mode is opened
+- **WHEN** the user enters edit mode on a data-capable panel (metric, chart, etc.)
+- **THEN** the Data section is visible in the unified form with the registered DataTypes loaded and displayed in a searchable dropdown
 
-#### Scenario: Selecting a DataType shows field mapping
-- **WHEN** the user selects a DataType from the dropdown
-- **THEN** the field mapping section appears with one dropdown per display slot for the panel's type
+#### Scenario: Selecting a DataType shows field mapping in the same form
+- **WHEN** the user selects a DataType from the dropdown in the Data section
+- **THEN** the field mapping rows appear directly below within the same section
 
 #### Scenario: No DataTypes available shows empty state
-- **WHEN** the Data tab is opened and no DataTypes are registered
-- **THEN** the dropdown is empty and an "Add a new source →" link is shown
+- **WHEN** edit mode is opened and no DataTypes are registered
+- **THEN** the dropdown is empty and an "Add a new source →" link is shown in the Data section
 
 ### Requirement: Field mapping slots are appropriate to the panel type
 The Data tab SHALL show display slots determined by the panel's type. Each slot has a dropdown of field names from the selected DataType.
@@ -84,3 +87,4 @@ If either the Appearance tab or Data tab has unsaved changes, closing or cancell
 #### Scenario: Closing with unsaved data changes shows warning
 - **WHEN** the user has changed the DataType binding and clicks Cancel or the close button
 - **THEN** a discard warning is shown before the modal closes
+

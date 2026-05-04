@@ -21,14 +21,15 @@ In view mode the modal SHALL present no input controls. The only interactive ele
 
 ### Requirement: Edit button transitions to edit mode
 The view mode header SHALL include an "Edit" button. Clicking it transitions the modal to edit mode,
-which shows the existing tab-based editing UI (Appearance tab active by default). Additionally,
+which shows the unified scrollable settings form (not a tab-based layout). Additionally,
 pressing the `E` keyboard shortcut while in view mode SHALL also transition to edit mode (see
 `panel-detail-keyboard-shortcuts` capability).
 
 #### Scenario: Clicking Edit enters edit mode
 - **WHEN** the user clicks the Edit button in view mode
 - **THEN** the modal transitions to edit mode
-- **AND** the tab bar is visible with the Appearance tab selected
+- **AND** the unified scrollable settings form is visible
+- **AND** the tab bar is not visible
 - **AND** the footer Save/Cancel buttons are visible
 
 #### Scenario: E key enters edit mode
@@ -36,7 +37,8 @@ pressing the `E` keyboard shortcut while in view mode SHALL also transition to e
 - **AND** focus is not on a form input
 - **AND** the user presses the E key
 - **THEN** the modal transitions to edit mode
-- **AND** the tab bar is visible with the Appearance tab selected
+- **AND** the unified scrollable settings form is visible
+- **AND** the tab bar is not visible
 - **AND** the footer Save/Cancel buttons are visible
 
 ### Requirement: Close from view mode requires no confirmation
