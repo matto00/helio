@@ -73,10 +73,8 @@ describe("Field picker — computed fields", () => {
   it("shows computed field with (computed) label in the field picker select", () => {
     renderModal();
 
-    // Enter edit mode first (modal opens in view mode by default)
+    // Enter edit mode — Data section is immediately visible in the unified form
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    // Switch to Data tab
-    fireEvent.click(screen.getByRole("tab", { name: /data/i }));
 
     // The field mapping select for "Value" slot should include the computed field
     const selects = screen.getAllByRole("combobox");
