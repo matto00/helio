@@ -1,0 +1,3 @@
+- `frontend/src/components/PanelDetailModal.tsx` — added `keydown` listener on the dialog element that calls `setModalMode("edit")` when `E`/`e` is pressed in view mode, with guards for input/textarea/select targets and proper cleanup on unmount
+- `frontend/src/components/PanelDetailModal.test.tsx` — added two new tests: pressing `E` in view mode transitions to edit mode; pressing `E` when an input element is the event target does not change mode
+- `openspec/changes/edit-mode-toggle-keyboard/tasks.md` — all five tasks marked complete

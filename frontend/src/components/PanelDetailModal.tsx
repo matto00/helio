@@ -204,11 +204,27 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       if (e.target === dialog) attemptClose();
     }
 
+    function handleKeyDown(e: KeyboardEvent) {
+      if (modalModeRef.current !== "view") return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === "e" || e.key === "E") {
+        setModalMode("edit");
+      }
+    }
+
     dialog.addEventListener("cancel", handleCancel);
     dialog.addEventListener("click", handleClick);
+    dialog.addEventListener("keydown", handleKeyDown);
     return () => {
       dialog.removeEventListener("cancel", handleCancel);
       dialog.removeEventListener("click", handleClick);
+      dialog.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
