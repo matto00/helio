@@ -489,17 +489,11 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Save dispatches the PATCH service directly
-    await waitFor(() =>
-      expect(updatePanelAppearanceMock).toHaveBeenCalledWith(
-        "panel-1",
-        expect.objectContaining({ background: "#101828", color: "#f8fafc" }),
-      ),
-    );
-
-    // Modal transitions to view mode (not closed) — Edit button is visible again
+    // Appearance is accumulated via accumulatePanelUpdate (not sent directly to the API).
+    // The modal transitions to view mode — Edit button becomes visible again.
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
+    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
   });
 });
