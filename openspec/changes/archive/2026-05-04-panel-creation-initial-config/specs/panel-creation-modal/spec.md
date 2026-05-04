@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Modal second step selects a template, third step names and configures the panel
+### Requirement: Modal second step selects a template, third step names the panel
 After type selection, the modal MUST present a template picker as Step 2 before the title/config form
 (Step 3). The title/config form (Step 3) MUST display a live panel preview pane alongside the form
 inputs. The form SHALL be displayed in one column and the preview in a second column on viewports
