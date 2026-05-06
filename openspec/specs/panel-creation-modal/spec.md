@@ -29,9 +29,11 @@ The type picker step MUST offer all available panel types as selectable options.
 - **AND** the user can proceed to the next step
 
 ### Requirement: Modal second step selects a template, third step names the panel
-After type selection, the modal MUST present a template picker as Step 2 before the title form (Step 3).
-The title form (Step 3) MUST display a live panel preview pane alongside the form inputs. The form SHALL
-be displayed in one column and the preview in a second column on viewports 600 px and wider.
+After type selection, the modal MUST present a template picker as Step 2 before the title/config form
+(Step 3). The title/config form (Step 3) MUST display a live panel preview pane alongside the form
+inputs. The form SHALL be displayed in one column and the preview in a second column on viewports
+600 px and wider. Step 3 MUST also render optional type-specific configuration fields below the title
+input as defined by the panel-creation-type-config spec.
 
 #### Scenario: Template step follows type selection
 - **WHEN** the user selects a panel type card

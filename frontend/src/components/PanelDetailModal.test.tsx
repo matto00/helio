@@ -2,6 +2,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../services/panelService";
 import { updatePanelBinding as updatePanelBindingRequest } from "../services/panelService";
+import { updatePanelContent as updatePanelContentRequest } from "../services/panelService";
+import { updatePanelImage as updatePanelImageRequest } from "../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
@@ -23,6 +25,8 @@ jest.mock("../services/dataTypeService", () => ({
 
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const updateBindingMock = jest.mocked(updatePanelBindingRequest);
+const updateContentMock = jest.mocked(updatePanelContentRequest);
+const updateImageMock = jest.mocked(updatePanelImageRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
@@ -73,6 +77,19 @@ const dividerTestPanelNullColor = {
   dividerColor: null,
 };
 
+const markdownTestPanel = {
+  ...testPanel,
+  type: "markdown" as const,
+  content: "# Hello",
+};
+
+const imageTestPanel = {
+  ...testPanel,
+  type: "image" as const,
+  imageUrl: "https://example.com/img.png",
+  imageFit: "contain" as const,
+};
+
 const testDataType = {
   id: "dt-1",
   name: "Sales Metrics",
@@ -87,67 +104,58 @@ const testDataType = {
   updatedAt: "2026-03-22T00:00:00Z",
 };
 
-function renderModal(onClose = jest.fn()) {
+function setupDialog() {
   HTMLDialogElement.prototype.showModal = jest.fn(function () {
     this.setAttribute("open", "");
   });
   HTMLDialogElement.prototype.close = jest.fn(function () {
     this.removeAttribute("open");
   });
+}
 
+function renderModal(onClose = jest.fn()) {
+  setupDialog();
   return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />);
 }
 
 function renderModalWithDataType(onClose = jest.fn()) {
-  HTMLDialogElement.prototype.showModal = jest.fn(function () {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function () {
-    this.removeAttribute("open");
-  });
-
+  setupDialog();
   return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />, {
     dataTypes: { items: [testDataType], status: "succeeded" },
   });
 }
 
 function renderChartModal(onClose = jest.fn()) {
-  HTMLDialogElement.prototype.showModal = jest.fn(function () {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function () {
-    this.removeAttribute("open");
-  });
-
+  setupDialog();
   return renderWithStore(<PanelDetailModal panel={chartTestPanel} onClose={onClose} />);
 }
 
 function renderDividerModal(onClose = jest.fn()) {
-  HTMLDialogElement.prototype.showModal = jest.fn(function () {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function () {
-    this.removeAttribute("open");
-  });
-
+  setupDialog();
   return renderWithStore(<PanelDetailModal panel={dividerTestPanel} onClose={onClose} />);
 }
 
 function renderDividerModalNullColor(onClose = jest.fn()) {
-  HTMLDialogElement.prototype.showModal = jest.fn(function () {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function () {
-    this.removeAttribute("open");
-  });
-
+  setupDialog();
   return renderWithStore(<PanelDetailModal panel={dividerTestPanelNullColor} onClose={onClose} />);
+}
+
+function renderMarkdownModal(onClose = jest.fn()) {
+  setupDialog();
+  return renderWithStore(<PanelDetailModal panel={markdownTestPanel} onClose={onClose} />);
+}
+
+function renderImageModal(onClose = jest.fn()) {
+  setupDialog();
+  return renderWithStore(<PanelDetailModal panel={imageTestPanel} onClose={onClose} />);
 }
 
 describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
     updateBindingMock.mockReset();
+    updateContentMock.mockReset();
+    updateImageMock.mockReset();
     updateDividerMock.mockReset();
     // Default to resolving with empty array so data-type fetch does not crash tests
     fetchDataTypesMock.mockResolvedValue([]);
@@ -252,6 +260,34 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
+  // ✕ button — close behavior from edit mode
+  it("✕ button in edit mode with no changes closes the modal immediately", () => {
+    const onClose = jest.fn();
+    renderModal(onClose);
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    // No changes made — click ✕ directly
+    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+  });
+
+  it("✕ button in edit mode with unsaved changes shows discard warning; confirming closes the modal", () => {
+    const onClose = jest.fn();
+    renderModal(onClose);
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
+      target: { value: "50" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+    // Confirm discard — modal must close, not return to view mode
+    fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
+  });
+
   it("data section shows the type search input for data-capable panels in edit mode", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
@@ -291,7 +327,8 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByText("Sales Metrics")).not.toBeInTheDocument();
   });
 
-  it("saves binding and closes on unified Save", async () => {
+  // Save transitions to view mode (not close)
+  it("saves binding and transitions to view mode on Save", async () => {
     updateBindingMock.mockResolvedValue({
       ...testPanel,
       typeId: "dt-1",
@@ -307,7 +344,11 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() => expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("shows an inline error when data Save fails", async () => {
@@ -342,7 +383,7 @@ describe("PanelDetailModal", () => {
   });
 
   // 2.2 — Title update dispatched on save
-  it("saving with a changed title dispatches the updated title via accumulatePanelUpdate", () => {
+  it("saving with a changed title dispatches the updated title via accumulatePanelUpdate", async () => {
     const onClose = jest.fn();
     const { store } = renderModal(onClose);
 
@@ -353,14 +394,18 @@ describe("PanelDetailModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    // Save transitions to view mode, not close
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
     expect(store.getState().panels.pendingPanelUpdates["p1"].title).toBe("New Title");
   });
 
-  // Task 5.5 — saving appearance dispatches accumulatePanelUpdate instead of updatePanelAppearance
-  it("dispatches accumulatePanelUpdate and closes on Appearance Save without calling the service", () => {
+  // Task 5.5 — saving appearance dispatches accumulatePanelUpdate, transitions to view mode
+  it("dispatches accumulatePanelUpdate and transitions to view mode on Save without calling the service", async () => {
     const onClose = jest.fn();
     const { store } = renderModal(onClose);
 
@@ -371,9 +416,12 @@ describe("PanelDetailModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Dialog should close synchronously (data not dirty — only appearance via accumulatePanelUpdate)
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    // Save transitions to view mode, not close
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
 
     // The appearance change should be in pendingPanelUpdates, not sent to the server
     expect(updateAppearanceMock).not.toHaveBeenCalled();
@@ -408,7 +456,11 @@ describe("PanelDetailModal", () => {
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
     // Data binding sent to the server
     await waitFor(() => expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // Transitions to view mode, not closes
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   // 2.4 — Section-level inline error on data save failure; modal stays open
@@ -427,13 +479,16 @@ describe("PanelDetailModal", () => {
     expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
-  it("closes without saving when Cancel is clicked and form is clean", () => {
+  // Task 2.3 — Cancel with no changes transitions to view mode (not close)
+  it("Cancel with no changes transitions to view mode (not close)", () => {
     const onClose = jest.fn();
     renderModal(onClose);
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     expect(updateAppearanceMock).not.toHaveBeenCalled();
   });
 
@@ -450,7 +505,8 @@ describe("PanelDetailModal", () => {
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
-  it("discards changes and closes when Discard is confirmed", () => {
+  // Task 2.4 — Confirming discard returns to view mode (not close)
+  it("confirming discard returns to view mode (not close)", () => {
     const onClose = jest.fn();
     renderModal(onClose);
 
@@ -462,8 +518,9 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
 
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("keeps the modal open when 'Keep editing' is clicked", () => {
@@ -480,6 +537,80 @@ describe("PanelDetailModal", () => {
 
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
+  });
+
+  // Task 2.5 — Escape key in edit mode with no changes returns to view mode
+  it("Escape key in edit mode with no changes returns to view mode", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+  });
+
+  // Task 2.6 — Escape key in edit mode with unsaved changes shows discard warning; confirming returns to view mode
+  it("Escape key in edit mode with unsaved changes shows discard warning; confirming returns to view mode", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
+      target: { value: "50" },
+    });
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
+
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+  });
+
+  // Task 2.7 — "Unsaved changes" indicator appears in header after modifying a field
+  it("Unsaved changes indicator appears in header after modifying a field in edit mode", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    // No indicator yet
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+
+    // Make a change
+    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
+      target: { value: "50" },
+    });
+
+    // Indicator should now appear
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+  });
+
+  // Task 2.8 — "Unsaved changes" indicator not shown when no fields are changed
+  it("Unsaved changes indicator not shown when no fields are changed in edit mode", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+  });
+
+  // Task 2.9 — Changing a field does not dispatch any API call until Save is clicked
+  it("changing a field in edit mode does not dispatch any API call until Save is clicked", () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    // Change the background color
+    fireEvent.change(screen.getByLabelText("Revenue background color"), {
+      target: { value: "#ff0000" },
+    });
+
+    // No API calls should have been made
+    expect(updateAppearanceMock).not.toHaveBeenCalled();
+    expect(updateBindingMock).not.toHaveBeenCalled();
+    expect(updateContentMock).not.toHaveBeenCalled();
+    expect(updateImageMock).not.toHaveBeenCalled();
+    expect(updateDividerMock).not.toHaveBeenCalled();
   });
 
   describe("Chart section", () => {
@@ -664,6 +795,10 @@ describe("PanelDetailModal -- divider panel", () => {
         null, // null preserved — not "#cccccc"
       ),
     );
+    // Modal should be in view mode after save
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
+    );
   });
 
   it("passes an explicit color through when the user picks a non-fallback value", async () => {
@@ -676,6 +811,10 @@ describe("PanelDetailModal -- divider panel", () => {
 
     await waitFor(() =>
       expect(updateDividerMock).toHaveBeenCalledWith(testPanel.id, "horizontal", 1, "#ff0000"),
+    );
+    // Modal should be in view mode after save
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
   });
 });

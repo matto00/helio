@@ -7,7 +7,15 @@ import { PANEL_TEMPLATES } from "../features/panels/panelTemplates";
 import type { PanelTemplate } from "../features/panels/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { InlineError } from "./InlineError";
-import type { PanelType } from "../types/models";
+import type {
+  ChartTypeConfig,
+  DividerOrientation,
+  DividerTypeConfig,
+  ImageTypeConfig,
+  MetricTypeConfig,
+  PanelType,
+  TypeConfig,
+} from "../types/models";
 import { PanelCreationPreview } from "./PanelCreationPreview";
 
 const PANEL_TYPES: { value: PanelType; label: string; icon: string; description: string }[] = [
@@ -51,6 +59,161 @@ const FOCUSABLE_SELECTORS =
 
 type Step = "type-select" | "template-select" | "name-entry";
 
+// ── Type-specific config helpers ─────────────────────────────────────────────
+
+/** Returns true if typeConfig has at least one non-empty value worth submitting. */
+function hasNonEmptyTypeConfig(config: TypeConfig | null): config is TypeConfig {
+  if (!config) return false;
+  switch (config.type) {
+    case "metric":
+      return !!(config.valueLabel || config.unit);
+    case "chart":
+      return !!config.chartType;
+    case "image":
+      return !!config.imageUrl;
+    case "divider":
+      return !!config.dividerOrientation;
+  }
+}
+
+// ── Per-type config field components ─────────────────────────────────────────
+
+/** 2.1 — Value label + unit inputs for metric panels. */
+function MetricConfigFields({
+  config,
+  onChange,
+}: {
+  config: MetricTypeConfig;
+  onChange: (config: MetricTypeConfig) => void;
+}) {
+  return (
+    <>
+      <div className="panel-creation-modal__field">
+        <label className="panel-creation-modal__label" htmlFor="panel-create-value-label">
+          Value label
+        </label>
+        <input
+          id="panel-create-value-label"
+          className="panel-creation-modal__input"
+          type="text"
+          value={config.valueLabel ?? ""}
+          onChange={(e) => onChange({ ...config, valueLabel: e.target.value || undefined })}
+          placeholder="e.g. Revenue"
+          aria-label="Value label"
+        />
+      </div>
+      <div className="panel-creation-modal__field">
+        <label className="panel-creation-modal__label" htmlFor="panel-create-unit">
+          Unit
+        </label>
+        <input
+          id="panel-create-unit"
+          className="panel-creation-modal__input"
+          type="text"
+          value={config.unit ?? ""}
+          onChange={(e) => onChange({ ...config, unit: e.target.value || undefined })}
+          placeholder="e.g. $, %, ms"
+          aria-label="Unit"
+        />
+      </div>
+    </>
+  );
+}
+
+/** 2.2 — Chart type selector (line / bar / pie) for chart panels. */
+function ChartTypeField({
+  config,
+  onChange,
+}: {
+  config: ChartTypeConfig;
+  onChange: (config: ChartTypeConfig) => void;
+}) {
+  return (
+    <div className="panel-creation-modal__field">
+      <label className="panel-creation-modal__label" htmlFor="panel-create-chart-type">
+        Chart type
+      </label>
+      <select
+        id="panel-create-chart-type"
+        className="panel-creation-modal__input"
+        value={config.chartType ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange({ ...config, chartType: v ? (v as "line" | "bar" | "pie") : undefined });
+        }}
+        aria-label="Chart type"
+      >
+        <option value="">Select chart type</option>
+        <option value="line">Line</option>
+        <option value="bar">Bar</option>
+        <option value="pie">Pie</option>
+      </select>
+    </div>
+  );
+}
+
+/** 2.3 — Image URL input for image panels. */
+function ImageConfigField({
+  config,
+  onChange,
+}: {
+  config: ImageTypeConfig;
+  onChange: (config: ImageTypeConfig) => void;
+}) {
+  return (
+    <div className="panel-creation-modal__field">
+      <label className="panel-creation-modal__label" htmlFor="panel-create-image-url">
+        Image URL
+      </label>
+      <input
+        id="panel-create-image-url"
+        className="panel-creation-modal__input"
+        type="url"
+        value={config.imageUrl ?? ""}
+        onChange={(e) => onChange({ ...config, imageUrl: e.target.value || undefined })}
+        placeholder="https://example.com/image.jpg"
+        aria-label="Image URL"
+      />
+    </div>
+  );
+}
+
+/** 2.4 — Orientation selector (horizontal / vertical) for divider panels. */
+function DividerConfigField({
+  config,
+  onChange,
+}: {
+  config: DividerTypeConfig;
+  onChange: (config: DividerTypeConfig) => void;
+}) {
+  return (
+    <div className="panel-creation-modal__field">
+      <label className="panel-creation-modal__label" htmlFor="panel-create-orientation">
+        Orientation
+      </label>
+      <select
+        id="panel-create-orientation"
+        className="panel-creation-modal__input"
+        value={config.dividerOrientation ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange({
+            ...config,
+            dividerOrientation: v ? (v as DividerOrientation) : undefined,
+          });
+        }}
+        aria-label="Orientation"
+      >
+        <option value="">Select orientation</option>
+        <option value="horizontal">Horizontal</option>
+        <option value="vertical">Vertical</option>
+      </select>
+    </div>
+  );
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
 interface PanelCreationModalProps {
   onClose: () => void;
 }
@@ -64,11 +227,17 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [selectedType, setSelectedType] = useState<PanelType | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<PanelTemplate | null>(null);
   const [title, setTitle] = useState("");
+  // 1.2 — Type-specific config lives in local state alongside existing fields.
+  const [typeConfig, setTypeConfig] = useState<TypeConfig | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // 1.1 — Dirty when the user has selected a type, selected a template, or typed a title.
-  const isDirty = selectedType !== null || selectedTemplate !== null || title !== "";
+  // 1.3 — Dirty when the user has selected a type, template, typed a title, or entered any config.
+  const isDirty =
+    selectedType !== null ||
+    selectedTemplate !== null ||
+    title !== "" ||
+    hasNonEmptyTypeConfig(typeConfig);
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -112,6 +281,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   function handleClose() {
     dialogRef.current?.close();
     onClose();
+    // 1.4 — typeConfig resets automatically when the component unmounts on close.
   }
 
   // 1.2 — Shared dismiss helper: prompts when dirty, closes directly when clean.
@@ -134,6 +304,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
   function handleTypeSelect(type: PanelType) {
     setSelectedType(type);
+    // Reset typeConfig whenever a new type is picked so stale values don't carry over.
+    setTypeConfig(null);
     setStep("template-select");
   }
 
@@ -166,12 +338,16 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
     setIsCreating(true);
     setCreateError(null);
+
+    // 3.1 — Include typeConfig in the payload only when it has non-empty values.
+    const nonEmptyConfig = hasNonEmptyTypeConfig(typeConfig) ? typeConfig : undefined;
     try {
       await dispatch(
         createPanel({
           dashboardId: selectedDashboardId,
           title: normalizedTitle,
           type: selectedType,
+          ...(nonEmptyConfig !== undefined ? { typeConfig: nonEmptyConfig } : {}),
         }),
       ).unwrap();
       handleClose();
@@ -189,6 +365,17 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   }
 
   const templates = selectedType ? PANEL_TEMPLATES[selectedType] : [];
+
+  // 2.5 — Derive per-type config objects for the sub-components; fall back to empty objects so
+  //       inputs start blank and the sub-components are always controlled.
+  const metricConfig: MetricTypeConfig =
+    typeConfig?.type === "metric" ? typeConfig : { type: "metric" };
+  const chartConfig: ChartTypeConfig =
+    typeConfig?.type === "chart" ? typeConfig : { type: "chart" };
+  const imageConfig: ImageTypeConfig =
+    typeConfig?.type === "image" ? typeConfig : { type: "image" };
+  const dividerConfig: DividerTypeConfig =
+    typeConfig?.type === "divider" ? typeConfig : { type: "divider" };
 
   return (
     <dialog
@@ -301,6 +488,21 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                   autoFocus
                 />
               </div>
+
+              {/* 2.5 — Per-type config fields rendered below the title input. */}
+              {selectedType === "metric" && (
+                <MetricConfigFields config={metricConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+              )}
+              {selectedType === "chart" && (
+                <ChartTypeField config={chartConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+              )}
+              {selectedType === "image" && (
+                <ImageConfigField config={imageConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+              )}
+              {selectedType === "divider" && (
+                <DividerConfigField config={dividerConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+              )}
+
               <InlineError error={createError} />
               <div className="panel-creation-modal__actions">
                 <button
@@ -319,7 +521,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                 </button>
               </div>
             </form>
-            <PanelCreationPreview type={selectedType!} title={title} />
+            {/* 2.6 — Pass typeConfig to preview so it reflects entered config live. */}
+            <PanelCreationPreview type={selectedType!} title={title} typeConfig={typeConfig} />
           </div>
         )}
       </div>

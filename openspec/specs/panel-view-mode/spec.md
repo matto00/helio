@@ -41,6 +41,16 @@ pressing the `E` keyboard shortcut while in view mode SHALL also transition to e
 - **AND** the tab bar is not visible
 - **AND** the footer Save/Cancel buttons are visible
 
+#### Scenario: Save in edit mode returns to view mode
+- **WHEN** the user completes a save in edit mode
+- **THEN** the modal transitions back to view mode
+- **AND** the Edit button is visible again
+
+#### Scenario: Cancel in edit mode returns to view mode
+- **WHEN** the user cancels or discards changes in edit mode
+- **THEN** the modal transitions back to view mode
+- **AND** the Edit button is visible again
+
 ### Requirement: Close from view mode requires no confirmation
 Closing the modal while in view mode (via the close button, Escape, or backdrop click) SHALL close immediately with no discard warning, because view mode involves no editable state.
 

@@ -4,6 +4,7 @@ import type {
   Panel,
   PanelAppearance,
   PanelType,
+  TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../types/models";
@@ -17,6 +18,12 @@ interface CreatePanelRequest {
   dashboardId: string;
   title: string;
   type?: PanelType;
+  // Optional type-specific config fields forwarded to the backend on create
+  metricValueLabel?: string;
+  metricUnit?: string;
+  imageUrl?: string;
+  dividerOrientation?: string;
+  appearance?: { chart?: { chartType?: string } };
 }
 
 interface UpdatePanelAppearanceRequest {
@@ -32,12 +39,28 @@ export async function createPanel(
   dashboardId: string,
   title: string,
   type?: PanelType,
+  typeConfig?: TypeConfig,
 ): Promise<Panel> {
-  const response = await httpClient.post<Panel>("/api/panels", {
-    dashboardId,
-    title,
-    ...(type !== undefined && { type }),
-  } satisfies CreatePanelRequest);
+  const body: CreatePanelRequest = { dashboardId, title };
+  if (type !== undefined) body.type = type;
+  if (typeConfig) {
+    switch (typeConfig.type) {
+      case "metric":
+        if (typeConfig.valueLabel) body.metricValueLabel = typeConfig.valueLabel;
+        if (typeConfig.unit) body.metricUnit = typeConfig.unit;
+        break;
+      case "chart":
+        if (typeConfig.chartType) body.appearance = { chart: { chartType: typeConfig.chartType } };
+        break;
+      case "image":
+        if (typeConfig.imageUrl) body.imageUrl = typeConfig.imageUrl;
+        break;
+      case "divider":
+        if (typeConfig.dividerOrientation) body.dividerOrientation = typeConfig.dividerOrientation;
+        break;
+    }
+  }
+  const response = await httpClient.post<Panel>("/api/panels", body);
   return response.data;
 }
 
