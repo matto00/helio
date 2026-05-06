@@ -53,4 +53,10 @@ describe("SourcesPage", () => {
     const ctaBtn = await screen.findByRole("button", { name: "Add a data source" });
     expect(ctaBtn).toBeInTheDocument();
   });
+
+  it("does not dispatch fetchDataTypes on mount", async () => {
+    renderWithStore(<SourcesPage />);
+    await screen.findByRole("button", { name: "Add a data source" });
+    expect(fetchDataTypesMock).not.toHaveBeenCalled();
+  });
 });

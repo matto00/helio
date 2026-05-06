@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import "./SourcesPage.css";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
@@ -14,7 +13,6 @@ export function SourcesPage() {
 
   useEffect(() => {
     void dispatch(fetchSources());
-    void dispatch(fetchDataTypes());
   }, [dispatch]);
 
   return (
