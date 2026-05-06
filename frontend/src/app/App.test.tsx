@@ -448,6 +448,17 @@ describe("App", () => {
     );
   });
 
+  it("renders the Data Sources nav link pointing to /sources in the sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const dataSourcesLink = await screen.findByRole("link", { name: "Data Sources" });
+    expect(dataSourcesLink).toBeInTheDocument();
+    expect(dataSourcesLink).toHaveAttribute("href", "/sources");
+  });
+
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);

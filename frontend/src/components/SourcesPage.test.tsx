@@ -1,6 +1,5 @@
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 
-import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
@@ -22,7 +21,6 @@ jest.mock("../services/dataTypeService", () => ({
   deleteDataType: jest.fn(),
 }));
 
-const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
 const testSource = {
@@ -46,13 +44,7 @@ const testDataType = {
 
 describe("SourcesPage", () => {
   beforeEach(() => {
-    fetchSourcesMock.mockResolvedValue([]);
     fetchDataTypesMock.mockResolvedValue([]);
-  });
-
-  it("renders the Data Sources section heading", () => {
-    renderWithStore(<SourcesPage />);
-    expect(screen.getByRole("heading", { name: "Data Sources" })).toBeInTheDocument();
   });
 
   it("renders the Type Registry section heading", () => {
@@ -60,22 +52,14 @@ describe("SourcesPage", () => {
     expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument();
   });
 
-  it("renders Add source button", () => {
+  it("does not render Data Sources section heading", () => {
     renderWithStore(<SourcesPage />);
-    expect(screen.getByRole("button", { name: "Add source" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Data Sources" })).not.toBeInTheDocument();
   });
 
-  it("shows empty state message for sources when there are none", async () => {
+  it("does not render Add source button", () => {
     renderWithStore(<SourcesPage />);
-    await waitFor(() =>
-      expect(screen.getByText("No data sources yet. Add one to get started.")).toBeInTheDocument(),
-    );
-  });
-
-  it("shows empty state CTA button for data sources", async () => {
-    renderWithStore(<SourcesPage />);
-    const ctaBtn = await screen.findByRole("button", { name: "Add a data source" });
-    expect(ctaBtn).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add source" })).not.toBeInTheDocument();
   });
 
   it("shows empty state for types when there are none", async () => {
@@ -88,10 +72,11 @@ describe("SourcesPage", () => {
   });
 
   it("clicking a DataType sets selection without toggling it off on re-click", async () => {
-    fetchSourcesMock.mockResolvedValue([testSource]);
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
-    renderWithStore(<SourcesPage />);
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [testSource], status: "succeeded" },
+    });
     const typeBtn = await screen.findByRole("button", { name: "Metrics 1 field" });
 
     // First click — selects
@@ -104,10 +89,11 @@ describe("SourcesPage", () => {
   });
 
   it("shows delete confirm button when delete is clicked for a DataType", async () => {
-    fetchSourcesMock.mockResolvedValue([testSource]);
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
-    renderWithStore(<SourcesPage />);
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [testSource], status: "succeeded" },
+    });
     const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
     fireEvent.click(deleteBtn);
     expect(
@@ -116,7 +102,6 @@ describe("SourcesPage", () => {
   });
 
   it("shows cancel button in DataType delete confirm and does not call API on cancel", async () => {
-    fetchSourcesMock.mockResolvedValue([testSource]);
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     const { deleteDataType: deleteDataTypeMock } = jest.requireMock(
@@ -126,7 +111,9 @@ describe("SourcesPage", () => {
     };
     deleteDataTypeMock.mockReset();
 
-    renderWithStore(<SourcesPage />);
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [testSource], status: "succeeded" },
+    });
     const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
     fireEvent.click(deleteBtn);
 
