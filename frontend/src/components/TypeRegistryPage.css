@@ -1,0 +1,36 @@
+.type-registry-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+  min-height: 100%;
+}
+
+.type-registry-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.type-registry-page__title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.type-registry-page__loading,
+.type-registry-page__error {
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  margin: 0;
+}
+
+.type-registry-page__error {
+  color: #f87171;
+}
