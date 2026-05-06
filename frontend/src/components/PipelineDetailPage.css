@@ -1,0 +1,551 @@
+.pipeline-detail-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Back nav ── */
+.pipeline-detail-page__back-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border-subtle);
+  order: -1;
+}
+
+.pipeline-detail-page__back-link {
+  color: var(--app-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.pipeline-detail-page__back-link:hover {
+  text-decoration: underline;
+}
+
+.pipeline-detail-page__back-sep {
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__back-current {
+  color: var(--app-text);
+}
+
+/* ── Source selector bar ── */
+.pipeline-detail-page__source-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__source-bar-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  padding-top: 6px;
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.pipeline-detail-page__source-bar-loading {
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__source-chip-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pipeline-detail-page__source-chip {
+  display: flex;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  overflow: hidden;
+  background: var(--app-surface);
+}
+
+.pipeline-detail-page__source-chip--active {
+  border-color: var(--app-accent-mid);
+  background: var(--app-accent-surface);
+}
+
+.pipeline-detail-page__source-chip-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__source-chip--active .pipeline-detail-page__source-chip-toggle {
+  color: var(--app-accent);
+  border-right-color: var(--app-accent-mid);
+}
+
+.pipeline-detail-page__source-chip-name {
+  font-weight: 500;
+}
+
+.pipeline-detail-page__source-chip-count {
+  font-size: 0.7rem;
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+}
+
+.pipeline-detail-page__source-chip-preview-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--app-text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__source-chip-preview-btn:hover {
+  color: var(--app-accent);
+}
+
+.pipeline-detail-page__source-preview {
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-sm);
+  overflow: auto;
+  max-width: 300px;
+}
+
+.pipeline-detail-page__source-preview-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  width: 100%;
+}
+
+.pipeline-detail-page__source-preview-th {
+  padding: 3px 8px;
+  text-align: left;
+  color: var(--app-accent);
+  border-bottom: 1px solid var(--app-accent-mid);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__source-preview-td {
+  padding: 3px 8px;
+  color: var(--app-text);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__connect-source-btn {
+  padding: 4px 10px;
+  border: 1px dashed var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__connect-source-btn:hover {
+  border-color: var(--app-accent-mid);
+  color: var(--app-accent);
+}
+
+/* ── River view ── */
+.pipeline-detail-page__river {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.pipeline-detail-page__river-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pipeline-detail-page__ribbon {
+  width: 100%;
+  height: 50px;
+  display: block;
+}
+
+.pipeline-detail-page__step-section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Empty state ── */
+.pipeline-detail-page__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  text-align: center;
+  position: relative;
+}
+
+.pipeline-detail-page__empty-state-text {
+  font-size: 0.9rem;
+  color: var(--app-text-muted);
+  margin: 0;
+}
+
+.pipeline-detail-page__add-step-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__add-step-btn:hover {
+  background: var(--app-accent-dim);
+  border-color: var(--app-accent);
+}
+
+/* ── Add step row (below steps) ── */
+.pipeline-detail-page__add-step-row {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+  position: relative;
+}
+
+.pipeline-detail-page__add-step-dashed-btn {
+  padding: 8px 20px;
+  border: 1px dashed var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__add-step-dashed-btn:hover {
+  background: var(--app-accent-surface);
+  border-style: solid;
+}
+
+/* ── Op type dropdown ── */
+.pipeline-detail-page__op-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.pipeline-detail-page__op-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__op-dropdown-item:hover {
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+}
+
+/* ── Step card ── */
+.pipeline-detail-page__step-card {
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+.pipeline-detail-page__step-card--expanded {
+  border-color: var(--app-accent-mid);
+  background: var(--app-accent-surface);
+}
+
+.pipeline-detail-page__step-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__step-card-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__step-card-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.pipeline-detail-page__step-card-count {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__step-card-chevron {
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+  transition: transform 0.15s;
+}
+
+.pipeline-detail-page__step-card-chevron--open {
+  transform: rotate(180deg);
+}
+
+.pipeline-detail-page__step-card-body {
+  padding: 12px 14px;
+  border-top: 1px solid var(--app-accent-mid);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pipeline-detail-page__step-card-desc {
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  margin: 0;
+}
+
+.pipeline-detail-page__step-card-diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pipeline-detail-page__step-card-diff-chip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: var(--app-radius-sm);
+}
+
+.pipeline-detail-page__step-card-diff-chip--added {
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+  border: 1px solid var(--app-accent-mid);
+}
+
+.pipeline-detail-page__step-card-diff-chip--removed {
+  text-decoration: line-through;
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.pipeline-detail-page__step-card-diff-chip--changed {
+  background: var(--app-accent-dim);
+  color: var(--app-accent-strong);
+  border: 1px solid var(--app-accent-mid);
+}
+
+.pipeline-detail-page__step-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pipeline-detail-page__step-card-preview-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__step-card-preview-btn:hover {
+  background: var(--app-accent-surface);
+}
+
+.pipeline-detail-page__step-card-remove-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: #f87171;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__step-card-remove-btn:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ── Footer bar ── */
+.pipeline-detail-page__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  border-top: 1.5px solid var(--app-accent-mid);
+  background: var(--app-accent-surface);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pipeline-detail-page__footer-output-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+}
+
+.pipeline-detail-page__footer-output-name {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--app-accent-mid);
+  color: var(--app-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 1px 4px;
+}
+
+.pipeline-detail-page__footer-output-name:hover {
+  border-bottom-color: var(--app-accent);
+}
+
+.pipeline-detail-page__footer-output-input {
+  background: var(--app-surface);
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text);
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.pipeline-detail-page__footer-output-input:focus {
+  border-color: var(--app-accent);
+}
+
+.pipeline-detail-page__footer-schema {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.pipeline-detail-page__footer-schema-chip {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-dim);
+  color: var(--app-accent);
+  border: 1px solid var(--app-accent-mid);
+}
+
+.pipeline-detail-page__footer-inferred {
+  font-size: 0.7rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__footer-stats {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__preview-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pipeline-detail-page__preview-btn:hover {
+  background: var(--app-accent-dim);
+}
+
+.pipeline-detail-page__run-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--app-radius-md);
+  background: #f97316;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.3);
+  transition:
+    box-shadow var(--app-transition),
+    background var(--app-transition);
+}
+
+.pipeline-detail-page__run-btn:hover {
+  background: #ea6a0a;
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.5);
+}

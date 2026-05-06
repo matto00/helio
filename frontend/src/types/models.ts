@@ -241,6 +241,12 @@ export interface UserPreferencePayload {
   dashboardId?: string;
 }
 
+export interface Pipeline {
+  id: string;
+  name: string;
+  outputDataTypeId?: string;
+}
+
 export interface UpdateUserPreferenceRequest {
   fields: string[];
   user: UserPreferencePayload;
