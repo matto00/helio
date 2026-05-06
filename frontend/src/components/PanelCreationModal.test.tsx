@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../test/renderWithStore";
+import type { Panel } from "../types/models";
 import { PanelCreationModal } from "./PanelCreationModal";
 import type { PanelContentProps } from "./PanelContent";
 
@@ -338,6 +339,188 @@ describe("PanelCreationModal — live preview", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     expect(screen.queryByTestId("panel-creation-preview")).not.toBeInTheDocument();
+  });
+});
+
+// ── Default panel mock returned by successful createPanel calls ───────────────
+const mockPanel = (overrides?: Partial<Panel>): Panel => ({
+  id: "panel-new",
+  dashboardId: "dashboard-1",
+  title: "My Panel",
+  type: "metric" as const,
+  meta: defaultMeta,
+  appearance: defaultPanelAppearance,
+  typeId: null,
+  fieldMapping: null,
+  refreshInterval: null,
+  content: null,
+  imageUrl: null,
+  imageFit: null,
+  dividerOrientation: null,
+  dividerWeight: null,
+  dividerColor: null,
+  ...overrides,
+});
+
+describe("PanelCreationModal — type-specific config fields", () => {
+  beforeEach(() => {
+    createPanelMock.mockReset();
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 4.1 — Metric config fields appear in step 3
+  it("4.1 metric config fields (value label + unit) appear in step 3 for metric type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.getByLabelText("Value label")).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit")).toBeInTheDocument();
+  });
+
+  // 4.2 — Chart type selector appears in step 3
+  it("4.2 chart type selector appears in step 3 for chart type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const selector = screen.getByLabelText("Chart type");
+    expect(selector).toBeInTheDocument();
+    // Selector offers Line, Bar, Pie options
+    expect(screen.getByRole("option", { name: "Line" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Bar" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Pie" })).toBeInTheDocument();
+  });
+
+  // 4.3 — Image URL field appears in step 3
+  it("4.3 image URL field appears in step 3 for image type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.getByLabelText("Image URL")).toBeInTheDocument();
+  });
+
+  // 4.4 — Orientation selector appears in step 3
+  it("4.4 orientation selector appears in step 3 for divider type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Divider" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const selector = screen.getByLabelText("Orientation");
+    expect(selector).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Horizontal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Vertical" })).toBeInTheDocument();
+  });
+
+  // 4.5 — Text, Table, Markdown show no additional config fields
+  it("4.5 Text, Table, and Markdown show no additional config fields in step 3", () => {
+    const typesToTest: Array<{ name: string }> = [
+      { name: "Text" },
+      { name: "Table" },
+      { name: "Markdown" },
+    ];
+
+    for (const { name } of typesToTest) {
+      const onClose = jest.fn();
+      const { unmount } = renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+      fireEvent.click(screen.getByRole("button", { name }));
+      fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+      expect(screen.queryByLabelText("Value label")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Chart type")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Image URL")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Orientation")).not.toBeInTheDocument();
+
+      unmount();
+    }
+  });
+
+  // 4.6 — typeConfig values are included in the creation payload on submit
+  it("4.6 typeConfig values are included in the creation payload on submit", async () => {
+    createPanelMock.mockResolvedValue(mockPanel({ type: "metric", title: "Revenue" }));
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Revenue" } });
+    fireEvent.change(screen.getByLabelText("Value label"), {
+      target: { value: "Total Revenue" },
+    });
+    fireEvent.change(screen.getByLabelText("Unit"), { target: { value: "$" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Revenue", "metric", {
+        type: "metric",
+        valueLabel: "Total Revenue",
+        unit: "$",
+      }),
+    );
+  });
+
+  // 4.7 — Entering a config value sets dirty state (discard prompt shown)
+  it("4.7 entering a config value marks the modal dirty (discard prompt shown on dismiss)", () => {
+    jest.spyOn(window, "confirm").mockReturnValue(false);
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Image URL"), {
+      target: { value: "https://example.com/image.jpg" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // 4.8 — typeConfig state resets after modal close
+  it("4.8 typeConfig state resets after modal close and reopen", () => {
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    const onClose = jest.fn();
+    const { unmount } = renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const imageInput = screen.getByLabelText("Image URL") as HTMLInputElement;
+    fireEvent.change(imageInput, { target: { value: "https://example.com/image.jpg" } });
+    expect(imageInput.value).toBe("https://example.com/image.jpg");
+
+    // Close the modal (confirm the discard)
+    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    unmount();
+
+    // Reopen the modal and navigate back to the image step
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, baseStore);
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const freshInput = screen.getByLabelText("Image URL") as HTMLInputElement;
+    expect(freshInput.value).toBe("");
   });
 });
 

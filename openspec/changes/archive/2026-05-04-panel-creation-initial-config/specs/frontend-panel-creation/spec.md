@@ -1,9 +1,5 @@
-# frontend-panel-creation Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the frontend contract for creating panels via the backend API, including payload structure,
-panel list refresh behavior, and inline feedback within the creation modal.
-## Requirements
 ### Requirement: Frontend panel creation is backend-backed
 The frontend MUST create panels through the backend API in the context of the selected dashboard. The create request MUST include the `type` selected by the user in the type-first modal; there is no default type assumed by the UI — the user MUST explicitly select a type before the create request is submitted. Any optional type-specific config values entered in step 3 MUST also be included in the create request payload.
 
@@ -41,4 +37,3 @@ The panel create modal MUST provide inline loading and failure feedback within t
 - **WHEN** the backend create request fails
 - **THEN** an inline error message is shown inside the modal
 - **AND** the create action is re-enabled for retry
-

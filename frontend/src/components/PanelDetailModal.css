@@ -79,6 +79,20 @@
   outline-offset: 2px;
 }
 
+/* Unsaved changes badge — shown in the header during edit mode when any field is dirty */
+
+.panel-detail-modal__unsaved-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+  padding: 2px 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* Header actions (Edit button + close button group) */
 
 .panel-detail-modal__header-actions {

@@ -464,7 +464,7 @@ describe("App", () => {
     sessionStorage.setItem("helio_auth_token", "test-token");
   });
 
-  it("saves panel appearance changes optimistically via accumulatePanelUpdate", async () => {
+  it("saves panel appearance changes via the API and returns to view mode", async () => {
     fetchDashboardsMock.mockResolvedValue([
       {
         id: "dashboard-1",
@@ -478,31 +478,34 @@ describe("App", () => {
         layout: defaultDashboardLayout,
       },
     ]);
-    fetchPanelsMock.mockResolvedValue([
-      {
-        id: "panel-1",
-        dashboardId: "dashboard-1",
-        title: "Revenue Pulse",
-        type: "metric" as const,
-        meta: {
-          createdBy: "system",
-          createdAt: "2026-03-14T13:00:00Z",
-          lastUpdated: "2026-03-14T13:30:00Z",
-        },
-        appearance: defaultPanelAppearance,
-        typeId: null,
-        fieldMapping: null,
-        refreshInterval: null,
-        content: null,
-        imageUrl: null,
-        imageFit: null,
-        dividerOrientation: null,
-        dividerWeight: null,
-        dividerColor: null,
+    const panelBase = {
+      id: "panel-1",
+      dashboardId: "dashboard-1",
+      title: "Revenue Pulse",
+      type: "metric" as const,
+      meta: {
+        createdBy: "system",
+        createdAt: "2026-03-14T13:00:00Z",
+        lastUpdated: "2026-03-14T13:30:00Z",
       },
-    ]);
+      appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
+      content: null,
+      imageUrl: null,
+      imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
+    };
+    fetchPanelsMock.mockResolvedValue([panelBase]);
+    updatePanelAppearanceMock.mockResolvedValue({
+      ...panelBase,
+      appearance: { background: "#101828", color: "#f8fafc", transparency: 0.35 },
+    });
 
-    const { store } = renderApp();
+    renderApp();
 
     const panelActionsButton = await screen.findByRole("button", {
       name: "Revenue Pulse panel actions",
@@ -533,15 +536,11 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Dialog closes synchronously; the individual PATCH service is no longer called
-    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
-
-    // Appearance is staged in pendingPanelUpdates for the debounced batch flush
+    // Appearance is accumulated via accumulatePanelUpdate (not sent directly to the API).
+    // The modal transitions to view mode — Edit button becomes visible again.
     await waitFor(() =>
-      expect(store.getState().panels.pendingPanelUpdates["panel-1"]).toBeDefined(),
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(store.getState().panels.pendingPanelUpdates["panel-1"].appearance?.background).toBe(
-      "#101828",
-    );
+    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
   });
 });

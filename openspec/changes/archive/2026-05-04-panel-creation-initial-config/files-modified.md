@@ -1,0 +1,7 @@
+- `frontend/src/types/models.ts` — Added `MetricTypeConfig`, `ChartTypeConfig`, `ImageTypeConfig`, `DividerTypeConfig`, and `TypeConfig` union export
+- `frontend/src/services/panelService.ts` — Extended `createPanel` with optional `typeConfig` param; builds type-specific extra fields into the POST body
+- `frontend/src/features/panels/panelsSlice.ts` — Extended `createPanel` thunk arg to include optional `typeConfig`; conditionally forwards it to the service
+- `frontend/src/components/PanelCreationModal.tsx` — Added `MetricConfigFields`, `ChartTypeField`, `ImageConfigField`, `DividerConfigField` sub-components; wired into step 3; added `typeConfig` state, dirty-check extension, and payload inclusion
+- `frontend/src/components/PanelCreationModal.css` — Added chevron styling for `select.panel-creation-modal__input`
+- `frontend/src/components/PanelCreationPreview.tsx` — Added `typeConfig` prop; passes `imageUrl` and `dividerOrientation` through to `PanelContent` for live preview
+- `frontend/src/components/PanelCreationModal.test.tsx` — Added 8 new tests (tasks 4.1–4.8) in a new describe block covering all per-type config scenarios
