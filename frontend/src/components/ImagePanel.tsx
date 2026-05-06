@@ -6,17 +6,20 @@ interface ImagePanelProps {
   imageFit: string | null;
 }
 
-function isSafeUrl(url: string): boolean {
+function sanitizeImageUrl(url: string): string | null {
   try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:";
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+    return parsed.href;
   } catch {
-    return false;
+    return null;
   }
 }
 
 export function ImagePanel({ imageUrl, imageFit }: ImagePanelProps) {
-  const safeUrl = imageUrl && isSafeUrl(imageUrl) ? imageUrl : null;
+  const safeUrl = imageUrl ? sanitizeImageUrl(imageUrl) : null;
   if (!safeUrl) {
     return (
       <div className="image-panel image-panel--empty">
