@@ -85,7 +85,9 @@ const defaultPanelAppearance = {
   transparency: 0,
 };
 
-function renderApp() {
+function renderApp(options: { initialPath?: string; authenticated?: boolean } = {}) {
+  const { initialPath = "/", authenticated = true } = options;
+
   const store = configureStore({
     reducer: {
       auth: authReducer,
@@ -96,24 +98,30 @@ function renderApp() {
       sources: sourcesReducer,
     },
     preloadedState: {
-      auth: {
-        currentUser: {
-          id: "test-user",
-          email: "test@example.com",
-          displayName: null,
-          avatarUrl: null,
-          createdAt: "2026-01-01T00:00:00Z",
-        },
-        token: "test-token",
-        status: "authenticated" as const,
-      },
+      auth: authenticated
+        ? {
+            currentUser: {
+              id: "test-user",
+              email: "test@example.com",
+              displayName: null,
+              avatarUrl: null,
+              createdAt: "2026-01-01T00:00:00Z",
+            },
+            token: "test-token",
+            status: "authenticated" as const,
+          }
+        : {
+            currentUser: null,
+            token: null,
+            status: "unauthenticated" as const,
+          },
     },
   });
 
   return {
     store,
     ...render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialPath]}>
         <ThemeProvider>
           <Provider store={store}>
             <OverlayProvider>
@@ -415,6 +423,45 @@ describe("App", () => {
         gridBackground: "#234567",
       }),
     );
+  });
+
+  it("renders the Data Pipelines nav link and navigates to /pipelines", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const pipelinesLink = await screen.findByRole("link", { name: "Data Pipelines" });
+    expect(pipelinesLink).toBeInTheDocument();
+    expect(pipelinesLink).toHaveAttribute("href", "/pipelines");
+
+    fireEvent.click(pipelinesLink);
+
+    await waitFor(() => expect(screen.getByText("Coming soon.")).toBeInTheDocument());
+  });
+
+  it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/pipelines" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Data Pipelines",
+      ),
+    );
+  });
+
+  it("redirects unauthenticated user from /pipelines to /login", async () => {
+    sessionStorage.removeItem("helio_auth_token");
+    renderApp({ initialPath: "/pipelines", authenticated: false });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument(),
+    );
+
+    sessionStorage.setItem("helio_auth_token", "test-token");
   });
 
   it("saves panel appearance changes optimistically via accumulatePanelUpdate", async () => {
