@@ -34,6 +34,14 @@ All existing application routes (`/` and `/sources`) SHALL be nested inside `Pro
 - **WHEN** an unauthenticated user navigates to `/register`
 - **THEN** the registration page is rendered without a redirect
 
+### Requirement: Pipelines route is protected
+The `/pipelines` route SHALL be nested inside `ProtectedRoute`. An unauthenticated user navigating
+to `/pipelines` SHALL be redirected to `/login`.
+
+#### Scenario: Pipelines route is protected
+- **WHEN** an unauthenticated user navigates to `/pipelines`
+- **THEN** they are redirected to `/login`
+
 ### Requirement: Already-authenticated users are not shown login/register pages
 When `auth.status` is `'authenticated'`, navigating to `/login` or `/register` SHALL redirect the user to `/`.
 
