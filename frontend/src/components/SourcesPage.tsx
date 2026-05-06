@@ -6,12 +6,10 @@ import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { DataSourceList } from "./DataSourceList";
-import { TypeRegistryBrowser } from "./TypeRegistryBrowser";
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();
   const { status: sourcesStatus, error: sourcesError } = useAppSelector((state) => state.sources);
-  const { status: typesStatus } = useAppSelector((state) => state.dataTypes);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   useEffect(() => {
@@ -42,15 +40,6 @@ export function SourcesPage() {
         {(sourcesStatus === "succeeded" || sourcesStatus === "idle") && (
           <DataSourceList onAddSource={() => setIsAddModalOpen(true)} />
         )}
-      </div>
-
-      <div className="sources-page__section">
-        <div className="sources-page__section-header">
-          <h2 className="sources-page__section-title">Type Registry</h2>
-        </div>
-
-        {typesStatus === "loading" && <p className="sources-page__loading">Loading types…</p>}
-        {(typesStatus === "succeeded" || typesStatus === "idle") && <TypeRegistryBrowser />}
       </div>
 
       {isAddModalOpen && <AddSourceModal onClose={() => setIsAddModalOpen(false)} />}

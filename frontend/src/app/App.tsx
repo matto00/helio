@@ -20,6 +20,7 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
 import { SaveStateIndicator } from "../components/SaveStateIndicator";
 import { SourcesPage } from "../components/SourcesPage";
+import { TypeRegistryPage } from "../components/TypeRegistryPage";
 import { UserMenu } from "../components/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/authSlice";
 import { LoginPage } from "../features/auth/LoginPage";
@@ -40,6 +41,13 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
+
+function breadcrumbLabel(pathname: string): string {
+  if (pathname === "/") return "Dashboards";
+  if (pathname.startsWith("/sources")) return "Data Sources";
+  if (pathname.startsWith("/registry")) return "Type Registry";
+  return "";
+}
 
 /** The authenticated app shell - rendered only when the user is signed in. */
 function AppShell() {
@@ -145,7 +153,7 @@ function AppShell() {
             </span>
             <span className="app-command-bar__sep" aria-hidden="true" />
             <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
-              <span>{onDashboardView ? "Dashboards" : "Data Sources"}</span>
+              <span>{breadcrumbLabel(location.pathname)}</span>
               {onDashboardView && selectedDashboard !== null && (
                 <>
                   <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
@@ -220,6 +228,9 @@ function AppShell() {
                 <NavLink to="/sources" className="app-sidebar__nav-link">
                   Data Sources
                 </NavLink>
+                <NavLink to="/registry" className="app-sidebar__nav-link">
+                  Type Registry
+                </NavLink>
               </nav>
               <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
               <button
@@ -264,6 +275,7 @@ export function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<PanelList />} />
           <Route path="/sources" element={<SourcesPage />} />
+          <Route path="/registry" element={<TypeRegistryPage />} />
         </Route>
       </Route>
 
