@@ -161,6 +161,10 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [isSaving, setIsSaving] = useState(false);
 
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
+  // When true the pending discard confirmation should close the modal rather
+  // than returning to view mode.  Set by handleCloseButton (the ✕ path); left
+  // false by handleCancel (the Cancel-button / Escape path).
+  const [discardClosesModal, setDiscardClosesModal] = useState(false);
 
   // isDirty now includes title
   const isDirty =
@@ -175,8 +179,42 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     refreshInterval !== initialRefreshInterval ||
     JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping);
 
-  const isAnyDirtyRef = useRef(isDirty || dataDirty || contentDirty || imageDirty || dividerDirty);
-  isAnyDirtyRef.current = isDirty || dataDirty || contentDirty || imageDirty || dividerDirty;
+  const isAnyDirty = isDirty || dataDirty || contentDirty || imageDirty || dividerDirty;
+  const isAnyDirtyRef = useRef(isAnyDirty);
+  isAnyDirtyRef.current = isAnyDirty;
+
+  // Helper: reset all form state back to current panel prop values
+  function resetFormToPanel() {
+    setBackground(getColorInputValue(panel.appearance.background, panelAppearanceEditorFallback));
+    setColor(getColorInputValue(panel.appearance.color, panelTextEditorFallback));
+    setTransparency(Math.round(clampTransparency(panel.appearance.transparency) * 100));
+    setChartAppearance({
+      ...DEFAULT_CHART_APPEARANCE,
+      ...(panel.appearance.chart ?? {}),
+      seriesColors: padSeriesColors(panel.appearance.chart?.seriesColors ?? []),
+      legend: panel.appearance.chart?.legend ?? DEFAULT_CHART_APPEARANCE.legend,
+      tooltip: panel.appearance.chart?.tooltip ?? DEFAULT_CHART_APPEARANCE.tooltip,
+      axisLabels: panel.appearance.chart?.axisLabels ?? DEFAULT_CHART_APPEARANCE.axisLabels,
+      chartType: panel.appearance.chart?.chartType ?? "line",
+    });
+    setSelectedTypeId(panel.typeId);
+    setFieldMapping(panel.fieldMapping ?? {});
+    setRefreshInterval(panel.refreshInterval);
+    setMarkdownContent(panel.content ?? "");
+    setImageUrl(panel.imageUrl ?? "");
+    setImageFit(panel.imageFit ?? "contain");
+    setDividerOrientation((panel.dividerOrientation as DividerOrientation) ?? "horizontal");
+    setDividerWeight(panel.dividerWeight ?? 1);
+    setDividerColor(panel.dividerColor ?? "#cccccc");
+  }
+
+  // Ref for cancelEditMode — keeps the DOM event handler (in useEffect) pointing at the
+  // latest resetFormToPanel + setModalMode("view") closure without re-registering listeners.
+  const cancelEditModeRef = useRef<() => void>(() => {});
+  cancelEditModeRef.current = () => {
+    resetFormToPanel();
+    setModalMode("view");
+  };
 
   // Fetch data types when edit mode opens for data-capable panels
   useEffect(() => {
@@ -200,15 +238,15 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
         onCloseRef.current();
         return;
       }
+      // Edit mode: show discard warning if dirty, otherwise return to view mode
       if (isAnyDirtyRef.current) {
         setShowDiscardWarning(true);
       } else {
-        dialog!.close();
-        onCloseRef.current();
+        cancelEditModeRef.current();
       }
     }
 
-    function handleCancel(e: Event) {
+    function handleCancelEvent(e: Event) {
       e.preventDefault();
       attemptClose();
     }
@@ -231,19 +269,47 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       }
     }
 
-    dialog.addEventListener("cancel", handleCancel);
+    dialog.addEventListener("cancel", handleCancelEvent);
     dialog.addEventListener("click", handleClick);
     dialog.addEventListener("keydown", handleKeyDown);
     return () => {
-      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("cancel", handleCancelEvent);
       dialog.removeEventListener("click", handleClick);
       dialog.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
   function handleDiscard() {
-    dialogRef.current?.close();
-    onCloseRef.current();
+    resetFormToPanel();
+    setShowDiscardWarning(false);
+    if (discardClosesModal) {
+      // ✕-button path: the user confirmed discard from the close button — close the modal.
+      setDiscardClosesModal(false);
+      dialogRef.current?.close();
+      onCloseRef.current();
+    } else {
+      // Cancel-button / Escape path: return to view mode, keep modal open.
+      setModalMode("view");
+    }
+  }
+
+  // Separate handler for the ✕ button.  Distinguished from handleCancel so the
+  // ✕ button retains its "close" semantics (close with warning if dirty) while
+  // Cancel / Escape return to view mode per the panel-detail-modal spec.
+  function handleCloseButton() {
+    if (modalMode === "view") {
+      dialogRef.current?.close();
+      onCloseRef.current();
+      return;
+    }
+    // Edit mode: close immediately if clean, otherwise prompt to discard then close.
+    if (isAnyDirty) {
+      setDiscardClosesModal(true);
+      setShowDiscardWarning(true);
+    } else {
+      dialogRef.current?.close();
+      onCloseRef.current();
+    }
   }
 
   function handleCancel() {
@@ -253,11 +319,12 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       onCloseRef.current();
       return;
     }
+    // Edit mode: return to view mode (with discard confirmation if dirty)
     if (isDirty || dataDirty || contentDirty || imageDirty || dividerDirty) {
       setShowDiscardWarning(true);
     } else {
-      dialogRef.current?.close();
-      onCloseRef.current();
+      resetFormToPanel();
+      setModalMode("view");
     }
   }
 
@@ -339,8 +406,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
         }
       }
 
-      dialogRef.current?.close();
-      onCloseRef.current();
+      setModalMode("view");
     } finally {
       setIsSaving(false);
     }
@@ -361,6 +427,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       <div className="panel-detail-modal__inner">
         <header className="panel-detail-modal__header">
           <span className="panel-detail-modal__title">{panel.title}</span>
+          {modalMode === "edit" && isAnyDirty && (
+            <span className="panel-detail-modal__unsaved-badge">Unsaved changes</span>
+          )}
           <div className="panel-detail-modal__header-actions">
             {modalMode === "view" && (
               <button
@@ -376,7 +445,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               type="button"
               className="panel-detail-modal__close"
               aria-label="Close panel settings"
-              onClick={handleCancel}
+              onClick={handleCloseButton}
             >
               ✕
             </button>

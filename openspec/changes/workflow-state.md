@@ -1,14 +1,14 @@
-# Workflow State — HEL-176
+# Workflow State — HEL-177
 
-TICKET_ID: HEL-176
-CHANGE_NAME: edit-mode-panel-settings
-WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/edit-mode-panel-settings/HEL-176
-BRANCH: feature/edit-mode-panel-settings/HEL-176
-PHASE: Delivery
-CYCLE: 1
-DEV_PORT: 5349
-BACKEND_PORT: 8256
-EXECUTOR_AGENT_ID: bc03eweqp
-EVALUATOR_AGENT_ID: (inline)
-LAST_EVAL_VERDICT: PASS
-LAST_EVAL_REPORT: openspec/changes/edit-mode-panel-settings/evaluation-1.md
+TICKET_ID: HEL-177
+CHANGE_NAME: explicit-save-cancel-edit
+WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/explicit-save-cancel-edit/HEL-177
+BRANCH: feature/explicit-save-cancel-edit/HEL-177
+PHASE: Planning
+CYCLE: 0
+DEV_PORT: —
+BACKEND_PORT: —
+EXECUTOR_AGENT_ID: —
+EVALUATOR_AGENT_ID: —
+LAST_EVAL_VERDICT: —
+LAST_EVAL_REPORT: —

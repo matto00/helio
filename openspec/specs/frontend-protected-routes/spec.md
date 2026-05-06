@@ -42,6 +42,7 @@ All existing application routes (`/`, `/sources`, `/pipelines`, and `/pipelines/
 - **WHEN** an unauthenticated user navigates to `/pipelines/:id`
 - **THEN** they are redirected to `/login`
 
+
 ### Requirement: Already-authenticated users are not shown login/register pages
 When `auth.status` is `'authenticated'`, navigating to `/login` or `/register` SHALL redirect the user to `/`.
 

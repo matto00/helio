@@ -55,8 +55,14 @@ function AppShell() {
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
-  const onPipelinesView =
-    location.pathname === "/pipelines" || location.pathname.startsWith("/pipelines/");
+  const pageLabelMap: Record<string, string> = {
+    "/": "Dashboards",
+    "/sources": "Data Sources",
+    "/pipelines": "Data Pipelines",
+  };
+  const pageLabel = location.pathname.startsWith("/pipelines/")
+    ? "Data Pipelines"
+    : (pageLabelMap[location.pathname] ?? "Dashboards");
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
   const flushFnRef = useRef<(() => void) | null>(null);
@@ -149,13 +155,7 @@ function AppShell() {
             </span>
             <span className="app-command-bar__sep" aria-hidden="true" />
             <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
-              <span>
-                {onDashboardView
-                  ? "Dashboards"
-                  : onPipelinesView
-                    ? "Data Pipelines"
-                    : "Data Sources"}
-              </span>
+              <span>{pageLabel}</span>
               {onDashboardView && selectedDashboard !== null && (
                 <>
                   <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
@@ -231,7 +231,7 @@ function AppShell() {
                   Data Sources
                 </NavLink>
                 <NavLink to="/pipelines" className="app-sidebar__nav-link">
-                  Pipelines
+                  Data Pipelines
                 </NavLink>
               </nav>
               <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />

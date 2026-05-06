@@ -139,6 +139,16 @@
   border-color: var(--app-accent);
 }
 
+/* select elements share the same visual treatment as text inputs */
+select.panel-creation-modal__input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23888' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+
 .panel-creation-modal__actions {
   display: flex;
   justify-content: flex-end;

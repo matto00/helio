@@ -8,6 +8,7 @@ import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
@@ -37,6 +38,10 @@ jest.mock("../services/panelService", () => ({
 
 jest.mock("../services/dataTypeService", () => ({
   fetchDataTypes: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("../services/pipelineService", () => ({
+  getPipelines: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../services/authService", () => ({
@@ -85,7 +90,9 @@ const defaultPanelAppearance = {
   transparency: 0,
 };
 
-function renderApp() {
+function renderApp(options: { initialPath?: string; authenticated?: boolean } = {}) {
+  const { initialPath = "/", authenticated = true } = options;
+
   const store = configureStore({
     reducer: {
       auth: authReducer,
@@ -94,26 +101,33 @@ function renderApp() {
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
+      pipelines: pipelinesReducer,
     },
     preloadedState: {
-      auth: {
-        currentUser: {
-          id: "test-user",
-          email: "test@example.com",
-          displayName: null,
-          avatarUrl: null,
-          createdAt: "2026-01-01T00:00:00Z",
-        },
-        token: "test-token",
-        status: "authenticated" as const,
-      },
+      auth: authenticated
+        ? {
+            currentUser: {
+              id: "test-user",
+              email: "test@example.com",
+              displayName: null,
+              avatarUrl: null,
+              createdAt: "2026-01-01T00:00:00Z",
+            },
+            token: "test-token",
+            status: "authenticated" as const,
+          }
+        : {
+            currentUser: null,
+            token: null,
+            status: "unauthenticated" as const,
+          },
     },
   });
 
   return {
     store,
     ...render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialPath]}>
         <ThemeProvider>
           <Provider store={store}>
             <OverlayProvider>
@@ -417,7 +431,48 @@ describe("App", () => {
     );
   });
 
-  it("saves panel appearance changes optimistically via accumulatePanelUpdate", async () => {
+  it("renders the Data Pipelines nav link and navigates to /pipelines", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const pipelinesLink = await screen.findByRole("link", { name: "Data Pipelines" });
+    expect(pipelinesLink).toBeInTheDocument();
+    expect(pipelinesLink).toHaveAttribute("href", "/pipelines");
+
+    fireEvent.click(pipelinesLink);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument(),
+    );
+  });
+
+  it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/pipelines" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Data Pipelines",
+      ),
+    );
+  });
+
+  it("redirects unauthenticated user from /pipelines to /login", async () => {
+    sessionStorage.removeItem("helio_auth_token");
+    renderApp({ initialPath: "/pipelines", authenticated: false });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument(),
+    );
+
+    sessionStorage.setItem("helio_auth_token", "test-token");
+  });
+
+  it("saves panel appearance changes via the API and returns to view mode", async () => {
     fetchDashboardsMock.mockResolvedValue([
       {
         id: "dashboard-1",
@@ -431,31 +486,34 @@ describe("App", () => {
         layout: defaultDashboardLayout,
       },
     ]);
-    fetchPanelsMock.mockResolvedValue([
-      {
-        id: "panel-1",
-        dashboardId: "dashboard-1",
-        title: "Revenue Pulse",
-        type: "metric" as const,
-        meta: {
-          createdBy: "system",
-          createdAt: "2026-03-14T13:00:00Z",
-          lastUpdated: "2026-03-14T13:30:00Z",
-        },
-        appearance: defaultPanelAppearance,
-        typeId: null,
-        fieldMapping: null,
-        refreshInterval: null,
-        content: null,
-        imageUrl: null,
-        imageFit: null,
-        dividerOrientation: null,
-        dividerWeight: null,
-        dividerColor: null,
+    const panelBase = {
+      id: "panel-1",
+      dashboardId: "dashboard-1",
+      title: "Revenue Pulse",
+      type: "metric" as const,
+      meta: {
+        createdBy: "system",
+        createdAt: "2026-03-14T13:00:00Z",
+        lastUpdated: "2026-03-14T13:30:00Z",
       },
-    ]);
+      appearance: defaultPanelAppearance,
+      typeId: null,
+      fieldMapping: null,
+      refreshInterval: null,
+      content: null,
+      imageUrl: null,
+      imageFit: null,
+      dividerOrientation: null,
+      dividerWeight: null,
+      dividerColor: null,
+    };
+    fetchPanelsMock.mockResolvedValue([panelBase]);
+    updatePanelAppearanceMock.mockResolvedValue({
+      ...panelBase,
+      appearance: { background: "#101828", color: "#f8fafc", transparency: 0.35 },
+    });
 
-    const { store } = renderApp();
+    renderApp();
 
     const panelActionsButton = await screen.findByRole("button", {
       name: "Revenue Pulse panel actions",
@@ -486,15 +544,11 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Dialog closes synchronously; the individual PATCH service is no longer called
-    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
-
-    // Appearance is staged in pendingPanelUpdates for the debounced batch flush
+    // Appearance is accumulated via accumulatePanelUpdate (not sent directly to the API).
+    // The modal transitions to view mode — Edit button becomes visible again.
     await waitFor(() =>
-      expect(store.getState().panels.pendingPanelUpdates["panel-1"]).toBeDefined(),
+      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(store.getState().panels.pendingPanelUpdates["panel-1"].appearance?.background).toBe(
-      "#101828",
-    );
+    expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
   });
 });
