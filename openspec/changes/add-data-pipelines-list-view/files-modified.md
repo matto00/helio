@@ -1,0 +1,22 @@
+- `backend/src/main/resources/db/migration/V22__pipelines.sql` — Flyway migration creating the `pipelines` table with FK references to `data_sources` and `data_types`
+- `backend/src/main/scala/com/helio/domain/model.scala` — Added `PipelineId` value-class and `Pipeline` domain case class
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `PipelineSummaryResponse` case class and its JSON formatter
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — New repository with Slick table mapping and `listSummaries` joined query (pipelines + data_sources + data_types)
+- `backend/src/main/scala/com/helio/api/routes/PipelineRoutes.scala` — New route handler for `GET /api/pipelines`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Wired `PipelineRepository` and `PipelineRoutes` into the authenticated route tree
+- `backend/src/main/scala/com/helio/app/Main.scala` — Instantiated `PipelineRepository` and passed it to `ApiRoutes`
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — Added `PipelineRepository` to test setup
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — Added `PipelineRepository` to test setup
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — Added `PipelineRepository` to test setup
+- `frontend/src/types/models.ts` — Added `PipelineSummary` TypeScript interface
+- `frontend/src/services/pipelineService.ts` — New `getPipelines` API service function
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — New Redux slice with `fetchPipelines` async thunk
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — Jest tests for slice pending/fulfilled/rejected transitions
+- `frontend/src/store/store.ts` — Registered `pipelinesReducer` in the Redux store
+- `frontend/src/components/PipelineEmptyState.tsx` — Empty state component with "Create pipeline" placeholder button
+- `frontend/src/components/PipelineListTable.tsx` — Table component rendering pipeline rows with status badge
+- `frontend/src/components/PipelinesPage.tsx` — Page component orchestrating fetch, loading/error/list/empty states
+- `frontend/src/components/PipelinesPage.css` — Styles for page, table, empty state, and status badges
+- `frontend/src/components/PipelinesPage.test.tsx` — Jest tests for empty state and list render scenarios
+- `frontend/src/app/App.tsx` — Added `/pipelines` route and "Data Pipelines" NavLink to sidebar
+- `frontend/src/test/renderWithStore.tsx` — Added `pipelinesReducer` and `PipelineSummary` type to test utility

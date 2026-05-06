@@ -10,6 +10,7 @@ import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
@@ -21,6 +22,7 @@ import type {
   DashboardLayout,
   PanelAppearance,
   PanelType,
+  PipelineSummary,
   ResourceMeta,
   User,
 } from "../types/models";
@@ -72,6 +74,11 @@ interface TestState {
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
   };
+  pipelines?: {
+    items?: PipelineSummary[];
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
+  };
 }
 
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
@@ -81,6 +88,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
     layoutHistory: layoutHistoryReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
+    pipelines: pipelinesReducer,
     sources: sourcesReducer,
   };
 
@@ -131,6 +139,11 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           items: preloadedState.sources?.items ?? [],
           status: preloadedState.sources?.status ?? "idle",
           error: preloadedState.sources?.error ?? null,
+        },
+        pipelines: {
+          items: preloadedState.pipelines?.items ?? [],
+          status: preloadedState.pipelines?.status ?? "idle",
+          error: preloadedState.pipelines?.error ?? null,
         },
       }
     : undefined;

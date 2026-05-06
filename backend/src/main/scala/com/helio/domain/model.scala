@@ -8,6 +8,7 @@ final case class PanelId(value: String) extends AnyVal
 final case class DataSourceId(value: String) extends AnyVal
 final case class DataTypeId(value: String) extends AnyVal
 final case class UserId(value: String) extends AnyVal
+final case class PipelineId(value: String) extends AnyVal
 
 final case class User(
     id: UserId,
@@ -286,4 +287,15 @@ final case class ResourcePermission(
     granteeId: Option[UserId],
     role: Role,
     createdAt: Instant
+)
+
+final case class Pipeline(
+    id: PipelineId,
+    name: String,
+    sourceDataSourceId: DataSourceId,
+    outputDataTypeId: DataTypeId,
+    lastRunStatus: Option[String],
+    lastRunAt: Option[Instant],
+    createdAt: Instant,
+    updatedAt: Instant
 )

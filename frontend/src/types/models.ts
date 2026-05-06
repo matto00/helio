@@ -200,6 +200,15 @@ export interface User {
   preferences?: UserPreferences;
 }
 
+export interface PipelineSummary {
+  id: string;
+  name: string;
+  sourceDataSourceName: string;
+  outputDataTypeName: string;
+  lastRunStatus: "succeeded" | "failed" | null;
+  lastRunAt: string | null;
+}
+
 export interface AuthResponse {
   token: string;
   expiresAt: string;
