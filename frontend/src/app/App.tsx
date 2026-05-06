@@ -19,6 +19,7 @@ import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
 import { SaveStateIndicator } from "../components/SaveStateIndicator";
+import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
 import { SourcesPage } from "../components/SourcesPage";
 import { UserMenu } from "../components/UserMenu";
@@ -59,7 +60,9 @@ function AppShell() {
     "/sources": "Data Sources",
     "/pipelines": "Data Pipelines",
   };
-  const pageLabel = pageLabelMap[location.pathname] ?? "Dashboards";
+  const pageLabel = location.pathname.startsWith("/pipelines/")
+    ? "Data Pipelines"
+    : (pageLabelMap[location.pathname] ?? "Dashboards");
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
   const flushFnRef = useRef<(() => void) | null>(null);
@@ -275,6 +278,7 @@ export function App() {
           <Route path="/" element={<PanelList />} />
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
+          <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
         </Route>
       </Route>
 

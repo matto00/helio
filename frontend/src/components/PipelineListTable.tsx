@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import type { PipelineSummary } from "../types/models";
 
 interface Props {
@@ -26,7 +28,11 @@ export function PipelineListTable({ pipelines }: Props) {
       <tbody>
         {pipelines.map((pipeline) => (
           <tr key={pipeline.id} className="pipeline-list-table__row">
-            <td className="pipeline-list-table__td">{pipeline.name}</td>
+            <td className="pipeline-list-table__td">
+              <Link to={`/pipelines/${pipeline.id}`} className="pipeline-list-table__link">
+                {pipeline.name}
+              </Link>
+            </td>
             <td className="pipeline-list-table__td">{pipeline.sourceDataSourceName}</td>
             <td className="pipeline-list-table__td">{pipeline.outputDataTypeName}</td>
             <td className="pipeline-list-table__td">

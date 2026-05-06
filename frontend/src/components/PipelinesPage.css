@@ -120,6 +120,17 @@
   color: var(--app-text-muted);
 }
 
+.pipeline-list-table__link {
+  color: var(--app-text);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.pipeline-list-table__link:hover {
+  color: var(--app-accent);
+  text-decoration: underline;
+}
+
 /* ── Status badge ── */
 
 .pipeline-status {
