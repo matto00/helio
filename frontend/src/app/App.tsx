@@ -22,6 +22,7 @@ import { SaveStateIndicator } from "../components/SaveStateIndicator";
 import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
 import { SourcesPage } from "../components/SourcesPage";
+import { TypeRegistryPage } from "../components/TypeRegistryPage";
 import { UserMenu } from "../components/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/authSlice";
 import { LoginPage } from "../features/auth/LoginPage";
@@ -43,6 +44,14 @@ import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
 
+function breadcrumbLabel(pathname: string): string {
+  if (pathname === "/") return "Dashboards";
+  if (pathname.startsWith("/sources")) return "Data Sources";
+  if (pathname.startsWith("/pipelines")) return "Data Pipelines";
+  if (pathname.startsWith("/registry")) return "Type Registry";
+  return "Dashboards";
+}
+
 /** The authenticated app shell - rendered only when the user is signed in. */
 function AppShell() {
   const dispatch = useAppDispatch();
@@ -55,14 +64,6 @@ function AppShell() {
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
-  const pageLabelMap: Record<string, string> = {
-    "/": "Dashboards",
-    "/sources": "Data Sources",
-    "/pipelines": "Data Pipelines",
-  };
-  const pageLabel = location.pathname.startsWith("/pipelines/")
-    ? "Data Pipelines"
-    : (pageLabelMap[location.pathname] ?? "Dashboards");
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
   const flushFnRef = useRef<(() => void) | null>(null);
@@ -155,7 +156,7 @@ function AppShell() {
             </span>
             <span className="app-command-bar__sep" aria-hidden="true" />
             <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
-              <span>{pageLabel}</span>
+              <span>{breadcrumbLabel(location.pathname)}</span>
               {onDashboardView && selectedDashboard !== null && (
                 <>
                   <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
@@ -233,6 +234,9 @@ function AppShell() {
                 <NavLink to="/pipelines" className="app-sidebar__nav-link">
                   Data Pipelines
                 </NavLink>
+                <NavLink to="/registry" className="app-sidebar__nav-link">
+                  Type Registry
+                </NavLink>
               </nav>
               <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
               <button
@@ -279,6 +283,7 @@ export function App() {
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+          <Route path="/registry" element={<TypeRegistryPage />} />
         </Route>
       </Route>
 

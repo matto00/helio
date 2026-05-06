@@ -1,0 +1,6 @@
+- `frontend/src/pages/DataSourcesPage.tsx` — new page component: dispatches fetchSources + fetchDataTypes on mount, renders DataSourceList and AddSourceModal
+- `frontend/src/pages/DataSourcesPage.test.tsx` — smoke tests for DataSourcesPage (renders heading, Add source button, empty state, mount dispatches)
+- `frontend/src/app/App.tsx` — adds /data-sources route pointing to DataSourcesPage; adds "Data Sources" NavLink to /data-sources in sidebar (between Dashboards and Sources)
+- `frontend/src/app/App.test.tsx` — adds test asserting the sidebar renders a "Data Sources" nav link pointing to /data-sources
+- `frontend/src/components/SourcesPage.tsx` — refactored to Type Registry only: removed DataSourceList, AddSourceModal, and fetchSources dispatch; retains fetchDataTypes and TypeRegistryBrowser
+- `frontend/src/components/SourcesPage.test.tsx` — updated to match new SourcesPage scope: removed Data Sources assertions, added assertions that Data Sources content is absent

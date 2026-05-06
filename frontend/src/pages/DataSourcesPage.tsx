@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 
-import "./SourcesPage.css";
+import "../components/SourcesPage.css";
+import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { AddSourceModal } from "./AddSourceModal";
-import { DataSourceList } from "./DataSourceList";
+import { AddSourceModal } from "../components/AddSourceModal";
+import { DataSourceList } from "../components/DataSourceList";
 
-export function SourcesPage() {
+export function DataSourcesPage() {
   const dispatch = useAppDispatch();
   const { status: sourcesStatus, error: sourcesError } = useAppSelector((state) => state.sources);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   useEffect(() => {
     void dispatch(fetchSources());
+    void dispatch(fetchDataTypes());
   }, [dispatch]);
 
   return (

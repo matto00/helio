@@ -448,6 +448,42 @@ describe("App", () => {
     );
   });
 
+  it("renders the Data Sources nav link pointing to /sources in the sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const dataSourcesLink = await screen.findByRole("link", { name: "Data Sources" });
+    expect(dataSourcesLink).toBeInTheDocument();
+    expect(dataSourcesLink).toHaveAttribute("href", "/sources");
+  });
+
+  it("renders a Type Registry nav link in the sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("link", { name: "Type Registry" })).toBeInTheDocument();
+  });
+
+  it("navigates to /registry and renders the Type Registry page", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("link", { name: "Type Registry" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument(),
+    );
+  });
+
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
