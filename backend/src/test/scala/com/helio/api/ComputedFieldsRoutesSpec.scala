@@ -14,6 +14,7 @@ import com.helio.infrastructure.{
   DataTypeRepository,
   FileSystem,
   PanelRepository,
+  PipelineRepository,
   ResourcePermissionRepository,
   SlickUserSessionRepository,
   UserPreferenceRepository,
@@ -57,6 +58,7 @@ class ComputedFieldsRoutesSpec
   private var userRepo: UserRepository                      = _
   private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
+  private var pipelineRepo: PipelineRepository              = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -74,6 +76,7 @@ class ComputedFieldsRoutesSpec
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -118,7 +121,7 @@ class ComputedFieldsRoutesSpec
     } {
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
-        stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo
+        stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo
       ).routes
     }
   }

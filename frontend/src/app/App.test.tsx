@@ -8,6 +8,7 @@ import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
@@ -37,6 +38,10 @@ jest.mock("../services/panelService", () => ({
 
 jest.mock("../services/dataTypeService", () => ({
   fetchDataTypes: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("../services/pipelineService", () => ({
+  getPipelines: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../services/authService", () => ({
@@ -96,6 +101,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
+      pipelines: pipelinesReducer,
     },
     preloadedState: {
       auth: authenticated
@@ -437,7 +443,9 @@ describe("App", () => {
 
     fireEvent.click(pipelinesLink);
 
-    await waitFor(() => expect(screen.getByText("Coming soon.")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument(),
+    );
   });
 
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {

@@ -5,6 +5,7 @@ import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 
 export const store = configureStore({
@@ -14,6 +15,7 @@ export const store = configureStore({
     layoutHistory: layoutHistoryReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
+    pipelines: pipelinesReducer,
     sources: sourcesReducer,
   },
 });

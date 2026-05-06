@@ -221,6 +221,17 @@ final case class PreviewSourceResponse(
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
+// ── Pipeline API types ────────────────────────────────────────────────────────
+
+final case class PipelineSummaryResponse(
+    id: String,
+    name: String,
+    sourceDataSourceName: String,
+    outputDataTypeName: String,
+    lastRunStatus: Option[String],
+    lastRunAt: Option[String]
+)
+
 // ── Static connector API types ────────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -649,6 +660,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat12(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
+
+  // Pipeline API formats
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat6(PipelineSummaryResponse.apply)
 
   // Update API formats
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
