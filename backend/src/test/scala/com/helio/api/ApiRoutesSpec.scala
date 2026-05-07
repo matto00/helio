@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.JsValue
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -38,6 +38,7 @@ class ApiRoutesSpec
   private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var pipelineRepo: PipelineRepository              = _
+  private var pipelineStepRepo: PipelineStepRepository         = _
   private var realSessionRepo: SlickUserSessionRepository   = _
 
   override def beforeAll(): Unit = {
@@ -63,6 +64,7 @@ class ApiRoutesSpec
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
     pipelineRepo       = new PipelineRepository(db)(typedSystem.executionContext)
+    pipelineStepRepo   = new PipelineStepRepository(db)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 
@@ -115,11 +117,11 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
   import org.apache.pekko.http.scaladsl.model.headers.Authorization

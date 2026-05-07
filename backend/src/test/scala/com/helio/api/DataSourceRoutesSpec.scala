@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, PipelineRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
 import spray.json._
@@ -100,11 +100,12 @@ class DataSourceRoutesSpec
     val userRepo           = new UserRepository(db)(ec)
     val userPreferenceRepo = new UserPreferenceRepository(db)(ec)
     val pipelineRepo       = new PipelineRepository(db)(ec)
+    val pipelineStepRepo   = new PipelineStepRepository(db)(ec)
     mapRequest { req =>
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo).routes
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo).routes
     }
   }
 

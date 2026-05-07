@@ -1,0 +1,11 @@
+- `backend/src/main/resources/db/migration/V23__pipeline_steps.sql` — V23 Flyway migration: pipeline_steps table, CHECK constraint, FK, and index
+- `backend/src/main/scala/com/helio/domain/model.scala` — added PipelineStepId and PipelineStep domain case classes
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — added CreatePipelineStepRequest, UpdatePipelineStepRequest, PipelineStepResponse types, companion object, and JSON formats; removed duplicate format block
+- `backend/src/main/scala/com/helio/infrastructure/PipelineStepRepository.scala` — new repository: PipelineStepRow, PipelineStepTable, listByPipeline, insert, update, delete
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — added exists() method for pipeline existence validation
+- `backend/src/main/scala/com/helio/api/routes/PipelineStepRoutes.scala` — routes with pipeline existence checks (GET/POST 404), op validation (POST 400), PATCH op validation, DB error classifier applied to POST and PATCH failures
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — passes pipelineRepo to PipelineStepRoutes constructor; mounts routes
+- `backend/src/main/scala/com/helio/app/Main.scala` — instantiated PipelineStepRepository and wired into ApiRoutes
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — updated to pass pipelineStepRepo to ApiRoutes constructor
+- `backend/src/test/scala/com/helio/api/PipelineStepRoutesSpec.scala` — tests all four endpoints (happy path + 404/400 error scenarios including GET unknown pipeline, POST unknown pipeline, POST invalid op)
+- `openspec/changes/pipeline-steps-db-api/tasks.md` — all tasks marked complete
