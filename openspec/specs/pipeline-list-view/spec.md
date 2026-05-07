@@ -27,15 +27,16 @@ TBD - created by archiving change add-data-pipelines-list-view. Update Purpose a
 - **THEN** a human-readable timestamp is displayed in the last-run column
 
 ### Requirement: PipelinesPage shows empty state when no pipelines exist
-When no pipelines exist, `PipelinesPage` SHALL render an empty state containing a "Create pipeline" button.
+When no pipelines exist, `PipelinesPage` SHALL render an empty state containing a "Create pipeline"
+button. Clicking the button SHALL open the `CreatePipelineModal`.
 
 #### Scenario: Empty state is shown with no pipelines
 - **WHEN** `GET /api/pipelines` returns an empty array
 - **THEN** an empty state message is displayed with a "Create pipeline" button visible
 
-#### Scenario: Create pipeline button is present in empty state
-- **WHEN** the empty state is visible
-- **THEN** a button labelled "Create pipeline" is rendered (the button may be a non-functional placeholder)
+#### Scenario: Create pipeline button opens modal from empty state
+- **WHEN** the user clicks "Create pipeline" in the empty state
+- **THEN** the `CreatePipelineModal` opens
 
 ### Requirement: PipelinesPage handles loading and error states
 `PipelinesPage` SHALL display a loading indicator while the pipeline fetch is in progress, and an error message if the fetch fails.
@@ -47,4 +48,16 @@ When no pipelines exist, `PipelinesPage` SHALL render an empty state containing 
 #### Scenario: Error state is shown on fetch failure
 - **WHEN** `GET /api/pipelines` returns a non-2xx response
 - **THEN** an error message is displayed
+
+### Requirement: PipelineListTable header contains a Create pipeline button
+When pipelines exist, a "Create pipeline" button SHALL be displayed in a toolbar above the
+`PipelineListTable`. Clicking the button SHALL open the `CreatePipelineModal`.
+
+#### Scenario: Create pipeline button is visible in non-empty list
+- **WHEN** `GET /api/pipelines` returns one or more pipelines
+- **THEN** a "Create pipeline" button is visible above the pipeline table
+
+#### Scenario: Create pipeline button opens modal from non-empty state
+- **WHEN** the user clicks "Create pipeline" above the pipeline list
+- **THEN** the `CreatePipelineModal` opens
 
