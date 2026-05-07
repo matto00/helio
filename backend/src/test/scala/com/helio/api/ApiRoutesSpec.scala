@@ -63,7 +63,7 @@ class ApiRoutesSpec
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(db)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(db)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }

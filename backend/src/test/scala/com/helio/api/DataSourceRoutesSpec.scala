@@ -99,7 +99,7 @@ class DataSourceRoutesSpec
     val panelRepo          = new PanelRepository(db)(ec)
     val userRepo           = new UserRepository(db)(ec)
     val userPreferenceRepo = new UserPreferenceRepository(db)(ec)
-    val pipelineRepo       = new PipelineRepository(db)(ec)
+    val pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(ec)
     val pipelineStepRepo   = new PipelineStepRepository(db)(ec)
     mapRequest { req =>
       if (req.header[Authorization].isDefined) req

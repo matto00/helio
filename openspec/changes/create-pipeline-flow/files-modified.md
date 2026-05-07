@@ -1,0 +1,15 @@
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `CreatePipelineRequest` case class and `createPipelineRequestFormat` formatter
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — Added `DataTypeRepository`/`DataSourceRepository` to constructor and new `create` method
+- `backend/src/main/scala/com/helio/api/routes/PipelineRoutes.scala` — Added `POST /api/pipelines` route; added `AuthenticatedUser` to constructor
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Wired `authenticatedUser` into `PipelineRoutes`
+- `backend/src/main/scala/com/helio/app/Main.scala` — Passed `dataTypeRepo` and `dataSourceRepo` to `PipelineRepository` constructor
+- `frontend/src/services/pipelineService.ts` — Added `createPipeline` service function
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — Added `createPipeline` async thunk; added `createStatus`/`createError` state fields
+- `frontend/src/components/CreatePipelineModal.tsx` — New modal component with name, data source select, output type name fields; inline validation; submit flow
+- `frontend/src/components/CreatePipelineModal.css` — Styles for the modal component
+- `frontend/src/components/PipelineEmptyState.tsx` — Added `onCreateClick` prop wired to the CTA button
+- `frontend/src/components/PipelinesPage.tsx` — Added modal open/close state, empty-state `onCreateClick`, toolbar button, and `CreatePipelineModal` render
+- `frontend/src/components/PipelinesPage.css` — Added `.pipelines-page__toolbar` and `.pipelines-page__create-btn` styles
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — Added `createPipeline` thunk tests (fulfilled and rejected)
+- `frontend/src/components/PipelinesPage.test.tsx` — Added tests verifying modal opens from empty state and toolbar button
+- `frontend/src/components/CreatePipelineModal.test.tsx` — New test file covering field rendering, inline validation, successful submit, and error display

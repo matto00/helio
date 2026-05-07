@@ -47,7 +47,7 @@ object Main {
       val userSessionRepo    = new SlickUserSessionRepository(db)
       val userPreferenceRepo = new UserPreferenceRepository(db)
       val permissionRepo     = new ResourcePermissionRepository(db)
-      val pipelineRepo       = new PipelineRepository(db)
+      val pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)
       val pipelineStepRepo   = new PipelineStepRepository(db)
       val fileSystem         = LocalFileSystem.fromEnv()
 

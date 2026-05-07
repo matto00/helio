@@ -4,9 +4,14 @@ import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class PipelineRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class PipelineRepository(
+    db: slick.jdbc.JdbcBackend.Database,
+    dataTypeRepo: DataTypeRepository,
+    dataSourceRepo: DataSourceRepository
+)(implicit ec: ExecutionContext) {
 
   import PipelineRepository._
 
@@ -16,6 +21,54 @@ class PipelineRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
 
   def exists(id: String): Future[Boolean] =
     db.run(pipelinesTable.filter(_.id === id).exists.result)
+
+  def create(
+      name: String,
+      sourceDataSourceId: String,
+      outputDataTypeName: String,
+      ownerId: UserId
+  ): Future[Either[String, PipelineSummary]] = {
+    dataSourceRepo.findById(DataSourceId(sourceDataSourceId)).flatMap {
+      case None =>
+        Future.successful(Left("Data source not found"))
+      case Some(dataSource) =>
+        val now = Instant.now()
+        val newDataType = DataType(
+          id             = DataTypeId(UUID.randomUUID().toString),
+          sourceId       = None,
+          name           = outputDataTypeName,
+          fields         = Vector.empty,
+          computedFields = Vector.empty,
+          version        = 1,
+          createdAt      = now,
+          updatedAt      = now,
+          ownerId        = ownerId
+        )
+        dataTypeRepo.insert(newDataType).flatMap { createdDataType =>
+          val pipelineId  = UUID.randomUUID().toString
+          val pipelineRow = PipelineRow(
+            id                 = pipelineId,
+            name               = name,
+            sourceDataSourceId = sourceDataSourceId,
+            outputDataTypeId   = createdDataType.id.value,
+            lastRunStatus      = None,
+            lastRunAt          = None,
+            createdAt          = now,
+            updatedAt          = now
+          )
+          db.run(pipelinesTable += pipelineRow).map { _ =>
+            Right(PipelineSummary(
+              id                   = pipelineId,
+              name                 = name,
+              sourceDataSourceName = dataSource.name,
+              outputDataTypeName   = outputDataTypeName,
+              lastRunStatus        = None,
+              lastRunAt            = None
+            ))
+          }
+        }
+    }
+  }
 
   /** Returns a flat summary projection for all pipelines, joined with source and data type names. */
   def listSummaries(): Future[Vector[PipelineSummary]] = {

@@ -1,0 +1,133 @@
+.create-pipeline-modal {
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow-soft);
+  padding: 0;
+  max-width: 480px;
+  width: 100%;
+  color: var(--app-text);
+}
+
+.create-pipeline-modal::backdrop {
+  background: rgba(7, 11, 20, 0.72);
+}
+
+.create-pipeline-modal__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem;
+}
+
+.create-pipeline-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.create-pipeline-modal__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.create-pipeline-modal__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--app-text-muted);
+  font-size: 1rem;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.create-pipeline-modal__close:hover {
+  color: var(--app-text);
+}
+
+.create-pipeline-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.create-pipeline-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.create-pipeline-modal__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-text);
+}
+
+.create-pipeline-modal__input,
+.create-pipeline-modal__select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 0.875rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.create-pipeline-modal__input:focus,
+.create-pipeline-modal__select:focus {
+  outline: none;
+  border-color: var(--app-accent);
+}
+
+.create-pipeline-modal__field-error {
+  font-size: 0.75rem;
+  color: var(--app-danger, #e53e3e);
+}
+
+.create-pipeline-modal__error {
+  font-size: 0.875rem;
+  color: var(--app-danger, #e53e3e);
+  margin: 0;
+}
+
+.create-pipeline-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.create-pipeline-modal__btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.create-pipeline-modal__btn--secondary {
+  background: none;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+.create-pipeline-modal__btn--secondary:hover {
+  background: var(--app-surface-hover);
+}
+
+.create-pipeline-modal__btn--primary {
+  background: var(--app-accent);
+  color: var(--app-accent-contrast, #fff);
+}
+
+.create-pipeline-modal__btn--primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.create-pipeline-modal__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
