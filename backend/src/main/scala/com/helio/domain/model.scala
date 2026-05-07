@@ -299,3 +299,15 @@ final case class Pipeline(
     createdAt: Instant,
     updatedAt: Instant
 )
+
+final case class PipelineStepId(value: String) extends AnyVal
+
+final case class PipelineStep(
+    id: PipelineStepId,
+    pipelineId: PipelineId,
+    position: Int,
+    op: String,
+    config: String,
+    createdAt: Instant,
+    updatedAt: Instant
+)

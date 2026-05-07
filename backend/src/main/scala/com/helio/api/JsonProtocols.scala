@@ -232,6 +232,21 @@ final case class PipelineSummaryResponse(
     lastRunAt: Option[String]
 )
 
+
+// -- Pipeline step API types --------------------------------------------------
+
+final case class CreatePipelineStepRequest(op: String, config: String)
+final case class UpdatePipelineStepRequest(op: Option[String], config: Option[String], position: Option[Int])
+final case class PipelineStepResponse(
+    id: String,
+    pipelineId: String,
+    position: Int,
+    op: String,
+    config: String,
+    createdAt: String,
+    updatedAt: String
+)
+
 // ── Static connector API types ────────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -444,6 +459,21 @@ object UserResponse {
       displayName = user.displayName,
       createdAt   = user.createdAt.toString,
       avatarUrl   = user.avatarUrl
+    )
+}
+
+
+object PipelineStepResponse {
+  import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
+  def fromRow(row: PipelineStepRow): PipelineStepResponse =
+    PipelineStepResponse(
+      id         = row.id,
+      pipelineId = row.pipelineId,
+      position   = row.position,
+      op         = row.op,
+      config     = row.config,
+      createdAt  = row.createdAt.toString,
+      updatedAt  = row.updatedAt.toString
     )
 }
 
@@ -671,4 +701,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse]     = jsonFormat1(UpdatePanelsBatchResponse.apply)
   implicit val userPreferencePayloadFormat: RootJsonFormat[UserPreferencePayload]             = jsonFormat3(UserPreferencePayload.apply)
   implicit val updateUserPreferenceRequestFormat: RootJsonFormat[UpdateUserPreferenceRequest] = jsonFormat2(UpdateUserPreferenceRequest.apply)
+  // Pipeline step API formats
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat2(CreatePipelineStepRequest.apply)
+  implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
+  implicit val pipelineStepResponseFormat: RootJsonFormat[PipelineStepResponse]           = jsonFormat7(PipelineStepResponse.apply)
+
 }

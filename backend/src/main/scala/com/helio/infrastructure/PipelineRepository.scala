@@ -14,6 +14,9 @@ class PipelineRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Execu
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
 
+  def exists(id: String): Future[Boolean] =
+    db.run(pipelinesTable.filter(_.id === id).exists.result)
+
   /** Returns a flat summary projection for all pipelines, joined with source and data type names. */
   def listSummaries(): Future[Vector[PipelineSummary]] = {
     val query = for {

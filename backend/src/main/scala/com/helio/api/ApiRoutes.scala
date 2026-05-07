@@ -10,7 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import scala.util.{Failure, Success}
 
@@ -26,6 +26,7 @@ final class ApiRoutes(
     userSessionRepo: UserSessionRepository,
     userPreferenceRepo: UserPreferenceRepository,
     pipelineRepo: PipelineRepository,
+    pipelineStepRepo: PipelineStepRepository,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -123,7 +124,8 @@ final class ApiRoutes(
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
-                new PipelineRoutes(pipelineRepo).routes
+                new PipelineRoutes(pipelineRepo).routes,
+                new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes
               )
             }
           )
