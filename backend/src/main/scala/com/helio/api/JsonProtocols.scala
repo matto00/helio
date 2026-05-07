@@ -223,6 +223,8 @@ final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
 // ── Pipeline API types ────────────────────────────────────────────────────────
 
+final case class CreatePipelineRequest(name: String, sourceDataSourceId: String, outputDataTypeName: String)
+
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
@@ -692,6 +694,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 
   // Pipeline API formats
+  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = jsonFormat3(CreatePipelineRequest.apply)
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat6(PipelineSummaryResponse.apply)
 
   // Update API formats

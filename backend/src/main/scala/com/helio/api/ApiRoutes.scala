@@ -124,7 +124,7 @@ final class ApiRoutes(
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
-                new PipelineRoutes(pipelineRepo).routes,
+                new PipelineRoutes(pipelineRepo, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes
               )
             }

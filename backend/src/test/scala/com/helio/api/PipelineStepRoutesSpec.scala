@@ -5,9 +5,8 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.infrastructure.PipelineRepository
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.api.routes.PipelineStepRoutes
-import com.helio.infrastructure.PipelineStepRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -40,8 +39,10 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    val dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
+    val dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(db)(typedSystem.executionContext)
-    pipelineRepo = new PipelineRepository(db)(typedSystem.executionContext)
+    pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {

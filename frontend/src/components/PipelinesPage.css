@@ -155,3 +155,41 @@
   background: var(--app-surface-raised);
   color: var(--app-text-muted);
 }
+
+/* ── Toolbar ── */
+
+.pipelines-page__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.pipelines-page__create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-dim);
+  color: var(--app-accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition:
+    background var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipelines-page__create-btn:hover {
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent);
+  color: var(--app-accent-strong);
+}
+
+.pipelines-page__create-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
