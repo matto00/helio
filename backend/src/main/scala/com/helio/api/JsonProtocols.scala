@@ -257,7 +257,18 @@ final case class RunStatusResponse(
     runId: String,
     status: String,
     rows: Option[JsValue],
-    error: Option[String]
+    error: Option[String],
+    rowCount: Option[Int] = None
+)
+
+final case class PipelineRunRecord(
+    id: String,
+    pipelineId: String,
+    status: String,
+    startedAt: String,
+    completedAt: Option[String],
+    rowCount: Option[Int],
+    errorLog: Option[String]
 )
 
 // ── Static connector API types ────────────────────────────────────────────────
@@ -740,6 +751,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   // Pipeline run API formats
+  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat7(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {
@@ -747,17 +759,19 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
         "runId"  -> JsString(r.runId),
         "status" -> JsString(r.status)
       )
-      r.rows.foreach(v  => fields("rows")  = v)
-      r.error.foreach(v => fields("error") = JsString(v))
+      r.rows.foreach(v     => fields("rows")     = v)
+      r.error.foreach(v    => fields("error")    = JsString(v))
+      r.rowCount.foreach(v => fields("rowCount") = JsNumber(v))
       JsObject(fields.toMap)
     }
     def read(json: JsValue): RunStatusResponse = {
       val obj = json.asJsObject
       RunStatusResponse(
-        runId  = obj.fields("runId").convertTo[String],
-        status = obj.fields("status").convertTo[String],
-        rows   = obj.fields.get("rows"),
-        error  = obj.fields.get("error").map(_.convertTo[String])
+        runId    = obj.fields("runId").convertTo[String],
+        status   = obj.fields("status").convertTo[String],
+        rows     = obj.fields.get("rows"),
+        error    = obj.fields.get("error").map(_.convertTo[String]),
+        rowCount = obj.fields.get("rowCount").map(_.convertTo[Int])
       )
     }
   }

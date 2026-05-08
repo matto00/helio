@@ -4,8 +4,9 @@ import {
   getPipelines,
   createPipeline as createPipelineRequest,
   runPipeline,
+  fetchRunHistory,
 } from "../../services/pipelineService";
-import type { PipelineSummary, RunStatus } from "../../types/models";
+import type { PipelineRunRecord, PipelineSummary, RunStatus } from "../../types/models";
 
 interface PipelinesState {
   items: PipelineSummary[];
@@ -16,6 +17,7 @@ interface PipelinesState {
   runId: string | null;
   runStatus: RunStatus | null;
   runError: string | null;
+  runHistory: Record<string, PipelineRunRecord[]>;
 }
 
 const initialState: PipelinesState = {
@@ -27,6 +29,7 @@ const initialState: PipelinesState = {
   runId: null,
   runStatus: null,
   runError: null,
+  runHistory: {},
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -49,6 +52,19 @@ export const submitPipelineRun = createAsyncThunk<
     return await runPipeline(pipelineId);
   } catch {
     return rejectWithValue("Failed to start pipeline run.");
+  }
+});
+
+export const fetchPipelineRunHistory = createAsyncThunk<
+  { pipelineId: string; records: PipelineRunRecord[] },
+  string,
+  { rejectValue: string }
+>("pipelines/fetchPipelineRunHistory", async (pipelineId, { rejectWithValue }) => {
+  try {
+    const records = await fetchRunHistory(pipelineId);
+    return { pipelineId, records };
+  } catch {
+    return rejectWithValue("Failed to load run history.");
   }
 });
 
@@ -120,9 +136,13 @@ const pipelinesSlice = createSlice({
         state.runId = null;
         state.runStatus = null;
         state.runError = action.payload ?? "Failed to start pipeline run.";
+      })
+      .addCase(fetchPipelineRunHistory.fulfilled, (state, action) => {
+        state.runHistory[action.payload.pipelineId] = action.payload.records;
       });
   },
 });
 
 export const { clearRunState, setRunStatus } = pipelinesSlice.actions;
+export type { PipelinesState };
 export const pipelinesReducer = pipelinesSlice.reducer;

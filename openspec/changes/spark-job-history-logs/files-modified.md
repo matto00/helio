@@ -1,0 +1,17 @@
+- `backend/src/main/resources/db/migration/V24__pipeline_runs.sql` — New Flyway migration adding the pipeline_runs table with FK to pipelines, status check constraint, and index
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRunRepository.scala` — New repository with PipelineRunRow/PipelineRunTable, insertRun, updateRunTerminal, deleteOldRuns, listByPipeline
+- `backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala` — Inject PipelineRunRepository; call insertRun+deleteOldRuns on submit, updateRunTerminal on success/failure
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Add PipelineRunRecord case class + JSON format; add rowCount field to RunStatusResponse
+- `backend/src/main/scala/com/helio/api/routes/PipelineRunRoutes.scala` — Inject PipelineRunRepository; add GET /run-history route; populate rowCount in run-status response
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Add PipelineRunRepository parameter; pass to PipelineRunRoutes
+- `backend/src/main/scala/com/helio/app/Main.scala` — Construct PipelineRunRepository; pass to SparkJobSubmitter and ApiRoutes
+- `backend/src/test/scala/com/helio/infrastructure/PipelineRunRepositorySpec.scala` — New spec: insert, updateTerminal, deleteOldRuns retention, listByPipeline ordering
+- `backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala` — Updated submit tests to verify run records are persisted on success and failure
+- `backend/src/test/scala/com/helio/api/routes/PipelineRunRoutesSpec.scala` — Added run-history route tests (empty, non-empty, 404)
+- `frontend/src/types/models.ts` — Add PipelineRunRecord interface
+- `frontend/src/services/pipelineService.ts` — Add fetchRunHistory function
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — Add runHistory state, fetchPipelineRunHistory thunk and reducer
+- `frontend/src/components/PipelineDetailPage.tsx` — Add RunHistoryPanel component; dispatch fetchPipelineRunHistory on mount and re-fetch on terminal state
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — Add fetchPipelineRunHistory reducer and thunk tests
+- `frontend/src/components/PipelineDetailPage.test.tsx` — Add run history panel rendering tests
+- `openspec/changes/spark-job-history-logs/tasks.md` — Mark all tasks complete

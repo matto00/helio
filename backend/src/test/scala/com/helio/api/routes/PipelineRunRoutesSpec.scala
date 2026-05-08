@@ -5,9 +5,9 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, JsonProtocols, RunStatusResponse, RunSubmitResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -31,11 +31,12 @@ class PipelineRunRoutesSpec
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
 
-  private var embeddedPostgres: EmbeddedPostgres   = _
-  private var db: JdbcBackend.Database             = _
-  private var pipelineRepo: PipelineRepository     = _
-  private var stepRepo: PipelineStepRepository     = _
-  private var dataSourceRepo: DataSourceRepository = _
+  private var embeddedPostgres: EmbeddedPostgres      = _
+  private var db: JdbcBackend.Database                = _
+  private var pipelineRepo: PipelineRepository        = _
+  private var stepRepo: PipelineStepRepository        = _
+  private var dataSourceRepo: DataSourceRepository    = _
+  private var pipelineRunRepo: PipelineRunRepository  = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -50,6 +51,7 @@ class PipelineRunRoutesSpec
     dataSourceRepo   = new DataSourceRepository(db)(routeEc)
     stepRepo         = new PipelineStepRepository(db)(routeEc)
     pipelineRepo     = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRunRepo  = new PipelineRunRepository(db)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -106,10 +108,10 @@ class PipelineRunRoutesSpec
     }
   }
 
-  private def makeRoutes(cache: PipelineRunCache): Route = {
+  private def makeRoutes(cache: PipelineRunCache, runRepo: PipelineRunRepository = null): Route = {
     implicit val ec: ExecutionContext = routeEc
     val submitter = new StubSparkJobSubmitter()
-    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser).routes
+    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo).routes
   }
 
   "PipelineRunRoutes" should {
@@ -181,6 +183,44 @@ class PipelineRunRoutesSpec
     "GET /pipelines/:id/runs/:runId returns 404 for unknown runId" in {
       val cache = new PipelineRunCache()
       Get("/pipelines/any/runs/nonexistent") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // ── run-history tests ──────────────────────────────────────────────────
+
+    "GET /pipelines/:id/run-history returns 200 with empty list when no runs" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("static")
+      val pid   = seedPipeline(dsId)
+      Get(s"/pipelines/$pid/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val records = responseAs[Vector[PipelineRunRecord]]
+        records shouldBe empty
+      }
+    }
+
+    "GET /pipelines/:id/run-history returns 200 with run records" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("static")
+      val pid   = seedPipeline(dsId)
+      val runId = java.util.UUID.randomUUID().toString
+      await(pipelineRunRepo.insertRun(runId, pid, java.time.Instant.now()))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", java.time.Instant.now(), rowCount = Some(5)))
+
+      Get(s"/pipelines/$pid/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val records = responseAs[Vector[PipelineRunRecord]]
+        records should have size 1
+        records.head.id       shouldBe runId
+        records.head.status   shouldBe "succeeded"
+        records.head.rowCount shouldBe Some(5)
+      }
+    }
+
+    "GET /pipelines/:id/run-history returns 404 for unknown pipeline" in {
+      val cache = new PipelineRunCache()
+      Get("/pipelines/nonexistent/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }

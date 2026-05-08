@@ -1,6 +1,7 @@
 import {
   createPipeline,
   fetchPipelines,
+  fetchPipelineRunHistory,
   pipelinesReducer,
   submitPipelineRun,
 } from "./pipelinesSlice";
@@ -10,11 +11,13 @@ jest.mock("../../services/pipelineService", () => ({
   getPipelines: jest.fn(),
   createPipeline: jest.fn(),
   runPipeline: jest.fn(),
+  fetchRunHistory: jest.fn(),
 }));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
 const runPipelineMock = jest.mocked(pipelineService.runPipeline);
+const fetchRunHistoryMock = jest.mocked(pipelineService.fetchRunHistory);
 
 const testPipeline = {
   id: "p-1",
@@ -71,6 +74,7 @@ describe("pipelinesSlice", () => {
       runId: null,
       runStatus: null,
       runError: null,
+      runHistory: {},
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
@@ -219,6 +223,99 @@ describe("submitPipelineRun thunk", () => {
     const calls = dispatch.mock.calls as Array<[{ type: string }]>;
     const rejectedCall = calls.find(
       ([action]) => action.type === "pipelines/submitPipelineRun/rejected",
+    );
+    expect(rejectedCall).toBeDefined();
+  });
+});
+
+describe("fetchPipelineRunHistory", () => {
+  const sampleRun = {
+    id: "run-1",
+    pipelineId: "p-1",
+    status: "succeeded" as const,
+    startedAt: "2026-05-01T10:00:00Z",
+    completedAt: "2026-05-01T10:01:00Z",
+    rowCount: 42,
+    errorLog: null,
+  };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockReset();
+  });
+
+  it("stores run history keyed by pipelineId on fulfilled", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineRunHistory.fulfilled(
+        { pipelineId: "p-1", records: [sampleRun] },
+        "req-1",
+        "p-1",
+      ),
+    );
+    expect(nextState.runHistory["p-1"]).toHaveLength(1);
+    expect(nextState.runHistory["p-1"][0].id).toBe("run-1");
+    expect(nextState.runHistory["p-1"][0].rowCount).toBe(42);
+  });
+
+  it("replaces existing history for the same pipeline on re-fetch", () => {
+    const initialState = pipelinesReducer(
+      undefined,
+      fetchPipelineRunHistory.fulfilled(
+        { pipelineId: "p-1", records: [sampleRun] },
+        "req-1",
+        "p-1",
+      ),
+    );
+    const updatedRun = { ...sampleRun, id: "run-2", rowCount: 99 };
+    const nextState = pipelinesReducer(
+      initialState,
+      fetchPipelineRunHistory.fulfilled(
+        { pipelineId: "p-1", records: [updatedRun] },
+        "req-2",
+        "p-1",
+      ),
+    );
+    expect(nextState.runHistory["p-1"]).toHaveLength(1);
+    expect(nextState.runHistory["p-1"][0].id).toBe("run-2");
+  });
+
+  it("does not affect runHistory on rejected", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineRunHistory.rejected(null, "req-1", "p-1", "Failed to load run history."),
+    );
+    expect(nextState.runHistory).toEqual({});
+  });
+
+  it("dispatches fulfilled with records on success", async () => {
+    fetchRunHistoryMock.mockResolvedValueOnce([sampleRun]);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineRunHistory("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineRunHistory/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", records: [sampleRun] });
+  });
+
+  it("dispatches rejected on service error", async () => {
+    fetchRunHistoryMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineRunHistory("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineRunHistory/rejected",
     );
     expect(rejectedCall).toBeDefined();
   });

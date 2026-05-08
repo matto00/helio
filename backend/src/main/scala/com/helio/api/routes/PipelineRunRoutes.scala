@@ -3,9 +3,9 @@ package com.helio.api.routes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols, RunStatusResponse, RunSubmitResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain.{AuthenticatedUser, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
 
@@ -18,7 +18,8 @@ class PipelineRunRoutes(
     dataSourceRepo: DataSourceRepository,
     submitter: SparkJobSubmitter,
     cache: PipelineRunCache,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    pipelineRunRepo: PipelineRunRepository = null
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -89,7 +90,45 @@ class PipelineRunRoutes(
                     JsObject(rowMap.map { case (k, v) => k -> anyToJsValue(v) })
                   }.toVector)
                 }
-                complete(StatusCodes.OK, RunStatusResponse(entry.runId, entry.status, rowsJson, entry.error))
+                val rowCount: Option[Int] = entry.rows.map(_.size)
+                complete(StatusCodes.OK, RunStatusResponse(entry.runId, entry.status, rowsJson, entry.error, rowCount))
+            }
+          }
+        },
+
+        // GET /api/pipelines/:id/run-history
+        path("run-history") {
+          get {
+            if (pipelineRunRepo == null) {
+              complete(StatusCodes.OK, Vector.empty[PipelineRunRecord])
+            } else {
+              onComplete(pipelineRepo.findById(pipelineId)) {
+                case Failure(ex) =>
+                  complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+                case Success(None) =>
+                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+
+                case Success(Some(_)) =>
+                  onComplete(pipelineRunRepo.listByPipeline(pipelineId)) {
+                    case Failure(ex) =>
+                      complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+                    case Success(rows) =>
+                      val records = rows.map { r =>
+                        PipelineRunRecord(
+                          id          = r.id,
+                          pipelineId  = r.pipelineId,
+                          status      = r.status,
+                          startedAt   = r.startedAt.toString,
+                          completedAt = r.completedAt.map(_.toString),
+                          rowCount    = r.rowCount,
+                          errorLog    = r.errorLog
+                        )
+                      }
+                      complete(StatusCodes.OK, records)
+                  }
+              }
             }
           }
         }
