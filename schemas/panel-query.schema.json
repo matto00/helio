@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "panel-query.schema.json",
+  "title": "PanelQuery",
+  "description": "Structured query derived from a panel's field mapping",
+  "type": "object",
+  "required": ["selectedFields", "filters", "sort", "limit"],
+  "properties": {
+    "selectedFields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DataType field names selected by this panel's field mapping"
+    },
+    "filters": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Filter expressions (reserved for future use)"
+    },
+    "sort": {
+      "type": ["string", "null"],
+      "description": "Sort expression (reserved for future use)"
+    },
+    "limit": {
+      "type": ["integer", "null"],
+      "description": "Row limit (reserved for future use)"
+    }
+  },
+  "additionalProperties": false
+}

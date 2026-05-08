@@ -1,7 +1,7 @@
 package com.helio.domain
 
 import java.time.Instant
-import spray.json.JsValue
+import spray.json.{JsObject, JsString, JsValue}
 
 final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
@@ -146,6 +146,24 @@ final case class Panel(
     dividerWeight: Option[Int] = None,
     dividerColor: Option[String] = None
 )
+
+final case class PanelQuery(
+    selectedFields: List[String],
+    filters: List[JsValue],
+    sort: Option[String],
+    limit: Option[Int]
+)
+
+object Panel {
+  def buildQuery(panel: Panel): Option[PanelQuery] =
+    panel.typeId.map { _ =>
+      val selectedFields = panel.fieldMapping match {
+        case Some(JsObject(fields)) => fields.values.collect { case JsString(s) => s }.toList
+        case _                      => List.empty
+      }
+      PanelQuery(selectedFields = selectedFields, filters = List.empty, sort = None, limit = None)
+    }
+}
 
 sealed trait SourceType
 object SourceType {

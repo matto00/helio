@@ -286,6 +286,19 @@ final class PanelRoutes(
             }
           )
         },
+        path(Segment / "query") { panelId =>
+          get {
+            onSuccess(panelRepo.findById(PanelId(panelId))) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+              case Some(panel) =>
+                Panel.buildQuery(panel) match {
+                  case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel is not bound to a data type"))
+                  case Some(query) => complete(query)
+                }
+            }
+          }
+        },
         path(Segment / "duplicate") { panelId =>
           post {
             onSuccess(panelRepo.findById(PanelId(panelId))) {
