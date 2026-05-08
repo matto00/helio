@@ -2,8 +2,10 @@ import {
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
   createPanel,
+  fetchPanelPage,
   fetchPanels,
   panelsReducer,
+  resetPanelPagination,
   updatePanelAppearance,
   updatePanelBinding,
   updatePanelContent,
@@ -259,6 +261,108 @@ describe("panelsSlice", () => {
     );
 
     expect(afterReject.pendingPanelUpdates["panel-1"]).toEqual({ title: "Unsaved" });
+  });
+
+  // ── pagination state tests (Task 4.2) ────────────────────────────────────────
+
+  describe("fetchPanelPage", () => {
+    it("initial load (page 0) populates rows and hasMore", () => {
+      const rows = [{ n: 1 }, { n: 2 }];
+      const nextState = panelsReducer(
+        undefined,
+        fetchPanelPage.fulfilled({ panelId: "panel-1", page: 0, rows, hasMore: true }, "req", {
+          panelId: "panel-1",
+          page: 0,
+          pageSize: 50,
+        }),
+      );
+
+      expect(nextState.paginationState["panel-1"]).toEqual({
+        currentPage: 0,
+        hasMore: true,
+        isLoadingMore: false,
+        rows,
+      });
+    });
+
+    it("load-more (page > 0) appends rows to existing state", () => {
+      const firstRows = [{ n: 1 }, { n: 2 }];
+      const moreRows = [{ n: 3 }, { n: 4 }];
+
+      const afterFirstPage = panelsReducer(
+        undefined,
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-1", page: 0, rows: firstRows, hasMore: true },
+          "req-1",
+          { panelId: "panel-1", page: 0, pageSize: 2 },
+        ),
+      );
+
+      const afterSecondPage = panelsReducer(
+        afterFirstPage,
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-1", page: 1, rows: moreRows, hasMore: false },
+          "req-2",
+          { panelId: "panel-1", page: 1, pageSize: 2 },
+        ),
+      );
+
+      expect(afterSecondPage.paginationState["panel-1"].rows).toHaveLength(4);
+      expect(afterSecondPage.paginationState["panel-1"].rows).toEqual([...firstRows, ...moreRows]);
+      expect(afterSecondPage.paginationState["panel-1"].hasMore).toBe(false);
+      expect(afterSecondPage.paginationState["panel-1"].currentPage).toBe(1);
+    });
+
+    it("pending sets isLoadingMore: true", () => {
+      const nextState = panelsReducer(
+        undefined,
+        fetchPanelPage.pending("req", { panelId: "panel-1", page: 0, pageSize: 50 }),
+      );
+      expect(nextState.paginationState["panel-1"].isLoadingMore).toBe(true);
+    });
+  });
+
+  describe("resetPanelPagination", () => {
+    it("clears pagination state for the given panelId", () => {
+      const withPagination = panelsReducer(
+        undefined,
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
+          "req",
+          { panelId: "panel-1", page: 0, pageSize: 50 },
+        ),
+      );
+
+      expect(withPagination.paginationState["panel-1"]).toBeDefined();
+
+      const cleared = panelsReducer(withPagination, resetPanelPagination("panel-1"));
+
+      expect(cleared.paginationState["panel-1"]).toBeUndefined();
+    });
+
+    it("does not affect pagination state for other panels", () => {
+      let state = panelsReducer(
+        undefined,
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
+          "req-1",
+          { panelId: "panel-1", page: 0, pageSize: 50 },
+        ),
+      );
+      state = panelsReducer(
+        state,
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-2", page: 0, rows: [{ n: 2 }], hasMore: false },
+          "req-2",
+          { panelId: "panel-2", page: 0, pageSize: 50 },
+        ),
+      );
+
+      const afterReset = panelsReducer(state, resetPanelPagination("panel-1"));
+
+      expect(afterReset.paginationState["panel-1"]).toBeUndefined();
+      expect(afterReset.paginationState["panel-2"]).toBeDefined();
+    });
   });
 
   it("replaces the updated panel when updatePanelContent fulfills", () => {

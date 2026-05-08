@@ -54,9 +54,73 @@ interface TableContentProps {
   data?: MappedPanelData | null;
   rawRows?: string[][] | null;
   headers?: string[] | null;
+  /** Rows from the paginated execute endpoint (keyed by column name) */
+  paginationRows?: Record<string, unknown>[] | null;
+  paginationHasMore?: boolean;
+  paginationIsLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-function TableContent({ rawRows, headers }: TableContentProps) {
+function TableContent({
+  rawRows,
+  headers,
+  paginationRows,
+  paginationHasMore,
+  paginationIsLoadingMore,
+  onLoadMore,
+}: TableContentProps) {
+  // Task 3.7 — prefer paginated rows when available
+  if (paginationRows && paginationRows.length > 0) {
+    const cols = Object.keys(paginationRows[0]);
+    return (
+      <div className="panel-content panel-content--table">
+        <table className="panel-content__table">
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th key={col}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paginationRows.map((row, ri) => (
+              <tr key={ri}>
+                {cols.map((col) => (
+                  <td key={col}>
+                    {row[col] !== null && row[col] !== undefined ? String(row[col]) : ""}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {/* Task 3.8 — Load more button */}
+        {paginationHasMore && (
+          <div className="panel-content__load-more">
+            <button
+              className="panel-content__load-more-btn"
+              onClick={onLoadMore}
+              disabled={paginationIsLoadingMore}
+              aria-busy={paginationIsLoadingMore}
+            >
+              {paginationIsLoadingMore ? (
+                <>
+                  <span
+                    className="panel-content__spinner panel-content__spinner--sm"
+                    aria-hidden="true"
+                  />
+                  Loading...
+                </>
+              ) : (
+                "Load more"
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (rawRows && rawRows.length > 0) {
     const cols = headers ?? rawRows[0].map((_, i) => String(i + 1));
     return (
@@ -126,6 +190,11 @@ export interface PanelContentProps {
   dividerOrientation?: string | null;
   dividerWeight?: number | null;
   dividerColor?: string | null;
+  /** Rows from the paginated execute endpoint for table panels */
+  paginationRows?: Record<string, unknown>[] | null;
+  paginationHasMore?: boolean;
+  paginationIsLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function PanelContent({
@@ -144,6 +213,10 @@ export function PanelContent({
   dividerOrientation,
   dividerWeight,
   dividerColor,
+  paginationRows,
+  paginationHasMore,
+  paginationIsLoadingMore,
+  onLoadMore,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -187,7 +260,17 @@ export function PanelContent({
     case "text":
       return <TextContent data={data} />;
     case "table":
-      return <TableContent data={data} rawRows={rawRows} headers={headers} />;
+      return (
+        <TableContent
+          data={data}
+          rawRows={rawRows}
+          headers={headers}
+          paginationRows={paginationRows}
+          paginationHasMore={paginationHasMore}
+          paginationIsLoadingMore={paginationIsLoadingMore}
+          onLoadMore={onLoadMore}
+        />
+      );
     case "markdown":
       return <MarkdownPanel content={content ?? null} />;
     case "image":

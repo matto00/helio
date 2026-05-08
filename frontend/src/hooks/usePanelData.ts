@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchSources } from "../features/sources/sourcesSlice";
+import { fetchPanelPage } from "../features/panels/panelsSlice";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
 import type { DataSource, DataType, MappedPanelData, Panel } from "../types/models";
 import { useAppDispatch } from "./reduxHooks";
@@ -95,6 +96,13 @@ export function usePanelData(
 
     async function fetchData() {
       try {
+        // Task 3.6 — table panels use the paginated execute endpoint
+        if (panel.type === "table" && panel.typeId) {
+          void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize: 50 }));
+          setIsLoading(false);
+          return;
+        }
+
         if (source!.sourceType === "csv" || source!.sourceType === "static") {
           const limit = panel.type === "chart" ? 200 : undefined;
           const preview = await fetchCsvPreview(source!.id, limit);

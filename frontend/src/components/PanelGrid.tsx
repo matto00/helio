@@ -30,6 +30,7 @@ import {
   clearPendingPanelUpdates,
   deletePanel,
   duplicatePanel,
+  fetchPanelPage,
   resetPanelSaveState,
   updatePanelsBatch,
 } from "../features/panels/panelsSlice";
@@ -177,14 +178,36 @@ interface PanelCardBodyProps {
 }
 
 function PanelCardBody({ panel }: PanelCardBodyProps) {
+  const dispatch = useAppDispatch();
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const sources = useAppSelector((state) => state.sources);
+  const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(
     panel,
     dataTypes,
     sources,
   );
   usePanelPolling(refresh, panel.refreshInterval, panel.typeId);
+
+  const handleLoadMore = useCallback(() => {
+    if (paginationEntry && !paginationEntry.isLoadingMore) {
+      void dispatch(
+        fetchPanelPage({
+          panelId: panel.id,
+          page: paginationEntry.currentPage + 1,
+          pageSize: 50,
+        }),
+      );
+    }
+  }, [dispatch, panel.id, paginationEntry]);
+
+  // For table panels, determine loading from pagination state (initial load)
+  const tableIsLoading =
+    panel.type === "table" &&
+    paginationEntry != null &&
+    paginationEntry.isLoadingMore &&
+    paginationEntry.rows.length === 0;
+
   return (
     <PanelContent
       type={panel.type}
@@ -193,7 +216,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       rawRows={rawRows}
       headers={headers}
       fieldMapping={panel.fieldMapping}
-      isLoading={isLoading}
+      isLoading={panel.type === "table" ? tableIsLoading : isLoading}
       error={error}
       noData={noData}
       content={panel.content}
@@ -202,6 +225,10 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
       dividerOrientation={panel.dividerOrientation}
       dividerWeight={panel.dividerWeight}
       dividerColor={panel.dividerColor}
+      paginationRows={paginationEntry?.rows ?? null}
+      paginationHasMore={paginationEntry?.hasMore ?? false}
+      paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
+      onLoadMore={handleLoadMore}
     />
   );
 }

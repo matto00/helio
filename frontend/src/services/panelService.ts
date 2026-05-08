@@ -1,6 +1,7 @@
 import type {
   DividerOrientation,
   ImageFit,
+  PaginatedQueryResult,
   Panel,
   PanelAppearance,
   PanelType,
@@ -126,6 +127,17 @@ export async function updatePanelImage(
     imageUrl,
     imageFit,
   });
+  return response.data;
+}
+
+export async function fetchPanelExecutePage(
+  panelId: string,
+  page: number,
+  pageSize: number,
+): Promise<PaginatedQueryResult> {
+  const response = await httpClient.get<PaginatedQueryResult>(
+    `/api/panels/${panelId}/execute?page=${page}&pageSize=${pageSize}`,
+  );
   return response.data;
 }
 

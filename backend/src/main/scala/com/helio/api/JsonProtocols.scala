@@ -756,6 +756,27 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
 
   // Panel execute API format
   implicit val panelExecuteResponseFormat: RootJsonFormat[PanelExecuteResponse] = jsonFormat1(PanelExecuteResponse.apply)
+  // Paginated query result format
+  implicit val paginatedQueryResultFormat: RootJsonFormat[PaginatedQueryResult] =
+    new RootJsonFormat[PaginatedQueryResult] {
+      def write(r: PaginatedQueryResult): JsValue = JsObject(
+        "rows"     -> JsArray(r.rows),
+        "columns"  -> JsArray(r.columns.map(JsString(_))),
+        "page"     -> JsNumber(r.page),
+        "pageSize" -> JsNumber(r.pageSize),
+        "hasMore"  -> JsBoolean(r.hasMore)
+      )
+      def read(json: JsValue): PaginatedQueryResult = {
+        val obj = json.asJsObject
+        PaginatedQueryResult(
+          rows     = obj.fields("rows").convertTo[Vector[JsValue]],
+          columns  = obj.fields("columns").convertTo[Vector[String]],
+          page     = obj.fields("page").convertTo[Int],
+          pageSize = obj.fields("pageSize").convertTo[Int],
+          hasMore  = obj.fields("hasMore").convertTo[Boolean]
+        )
+      }
+    }
 
   // Pipeline run API formats
   implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat7(PipelineRunRecord.apply)

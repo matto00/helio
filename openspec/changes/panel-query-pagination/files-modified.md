@@ -1,0 +1,15 @@
+- `backend/src/main/scala/com/helio/domain/model.scala` — added `PaginatedQueryResult` case class
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — registered `paginatedQueryResultFormat`
+- `backend/src/main/scala/com/helio/api/routes/PanelExecuteRoutes.scala` — new route: GET /panels/:id/execute with page/pageSize params, validation, 404 logic, and SQL pagination execution
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wired PanelExecuteRoutes into authenticated routes
+- `backend/src/test/scala/com/helio/api/routes/PanelExecuteRoutesSpec.scala` — embedded Postgres tests: first-page success, hasMore detection, unbound 404, invalid params 400
+- `schemas/paginated-query-result.schema.json` — JSON Schema 2020-12 definition for PaginatedQueryResult
+- `openspec/specs/panel-query-pagination/spec.md` — OpenAPI path documentation and requirements for GET /api/panels/{id}/execute
+- `openspec/changes/panel-query-pagination/tasks.md` — all tasks marked complete
+- `frontend/src/types/models.ts` — added `PaginatedQueryResult` and `PanelPaginationState` interfaces
+- `frontend/src/services/panelService.ts` — added `fetchPanelExecutePage(panelId, page, pageSize)` function
+- `frontend/src/features/panels/panelsSlice.ts` — added `paginationState` to slice state, `fetchPanelPage` thunk, `resetPanelPagination` action, and extra reducers
+- `frontend/src/hooks/usePanelData.ts` — table panels dispatch `fetchPanelPage` on mount instead of preview endpoint
+- `frontend/src/components/PanelGrid.tsx` — PanelCardBody reads paginationState from Redux and passes props + onLoadMore callback to PanelContent
+- `frontend/src/components/PanelContent.tsx` — TableContent renders paginated rows when present and shows "Load more" button when hasMore is true
+- `frontend/src/features/panels/panelsSlice.test.ts` — tests for fetchPanelPage (initial load, load-more append), resetPanelPagination

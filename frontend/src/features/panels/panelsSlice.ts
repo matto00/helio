@@ -4,6 +4,7 @@ import {
   createPanel as createPanelRequest,
   deletePanel as deletePanelRequest,
   duplicatePanel as duplicatePanelRequest,
+  fetchPanelExecutePage,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
@@ -21,6 +22,7 @@ import type {
   Panel,
   PanelAppearance,
   PanelBatchItem,
+  PanelPaginationState,
   PanelType,
   PanelUpdateFields,
   TypeConfig,
@@ -35,6 +37,8 @@ interface PanelsState {
   error: string | null;
   pendingPanelUpdates: Record<string, PanelUpdateFields>;
   lastSavedAt: number | null;
+  /** Pagination state for table panels, keyed by panelId */
+  paginationState: Record<string, PanelPaginationState>;
 }
 
 const initialState: PanelsState = {
@@ -44,6 +48,7 @@ const initialState: PanelsState = {
   error: null,
   pendingPanelUpdates: {},
   lastSavedAt: null,
+  paginationState: {},
 };
 
 export const fetchPanels = createAsyncThunk<
@@ -229,6 +234,20 @@ export const updatePanelsBatch = createAsyncThunk<
   }
 });
 
+// Task 3.4 — fetchPanelPage async thunk
+export const fetchPanelPage = createAsyncThunk<
+  { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
+  { panelId: string; page: number; pageSize: number },
+  { rejectValue: string }
+>("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { rejectWithValue }) => {
+  try {
+    const result = await fetchPanelExecutePage(panelId, page, pageSize);
+    return { panelId, page: result.page, rows: result.rows, hasMore: result.hasMore };
+  } catch {
+    return rejectWithValue("Failed to load panel data.");
+  }
+});
+
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
@@ -260,6 +279,10 @@ const panelsSlice = createSlice({
     resetPanelSaveState(state) {
       state.pendingPanelUpdates = {};
       state.lastSavedAt = null;
+    },
+    // Task 3.5 — resetPanelPagination clears per-panel pagination state
+    resetPanelPagination(state, action: PayloadAction<string>) {
+      delete state.paginationState[action.payload];
     },
   },
   extraReducers: (builder) => {
@@ -334,6 +357,39 @@ const panelsSlice = createSlice({
         state.loadedDashboardId = action.payload.dashboard.id;
         state.status = "succeeded";
         state.error = null;
+      })
+      // Task 3.4 — fetchPanelPage reducers
+      .addCase(fetchPanelPage.pending, (state, action) => {
+        const { panelId } = action.meta.arg;
+        const existing = state.paginationState[panelId];
+        state.paginationState[panelId] = {
+          currentPage: existing?.currentPage ?? 0,
+          hasMore: existing?.hasMore ?? true,
+          isLoadingMore: true,
+          rows: existing?.rows ?? [],
+        };
+      })
+      .addCase(fetchPanelPage.fulfilled, (state, action) => {
+        const { panelId, page, rows, hasMore } = action.payload;
+        const existing = state.paginationState[panelId];
+        // Append rows on page > 0 (load more), replace on page 0 (initial/reset)
+        const updatedRows = page > 0 && existing ? [...existing.rows, ...rows] : rows;
+        state.paginationState[panelId] = {
+          currentPage: page,
+          hasMore,
+          isLoadingMore: false,
+          rows: updatedRows,
+        };
+      })
+      .addCase(fetchPanelPage.rejected, (state, action) => {
+        const { panelId } = action.meta.arg;
+        const existing = state.paginationState[panelId];
+        if (existing) {
+          state.paginationState[panelId] = {
+            ...existing,
+            isLoadingMore: false,
+          };
+        }
       });
   },
 });
@@ -343,6 +399,7 @@ export const {
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
   resetPanelSaveState,
+  resetPanelPagination,
 } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
 
