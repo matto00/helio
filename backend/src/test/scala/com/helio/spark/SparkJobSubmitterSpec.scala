@@ -1,7 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -206,9 +206,10 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
   "submit" when {
 
-    var embeddedPostgres: EmbeddedPostgres        = null
-    var db: JdbcBackend.Database                  = null
-    var pipelineRepoForSubmit: PipelineRepository = null
+    var embeddedPostgres: EmbeddedPostgres           = null
+    var db: JdbcBackend.Database                     = null
+    var pipelineRepoForSubmit: PipelineRepository    = null
+    var pipelineRunRepoForSubmit: PipelineRunRepository = null
 
     def startDb(): Unit = {
       embeddedPostgres = EmbeddedPostgres.start()
@@ -220,7 +221,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
       val dtRepo = new DataTypeRepository(db)
       val dsRepo = new DataSourceRepository(db)
-      pipelineRepoForSubmit = new PipelineRepository(db, dtRepo, dsRepo)
+      pipelineRepoForSubmit    = new PipelineRepository(db, dtRepo, dsRepo)
+      pipelineRunRepoForSubmit = new PipelineRunRepository(db)
     }
 
     def stopDb(): Unit = { db.close(); embeddedPostgres.close() }
@@ -259,12 +261,12 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       )
 
     "the Spark job succeeds" should {
-      "call updateLastRun with 'succeeded' on the pipeline row" in {
+      "call updateLastRun with 'succeeded' and persist a succeeded run record" in {
         startDb()
         try {
           val dsId = UUID.randomUUID().toString
           val pid  = seedPipeline(dsId)
-          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit)
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
           val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
           val pip = makePipeline(pid, dsId)
           val cache = new PipelineRunCache()
@@ -273,18 +275,24 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           Thread.sleep(3000)
           val found = await(pipelineRepoForSubmit.findById(pid))
           found.get.lastRunStatus shouldBe Some(RunStatus.Succeeded)
+          // Verify run record was persisted
+          val runs = await(pipelineRunRepoForSubmit.listByPipeline(pid))
+          runs should have size 1
+          runs.head.status   shouldBe RunStatus.Succeeded
+          runs.head.rowCount shouldBe Some(1)
+          runs.head.errorLog shouldBe None
           submitterWithRepo.spark.stop()
         } finally stopDb()
       }
     }
 
     "the Spark job fails" should {
-      "call updateLastRun with 'failed' on the pipeline row" in {
+      "call updateLastRun with 'failed' and persist a failed run record with errorLog" in {
         startDb()
         try {
           val dsId = UUID.randomUUID().toString
           val pid  = seedPipeline(dsId)
-          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit)
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
           // A filter step with an invalid expression will cause a Spark analysis exception
           val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
           val badStep = PipelineStepRow(
@@ -299,6 +307,12 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           Thread.sleep(3000)
           val found = await(pipelineRepoForSubmit.findById(pid))
           found.get.lastRunStatus shouldBe Some(RunStatus.Failed)
+          // Verify run record was persisted with error
+          val runs = await(pipelineRunRepoForSubmit.listByPipeline(pid))
+          runs should have size 1
+          runs.head.status   shouldBe RunStatus.Failed
+          runs.head.errorLog shouldBe defined
+          runs.head.rowCount shouldBe None
           submitterWithRepo.spark.stop()
         } finally stopDb()
       }

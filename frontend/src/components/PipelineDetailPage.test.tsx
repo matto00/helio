@@ -13,17 +13,25 @@ import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { OverlayProvider } from "./OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
-import { fetchPipelines, runPipeline, fetchRunStatus } from "../services/pipelineService";
+import {
+  fetchPipelines,
+  runPipeline,
+  fetchRunStatus,
+  fetchRunHistory,
+} from "../services/pipelineService";
+import type { PipelineRunRecord } from "../types/models";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
   runPipeline: jest.fn(),
   fetchRunStatus: jest.fn(),
+  fetchRunHistory: jest.fn(),
 }));
 
 const fetchPipelinesMock = jest.mocked(fetchPipelines);
 const runPipelineMock = jest.mocked(runPipeline);
 const fetchRunStatusMock = jest.mocked(fetchRunStatus);
+const fetchRunHistoryMock = jest.mocked(fetchRunHistory);
 
 type SourceItem = {
   id: string;
@@ -37,6 +45,7 @@ type PipelinesPreloadedState = {
   runId?: string | null;
   runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
   runError?: string | null;
+  runHistory?: Record<string, PipelineRunRecord[]>;
 };
 
 function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPreloadedState = {}) {
@@ -65,6 +74,7 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         runId: pipelinesState.runId ?? null,
         runStatus: pipelinesState.runStatus ?? null,
         runError: pipelinesState.runError ?? null,
+        runHistory: pipelinesState.runHistory ?? {},
       },
     } as never,
   });
@@ -91,6 +101,7 @@ describe("PipelineDetailPage", () => {
     fetchPipelinesMock.mockResolvedValue([]);
     runPipelineMock.mockResolvedValue({ runId: "test-run-id" });
     fetchRunStatusMock.mockResolvedValue({ runId: "test-run-id", status: "succeeded", rows: [] });
+    fetchRunHistoryMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -203,5 +214,50 @@ describe("PipelineDetailPage", () => {
   it("status indicator is absent when runStatus is null", () => {
     renderDetailPage();
     expect(screen.queryByLabelText(/Run status/)).not.toBeInTheDocument();
+  });
+
+  it("run history panel shows empty state when no runs", () => {
+    renderDetailPage();
+    expect(screen.getByText(/Run History \(0\)/)).toBeInTheDocument();
+  });
+
+  it("run history panel shows runs from store", () => {
+    const run: PipelineRunRecord = {
+      id: "run-1",
+      pipelineId: "pipe-1",
+      status: "succeeded",
+      startedAt: "2026-05-01T10:00:00Z",
+      completedAt: "2026-05-01T10:01:00Z",
+      rowCount: 42,
+      errorLog: null,
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText(/Run History \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText("42 rows")).toBeInTheDocument();
+  });
+
+  it("failed run shows toggle button to reveal error log", async () => {
+    const run: PipelineRunRecord = {
+      id: "run-2",
+      pipelineId: "pipe-1",
+      status: "failed",
+      startedAt: "2026-05-01T11:00:00Z",
+      completedAt: "2026-05-01T11:00:05Z",
+      rowCount: null,
+      errorLog: "out of memory error",
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle error log" }));
+    expect(screen.getByText("out of memory error")).toBeInTheDocument();
+  });
+
+  it("dispatches fetchPipelineRunHistory on mount", async () => {
+    renderDetailPage("pipe-1");
+    await waitFor(() => {
+      expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
+    });
   });
 });

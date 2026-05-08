@@ -1,4 +1,9 @@
-import type { Pipeline, PipelineSummary, RunStatusResponse } from "../types/models";
+import type {
+  Pipeline,
+  PipelineRunRecord,
+  PipelineSummary,
+  RunStatusResponse,
+} from "../types/models";
 import { httpClient } from "./httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {
@@ -33,6 +38,13 @@ export async function fetchRunStatus(
 ): Promise<RunStatusResponse> {
   const response = await httpClient.get<RunStatusResponse>(
     `/api/pipelines/${pipelineId}/runs/${runId}`,
+  );
+  return response.data;
+}
+
+export async function fetchRunHistory(pipelineId: string): Promise<PipelineRunRecord[]> {
+  const response = await httpClient.get<PipelineRunRecord[]>(
+    `/api/pipelines/${pipelineId}/run-history`,
   );
   return response.data;
 }

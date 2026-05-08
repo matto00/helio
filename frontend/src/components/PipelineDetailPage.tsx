@@ -5,12 +5,13 @@ import "./PipelineDetailPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import {
   clearRunState,
+  fetchPipelineRunHistory,
   setRunStatus,
   submitPipelineRun,
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { fetchPipelines, fetchRunStatus } from "../services/pipelineService";
-import type { DataSource, Pipeline, RunStatus } from "../types/models";
+import type { DataSource, Pipeline, PipelineRunRecord, RunStatus } from "../types/models";
 
 // ── Op types ────────────────────────────────────────────────────────────────
 
@@ -282,6 +283,87 @@ function SourceChip({ source }: SourceChipProps) {
   );
 }
 
+// ── Run history panel ────────────────────────────────────────────────────────
+
+function formatDuration(startedAt: string, completedAt: string | null): string {
+  if (!completedAt) return "—";
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${s % 60}s`;
+}
+
+function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
+  return (
+    <span
+      className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${status}`}
+      aria-label={`Status: ${status}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+interface RunHistoryRowProps {
+  run: PipelineRunRecord;
+}
+
+function RunHistoryRow({ run }: RunHistoryRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const duration = formatDuration(run.startedAt, run.completedAt);
+  const startTime = new Date(run.startedAt).toLocaleString();
+
+  return (
+    <div className="pipeline-detail-page__history-row">
+      <div className="pipeline-detail-page__history-row-summary">
+        <span className="pipeline-detail-page__history-row-time">{startTime}</span>
+        <span className="pipeline-detail-page__history-row-duration">{duration}</span>
+        <span className="pipeline-detail-page__history-row-count">
+          {run.rowCount !== null ? `${run.rowCount.toLocaleString()} rows` : "—"}
+        </span>
+        <StatusBadge status={run.status} />
+        {run.status === "failed" && run.errorLog && (
+          <button
+            type="button"
+            className="pipeline-detail-page__history-row-toggle"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label="Toggle error log"
+          >
+            {expanded ? "▲ Hide log" : "▼ Show log"}
+          </button>
+        )}
+      </div>
+      {expanded && run.errorLog && (
+        <pre className="pipeline-detail-page__history-row-error">{run.errorLog}</pre>
+      )}
+    </div>
+  );
+}
+
+interface RunHistoryPanelProps {
+  runs: PipelineRunRecord[];
+}
+
+function RunHistoryPanel({ runs }: RunHistoryPanelProps) {
+  return (
+    <details className="pipeline-detail-page__history-panel">
+      <summary className="pipeline-detail-page__history-panel-summary">
+        Run History ({runs.length})
+      </summary>
+      <div className="pipeline-detail-page__history-panel-body">
+        {runs.length === 0 ? (
+          <p className="pipeline-detail-page__history-empty">No runs recorded yet.</p>
+        ) : (
+          runs.map((run) => <RunHistoryRow key={run.id} run={run} />)
+        )}
+      </div>
+    </details>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set(["succeeded", "failed"]);
@@ -290,7 +372,8 @@ export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
-  const { runId, runStatus, runError } = useAppSelector((state) => state.pipelines);
+  const { runId, runStatus, runError, runHistory } = useAppSelector((state) => state.pipelines);
+  const runs = id ? (runHistory[id] ?? []) : [];
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -303,6 +386,13 @@ export function PipelineDetailPage() {
       void dispatch(fetchSources());
     }
   }, [dispatch, sourcesStatus]);
+
+  // Fetch run history on mount
+  useEffect(() => {
+    if (id) {
+      void dispatch(fetchPipelineRunHistory(id));
+    }
+  }, [dispatch, id]);
 
   useEffect(() => {
     fetchPipelines()
@@ -335,6 +425,10 @@ export function PipelineDetailPage() {
       fetchRunStatus(id, runId)
         .then((res) => {
           dispatch(setRunStatus({ status: res.status, error: res.error }));
+          // Re-fetch history when we observe a terminal status
+          if (TERMINAL_STATUSES.has(res.status)) {
+            void dispatch(fetchPipelineRunHistory(id));
+          }
         })
         .catch(() => {
           // network hiccup — keep polling
@@ -480,6 +574,9 @@ export function PipelineDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Run history panel ── */}
+      <RunHistoryPanel runs={runs} />
 
       {/* ── Back breadcrumb shown inside page ── */}
       <nav className="pipeline-detail-page__back-nav" aria-label="Breadcrumb">

@@ -1,7 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain.{DataSource, DataSourceId, Pipeline, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
@@ -16,7 +16,8 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 class SparkJobSubmitter(
     masterUrl: String,
     dataSourceRepo: DataSourceRepository,
-    pipelineRepo: PipelineRepository
+    pipelineRepo: PipelineRepository,
+    pipelineRunRepo: PipelineRunRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val sparkEc: ExecutionContext =
@@ -39,8 +40,15 @@ class SparkJobSubmitter(
       steps: Seq[PipelineStepRepository.PipelineStepRow],
       cache: PipelineRunCache
   ): Future[String] = {
-    val runId = UUID.randomUUID().toString
+    val runId     = UUID.randomUUID().toString
+    val startedAt = Instant.now()
     cache.put(runId, RunStatus.Queued)
+
+    // Record the run in the database (fire-and-forget; errors are non-fatal)
+    if (pipelineRunRepo != null) {
+      pipelineRunRepo.insertRun(runId, pipeline.id.value, startedAt)
+      pipelineRunRepo.deleteOldRuns(pipeline.id.value)
+    }
 
     Future {
       blocking {
@@ -52,15 +60,28 @@ class SparkJobSubmitter(
           val now      = Instant.now()
           cache.update(runId, RunStatus.Succeeded, rows = Some(rows))
           pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Succeeded, now)
+          if (pipelineRunRepo != null) {
+            pipelineRunRepo.updateRunTerminal(
+              runId,
+              RunStatus.Succeeded,
+              now,
+              rowCount = Some(rows.size)
+            )
+          }
         } catch {
           case ex: Throwable =>
-            val now = Instant.now()
-            cache.update(
-              runId,
-              RunStatus.Failed,
-              error = Some(Option(ex.getMessage).getOrElse(ex.getClass.getName))
-            )
+            val now      = Instant.now()
+            val errorMsg = Option(ex.getMessage).getOrElse(ex.getClass.getName)
+            cache.update(runId, RunStatus.Failed, error = Some(errorMsg))
             pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Failed, now)
+            if (pipelineRunRepo != null) {
+              pipelineRunRepo.updateRunTerminal(
+                runId,
+                RunStatus.Failed,
+                now,
+                errorLog = Some(errorMsg)
+              )
+            }
         }
       }
     }(sparkEc)

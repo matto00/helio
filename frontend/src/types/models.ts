@@ -280,3 +280,13 @@ export interface UpdateUserPreferenceRequest {
   fields: string[];
   user: UserPreferencePayload;
 }
+
+export interface PipelineRunRecord {
+  id: string;
+  pipelineId: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  startedAt: string;
+  completedAt: string | null;
+  rowCount: number | null;
+  errorLog: string | null;
+}
