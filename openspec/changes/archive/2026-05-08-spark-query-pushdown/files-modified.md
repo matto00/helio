@@ -1,0 +1,3 @@
+- `backend/src/main/scala/com/helio/spark/PanelQueryExecutor.scala` — Added filter, sort, and limit pushdown steps (select -> filter -> sort -> limit) inside `execute()` using `df.filter()`, `df.orderBy()`, and `df.limit()` before `collectRows()`
+- `backend/src/test/scala/com/helio/spark/PanelQueryExecutorSpec.scala` — Added five new test cases: single filter pushdown, multiple-filter AND-chaining (foldLeft), sort pushdown, limit pushdown, and combined projection + filter + sort + limit
+- `openspec/changes/spark-query-pushdown/tasks.md` — All 8 tasks marked complete

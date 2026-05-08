@@ -5,9 +5,11 @@ TBD - created by archiving change panel-query-model. Update Purpose after archiv
 ## Requirements
 ### Requirement: PanelQuery is derived from a panel's fieldMapping
 The system SHALL define a `PanelQuery` domain model with fields: `selectedFields` (list of field names),
-`filters` (list of filter expressions), `sort` (optional sort expression), and `limit` (optional integer).
-`PanelQuery` SHALL be derived from a `Panel`'s `fieldMapping` at request time — it is not persisted separately.
-For panels with `typeId: None`, no query can be derived.
+`filters` (list of filter expressions as `JsValue`), `sort` (optional sort expression string), and
+`limit` (optional integer). `PanelQuery` SHALL be derived from a `Panel`'s `fieldMapping` at request
+time — it is not persisted separately. For panels with `typeId: None`, no query can be derived.
+All four fields (`selectedFields`, `filters`, `sort`, `limit`) SHALL be actively applied as Spark
+DataFrame operations when executed via `PanelQueryExecutor` — none are no-ops.
 
 #### Scenario: Bound panel produces a PanelQuery with selectedFields from fieldMapping values
 - **WHEN** a `Panel` has a non-null `typeId` and `fieldMapping = { "value": "price", "label": "name" }`
