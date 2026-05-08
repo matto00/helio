@@ -1,7 +1,7 @@
 package com.helio.spark
 
-import com.helio.domain.{DataSource, PanelQuery, SourceType}
-import org.apache.spark.sql.{functions => F}
+import com.helio.domain.{DataSource, PanelQuery}
+import org.apache.spark.sql.{DataFrame, functions => F}
 import spray.json.JsString
 
 import java.util.concurrent.Executors
@@ -40,37 +40,85 @@ class PanelQueryExecutor(submitter: SparkJobSubmitter) {
   def execute(dataSource: DataSource, query: PanelQuery): Future[Seq[Map[String, Any]]] =
     Future {
       blocking {
-        val df = submitter.loadDataFrame(dataSource)
-
-        // 1. Projection (select)
-        val projected =
-          if (query.selectedFields.isEmpty) df
-          else df.select(query.selectedFields.head, query.selectedFields.tail: _*)
-
-        // 2. Filter pushdown — extract raw Spark SQL expression strings from JsString values
-        val filtered = query.filters.foldLeft(projected) {
-          case (acc, JsString(expr)) => acc.filter(expr)
-          case (acc, _)              => acc // skip non-JsString items (forward-compatible)
-        }
-
-        // 3. Sort pushdown — parse "colName [ASC|DESC]" and apply via Column API
-        val sorted = query.sort match {
-          case Some(sortExpr) =>
-            val tokens    = sortExpr.trim.split("\\s+", 2)
-            val colName   = tokens(0)
-            val descending = tokens.lift(1).exists(_.equalsIgnoreCase("DESC"))
-            val sortCol   = if (descending) F.col(colName).desc else F.col(colName).asc
-            filtered.sort(sortCol)
-          case None => filtered
-        }
-
-        // 4. Limit pushdown
-        val limited = query.limit match {
-          case Some(n) => sorted.limit(n)
-          case None    => sorted
-        }
-
-        submitter.collectRows(limited)
+        // Build full pushdown plan (select → filter → sort → limit) then collect once.
+        // No caching needed here — a single action on the plan.
+        submitter.collectRows(buildPlan(dataSource, query))
       }
     }(sparkEc)
+
+  /**
+   * Execute a panel query with offset-based Spark pagination.
+   *
+   * The underlying DataFrame is `.cache()`d before the first action (count for
+   * `hasMore` detection) and `.unpersist()`d after the second action (page slice
+   * collection), eliminating redundant re-computation of the same query plan.
+   *
+   * @param dataSource A Spark-compatible data source.
+   * @param query      The panel query with all pushdown predicates applied.
+   * @param page       Zero-based page index.
+   * @param pageSize   Number of rows per page (must be >= 1).
+   * @return Future of `(rows, hasMore)` — rows for this page and a flag indicating
+   *         whether further pages exist.
+   */
+  def executePaginated(
+      dataSource: DataSource,
+      query: PanelQuery,
+      page: Int,
+      pageSize: Int
+  ): Future[(Seq[Map[String, Any]], Boolean)] =
+    Future {
+      blocking {
+        val built = buildPlan(dataSource, query)
+
+        // Cache before the first action so the plan is not re-computed for the slice.
+        built.cache()
+        try {
+          val totalCount = built.count()
+          val offset     = page.toLong * pageSize
+          val hasMore    = offset + pageSize < totalCount
+
+          val pageSlice =
+            if (offset >= totalCount) Seq.empty[Map[String, Any]]
+            else {
+              // Collect up to (offset + pageSize) rows, then drop the leading offset rows in-memory.
+              // The DF is already cached so this second action does not recompute the plan.
+              val allUpToEnd = submitter.collectRows(built.limit((offset + pageSize).toInt))
+              allUpToEnd.drop(offset.toInt)
+            }
+
+          (pageSlice, hasMore)
+        } finally {
+          built.unpersist()
+        }
+      }
+    }(sparkEc)
+
+  /** Build the pushdown DataFrame plan without triggering any Spark action. */
+  private def buildPlan(dataSource: DataSource, query: PanelQuery): DataFrame = {
+    val df = submitter.loadDataFrame(dataSource)
+
+    val projected =
+      if (query.selectedFields.isEmpty) df
+      else df.select(query.selectedFields.head, query.selectedFields.tail: _*)
+
+    val filtered = query.filters.foldLeft(projected) {
+      case (acc, JsString(expr)) => acc.filter(expr)
+      case (acc, _)              => acc
+    }
+
+    val sorted = query.sort match {
+      case Some(sortExpr) =>
+        val tokens     = sortExpr.trim.split("\\s+", 2)
+        val colName    = tokens(0)
+        val descending = tokens.lift(1).exists(_.equalsIgnoreCase("DESC"))
+        val sortCol    = if (descending) F.col(colName).desc else F.col(colName).asc
+        filtered.sort(sortCol)
+      case None => filtered
+    }
+
+    query.limit match {
+      case Some(n) => sorted.limit(n)
+      case None    => sorted
+    }
+  }
 }
