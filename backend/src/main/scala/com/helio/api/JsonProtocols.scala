@@ -731,6 +731,25 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
   implicit val pipelineStepResponseFormat: RootJsonFormat[PipelineStepResponse]           = jsonFormat7(PipelineStepResponse.apply)
 
+  // PanelQuery format
+  implicit val panelQueryFormat: RootJsonFormat[PanelQuery] = new RootJsonFormat[PanelQuery] {
+    def write(q: PanelQuery): JsValue = JsObject(
+      "selectedFields" -> JsArray(q.selectedFields.map(JsString(_)).toVector),
+      "filters"        -> JsArray(q.filters.toVector),
+      "sort"           -> q.sort.fold[JsValue](JsNull)(JsString(_)),
+      "limit"          -> q.limit.fold[JsValue](JsNull)(JsNumber(_))
+    )
+    def read(json: JsValue): PanelQuery = {
+      val obj = json.asJsObject
+      PanelQuery(
+        selectedFields = obj.fields.get("selectedFields").map(_.convertTo[List[String]]).getOrElse(Nil),
+        filters        = obj.fields.get("filters").map(_.convertTo[List[JsValue]]).getOrElse(Nil),
+        sort           = obj.fields.get("sort").flatMap { case JsNull => None; case JsString(s) => Some(s); case _ => None },
+        limit          = obj.fields.get("limit").flatMap { case JsNull => None; case JsNumber(n) => Some(n.toInt); case _ => None }
+      )
+    }
+  }
+
   // Pipeline run API formats
   implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat7(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
