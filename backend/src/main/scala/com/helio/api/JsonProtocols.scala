@@ -271,6 +271,10 @@ final case class PipelineRunRecord(
     errorLog: Option[String]
 )
 
+// ── Panel execute API types ───────────────────────────────────────────────────
+
+final case class PanelExecuteResponse(rows: Vector[spray.json.JsObject])
+
 // ── Static connector API types ────────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -749,6 +753,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
       )
     }
   }
+
+  // Panel execute API format
+  implicit val panelExecuteResponseFormat: RootJsonFormat[PanelExecuteResponse] = jsonFormat1(PanelExecuteResponse.apply)
 
   // Pipeline run API formats
   implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat7(PipelineRunRecord.apply)
