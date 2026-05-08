@@ -24,10 +24,10 @@ docker compose -f docker-compose.spark.yml up -d
 
 This starts two containers:
 
-| Service        | Role          | Port(s)              |
-| -------------- | ------------- | -------------------- |
-| `spark-master` | Master node   | `7077` (protocol), `8090` (UI) |
-| `spark-worker` | Worker node   | `8081` (UI)          |
+| Service        | Role        | Port(s)                        |
+| -------------- | ----------- | ------------------------------ |
+| `spark-master` | Master node | `7077` (protocol), `8090` (UI) |
+| `spark-worker` | Worker node | `8081` (UI)                    |
 
 The master UI is remapped to `8090` to avoid collision with the Helio backend, which runs on `8080`.
 
@@ -57,9 +57,9 @@ Add `-v` to also remove any named volumes (none are declared currently, so this 
 
 When running the Helio backend locally with Spark support, set:
 
-| Variable           | Value                        | Notes                              |
-| ------------------ | ---------------------------- | ---------------------------------- |
-| `SPARK_MASTER_URL` | `spark://localhost:7077`     | Defaults to this if unset          |
+| Variable           | Value                    | Notes                     |
+| ------------------ | ------------------------ | ------------------------- |
+| `SPARK_MASTER_URL` | `spark://localhost:7077` | Defaults to this if unset |
 
 The default value in `application.conf` already points to `spark://localhost:7077`, so **no extra configuration is needed** for a plain local dev setup. Set `SPARK_MASTER_URL` explicitly only when overriding (e.g. pointing at a remote cluster or a different local port).
 
@@ -72,11 +72,14 @@ SPARK_MASTER_URL=spark://localhost:7077
 ## Troubleshooting
 
 **Worker does not appear in master UI**
+
 - Wait 30–60 seconds — the worker registration is asynchronous.
 - Run `docker compose -f docker-compose.spark.yml logs spark-worker` to inspect worker startup logs.
 
 **Port conflict on 8090 or 8081**
+
 - Another process is using the port. Stop the conflicting service or change the host-side port mapping in `docker-compose.spark.yml` (left-hand side of `host:container`).
 
 **Image pull failures**
+
 - Ensure Docker has internet access and that `bitnami/spark:3.5` is reachable from Docker Hub.

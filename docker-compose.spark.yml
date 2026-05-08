@@ -2,9 +2,8 @@ version: "3.8"
 
 services:
   spark-master:
-    image: bitnami/spark:3.5
-    environment:
-      - SPARK_MODE=master
+    image: apache/spark:3.5.0
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     ports:
       - "7077:7077"
       - "8090:8080"
@@ -18,10 +17,13 @@ services:
       start_period: 20s
 
   spark-worker:
-    image: bitnami/spark:3.5
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+    image: apache/spark:3.5.0
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.worker.Worker",
+        "spark://spark-master:7077",
+      ]
     ports:
       - "8081:8081"
     depends_on:
