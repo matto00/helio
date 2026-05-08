@@ -131,7 +131,8 @@ final class ApiRoutes(
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
                 new PipelineRoutes(pipelineRepo, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
-                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo).routes
+                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo).routes,
+                new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, authenticatedUser).routes
               )
             }
           )

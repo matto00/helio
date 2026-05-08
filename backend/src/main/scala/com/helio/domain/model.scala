@@ -154,6 +154,14 @@ final case class PanelQuery(
     limit: Option[Int]
 )
 
+final case class PaginatedQueryResult(
+    rows: Vector[JsValue],
+    columns: Vector[String],
+    page: Int,
+    pageSize: Int,
+    hasMore: Boolean
+)
+
 object Panel {
   def buildQuery(panel: Panel): Option[PanelQuery] =
     panel.typeId.map { _ =>

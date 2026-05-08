@@ -281,6 +281,23 @@ export interface UpdateUserPreferenceRequest {
   user: UserPreferencePayload;
 }
 
+// ── Panel query pagination types ─────────────────────────────────────────────
+
+export interface PaginatedQueryResult {
+  rows: Record<string, unknown>[];
+  columns: string[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export interface PanelPaginationState {
+  currentPage: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  rows: Record<string, unknown>[];
+}
+
 export interface PipelineRunRecord {
   id: string;
   pipelineId: string;
