@@ -123,7 +123,8 @@ final class ApiRoutes(
                   }
                 },
                 new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
-                new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+                new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser,
+                  dataSourceRepo, new com.helio.spark.PanelQueryExecutor(sparkJobSubmitter)).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
