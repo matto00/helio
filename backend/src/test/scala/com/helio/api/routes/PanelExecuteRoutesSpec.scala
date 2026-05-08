@@ -5,9 +5,9 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, JsonProtocols}
+import com.helio.api.{AclDirective, ErrorResponse, JsonProtocols, ResourceType, ResourceTypeRegistry}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -29,11 +29,13 @@ class PanelExecuteRoutesSpec
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
 
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var panelRepo: PanelRepository         = _
-  private var dataTypeRepo: DataTypeRepository   = _
-  private var dataSourceRepo: DataSourceRepository = _
+  private var embeddedPostgres: EmbeddedPostgres        = _
+  private var db: JdbcBackend.Database                  = _
+  private var panelRepo: PanelRepository                = _
+  private var dataTypeRepo: DataTypeRepository          = _
+  private var dataSourceRepo: DataSourceRepository      = _
+  private var permissionRepo: ResourcePermissionRepository = _
+  private var aclDirective: AclDirective                = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
   private val ownerId   = "00000000-0000-0000-0000-000000000001"
@@ -48,6 +50,15 @@ class PanelExecuteRoutesSpec
     panelRepo      = new PanelRepository(db)(routeEc)
     dataTypeRepo   = new DataTypeRepository(db)(routeEc)
     dataSourceRepo = new DataSourceRepository(db)(routeEc)
+    permissionRepo = new ResourcePermissionRepository(db)(routeEc)
+    val registry   = new ResourceTypeRegistry(
+      ResourceType("dashboard", id => {
+        import PostgresProfile.api._
+        db.run(sql"SELECT owner_id::text FROM dashboards WHERE id = $id".as[String].headOption)
+      }),
+      ResourceType("panel", id => panelRepo.findById(PanelId(id)).map(_.map(_.ownerId.value)))
+    )
+    aclDirective = new AclDirective(permissionRepo, registry)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -58,7 +69,7 @@ class PanelExecuteRoutesSpec
 
   private def makeRoutes(): Route = {
     implicit val ec: ExecutionContext = routeEc
-    new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, dummyUser).routes
+    new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, aclDirective, dummyUser).routes
   }
 
   // ── Seed helpers ─────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ final class PanelExecuteRoutes(
     panelRepo: PanelRepository,
     dataTypeRepo: DataTypeRepository,
     dataSourceRepo: DataSourceRepository,
+    aclDirective: AclDirective,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -38,19 +39,20 @@ final class PanelExecuteRoutes(
                   ErrorResponse("pageSize must be between 1 and 500")
                 )
               } else {
-                val resultFuture = for {
-                  panelOpt <- panelRepo.findById(PanelId(panelId))
-                  result   <- panelOpt match {
-                    // Task 1.5 — panel not found
-                    case None =>
-                      Future.successful(Left("Panel not found"))
-                    case Some(panel) =>
-                      panel.typeId match {
-                        // Task 1.5 — panel is unbound
+                onSuccess(panelRepo.findById(PanelId(panelId))) {
+                  case None =>
+                    complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
+                  case Some(panel) =>
+                    aclDirective.authorizeResourceWithSharing(
+                      "dashboard",
+                      panel.dashboardId.value,
+                      Some(user),
+                      "Dashboard not found"
+                    ) { _ =>
+                      val resultFuture = panel.typeId match {
                         case None =>
                           Future.successful(Left("Panel is not bound to a data type"))
                         case Some(typeId) =>
-                          // Task 1.6 — fetch DataType
                           dataTypeRepo.findById(typeId).flatMap {
                             case None =>
                               Future.successful(Left("Data type not found"))
@@ -59,7 +61,6 @@ final class PanelExecuteRoutes(
                                 case None =>
                                   Future.successful(Left("Data type has no data source"))
                                 case Some(sourceId) =>
-                                  // Task 1.6 — fetch DataSource
                                   dataSourceRepo.findById(sourceId).flatMap {
                                     case None =>
                                       Future.successful(Left("Data source not found"))
@@ -69,32 +70,27 @@ final class PanelExecuteRoutes(
                               }
                           }
                       }
-                  }
-                } yield result
-
-                onComplete(resultFuture) {
-                  case Failure(ex) =>
-                    complete(
-                      StatusCodes.InternalServerError,
-                      ErrorResponse(ex.getMessage)
-                    )
-                  case Success(Left(msg)) =>
-                    // Distinguish 404 from other errors
-                    if (
-                      msg.contains("not found") ||
-                      msg.contains("not bound") ||
-                      msg.contains("has no data source")
-                    ) {
-                      complete(StatusCodes.NotFound, ErrorResponse(msg))
-                    } else {
-                      complete(StatusCodes.InternalServerError, ErrorResponse(msg))
+                      onComplete(resultFuture) {
+                        case Failure(ex) =>
+                          complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                        case Success(Left(msg)) =>
+                          if (
+                            msg.contains("not found") ||
+                            msg.contains("not bound") ||
+                            msg.contains("has no data source")
+                          ) {
+                            complete(StatusCodes.NotFound, ErrorResponse(msg))
+                          } else {
+                            complete(StatusCodes.InternalServerError, ErrorResponse(msg))
+                          }
+                        case Success(Right(result)) =>
+                          complete(StatusCodes.OK, result)
+                      }
                     }
-                  case Success(Right(result)) =>
-                    complete(StatusCodes.OK, result)
                 }
               }
+            }
           }
-        }
       }
     }
 
