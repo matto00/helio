@@ -1,12 +1,13 @@
 package com.helio.spark
 
 import com.helio.domain.{DataSource, DataSourceId, Pipeline, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineStepRepository}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
 import DefaultJsonProtocol._
 
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
 import scala.concurrent.duration._
@@ -14,7 +15,8 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
 class SparkJobSubmitter(
     masterUrl: String,
-    dataSourceRepo: DataSourceRepository
+    dataSourceRepo: DataSourceRepository,
+    pipelineRepo: PipelineRepository
 )(implicit ec: ExecutionContext) {
 
   private val sparkEc: ExecutionContext =
@@ -47,14 +49,18 @@ class SparkJobSubmitter(
           val df       = loadDataFrame(dataSource)
           val resultDf = steps.foldLeft(df)((cur, step) => applyStep(cur, step))
           val rows     = collectRows(resultDf)
+          val now      = Instant.now()
           cache.update(runId, RunStatus.Succeeded, rows = Some(rows))
+          pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Succeeded, now)
         } catch {
           case ex: Throwable =>
+            val now = Instant.now()
             cache.update(
               runId,
               RunStatus.Failed,
               error = Some(Option(ex.getMessage).getOrElse(ex.getClass.getName))
             )
+            pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Failed, now)
         }
       }
     }(sparkEc)

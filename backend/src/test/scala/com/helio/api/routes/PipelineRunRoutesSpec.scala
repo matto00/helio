@@ -93,7 +93,7 @@ class PipelineRunRoutesSpec
   // ---------------------------------------------------------------------------
 
   private class StubSparkJobSubmitter()(implicit stubEc: ExecutionContext)
-      extends SparkJobSubmitter("local", null) {
+      extends SparkJobSubmitter("local", null, null) {
     override def submit(
         pipeline: Pipeline,
         dataSource: DataSource,

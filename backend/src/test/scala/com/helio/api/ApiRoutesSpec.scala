@@ -118,11 +118,11 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
   import org.apache.pekko.http.scaladsl.model.headers.Authorization

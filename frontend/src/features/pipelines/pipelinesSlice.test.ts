@@ -1,13 +1,20 @@
-import { createPipeline, fetchPipelines, pipelinesReducer } from "./pipelinesSlice";
+import {
+  createPipeline,
+  fetchPipelines,
+  pipelinesReducer,
+  submitPipelineRun,
+} from "./pipelinesSlice";
 import * as pipelineService from "../../services/pipelineService";
 
 jest.mock("../../services/pipelineService", () => ({
   getPipelines: jest.fn(),
   createPipeline: jest.fn(),
+  runPipeline: jest.fn(),
 }));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
+const runPipelineMock = jest.mocked(pipelineService.runPipeline);
 
 const testPipeline = {
   id: "p-1",
@@ -61,6 +68,9 @@ describe("pipelinesSlice", () => {
       error: "Previous error",
       createStatus: "idle" as const,
       createError: null,
+      runId: null,
+      runStatus: null,
+      runError: null,
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
@@ -142,6 +152,73 @@ describe("fetchPipelines thunk", () => {
     const calls = dispatch.mock.calls as Array<[{ type: string }]>;
     const rejectedCall = calls.find(
       ([action]) => action.type === "pipelines/fetchPipelines/rejected",
+    );
+    expect(rejectedCall).toBeDefined();
+  });
+});
+
+describe("submitPipelineRun reducer", () => {
+  it("sets runStatus to queued when submitPipelineRun is pending", () => {
+    const nextState = pipelinesReducer(undefined, submitPipelineRun.pending("req-1", "p-1"));
+    expect(nextState.runStatus).toBe("queued");
+    expect(nextState.runId).toBeNull();
+    expect(nextState.runError).toBeNull();
+  });
+
+  it("sets runId when submitPipelineRun fulfills", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      submitPipelineRun.fulfilled({ runId: "run-abc" }, "req-1", "p-1"),
+    );
+    expect(nextState.runId).toBe("run-abc");
+    expect(nextState.runStatus).toBe("queued");
+  });
+
+  it("clears runId and sets runError when submitPipelineRun rejects", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      submitPipelineRun.rejected(null, "req-1", "p-1", "Failed to start pipeline run."),
+    );
+    expect(nextState.runId).toBeNull();
+    expect(nextState.runStatus).toBeNull();
+    expect(nextState.runError).toBe("Failed to start pipeline run.");
+  });
+});
+
+describe("submitPipelineRun thunk", () => {
+  beforeEach(() => {
+    runPipelineMock.mockReset();
+  });
+
+  it("dispatches fulfilled with runId on success", async () => {
+    runPipelineMock.mockResolvedValueOnce({ runId: "run-xyz" });
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = submitPipelineRun("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/submitPipelineRun/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual({ runId: "run-xyz" });
+  });
+
+  it("dispatches rejected on service error", async () => {
+    runPipelineMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = submitPipelineRun("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/submitPipelineRun/rejected",
     );
     expect(rejectedCall).toBeDefined();
   });

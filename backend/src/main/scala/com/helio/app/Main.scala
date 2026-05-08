@@ -54,7 +54,7 @@ object Main {
 
       val sparkMasterUrl    = config.getString("spark.masterUrl")
       val pipelineRunCache  = new PipelineRunCache()
-      val sparkJobSubmitter = new SparkJobSubmitter(sparkMasterUrl, dataSourceRepo)
+      val sparkJobSubmitter = new SparkJobSubmitter(sparkMasterUrl, dataSourceRepo, pipelineRepo)
       // Eagerly initialise SparkSession to absorb cold-start penalty
       Future(sparkJobSubmitter.initialize())(ec)
 

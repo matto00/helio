@@ -105,7 +105,7 @@ class DataSourceRoutesSpec
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo)(typedSystem.executionContext)).routes
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
     }
   }
 

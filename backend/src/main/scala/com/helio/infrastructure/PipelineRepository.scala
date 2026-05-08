@@ -86,6 +86,15 @@ class PipelineRepository(
     }
   }
 
+  /** Updates the lastRunStatus and lastRunAt columns for a pipeline after a run completes. */
+  def updateLastRun(id: String, status: String, at: Instant): Future[Unit] =
+    db.run(
+      pipelinesTable
+        .filter(_.id === id)
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.updatedAt))
+        .update((Some(status), Some(at), at))
+    ).map(_ => ())
+
   /** Returns a flat summary projection for all pipelines, joined with source and data type names. */
   def listSummaries(): Future[Vector[PipelineSummary]] = {
     val query = for {

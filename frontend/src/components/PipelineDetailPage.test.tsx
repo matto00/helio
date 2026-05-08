@@ -10,25 +10,36 @@ import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
+import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { OverlayProvider } from "./OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
-import { fetchPipelines } from "../services/pipelineService";
+import { fetchPipelines, runPipeline, fetchRunStatus } from "../services/pipelineService";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
+  runPipeline: jest.fn(),
+  fetchRunStatus: jest.fn(),
 }));
 
 const fetchPipelinesMock = jest.mocked(fetchPipelines);
+const runPipelineMock = jest.mocked(runPipeline);
+const fetchRunStatusMock = jest.mocked(fetchRunStatus);
 
-function makeStore(
-  sourcesItems = [] as {
-    id: string;
-    name: string;
-    sourceType: string;
-    createdAt: string;
-    updatedAt: string;
-  }[],
-) {
+type SourceItem = {
+  id: string;
+  name: string;
+  sourceType: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PipelinesPreloadedState = {
+  runId?: string | null;
+  runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
+  runError?: string | null;
+};
+
+function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPreloadedState = {}) {
   return configureStore({
     reducer: {
       auth: authReducer,
@@ -37,12 +48,23 @@ function makeStore(
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
+      pipelines: pipelinesReducer,
     } as never,
     preloadedState: {
       sources: {
         items: sourcesItems,
         status: "succeeded" as const,
         error: null,
+      },
+      pipelines: {
+        items: [],
+        status: "idle" as const,
+        error: null,
+        createStatus: "idle" as const,
+        createError: null,
+        runId: pipelinesState.runId ?? null,
+        runStatus: pipelinesState.runStatus ?? null,
+        runError: pipelinesState.runError ?? null,
       },
     } as never,
   });
@@ -67,6 +89,8 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
 describe("PipelineDetailPage", () => {
   beforeEach(() => {
     fetchPipelinesMock.mockResolvedValue([]);
+    runPipelineMock.mockResolvedValue({ runId: "test-run-id" });
+    fetchRunStatusMock.mockResolvedValue({ runId: "test-run-id", status: "succeeded", rows: [] });
   });
 
   afterEach(() => {
@@ -141,13 +165,43 @@ describe("PipelineDetailPage", () => {
     expect(input).toHaveValue("New Output");
   });
 
-  it("Run pipeline click triggers placeholder message", () => {
-    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => {});
-    renderDetailPage();
+  it("clicking Run pipeline dispatches submitPipelineRun", async () => {
+    renderDetailPage("pipe-1");
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
 
-    expect(alertSpy).toHaveBeenCalledWith("Pipeline execution coming soon");
-    alertSpy.mockRestore();
+    await waitFor(() => {
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1");
+    });
+  });
+
+  it("status indicator shows 'Queued' when runStatus is queued", () => {
+    const store = makeStore([], { runStatus: "queued", runId: "run-1" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Run status: queued")).toBeInTheDocument();
+    expect(screen.getByText("Queued…")).toBeInTheDocument();
+  });
+
+  it("status indicator shows 'Running' when runStatus is running", () => {
+    const store = makeStore([], { runStatus: "running", runId: "run-2" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText("Running…")).toBeInTheDocument();
+  });
+
+  it("status indicator shows 'Succeeded' when runStatus is succeeded", () => {
+    const store = makeStore([], { runStatus: "succeeded", runId: "run-3" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText("Succeeded")).toBeInTheDocument();
+  });
+
+  it("status indicator shows 'Failed' when runStatus is failed", () => {
+    const store = makeStore([], { runStatus: "failed", runId: "run-4", runError: "out of memory" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText(/Failed.*out of memory/)).toBeInTheDocument();
+  });
+
+  it("status indicator is absent when runStatus is null", () => {
+    renderDetailPage();
+    expect(screen.queryByLabelText(/Run status/)).not.toBeInTheDocument();
   });
 });
