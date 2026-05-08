@@ -30,6 +30,7 @@ class SparkJobSubmitter(
       .master(masterUrl)
       .config("spark.ui.enabled", "false")
       .config("spark.sql.shuffle.partitions", "4")
+      .config("spark.default.parallelism", "4")
       .getOrCreate()
 
   def initialize(): SparkSession = spark
