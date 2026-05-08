@@ -4,11 +4,12 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
+import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 import scala.util.Success
@@ -51,6 +52,12 @@ object Main {
       val pipelineStepRepo   = new PipelineStepRepository(db)
       val fileSystem         = LocalFileSystem.fromEnv()
 
+      val sparkMasterUrl    = config.getString("spark.masterUrl")
+      val pipelineRunCache  = new PipelineRunCache()
+      val sparkJobSubmitter = new SparkJobSubmitter(sparkMasterUrl, dataSourceRepo)
+      // Eagerly initialise SparkSession to absorb cold-start penalty
+      Future(sparkJobSubmitter.initialize())(ec)
+
       DemoData.seedIfEmpty(dashboardRepo, panelRepo)
 
       val connector = new RestApiConnector()
@@ -79,6 +86,8 @@ object Main {
         userPreferenceRepo,
         pipelineRepo,
         pipelineStepRepo,
+        pipelineRunCache,
+        sparkJobSubmitter,
         googleClientId,
         googleClientSecret,
         googleRedirectUri,

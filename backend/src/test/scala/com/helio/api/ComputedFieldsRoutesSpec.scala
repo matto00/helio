@@ -124,7 +124,8 @@ class ComputedFieldsRoutesSpec
     } {
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
-        stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo
+        stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo,
+        new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo)(typedSystem.executionContext)
       ).routes
     }
   }
