@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — added `updateLastRun` method
+- `backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala` — injected `PipelineRepository`, added `updateLastRun` calls on terminal states
+- `backend/src/main/scala/com/helio/app/Main.scala` — wired updated `SparkJobSubmitter` constructor
+- `backend/src/test/scala/com/helio/infrastructure/PipelineRepositorySpec.scala` — new test for `updateLastRun`
+- `backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala` — updated constructor, added persistence tests
+- `backend/src/test/scala/com/helio/api/routes/PipelineRunRoutesSpec.scala` — updated `StubSparkJobSubmitter` constructor
+- `frontend/src/services/pipelineService.ts` — added `runPipeline` and `fetchRunStatus`
+- `frontend/src/types/models.ts` — added `RunStatus` and `RunStatusResponse` types
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — added run state fields, `submitPipelineRun` thunk, `clearRunState` and `setRunStatus` actions
+- `frontend/src/components/PipelineDetailPage.tsx` — wired run flow: dispatch, polling loop, status indicator
+- `frontend/src/components/PipelineDetailPage.css` — added run-status indicator styles and disabled-button style
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — added `submitPipelineRun` reducer and thunk tests
+- `frontend/src/components/PipelineDetailPage.test.tsx` — added dispatch and status indicator tests
+- `openspec/changes/async-spark-job-tracking/` — proposal, design, specs, tasks

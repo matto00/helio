@@ -267,6 +267,15 @@ export interface Pipeline {
   outputDataTypeId?: string;
 }
 
+export type RunStatus = "queued" | "running" | "succeeded" | "failed";
+
+export interface RunStatusResponse {
+  runId: string;
+  status: RunStatus;
+  rows?: Record<string, unknown>[];
+  error?: string;
+}
+
 export interface UpdateUserPreferenceRequest {
   fields: string[];
   user: UserPreferencePayload;

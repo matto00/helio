@@ -3,9 +3,14 @@ import { Link, useParams } from "react-router-dom";
 
 import "./PipelineDetailPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
+import {
+  clearRunState,
+  setRunStatus,
+  submitPipelineRun,
+} from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { fetchPipelines } from "../services/pipelineService";
-import type { DataSource, Pipeline } from "../types/models";
+import { fetchPipelines, fetchRunStatus } from "../services/pipelineService";
+import type { DataSource, Pipeline, RunStatus } from "../types/models";
 
 // ── Op types ────────────────────────────────────────────────────────────────
 
@@ -279,10 +284,13 @@ function SourceChip({ source }: SourceChipProps) {
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
+const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set(["succeeded", "failed"]);
+
 export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
+  const { runId, runStatus, runError } = useAppSelector((state) => state.pipelines);
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -310,6 +318,32 @@ export function PipelineDetailPage() {
       });
   }, [id]);
 
+  // Clear run state when navigating to a different pipeline
+  useEffect(() => {
+    return () => {
+      dispatch(clearRunState());
+    };
+  }, [dispatch, id]);
+
+  // Poll run status every 2 s while a run is active and non-terminal
+  useEffect(() => {
+    if (!runId || !id || (runStatus !== null && TERMINAL_STATUSES.has(runStatus))) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      fetchRunStatus(id, runId)
+        .then((res) => {
+          dispatch(setRunStatus({ status: res.status, error: res.error }));
+        })
+        .catch(() => {
+          // network hiccup — keep polling
+        });
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [runId, id, runStatus, dispatch]);
+
   const pipelineName = pipeline?.name ?? id ?? "Pipeline";
 
   function handleAddStep(opType: OpType) {
@@ -321,7 +355,8 @@ export function PipelineDetailPage() {
   }
 
   function handleRunPipeline() {
-    window.alert("Pipeline execution coming soon");
+    if (!id) return;
+    void dispatch(submitPipelineRun(id));
   }
 
   return (
@@ -421,6 +456,17 @@ export function PipelineDetailPage() {
           <span className="pipeline-detail-page__footer-stats">
             {steps.length} step{steps.length !== 1 ? "s" : ""}
           </span>
+          {runStatus !== null && (
+            <span
+              className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${runStatus}`}
+              aria-label={`Run status: ${runStatus}`}
+            >
+              {runStatus === "queued" && "Queued…"}
+              {runStatus === "running" && "Running…"}
+              {runStatus === "succeeded" && "Succeeded"}
+              {runStatus === "failed" && `Failed${runError ? `: ${runError}` : ""}`}
+            </span>
+          )}
           <button type="button" className="pipeline-detail-page__preview-btn">
             Preview
           </button>
@@ -428,6 +474,7 @@ export function PipelineDetailPage() {
             type="button"
             className="pipeline-detail-page__run-btn"
             onClick={handleRunPipeline}
+            disabled={runStatus === "queued" || runStatus === "running"}
           >
             Run pipeline ▶
           </button>

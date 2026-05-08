@@ -1,21 +1,28 @@
 package com.helio.spark
 
 import com.helio.domain._
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
 import java.time.Instant
-import scala.concurrent.ExecutionContext
+import java.util.UUID
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 
 class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
   // Use local mode to avoid external cluster dependency in tests.
-  private val submitter = new SparkJobSubmitter("local[*]", null)
+  // pipelineRepo is null here — these tests exercise DataFrame ops only, not DB persistence.
+  private val submitter = new SparkJobSubmitter("local[*]", null, null)
 
   // Helper: build a minimal static DataSource with given columns and rows.
   private def staticDs(
@@ -192,6 +199,109 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       rows should have size 1
       rows.head("name") shouldBe "Alice"
       rows.head("age")  shouldBe 30
+    }
+  }
+
+  // ── Persistence tests: updateLastRun is called on terminal states ────────────
+
+  "submit" when {
+
+    var embeddedPostgres: EmbeddedPostgres        = null
+    var db: JdbcBackend.Database                  = null
+    var pipelineRepoForSubmit: PipelineRepository = null
+
+    def startDb(): Unit = {
+      embeddedPostgres = EmbeddedPostgres.start()
+      Flyway.configure()
+        .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
+        .locations("classpath:db/migration")
+        .load()
+        .migrate()
+      db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+      val dtRepo = new DataTypeRepository(db)
+      val dsRepo = new DataSourceRepository(db)
+      pipelineRepoForSubmit = new PipelineRepository(db, dtRepo, dsRepo)
+    }
+
+    def stopDb(): Unit = { db.close(); embeddedPostgres.close() }
+
+    def await[T](f: Future[T]): T = Await.result(f, 30.seconds)
+
+    def seedPipeline(dsId: String): String = {
+      import PostgresProfile.api._
+      val ownerId = "00000000-0000-0000-0000-000000000001"
+      val dtId    = UUID.randomUUID().toString
+      val pid     = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_types
+                 (id, name, fields, version, owner_id, created_at, updated_at)
+                 VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
+                 VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+      )))
+      pid
+    }
+
+    def makePipeline(pid: String, dsId: String): Pipeline =
+      Pipeline(
+        id                 = PipelineId(pid),
+        name               = "pipe",
+        sourceDataSourceId = DataSourceId(dsId),
+        outputDataTypeId   = DataTypeId("dt"),
+        lastRunStatus      = None,
+        lastRunAt          = None,
+        createdAt          = Instant.now(),
+        updatedAt          = Instant.now()
+      )
+
+    "the Spark job succeeds" should {
+      "call updateLastRun with 'succeeded' on the pipeline row" in {
+        startDb()
+        try {
+          val dsId = UUID.randomUUID().toString
+          val pid  = seedPipeline(dsId)
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit)
+          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
+          val pip = makePipeline(pid, dsId)
+          val cache = new PipelineRunCache()
+          await(submitterWithRepo.submit(pip, ds, Seq.empty, cache))
+          // Give the Spark future a moment to run
+          Thread.sleep(3000)
+          val found = await(pipelineRepoForSubmit.findById(pid))
+          found.get.lastRunStatus shouldBe Some(RunStatus.Succeeded)
+          submitterWithRepo.spark.stop()
+        } finally stopDb()
+      }
+    }
+
+    "the Spark job fails" should {
+      "call updateLastRun with 'failed' on the pipeline row" in {
+        startDb()
+        try {
+          val dsId = UUID.randomUUID().toString
+          val pid  = seedPipeline(dsId)
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit)
+          // A filter step with an invalid expression will cause a Spark analysis exception
+          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
+          val badStep = PipelineStepRow(
+            id = "s1", pipelineId = pid, position = 0,
+            op = "filter",
+            config = """{"expression":"nonexistent_column > 0"}""",
+            createdAt = Instant.now(), updatedAt = Instant.now()
+          )
+          val pip   = makePipeline(pid, dsId)
+          val cache = new PipelineRunCache()
+          await(submitterWithRepo.submit(pip, ds, Seq(badStep), cache))
+          Thread.sleep(3000)
+          val found = await(pipelineRepoForSubmit.findById(pid))
+          found.get.lastRunStatus shouldBe Some(RunStatus.Failed)
+          submitterWithRepo.spark.stop()
+        } finally stopDb()
+      }
     }
   }
 

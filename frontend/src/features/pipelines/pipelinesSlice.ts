@@ -3,8 +3,9 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   getPipelines,
   createPipeline as createPipelineRequest,
+  runPipeline,
 } from "../../services/pipelineService";
-import type { PipelineSummary } from "../../types/models";
+import type { PipelineSummary, RunStatus } from "../../types/models";
 
 interface PipelinesState {
   items: PipelineSummary[];
@@ -12,6 +13,9 @@ interface PipelinesState {
   error: string | null;
   createStatus: "idle" | "loading" | "succeeded" | "failed";
   createError: string | null;
+  runId: string | null;
+  runStatus: RunStatus | null;
+  runError: string | null;
 }
 
 const initialState: PipelinesState = {
@@ -20,6 +24,9 @@ const initialState: PipelinesState = {
   error: null,
   createStatus: "idle",
   createError: null,
+  runId: null,
+  runStatus: null,
+  runError: null,
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -32,6 +39,18 @@ export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { reject
     }
   },
 );
+
+export const submitPipelineRun = createAsyncThunk<
+  { runId: string },
+  string,
+  { rejectValue: string }
+>("pipelines/submitPipelineRun", async (pipelineId, { rejectWithValue }) => {
+  try {
+    return await runPipeline(pipelineId);
+  } catch {
+    return rejectWithValue("Failed to start pipeline run.");
+  }
+});
 
 export const createPipeline = createAsyncThunk<
   PipelineSummary,
@@ -48,7 +67,19 @@ export const createPipeline = createAsyncThunk<
 const pipelinesSlice = createSlice({
   name: "pipelines",
   initialState,
-  reducers: {},
+  reducers: {
+    clearRunState(state) {
+      state.runId = null;
+      state.runStatus = null;
+      state.runError = null;
+    },
+    setRunStatus(state, action: { payload: { status: RunStatus; error?: string } }) {
+      state.runStatus = action.payload.status;
+      if (action.payload.error !== undefined) {
+        state.runError = action.payload.error;
+      }
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchPipelines.pending, (state) => {
@@ -75,8 +106,23 @@ const pipelinesSlice = createSlice({
       .addCase(createPipeline.rejected, (state, action) => {
         state.createStatus = "failed";
         state.createError = action.payload ?? "Failed to create pipeline.";
+      })
+      .addCase(submitPipelineRun.pending, (state) => {
+        state.runId = null;
+        state.runStatus = "queued";
+        state.runError = null;
+      })
+      .addCase(submitPipelineRun.fulfilled, (state, action) => {
+        state.runId = action.payload.runId;
+        state.runStatus = "queued";
+      })
+      .addCase(submitPipelineRun.rejected, (state, action) => {
+        state.runId = null;
+        state.runStatus = null;
+        state.runError = action.payload ?? "Failed to start pipeline run.";
       });
   },
 });
 
+export const { clearRunState, setRunStatus } = pipelinesSlice.actions;
 export const pipelinesReducer = pipelinesSlice.reducer;
