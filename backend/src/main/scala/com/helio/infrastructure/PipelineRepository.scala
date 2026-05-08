@@ -22,6 +22,22 @@ class PipelineRepository(
   def exists(id: String): Future[Boolean] =
     db.run(pipelinesTable.filter(_.id === id).exists.result)
 
+  def findById(id: String): Future[Option[Pipeline]] =
+    db.run(pipelinesTable.filter(_.id === id).result.headOption).map {
+      _.map(row =>
+        Pipeline(
+          id                 = PipelineId(row.id),
+          name               = row.name,
+          sourceDataSourceId = DataSourceId(row.sourceDataSourceId),
+          outputDataTypeId   = DataTypeId(row.outputDataTypeId),
+          lastRunStatus      = row.lastRunStatus,
+          lastRunAt          = row.lastRunAt,
+          createdAt          = row.createdAt,
+          updatedAt          = row.updatedAt
+        )
+      )
+    }
+
   def create(
       name: String,
       sourceDataSourceId: String,

@@ -249,6 +249,17 @@ final case class PipelineStepResponse(
     updatedAt: String
 )
 
+// ── Pipeline run API types ───────────────────────────────────────────────────
+
+final case class RunSubmitResponse(runId: String)
+
+final case class RunStatusResponse(
+    runId: String,
+    status: String,
+    rows: Option[JsValue],
+    error: Option[String]
+)
+
 // ── Static connector API types ────────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -708,5 +719,28 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat2(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
   implicit val pipelineStepResponseFormat: RootJsonFormat[PipelineStepResponse]           = jsonFormat7(PipelineStepResponse.apply)
+
+  // Pipeline run API formats
+  implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
+  implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
+    def write(r: RunStatusResponse): JsValue = {
+      val fields = scala.collection.mutable.Map[String, JsValue](
+        "runId"  -> JsString(r.runId),
+        "status" -> JsString(r.status)
+      )
+      r.rows.foreach(v  => fields("rows")  = v)
+      r.error.foreach(v => fields("error") = JsString(v))
+      JsObject(fields.toMap)
+    }
+    def read(json: JsValue): RunStatusResponse = {
+      val obj = json.asJsObject
+      RunStatusResponse(
+        runId  = obj.fields("runId").convertTo[String],
+        status = obj.fields("status").convertTo[String],
+        rows   = obj.fields.get("rows"),
+        error  = obj.fields.get("error").map(_.convertTo[String])
+      )
+    }
+  }
 
 }
