@@ -307,4 +307,66 @@ describe("PanelGrid", () => {
     });
   });
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // ─── Legacy binding warning banner ──────────────────────────────────────────
+  // Task 2.2: banner renders when panel.typeId resolves to a DataType with
+  // sourceId set (legacy-bound), and is absent for pipeline-bound / unbound panels.
+  describe("PanelLegacyWarning banner", () => {
+    const legacyDataType = {
+      id: "dt-legacy",
+      name: "Legacy Type",
+      sourceId: "src-1",
+      version: 1,
+      fields: [],
+      computedFields: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+
+    const pipelineDataType = {
+      id: "dt-pipeline",
+      name: "Pipeline Type",
+      sourceId: null,
+      version: 1,
+      fields: [],
+      computedFields: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+
+    const legacyPanel = { ...testPanel, id: "panel-legacy", typeId: "dt-legacy" };
+    const pipelinePanel = { ...testPanel, id: "panel-pipeline", typeId: "dt-pipeline" };
+
+    it("shows the legacy warning banner for a legacy-bound panel", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[legacyPanel]} />, {
+        panels: { items: [legacyPanel] },
+        dataTypes: { items: [legacyDataType] },
+      });
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/attach a pipeline/i);
+    });
+
+    it("does not show the legacy warning banner for a pipeline-bound panel", () => {
+      renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[pipelinePanel]} />,
+        {
+          panels: { items: [pipelinePanel] },
+          dataTypes: { items: [pipelineDataType] },
+        },
+      );
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("does not show the legacy warning banner for an unbound panel (typeId null)", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+        dataTypes: { items: [legacyDataType] },
+      });
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 });
