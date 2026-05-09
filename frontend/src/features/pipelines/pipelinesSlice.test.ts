@@ -95,6 +95,7 @@ describe("pipelinesSlice", () => {
       stepsError: {},
       updateStatus: "idle" as const,
       updateError: null,
+      runResult: null,
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
@@ -189,13 +190,15 @@ describe("submitPipelineRun reducer", () => {
     expect(nextState.runError).toBeNull();
   });
 
-  it("sets runId when submitPipelineRun fulfills", () => {
+  it("sets runResult and runStatus when submitPipelineRun fulfills", () => {
+    const rows = [{ col_a: 1, col_b: "x" }];
     const nextState = pipelinesReducer(
       undefined,
-      submitPipelineRun.fulfilled({ runId: "run-abc" }, "req-1", "p-1"),
+      submitPipelineRun.fulfilled({ rowCount: 1, rows }, "req-1", "p-1"),
     );
-    expect(nextState.runId).toBe("run-abc");
-    expect(nextState.runStatus).toBe("queued");
+    expect(nextState.runId).toBeNull();
+    expect(nextState.runStatus).toBe("succeeded");
+    expect(nextState.runResult).toEqual(rows);
   });
 
   it("clears runId and sets runError when submitPipelineRun rejects", () => {
@@ -214,8 +217,9 @@ describe("submitPipelineRun thunk", () => {
     runPipelineMock.mockReset();
   });
 
-  it("dispatches fulfilled with runId on success", async () => {
-    runPipelineMock.mockResolvedValueOnce({ runId: "run-xyz" });
+  it("dispatches fulfilled with rows on success", async () => {
+    const rows = [{ col_a: 1, col_b: "x" }];
+    runPipelineMock.mockResolvedValueOnce({ rowCount: 1, rows });
 
     const dispatch = jest.fn();
     const getState = jest.fn();
@@ -228,7 +232,7 @@ describe("submitPipelineRun thunk", () => {
       ([action]) => action.type === "pipelines/submitPipelineRun/fulfilled",
     );
     expect(fulfilledCall).toBeDefined();
-    expect(fulfilledCall?.[0].payload).toEqual({ runId: "run-xyz" });
+    expect(fulfilledCall?.[0].payload).toEqual({ rowCount: 1, rows });
   });
 
   it("dispatches rejected on service error", async () => {

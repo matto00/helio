@@ -1,0 +1,12 @@
+- `backend/src/main/resources/db/migration/V25__add_select_op.sql` — new Flyway migration: drops and re-adds `pipeline_steps_op_check` to include `'select'`
+- `backend/src/main/scala/com/helio/api/routes/PipelineStepRoutes.scala` — adds `"select"` to the `allowedOps` guard set so the POST route accepts it
+- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` — adds `applySelect` method and wires `"select"` case into `applyStep`
+- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala` — three new test cases for the `select` op (subset, missing field, empty list)
+- `backend/src/test/scala/com/helio/api/PipelineStepRoutesSpec.scala` — new route test: `POST` with `op: "select"` returns `201`
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — adds `runResult` field to state; updates `submitPipelineRun` thunk to return rows synchronously; fixes `clearRunState` to reset `runResult`; updates `submitPipelineRun.fulfilled` to populate `runResult`
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — adds `runResult: null` to fixtures to match updated state shape
+- `frontend/src/services/pipelineService.ts` — adds `createPipelineStep` service; fixes `runPipeline` return type to match actual backend response (`{ rowCount, rows }`)
+- `frontend/src/components/SelectFieldsConfig.tsx` — new presentational component: field checklist or "run pipeline first" prompt
+- `frontend/src/components/SelectFieldsConfig.test.tsx` — unit tests for `SelectFieldsConfig` (checklist render, prompt render, toggle directions)
+- `frontend/src/components/PipelineDetailPage.tsx` — adds `"select"` to `OP_TYPES`; renders `SelectFieldsConfig` in `StepCard` when `opType.id === "select"`; initializes `selectedFields` from persisted step config; wires field toggle to PATCH; removes polling infrastructure; handles run result synchronously; adds `config` field to `Step` interface
+- `frontend/src/components/PipelineDetailPage.test.tsx` — mocks `updatePipelineStep`; adds `runResult: null` to preloaded store state; adds config round-trip test

@@ -12,7 +12,7 @@ import scala.util.{Failure, Success}
 class PipelineStepRoutes(stepRepo: PipelineStepRepository, pipelineRepo: PipelineRepository)(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
-  private val allowedOps: Set[String] = Set("rename", "filter", "join", "compute", "groupby", "cast")
+  private val allowedOps: Set[String] = Set("rename", "filter", "join", "compute", "groupby", "cast", "select")
 
   /** Classify a database exception into an appropriate HTTP status code + error message. */
   private def classifyDbError(ex: Throwable): (StatusCode, ErrorResponse) = ex match {

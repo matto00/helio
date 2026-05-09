@@ -168,5 +168,19 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.BadRequest
       }
     }
+
+    // 3.2 — select op accepted by the API
+    "POST with op 'select' returns 201" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(
+        s"/pipelines/$pid/steps",
+        CreatePipelineStepRequest("select", """{"fields":[]}""")
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.op shouldBe "select"
+        resp.pipelineId shouldBe pid
+      }
+    }
   }
 }
