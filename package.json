@@ -9,6 +9,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
+    "check:schemas": "node scripts/check-schema-drift.mjs",
+    "check:openspec": "node scripts/check-openspec-hygiene.mjs",
     "test": "jest --passWithNoTests && npm --prefix frontend test"
   },
   "keywords": [],

@@ -1,2 +1,0 @@
-- `frontend/src/components/PanelContent.css` — updated `.panel-content--table` with flex-direction, justify-content, align-items, overflow-y, min-height; added height/min-height to `.panel-content__table`
-- `frontend/src/components/PanelContent.test.tsx` — added 4 tests for TableContent sizing: container presence with data, placeholder container, row count, and column header rendering

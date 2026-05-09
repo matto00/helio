@@ -25,6 +25,7 @@ const testPipelines = [
     name: "Sales Pipeline",
     sourceDataSourceName: "Sales API",
     outputDataTypeName: "SalesMetrics",
+    outputDataTypeId: "dt-sales",
     lastRunStatus: "succeeded" as const,
     lastRunAt: "2026-05-01T10:00:00Z",
   },
@@ -33,6 +34,7 @@ const testPipelines = [
     name: "Inventory Sync",
     sourceDataSourceName: "ERP DB",
     outputDataTypeName: "InventoryData",
+    outputDataTypeId: "dt-inventory",
     lastRunStatus: "failed" as const,
     lastRunAt: "2026-04-30T08:00:00Z",
   },
@@ -144,6 +146,7 @@ describe("PipelinesPage", () => {
       name: "New Pipeline",
       sourceDataSourceName: "CSV Source",
       outputDataTypeName: "RawData",
+      outputDataTypeId: "dt-raw",
       lastRunStatus: null as null,
       lastRunAt: null,
     };

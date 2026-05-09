@@ -100,7 +100,7 @@ final case class UserPreferences(accentColor: Option[String], zoomLevels: Map[St
 final case class UserResponse(id: String, email: String, displayName: Option[String], createdAt: String, avatarUrl: Option[String] = None, preferences: Option[UserPreferences] = None)
 final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
 final case class CreateDashboardRequest(name: Option[String])
-final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String], content: Option[String] = None)
+final case class CreatePanelRequest(dashboardId: Option[String], title: Option[String], `type`: Option[String], content: Option[String] = None, dataTypeId: Option[String] = None)
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
@@ -232,6 +232,7 @@ final case class PipelineSummaryResponse(
     name: String,
     sourceDataSourceName: String,
     outputDataTypeName: String,
+    outputDataTypeId: String,
     lastRunStatus: Option[String],
     lastRunAt: Option[String]
 )
@@ -597,7 +598,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest] = jsonFormat1(
     CreateDashboardRequest.apply
   )
-  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat4(
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat5(
     CreatePanelRequest.apply
   )
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest] = jsonFormat3(
@@ -728,7 +729,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // Pipeline API formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest] = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat6(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat7(PipelineSummaryResponse.apply)
 
   // Update API formats
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)

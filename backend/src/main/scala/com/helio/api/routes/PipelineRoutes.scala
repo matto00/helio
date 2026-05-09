@@ -29,6 +29,7 @@ class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(
                         name                 = s.name,
                         sourceDataSourceName = s.sourceDataSourceName,
                         outputDataTypeName   = s.outputDataTypeName,
+                        outputDataTypeId     = s.outputDataTypeId,
                         lastRunStatus        = s.lastRunStatus,
                         lastRunAt            = s.lastRunAt
                       )
@@ -56,6 +57,7 @@ class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(
                           name                 = summary.name,
                           sourceDataSourceName = summary.sourceDataSourceName,
                           outputDataTypeName   = summary.outputDataTypeName,
+                          outputDataTypeId     = summary.outputDataTypeId,
                           lastRunStatus        = summary.lastRunStatus,
                           lastRunAt            = summary.lastRunAt
                         )
@@ -84,6 +86,7 @@ class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(
                       name                 = summary.name,
                       sourceDataSourceName = summary.sourceDataSourceName,
                       outputDataTypeName   = summary.outputDataTypeName,
+                      outputDataTypeId     = summary.outputDataTypeId,
                       lastRunStatus        = summary.lastRunStatus,
                       lastRunAt            = summary.lastRunAt
                     )
@@ -108,6 +111,7 @@ class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(
                           name                 = summary.name,
                           sourceDataSourceName = summary.sourceDataSourceName,
                           outputDataTypeName   = summary.outputDataTypeName,
+                          outputDataTypeId     = summary.outputDataTypeId,
                           lastRunStatus        = summary.lastRunStatus,
                           lastRunAt            = summary.lastRunAt
                         )

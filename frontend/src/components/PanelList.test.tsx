@@ -86,6 +86,53 @@ const defaultPanelAppearance = {
 const createPanelMock = jest.mocked(createPanelRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 
+/** Base dashboard store slice used by most tests. */
+const baseDashboardsState = {
+  items: [
+    {
+      id: "dashboard-1",
+      name: "Operations",
+      meta: defaultMeta,
+      appearance: defaultDashboardAppearance,
+      layout: defaultDashboardLayout,
+    },
+  ],
+  selectedDashboardId: "dashboard-1",
+};
+
+/** Store additions required for data-bound types (metric/chart/table) which need a DataType step. */
+const dataTypeStoreAdditions = {
+  pipelines: {
+    items: [
+      {
+        id: "pipe-1",
+        name: "Revenue Pipeline",
+        sourceDataSourceName: "Source",
+        outputDataTypeName: "Revenue",
+        outputDataTypeId: "dt-1",
+        lastRunStatus: null as null,
+        lastRunAt: null,
+      },
+    ],
+    status: "succeeded" as const,
+  },
+  dataTypes: {
+    items: [
+      {
+        id: "dt-1",
+        name: "Revenue",
+        sourceId: null,
+        version: 1,
+        fields: [],
+        computedFields: [],
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    ],
+    status: "succeeded" as const,
+  },
+};
+
 describe("PanelList", () => {
   beforeEach(() => {
     MockPanelGrid.mockClear();
@@ -224,7 +271,7 @@ describe("PanelList", () => {
       type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: null,
+      typeId: "dt-1",
       fieldMapping: null,
       refreshInterval: null,
       content: null,
@@ -237,30 +284,29 @@ describe("PanelList", () => {
     fetchPanelsMock.mockResolvedValue([]);
 
     renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
+      dashboards: baseDashboardsState,
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select metric type, enter title, submit
+    // Open modal, select metric type, select DataType, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Metric is data-bound — navigate through the DataType step
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "New Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "New Panel", "metric"),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "New Panel",
+        "metric",
+        undefined,
+        "dt-1",
+      ),
     );
   });
 
@@ -272,7 +318,7 @@ describe("PanelList", () => {
       type: "chart" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: null,
+      typeId: "dt-1",
       fieldMapping: null,
       refreshInterval: null,
       content: null,
@@ -285,32 +331,31 @@ describe("PanelList", () => {
     fetchPanelsMock.mockResolvedValue([]);
 
     renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
+      dashboards: baseDashboardsState,
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select chart type, enter title, submit
+    // Open modal, select chart type, select DataType, enter title, submit
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Chart is data-bound — navigate through the DataType step
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Chart" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Revenue Chart", "chart"),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "Revenue Chart",
+        "chart",
+        undefined,
+        "dt-1",
+      ),
     );
   });
 
@@ -322,7 +367,7 @@ describe("PanelList", () => {
       type: "table" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: null,
+      typeId: "dt-1",
       fieldMapping: null,
       refreshInterval: null,
       content: null,
@@ -335,25 +380,18 @@ describe("PanelList", () => {
     fetchPanelsMock.mockResolvedValue([]);
 
     renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
+      dashboards: baseDashboardsState,
       panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select table, create
+    // Open modal, select table, navigate DataType step, create
     fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Table is data-bound — navigate through the DataType step
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Table Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
@@ -456,18 +494,7 @@ describe("PanelList", () => {
     ]);
 
     renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
+      dashboards: baseDashboardsState,
       panels: {
         items: [
           {
@@ -482,17 +509,27 @@ describe("PanelList", () => {
         loadedDashboardId: "dashboard-1",
         status: "succeeded",
       },
+      ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select type, enter title, submit
+    // Open modal, select type, navigate DataType step, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Add panel" }));
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Metric is data-bound — navigate through the DataType step
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Forecast" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Forecast", "metric"),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "Forecast",
+        "metric",
+        undefined,
+        "dt-1",
+      ),
     );
     await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-1"));
     expect(screen.getByRole("heading", { name: "Forecast" })).toBeInTheDocument();

@@ -19,6 +19,9 @@
     },
     "content": {
       "type": ["string", "null"]
+    },
+    "dataTypeId": {
+      "type": "string"
     }
   },
   "additionalProperties": false

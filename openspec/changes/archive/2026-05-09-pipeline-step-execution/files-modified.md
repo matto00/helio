@@ -1,6 +1,0 @@
-- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — added `RunResultResponse` case class definition
-- `backend/src/main/scala/com/helio/api/routes/PipelineRunRoutes.scala` — added `?dry=true` query param, in-process engine execution, `upsertFieldsFromRows` write-back, proper `onComplete` chaining for `updateLastRun` on both success and failure paths
-- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` — new: pure-Scala execution engine supporting all 6 step ops (rename, filter, compute, groupby, cast, join) plus `loadRows` helper for static/csv sources
-- `backend/src/test/scala/com/helio/api/routes/PipelineRunRoutesSpec.scala` — updated existing test to expect 200 OK + RunResultResponse; added 6.3 (dry-run skips status update), 6.4 (non-dry success writes Type Registry + status), 6.5 (failure sets failed status + 422)
-- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala` — new: unit tests for all 6 op types and multi-step ordering
-- `openspec/changes/pipeline-step-execution/tasks.md` — all 19 tasks marked complete

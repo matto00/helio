@@ -33,6 +33,7 @@ const newPipeline = {
   name: "My Pipeline",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesData",
+  outputDataTypeId: "dt-sales",
   lastRunStatus: null as null,
   lastRunAt: null,
 };

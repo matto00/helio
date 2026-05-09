@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../features/panels/panelsSlice";
+import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchPipelines } from "../features/pipelines/pipelinesSlice";
 import { PANEL_TEMPLATES } from "../features/panels/panelTemplates";
 import type { PanelTemplate } from "../features/panels/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -57,7 +59,14 @@ const PANEL_TYPES: { value: PanelType; label: string; icon: string; description:
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-type Step = "type-select" | "template-select" | "name-entry";
+type Step = "type-select" | "template-select" | "datatype-select" | "name-entry";
+
+// 3.2 — Data-bound panel types require a DataType selection before creation.
+const DATA_BOUND_TYPES: PanelType[] = ["metric", "chart", "text", "table"];
+
+function isDataBound(type: PanelType | null): boolean {
+  return type !== null && (DATA_BOUND_TYPES as string[]).includes(type);
+}
 
 // ── Type-specific config helpers ─────────────────────────────────────────────
 
@@ -222,6 +231,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dispatch = useAppDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const { selectedDashboardId } = useAppSelector((state) => state.dashboards);
+  // 3.6 — Slices for DataType picker.
+  const pipelines = useAppSelector((state) => state.pipelines);
+  const dataTypes = useAppSelector((state) => state.dataTypes);
 
   const [step, setStep] = useState<Step>("type-select");
   const [selectedType, setSelectedType] = useState<PanelType | null>(null);
@@ -229,19 +241,40 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [title, setTitle] = useState("");
   // 1.2 — Type-specific config lives in local state alongside existing fields.
   const [typeConfig, setTypeConfig] = useState<TypeConfig | null>(null);
+  // 3.3 — DataType selection for data-bound panel types.
+  const [selectedDataTypeId, setSelectedDataTypeId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // 1.3 — Dirty when the user has selected a type, template, typed a title, or entered any config.
+  // 1.3 — Dirty when the user has selected a type, template, typed a title, entered any config, or selected a DataType.
   const isDirty =
     selectedType !== null ||
     selectedTemplate !== null ||
     title !== "" ||
-    hasNonEmptyTypeConfig(typeConfig);
+    hasNonEmptyTypeConfig(typeConfig) ||
+    selectedDataTypeId !== null;
 
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
+
+  // 3.6 — Fetch pipelines and data types on mount if not yet loaded.
+  useEffect(() => {
+    if (pipelines.status === "idle") {
+      void dispatch(fetchPipelines());
+    }
+    if (dataTypes.status === "idle") {
+      void dispatch(fetchDataTypes());
+    }
+  }, [dispatch, pipelines.status, dataTypes.status]);
+
+  // 3.6 — Compute the set of DataType IDs produced by at least one registered pipeline.
+  const registryDataTypeIds = new Set(
+    pipelines.items.map((p) => p.outputDataTypeId).filter(Boolean),
+  );
+
+  // 3.6 — Filter DataTypes to only those in the registry.
+  const registryDataTypes = dataTypes.items.filter((dt) => registryDataTypeIds.has(dt.id));
 
   // 1.6 / 1.7 — Focus trap: Tab/Shift+Tab cycle only through modal-internal focusable elements.
   useEffect(() => {
@@ -281,7 +314,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   function handleClose() {
     dialogRef.current?.close();
     onClose();
-    // 1.4 — typeConfig resets automatically when the component unmounts on close.
+    // 1.4 / 3.10 — typeConfig and selectedDataTypeId reset automatically when the component unmounts on close.
   }
 
   // 1.2 — Shared dismiss helper: prompts when dirty, closes directly when clean.
@@ -309,10 +342,15 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     setStep("template-select");
   }
 
+  // 3.4 — Advance to datatype-select for data-bound types, else name-entry.
   function handleTemplateSelect(template: PanelTemplate | null) {
     setSelectedTemplate(template);
     setTitle(template?.defaults.title ?? "");
-    setStep("name-entry");
+    if (isDataBound(selectedType)) {
+      setStep("datatype-select");
+    } else {
+      setStep("name-entry");
+    }
   }
 
   function handleBackFromTemplate() {
@@ -320,8 +358,19 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     setSelectedTemplate(null);
   }
 
-  function handleBackFromName() {
+  // 3.5 — Back from datatype-select returns to template-select and clears the DataType selection.
+  function handleBackFromDataType() {
     setStep("template-select");
+    setSelectedDataTypeId(null);
+  }
+
+  function handleBackFromName() {
+    // For data-bound types, back goes to datatype-select; otherwise to template-select.
+    if (isDataBound(selectedType)) {
+      setStep("datatype-select");
+    } else {
+      setStep("template-select");
+    }
     setCreateError(null);
   }
 
@@ -333,6 +382,11 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
     const normalizedTitle = title.trim();
     if (normalizedTitle.length === 0) {
+      return;
+    }
+
+    // 3.9 — Block creation if data-bound type has no DataType selected.
+    if (isDataBound(selectedType) && selectedDataTypeId === null) {
       return;
     }
 
@@ -348,6 +402,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           title: normalizedTitle,
           type: selectedType,
           ...(nonEmptyConfig !== undefined ? { typeConfig: nonEmptyConfig } : {}),
+          // 3.9 — Pass dataTypeId for data-bound types.
+          dataTypeId: selectedDataTypeId ?? undefined,
         }),
       ).unwrap();
       handleClose();
@@ -361,6 +417,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   function getStepTitle(): string {
     if (step === "type-select") return "Choose panel type";
     if (step === "template-select") return "Choose a template";
+    // 3.11 — DataType picker step title.
+    if (step === "datatype-select") return "Choose a data type";
     return "Name your panel";
   }
 
@@ -470,6 +528,63 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           </div>
         )}
 
+        {/* 3.6-3.8 — DataType picker step for data-bound panel types. */}
+        {step === "datatype-select" && (
+          <div className="panel-creation-modal__datatype-step">
+            {registryDataTypes.length === 0 ? (
+              // 3.6 — Empty state: no registry DataTypes available.
+              <div
+                className="panel-creation-modal__datatype-empty"
+                data-testid="datatype-empty-state"
+              >
+                <p>No data types are available yet.</p>
+                <p>
+                  Create a pipeline first to register a data type, then return here to create your
+                  panel.
+                </p>
+              </div>
+            ) : (
+              // 3.7 — DataType list as clickable cards.
+              <div
+                className="panel-creation-modal__datatype-list"
+                role="group"
+                aria-label="Data type"
+              >
+                {registryDataTypes.map((dt) => (
+                  <button
+                    key={dt.id}
+                    type="button"
+                    className={`panel-creation-modal__datatype-card${selectedDataTypeId === dt.id ? " panel-creation-modal__datatype-card--selected" : ""}`}
+                    aria-label={dt.name}
+                    aria-pressed={selectedDataTypeId === dt.id}
+                    onClick={() => setSelectedDataTypeId(dt.id)}
+                  >
+                    <span className="panel-creation-modal__datatype-name">{dt.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="panel-creation-modal__actions">
+              <button
+                type="button"
+                className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
+                onClick={handleBackFromDataType}
+              >
+                Back
+              </button>
+              {/* 3.7 / 3.8 — Next button disabled until a DataType is selected. */}
+              <button
+                type="button"
+                className="panel-creation-modal__btn panel-creation-modal__btn--primary"
+                disabled={selectedDataTypeId === null}
+                onClick={() => setStep("name-entry")}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+
         {step === "name-entry" && (
           <div className="panel-creation-modal__name-entry">
             <form className="panel-creation-modal__form" onSubmit={(e) => void handleCreate(e)}>
@@ -515,7 +630,12 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                 <button
                   type="submit"
                   className="panel-creation-modal__btn panel-creation-modal__btn--primary"
-                  disabled={isCreating || title.trim().length === 0}
+                  disabled={
+                    isCreating ||
+                    title.trim().length === 0 ||
+                    // 3.9 — Disabled if data-bound type and no DataType selected.
+                    (isDataBound(selectedType) && selectedDataTypeId === null)
+                  }
                 >
                   {isCreating ? "Creating..." : "Create panel"}
                 </button>

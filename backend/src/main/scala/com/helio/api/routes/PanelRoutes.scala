@@ -109,7 +109,8 @@ final class PanelRoutes(
                               appearance  = PanelAppearance.Default,
                               panelType   = panelType,
                               ownerId     = user.id,
-                              content     = request.content
+                              content     = request.content,
+                              typeId      = request.dataTypeId.map(DataTypeId(_))
                             )
                             onSuccess(panelRepo.insert(panel)) { created =>
                               complete(StatusCodes.Created, PanelResponse.fromDomain(created))

@@ -64,6 +64,49 @@ const baseStore = {
     loadedDashboardId: "dashboard-1",
     status: "succeeded" as const,
   },
+  // Pre-loaded as succeeded to prevent fetch dispatches on mount
+  pipelines: {
+    items: [],
+    status: "succeeded" as const,
+  },
+  dataTypes: {
+    items: [],
+    status: "succeeded" as const,
+  },
+};
+
+/** Store with a registry DataType for testing the datatype-select step. */
+const storeWithDataTypes = {
+  ...baseStore,
+  dataTypes: {
+    items: [
+      {
+        id: "dt-1",
+        name: "Revenue",
+        sourceId: null,
+        version: 1,
+        fields: [],
+        computedFields: [],
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    ],
+    status: "succeeded" as const,
+  },
+  pipelines: {
+    items: [
+      {
+        id: "pipe-1",
+        name: "Revenue Pipeline",
+        sourceDataSourceName: "Source",
+        outputDataTypeName: "Revenue",
+        outputDataTypeId: "dt-1",
+        lastRunStatus: null as null,
+        lastRunAt: null as null,
+      },
+    ],
+    status: "succeeded" as const,
+  },
 };
 
 describe("PanelCreationModal", () => {
@@ -124,11 +167,12 @@ describe("PanelCreationModal", () => {
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
-  it("back button on name-entry step returns to the template-select step", () => {
+  it("back button on name-entry step returns to the template-select step (non-data-bound type)", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    // Image is non-data-bound; it skips the datatype step
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
 
@@ -143,7 +187,7 @@ describe("PanelCreationModal", () => {
       id: "panel-new",
       dashboardId: "dashboard-1",
       title: "Revenue Pulse",
-      type: "table" as const,
+      type: "divider" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
       typeId: null,
@@ -160,7 +204,8 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    // Divider is non-data-bound; it skips the datatype step
+    fireEvent.click(screen.getByRole("button", { name: "Divider" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Pulse" },
@@ -168,7 +213,13 @@ describe("PanelCreationModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Revenue Pulse", "table"),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "Revenue Pulse",
+        "divider",
+        undefined,
+        undefined,
+      ),
     );
   });
 
@@ -177,7 +228,7 @@ describe("PanelCreationModal", () => {
       id: "panel-new",
       dashboardId: "dashboard-1",
       title: "My Panel",
-      type: "metric" as const,
+      type: "markdown" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
       typeId: null,
@@ -194,7 +245,8 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    // Markdown is non-data-bound; it skips the datatype step
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "My Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
@@ -208,7 +260,8 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    // Markdown is non-data-bound; it skips the datatype step
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Broken Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
@@ -240,18 +293,20 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
-    fireEvent.click(screen.getByRole("button", { name: "KPI Metric" }));
+    // Image is non-data-bound; selecting a template goes directly to name-entry
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image Display" }));
 
     const titleInput = screen.getByLabelText("Panel title") as HTMLInputElement;
-    expect(titleInput.value).toBe("KPI Metric");
+    expect(titleInput.value).toBe("Image Display");
   });
 
   it('"Start blank" card leaves the title input empty', () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    // Image is non-data-bound; Start blank goes directly to name-entry
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     const titleInput = screen.getByLabelText("Panel title") as HTMLInputElement;
@@ -302,18 +357,20 @@ describe("PanelCreationModal — live preview", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    // Image is non-data-bound; goes directly to name-entry
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     const previewContent = screen.getByTestId("panel-content");
-    expect(previewContent).toHaveAttribute("data-panel-type", "metric");
+    expect(previewContent).toHaveAttribute("data-panel-type", "image");
   });
 
   it("2.2 preview title reflects the current title input value", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    // Image is non-data-bound; goes directly to name-entry
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), {
       target: { value: "Revenue Pulse" },
@@ -327,7 +384,8 @@ describe("PanelCreationModal — live preview", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    // Markdown is non-data-bound; goes directly to name-entry
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     const preview = screen.getByTestId("panel-creation-preview");
@@ -380,10 +438,13 @@ describe("PanelCreationModal — type-specific config fields", () => {
   // 4.1 — Metric config fields appear in step 3
   it("4.1 metric config fields (value label + unit) appear in step 3 for metric type", () => {
     const onClose = jest.fn();
-    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Metric is data-bound → lands on datatype-select; select a data type then advance
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByLabelText("Value label")).toBeInTheDocument();
     expect(screen.getByLabelText("Unit")).toBeInTheDocument();
@@ -392,10 +453,13 @@ describe("PanelCreationModal — type-specific config fields", () => {
   // 4.2 — Chart type selector appears in step 3
   it("4.2 chart type selector appears in step 3 for chart type", () => {
     const onClose = jest.fn();
-    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
 
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Chart is data-bound → lands on datatype-select; select a data type then advance
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     const selector = screen.getByLabelText("Chart type");
     expect(selector).toBeInTheDocument();
@@ -430,39 +494,33 @@ describe("PanelCreationModal — type-specific config fields", () => {
     expect(screen.getByRole("option", { name: "Vertical" })).toBeInTheDocument();
   });
 
-  // 4.5 — Text, Table, Markdown show no additional config fields
-  it("4.5 Text, Table, and Markdown show no additional config fields in step 3", () => {
-    const typesToTest: Array<{ name: string }> = [
-      { name: "Text" },
-      { name: "Table" },
-      { name: "Markdown" },
-    ];
-
-    for (const { name } of typesToTest) {
-      const onClose = jest.fn();
-      const { unmount } = renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
-
-      fireEvent.click(screen.getByRole("button", { name }));
-      fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-
-      expect(screen.queryByLabelText("Value label")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Chart type")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Image URL")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Orientation")).not.toBeInTheDocument();
-
-      unmount();
-    }
-  });
-
-  // 4.6 — typeConfig values are included in the creation payload on submit
-  it("4.6 typeConfig values are included in the creation payload on submit", async () => {
-    createPanelMock.mockResolvedValue(mockPanel({ type: "metric", title: "Revenue" }));
+  // 4.5 — Non-data-bound types show no additional config fields in step 3
+  it("4.5 Markdown shows no additional config fields in step 3", () => {
+    // Markdown is non-data-bound and has no type-specific config fields
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.queryByLabelText("Value label")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Chart type")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Image URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Orientation")).not.toBeInTheDocument();
+  });
+
+  // 4.6 — typeConfig values are included in the creation payload on submit
+  it("4.6 typeConfig values and dataTypeId are included in the creation payload on submit", async () => {
+    createPanelMock.mockResolvedValue(mockPanel({ type: "metric", title: "Revenue" }));
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Metric is data-bound → navigate through datatype-select
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Revenue" } });
     fireEvent.change(screen.getByLabelText("Value label"), {
       target: { value: "Total Revenue" },
@@ -471,11 +529,13 @@ describe("PanelCreationModal — type-specific config fields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "Revenue", "metric", {
-        type: "metric",
-        valueLabel: "Total Revenue",
-        unit: "$",
-      }),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "Revenue",
+        "metric",
+        { type: "metric", valueLabel: "Total Revenue", unit: "$" },
+        "dt-1",
+      ),
     );
   });
 
@@ -521,6 +581,105 @@ describe("PanelCreationModal — type-specific config fields", () => {
 
     const freshInput = screen.getByLabelText("Image URL") as HTMLInputElement;
     expect(freshInput.value).toBe("");
+  });
+});
+
+describe("PanelCreationModal — DataType picker step", () => {
+  beforeEach(() => {
+    createPanelMock.mockReset();
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 4.2 — DataType step renders after template selection for metric type
+  it("4.2 DataType step renders after template selection for metric type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    // Should be on the datatype-select step
+    expect(screen.getByText("Choose a data type")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
+  });
+
+  // 4.3 — DataType step is skipped for markdown type (goes directly to name-entry)
+  it("4.3 DataType step is skipped for markdown type (goes directly to name-entry)", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    // Should land directly on name-entry step
+    expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
+    expect(screen.queryByText("Choose a data type")).not.toBeInTheDocument();
+  });
+
+  // 4.4 — Next button disabled when no DataType selected; enabled after selection
+  it("4.4 Next button is disabled when no DataType is selected and enabled after selection", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    // Next button should be disabled before any DataType is selected
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+    // Select a DataType
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+
+    // Next button should now be enabled
+    expect(screen.getByRole("button", { name: "Next" })).not.toBeDisabled();
+  });
+
+  // 4.5 — Create panel call includes dataTypeId from the DataType step
+  it("4.5 Create panel call includes dataTypeId selected in the DataType step", async () => {
+    createPanelMock.mockResolvedValue(mockPanel({ type: "metric", title: "My Metric" }));
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    // Select the DataType and advance
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "My Metric" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "My Metric",
+        "metric",
+        undefined,
+        "dt-1",
+      ),
+    );
+  });
+
+  // 4.6 — Empty state shown when no registry DataTypes are available
+  it("4.6 empty state is shown when no registry DataTypes are available", () => {
+    const onClose = jest.fn();
+    // baseStore has no pipelines, so no pipeline-produced DataTypes exist
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.getByTestId("datatype-empty-state")).toBeInTheDocument();
+    expect(screen.getByText("No data types are available yet.")).toBeInTheDocument();
   });
 });
 

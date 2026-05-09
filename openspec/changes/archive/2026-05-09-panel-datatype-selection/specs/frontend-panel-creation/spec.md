@@ -1,9 +1,5 @@
-# frontend-panel-creation Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the frontend contract for creating panels via the backend API, including payload structure,
-panel list refresh behavior, and inline feedback within the creation modal.
-## Requirements
 ### Requirement: Frontend panel creation is backend-backed
 The frontend MUST create panels through the backend API in the context of the selected dashboard. The
 create request MUST include the `type` selected by the user in the type-first modal; there is no
@@ -45,22 +41,3 @@ MUST also be included in the create request payload.
 - **GIVEN** the user has reached the name-entry step for a data-bound panel type
 - **WHEN** no DataType was selected (should not happen in normal flow but guards against state edge cases)
 - **THEN** the Create button is disabled
-
-### Requirement: Panel list refreshes after successful create
-The frontend MUST refresh selected-dashboard panels after a successful panel creation.
-
-#### Scenario: Panel create succeeds
-- **GIVEN** panel create returns success
-- **WHEN** the create flow completes
-- **THEN** the frontend refreshes panels for the selected dashboard
-- **AND** the newly created panel appears in rendered panel content
-
-### Requirement: Inline panel creation exposes simple explicit feedback
-The panel create modal MUST provide inline loading and failure feedback within the modal dialog.
-
-#### Scenario: Panel create fails
-- **GIVEN** the panel creation modal is open at the title step
-- **WHEN** the backend create request fails
-- **THEN** an inline error message is shown inside the modal
-- **AND** the create action is re-enabled for retry
-
