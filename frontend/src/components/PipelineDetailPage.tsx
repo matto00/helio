@@ -8,13 +8,13 @@ import {
   fetchPipelineById,
   fetchPipelineRunHistory,
   fetchPipelineSteps,
-  setRunStatus,
   submitPipelineRun,
   updatePipeline,
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { fetchRunStatus } from "../services/pipelineService";
-import type { DataSource, PipelineRunRecord, RunStatus } from "../types/models";
+import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
+import type { DataSource, PipelineRunRecord, PipelineStep } from "../types/models";
+import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 // ── Op types ────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,7 @@ interface OpType {
 }
 
 const OP_TYPES: OpType[] = [
+  { id: "select", label: "Select fields", icon: "☑" },
   { id: "rename", label: "Rename column", icon: "✏️" },
   { id: "filter", label: "Filter rows", icon: "🔍" },
   { id: "join", label: "Join tables", icon: "🔗" },
@@ -40,6 +41,7 @@ interface Step {
   opType: OpType;
   label: string;
   rowCount: number;
+  config: string;
 }
 
 let stepCounter = 0;
@@ -50,6 +52,18 @@ function makeStep(opType: OpType): Step {
     opType,
     label: opType.label,
     rowCount: Math.floor(Math.random() * 50000) + 1000,
+    config: "",
+  };
+}
+
+function pipelineStepToStep(ps: PipelineStep): Step {
+  const opType = OP_TYPES.find((op) => op.id === ps.op) ?? OP_TYPES[0];
+  return {
+    id: ps.id,
+    opType,
+    label: opType.label,
+    rowCount: 0,
+    config: ps.config,
   };
 }
 
@@ -144,15 +158,56 @@ function OpDropdown({ onSelect, onClose }: OpDropdownProps) {
   );
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseSelectedFields(config: string, opTypeId: string): string[] {
+  if (opTypeId !== "select" || !config) return [];
+  try {
+    const parsed = JSON.parse(config) as { fields?: string[] };
+    return parsed.fields ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
   step: Step;
   onRemove: (id: string) => void;
+  /** Column names derived from the last pipeline run result — used by SelectFieldsConfig. */
+  runColumns: string[];
+  /** Called after a successful config PATCH so the parent can keep step.config in sync. */
+  onConfigChange: (stepId: string, config: string) => void;
 }
 
-function StepCard({ step, onRemove }: StepCardProps) {
+function StepCard({ step, onRemove, runColumns, onConfigChange }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Derived state: sync selectedFields when config or opType changes (during-render pattern).
+  const [prevConfig, setPrevConfig] = useState(step.config);
+  const [prevOpTypeId, setPrevOpTypeId] = useState(step.opType.id);
+  const [selectedFields, setSelectedFields] = useState<string[]>(() =>
+    parseSelectedFields(step.config, step.opType.id),
+  );
+  if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
+    setPrevConfig(step.config);
+    setPrevOpTypeId(step.opType.id);
+    setSelectedFields(parseSelectedFields(step.config, step.opType.id));
+  }
+
+  function handleFieldToggle(field: string, checked: boolean) {
+    const next = checked ? [...selectedFields, field] : selectedFields.filter((f) => f !== field);
+    setSelectedFields(next);
+    const newConfig = JSON.stringify({ fields: next });
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
 
   return (
     <div
@@ -181,20 +236,30 @@ function StepCard({ step, onRemove }: StepCardProps) {
 
       {expanded && (
         <div className="pipeline-detail-page__step-card-body">
-          <p className="pipeline-detail-page__step-card-desc">
-            Configure this {step.opType.label.toLowerCase()} step.
-          </p>
-          <div className="pipeline-detail-page__step-card-diff">
-            <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--added">
-              + col_a
-            </span>
-            <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--removed">
-              − col_b
-            </span>
-            <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--changed">
-              ~ col_c
-            </span>
-          </div>
+          {step.opType.id === "select" ? (
+            <SelectFieldsConfig
+              columns={runColumns}
+              selectedFields={selectedFields}
+              onToggle={handleFieldToggle}
+            />
+          ) : (
+            <>
+              <p className="pipeline-detail-page__step-card-desc">
+                Configure this {step.opType.label.toLowerCase()} step.
+              </p>
+              <div className="pipeline-detail-page__step-card-diff">
+                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--added">
+                  + col_a
+                </span>
+                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--removed">
+                  − col_b
+                </span>
+                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--changed">
+                  ~ col_c
+                </span>
+              </div>
+            </>
+          )}
           <div className="pipeline-detail-page__step-card-actions">
             <button type="button" className="pipeline-detail-page__step-card-preview-btn">
               Preview data
@@ -369,8 +434,6 @@ function RunHistoryPanel({ runs }: RunHistoryPanelProps) {
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
-const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set(["succeeded", "failed"]);
-
 export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
@@ -378,19 +441,25 @@ export function PipelineDetailPage() {
 
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
   const {
-    runId,
     runStatus,
     runError,
     runHistory,
+    runResult,
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
     updateStatus,
     updateError,
+    steps: reduxSteps,
   } = useAppSelector((state) => state.pipelines);
+
+  // Derive column names from the last run's output rows for SelectFieldsConfig.
+  const runColumns: string[] = runResult && runResult.length > 0 ? Object.keys(runResult[0]) : [];
   const runs = id ? (runHistory[id] ?? []) : [];
+  const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
 
   const [steps, setSteps] = useState<Step[]>([]);
+  const [stepsInitialized, setStepsInitialized] = useState(false);
   const [dropdownOpenAt, setDropdownOpenAt] = useState<"bottom" | null>(null);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
@@ -402,6 +471,11 @@ export function PipelineDetailPage() {
   if (currentPipeline && currentPipeline.id !== outputNamePipelineId) {
     setOutputNamePipelineId(currentPipeline.id);
     setOutputName(currentPipeline.name);
+  }
+  // Initialize local steps from persisted Redux data on first load.
+  if (!stepsInitialized && persistedSteps.length > 0) {
+    setStepsInitialized(true);
+    setSteps(persistedSteps.map(pipelineStepToStep));
   }
 
   // 3.1 Fetch pipeline and steps on mount / id change.
@@ -441,29 +515,6 @@ export function PipelineDetailPage() {
     };
   }, [dispatch, id]);
 
-  // Poll run status every 2 s while a run is active and non-terminal
-  useEffect(() => {
-    if (!runId || !id || (runStatus !== null && TERMINAL_STATUSES.has(runStatus))) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      fetchRunStatus(id, runId)
-        .then((res) => {
-          dispatch(setRunStatus({ status: res.status, error: res.error }));
-          // Re-fetch history when we observe a terminal status
-          if (TERMINAL_STATUSES.has(res.status)) {
-            void dispatch(fetchPipelineRunHistory(id));
-          }
-        })
-        .catch(() => {
-          // network hiccup — keep polling
-        });
-    }, 2000);
-
-    return () => clearInterval(intervalId);
-  }, [runId, id, runStatus, dispatch]);
-
   // ── Dirty-state tracking ──
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
 
@@ -481,17 +532,42 @@ export function PipelineDetailPage() {
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
 
   // ── Handlers ──
-  function handleAddStep(opType: OpType) {
-    setSteps((prev) => [...prev, makeStep(opType)]);
+  async function handleAddStep(opType: OpType) {
+    if (!id) return;
+    setStepsInitialized(true);
+    const tempStep = makeStep(opType);
+    setSteps((prev) => [...prev, tempStep]);
+    try {
+      const initialConfig = opType.id === "select" ? '{"fields":[]}' : "{}";
+      const persisted = await createPipelineStep(id, opType.id, initialConfig);
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.id === tempStep.id
+            ? { ...pipelineStepToStep(persisted), rowCount: tempStep.rowCount }
+            : s,
+        ),
+      );
+    } catch {
+      // Keep temp step if POST fails; PATCH calls will be no-ops until ID is real.
+    }
+  }
+
+  function handleStepConfigChange(stepId: string, config: string) {
+    setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
   }
 
   function handleRemoveStep(stepId: string) {
     setSteps((prev) => prev.filter((s) => s.id !== stepId));
   }
 
-  function handleRunPipeline() {
+  async function handleRunPipeline() {
     if (!id) return;
-    void dispatch(submitPipelineRun(id));
+    try {
+      await dispatch(submitPipelineRun(id)).unwrap();
+      void dispatch(fetchPipelineRunHistory(id));
+    } catch {
+      // runError is displayed via Redux state
+    }
   }
 
   async function handleSave() {
@@ -580,7 +656,12 @@ export function PipelineDetailPage() {
               <RibbonSegment />
               {steps.map((step, idx) => (
                 <div key={step.id} className="pipeline-detail-page__step-section">
-                  <StepCard step={step} onRemove={handleRemoveStep} />
+                  <StepCard
+                    step={step}
+                    onRemove={handleRemoveStep}
+                    runColumns={runColumns}
+                    onConfigChange={handleStepConfigChange}
+                  />
                   {idx < steps.length - 1 && <RibbonSegment />}
                 </div>
               ))}

@@ -53,6 +53,7 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       case "groupby" => Future.successful(applyGroupBy(rows, cfg))
       case "cast"    => Future.successful(applyCast(rows, cfg))
       case "join"    => applyJoin(rows, cfg, dataSourceRepo)
+      case "select"  => Future.successful(applySelect(rows, cfg))
       case other     => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
     }
   }
@@ -116,6 +117,12 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       }
       keyMap + (outputCol -> aggValue)
     }.toSeq
+  }
+
+  private def applySelect(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
+    val fields   = cfg.fields("fields").convertTo[Vector[String]]
+    val fieldSet = fields.toSet
+    rows.map(row => row.view.filterKeys(fieldSet.contains).toMap)
   }
 
   private def applyCast(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {

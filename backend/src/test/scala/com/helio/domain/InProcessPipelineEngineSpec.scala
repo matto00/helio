@@ -193,6 +193,33 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result.head("age") shouldBe 30
     }
 
+    // 3.1 — select op
+    "select: retains only specified fields" in {
+      val cfg  = """{ "fields": ["name", "dept"] }"""
+      val step = makeStep("select", cfg)
+      val result = run(sampleRows, step)
+      result should have size 3
+      result.head.keys should contain theSameElementsAs Seq("name", "dept")
+      result.head("name") shouldBe "alice"
+      result.head.keys should not contain "age"
+    }
+
+    "select: silently omits missing fields" in {
+      val cfg  = """{ "fields": ["name", "nonexistent"] }"""
+      val step = makeStep("select", cfg)
+      val result = run(sampleRows, step)
+      result.head.keys should contain ("name")
+      result.head.keys should not contain "nonexistent"
+    }
+
+    "select: returns empty maps when fields list is empty" in {
+      val cfg  = """{ "fields": [] }"""
+      val step = makeStep("select", cfg)
+      val result = run(sampleRows, step)
+      result should have size 3
+      result.head.keys shouldBe empty
+    }
+
     "unknown op fails with descriptive error" in {
       val step = makeStep("bogus", "{}")
       val fut  = engine.execute(sampleRows, Seq(step), null)

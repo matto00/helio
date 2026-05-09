@@ -43,8 +43,31 @@ export async function updatePipeline(id: string, name: string): Promise<Pipeline
   return response.data;
 }
 
-export async function runPipeline(pipelineId: string): Promise<{ runId: string }> {
-  const response = await httpClient.post<{ runId: string }>(`/api/pipelines/${pipelineId}/run`);
+export async function createPipelineStep(
+  pipelineId: string,
+  op: string,
+  config: string,
+): Promise<PipelineStep> {
+  const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
+    op,
+    config,
+  });
+  return response.data;
+}
+
+export async function updatePipelineStep(stepId: string, config: string): Promise<PipelineStep> {
+  const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
+    config,
+  });
+  return response.data;
+}
+
+export async function runPipeline(
+  pipelineId: string,
+): Promise<{ rowCount: number; rows: Record<string, unknown>[] }> {
+  const response = await httpClient.post<{ rowCount: number; rows: Record<string, unknown>[] }>(
+    `/api/pipelines/${pipelineId}/run`,
+  );
   return response.data;
 }
 

@@ -15,30 +15,33 @@ import { OverlayProvider } from "./OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
   runPipeline,
-  fetchRunStatus,
   fetchRunHistory,
   getPipelineById,
   getPipelineSteps,
   updatePipeline,
+  updatePipelineStep,
+  createPipelineStep,
 } from "../services/pipelineService";
-import type { PipelineRunRecord, PipelineSummary } from "../types/models";
+import type { PipelineRunRecord, PipelineStep, PipelineSummary } from "../types/models";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
   runPipeline: jest.fn(),
-  fetchRunStatus: jest.fn(),
   fetchRunHistory: jest.fn(),
   getPipelineById: jest.fn(),
   getPipelineSteps: jest.fn(),
   updatePipeline: jest.fn(),
+  updatePipelineStep: jest.fn(),
+  createPipelineStep: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
-const fetchRunStatusMock = jest.mocked(fetchRunStatus);
 const fetchRunHistoryMock = jest.mocked(fetchRunHistory);
 const getPipelineByIdMock = jest.mocked(getPipelineById);
 const getPipelineStepsMock = jest.mocked(getPipelineSteps);
 const updatePipelineMock = jest.mocked(updatePipeline);
+const updatePipelineStepMock = jest.mocked(updatePipelineStep);
+const createPipelineStepMock = jest.mocked(createPipelineStep);
 
 const defaultPipeline: PipelineSummary = {
   id: "pipe-1",
@@ -62,6 +65,7 @@ type PipelinesPreloadedState = {
   runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
   runError?: string | null;
   runHistory?: Record<string, PipelineRunRecord[]>;
+  runResult?: Record<string, unknown>[] | null;
   currentPipeline?: PipelineSummary | null;
   currentPipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
   currentPipelineError?: string | null;
@@ -105,6 +109,7 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         stepsError: {},
         updateStatus: pipelinesState.updateStatus ?? "idle",
         updateError: pipelinesState.updateError ?? null,
+        runResult: pipelinesState.runResult ?? null,
       },
     } as never,
   });
@@ -129,12 +134,29 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
 
 describe("PipelineDetailPage", () => {
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ runId: "test-run-id" });
-    fetchRunStatusMock.mockResolvedValue({ runId: "test-run-id", status: "succeeded", rows: [] });
+    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
     updatePipelineMock.mockResolvedValue(defaultPipeline);
+    updatePipelineStepMock.mockResolvedValue({
+      id: "step-1",
+      pipelineId: "pipe-1",
+      position: 0,
+      op: "select",
+      config: '{"fields":[]}',
+      createdAt: "",
+      updatedAt: "",
+    });
+    createPipelineStepMock.mockResolvedValue({
+      id: "step-uuid-new",
+      pipelineId: "pipe-1",
+      position: 0,
+      op: "select",
+      config: "{}",
+      createdAt: "",
+      updatedAt: "",
+    });
   });
 
   afterEach(() => {
@@ -491,6 +513,62 @@ describe("PipelineDetailPage Cancel confirmation", () => {
     expect(screen.queryByText("Pipelines List")).not.toBeInTheDocument();
     // Cancel button still visible (still on page)
     expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
+  });
+});
+
+// ── Select step config round-trip ─────────────────────────────────────────────
+
+describe("PipelineDetailPage select step config round-trip", () => {
+  const persistedSelectStep: PipelineStep = {
+    id: "step-uuid-1",
+    pipelineId: "pipe-1",
+    position: 0,
+    op: "select",
+    config: '{"fields":["id","name"]}',
+    createdAt: "",
+    updatedAt: "",
+  };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+    createPipelineStepMock.mockResolvedValue({
+      id: "step-uuid-new",
+      pipelineId: "pipe-1",
+      position: 0,
+      op: "select",
+      config: "{}",
+      createdAt: "",
+      updatedAt: "",
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("restores previously selected fields when a persisted select step is expanded", async () => {
+    getPipelineStepsMock.mockResolvedValue([persistedSelectStep]);
+    const store = makeStore([], {
+      runResult: [{ id: "1", name: "Alice", value: "42" }],
+    });
+    renderDetailPage("pipe-1", store);
+
+    // Wait for the persisted step to be loaded and rendered
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    // Expand the step card
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+
+    // Previously saved fields should be checked; unsaved field should not be
+    await waitFor(() => {
+      expect(screen.getByLabelText("id")).toBeChecked();
+      expect(screen.getByLabelText("name")).toBeChecked();
+      expect(screen.getByLabelText("value")).not.toBeChecked();
+    });
   });
 });
 

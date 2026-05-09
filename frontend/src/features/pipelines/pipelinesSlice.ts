@@ -37,6 +37,8 @@ interface PipelinesState {
   // Update operation
   updateStatus: "idle" | "loading" | "succeeded" | "failed";
   updateError: string | null;
+  // Last successful run output rows (used to derive available field names for select ops)
+  runResult: Record<string, unknown>[] | null;
 }
 
 const initialState: PipelinesState = {
@@ -57,6 +59,7 @@ const initialState: PipelinesState = {
   stepsError: {},
   updateStatus: "idle",
   updateError: null,
+  runResult: null,
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -107,7 +110,7 @@ export const updatePipeline = createAsyncThunk<
 });
 
 export const submitPipelineRun = createAsyncThunk<
-  { runId: string },
+  { rowCount: number; rows: Record<string, unknown>[] },
   string,
   { rejectValue: string }
 >("pipelines/submitPipelineRun", async (pipelineId, { rejectWithValue }) => {
@@ -151,11 +154,18 @@ const pipelinesSlice = createSlice({
       state.runId = null;
       state.runStatus = null;
       state.runError = null;
+      state.runResult = null;
     },
-    setRunStatus(state, action: { payload: { status: RunStatus; error?: string } }) {
+    setRunStatus(
+      state,
+      action: { payload: { status: RunStatus; error?: string; rows?: Record<string, unknown>[] } },
+    ) {
       state.runStatus = action.payload.status;
       if (action.payload.error !== undefined) {
         state.runError = action.payload.error;
+      }
+      if (action.payload.rows !== undefined) {
+        state.runResult = action.payload.rows;
       }
     },
   },
@@ -242,8 +252,9 @@ const pipelinesSlice = createSlice({
         state.runError = null;
       })
       .addCase(submitPipelineRun.fulfilled, (state, action) => {
-        state.runId = action.payload.runId;
-        state.runStatus = "queued";
+        state.runId = null;
+        state.runStatus = "succeeded";
+        state.runResult = action.payload.rows;
       })
       .addCase(submitPipelineRun.rejected, (state, action) => {
         state.runId = null;
