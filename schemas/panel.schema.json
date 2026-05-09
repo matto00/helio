@@ -61,5 +61,6 @@
       "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$comment": "dataSourceId is not a valid field. Panels bind to DataTypes (typeId), not DataSources directly. Any PATCH request including dataSourceId will be rejected with 400 due to additionalProperties: false."
 }

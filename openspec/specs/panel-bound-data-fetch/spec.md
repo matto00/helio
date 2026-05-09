@@ -1,91 +1,77 @@
 # panel-bound-data-fetch Specification
 
 ## Purpose
-Defines how bound panels fetch and display preview data from their backing data source on mount and on binding changes.
+Defines how bound panels fetch and display data from their backing DataType on mount and on binding changes. All panel data fetches go through `GET /api/panels/:id/query` (the paginated execute endpoint); the frontend does not call DataSource preview endpoints directly from panel rendering contexts.
 ## Requirements
-### Requirement: Bound panel fetches preview data on mount
-When a panel has a non-null `typeId`, the frontend SHALL fetch preview data from the DataType's backing source on component mount. The appropriate endpoint SHALL be selected based on `DataSource.sourceType`: `GET /api/data-sources/:id/preview` for CSV sources and `GET /api/sources/:id/preview` for REST API sources. For panels with `type === "chart"`, the CSV preview fetch SHALL include `?limit=200` to retrieve enough data points for a meaningful chart; all other panel types SHALL omit the limit parameter and receive the default 10-row preview.
+### Requirement: Bound panel fetches data through the execute endpoint on mount
+When a panel has a non-null `typeId`, the frontend SHALL dispatch `fetchPanelPage` which calls `GET /api/panels/:id/query` on component mount. The `pageSize` SHALL be `200` for chart panels, `50` for table panels, and `10` for all other panel types (e.g. metric). The DataSource is not accessed directly; the backend resolves `typeId → DataType → DataSource` internally.
 
-#### Scenario: CSV-backed panel triggers CSV preview fetch on mount
-- **WHEN** a panel with a non-null `typeId` is rendered and the DataType's source has
-  `sourceType: "csv"`
-- **THEN** `GET /api/data-sources/:sourceId/preview` is called once on mount
+#### Scenario: Metric panel dispatches fetchPanelPage with pageSize 10 on mount
+- **WHEN** a panel with `type: "metric"` and a non-null `typeId` is rendered
+- **THEN** `GET /api/panels/:id/query?page=0&pageSize=10` is called once on mount
 
-#### Scenario: REST API-backed panel triggers REST preview fetch on mount
-- **WHEN** a panel with a non-null `typeId` is rendered and the DataType's source has
-  `sourceType: "rest_api"`
-- **THEN** `GET /api/sources/:sourceId/preview` is called once on mount
+#### Scenario: Chart panel dispatches fetchPanelPage with pageSize 200 on mount
+- **WHEN** a panel with `type: "chart"` and a non-null `typeId` is rendered
+- **THEN** `GET /api/panels/:id/query?page=0&pageSize=200` is called once on mount
+
+#### Scenario: Table panel dispatches fetchPanelPage with pageSize 50 on mount
+- **WHEN** a panel with `type: "table"` and a non-null `typeId` is rendered
+- **THEN** `GET /api/panels/:id/query?page=0&pageSize=50` is called once on mount
 
 #### Scenario: Unbound panel does not fetch
 - **WHEN** a panel with `typeId: null` is rendered
-- **THEN** no preview fetch is made
-
-#### Scenario: Panel with no sourceId does not fetch
-- **WHEN** a panel's bound DataType has `sourceId: null`
-- **THEN** no preview fetch is made and the panel renders as unbound
-
-#### Scenario: Chart panel fetches CSV preview with limit=200
-- **WHEN** a panel with `type: "chart"` and a CSV-backed DataType is rendered
-- **THEN** `GET /api/data-sources/:sourceId/preview?limit=200` is called
-
-#### Scenario: Non-chart panel fetches CSV preview without limit
-- **WHEN** a panel with `type` other than `"chart"` (e.g. `"table"` or `"metric"`) and a
-  CSV-backed DataType is rendered
-- **THEN** `GET /api/data-sources/:sourceId/preview` is called without a `limit` parameter
+- **THEN** no execute fetch is made
 
 ### Requirement: Bound panel re-fetches when binding changes
-When a panel's `typeId` or `fieldMapping` changes, the frontend SHALL re-fetch preview data
-to reflect the updated binding.
+When a panel's `typeId` or `fieldMapping` changes, the frontend SHALL re-fetch data to reflect the updated binding.
 
 #### Scenario: Re-fetch on typeId change
 - **WHEN** a panel's `typeId` is updated (e.g., after saving the Data tab)
-- **THEN** the panel fetches fresh preview data for the new DataType
+- **THEN** the panel fetches fresh data for the new DataType via the execute endpoint
 
 ### Requirement: fieldMapping is applied to route fetched values to display slots
-After a successful fetch, the hook SHALL apply `fieldMapping` to extract per-slot display
-values from the first row of the preview response. The result SHALL be a
-`Record<string, string>` keyed by slot name (e.g., `value`, `label`, `unit` for metric
-panels).
+After a successful fetch, the hook SHALL apply `fieldMapping` to extract per-slot display values from the first row of the execute response. The result SHALL be a `Record<string, string>` keyed by slot name (e.g., `value`, `label`, `unit` for metric panels).
 
 #### Scenario: Metric panel maps value slot
-- **WHEN** preview data is fetched and `fieldMapping = { "value": "price" }`
+- **WHEN** execute data is fetched and `fieldMapping = { "value": "price" }`
 - **THEN** the mapped data object has `{ value: <row's price field> }`
 
 #### Scenario: Missing mapping slot yields empty string
 - **WHEN** a slot key is not present in `fieldMapping`
 - **THEN** the display value for that slot is an empty string
 
-#### Scenario: Preview returns zero rows yields no-data state
-- **WHEN** the preview endpoint returns an empty rows array
+#### Scenario: Execute returns zero rows yields no-data state
+- **WHEN** the execute endpoint returns an empty rows array
 - **THEN** the panel shows a "No data available" message and no error
 
 ### Requirement: Loading state is shown while data is in flight
-While a preview fetch is pending, the panel SHALL display a loading spinner in place of
-the panel body.
+While an execute fetch is pending, the panel SHALL display a loading spinner in place of the panel body.
 
 #### Scenario: Spinner shown during fetch
-- **WHEN** a bound panel is mounted and the preview fetch has not yet completed
+- **WHEN** a bound panel is mounted and the execute fetch has not yet completed
 - **THEN** a loading spinner is visible in the panel body
 
 ### Requirement: Error state is shown if the fetch fails
-If the preview fetch returns an error or the network request fails, the panel SHALL display
-a clear error message in the panel body.
+If the execute fetch returns an error or the network request fails, the panel SHALL display a clear error message in the panel body.
 
 #### Scenario: Error message on fetch failure
-- **WHEN** the preview fetch returns a non-2xx response or throws a network error
+- **WHEN** the execute fetch returns a non-2xx response or throws a network error
 - **THEN** an error message is displayed in the panel body (e.g., "Failed to load data")
 
 #### Scenario: Error state does not crash other panels
 - **WHEN** one panel's fetch fails
 - **THEN** other panels on the dashboard render normally
 
+### Requirement: DataSource is not directly accessible from panel rendering code
+The `sources` Redux slice SHALL NOT be read in panel rendering contexts. All data resolution from DataType to DataSource is handled server-side by the execute endpoint. Frontend panel components and hooks MUST NOT traverse `dataType.sourceId` to reach a DataSource.
+
+#### Scenario: Panel hook does not import or read sources slice
+- **WHEN** `usePanelData` is invoked
+- **THEN** it dispatches `fetchPanelPage` and reads from `panelsSlice.paginationState`; it does not access `sourcesSlice` state
+
 ### Requirement: Panel query endpoint is the canonical structured query representation
-The `GET /api/panels/:id/query` endpoint SHALL be the canonical way to express what data a panel needs
-from its backing DataType. The full DataType snapshot fetch (preview endpoints) remains for immediate
-UI display; the query endpoint is for the Spark execution layer and future integrations.
+The `GET /api/panels/:id/query` endpoint SHALL be the single data-fetch path for all bound panels. `PATCH /api/panels/:id` SHALL NOT accept a `dataSourceId` field; any such attempt SHALL be rejected with `400 Bad Request` (the schema uses `additionalProperties: false` and does not include `dataSourceId`).
 
-#### Scenario: Query endpoint coexists with preview endpoints
-- **WHEN** a panel has a non-null `typeId`
-- **THEN** both `GET /api/data-sources/:id/preview` (for UI preview) and `GET /api/panels/:id/query`
-  (for execution layer) are available and return independent representations
-
+#### Scenario: PATCH with dataSourceId is rejected
+- **WHEN** `PATCH /api/panels/:id` is called with a `dataSourceId` field
+- **THEN** the response is `400 Bad Request`

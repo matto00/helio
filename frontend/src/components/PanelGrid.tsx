@@ -179,14 +179,8 @@ interface PanelCardBodyProps {
 
 function PanelCardBody({ panel }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
-  const dataTypes = useAppSelector((state) => state.dataTypes.items);
-  const sources = useAppSelector((state) => state.sources);
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
-  const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(
-    panel,
-    dataTypes,
-    sources,
-  );
+  const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval, panel.typeId);
 
   const handleLoadMore = useCallback(() => {

@@ -4,20 +4,15 @@ import type { PropsWithChildren } from "react";
 import { createElement } from "react";
 import { Provider } from "react-redux";
 
-import { sourcesReducer } from "../features/sources/sourcesSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import { fetchSources } from "../features/sources/sourcesSlice";
-import * as dataSourceService from "../services/dataSourceService";
-import type { DataSource, DataType, Panel } from "../types/models";
+import { panelsReducer } from "../features/panels/panelsSlice";
+import * as panelService from "../services/panelService";
+import type { Panel } from "../types/models";
 import { usePanelData } from "./usePanelData";
 
-jest.mock("../services/dataSourceService");
+jest.mock("../services/panelService");
 
-const mockFetchCsvPreview = dataSourceService.fetchCsvPreview as jest.MockedFunction<
-  typeof dataSourceService.fetchCsvPreview
->;
-const mockFetchRestPreview = dataSourceService.fetchRestPreview as jest.MockedFunction<
-  typeof dataSourceService.fetchRestPreview
+const mockFetchPanelExecutePage = panelService.fetchPanelExecutePage as jest.MockedFunction<
+  typeof panelService.fetchPanelExecutePage
 >;
 
 const defaultMeta = {
@@ -48,62 +43,12 @@ function makePanel(overrides: Partial<Panel> = {}): Panel {
   } as Panel;
 }
 
-const csvSource: DataSource = {
-  id: "src-csv",
-  name: "CSV Source",
-  sourceType: "csv",
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-};
-
-const restSource: DataSource = {
-  id: "src-rest",
-  name: "REST Source",
-  sourceType: "rest_api",
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-};
-
-const csvDataType: DataType = {
-  id: "dt-csv",
-  name: "CSV Type",
-  sourceId: "src-csv",
-  version: 1,
-  fields: [],
-  computedFields: [],
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-};
-
-const restDataType: DataType = {
-  id: "dt-rest",
-  name: "REST Type",
-  sourceId: "src-rest",
-  version: 1,
-  fields: [],
-  computedFields: [],
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-};
-
-function makeStore(
-  sourcesStatus: "idle" | "loading" | "succeeded" | "failed" = "succeeded",
-  sourceItems: DataSource[] = [csvSource, restSource],
-) {
-  const store = configureStore({
+function makeStore() {
+  return configureStore({
     reducer: {
-      sources: sourcesReducer,
-      dataTypes: dataTypesReducer,
+      panels: panelsReducer,
     } as never,
   });
-
-  if (sourcesStatus === "succeeded") {
-    store.dispatch(fetchSources.fulfilled(sourceItems, "req", undefined));
-  } else if (sourcesStatus === "idle") {
-    // leave idle
-  }
-
-  return store;
 }
 
 function wrapper(store: ReturnType<typeof makeStore>) {
@@ -120,38 +65,85 @@ describe("usePanelData", () => {
   it("returns empty result for unbound panel (no typeId)", () => {
     const store = makeStore();
     const panel = makePanel({ typeId: null });
-    const { result } = renderHook(
-      () => usePanelData(panel, [], { items: [], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
     expect(result.current.isLoading).toBe(false);
     expect(result.current.data).toBeNull();
     expect(result.current.error).toBeNull();
     expect(result.current.noData).toBe(false);
-    expect(mockFetchCsvPreview).not.toHaveBeenCalled();
-    expect(mockFetchRestPreview).not.toHaveBeenCalled();
+    expect(mockFetchPanelExecutePage).not.toHaveBeenCalled();
   });
 
-  it("fetches CSV preview and maps fieldMapping for a CSV-bound panel", async () => {
-    mockFetchCsvPreview.mockResolvedValue({
-      headers: ["revenue", "region"],
-      rows: [["1000", "North"]],
+  it("dispatches fetchPanelPage with pageSize 10 for metric panel", async () => {
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 10,
+      hasMore: false,
+      columns: ["revenue", "region"],
+      rows: [{ revenue: "1000", region: "North" }],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({ type: "metric", typeId: "dt-1", fieldMapping: { value: "revenue" } });
+
+    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 10));
+  });
+
+  it("dispatches fetchPanelPage with pageSize 200 for chart panel", async () => {
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 200,
+      hasMore: false,
+      columns: ["x", "y"],
+      rows: [{ x: "1", y: "100" }],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({ type: "chart", typeId: "dt-1", fieldMapping: { x: "x", y: "y" } });
+
+    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 200));
+  });
+
+  it("dispatches fetchPanelPage with pageSize 50 for table panel", async () => {
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 50,
+      hasMore: false,
+      columns: [],
+      rows: [],
+    });
+
+    const store = makeStore();
+    const panel = makePanel({ type: "table", typeId: "dt-1", fieldMapping: {} });
+
+    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 50));
+  });
+
+  it("maps fieldMapping from paginationEntry rows", async () => {
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 10,
+      hasMore: false,
+      columns: ["revenue", "region"],
+      rows: [{ revenue: "1000", region: "North" }],
     });
 
     const store = makeStore();
     const panel = makePanel({
-      typeId: "dt-csv",
+      type: "metric",
+      typeId: "dt-1",
       fieldMapping: { value: "revenue", label: "region" },
     });
 
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", undefined);
     expect(result.current.data).toEqual({ value: "1000", label: "North" });
     expect(result.current.rawRows).toEqual([["1000", "North"]]);
     expect(result.current.headers).toEqual(["revenue", "region"]);
@@ -159,40 +151,19 @@ describe("usePanelData", () => {
     expect(result.current.noData).toBe(false);
   });
 
-  it("fetches REST preview and maps fieldMapping for a REST-bound panel", async () => {
-    mockFetchRestPreview.mockResolvedValue({
-      rows: [{ revenue: 2500, region: "South" }],
+  it("sets noData when execute page returns empty rows", async () => {
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 10,
+      hasMore: false,
+      columns: [],
+      rows: [],
     });
 
     const store = makeStore();
-    const panel = makePanel({
-      typeId: "dt-rest",
-      fieldMapping: { value: "revenue", label: "region" },
-    });
+    const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
 
-    const { result } = renderHook(
-      () => usePanelData(panel, [restDataType], { items: [restSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(mockFetchRestPreview).toHaveBeenCalledWith("src-rest");
-    expect(result.current.data).toEqual({ value: "2500", label: "South" });
-    expect(result.current.error).toBeNull();
-    expect(result.current.noData).toBe(false);
-  });
-
-  it("sets noData when preview returns empty rows", async () => {
-    mockFetchCsvPreview.mockResolvedValue({ headers: [], rows: [] });
-
-    const store = makeStore();
-    const panel = makePanel({ typeId: "dt-csv", fieldMapping: { value: "revenue" } });
-
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -200,73 +171,50 @@ describe("usePanelData", () => {
     expect(result.current.data).toBeNull();
   });
 
-  it("sets error when fetch throws", async () => {
-    mockFetchCsvPreview.mockRejectedValue(new Error("Network error"));
+  it("sets error when fetchPanelPage fails", async () => {
+    mockFetchPanelExecutePage.mockRejectedValue(new Error("Network error"));
 
     const store = makeStore();
-    const panel = makePanel({ typeId: "dt-csv", fieldMapping: { value: "revenue" } });
+    const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
 
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.error).toBe("Failed to load data.");
+    await waitFor(() => expect(result.current.error).toBe("Failed to load data."));
     expect(result.current.data).toBeNull();
-  });
-
-  it("dispatches fetchSources when sources status is idle and panel is bound", () => {
-    const store = makeStore("idle");
-    const dispatchSpy = jest.spyOn(store, "dispatch");
-
-    const panel = makePanel({ typeId: "dt-csv", fieldMapping: { value: "revenue" } });
-
-    renderHook(() => usePanelData(panel, [csvDataType], { items: [], status: "idle" }), {
-      wrapper: wrapper(store),
-    });
-
-    expect(dispatchSpy).toHaveBeenCalled();
   });
 
   it("exposes a refresh callback that is a function", () => {
     const store = makeStore();
     const panel = makePanel({ typeId: null });
-    const { result } = renderHook(
-      () => usePanelData(panel, [], { items: [], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
     expect(typeof result.current.refresh).toBe("function");
   });
 
   it("refresh callback triggers a re-fetch for a bound panel", async () => {
-    mockFetchCsvPreview.mockResolvedValue({
-      headers: ["revenue", "region"],
-      rows: [["1000", "North"]],
+    mockFetchPanelExecutePage.mockResolvedValue({
+      page: 0,
+      pageSize: 10,
+      hasMore: false,
+      columns: ["revenue", "region"],
+      rows: [{ revenue: "1000", region: "North" }],
     });
 
     const store = makeStore();
     const panel = makePanel({
-      typeId: "dt-csv",
+      typeId: "dt-1",
       fieldMapping: { value: "revenue", label: "region" },
     });
 
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(mockFetchCsvPreview).toHaveBeenCalledTimes(1);
+    expect(mockFetchPanelExecutePage).toHaveBeenCalledTimes(1);
 
-    // Calling refresh() should trigger another fetch
     act(() => {
       result.current.refresh();
     });
 
-    // Wait for the second fetch to complete and data to be populated
-    await waitFor(() => expect(mockFetchCsvPreview).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual({ value: "1000", label: "North" });
   });
@@ -274,62 +222,12 @@ describe("usePanelData", () => {
   it("refresh callback is stable across re-renders", () => {
     const store = makeStore();
     const panel = makePanel({ typeId: null });
-    const { result, rerender } = renderHook(
-      () => usePanelData(panel, [], { items: [], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
+    const { result, rerender } = renderHook(() => usePanelData(panel), {
+      wrapper: wrapper(store),
+    });
 
     const firstRefresh = result.current.refresh;
     rerender();
     expect(result.current.refresh).toBe(firstRefresh);
-  });
-
-  it("fetches CSV preview with limit=200 for chart panels", async () => {
-    mockFetchCsvPreview.mockResolvedValue({
-      headers: ["x", "y"],
-      rows: [
-        ["1", "100"],
-        ["2", "200"],
-      ],
-    });
-
-    const store = makeStore();
-    const panel = makePanel({
-      type: "chart",
-      typeId: "dt-csv",
-      fieldMapping: { x: "x", y: "y" },
-    });
-
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", 200);
-  });
-
-  it("fetches CSV preview without limit for non-chart panels", async () => {
-    mockFetchCsvPreview.mockResolvedValue({
-      headers: ["revenue"],
-      rows: [["1000"]],
-    });
-
-    const store = makeStore();
-    const panel = makePanel({
-      type: "metric",
-      typeId: "dt-csv",
-      fieldMapping: { value: "revenue" },
-    });
-
-    const { result } = renderHook(
-      () => usePanelData(panel, [csvDataType], { items: [csvSource], status: "succeeded" }),
-      { wrapper: wrapper(store) },
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(mockFetchCsvPreview).toHaveBeenCalledWith("src-csv", undefined);
   });
 });
