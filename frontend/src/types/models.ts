@@ -307,3 +307,13 @@ export interface PipelineRunRecord {
   rowCount: number | null;
   errorLog: string | null;
 }
+
+export interface PipelineStep {
+  id: string;
+  pipelineId: string;
+  position: number;
+  op: string;
+  config: string;
+  createdAt: string;
+  updatedAt: string;
+}

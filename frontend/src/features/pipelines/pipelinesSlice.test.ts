@@ -1,23 +1,33 @@
 import {
   createPipeline,
+  fetchPipelineById,
   fetchPipelines,
   fetchPipelineRunHistory,
+  fetchPipelineSteps,
   pipelinesReducer,
   submitPipelineRun,
+  updatePipeline,
 } from "./pipelinesSlice";
 import * as pipelineService from "../../services/pipelineService";
+import type { PipelineStep, PipelineSummary } from "../../types/models";
 
 jest.mock("../../services/pipelineService", () => ({
   getPipelines: jest.fn(),
   createPipeline: jest.fn(),
   runPipeline: jest.fn(),
   fetchRunHistory: jest.fn(),
+  getPipelineById: jest.fn(),
+  getPipelineSteps: jest.fn(),
+  updatePipeline: jest.fn(),
 }));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
 const runPipelineMock = jest.mocked(pipelineService.runPipeline);
 const fetchRunHistoryMock = jest.mocked(pipelineService.fetchRunHistory);
+const getPipelineByIdMock = jest.mocked(pipelineService.getPipelineById);
+const getPipelineStepsMock = jest.mocked(pipelineService.getPipelineSteps);
+const updatePipelineMock = jest.mocked(pipelineService.updatePipeline);
 
 const testPipeline = {
   id: "p-1",
@@ -75,6 +85,14 @@ describe("pipelinesSlice", () => {
       runStatus: null,
       runError: null,
       runHistory: {},
+      currentPipeline: null,
+      currentPipelineStatus: "idle" as const,
+      currentPipelineError: null,
+      steps: {},
+      stepsStatus: {},
+      stepsError: {},
+      updateStatus: "idle" as const,
+      updateError: null,
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
@@ -363,6 +381,249 @@ describe("createPipeline thunk", () => {
     const calls = dispatch.mock.calls as Array<[{ type: string }]>;
     const rejectedCall = calls.find(
       ([action]) => action.type === "pipelines/createPipeline/rejected",
+    );
+    expect(rejectedCall).toBeDefined();
+  });
+});
+
+// ── Task 4.1 — fetchPipelineById thunk ───────────────────────────────────────
+
+const samplePipelineSummary: PipelineSummary = {
+  id: "p-1",
+  name: "Sales Pipeline",
+  sourceDataSourceName: "Sales API",
+  outputDataTypeName: "SalesMetrics",
+  lastRunStatus: null,
+  lastRunAt: null,
+};
+
+describe("fetchPipelineById reducer", () => {
+  it("sets currentPipelineStatus to loading on pending", () => {
+    const nextState = pipelinesReducer(undefined, fetchPipelineById.pending("req-1", "p-1"));
+    expect(nextState.currentPipelineStatus).toBe("loading");
+    expect(nextState.currentPipelineError).toBeNull();
+  });
+
+  it("sets currentPipeline on fulfilled", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineById.fulfilled(samplePipelineSummary, "req-1", "p-1"),
+    );
+    expect(nextState.currentPipelineStatus).toBe("succeeded");
+    expect(nextState.currentPipeline).toEqual(samplePipelineSummary);
+    expect(nextState.currentPipelineError).toBeNull();
+  });
+
+  it("sets currentPipelineStatus to failed on rejected", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineById.rejected(null, "req-1", "p-1", "Failed to load pipeline."),
+    );
+    expect(nextState.currentPipelineStatus).toBe("failed");
+    expect(nextState.currentPipelineError).toBe("Failed to load pipeline.");
+  });
+});
+
+describe("fetchPipelineById thunk", () => {
+  beforeEach(() => {
+    getPipelineByIdMock.mockReset();
+  });
+
+  it("dispatches fulfilled with pipeline summary on success", async () => {
+    getPipelineByIdMock.mockResolvedValueOnce(samplePipelineSummary);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineById("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineById/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual(samplePipelineSummary);
+  });
+
+  it("dispatches rejected on service error", async () => {
+    getPipelineByIdMock.mockRejectedValueOnce(new Error("not found"));
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineById("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineById/rejected",
+    );
+    expect(rejectedCall).toBeDefined();
+  });
+});
+
+// ── Task 4.2 — fetchPipelineSteps thunk ─────────────────────────────────────
+
+const sampleStep: PipelineStep = {
+  id: "step-1",
+  pipelineId: "p-1",
+  position: 0,
+  op: "filter",
+  config: "{}",
+  createdAt: "2026-05-01T10:00:00Z",
+  updatedAt: "2026-05-01T10:00:00Z",
+};
+
+describe("fetchPipelineSteps reducer", () => {
+  it("sets stepsStatus to loading on pending", () => {
+    const nextState = pipelinesReducer(undefined, fetchPipelineSteps.pending("req-1", "p-1"));
+    expect(nextState.stepsStatus["p-1"]).toBe("loading");
+    expect(nextState.stepsError["p-1"]).toBeNull();
+  });
+
+  it("stores steps keyed by pipelineId on fulfilled", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineSteps.fulfilled({ pipelineId: "p-1", steps: [sampleStep] }, "req-1", "p-1"),
+    );
+    expect(nextState.stepsStatus["p-1"]).toBe("succeeded");
+    expect(nextState.steps["p-1"]).toHaveLength(1);
+    expect(nextState.steps["p-1"][0].id).toBe("step-1");
+  });
+
+  it("stores empty steps array on fulfilled with empty response", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineSteps.fulfilled({ pipelineId: "p-1", steps: [] }, "req-1", "p-1"),
+    );
+    expect(nextState.steps["p-1"]).toEqual([]);
+    expect(nextState.stepsError["p-1"]).toBeNull();
+  });
+
+  it("sets stepsStatus to failed on rejected", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineSteps.rejected(null, "req-1", "p-1", "Failed to load pipeline steps."),
+    );
+    expect(nextState.stepsStatus["p-1"]).toBe("failed");
+    expect(nextState.stepsError["p-1"]).toBe("Failed to load pipeline steps.");
+  });
+});
+
+describe("fetchPipelineSteps thunk", () => {
+  beforeEach(() => {
+    getPipelineStepsMock.mockReset();
+  });
+
+  it("dispatches fulfilled with steps on success", async () => {
+    getPipelineStepsMock.mockResolvedValueOnce([sampleStep]);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineSteps("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSteps/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", steps: [sampleStep] });
+  });
+
+  it("dispatches fulfilled with empty array when no steps", async () => {
+    getPipelineStepsMock.mockResolvedValueOnce([]);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = fetchPipelineSteps("p-1");
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSteps/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", steps: [] });
+  });
+});
+
+// ── Task 4.3 — updatePipeline thunk ─────────────────────────────────────────
+
+const updatedPipeline: PipelineSummary = { ...samplePipelineSummary, name: "Renamed Pipeline" };
+
+describe("updatePipeline reducer", () => {
+  it("sets updateStatus to loading on pending", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      updatePipeline.pending("req-1", { id: "p-1", name: "Renamed Pipeline" }),
+    );
+    expect(nextState.updateStatus).toBe("loading");
+    expect(nextState.updateError).toBeNull();
+  });
+
+  it("updates currentPipeline and sets updateStatus to succeeded on fulfilled", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      updatePipeline.fulfilled(updatedPipeline, "req-1", { id: "p-1", name: "Renamed Pipeline" }),
+    );
+    expect(nextState.updateStatus).toBe("succeeded");
+    expect(nextState.currentPipeline).toEqual(updatedPipeline);
+    expect(nextState.updateError).toBeNull();
+  });
+
+  it("sets updateStatus to failed and updateError on rejected", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      updatePipeline.rejected(
+        null,
+        "req-1",
+        { id: "p-1", name: "Renamed Pipeline" },
+        "Failed to update pipeline.",
+      ),
+    );
+    expect(nextState.updateStatus).toBe("failed");
+    expect(nextState.updateError).toBe("Failed to update pipeline.");
+  });
+});
+
+describe("updatePipeline thunk", () => {
+  beforeEach(() => {
+    updatePipelineMock.mockReset();
+  });
+
+  it("dispatches fulfilled with updated pipeline on success", async () => {
+    updatePipelineMock.mockResolvedValueOnce(updatedPipeline);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = updatePipeline({ id: "p-1", name: "Renamed Pipeline" });
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/updatePipeline/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual(updatedPipeline);
+  });
+
+  it("dispatches rejected on service error", async () => {
+    updatePipelineMock.mockRejectedValueOnce(new Error("server error"));
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = updatePipeline({ id: "p-1", name: "Renamed Pipeline" });
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/updatePipeline/rejected",
     );
     expect(rejectedCall).toBeDefined();
   });

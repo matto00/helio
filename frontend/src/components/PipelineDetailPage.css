@@ -586,3 +586,69 @@
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
 }
+
+/* ── Loading / error overlay ────────────────────────────────────────────────── */
+
+.pipeline-detail-page__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  font-size: 0.9rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #f87171;
+  font-size: 0.9rem;
+}
+
+/* ── Save / Cancel actions ──────────────────────────────────────────────────── */
+
+.pipeline-detail-page__save-btn,
+.pipeline-detail-page__cancel-btn {
+  padding: 6px 14px;
+  border-radius: var(--app-radius-md);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+
+.pipeline-detail-page__save-btn {
+  background: var(--app-accent);
+  color: #fff;
+}
+
+.pipeline-detail-page__save-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.pipeline-detail-page__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipeline-detail-page__cancel-btn {
+  background: var(--app-surface-raised, rgba(148, 163, 184, 0.12));
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__cancel-btn:hover {
+  background: var(--app-surface-raised, rgba(148, 163, 184, 0.2));
+  color: var(--app-text-primary);
+}
+
+/* ── Update error ───────────────────────────────────────────────────────────── */
+
+.pipeline-detail-page__update-error {
+  font-size: 0.78rem;
+  color: #f87171;
+  margin-right: 8px;
+}

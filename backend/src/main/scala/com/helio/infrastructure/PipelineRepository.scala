@@ -38,6 +38,40 @@ class PipelineRepository(
       )
     }
 
+  /** Returns the joined summary for a single pipeline by id, or None if not found. */
+  def findSummaryById(id: String): Future[Option[PipelineSummary]] = {
+    val query = for {
+      pipeline   <- pipelinesTable if pipeline.id === id
+      dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
+      dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
+    } yield (pipeline, dataSource.name, dataType.name)
+
+    db.run(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
+      PipelineSummary(
+        id                   = p.id,
+        name                 = p.name,
+        sourceDataSourceName = srcName,
+        outputDataTypeName   = dtName,
+        lastRunStatus        = p.lastRunStatus,
+        lastRunAt            = p.lastRunAt.map(_.toString)
+      )
+    })
+  }
+
+  /** Updates the pipeline name and returns the updated summary, or None if not found. */
+  def updateName(id: String, name: String): Future[Option[PipelineSummary]] = {
+    val now = Instant.now()
+    db.run(
+      pipelinesTable
+        .filter(_.id === id)
+        .map(r => (r.name, r.updatedAt))
+        .update((name, now))
+    ).flatMap {
+      case 0 => Future.successful(None)
+      case _ => findSummaryById(id)
+    }
+  }
+
   def create(
       name: String,
       sourceDataSourceId: String,

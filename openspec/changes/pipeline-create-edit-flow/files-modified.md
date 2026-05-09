@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — Added `findSummaryById` (joined summary for a single pipeline) and `updateName` (name update returning summary) methods
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Added `UpdatePipelineRequest` case class and its JSON format
+- `backend/src/main/scala/com/helio/api/routes/PipelineRoutes.scala` — Added `GET /pipelines/:id` (200/404) and `PATCH /pipelines/:id` (200/400/404) routes inside the existing `pathPrefix("pipelines")` block
+- `frontend/src/types/models.ts` — Added `PipelineStep` interface for pipeline step API responses
+- `frontend/src/services/pipelineService.ts` — Added `getPipelineById`, `getPipelineSteps`, and `updatePipeline` service functions
+- `frontend/src/features/pipelines/pipelinesSlice.ts` — Extended state with `currentPipeline`, `currentPipelineStatus/Error`, `steps`, `stepsStatus/Error`, `updateStatus/Error`; added `fetchPipelineById`, `fetchPipelineSteps`, `updatePipeline` thunks; wired all three into `extraReducers`
+- `frontend/src/components/PipelineDetailPage.tsx` — Wired Redux fetch thunks on mount; implemented loading/error guards; initialized `outputName` from `currentPipeline.name`; added `isDirty` tracking; added Save/Cancel buttons (shown only when dirty); implemented `handleSave` (PATCH + navigate), `handleCancel` (confirm prompt), `beforeunload` guard; added `useNavigate`
+- `frontend/src/features/pipelines/pipelinesSlice.test.ts` — Added unit tests for `fetchPipelineById`, `fetchPipelineSteps`, and `updatePipeline` thunks (reducer and thunk cases); 4.1–4.3
+- `frontend/src/components/PipelineDetailPage.test.tsx` — Rewired mock to include new service functions; updated `makeStore` with new pipeline state fields; added tests for loading state, error state, dirty-state detection, Cancel confirmation, and `beforeunload`; 4.4–4.8
+- `openspec/changes/pipeline-create-edit-flow/tasks.md` — Marked all 32 tasks complete
