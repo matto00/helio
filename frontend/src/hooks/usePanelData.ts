@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
-import { fetchSources } from "../features/sources/sourcesSlice";
 import { fetchPanelPage } from "../features/panels/panelsSlice";
-import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
-import type { DataSource, DataType, MappedPanelData, Panel } from "../types/models";
-import { useAppDispatch } from "./reduxHooks";
-
-interface SourcesSlice {
-  items: DataSource[];
-  status: "idle" | "loading" | "succeeded" | "failed";
-}
+import type { MappedPanelData, Panel } from "../types/models";
+import { useAppDispatch, useAppSelector } from "./reduxHooks";
+import { useEffect } from "react";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -22,22 +16,18 @@ export interface PanelDataResult {
   refresh: () => void;
 }
 
-export function usePanelData(
-  panel: Panel,
-  dataTypes: DataType[],
-  sources: SourcesSlice,
-): PanelDataResult {
+export function usePanelData(panel: Panel): PanelDataResult {
   const dispatch = useAppDispatch();
-  const [data, setData] = useState<MappedPanelData | null>(null);
-  const [rawRows, setRawRows] = useState<string[][] | null>(null);
-  const [headers, setHeaders] = useState<string[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [noData, setNoData] = useState(false);
+  const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
 
   const fieldMappingKey = panel.fieldMapping ? JSON.stringify(panel.fieldMapping) : null;
+  const currentFetchKey = panel.typeId
+    ? panel.id + "|" + panel.typeId + "|" + (fieldMappingKey ?? "")
+    : null;
+
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [errorForKey, setErrorForKey] = useState<{ key: string; message: string } | null>(null);
 
   /**
    * Reset the fetch-deduplication key and trigger a re-render so the data
@@ -49,108 +39,61 @@ export function usePanelData(
   }, []);
 
   useEffect(() => {
-    if (!panel.typeId) {
-      setData(null);
-      setRawRows(null);
-      setHeaders(null);
-      setIsLoading(false);
-      setError(null);
-      setNoData(false);
+    if (!currentFetchKey) {
       return;
     }
 
-    const dataType = dataTypes.find((dt) => dt.id === panel.typeId);
-    if (!dataType || !dataType.sourceId) {
+    if (prevFetchKey.current === currentFetchKey) {
       return;
     }
+    prevFetchKey.current = currentFetchKey;
 
-    if (sources.status === "idle") {
-      dispatch(fetchSources());
-      return;
-    }
+    const pageSize = panel.type === "chart" ? 200 : panel.type === "table" ? 50 : 10;
+    const keyAtDispatch = currentFetchKey;
 
-    if (sources.status === "loading") {
-      setIsLoading(true);
-      return;
-    }
+    void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize }))
+      .unwrap()
+      .catch(() => {
+        setErrorForKey({ key: keyAtDispatch, message: "Failed to load data." });
+      });
+  }, [currentFetchKey, panel.id, panel.type, dispatch, refreshToken]);
 
-    const source = sources.items.find((s) => s.id === dataType.sourceId);
-    if (!source) {
-      return;
-    }
+  if (!currentFetchKey) {
+    return {
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      noData: false,
+      refresh,
+    };
+  }
 
-    const fetchKey = panel.typeId + "|" + (dataType.sourceId ?? "") + "|" + (fieldMappingKey ?? "");
-    if (prevFetchKey.current === fetchKey) {
-      return;
-    }
-    prevFetchKey.current = fetchKey;
+  const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
+  const rows = paginationEntry?.rows ?? [];
+  const isLoading = paginationEntry?.isLoadingMore === true && rows.length === 0;
+  const noData =
+    paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
 
-    setIsLoading(true);
-    setError(null);
-    setNoData(false);
-    setData(null);
-    setRawRows(null);
-    setHeaders(null);
+  let data: MappedPanelData | null = null;
+  let rawRows: string[][] | null = null;
+  let headers: string[] | null = null;
 
+  if (rows.length > 0) {
+    headers = Object.keys(rows[0]).map(String);
+    rawRows = rows.map((row) =>
+      Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
+    );
     const fieldMapping = panel.fieldMapping ?? {};
-
-    async function fetchData() {
-      try {
-        // Task 3.6 — table panels use the paginated execute endpoint
-        if (panel.type === "table" && panel.typeId) {
-          void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize: 50 }));
-          setIsLoading(false);
-          return;
-        }
-
-        if (source!.sourceType === "csv" || source!.sourceType === "static") {
-          const limit = panel.type === "chart" ? 200 : undefined;
-          const preview = await fetchCsvPreview(source!.id, limit);
-          if (preview.rows.length === 0) {
-            setNoData(true);
-          } else {
-            const firstRow = preview.rows[0];
-            const mapped: MappedPanelData = {};
-            for (const [slot, field] of Object.entries(fieldMapping)) {
-              const colIndex = preview.headers.indexOf(field);
-              if (colIndex !== -1) {
-                mapped[slot] = firstRow[colIndex] ?? "";
-              }
-            }
-            setData(mapped);
-            setRawRows(preview.rows);
-            setHeaders(preview.headers);
-          }
-        } else {
-          const preview = await fetchRestPreview(source!.id);
-          if (preview.rows.length === 0) {
-            setNoData(true);
-          } else {
-            const firstRow = preview.rows[0];
-            const mapped: MappedPanelData = {};
-            for (const [slot, field] of Object.entries(fieldMapping)) {
-              const value = firstRow[field];
-              mapped[slot] = value !== undefined && value !== null ? String(value) : "";
-            }
-            setData(mapped);
-            const stringRows = preview.rows.map((row) =>
-              Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
-            );
-            const hdrs = preview.rows.length > 0 ? Object.keys(preview.rows[0]).map(String) : [];
-            setRawRows(stringRows);
-            setHeaders(hdrs);
-          }
-        }
-      } catch {
-        setError("Failed to load data.");
-      } finally {
-        setIsLoading(false);
-      }
+    const firstRow = rows[0];
+    const mapped: MappedPanelData = {};
+    for (const [slot, field] of Object.entries(fieldMapping)) {
+      const value = firstRow[field];
+      mapped[slot] = value !== undefined && value !== null ? String(value) : "";
     }
-
-    void fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fieldMappingKey is a stable JSON serialisation of panel.fieldMapping; refreshToken drives manual re-fetches
-  }, [panel.typeId, fieldMappingKey, dataTypes, sources, dispatch, refreshToken]);
+    data = mapped;
+  }
 
   return { data, rawRows, headers, isLoading, error, noData, refresh };
 }

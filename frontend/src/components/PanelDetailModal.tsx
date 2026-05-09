@@ -77,12 +77,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
 
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
-  const sources = useAppSelector((state) => state.sources);
-  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(
-    panel,
-    dataTypes,
-    sources,
-  );
+  const { data, rawRows, headers, isLoading, error, noData } = usePanelData(panel);
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");

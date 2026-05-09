@@ -1,8 +1,5 @@
-# panel-bound-data-fetch Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines how bound panels fetch and display data from their backing DataType on mount and on binding changes. All panel data fetches go through `GET /api/panels/:id/query` (the paginated execute endpoint); the frontend does not call DataSource preview endpoints directly from panel rendering contexts.
-## Requirements
 ### Requirement: Bound panel fetches data through the execute endpoint on mount
 When a panel has a non-null `typeId`, the frontend SHALL dispatch `fetchPanelPage` which calls
 `GET /api/panels/:id/query` on component mount. The `pageSize` SHALL be `200` for chart panels,
@@ -88,4 +85,3 @@ include `dataSourceId`).
 #### Scenario: PATCH with dataSourceId is rejected
 - **WHEN** `PATCH /api/panels/:id` is called with a `dataSourceId` field
 - **THEN** the response is `400 Bad Request`
-
