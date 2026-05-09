@@ -275,6 +275,10 @@ final case class PipelineRunRecord(
 
 final case class PanelExecuteResponse(rows: Vector[spray.json.JsObject])
 
+// ── Pipeline run result types ─────────────────────────────────────────────────
+
+final case class RunResultResponse(rows: Vector[spray.json.JsObject], rowCount: Int)
+
 // ── Static connector API types ────────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -756,6 +760,9 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
 
   // Panel execute API format
   implicit val panelExecuteResponseFormat: RootJsonFormat[PanelExecuteResponse] = jsonFormat1(PanelExecuteResponse.apply)
+  // Pipeline run result format
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat2(RunResultResponse.apply)
+
   // Paginated query result format
   implicit val paginatedQueryResultFormat: RootJsonFormat[PaginatedQueryResult] =
     new RootJsonFormat[PaginatedQueryResult] {
