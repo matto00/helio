@@ -40,10 +40,12 @@ import type { DashboardLayout, Panel } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { PanelContent } from "./PanelContent";
+import { useLegacyBoundPanel } from "../hooks/useLegacyBoundPanel";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { PanelLegacyWarning } from "./PanelLegacyWarning";
 import { useSaveState } from "../context/SaveStateContext";
 import "./PanelGrid.css";
 
@@ -182,6 +184,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval, panel.typeId);
+  const isLegacyBound = useLegacyBoundPanel(panel);
 
   const handleLoadMore = useCallback(() => {
     if (paginationEntry && !paginationEntry.isLoadingMore) {
@@ -203,27 +206,30 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
     paginationEntry.rows.length === 0;
 
   return (
-    <PanelContent
-      type={panel.type}
-      appearance={panel.appearance}
-      data={data}
-      rawRows={rawRows}
-      headers={headers}
-      fieldMapping={panel.fieldMapping}
-      isLoading={panel.type === "table" ? tableIsLoading : isLoading}
-      error={error}
-      noData={noData}
-      content={panel.content}
-      imageUrl={panel.imageUrl}
-      imageFit={panel.imageFit}
-      dividerOrientation={panel.dividerOrientation}
-      dividerWeight={panel.dividerWeight}
-      dividerColor={panel.dividerColor}
-      paginationRows={paginationEntry?.rows ?? null}
-      paginationHasMore={paginationEntry?.hasMore ?? false}
-      paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
-      onLoadMore={handleLoadMore}
-    />
+    <>
+      {isLegacyBound && <PanelLegacyWarning />}
+      <PanelContent
+        type={panel.type}
+        appearance={panel.appearance}
+        data={data}
+        rawRows={rawRows}
+        headers={headers}
+        fieldMapping={panel.fieldMapping}
+        isLoading={panel.type === "table" ? tableIsLoading : isLoading}
+        error={error}
+        noData={noData}
+        content={panel.content}
+        imageUrl={panel.imageUrl}
+        imageFit={panel.imageFit}
+        dividerOrientation={panel.dividerOrientation}
+        dividerWeight={panel.dividerWeight}
+        dividerColor={panel.dividerColor}
+        paginationRows={paginationEntry?.rows ?? null}
+        paginationHasMore={paginationEntry?.hasMore ?? false}
+        paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
+        onLoadMore={handleLoadMore}
+      />
+    </>
   );
 }
 
