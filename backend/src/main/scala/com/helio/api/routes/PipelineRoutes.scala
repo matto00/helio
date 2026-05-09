@@ -3,14 +3,28 @@ package com.helio.api.routes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{CreatePipelineRequest, ErrorResponse, JsonProtocols, PipelineSummaryResponse, UpdatePipelineRequest}
-import com.helio.domain.AuthenticatedUser
-import com.helio.infrastructure.PipelineRepository
+import com.helio.api.{
+  AnalyzeStepResponse,
+  CreatePipelineRequest,
+  ErrorResponse,
+  JsonProtocols,
+  PipelineAnalyzeResponse,
+  PipelineSummaryResponse,
+  SchemaFieldResponse,
+  UpdatePipelineRequest
+}
+import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineAnalyzeService, SchemaField}
+import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
-class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(implicit ec: ExecutionContext)
+class PipelineRoutes(
+    pipelineRepo:    PipelineRepository,
+    pipelineStepRepo: PipelineStepRepository,
+    dataTypeRepo:    DataTypeRepository,
+    user:            AuthenticatedUser
+)(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
   val routes: Route =
@@ -74,6 +88,70 @@ class PipelineRoutes(pipelineRepo: PipelineRepository, user: AuthenticatedUser)(
             }
           )
         },
+        // ── GET /pipelines/:id/analyze ──────────────────────────────────────
+        path(Segment / "analyze") { pipelineId =>
+          get {
+            val summaryF  = pipelineRepo.findSummaryById(pipelineId)
+            val pipelineF = pipelineRepo.findById(pipelineId)
+            val stepsF    = pipelineStepRepo.listByPipeline(pipelineId)
+
+            onComplete(for {
+              summary  <- summaryF
+              pipeline <- pipelineF
+              steps    <- stepsF
+            } yield (summary, pipeline, steps)) {
+              case Success((Some(summary), Some(pipeline), steps)) =>
+                onComplete(dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id)) {
+                  case Success(sourceDataTypes) =>
+                    val sourceSchema: Vector[SchemaField] =
+                      sourceDataTypes.headOption.toVector
+                        .flatMap(_.fields)
+                        .map(f => SchemaField(f.name, f.dataType))
+
+                    val stepInputs = steps.map(s =>
+                      PipelineAnalyzeService.PipelineStepInput(s.id, s.position, s.op, s.config)
+                    )
+
+                    val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
+
+                    def toFieldResponse(sf: SchemaField): SchemaFieldResponse =
+                      SchemaFieldResponse(sf.name, sf.`type`)
+
+                    complete(
+                      StatusCodes.OK,
+                      PipelineAnalyzeResponse(
+                        id                   = summary.id,
+                        name                 = summary.name,
+                        sourceDataSourceName = summary.sourceDataSourceName,
+                        outputDataTypeName   = summary.outputDataTypeName,
+                        outputDataTypeId     = summary.outputDataTypeId,
+                        sourceSchema         = sourceSchema.map(toFieldResponse),
+                        steps                = analyzed.map { s =>
+                          AnalyzeStepResponse(
+                            id              = s.id,
+                            position        = s.position,
+                            op              = s.op,
+                            config          = s.config,
+                            inputSchema     = s.inputSchema.map(toFieldResponse),
+                            outputSchema    = s.outputSchema.map(toFieldResponse),
+                            validationError = s.validationError
+                          )
+                        }
+                      )
+                    )
+                  case Failure(ex) =>
+                    complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                }
+
+              case Success((None, _, _)) | Success((_, None, _)) =>
+                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+
+              case Failure(ex) =>
+                complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+            }
+          }
+        },
+        // ── GET/PATCH /pipelines/:id ────────────────────────────────────────
         path(Segment) { pipelineId =>
           concat(
             get {

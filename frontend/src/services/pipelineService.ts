@@ -1,5 +1,6 @@
 import type {
   Pipeline,
+  PipelineAnalyzeResponse,
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
@@ -84,6 +85,13 @@ export async function fetchRunStatus(
 export async function fetchRunHistory(pipelineId: string): Promise<PipelineRunRecord[]> {
   const response = await httpClient.get<PipelineRunRecord[]>(
     `/api/pipelines/${pipelineId}/run-history`,
+  );
+  return response.data;
+}
+
+export async function analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
+  const response = await httpClient.get<PipelineAnalyzeResponse>(
+    `/api/pipelines/${pipelineId}/analyze`,
   );
   return response.data;
 }

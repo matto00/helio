@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 describe("SelectFieldsConfig", () => {
-  // 3.3 — renders checklist from run result
-  it("renders a checklist of column names when run result is available", () => {
+  // 4.3 — renders checklist from columns prop (from analyze response)
+  it("renders a checklist of column names when columns are provided", () => {
     render(
       <SelectFieldsConfig
         columns={["id", "name", "value"]}
@@ -25,14 +25,23 @@ describe("SelectFieldsConfig", () => {
     expect((valueCheckbox as HTMLInputElement).checked).toBe(false);
   });
 
-  // 3.3 — renders prompt when no run result
-  it("renders prompt when no run result is available (columns is empty)", () => {
+  // 4.3 — renders empty checklist (not prompt) when columns is empty
+  it("renders an empty list (not a run-pipeline prompt) when columns is empty", () => {
     render(<SelectFieldsConfig columns={[]} selectedFields={[]} onToggle={jest.fn()} />);
 
-    expect(screen.getByText(/Run the pipeline to preview available fields/i)).toBeInTheDocument();
+    // No prompt text
+    expect(
+      screen.queryByText(/Run the pipeline to preview available fields/i),
+    ).not.toBeInTheDocument();
+
+    // No checkboxes
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    // An empty list element is still rendered (empty <ul>)
+    expect(screen.getByRole("list")).toBeInTheDocument();
   });
 
+  // 4.3 — toggling an unchecked checkbox calls onToggle with (field, true)
   it("calls onToggle with field name and true when an unchecked box is clicked", () => {
     const onToggle = jest.fn();
     render(
@@ -45,6 +54,7 @@ describe("SelectFieldsConfig", () => {
     expect(onToggle).toHaveBeenCalledWith("name", true);
   });
 
+  // 4.3 — toggling a checked checkbox calls onToggle with (field, false)
   it("calls onToggle with field name and false when a checked box is clicked", () => {
     const onToggle = jest.fn();
     render(

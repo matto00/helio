@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipeline-analyze-response.schema.json",
+  "title": "PipelineAnalyzeResponse",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "sourceDataSourceName",
+    "outputDataTypeName",
+    "outputDataTypeId",
+    "sourceSchema",
+    "steps"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceDataSourceName": {
+      "type": "string"
+    },
+    "outputDataTypeName": {
+      "type": "string"
+    },
+    "outputDataTypeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceSchema": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SchemaField" }
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AnalyzeStep" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "SchemaField": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "AnalyzeStep": {
+      "type": "object",
+      "required": ["id", "position", "op", "config", "inputSchema", "outputSchema"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "type": "integer", "minimum": 0 },
+        "op": { "type": "string" },
+        "config": { "type": "string" },
+        "inputSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "outputSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "validationError": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

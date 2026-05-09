@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import "./PipelineDetailPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import {
+  analyzePipeline,
   clearRunState,
   fetchPipelineById,
   fetchPipelineRunHistory,
@@ -13,7 +14,12 @@ import {
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
-import type { DataSource, PipelineRunRecord, PipelineStep } from "../types/models";
+import type {
+  AnalyzeStepResult,
+  DataSource,
+  PipelineRunRecord,
+  PipelineStep,
+} from "../types/models";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 // ── Op types ────────────────────────────────────────────────────────────────
@@ -175,13 +181,13 @@ function parseSelectedFields(config: string, opTypeId: string): string[] {
 interface StepCardProps {
   step: Step;
   onRemove: (id: string) => void;
-  /** Column names derived from the last pipeline run result — used by SelectFieldsConfig. */
-  runColumns: string[];
+  /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig. */
+  analyzeColumns: string[];
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: string) => void;
 }
 
-function StepCard({ step, onRemove, runColumns, onConfigChange }: StepCardProps) {
+function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   // Derived state: sync selectedFields when config or opType changes (during-render pattern).
@@ -238,7 +244,7 @@ function StepCard({ step, onRemove, runColumns, onConfigChange }: StepCardProps)
         <div className="pipeline-detail-page__step-card-body">
           {step.opType.id === "select" ? (
             <SelectFieldsConfig
-              columns={runColumns}
+              columns={analyzeColumns}
               selectedFields={selectedFields}
               onToggle={handleFieldToggle}
             />
@@ -444,7 +450,6 @@ export function PipelineDetailPage() {
     runStatus,
     runError,
     runHistory,
-    runResult,
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
@@ -453,8 +458,11 @@ export function PipelineDetailPage() {
     steps: reduxSteps,
   } = useAppSelector((state) => state.pipelines);
 
-  // Derive column names from the last run's output rows for SelectFieldsConfig.
-  const runColumns: string[] = runResult && runResult.length > 0 ? Object.keys(runResult[0]) : [];
+  // Per-pipeline analyze result (schema-inferred fields per step).
+  const analyzeResult = useAppSelector((state) =>
+    id ? (state.pipelines.analyzeResult?.[id] ?? null) : null,
+  );
+
   const runs = id ? (runHistory[id] ?? []) : [];
   const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
 
@@ -492,6 +500,7 @@ export function PipelineDetailPage() {
     lastFetchedIdRef.current = id;
     void dispatch(fetchPipelineById(id));
     void dispatch(fetchPipelineSteps(id));
+    void dispatch(analyzePipeline(id));
   }, [dispatch, id, currentPipelineStatus, currentPipelineId]);
 
   // ── Sources ──
@@ -514,6 +523,17 @@ export function PipelineDetailPage() {
       dispatch(clearRunState());
     };
   }, [dispatch, id]);
+
+  // ── Per-step analyze columns ──
+  // Build a map from step.id → inputSchema field names so each StepCard can
+  // receive the correct columns without re-running the analyze logic in the UI.
+  function getAnalyzeColumns(stepId: string): string[] {
+    if (!analyzeResult) return [];
+    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
+      (s) => s.id === stepId,
+    );
+    return analyzeStep ? analyzeStep.inputSchema.map((f) => f.name) : [];
+  }
 
   // ── Dirty-state tracking ──
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
@@ -659,7 +679,7 @@ export function PipelineDetailPage() {
                   <StepCard
                     step={step}
                     onRemove={handleRemoveStep}
-                    runColumns={runColumns}
+                    analyzeColumns={getAnalyzeColumns(step.id)}
                     onConfigChange={handleStepConfigChange}
                   />
                   {idx < steps.length - 1 && <RibbonSegment />}

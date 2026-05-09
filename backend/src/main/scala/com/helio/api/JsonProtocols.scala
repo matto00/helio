@@ -221,6 +221,30 @@ final case class PreviewSourceResponse(
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
+// ── Pipeline analyze API types ────────────────────────────────────────────────
+
+final case class SchemaFieldResponse(name: String, `type`: String)
+
+final case class AnalyzeStepResponse(
+    id:              String,
+    position:        Int,
+    op:              String,
+    config:          String,
+    inputSchema:     Vector[SchemaFieldResponse],
+    outputSchema:    Vector[SchemaFieldResponse],
+    validationError: Option[String]
+)
+
+final case class PipelineAnalyzeResponse(
+    id:                   String,
+    name:                 String,
+    sourceDataSourceName: String,
+    outputDataTypeName:   String,
+    outputDataTypeId:     String,
+    sourceSchema:         Vector[SchemaFieldResponse],
+    steps:                Vector[AnalyzeStepResponse]
+)
+
 // ── Pipeline API types ────────────────────────────────────────────────────────
 
 final case class CreatePipelineRequest(name: String, sourceDataSourceId: String, outputDataTypeName: String)
@@ -725,6 +749,11 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat12(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
+
+  // Pipeline analyze API formats
+  implicit val schemaFieldResponseFormat: RootJsonFormat[SchemaFieldResponse]     = jsonFormat2(SchemaFieldResponse.apply)
+  implicit val analyzeStepResponseFormat: RootJsonFormat[AnalyzeStepResponse]     = jsonFormat7(AnalyzeStepResponse.apply)
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat7(PipelineAnalyzeResponse.apply)
 
   // Pipeline API formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = jsonFormat3(CreatePipelineRequest.apply)
