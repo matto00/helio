@@ -318,3 +318,30 @@ export interface PipelineStep {
   createdAt: string;
   updatedAt: string;
 }
+
+// ── Pipeline analyze types ────────────────────────────────────────────────────
+
+export interface SchemaField {
+  name: string;
+  type: string;
+}
+
+export interface AnalyzeStepResult {
+  id: string;
+  position: number;
+  op: string;
+  config: string;
+  inputSchema: SchemaField[];
+  outputSchema: SchemaField[];
+  validationError?: string;
+}
+
+export interface PipelineAnalyzeResponse {
+  id: string;
+  name: string;
+  sourceDataSourceName: string;
+  outputDataTypeName: string;
+  outputDataTypeId: string;
+  sourceSchema: SchemaField[];
+  steps: AnalyzeStepResult[];
+}

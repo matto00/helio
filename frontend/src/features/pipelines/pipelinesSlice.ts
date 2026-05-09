@@ -8,8 +8,10 @@ import {
   getPipelineById,
   getPipelineSteps,
   updatePipeline as updatePipelineRequest,
+  analyzePipeline as analyzePipelineRequest,
 } from "../../services/pipelineService";
 import type {
+  PipelineAnalyzeResponse,
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
@@ -39,6 +41,10 @@ interface PipelinesState {
   updateError: string | null;
   // Last successful run output rows (used to derive available field names for select ops)
   runResult: Record<string, unknown>[] | null;
+  // Per-pipeline schema inference results from GET /api/pipelines/:id/analyze
+  analyzeResult: Record<string, PipelineAnalyzeResponse>;
+  analyzeStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  analyzeError: Record<string, string | null>;
 }
 
 const initialState: PipelinesState = {
@@ -60,6 +66,9 @@ const initialState: PipelinesState = {
   updateStatus: "idle",
   updateError: null,
   runResult: null,
+  analyzeResult: {},
+  analyzeStatus: {},
+  analyzeError: {},
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -143,6 +152,19 @@ export const createPipeline = createAsyncThunk<
     return await createPipelineRequest(payload);
   } catch {
     return rejectWithValue("Failed to create pipeline.");
+  }
+});
+
+export const analyzePipeline = createAsyncThunk<
+  { pipelineId: string; result: PipelineAnalyzeResponse },
+  string,
+  { rejectValue: string }
+>("pipelines/analyzePipeline", async (pipelineId, { rejectWithValue }) => {
+  try {
+    const result = await analyzePipelineRequest(pipelineId);
+    return { pipelineId, result };
+  } catch {
+    return rejectWithValue("Failed to analyze pipeline.");
   }
 });
 
@@ -264,6 +286,23 @@ const pipelinesSlice = createSlice({
       // fetchPipelineRunHistory
       .addCase(fetchPipelineRunHistory.fulfilled, (state, action) => {
         state.runHistory[action.payload.pipelineId] = action.payload.records;
+      })
+      // analyzePipeline
+      .addCase(analyzePipeline.pending, (state, action) => {
+        const pid = action.meta.arg;
+        state.analyzeStatus[pid] = "loading";
+        state.analyzeError[pid] = null;
+      })
+      .addCase(analyzePipeline.fulfilled, (state, action) => {
+        const { pipelineId, result } = action.payload;
+        state.analyzeResult[pipelineId] = result;
+        state.analyzeStatus[pipelineId] = "succeeded";
+        state.analyzeError[pipelineId] = null;
+      })
+      .addCase(analyzePipeline.rejected, (state, action) => {
+        const pid = action.meta.arg;
+        state.analyzeStatus[pid] = "failed";
+        state.analyzeError[pid] = action.payload ?? "Failed to analyze pipeline.";
       });
   },
 });

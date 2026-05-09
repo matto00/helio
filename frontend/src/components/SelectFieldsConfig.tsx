@@ -1,9 +1,9 @@
 // SelectFieldsConfig — checklist of field names for the "select" pipeline op.
-// Renders a checklist when column names are available from the last run result.
-// Falls back to an informational prompt when no run has been executed yet.
+// Renders a checklist from the per-step inputSchema provided by the analyze endpoint.
+// Renders an empty checklist when columns is empty (source has no schema yet).
 
 interface SelectFieldsConfigProps {
-  /** Column names derived from the previous step's last run output. Empty = no run yet. */
+  /** Column names derived from the step's inputSchema (from the analyze response). */
   columns: string[];
   /** Currently selected field names (from the step's persisted config). */
   selectedFields: string[];
@@ -14,9 +14,11 @@ interface SelectFieldsConfigProps {
 export function SelectFieldsConfig({ columns, selectedFields, onToggle }: SelectFieldsConfigProps) {
   if (columns.length === 0) {
     return (
-      <p className="pipeline-detail-page__select-fields-prompt">
-        Run the pipeline to preview available fields.
-      </p>
+      <ul
+        className="pipeline-detail-page__select-fields-list"
+        role="list"
+        aria-label="Available fields"
+      />
     );
   }
 

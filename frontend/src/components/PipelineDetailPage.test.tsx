@@ -21,8 +21,14 @@ import {
   updatePipeline,
   updatePipelineStep,
   createPipelineStep,
+  analyzePipeline,
 } from "../services/pipelineService";
-import type { PipelineRunRecord, PipelineStep, PipelineSummary } from "../types/models";
+import type {
+  PipelineAnalyzeResponse,
+  PipelineRunRecord,
+  PipelineStep,
+  PipelineSummary,
+} from "../types/models";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -33,6 +39,7 @@ jest.mock("../services/pipelineService", () => ({
   updatePipeline: jest.fn(),
   updatePipelineStep: jest.fn(),
   createPipelineStep: jest.fn(),
+  analyzePipeline: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -42,6 +49,17 @@ const getPipelineStepsMock = jest.mocked(getPipelineSteps);
 const updatePipelineMock = jest.mocked(updatePipeline);
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 const createPipelineStepMock = jest.mocked(createPipelineStep);
+const analyzePipelineMock = jest.mocked(analyzePipeline);
+
+const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
+  id: "pipe-1",
+  name: "Test Pipeline",
+  sourceDataSourceName: "Test Source",
+  outputDataTypeName: "TestType",
+  outputDataTypeId: "dt-1",
+  sourceSchema: [],
+  steps: [],
+};
 
 const defaultPipeline: PipelineSummary = {
   id: "pipe-1",
@@ -110,6 +128,9 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         updateStatus: pipelinesState.updateStatus ?? "idle",
         updateError: pipelinesState.updateError ?? null,
         runResult: pipelinesState.runResult ?? null,
+        analyzeResult: {},
+        analyzeStatus: {},
+        analyzeError: {},
       },
     } as never,
   });
@@ -138,6 +159,7 @@ describe("PipelineDetailPage", () => {
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
     updatePipelineMock.mockResolvedValue(defaultPipeline);
     updatePipelineStepMock.mockResolvedValue({
       id: "step-1",
@@ -542,6 +564,38 @@ describe("PipelineDetailPage select step config round-trip", () => {
       createdAt: "",
       updatedAt: "",
     });
+    // Analyze response provides inputSchema for the step so SelectFieldsConfig
+    // renders the correct checklist without needing a run-result.
+    analyzePipelineMock.mockResolvedValue({
+      id: "pipe-1",
+      name: "Test Pipeline",
+      sourceDataSourceName: "Test Source",
+      outputDataTypeName: "TestType",
+      outputDataTypeId: "dt-1",
+      sourceSchema: [
+        { name: "id", type: "string" },
+        { name: "name", type: "string" },
+        { name: "value", type: "string" },
+      ],
+      steps: [
+        {
+          id: "step-uuid-1",
+          position: 0,
+          op: "select",
+          config: '{"fields":["id","name"]}',
+          inputSchema: [
+            { name: "id", type: "string" },
+            { name: "name", type: "string" },
+            { name: "value", type: "string" },
+          ],
+          outputSchema: [
+            { name: "id", type: "string" },
+            { name: "name", type: "string" },
+          ],
+          validationError: undefined,
+        },
+      ],
+    });
   });
 
   afterEach(() => {
@@ -550,9 +604,7 @@ describe("PipelineDetailPage select step config round-trip", () => {
 
   it("restores previously selected fields when a persisted select step is expanded", async () => {
     getPipelineStepsMock.mockResolvedValue([persistedSelectStep]);
-    const store = makeStore([], {
-      runResult: [{ id: "1", name: "Alice", value: "42" }],
-    });
+    const store = makeStore([], {});
     renderDetailPage("pipe-1", store);
 
     // Wait for the persisted step to be loaded and rendered
