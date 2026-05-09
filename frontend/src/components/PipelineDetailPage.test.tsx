@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render } from "@testing-library/react";
 import { Provider } from "react-redux";
@@ -14,24 +14,40 @@ import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { OverlayProvider } from "./OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
-  fetchPipelines,
   runPipeline,
   fetchRunStatus,
   fetchRunHistory,
+  getPipelineById,
+  getPipelineSteps,
+  updatePipeline,
 } from "../services/pipelineService";
-import type { PipelineRunRecord } from "../types/models";
+import type { PipelineRunRecord, PipelineSummary } from "../types/models";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
   runPipeline: jest.fn(),
   fetchRunStatus: jest.fn(),
   fetchRunHistory: jest.fn(),
+  getPipelineById: jest.fn(),
+  getPipelineSteps: jest.fn(),
+  updatePipeline: jest.fn(),
 }));
 
-const fetchPipelinesMock = jest.mocked(fetchPipelines);
 const runPipelineMock = jest.mocked(runPipeline);
 const fetchRunStatusMock = jest.mocked(fetchRunStatus);
 const fetchRunHistoryMock = jest.mocked(fetchRunHistory);
+const getPipelineByIdMock = jest.mocked(getPipelineById);
+const getPipelineStepsMock = jest.mocked(getPipelineSteps);
+const updatePipelineMock = jest.mocked(updatePipeline);
+
+const defaultPipeline: PipelineSummary = {
+  id: "pipe-1",
+  name: "Test Pipeline",
+  sourceDataSourceName: "Test Source",
+  outputDataTypeName: "TestType",
+  lastRunStatus: null,
+  lastRunAt: null,
+};
 
 type SourceItem = {
   id: string;
@@ -46,6 +62,11 @@ type PipelinesPreloadedState = {
   runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
   runError?: string | null;
   runHistory?: Record<string, PipelineRunRecord[]>;
+  currentPipeline?: PipelineSummary | null;
+  currentPipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
+  currentPipelineError?: string | null;
+  updateStatus?: "idle" | "loading" | "succeeded" | "failed";
+  updateError?: string | null;
 };
 
 function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPreloadedState = {}) {
@@ -75,6 +96,15 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         runStatus: pipelinesState.runStatus ?? null,
         runError: pipelinesState.runError ?? null,
         runHistory: pipelinesState.runHistory ?? {},
+        currentPipeline:
+          "currentPipeline" in pipelinesState ? pipelinesState.currentPipeline : defaultPipeline,
+        currentPipelineStatus: pipelinesState.currentPipelineStatus ?? "succeeded",
+        currentPipelineError: pipelinesState.currentPipelineError ?? null,
+        steps: {},
+        stepsStatus: {},
+        stepsError: {},
+        updateStatus: pipelinesState.updateStatus ?? "idle",
+        updateError: pipelinesState.updateError ?? null,
       },
     } as never,
   });
@@ -88,6 +118,7 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
           <OverlayProvider>
             <Routes>
               <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+              <Route path="/pipelines" element={<div>Pipelines List</div>} />
             </Routes>
           </OverlayProvider>
         </Provider>
@@ -98,10 +129,12 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
 
 describe("PipelineDetailPage", () => {
   beforeEach(() => {
-    fetchPipelinesMock.mockResolvedValue([]);
     runPipelineMock.mockResolvedValue({ runId: "test-run-id" });
     fetchRunStatusMock.mockResolvedValue({ runId: "test-run-id", status: "succeeded", rows: [] });
     fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
   });
 
   afterEach(() => {
@@ -161,10 +194,18 @@ describe("PipelineDetailPage", () => {
   });
 
   it("output name field is editable — input appears on click", async () => {
-    fetchPipelinesMock.mockResolvedValue([{ id: "pipe-1", name: "My Pipeline" }]);
-    renderDetailPage("pipe-1");
-
-    await waitFor(() => expect(fetchPipelinesMock).toHaveBeenCalled());
+    const store = makeStore([], {
+      currentPipeline: {
+        id: "pipe-1",
+        name: "My Pipeline",
+        sourceDataSourceName: "Source",
+        outputDataTypeName: "Type",
+        lastRunStatus: null,
+        lastRunAt: null,
+      },
+      currentPipelineStatus: "succeeded",
+    });
+    renderDetailPage("pipe-1", store);
 
     const outputNameBtn = await screen.findByRole("button", { name: "Edit output name" });
     fireEvent.click(outputNameBtn);
@@ -259,5 +300,246 @@ describe("PipelineDetailPage", () => {
     await waitFor(() => {
       expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
     });
+  });
+});
+
+// ── Task 4.4 — loading state ─────────────────────────────────────────────────
+
+describe("PipelineDetailPage loading state", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    // Never-resolving promise keeps the component in "loading" state
+    getPipelineByIdMock.mockReturnValue(new Promise<never>(() => {}));
+    getPipelineStepsMock.mockReturnValue(new Promise<never>(() => {}));
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows loading indicator while currentPipelineStatus is loading", () => {
+    // currentPipeline: null → conditional dispatch fires → pending sets "loading"
+    const store = makeStore([], {
+      currentPipelineStatus: "idle",
+      currentPipeline: null,
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Loading pipeline")).toBeInTheDocument();
+  });
+
+  it("does not render pipeline content while loading", () => {
+    const store = makeStore([], {
+      currentPipelineStatus: "idle",
+      currentPipeline: null,
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.queryByText("Run pipeline ▶")).not.toBeInTheDocument();
+  });
+});
+
+// ── Task 4.5 — error state ───────────────────────────────────────────────────
+
+describe("PipelineDetailPage error state", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows error message when currentPipelineStatus is failed", () => {
+    // currentPipeline: null + status "failed" → fetch effect skips (guards on "failed"),
+    // and the "failed" guard in render returns the error element immediately.
+    const store = makeStore([], {
+      currentPipelineStatus: "failed",
+      currentPipelineError: "Failed to load pipeline.",
+      currentPipeline: null,
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText("Failed to load pipeline.")).toBeInTheDocument();
+  });
+
+  it("does not render pipeline editor on failure", () => {
+    const store = makeStore([], {
+      currentPipelineStatus: "failed",
+      currentPipelineError: "Something went wrong",
+      currentPipeline: null,
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.queryByText("Run pipeline ▶")).not.toBeInTheDocument();
+  });
+});
+
+// ── Task 4.6 — dirty-state detection ─────────────────────────────────────────
+
+describe("PipelineDetailPage dirty-state detection", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("Save and Cancel buttons are not visible when name matches original", async () => {
+    renderDetailPage("pipe-1");
+    // Wait for the component to settle after effects
+    await act(async () => {});
+    expect(screen.queryByLabelText("Save pipeline")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Cancel changes")).not.toBeInTheDocument();
+  });
+
+  it("Save and Cancel appear when output name is edited to differ from loaded name", async () => {
+    renderDetailPage("pipe-1");
+    await act(async () => {});
+
+    // Click the output name button to enter edit mode
+    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    fireEvent.click(editBtn);
+
+    // Change the name
+    const input = screen.getByRole("textbox", { name: "Output name" });
+    fireEvent.change(input, { target: { value: "Changed Name" } });
+    fireEvent.blur(input);
+
+    // Save and Cancel should now appear
+    await waitFor(() => {
+      expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument();
+      expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
+    });
+  });
+
+  it("Save and Cancel disappear when name is restored to original", async () => {
+    renderDetailPage("pipe-1");
+    await act(async () => {});
+
+    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    fireEvent.click(editBtn);
+
+    const input = screen.getByRole("textbox", { name: "Output name" });
+    fireEvent.change(input, { target: { value: "Changed Name" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument());
+
+    // Restore original name
+    const editBtn2 = screen.getByRole("button", { name: "Edit output name" });
+    fireEvent.click(editBtn2);
+    const input2 = screen.getByRole("textbox", { name: "Output name" });
+    fireEvent.change(input2, { target: { value: defaultPipeline.name } });
+    fireEvent.blur(input2);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Save pipeline")).not.toBeInTheDocument();
+    });
+  });
+});
+
+// ── Task 4.7 — Cancel confirmation flow ─────────────────────────────────────
+
+describe("PipelineDetailPage Cancel confirmation", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+  });
+
+  async function makeDirty() {
+    await act(async () => {});
+    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    fireEvent.click(editBtn);
+    const input = screen.getByRole("textbox", { name: "Output name" });
+    fireEvent.change(input, { target: { value: "Dirty Name" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument());
+  }
+
+  it("navigates to /pipelines when user confirms cancel prompt", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    renderDetailPage("pipe-1");
+    await makeDirty();
+
+    fireEvent.click(screen.getByLabelText("Cancel changes"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Pipelines List")).toBeInTheDocument();
+    });
+    expect(window.confirm).toHaveBeenCalled();
+  });
+
+  it("stays on page when user dismisses cancel prompt", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(false);
+    renderDetailPage("pipe-1");
+    await makeDirty();
+
+    fireEvent.click(screen.getByLabelText("Cancel changes"));
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.queryByText("Pipelines List")).not.toBeInTheDocument();
+    // Cancel button still visible (still on page)
+    expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
+  });
+});
+
+// ── Task 4.8 — beforeunload registration and cleanup ─────────────────────────
+
+describe("PipelineDetailPage beforeunload", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sets returnValue on beforeunload event when form is dirty", async () => {
+    renderDetailPage("pipe-1");
+    await act(async () => {});
+
+    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    fireEvent.click(editBtn);
+    const input = screen.getByRole("textbox", { name: "Output name" });
+    fireEvent.change(input, { target: { value: "Dirty Value" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument());
+
+    const event = new Event("beforeunload") as BeforeUnloadEvent;
+    Object.defineProperty(event, "returnValue", { writable: true, value: "" });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    expect(event.returnValue).toBe("");
+  });
+
+  it("does not set returnValue on beforeunload when form is clean", async () => {
+    renderDetailPage("pipe-1");
+    await act(async () => {});
+
+    const event = new Event("beforeunload") as BeforeUnloadEvent;
+    Object.defineProperty(event, "returnValue", { writable: true, value: "original" });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    // returnValue should not be changed since the form is clean
+    expect(event.returnValue).toBe("original");
   });
 });

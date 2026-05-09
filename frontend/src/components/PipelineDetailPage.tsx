@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import "./PipelineDetailPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import {
   clearRunState,
+  fetchPipelineById,
   fetchPipelineRunHistory,
+  fetchPipelineSteps,
   setRunStatus,
   submitPipelineRun,
+  updatePipeline,
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { fetchPipelines, fetchRunStatus } from "../services/pipelineService";
-import type { DataSource, Pipeline, PipelineRunRecord, RunStatus } from "../types/models";
+import { fetchRunStatus } from "../services/pipelineService";
+import type { DataSource, PipelineRunRecord, RunStatus } from "../types/models";
 
 // ── Op types ────────────────────────────────────────────────────────────────
 
@@ -371,16 +374,53 @@ const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set(["succeeded", "failed"
 export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
-  const { runId, runStatus, runError, runHistory } = useAppSelector((state) => state.pipelines);
+  const {
+    runId,
+    runStatus,
+    runError,
+    runHistory,
+    currentPipeline,
+    currentPipelineStatus,
+    currentPipelineError,
+    updateStatus,
+    updateError,
+  } = useAppSelector((state) => state.pipelines);
   const runs = id ? (runHistory[id] ?? []) : [];
 
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [dropdownOpenAt, setDropdownOpenAt] = useState<"bottom" | null>(null);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
+  // Track which pipeline id the outputName was last initialized from
+  const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
 
+  // ── Derived-state initialization (React recommended pattern) ──
+  // Sync outputName whenever a different pipeline becomes current.
+  if (currentPipeline && currentPipeline.id !== outputNamePipelineId) {
+    setOutputNamePipelineId(currentPipeline.id);
+    setOutputName(currentPipeline.name);
+  }
+
+  // 3.1 Fetch pipeline and steps on mount / id change.
+  // Use a ref to prevent re-dispatching for the same id (avoids loops).
+  // Skip when already in a failed/loading terminal state.
+  const lastFetchedIdRef = useRef<string | null>(null);
+  const currentPipelineId = currentPipeline?.id;
+  useEffect(() => {
+    if (!id) return;
+    // Do not auto-retry a failed fetch
+    if (currentPipelineStatus === "failed" || currentPipelineStatus === "loading") return;
+    // Already dispatched for this exact pipeline id in this render cycle
+    if (lastFetchedIdRef.current === id) return;
+    lastFetchedIdRef.current = id;
+    void dispatch(fetchPipelineById(id));
+    void dispatch(fetchPipelineSteps(id));
+  }, [dispatch, id, currentPipelineStatus, currentPipelineId]);
+
+  // ── Sources ──
   useEffect(() => {
     if (sourcesStatus === "idle") {
       void dispatch(fetchSources());
@@ -393,20 +433,6 @@ export function PipelineDetailPage() {
       void dispatch(fetchPipelineRunHistory(id));
     }
   }, [dispatch, id]);
-
-  useEffect(() => {
-    fetchPipelines()
-      .then((items) => {
-        const found = items.find((p) => p.id === id);
-        if (found) {
-          setPipeline(found);
-          setOutputName(found.name);
-        }
-      })
-      .catch(() => {
-        // degrade gracefully — show id as name
-      });
-  }, [id]);
 
   // Clear run state when navigating to a different pipeline
   useEffect(() => {
@@ -438,8 +464,23 @@ export function PipelineDetailPage() {
     return () => clearInterval(intervalId);
   }, [runId, id, runStatus, dispatch]);
 
-  const pipelineName = pipeline?.name ?? id ?? "Pipeline";
+  // ── Dirty-state tracking ──
+  const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
 
+  // ── beforeunload guard ──
+  useEffect(() => {
+    if (!isDirty) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
+
+  // ── Handlers ──
   function handleAddStep(opType: OpType) {
     setSteps((prev) => [...prev, makeStep(opType)]);
   }
@@ -451,6 +492,50 @@ export function PipelineDetailPage() {
   function handleRunPipeline() {
     if (!id) return;
     void dispatch(submitPipelineRun(id));
+  }
+
+  async function handleSave() {
+    if (!id) return;
+    try {
+      await dispatch(updatePipeline({ id, name: outputName })).unwrap();
+      void navigate("/pipelines");
+    } catch {
+      // updateError is shown via Redux state
+    }
+  }
+
+  function handleCancel() {
+    if (isDirty) {
+      if (window.confirm("You have unsaved changes. Discard them?")) {
+        void navigate("/pipelines");
+      }
+    } else {
+      void navigate("/pipelines");
+    }
+  }
+
+  // ── Loading / Error guards ──
+  // Show error if we have a known error and no pipeline data yet.
+  // This takes priority over loading so a re-fetch does not hide the error.
+  if (currentPipeline === null && currentPipelineError !== null) {
+    return (
+      <div className="pipeline-detail-page">
+        <div className="pipeline-detail-page__error" role="alert">
+          {currentPipelineError}
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading when we have no pipeline data yet
+  if (currentPipeline === null) {
+    return (
+      <div className="pipeline-detail-page">
+        <div className="pipeline-detail-page__loading" aria-label="Loading pipeline">
+          Loading…
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -560,6 +645,36 @@ export function PipelineDetailPage() {
               {runStatus === "succeeded" && "Succeeded"}
               {runStatus === "failed" && `Failed${runError ? `: ${runError}` : ""}`}
             </span>
+          )}
+          {isDirty && (
+            <>
+              {updateError && (
+                <span
+                  className="pipeline-detail-page__update-error"
+                  role="alert"
+                  aria-label="Save error"
+                >
+                  {updateError}
+                </span>
+              )}
+              <button
+                type="button"
+                className="pipeline-detail-page__save-btn"
+                onClick={() => void handleSave()}
+                disabled={updateStatus === "loading"}
+                aria-label="Save pipeline"
+              >
+                {updateStatus === "loading" ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                className="pipeline-detail-page__cancel-btn"
+                onClick={handleCancel}
+                aria-label="Cancel changes"
+              >
+                Cancel
+              </button>
+            </>
           )}
           <button type="button" className="pipeline-detail-page__preview-btn">
             Preview

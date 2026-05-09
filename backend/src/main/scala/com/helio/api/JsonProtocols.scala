@@ -225,6 +225,8 @@ final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
 final case class CreatePipelineRequest(name: String, sourceDataSourceId: String, outputDataTypeName: String)
 
+final case class UpdatePipelineRequest(name: String)
+
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
@@ -725,6 +727,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
 
   // Pipeline API formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = jsonFormat3(CreatePipelineRequest.apply)
+  implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest] = jsonFormat1(UpdatePipelineRequest.apply)
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat6(PipelineSummaryResponse.apply)
 
   // Update API formats

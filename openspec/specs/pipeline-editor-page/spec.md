@@ -1,5 +1,7 @@
-## ADDED Requirements
-
+## Purpose
+Defines the frontend pipeline editor page (`/pipelines/:id`), which provides a visual editor
+for viewing and modifying pipeline transformation steps.
+## Requirements
 ### Requirement: Pipeline detail page renders at /pipelines/:id
 The frontend SHALL render a `PipelineDetailPage` component when the user navigates to `/pipelines/:id`. The page SHALL display three sections: source selector bar at the top, river view in the scrollable middle, and footer bar at the bottom.
 
@@ -55,3 +57,29 @@ The "Run pipeline" button in the footer bar SHALL be visible. When clicked, it S
 #### Scenario: Run button shows placeholder on click
 - **WHEN** the user clicks the "Run pipeline" button
 - **THEN** a placeholder message is shown (e.g. via alert or inline toast)
+
+### Requirement: Pipeline detail page shows loading state while fetching
+`PipelineDetailPage` SHALL display a loading indicator while `fetchPipelineById` or
+`fetchPipelineSteps` is in the `"loading"` state. The main content SHALL not be rendered
+until data is available.
+
+#### Scenario: Spinner visible during fetch
+- **WHEN** `PipelineDetailPage` is mounted and the API call is pending
+- **THEN** a loading indicator is visible and the pipeline content is not rendered
+
+### Requirement: Pipeline detail page shows error state on fetch failure
+`PipelineDetailPage` SHALL display an error message when `fetchPipelineById` fails,
+rather than rendering the editor.
+
+#### Scenario: Error message shown on pipeline load failure
+- **WHEN** `fetchPipelineById` rejects
+- **THEN** an error message is shown instead of the editor
+
+### Requirement: Pipeline name is loaded from Redux state
+`PipelineDetailPage` SHALL use `currentPipeline.name` from Redux (populated via `fetchPipelineById`)
+as the initial value for the output name field, replacing the previous fallback to the URL id.
+
+#### Scenario: Output name initialized from API response
+- **WHEN** `fetchPipelineById` succeeds
+- **THEN** the output name field is initialized with `currentPipeline.name`
+

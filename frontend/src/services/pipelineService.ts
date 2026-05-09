@@ -1,6 +1,7 @@
 import type {
   Pipeline,
   PipelineRunRecord,
+  PipelineStep,
   PipelineSummary,
   RunStatusResponse,
 } from "../types/models";
@@ -24,6 +25,21 @@ export interface CreatePipelinePayload {
 
 export async function createPipeline(payload: CreatePipelinePayload): Promise<PipelineSummary> {
   const response = await httpClient.post<PipelineSummary>("/api/pipelines", payload);
+  return response.data;
+}
+
+export async function getPipelineById(id: string): Promise<PipelineSummary> {
+  const response = await httpClient.get<PipelineSummary>(`/api/pipelines/${id}`);
+  return response.data;
+}
+
+export async function getPipelineSteps(id: string): Promise<PipelineStep[]> {
+  const response = await httpClient.get<PipelineStep[]>(`/api/pipelines/${id}/steps`);
+  return response.data;
+}
+
+export async function updatePipeline(id: string, name: string): Promise<PipelineSummary> {
+  const response = await httpClient.patch<PipelineSummary>(`/api/pipelines/${id}`, { name });
   return response.data;
 }
 
