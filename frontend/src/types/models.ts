@@ -216,7 +216,7 @@ export interface PipelineSummary {
   name: string;
   sourceDataSourceName: string;
   outputDataTypeName: string;
-  outputDataTypeId: string;
+  outputDataTypeId?: string;
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
 }

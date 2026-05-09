@@ -52,6 +52,7 @@ class PipelineRepository(
         name                 = p.name,
         sourceDataSourceName = srcName,
         outputDataTypeName   = dtName,
+        outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString)
       )
