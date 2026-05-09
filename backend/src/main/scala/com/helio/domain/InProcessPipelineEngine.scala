@@ -59,12 +59,9 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
   }
 
   private def applyRename(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val mappings = cfg.fields("mappings").convertTo[Vector[JsObject]]
-    val renamePairs = mappings.map { m =>
-      m.fields("from").convertTo[String] -> m.fields("to").convertTo[String]
-    }
+    val renames = cfg.fields.get("renames").map(_.convertTo[Map[String, String]]).getOrElse(Map.empty)
     rows.map { row =>
-      renamePairs.foldLeft(row) { case (r, (from, to)) =>
+      renames.foldLeft(row) { case (r, (from, to)) =>
         if (r.contains(from)) (r - from) + (to -> r(from)) else r
       }
     }

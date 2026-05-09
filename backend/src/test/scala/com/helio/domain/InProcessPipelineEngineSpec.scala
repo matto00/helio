@@ -31,13 +31,43 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
 
   "InProcessPipelineEngine" should {
 
-    "rename: renames columns via mappings" in {
-      val cfg = """{ "mappings": [ { "from": "name", "to": "full_name" } ] }"""
+    "rename: renames a single column via renames map" in {
+      val cfg = """{ "renames": { "name": "full_name" } }"""
       val step = makeStep("rename", cfg)
       val result = run(sampleRows, step)
       result.head.keys should contain ("full_name")
       result.head.keys should not contain "name"
       result.head("full_name") shouldBe "alice"
+    }
+
+    "rename: renames multiple columns in a single step" in {
+      val cfg = """{ "renames": { "name": "full_name", "dept": "department" } }"""
+      val step = makeStep("rename", cfg)
+      val result = run(sampleRows, step)
+      result.head.keys should contain ("full_name")
+      result.head.keys should contain ("department")
+      result.head.keys should not contain "name"
+      result.head.keys should not contain "dept"
+      result.head("full_name") shouldBe "alice"
+      result.head("department") shouldBe "eng"
+    }
+
+    "rename: silently ignores a missing source field" in {
+      val cfg = """{ "renames": { "nonexistent": "new_name" } }"""
+      val step = makeStep("rename", cfg)
+      val result = run(sampleRows, step)
+      // Row is unchanged — source field was not present
+      result.head.keys should contain ("name")
+      result.head.keys should not contain "new_name"
+    }
+
+    "rename: empty renames map is a no-op" in {
+      val cfg = """{ "renames": {} }"""
+      val step = makeStep("rename", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
+      result.head.keys should contain theSameElementsAs sampleRows.head.keys
+      result.head("name") shouldBe "alice"
     }
 
     "filter: keeps rows where expression evaluates to non-zero number" in {
@@ -181,7 +211,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
 
         // 6.2 Multi-step pipeline test
     "multi-step: applies steps in order" in {
-      val renameStep  = makeStep("rename",  """{ "mappings": [ { "from": "name", "to": "person" } ] }""")
+      val renameStep  = makeStep("rename",  """{ "renames": { "name": "person" } }""")
       val computeStep = makeStep("compute", """{ "column": "age_doubled", "expression": "age + age" }""")
       val castStep    = makeStep("cast",    """{ "column": "age", "dataType": "integer" }""")
 

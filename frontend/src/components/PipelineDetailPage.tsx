@@ -20,6 +20,7 @@ import type {
   PipelineRunRecord,
   PipelineStep,
 } from "../types/models";
+import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 // ── Op types ────────────────────────────────────────────────────────────────
@@ -176,6 +177,16 @@ function parseSelectedFields(config: string, opTypeId: string): string[] {
   }
 }
 
+function parseRenames(config: string, opTypeId: string): Record<string, string> {
+  if (opTypeId !== "rename" || !config) return {};
+  try {
+    const parsed = JSON.parse(config) as { renames?: Record<string, string> };
+    return parsed.renames ?? {};
+  } catch {
+    return {};
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
@@ -190,22 +201,44 @@ interface StepCardProps {
 function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Derived state: sync selectedFields when config or opType changes (during-render pattern).
+  // Derived state: sync selectedFields and renames when config or opType changes (during-render pattern).
   const [prevConfig, setPrevConfig] = useState(step.config);
   const [prevOpTypeId, setPrevOpTypeId] = useState(step.opType.id);
   const [selectedFields, setSelectedFields] = useState<string[]>(() =>
     parseSelectedFields(step.config, step.opType.id),
   );
+  const [renames, setRenames] = useState<Record<string, string>>(() =>
+    parseRenames(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
     setSelectedFields(parseSelectedFields(step.config, step.opType.id));
+    setRenames(parseRenames(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
     const next = checked ? [...selectedFields, field] : selectedFields.filter((f) => f !== field);
     setSelectedFields(next);
     const newConfig = JSON.stringify({ fields: next });
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
+  function handleRenameChange(field: string, newName: string) {
+    const next = { ...renames };
+    if (newName) {
+      next[field] = newName;
+    } else {
+      delete next[field];
+    }
+    setRenames(next);
+    const newConfig = JSON.stringify({ renames: next });
     void updatePipelineStep(step.id, newConfig)
       .then(() => {
         onConfigChange(step.id, newConfig);
@@ -247,6 +280,12 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
               columns={analyzeColumns}
               selectedFields={selectedFields}
               onToggle={handleFieldToggle}
+            />
+          ) : step.opType.id === "rename" ? (
+            <RenameFieldsConfig
+              columns={analyzeColumns}
+              renames={renames}
+              onChange={handleRenameChange}
             />
           ) : (
             <>
@@ -558,7 +597,8 @@ export function PipelineDetailPage() {
     const tempStep = makeStep(opType);
     setSteps((prev) => [...prev, tempStep]);
     try {
-      const initialConfig = opType.id === "select" ? '{"fields":[]}' : "{}";
+      const initialConfig =
+        opType.id === "select" ? '{"fields":[]}' : opType.id === "rename" ? '{"renames":{}}' : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>

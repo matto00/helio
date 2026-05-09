@@ -624,6 +624,173 @@ describe("PipelineDetailPage select step config round-trip", () => {
   });
 });
 
+// ── Rename step config round-trip ─────────────────────────────────────────────
+
+describe("PipelineDetailPage rename step config", () => {
+  const persistedRenameStep: PipelineStep = {
+    id: "step-rename-1",
+    pipelineId: "pipe-1",
+    position: 0,
+    op: "rename",
+    config: '{"renames":{"name":"full_name"}}',
+    createdAt: "",
+    updatedAt: "",
+  };
+
+  const analyzeResponseWithRename: PipelineAnalyzeResponse = {
+    id: "pipe-1",
+    name: "Test Pipeline",
+    sourceDataSourceName: "Test Source",
+    outputDataTypeName: "TestType",
+    outputDataTypeId: "dt-1",
+    sourceSchema: [
+      { name: "id", type: "string" },
+      { name: "name", type: "string" },
+      { name: "dept", type: "string" },
+    ],
+    steps: [
+      {
+        id: "step-rename-1",
+        position: 0,
+        op: "rename",
+        config: '{"renames":{"name":"full_name"}}',
+        inputSchema: [
+          { name: "id", type: "string" },
+          { name: "name", type: "string" },
+          { name: "dept", type: "string" },
+        ],
+        outputSchema: [
+          { name: "id", type: "string" },
+          { name: "full_name", type: "string" },
+          { name: "dept", type: "string" },
+        ],
+        validationError: undefined,
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+    createPipelineStepMock.mockResolvedValue({
+      id: "step-uuid-new",
+      pipelineId: "pipe-1",
+      position: 0,
+      op: "rename",
+      config: '{"renames":{}}',
+      createdAt: "",
+      updatedAt: "",
+    });
+    analyzePipelineMock.mockResolvedValue(analyzeResponseWithRename);
+    updatePipelineStepMock.mockResolvedValue({
+      id: "step-rename-1",
+      pipelineId: "pipe-1",
+      position: 0,
+      op: "rename",
+      config: '{"renames":{"name":"full_name"}}',
+      createdAt: "",
+      updatedAt: "",
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("rename step card shows field rows from the analyze inputSchema", async () => {
+    getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
+    });
+
+    // Expand the step card
+    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+
+    // Each field from the analyze inputSchema gets a text input
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "New name for id" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "New name for name" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "New name for dept" })).toBeInTheDocument();
+    });
+  });
+
+  it("hydrates text inputs from the persisted step config on reload", async () => {
+    getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+
+    // "name" → "full_name" should be pre-filled; others empty
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "New name for name" })).toHaveValue("full_name");
+      expect(screen.getByRole("textbox", { name: "New name for id" })).toHaveValue("");
+      expect(screen.getByRole("textbox", { name: "New name for dept" })).toHaveValue("");
+    });
+  });
+
+  it("text input change PATCHes config via updatePipelineStep", async () => {
+    getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "New name for dept" })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "New name for dept" }), {
+      target: { value: "department" },
+    });
+
+    await waitFor(() => {
+      expect(updatePipelineStepMock).toHaveBeenCalledWith(
+        "step-rename-1",
+        expect.stringContaining('"department"'),
+      );
+    });
+  });
+
+  it("clearing a rename input removes the field key from the persisted config", async () => {
+    getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+
+    // Confirm the "name" input is pre-filled with "full_name"
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "New name for name" })).toHaveValue("full_name");
+    });
+
+    // Clear the input
+    fireEvent.change(screen.getByRole("textbox", { name: "New name for name" }), {
+      target: { value: "" },
+    });
+
+    // Config sent to the backend must NOT contain the "name" key
+    await waitFor(() => {
+      expect(updatePipelineStepMock).toHaveBeenCalledWith(
+        "step-rename-1",
+        expect.not.stringContaining('"name"'),
+      );
+    });
+  });
+});
+
 // ── Task 4.8 — beforeunload registration and cleanup ─────────────────────────
 
 describe("PipelineDetailPage beforeunload", () => {
