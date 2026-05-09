@@ -82,15 +82,25 @@ export const fetchPanels = createAsyncThunk<
 
 export const createPanel = createAsyncThunk<
   Panel,
-  { dashboardId: string; title: string; type?: PanelType; typeConfig?: TypeConfig },
+  {
+    dashboardId: string;
+    title: string;
+    type?: PanelType;
+    typeConfig?: TypeConfig;
+    dataTypeId?: string;
+  },
   { state: RootState; rejectValue: string }
 >(
   "panels/createPanel",
-  async ({ dashboardId, title, type, typeConfig }, { dispatch, rejectWithValue }) => {
+  async ({ dashboardId, title, type, typeConfig, dataTypeId }, { dispatch, rejectWithValue }) => {
     try {
-      const createdPanel = typeConfig
-        ? await createPanelRequest(dashboardId, title, type, typeConfig)
-        : await createPanelRequest(dashboardId, title, type);
+      const createdPanel = await createPanelRequest(
+        dashboardId,
+        title,
+        type,
+        typeConfig,
+        dataTypeId,
+      );
       dispatch(markDashboardPanelsStale(dashboardId));
       await dispatch(fetchPanels(dashboardId));
       return createdPanel;

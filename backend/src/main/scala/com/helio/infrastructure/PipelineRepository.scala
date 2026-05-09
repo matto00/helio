@@ -112,6 +112,7 @@ class PipelineRepository(
               name                 = name,
               sourceDataSourceName = dataSource.name,
               outputDataTypeName   = outputDataTypeName,
+              outputDataTypeId     = createdDataType.id.value,
               lastRunStatus        = None,
               lastRunAt            = None
             ))
@@ -143,6 +144,7 @@ class PipelineRepository(
         name                 = p.name,
         sourceDataSourceName = srcName,
         outputDataTypeName   = dtName,
+        outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString)
       )
@@ -164,6 +166,7 @@ object PipelineRepository {
       name: String,
       sourceDataSourceName: String,
       outputDataTypeName: String,
+      outputDataTypeId: String,
       lastRunStatus: Option[String],
       lastRunAt: Option[String]
   )

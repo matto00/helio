@@ -25,6 +25,7 @@ interface CreatePanelRequest {
   imageUrl?: string;
   dividerOrientation?: string;
   appearance?: { chart?: { chartType?: string } };
+  dataTypeId?: string;
 }
 
 interface UpdatePanelAppearanceRequest {
@@ -41,9 +42,11 @@ export async function createPanel(
   title: string,
   type?: PanelType,
   typeConfig?: TypeConfig,
+  dataTypeId?: string,
 ): Promise<Panel> {
   const body: CreatePanelRequest = { dashboardId, title };
   if (type !== undefined) body.type = type;
+  if (dataTypeId !== undefined) body.dataTypeId = dataTypeId;
   if (typeConfig) {
     switch (typeConfig.type) {
       case "metric":

@@ -34,6 +34,7 @@ const testPipeline = {
   name: "Sales Pipeline",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesMetrics",
+  outputDataTypeId: "dt-sales",
   lastRunStatus: "succeeded" as const,
   lastRunAt: "2026-05-01T10:00:00Z",
 };
@@ -43,6 +44,7 @@ const newPipeline = {
   name: "New Pipeline",
   sourceDataSourceName: "CSV Source",
   outputDataTypeName: "RawData",
+  outputDataTypeId: "dt-raw",
   lastRunStatus: null as null,
   lastRunAt: null,
 };

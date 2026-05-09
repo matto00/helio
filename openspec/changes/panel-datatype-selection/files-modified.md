@@ -1,0 +1,12 @@
+- `schemas/create-panel-request.schema.json` — added optional `dataTypeId: { type: string }` property to match backend API contract
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — `CreatePanelRequest` already has `dataTypeId: Option[String]` and `jsonFormat5`; no changes needed
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — POST handler already sets `typeId = request.dataTypeId.map(DataTypeId(_))`
+- `backend/src/main/scala/com/helio/api/routes/PipelineRoutes.scala` — pre-existing pipeline routes changes
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — pre-existing pipeline repository changes
+- `frontend/src/components/PanelCreationModal.css` — styles for the `datatype-select` step (datatype cards, empty state)
+- `frontend/src/components/PanelCreationModal.tsx` — full DataType picker step implementation: `Step` union, `DATA_BOUND_TYPES`, `isDataBound`, `selectedDataTypeId` state, `handleTemplateSelect` routing, `handleBackFromDataType`, registry filtering, empty state, DataType card list, Next button, `handleCreate` guarding
+- `frontend/src/components/PanelCreationModal.test.tsx` — added describe block "PanelCreationModal — DataType picker step" with tests 4.2–4.6
+- `frontend/src/features/panels/panelsSlice.ts` — `createPanel` thunk arg includes `dataTypeId?: string`; passed through to service call
+- `frontend/src/features/panels/panelsSlice.test.ts` — task 4.1 test: `createPanel` thunk forwards `dataTypeId` to service
+- `frontend/src/services/panelService.ts` — `createPanel` service function accepts and sends `dataTypeId` in request body
+- `frontend/src/types/models.ts` — pre-existing model updates (Pipeline, DataType)

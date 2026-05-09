@@ -1,3 +1,5 @@
+import { configureStore } from "@reduxjs/toolkit";
+import * as panelService from "../../services/panelService";
 import {
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
@@ -362,6 +364,52 @@ describe("panelsSlice", () => {
 
       expect(afterReset.paginationState["panel-1"]).toBeUndefined();
       expect(afterReset.paginationState["panel-2"]).toBeDefined();
+    });
+  });
+
+  // Task 4.1 — createPanel thunk includes dataTypeId in service request when provided
+  describe("createPanel thunk", () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("includes dataTypeId in the service request when provided", async () => {
+      const mockCreatedPanel = { ...basePanel };
+      jest.spyOn(panelService, "createPanel").mockResolvedValue(mockCreatedPanel);
+      // Also mock fetchPanels so the thunk doesn't error after create
+      jest.spyOn(panelService, "fetchPanels").mockResolvedValue([mockCreatedPanel]);
+
+      const store = configureStore({
+        reducer: { panels: panelsReducer },
+        preloadedState: {
+          panels: {
+            items: [],
+            loadedDashboardId: "dashboard-1",
+            status: "succeeded" as const,
+            error: null,
+            pendingPanelUpdates: {},
+            lastSavedAt: null,
+            paginationState: {},
+          },
+        },
+      });
+
+      const action = createPanel({
+        dashboardId: "dashboard-1",
+        title: "Revenue",
+        type: "metric",
+        dataTypeId: "dt-x",
+      });
+      // @ts-expect-error — test store has fewer slices than the full RootState
+      await store.dispatch(action);
+
+      expect(panelService.createPanel).toHaveBeenCalledWith(
+        "dashboard-1",
+        "Revenue",
+        "metric",
+        undefined,
+        "dt-x",
+      );
     });
   });
 
