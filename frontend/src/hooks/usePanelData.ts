@@ -59,13 +59,22 @@ export function usePanelData(panel: Panel): PanelDataResult {
   }, [currentFetchKey, panel.id, panel.type, dispatch, refreshToken]);
 
   if (!currentFetchKey) {
-    return { data: null, rawRows: null, headers: null, isLoading: false, error: null, noData: false, refresh };
+    return {
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      noData: false,
+      refresh,
+    };
   }
 
   const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
   const rows = paginationEntry?.rows ?? [];
   const isLoading = paginationEntry?.isLoadingMore === true && rows.length === 0;
-  const noData = paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
+  const noData =
+    paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
 
   let data: MappedPanelData | null = null;
   let rawRows: string[][] | null = null;
