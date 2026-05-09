@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunStatusResponse, RunSubmitResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
@@ -63,6 +63,17 @@ class PipelineRunRoutesSpec
   // DB helpers
   // ---------------------------------------------------------------------------
 
+  private def seedDsWithData(): String = {
+    import PostgresProfile.api._
+    val dsId = java.util.UUID.randomUUID().toString
+    val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0]]}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-with-data', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
   private def seedDs(sourceType: String): String = {
     import PostgresProfile.api._
     val dsId = java.util.UUID.randomUUID().toString
@@ -108,24 +119,22 @@ class PipelineRunRoutesSpec
     }
   }
 
-  private def makeRoutes(cache: PipelineRunCache, runRepo: PipelineRunRepository = null): Route = {
+  private def makeRoutes(cache: PipelineRunCache, runRepo: PipelineRunRepository = null, dtRepo: DataTypeRepository = null): Route = {
     implicit val ec: ExecutionContext = routeEc
     val submitter = new StubSparkJobSubmitter()
-    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo).routes
+    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo, dtRepo).routes
   }
 
   "PipelineRunRoutes" should {
 
-    "POST /pipelines/:id/run returns 201 with runId for a static pipeline" in {
+    "POST /pipelines/:id/run returns 200 with inline rows for a static pipeline" in {
       val cache  = new PipelineRunCache()
       val dsId   = seedDs("static")
       val pid    = seedPipeline(dsId)
       Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
-        status shouldBe StatusCodes.Created
-        val resp = responseAs[RunSubmitResponse]
-        resp.runId should not be empty
-        // Cache should have the entry
-        cache.get(resp.runId) shouldBe defined
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 0
       }
     }
 
@@ -223,6 +232,62 @@ class PipelineRunRoutesSpec
       Get("/pipelines/nonexistent/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.NotFound
       }
+    }
+    // 6.3 dry-run returns rows without modifying last_run_status
+    "POST /pipelines/:id/run?dry=true returns rows without updating last_run_status" in {
+      import PostgresProfile.api._
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val statusOpt = await(db.run(
+        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+      ))
+      statusOpt shouldBe None
+    }
+
+    // 6.4 non-dry run updates last_run_status to succeeded and writes to Type Registry
+    "POST /pipelines/:id/run updates last_run_status to succeeded and writes Type Registry fields" in {
+      import PostgresProfile.api._
+      val cache  = new PipelineRunCache()
+      val dtRepo = new DataTypeRepository(db)(routeEc)
+      val dsId   = seedDsWithData()
+      val pid    = seedPipeline(dsId)
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val statusOpt = await(db.run(
+        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+      ))
+      statusOpt shouldBe Some("succeeded")
+      val pipeline = await(pipelineRepo.findById(pid)).get
+      val dt = await(dtRepo.findById(pipeline.outputDataTypeId)).get
+      dt.fields.map(_.name) should contain allOf ("name", "score")
+    }
+
+    // 6.5 non-dry run failure sets last_run_status to failed and returns 422
+    "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
+      import PostgresProfile.api._
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "join",
+        """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val resp = responseAs[ErrorResponse]
+        resp.message should include ("Pipeline execution failed")
+      }
+      val statusOpt = await(db.run(
+        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+      ))
+      statusOpt shouldBe Some("failed")
     }
   }
 }

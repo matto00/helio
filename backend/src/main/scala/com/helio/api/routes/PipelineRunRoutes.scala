@@ -3,12 +3,13 @@ package com.helio.api.routes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunStatusResponse, RunSubmitResponse}
-import com.helio.domain.{AuthenticatedUser, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
+import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, SourceType}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -19,60 +20,97 @@ class PipelineRunRoutes(
     submitter: SparkJobSubmitter,
     cache: PipelineRunCache,
     user: AuthenticatedUser,
-    pipelineRunRepo: PipelineRunRepository = null
+    pipelineRunRepo: PipelineRunRepository = null,
+    dataTypeRepo: DataTypeRepository = null
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
+
+  private val inProcessEngine = new InProcessPipelineEngine()
 
   val routes: Route =
     pathPrefix("pipelines" / Segment) { pipelineId =>
       concat(
-        // POST /api/pipelines/:id/run
+        // POST /api/pipelines/:id/run[?dry=true]
         path("run") {
           post {
-            onComplete(pipelineRepo.findById(pipelineId)) {
-              case Failure(ex) =>
-                complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+            parameter("dry".?) { dryParam =>
+              val isDry = dryParam.contains("true")
+              onComplete(pipelineRepo.findById(pipelineId)) {
+                case Failure(ex) =>
+                  complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
-              case Success(None) =>
-                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                case Success(None) =>
+                  complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pipelineId))
 
-              case Success(Some(pipeline)) =>
-                onComplete(dataSourceRepo.findById(pipeline.sourceDataSourceId)) {
-                  case Failure(ex) =>
-                    complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                case Success(Some(pipeline)) =>
+                  onComplete(dataSourceRepo.findById(pipeline.sourceDataSourceId)) {
+                    case Failure(ex) =>
+                      complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
-                  case Success(None) =>
-                    complete(
-                      StatusCodes.UnprocessableEntity,
-                      ErrorResponse(s"DataSource not found: ${pipeline.sourceDataSourceId.value}")
-                    )
+                    case Success(None) =>
+                      complete(
+                        StatusCodes.UnprocessableEntity,
+                        ErrorResponse("DataSource not found: " + pipeline.sourceDataSourceId.value)
+                      )
 
-                  case Success(Some(dataSource)) =>
-                    dataSource.sourceType match {
-                      case SourceType.RestApi | SourceType.Sql =>
-                        complete(
-                          StatusCodes.UnprocessableEntity,
-                          ErrorResponse(
-                            s"Unsupported source type for Spark job submission: ${SourceType.asString(dataSource.sourceType)}. " +
-                              "Only 'static' and 'csv' are currently supported."
+                    case Success(Some(dataSource)) =>
+                      dataSource.sourceType match {
+                        case SourceType.RestApi | SourceType.Sql =>
+                          complete(
+                            StatusCodes.UnprocessableEntity,
+                            ErrorResponse(
+                              "Unsupported source type for Spark job submission: " +
+                                SourceType.asString(dataSource.sourceType) +
+                                ". Only static and csv are currently supported."
+                            )
                           )
-                        )
 
-                      case _ =>
-                        onComplete(pipelineStepRepo.listByPipeline(pipelineId)) {
-                          case Failure(ex) =>
-                            complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                        case _ =>
+                          onComplete(pipelineStepRepo.listByPipeline(pipelineId)) {
+                            case Failure(ex) =>
+                              complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
-                          case Success(steps) =>
-                            onComplete(submitter.submit(pipeline, dataSource, steps, cache)) {
-                              case Failure(ex) =>
-                                complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
-                              case Success(runId) =>
-                                complete(StatusCodes.Created, RunSubmitResponse(runId))
-                            }
-                        }
-                    }
-                }
+                            case Success(steps) =>
+                              onComplete(
+                                inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
+                                  inProcessEngine.execute(sourceRows, steps, dataSourceRepo)
+                                }
+                              ) {
+                                case Failure(ex) =>
+                                  val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
+                                  if (!isDry) {
+                                    onComplete(pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now())) { _ =>
+                                      complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
+                                    }
+                                  } else {
+                                    complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
+                                  }
+
+                                case Success(resultRows) =>
+                                  val jsRows = resultRows.map { rowMap =>
+                                    JsObject(rowMap.map { case (k, v) => k -> anyToJsValue(v) })
+                                  }.toVector
+                                  val response = RunResultResponse(jsRows, jsRows.size)
+
+                                  if (isDry) {
+                                    complete(StatusCodes.OK, response)
+                                  } else {
+                                    val now = Instant.now()
+                                    val allWork: Future[Unit] = for {
+                                      _ <- if (dataTypeRepo != null && resultRows.nonEmpty)
+                                             upsertFieldsFromRows(pipeline.outputDataTypeId, resultRows)
+                                           else Future.successful(())
+                                      _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now)
+                                    } yield ()
+                                    onComplete(allWork) { _ =>
+                                      complete(StatusCodes.OK, response)
+                                    }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
             }
           }
         },
@@ -134,6 +172,21 @@ class PipelineRunRoutes(
         }
       )
     }
+
+  // 4.1 Infer field names from result rows and overwrite the output DataType schema
+  private def upsertFieldsFromRows(
+      dataTypeId: DataTypeId,
+      rows: Seq[Map[String, Any]]
+  ): Future[Unit] = {
+    if (dataTypeRepo == null) return Future.successful(())
+    val fieldNames = rows.headOption.map(_.keys.toVector).getOrElse(Vector.empty)
+    val fields     = fieldNames.map(name => DataField(name, name, "string", nullable = true))
+    dataTypeRepo.findById(dataTypeId).flatMap {
+      case None => Future.successful(())
+      case Some(existing) =>
+        dataTypeRepo.update(existing.copy(fields = fields, updatedAt = Instant.now())).map(_ => ())
+    }
+  }
 
   private def anyToJsValue(v: Any): JsValue = v match {
     case null           => JsNull
