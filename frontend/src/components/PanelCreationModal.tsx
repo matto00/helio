@@ -1,5 +1,6 @@
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../features/panels/panelsSlice";
@@ -531,16 +532,30 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
         {/* 3.6-3.8 — DataType picker step for data-bound panel types. */}
         {step === "datatype-select" && (
           <div className="panel-creation-modal__datatype-step">
-            {registryDataTypes.length === 0 ? (
+            {pipelines.status === "loading" ||
+            pipelines.status === "idle" ||
+            dataTypes.status === "loading" ||
+            dataTypes.status === "idle" ? (
+              // Loading state: show indicator while fetching pipelines or data types.
+              <div className="panel-creation-modal__datatype-loading">
+                <p>Loading data types...</p>
+              </div>
+            ) : registryDataTypes.length === 0 ? (
               // 3.6 — Empty state: no registry DataTypes available.
               <div
                 className="panel-creation-modal__datatype-empty"
                 data-testid="datatype-empty-state"
               >
-                <p>No data types are available yet.</p>
+                <p>No data types are registered yet.</p>
                 <p>
-                  Create a pipeline first to register a data type, then return here to create your
-                  panel.
+                  <Link
+                    to="/pipelines"
+                    className="panel-creation-modal__datatype-empty__link"
+                    data-testid="datatype-empty-pipeline-link"
+                    onClick={handleClose}
+                  >
+                    Go to Pipelines to create one.
+                  </Link>
                 </p>
               </div>
             ) : (

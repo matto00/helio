@@ -669,8 +669,8 @@ describe("PanelCreationModal — DataType picker step", () => {
     );
   });
 
-  // 4.6 — Empty state shown when no registry DataTypes are available
-  it("4.6 empty state is shown when no registry DataTypes are available", () => {
+  // 4.6 — Empty state shown when no registry DataTypes are available and both slices succeeded
+  it("4.6 empty state is shown when registryDataTypes is empty and both slices are succeeded", () => {
     const onClose = jest.fn();
     // baseStore has no pipelines, so no pipeline-produced DataTypes exist
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
@@ -679,7 +679,52 @@ describe("PanelCreationModal — DataType picker step", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     expect(screen.getByTestId("datatype-empty-state")).toBeInTheDocument();
-    expect(screen.getByText("No data types are available yet.")).toBeInTheDocument();
+    expect(screen.getByText("No data types are registered yet.")).toBeInTheDocument();
+  });
+
+  // 4.7 — Empty state contains a link to /pipelines
+  it("4.7 empty state contains a link with data-testid pointing to /pipelines", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    const link = screen.getByTestId("datatype-empty-pipeline-link");
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/pipelines");
+  });
+
+  // 4.8 — Empty state is NOT shown while pipelines.status is loading
+  it("4.8 empty state is NOT shown while pipelines.status === loading", () => {
+    const onClose = jest.fn();
+    const storeWithLoadingPipelines = {
+      ...baseStore,
+      pipelines: {
+        items: [],
+        status: "loading" as const,
+      },
+    };
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithLoadingPipelines);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading data types...")).toBeInTheDocument();
+  });
+
+  // 4.9 — DataType list is shown when at least one pipeline-referenced DataType exists
+  it("4.9 DataType list is shown and empty state is absent when pipeline-referenced DataType exists", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
+    expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
   });
 });
 
