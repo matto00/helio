@@ -236,10 +236,14 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 
 ```bash
 cd <WORKTREE_PATH>
+rm -f openspec/changes/<CHANGE_NAME>/files-modified.md
 openspec archive "<CHANGE_NAME>" --yes
 ```
 
 Flags: `--yes` skips prompts; `--skip-specs` only for infra/doc-only changes.
+
+The `rm` removes the executor's handoff file before archiving — leaving it
+in `archive/` trips the `check:openspec` pre-commit hook.
 
 Commit the archive:
 
