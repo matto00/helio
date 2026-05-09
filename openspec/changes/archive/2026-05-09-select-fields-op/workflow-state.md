@@ -4,7 +4,7 @@ TICKET_ID: HEL-187
 CHANGE_NAME: select-fields-op
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/select-fields-op/HEL-187
 BRANCH: feature/select-fields-op/HEL-187
-PHASE: Delivery
+PHASE: Cleanup
 CYCLE: 3
 DEV_PORT: 5360
 BACKEND_PORT: 8267

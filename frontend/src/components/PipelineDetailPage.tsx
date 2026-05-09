@@ -538,7 +538,8 @@ export function PipelineDetailPage() {
     const tempStep = makeStep(opType);
     setSteps((prev) => [...prev, tempStep]);
     try {
-      const persisted = await createPipelineStep(id, opType.id, "{}");
+      const initialConfig = opType.id === "select" ? '{"fields":[]}' : "{}";
+      const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>
           s.id === tempStep.id
