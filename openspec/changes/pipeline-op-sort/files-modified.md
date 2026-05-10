@@ -1,8 +1,0 @@
-- `backend/src/main/resources/db/migration/V27__add_sort_op.sql` — Flyway migration extending `pipeline_steps.op` CHECK constraint to include `'sort'`
-- `backend/src/main/scala/com/helio/api/routes/PipelineStepRoutes.scala` — added `"sort"` to `allowedOps` set
-- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` — added `applySort` method (multi-column stable sort, nulls last) and wired `"sort"` case in `applyStep`
-- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala` — added 6 `applySort` unit tests (asc, desc, multi-column, nulls-last asc, nulls-last desc, empty sortBy)
-- `frontend/src/components/SortConfig.tsx` — new component: ordered list of {field, direction} pairs with add/remove/direction-toggle; field selector from `columns` prop
-- `frontend/src/components/SortConfig.test.tsx` — tests for SortConfig: empty state, add/remove/toggle, field change, disabled add button
-- `frontend/src/components/PipelineDetailPage.tsx` — wired SortConfig into StepCard; added `sort` to `OP_TYPES`, `parseSortConfig` helper, `sortConfig` state, `handleSortChange`, and `sort` initial-config case in `handleAddStep`
-- `openspec/changes/pipeline-op-sort/tasks.md` — all tasks marked complete
