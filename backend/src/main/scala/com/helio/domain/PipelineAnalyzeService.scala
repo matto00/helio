@@ -94,18 +94,16 @@ object PipelineAnalyzeService {
       inputSchema.map(f => f.copy(`type` = casts.getOrElse(f.name, f.`type`)))
     } (inputSchema)
 
-  /** compute — append user-declared output fields to the existing schema. */
+  /** compute — append a single derived field to the existing schema.
+   *
+   *  Config shape: {"column": "outputField", "expression": "fieldA / fieldB", "type": "number"}
+   *  `expression` is recorded here for completeness but only used at execution time.
+   *  `column` + `type` drive schema inference. */
   private def inferCompute(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
     parseConfig("compute", config) { json =>
-      val outputs = json.fields("outputs").convertTo[Vector[JsValue]]
-      val newFields = outputs.map { v =>
-        val obj = v.asJsObject
-        SchemaField(
-          name  = obj.fields("name").convertTo[String],
-          `type` = obj.fields("type").convertTo[String]
-        )
-      }
-      inputSchema ++ newFields
+      val column    = json.fields("column").convertTo[String]
+      val fieldType = json.fields("type").convertTo[String]
+      inputSchema :+ SchemaField(name = column, `type` = fieldType)
     } (inputSchema)
 
   /** aggregate — groupBy fields ++ aggregation alias fields.
