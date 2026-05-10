@@ -271,6 +271,66 @@ class PipelineRunRoutesSpec
       dt.fields.map(_.name) should contain allOf ("name", "score")
     }
 
+    // ── step preview tests ─────────────────────────────────────────────────
+
+    "GET /pipelines/:id/steps/:stepId/preview returns first 10 rows for a valid step" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val step  = await(stepRepo.insert(pid, "select", """{"fields":["name","score"]}"""))
+      Get(s"/pipelines/$pid/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rows.size should be <= 10
+        resp.rowCount shouldBe resp.rows.size
+      }
+    }
+
+    "GET /pipelines/:id/steps/:stepId/preview returns 404 for unknown pipeline" in {
+      val cache = new PipelineRunCache()
+      Get("/pipelines/nonexistent/steps/any-step-id/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "GET /pipelines/:id/steps/:stepId/preview returns 404 for unknown step" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("static")
+      val pid   = seedPipeline(dsId)
+      Get(s"/pipelines/$pid/steps/nonexistent-step-id/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "GET /pipelines/:id/steps/:stepId/preview returns 422 for rest_api source type" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("rest_api")
+      val pid   = seedPipeline(dsId)
+      val step  = await(stepRepo.insert(pid, "select", """{"fields":[]}"""))
+      Get(s"/pipelines/$pid/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val resp = responseAs[ErrorResponse]
+        resp.message should include("Unsupported source type")
+      }
+    }
+
+    "GET /pipelines/:id/steps/:stepId/preview only applies steps up to and including the target step" in {
+      val cache = new PipelineRunCache()
+      // seed DS with 2 rows
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      // select step at position 0 — keeps both rows
+      val selectStep = await(stepRepo.insert(pid, "select", """{"fields":["name","score"]}"""))
+      // limit step at position 1 — would reduce to 1 row if applied
+      await(stepRepo.insert(pid, "limit", """{"count":1}"""))
+      // Preview up to selectStep only — should return 2 rows (limit not applied)
+      Get(s"/pipelines/$pid/steps/${selectStep.id}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+    }
+
     // 6.5 non-dry run failure sets last_run_status to failed and returns 422
     "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
       import PostgresProfile.api._

@@ -13,7 +13,12 @@ import {
   updatePipeline,
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
+import {
+  createPipelineStep,
+  fetchStepPreview,
+  updatePipelineStep,
+} from "../services/pipelineService";
+import type { StepPreviewResponse } from "../services/pipelineService";
 import type {
   AnalyzeStepResult,
   DataSource,
@@ -286,6 +291,7 @@ function parseSortConfig(config: string, opTypeId: string): SortKey[] {
 
 interface StepCardProps {
   step: Step;
+  pipelineId: string;
   onRemove: (id: string) => void;
   /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig/RenameFieldsConfig/CastFieldsConfig. */
   analyzeColumns: string[];
@@ -297,12 +303,38 @@ interface StepCardProps {
 
 function StepCard({
   step,
+  pipelineId,
   onRemove,
   analyzeColumns,
   analyzeSchema,
   onConfigChange,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Preview state (component-local, transient)
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  async function handlePreviewToggle() {
+    if (previewOpen) {
+      setPreviewOpen(false);
+      return;
+    }
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const result: StepPreviewResponse = await fetchStepPreview(pipelineId, step.id);
+      setPreviewRows(result.rows);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Preview failed";
+      setPreviewError(message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   // Derived state: sync selectedFields, renames, casts, and filterConfig when config or opType
   // changes (during-render pattern).
@@ -532,8 +564,13 @@ function StepCard({
             </>
           )}
           <div className="pipeline-detail-page__step-card-actions">
-            <button type="button" className="pipeline-detail-page__step-card-preview-btn">
-              Preview data
+            <button
+              type="button"
+              className="pipeline-detail-page__step-card-preview-btn"
+              onClick={() => void handlePreviewToggle()}
+              aria-expanded={previewOpen}
+            >
+              {previewOpen ? "Hide preview" : "Preview data"}
             </button>
             <button
               type="button"
@@ -543,6 +580,45 @@ function StepCard({
               Remove step
             </button>
           </div>
+
+          {previewOpen && (
+            <div className="pipeline-detail-page__step-preview">
+              {previewLoading ? (
+                <p className="pipeline-detail-page__step-preview-loading">Loading preview…</p>
+              ) : previewError !== null ? (
+                <p className="pipeline-detail-page__step-preview-error" role="alert">
+                  {previewError}
+                </p>
+              ) : previewRows.length === 0 ? (
+                <p className="pipeline-detail-page__step-preview-empty">No rows to preview.</p>
+              ) : (
+                <div className="pipeline-detail-page__step-preview-table-wrapper">
+                  <table className="pipeline-detail-page__step-preview-table">
+                    <thead>
+                      <tr>
+                        {Object.keys(previewRows[0]).map((col) => (
+                          <th key={col} className="pipeline-detail-page__step-preview-th">
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row, i) => (
+                        <tr key={i}>
+                          {Object.values(row).map((cell, j) => (
+                            <td key={j} className="pipeline-detail-page__step-preview-td">
+                              {cell === null || cell === undefined ? "" : String(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -968,6 +1044,7 @@ export function PipelineDetailPage() {
                 <div key={step.id} className="pipeline-detail-page__step-section">
                   <StepCard
                     step={step}
+                    pipelineId={id ?? ""}
                     onRemove={handleRemoveStep}
                     analyzeColumns={getAnalyzeColumns(step.id)}
                     analyzeSchema={getAnalyzeSchema(step.id)}

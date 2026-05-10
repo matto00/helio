@@ -22,6 +22,7 @@ import {
   updatePipelineStep,
   createPipelineStep,
   analyzePipeline,
+  fetchStepPreview,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -40,6 +41,7 @@ jest.mock("../services/pipelineService", () => ({
   updatePipelineStep: jest.fn(),
   createPipelineStep: jest.fn(),
   analyzePipeline: jest.fn(),
+  fetchStepPreview: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -50,6 +52,7 @@ const updatePipelineMock = jest.mocked(updatePipeline);
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 const createPipelineStepMock = jest.mocked(createPipelineStep);
 const analyzePipelineMock = jest.mocked(analyzePipeline);
+const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
 
 const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "pipe-1",
@@ -838,5 +841,141 @@ describe("PipelineDetailPage beforeunload", () => {
 
     // returnValue should not be changed since the form is clean
     expect(event.returnValue).toBe("original");
+  });
+});
+
+// ── Step preview tests ────────────────────────────────────────────────────────
+
+const persistedPreviewStep: PipelineStep = {
+  id: "step-preview-1",
+  pipelineId: "pipe-1",
+  position: 0,
+  op: "select",
+  config: '{"fields":["name","score"]}',
+  createdAt: "",
+  updatedAt: "",
+};
+
+describe("PipelineDetailPage step preview", () => {
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([persistedPreviewStep]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+    updatePipelineStepMock.mockResolvedValue(persistedPreviewStep);
+    createPipelineStepMock.mockResolvedValue(persistedPreviewStep);
+    fetchStepPreviewMock.mockResolvedValue({
+      rows: [
+        { name: "alice", score: 42 },
+        { name: "bob", score: 37 },
+      ],
+      rowCount: 2,
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('"Preview data" button triggers fetchStepPreview and renders table on success', async () => {
+    renderDetailPage("pipe-1");
+
+    // Wait for the persisted step to appear
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    // Expand the step card
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+
+    // Click the Preview data button
+    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
+    await act(async () => {
+      fireEvent.click(previewBtn);
+    });
+
+    // fetchStepPreview should have been called
+    await waitFor(() => {
+      expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "step-preview-1");
+    });
+
+    // Preview table should render with column headers from the first row
+    await waitFor(() => {
+      expect(screen.getByRole("columnheader", { name: "name" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "score" })).toBeInTheDocument();
+      expect(screen.getByText("alice")).toBeInTheDocument();
+      expect(screen.getByText("bob")).toBeInTheDocument();
+    });
+  });
+
+  it("shows loading state while preview request is in flight", async () => {
+    // Never resolves so we can assert the loading indicator
+    fetchStepPreviewMock.mockReturnValue(new Promise<never>(() => {}));
+
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+
+    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
+    fireEvent.click(previewBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Loading preview…")).toBeInTheDocument();
+    });
+  });
+
+  it("renders error message when preview request fails", async () => {
+    fetchStepPreviewMock.mockRejectedValue(new Error("Network error"));
+
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+
+    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
+    await act(async () => {
+      fireEvent.click(previewBtn);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.getByText("Network error")).toBeInTheDocument();
+    });
+  });
+
+  it("second click on Preview button hides the table", async () => {
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+
+    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
+    await act(async () => {
+      fireEvent.click(previewBtn);
+    });
+
+    // Table should be visible
+    await waitFor(() => {
+      expect(screen.getByText("alice")).toBeInTheDocument();
+    });
+
+    // Click again to hide
+    const hideBtn = screen.getByRole("button", { name: "Hide preview" });
+    fireEvent.click(hideBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText("alice")).not.toBeInTheDocument();
+    });
   });
 });
