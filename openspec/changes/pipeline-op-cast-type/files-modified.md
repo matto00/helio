@@ -1,0 +1,5 @@
+- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` — fixed `applyCast` to use `{"casts": Map[String,String]}` shape; added explicit `"date"` passthrough in `castValue`
+- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala` — updated old single-column cast tests to new multi-field casts map format; added empty-casts no-op, missing-field passthrough, string→integer, string→double, invalid→null cases
+- `frontend/src/components/CastFieldsConfig.tsx` — new component: table of source field + target type dropdown rows, driven by analyze `inputSchema`
+- `frontend/src/components/CastFieldsConfig.test.tsx` — new tests: renders from inputSchema, hydrates from persisted casts, dropdown change fires onChange, keep-as-is fires empty string
+- `frontend/src/components/PipelineDetailPage.tsx` — imported `CastFieldsConfig`; added `parseCasts` helper; added `casts` state + sync in `StepCard`; added `handleCastChange`; renders `CastFieldsConfig` for `op === "cast"`; fixed seed config from `"{}"` to `'{"casts":{}}'`

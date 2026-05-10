@@ -104,41 +104,59 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       engRow("count_name") shouldBe 2L
     }
 
-    "cast: converts column to integer" in {
+    "cast: empty casts map is a no-op" in {
+      val cfg  = """{ "casts": {} }"""
+      val step = makeStep("cast", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
+      result.head.keys should contain theSameElementsAs sampleRows.head.keys
+      result.head("name") shouldBe "alice"
+    }
+
+    "cast: converts column to integer via casts map" in {
       val rows = Seq(Map("x" -> "42".asInstanceOf[Any]))
-      val cfg  = """{ "column": "x", "dataType": "integer" }"""
+      val cfg  = """{ "casts": { "x": "integer" } }"""
       val step = makeStep("cast", cfg)
       val result = run(rows, step)
       result.head("x") shouldBe 42
     }
 
-    "cast: sets null on unparseable value" in {
-      val rows = Seq(Map("x" -> "not-a-number".asInstanceOf[Any]))
-      val cfg  = """{ "column": "x", "dataType": "integer" }"""
-      val step = makeStep("cast", cfg)
-      val result = run(rows, step)
-      result.head("x").asInstanceOf[AnyRef] shouldBe null
-    }
-
-    "cast: converts column to long" in {
-      val rows = Seq(Map("n" -> "999999999999".asInstanceOf[Any]))
-      val cfg  = """{ "column": "n", "dataType": "long" }"""
-      val step = makeStep("cast", cfg)
-      val result = run(rows, step)
-      result.head("n") shouldBe 999999999999L
-    }
-
-    "cast: converts column to double" in {
+    "cast: converts column to double via casts map" in {
       val rows = Seq(Map("v" -> "3.14".asInstanceOf[Any]))
-      val cfg  = """{ "column": "v", "dataType": "double" }"""
+      val cfg  = """{ "casts": { "v": "double" } }"""
       val step = makeStep("cast", cfg)
       val result = run(rows, step)
       result.head("v") shouldBe 3.14
     }
 
-    "cast: converts column to boolean" in {
+    "cast: invalid value yields null" in {
+      val rows = Seq(Map("x" -> "not-a-number".asInstanceOf[Any]))
+      val cfg  = """{ "casts": { "x": "integer" } }"""
+      val step = makeStep("cast", cfg)
+      val result = run(rows, step)
+      result.head("x").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "cast: field absent from casts map passes through unchanged" in {
+      val rows = Seq(Map("a" -> "hello".asInstanceOf[Any], "b" -> "42".asInstanceOf[Any]))
+      val cfg  = """{ "casts": { "b": "integer" } }"""
+      val step = makeStep("cast", cfg)
+      val result = run(rows, step)
+      result.head("a") shouldBe "hello"
+      result.head("b") shouldBe 42
+    }
+
+    "cast: converts column to long via casts map" in {
+      val rows = Seq(Map("n" -> "999999999999".asInstanceOf[Any]))
+      val cfg  = """{ "casts": { "n": "long" } }"""
+      val step = makeStep("cast", cfg)
+      val result = run(rows, step)
+      result.head("n") shouldBe 999999999999L
+    }
+
+    "cast: converts column to boolean via casts map" in {
       val rows = Seq(Map("flag" -> "true".asInstanceOf[Any]))
-      val cfg  = """{ "column": "flag", "dataType": "boolean" }"""
+      val cfg  = """{ "casts": { "flag": "boolean" } }"""
       val step = makeStep("cast", cfg)
       val result = run(rows, step)
       result.head("flag") shouldBe true
@@ -213,7 +231,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
     "multi-step: applies steps in order" in {
       val renameStep  = makeStep("rename",  """{ "renames": { "name": "person" } }""")
       val computeStep = makeStep("compute", """{ "column": "age_doubled", "expression": "age + age" }""")
-      val castStep    = makeStep("cast",    """{ "column": "age", "dataType": "integer" }""")
+      val castStep    = makeStep("cast",    """{ "casts": { "age": "integer" } }""")
 
       val result = run(sampleRows, renameStep, computeStep, castStep)
 
