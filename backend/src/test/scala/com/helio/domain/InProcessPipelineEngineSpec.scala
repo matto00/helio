@@ -549,6 +549,74 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result should have size sampleRows.size
     }
 
+    // ── sort op ──────────────────────────────────────────────────────────────
+
+    "sort: sorts rows ascending by a string column" in {
+      val cfg  = """{ "sortBy": [{ "field": "name", "direction": "asc" }] }"""
+      val step = makeStep("sort", cfg)
+      val result = run(sampleRows, step)
+      result.map(_("name")) shouldBe Seq("alice", "bob", "carol")
+    }
+
+    "sort: sorts rows descending by a string column" in {
+      val cfg  = """{ "sortBy": [{ "field": "name", "direction": "desc" }] }"""
+      val step = makeStep("sort", cfg)
+      val result = run(sampleRows, step)
+      result.map(_("name")) shouldBe Seq("carol", "bob", "alice")
+    }
+
+    "sort: multi-column sort — primary key takes precedence" in {
+      val rows = Seq(
+        Map[String, Any]("dept" -> "eng", "name" -> "carol"),
+        Map[String, Any]("dept" -> "mkt", "name" -> "alice"),
+        Map[String, Any]("dept" -> "eng", "name" -> "alice")
+      )
+      val cfg  = """{ "sortBy": [
+        { "field": "dept", "direction": "asc" },
+        { "field": "name", "direction": "asc" }
+      ] }"""
+      val step   = makeStep("sort", cfg)
+      val result = run(rows, step)
+      // Primary: dept asc (eng before mkt); Secondary: name asc within dept
+      result.map(r => (r("dept"), r("name"))) shouldBe Seq(
+        ("eng", "alice"),
+        ("eng", "carol"),
+        ("mkt", "alice")
+      )
+    }
+
+    "sort: nulls sort last for ascending direction" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "bob",  "score" -> 10.0),
+        Map[String, Any]("name" -> "alice","score" -> null),
+        Map[String, Any]("name" -> "carol","score" -> 5.0)
+      )
+      val cfg  = """{ "sortBy": [{ "field": "score", "direction": "asc" }] }"""
+      val step = makeStep("sort", cfg)
+      val result = run(rows, step)
+      result.map(_("name")) shouldBe Seq("carol", "bob", "alice")
+    }
+
+    "sort: nulls sort last for descending direction" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "bob",  "score" -> 10.0),
+        Map[String, Any]("name" -> "alice","score" -> null),
+        Map[String, Any]("name" -> "carol","score" -> 5.0)
+      )
+      val cfg  = """{ "sortBy": [{ "field": "score", "direction": "desc" }] }"""
+      val step = makeStep("sort", cfg)
+      val result = run(rows, step)
+      result.map(_("name")) shouldBe Seq("bob", "carol", "alice")
+    }
+
+    "sort: empty sortBy array is a no-op" in {
+      val cfg  = """{ "sortBy": [] }"""
+      val step = makeStep("sort", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
+      result.map(_("name")) shouldBe sampleRows.map(_("name"))
+    }
+
     "unknown op fails with descriptive error" in {
       val step = makeStep("bogus", "{}")
       val fut  = engine.execute(sampleRows, Seq(step), null)
