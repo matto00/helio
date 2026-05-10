@@ -424,6 +424,106 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result.head.keys shouldBe empty
     }
 
+    // ── aggregate op ────────────────────────────────────────────────────────
+
+    "aggregate: groups and sums a numeric column" in {
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}],
+                    "aggregations": [{"alias":"total_age","fn":"sum","field":"age"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      result should have size 2
+      val engRow = result.find(_("dept") == "eng").get
+      engRow("total_age") shouldBe (30.0 + 0.0)
+      val mktRow = result.find(_("dept") == "mkt").get
+      mktRow("total_age") shouldBe 25.0
+    }
+
+    "aggregate: computes avg of a numeric column per group" in {
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}],
+                    "aggregations": [{"alias":"avg_age","fn":"avg","field":"age"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      result should have size 2
+      val engRow = result.find(_("dept") == "eng").get
+      engRow("avg_age") shouldBe (30.0 / 2)
+    }
+
+    "aggregate: computes min and max of a numeric column" in {
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}],
+                    "aggregations": [
+                      {"alias":"min_age","fn":"min","field":"age"},
+                      {"alias":"max_age","fn":"max","field":"age"}
+                    ] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      val engRow = result.find(_("dept") == "eng").get
+      engRow("min_age") shouldBe 0.0
+      engRow("max_age") shouldBe 30.0
+    }
+
+    "aggregate: counts non-null values per group" in {
+      val rows = Seq(
+        Map[String, Any]("dept" -> "eng", "score" -> 10.0),
+        Map[String, Any]("dept" -> "eng", "score" -> null),
+        Map[String, Any]("dept" -> "mkt", "score" -> 5.0)
+      )
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}],
+                    "aggregations": [{"alias":"n","fn":"count","field":"score"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(rows, step)
+      val engRow = result.find(_("dept") == "eng").get
+      engRow("n") shouldBe 1L  // only non-null counted
+      val mktRow = result.find(_("dept") == "mkt").get
+      mktRow("n") shouldBe 1L
+    }
+
+    "aggregate: empty groupBy collapses all rows into one group" in {
+      val cfg = """{ "groupBy": [],
+                    "aggregations": [{"alias":"total","fn":"sum","field":"age"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("total") shouldBe (30.0 + 25.0 + 0.0)
+    }
+
+    "aggregate: null-safe — skips null values for sum/avg/min/max" in {
+      val rows = Seq(
+        Map[String, Any]("dept" -> "eng", "score" -> null),
+        Map[String, Any]("dept" -> "eng", "score" -> null)
+      )
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}],
+                    "aggregations": [
+                      {"alias":"total","fn":"sum","field":"score"},
+                      {"alias":"avg","fn":"avg","field":"score"},
+                      {"alias":"mn","fn":"min","field":"score"},
+                      {"alias":"mx","fn":"max","field":"score"}
+                    ] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(rows, step)
+      result should have size 1
+      result.head("total") shouldBe 0.0         // sum of empty seq
+      result.head("avg").asInstanceOf[AnyRef]   shouldBe null
+      result.head("mn").asInstanceOf[AnyRef]    shouldBe null
+      result.head("mx").asInstanceOf[AnyRef]    shouldBe null
+    }
+
+    "aggregate: malformed config — missing aggregations key yields empty agg map" in {
+      val cfg = """{ "groupBy": [{"name":"dept","type":"string"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      // No aggregation columns — each group row only has the groupBy key
+      result should have size 2
+      result.head.keys should contain ("dept")
+    }
+
+    "aggregate: malformed config — missing groupBy key treats all rows as one group" in {
+      val cfg = """{ "aggregations": [{"alias":"total","fn":"sum","field":"age"}] }"""
+      val step   = makeStep("aggregate", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("total") shouldBe (30.0 + 25.0 + 0.0)
+    }
+
     "unknown op fails with descriptive error" in {
       val step = makeStep("bogus", "{}")
       val fut  = engine.execute(sampleRows, Seq(step), null)
