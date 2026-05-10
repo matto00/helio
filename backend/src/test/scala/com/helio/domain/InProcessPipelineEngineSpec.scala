@@ -70,13 +70,134 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result.head("name") shouldBe "alice"
     }
 
-    "filter: keeps rows where expression evaluates to non-zero number" in {
-      val cfg = """{ "expression": "age" }"""
+    // ── filter: structured-condition evaluation ──────────────────────────────
+
+    "filter: = operator keeps matching rows" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "dept", "operator": "=", "value": "eng" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 2
+      result.map(_("name")) should contain allOf ("alice", "carol")
+      result.map(_("name")) should not contain "bob"
+    }
+
+    "filter: != operator excludes matching rows" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "dept", "operator": "!=", "value": "eng" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("name") shouldBe "bob"
+    }
+
+    "filter: > operator keeps rows where field is greater than value" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "age", "operator": ">", "value": "25" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("name") shouldBe "alice"
+    }
+
+    "filter: >= operator keeps rows where field is greater than or equal to value" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "age", "operator": ">=", "value": "25" }] }"""
       val step = makeStep("filter", cfg)
       val result = run(sampleRows, step)
       result should have size 2
       result.map(_("name")) should contain allOf ("alice", "bob")
+    }
+
+    "filter: < operator keeps rows where field is less than value" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "age", "operator": "<", "value": "25" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("name") shouldBe "carol"
+    }
+
+    "filter: <= operator keeps rows where field is less than or equal to value" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "age", "operator": "<=", "value": "25" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 2
+      result.map(_("name")) should contain allOf ("bob", "carol")
+    }
+
+    "filter: contains operator checks substring on field value" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "name", "operator": "contains", "value": "ol" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size 1
+      result.head("name") shouldBe "carol"
+    }
+
+    "filter: is null operator keeps rows where field is null" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "alice", "score" -> null),
+        Map[String, Any]("name" -> "bob",   "score" -> 10.0)
+      )
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "score", "operator": "is null" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(rows, step)
+      result should have size 1
+      result.head("name") shouldBe "alice"
+    }
+
+    "filter: is not null operator keeps rows where field is not null" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "alice", "score" -> null),
+        Map[String, Any]("name" -> "bob",   "score" -> 10.0)
+      )
+      val cfg  = """{ "combinator": "AND", "conditions": [{ "field": "score", "operator": "is not null" }] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(rows, step)
+      result should have size 1
+      result.head("name") shouldBe "bob"
+    }
+
+    "filter: AND combinator requires all conditions to pass" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [
+        { "field": "dept", "operator": "=", "value": "eng" },
+        { "field": "age",  "operator": ">", "value": "10" }
+      ] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      // alice: eng + age 30 > 10 → pass; carol: eng + age 0 > 10 → fail
+      result should have size 1
+      result.head("name") shouldBe "alice"
+    }
+
+    "filter: OR combinator passes rows matching any condition" in {
+      val cfg  = """{ "combinator": "OR", "conditions": [
+        { "field": "dept", "operator": "=",  "value": "mkt" },
+        { "field": "age",  "operator": ">=", "value": "30"  }
+      ] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      // alice: age 30 >= 30 → pass; bob: dept mkt → pass; carol: neither → fail
+      result should have size 2
+      result.map(_("name")) should contain allOf ("alice", "bob")
       result.map(_("name")) should not contain "carol"
+    }
+
+    "filter: missing field is treated as null (passes is null, fails comparisons)" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "alice"),  // no "score" field
+        Map[String, Any]("name" -> "bob", "score" -> 10.0)
+      )
+      val cfgNull    = """{ "combinator": "AND", "conditions": [{ "field": "score", "operator": "is null" }] }"""
+      val cfgGt      = """{ "combinator": "AND", "conditions": [{ "field": "score", "operator": ">", "value": "5" }] }"""
+      val resultNull = run(rows, makeStep("filter", cfgNull))
+      val resultGt   = run(rows, makeStep("filter", cfgGt))
+      resultNull should have size 1
+      resultNull.head("name") shouldBe "alice"
+      resultGt should have size 1
+      resultGt.head("name") shouldBe "bob"
+    }
+
+    "filter: empty conditions array passes all rows" in {
+      val cfg  = """{ "combinator": "AND", "conditions": [] }"""
+      val step = makeStep("filter", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
     }
 
     "compute: adds a new column from expression" in {
