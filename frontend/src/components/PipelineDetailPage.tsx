@@ -21,6 +21,8 @@ import type {
   PipelineStep,
   SchemaField,
 } from "../types/models";
+import { AggregateConfig } from "./AggregateConfig";
+import type { AggregateConfigValue } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
 import type { ComputeConfigValue } from "./ComputeFieldConfig";
@@ -238,6 +240,23 @@ function parseComputeConfig(config: string, opTypeId: string): ComputeConfigValu
   }
 }
 
+function parseAggregateConfig(config: string, opTypeId: string): AggregateConfigValue {
+  const empty: AggregateConfigValue = { groupBy: [], aggregations: [] };
+  if (opTypeId !== "aggregate" || !config) return empty;
+  try {
+    const parsed = JSON.parse(config) as {
+      groupBy?: AggregateConfigValue["groupBy"];
+      aggregations?: AggregateConfigValue["aggregations"];
+    };
+    return {
+      groupBy: parsed.groupBy ?? [],
+      aggregations: parsed.aggregations ?? [],
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
@@ -279,6 +298,9 @@ function StepCard({
   const [computeConfig, setComputeConfig] = useState<ComputeConfigValue>(() =>
     parseComputeConfig(step.config, step.opType.id),
   );
+  const [aggregateConfig, setAggregateConfig] = useState<AggregateConfigValue>(() =>
+    parseAggregateConfig(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -287,6 +309,7 @@ function StepCard({
     setCasts(parseCasts(step.config, step.opType.id));
     setFilterConfig(parseFilterConfig(step.config, step.opType.id));
     setComputeConfig(parseComputeConfig(step.config, step.opType.id));
+    setAggregateConfig(parseAggregateConfig(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -360,6 +383,17 @@ function StepCard({
       });
   }
 
+  function handleAggregateChange(newConfig: string) {
+    setAggregateConfig(parseAggregateConfig(newConfig, "aggregate"));
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
   return (
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
@@ -412,6 +446,13 @@ function StepCard({
               config={computeConfig}
               analyzeColumns={analyzeColumns}
               onChange={handleComputeChange}
+            />
+          ) : step.opType.id === "aggregate" ? (
+            <AggregateConfig
+              config={aggregateConfig}
+              analyzeSchema={analyzeSchema}
+              analyzeColumns={analyzeColumns}
+              onChange={handleAggregateChange}
             />
           ) : (
             <>
@@ -742,7 +783,9 @@ export function PipelineDetailPage() {
                 ? '{"combinator":"AND","conditions":[]}'
                 : opType.id === "compute"
                   ? '{"column":"","expression":"","type":"number"}'
-                  : "{}";
+                  : opType.id === "aggregate"
+                    ? '{"groupBy":[],"aggregations":[]}'
+                    : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>

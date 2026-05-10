@@ -47,14 +47,15 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
   ): Future[Seq[Map[String, Any]]] = {
     val cfg = JsonParser(step.config).asJsObject
     step.op match {
-      case "rename"  => Future.successful(applyRename(rows, cfg))
-      case "filter"  => Future.successful(applyFilter(rows, cfg))
-      case "compute" => Future.successful(applyCompute(rows, cfg))
-      case "groupby" => Future.successful(applyGroupBy(rows, cfg))
-      case "cast"    => Future.successful(applyCast(rows, cfg))
-      case "join"    => applyJoin(rows, cfg, dataSourceRepo)
-      case "select"  => Future.successful(applySelect(rows, cfg))
-      case other     => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
+      case "rename"    => Future.successful(applyRename(rows, cfg))
+      case "filter"    => Future.successful(applyFilter(rows, cfg))
+      case "compute"   => Future.successful(applyCompute(rows, cfg))
+      case "groupby"   => Future.successful(applyGroupBy(rows, cfg))
+      case "aggregate" => Future.successful(applyAggregate(rows, cfg))
+      case "cast"      => Future.successful(applyCast(rows, cfg))
+      case "join"      => applyJoin(rows, cfg, dataSourceRepo)
+      case "select"    => Future.successful(applySelect(rows, cfg))
+      case other       => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
     }
   }
 
@@ -166,6 +167,50 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
           )
       }
       keyMap + (outputCol -> aggValue)
+    }.toSeq
+  }
+
+  private def applyAggregate(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
+    // Config shape: {groupBy:[{name,type}], aggregations:[{alias,fn,field}]}
+    // groupBy: zero or more fields to group on (uses obj.name for key lookup).
+    // aggregations: one or more rows producing {alias → aggregated value}.
+    // Null-safe: skip nulls for sum/avg/min/max; count counts non-null values.
+    val groupByFields = cfg.fields
+      .get("groupBy")
+      .map(_.convertTo[Vector[JsObject]])
+      .getOrElse(Vector.empty)
+      .map(obj => obj.fields("name").convertTo[String])
+
+    val aggregations = cfg.fields
+      .get("aggregations")
+      .map(_.convertTo[Vector[JsObject]])
+      .getOrElse(Vector.empty)
+
+    val grouped: Map[Seq[Any], Seq[Map[String, Any]]] =
+      rows.groupBy(row => groupByFields.map(name => row.getOrElse(name, null)))
+
+    grouped.map { case (keyValues, groupRows) =>
+      val keyMap: Map[String, Any] = groupByFields.zip(keyValues).toMap
+      val aggMap: Map[String, Any] = aggregations.map { agg =>
+        val alias = agg.fields("alias").convertTo[String]
+        val fn    = agg.fields("fn").convertTo[String].toLowerCase
+        val field = agg.fields("field").convertTo[String]
+        val nums  = groupRows.flatMap(r => toDouble(r.getOrElse(field, null)))
+        val value: Any = fn match {
+          case "sum"   => nums.sum
+          case "avg"   => if (nums.isEmpty) null else nums.sum / nums.size
+          case "min"   => if (nums.isEmpty) null else nums.min
+          case "max"   => if (nums.isEmpty) null else nums.max
+          case "count" => groupRows.count(r => r.getOrElse(field, null) != null).toLong
+          case other =>
+            throw new IllegalArgumentException(
+              "Unsupported aggregation function: " + other +
+                ". Supported: sum, avg, min, max, count"
+            )
+        }
+        alias -> value
+      }.toMap
+      keyMap ++ aggMap
     }.toSeq
   }
 
