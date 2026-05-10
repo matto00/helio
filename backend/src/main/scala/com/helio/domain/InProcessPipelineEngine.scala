@@ -123,12 +123,14 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
   }
 
   private def applyCast(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val column   = cfg.fields("column").convertTo[String]
-    val dataType = cfg.fields("dataType").convertTo[String]
+    // Config shape: {"casts": {"fieldName": "targetType", ...}}
+    // Fields not listed in `casts` pass through unchanged.
+    val casts = cfg.fields.get("casts").map(_.convertTo[Map[String, String]]).getOrElse(Map.empty)
     rows.map { row =>
-      val rawValue = row.getOrElse(column, null)
-      val casted   = castValue(rawValue, dataType)
-      row + (column -> casted)
+      casts.foldLeft(row) { case (r, (field, targetType)) =>
+        val rawValue = r.getOrElse(field, null)
+        r + (field -> castValue(rawValue, targetType))
+      }
     }
   }
 
@@ -263,6 +265,8 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       case "long"    => Try(str.toLong).orElse(Try(str.toDouble.toLong)).getOrElse(null)
       case "double"  => Try(str.toDouble).getOrElse(null)
       case "boolean" => Try(str.toBoolean).getOrElse(null)
+      // "date" is not yet supported for in-process conversion; passes through as string.
+      case "date"    => str
       case _         => str
     }
   }

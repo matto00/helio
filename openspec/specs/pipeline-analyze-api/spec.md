@@ -94,10 +94,15 @@ If the pipeline is not found, the response SHALL be 404.
   inputSchema `[{name: "order_id", type: "string"}, {name: "amount", type: "number"}]`
 - **THEN** the step's `outputSchema` is `[{name: "id", type: "string"}, {name: "amount", type: "number"}]`
 
-#### Scenario: Cast step changes field type
-- **WHEN** a cast step has `config: {"column": "amount", "dataType": "string"}` applied to
+#### Scenario: Cast step changes field type using casts map
+- **WHEN** a cast step has `config: {"casts": {"amount": "string"}}` applied to
   inputSchema `[{name: "amount", type: "number"}]`
 - **THEN** the step's `outputSchema` is `[{name: "amount", type: "string"}]`
+
+#### Scenario: Cast step with multiple fields changes each field type
+- **WHEN** a cast step has `config: {"casts": {"qty": "integer", "price": "double"}}` applied to
+  inputSchema `[{name: "qty", type: "string"}, {name: "price", type: "string"}]`
+- **THEN** the step's `outputSchema` is `[{name: "qty", type: "integer"}, {name: "price", type: "double"}]`
 
 #### Scenario: Filter step is identity
 - **WHEN** a filter step is applied to inputSchema `[{name: "x", type: "integer"}]`

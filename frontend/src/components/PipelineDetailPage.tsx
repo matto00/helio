@@ -20,6 +20,7 @@ import type {
   PipelineRunRecord,
   PipelineStep,
 } from "../types/models";
+import { CastFieldsConfig } from "./CastFieldsConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
@@ -187,6 +188,16 @@ function parseRenames(config: string, opTypeId: string): Record<string, string> 
   }
 }
 
+function parseCasts(config: string, opTypeId: string): Record<string, string> {
+  if (opTypeId !== "cast" || !config) return {};
+  try {
+    const parsed = JSON.parse(config) as { casts?: Record<string, string> };
+    return parsed.casts ?? {};
+  } catch {
+    return {};
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
@@ -210,11 +221,15 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
   const [renames, setRenames] = useState<Record<string, string>>(() =>
     parseRenames(step.config, step.opType.id),
   );
+  const [casts, setCasts] = useState<Record<string, string>>(() =>
+    parseCasts(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
     setSelectedFields(parseSelectedFields(step.config, step.opType.id));
     setRenames(parseRenames(step.config, step.opType.id));
+    setCasts(parseCasts(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -239,6 +254,24 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
     }
     setRenames(next);
     const newConfig = JSON.stringify({ renames: next });
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
+  function handleCastChange(field: string, targetType: string) {
+    const next = { ...casts };
+    if (targetType) {
+      next[field] = targetType;
+    } else {
+      delete next[field];
+    }
+    setCasts(next);
+    const newConfig = JSON.stringify({ casts: next });
     void updatePipelineStep(step.id, newConfig)
       .then(() => {
         onConfigChange(step.id, newConfig);
@@ -287,6 +320,8 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
               renames={renames}
               onChange={handleRenameChange}
             />
+          ) : step.opType.id === "cast" ? (
+            <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={handleCastChange} />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">
@@ -598,7 +633,13 @@ export function PipelineDetailPage() {
     setSteps((prev) => [...prev, tempStep]);
     try {
       const initialConfig =
-        opType.id === "select" ? '{"fields":[]}' : opType.id === "rename" ? '{"renames":{}}' : "{}";
+        opType.id === "select"
+          ? '{"fields":[]}'
+          : opType.id === "rename"
+            ? '{"renames":{}}'
+            : opType.id === "cast"
+              ? '{"casts":{}}'
+              : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>
