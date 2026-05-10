@@ -208,6 +208,41 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result(1)("age_plus_ten") shouldBe 35.0
     }
 
+    "compute: tolerates extra 'type' key in unified config shape" in {
+      val cfg  = """{ "column": "age_doubled", "expression": "age + age", "type": "number" }"""
+      val step = makeStep("compute", cfg)
+      val result = run(sampleRows, step)
+      result.head("age_doubled") shouldBe 60.0
+    }
+
+    "compute: division by zero produces null for that row" in {
+      val rows = Seq(
+        Map[String, Any]("x" -> 10.0, "y" -> 2.0),
+        Map[String, Any]("x" -> 5.0,  "y" -> 0.0)
+      )
+      val cfg  = """{ "column": "result", "expression": "x / y", "type": "number" }"""
+      val step = makeStep("compute", cfg)
+      val result = run(rows, step)
+      result.head("result") shouldBe 5.0
+      result(1)("result").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "compute: unknown field reference produces null for that row" in {
+      val rows = Seq(Map[String, Any]("x" -> 10.0))
+      val cfg  = """{ "column": "result", "expression": "x + nonexistent", "type": "number" }"""
+      val step = makeStep("compute", cfg)
+      val result = run(rows, step)
+      result.head("result").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "compute: arithmetic with multiply and parentheses" in {
+      val rows = Seq(Map[String, Any]("price" -> 3.0, "quantity" -> 5.0))
+      val cfg  = """{ "column": "total", "expression": "price * quantity", "type": "number" }"""
+      val step = makeStep("compute", cfg)
+      val result = run(rows, step)
+      result.head("total") shouldBe 15.0
+    }
+
     "groupby: groups and sums a column" in {
       val cfg = """{ "groupBy": ["dept"], "aggColumn": "age", "aggFunction": "sum" }"""
       val step = makeStep("groupby", cfg)

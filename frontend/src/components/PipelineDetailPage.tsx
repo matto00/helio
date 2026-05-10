@@ -22,6 +22,8 @@ import type {
   SchemaField,
 } from "../types/models";
 import { CastFieldsConfig } from "./CastFieldsConfig";
+import { ComputeFieldConfig } from "./ComputeFieldConfig";
+import type { ComputeConfigValue } from "./ComputeFieldConfig";
 import { FilterConfig } from "./FilterConfig";
 import type { FilterConfigValue } from "./FilterConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
@@ -217,6 +219,25 @@ function parseFilterConfig(config: string, opTypeId: string): FilterConfigValue 
   }
 }
 
+function parseComputeConfig(config: string, opTypeId: string): ComputeConfigValue {
+  const empty: ComputeConfigValue = { column: "", expression: "", type: "number" };
+  if (opTypeId !== "compute" || !config) return empty;
+  try {
+    const parsed = JSON.parse(config) as {
+      column?: string;
+      expression?: string;
+      type?: string;
+    };
+    return {
+      column: parsed.column ?? "",
+      expression: parsed.expression ?? "",
+      type: parsed.type ?? "number",
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
@@ -255,6 +276,9 @@ function StepCard({
   const [filterConfig, setFilterConfig] = useState<FilterConfigValue>(() =>
     parseFilterConfig(step.config, step.opType.id),
   );
+  const [computeConfig, setComputeConfig] = useState<ComputeConfigValue>(() =>
+    parseComputeConfig(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -262,6 +286,7 @@ function StepCard({
     setRenames(parseRenames(step.config, step.opType.id));
     setCasts(parseCasts(step.config, step.opType.id));
     setFilterConfig(parseFilterConfig(step.config, step.opType.id));
+    setComputeConfig(parseComputeConfig(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -324,6 +349,17 @@ function StepCard({
       });
   }
 
+  function handleComputeChange(newConfig: string) {
+    setComputeConfig(parseComputeConfig(newConfig, "compute"));
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
   return (
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
@@ -370,6 +406,12 @@ function StepCard({
               config={filterConfig}
               analyzeSchema={analyzeSchema}
               onChange={handleFilterChange}
+            />
+          ) : step.opType.id === "compute" ? (
+            <ComputeFieldConfig
+              config={computeConfig}
+              analyzeColumns={analyzeColumns}
+              onChange={handleComputeChange}
             />
           ) : (
             <>
@@ -698,7 +740,9 @@ export function PipelineDetailPage() {
               ? '{"casts":{}}'
               : opType.id === "filter"
                 ? '{"combinator":"AND","conditions":[]}'
-                : "{}";
+                : opType.id === "compute"
+                  ? '{"column":"","expression":"","type":"number"}'
+                  : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>

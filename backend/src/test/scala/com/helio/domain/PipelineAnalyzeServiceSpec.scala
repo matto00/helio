@@ -123,21 +123,50 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
 
     // ── compute inference ─────────────────────────────────────────────────────
 
-    "compute — appends declared output fields to the schema" in {
-      val cfg    = """{"outputs":[{"name":"tax","type":"number"},{"name":"label","type":"string"}]}"""
+    "compute — appends the declared output field to the schema (unified config shape)" in {
+      val cfg    = """{"column":"tax","expression":"amount * 0.1","type":"number"}"""
       val steps  = Vector(step("compute", cfg))
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
       val names = result(0).outputSchema.map(_.name)
-      names should contain allOf ("order_id", "amount", "created_at", "tax", "label")
-      result(0).outputSchema should have size (baseSchema.size + 2)
+      names should contain allOf ("order_id", "amount", "created_at", "tax")
+      result(0).outputSchema should have size (baseSchema.size + 1)
+      result(0).outputSchema.last shouldBe SchemaField("tax", "number")
     }
 
-    "compute — malformed config produces validationError and identity outputSchema" in {
+    "compute — preserves output field type from config" in {
+      val cfg    = """{"column":"label","expression":"order_id","type":"string"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == "label").map(_.`type`) shouldBe Some("string")
+    }
+
+    "compute — computed field is visible to downstream steps" in {
+      val computeCfg = """{"column":"tax","expression":"amount * 0.1","type":"number"}"""
+      val selectCfg  = """{"fields":["order_id","tax"]}"""
+      val steps = Vector(
+        step("compute", computeCfg, position = 0),
+        step("select",  selectCfg,  position = 1)
+      )
+      val result = analyze(steps, baseSchema)
+
+      result(1).inputSchema.map(_.name) should contain ("tax")
+      result(1).outputSchema.map(_.name) shouldBe Vector("order_id", "tax")
+    }
+
+    "compute — malformed config (missing column key) produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("compute", """{"expression":"amount * 0.1","type":"number"}"""))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "compute — malformed config (empty JSON) produces validationError and identity outputSchema" in {
       val steps  = Vector(step("compute", "{}"))
       val result = analyze(steps, baseSchema)
-      // "outputs" key missing → exception → validationError
       result(0).validationError should not be empty
       result(0).outputSchema shouldBe baseSchema
     }
