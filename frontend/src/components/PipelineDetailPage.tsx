@@ -711,12 +711,13 @@ function formatDuration(startedAt: string, completedAt: string | null): string {
 }
 
 function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
+  const label = status === "dry_run" ? "Dry run" : status;
   return (
     <span
       className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${status}`}
       aria-label={`Status: ${status}`}
     >
-      {status}
+      {label}
     </span>
   );
 }
@@ -949,7 +950,17 @@ export function PipelineDetailPage() {
   async function handleRunPipeline() {
     if (!id) return;
     try {
-      await dispatch(submitPipelineRun(id)).unwrap();
+      await dispatch(submitPipelineRun({ pipelineId: id })).unwrap();
+      void dispatch(fetchPipelineRunHistory(id));
+    } catch {
+      // runError is displayed via Redux state
+    }
+  }
+
+  async function handleDryRun() {
+    if (!id) return;
+    try {
+      await dispatch(submitPipelineRun({ pipelineId: id, dryRun: true })).unwrap();
       void dispatch(fetchPipelineRunHistory(id));
     } catch {
       // runError is displayed via Redux state
@@ -1147,6 +1158,15 @@ export function PipelineDetailPage() {
           )}
           <button type="button" className="pipeline-detail-page__preview-btn">
             Preview
+          </button>
+          <button
+            type="button"
+            className="pipeline-detail-page__dry-run-btn"
+            onClick={() => void handleDryRun()}
+            disabled={runStatus === "queued" || runStatus === "running"}
+            aria-label="Dry run"
+          >
+            Dry run
           </button>
           <button
             type="button"

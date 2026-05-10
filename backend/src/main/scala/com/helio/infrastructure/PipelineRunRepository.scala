@@ -41,6 +41,20 @@ class PipelineRunRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Ex
         .update((status, Some(completedAt), rowCount, errorLog))
     ).map(_ => ())
 
+  /** Insert a completed dry-run record in a single step (no queued → terminal transition). */
+  def insertDryRun(runId: String, pipelineId: String, startedAt: Instant, rowCount: Int): Future[Unit] = {
+    val row = PipelineRunRow(
+      id          = runId,
+      pipelineId  = pipelineId,
+      status      = "dry_run",
+      startedAt   = startedAt,
+      completedAt = Some(startedAt),
+      rowCount    = Some(rowCount),
+      errorLog    = None
+    )
+    db.run(runsTable += row).map(_ => ())
+  }
+
   /**
    * Delete all but the most recent `keepN` runs for a given pipeline.
    * Called immediately after insertRun to enforce retention.

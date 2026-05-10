@@ -367,6 +367,24 @@ class PipelineRunRoutesSpec
       runs.head.errorLog.get should not be empty
     }
 
+    // HEL-197 dry-run row insertion
+    "POST /pipelines/:id/run?dry=true inserts a dry_run row in the repository" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      runs should have size 1
+      runs.head.pipelineId  shouldBe pid
+      runs.head.status      shouldBe "dry_run"
+      runs.head.completedAt shouldBe defined
+      runs.head.rowCount    shouldBe Some(2)
+    }
+
     // 6.5 non-dry run failure sets last_run_status to failed and returns 422
     "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
       import PostgresProfile.api._

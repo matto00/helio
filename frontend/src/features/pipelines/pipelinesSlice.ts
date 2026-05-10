@@ -120,11 +120,11 @@ export const updatePipeline = createAsyncThunk<
 
 export const submitPipelineRun = createAsyncThunk<
   { rowCount: number; rows: Record<string, unknown>[] },
-  string,
+  { pipelineId: string; dryRun?: boolean },
   { rejectValue: string }
->("pipelines/submitPipelineRun", async (pipelineId, { rejectWithValue }) => {
+>("pipelines/submitPipelineRun", async ({ pipelineId, dryRun }, { rejectWithValue }) => {
   try {
-    return await runPipeline(pipelineId);
+    return await runPipeline(pipelineId, dryRun);
   } catch {
     return rejectWithValue("Failed to start pipeline run.");
   }

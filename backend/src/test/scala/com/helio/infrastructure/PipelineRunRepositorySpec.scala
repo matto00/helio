@@ -151,5 +151,21 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs shouldBe empty
     }
+
+    "insertDryRun inserts a row with status dry_run and non-null completedAt" in {
+      val pid    = seedPipeline()
+      val runId  = UUID.randomUUID().toString
+      val now    = Instant.now()
+      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3))
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      runs should have size 1
+      runs.head.id          shouldBe runId
+      runs.head.pipelineId  shouldBe pid
+      runs.head.status      shouldBe "dry_run"
+      runs.head.completedAt shouldBe defined
+      runs.head.rowCount    shouldBe Some(3)
+      runs.head.errorLog    shouldBe None
+    }
   }
 }

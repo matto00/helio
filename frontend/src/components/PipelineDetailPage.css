@@ -642,6 +642,12 @@
   color: #f87171;
 }
 
+.pipeline-detail-page__run-status--dry_run {
+  background: var(--app-surface-raised, rgba(148, 163, 184, 0.15));
+  color: var(--app-text-muted);
+  border: 1px dashed var(--app-border-subtle);
+}
+
 /* ── Loading / error overlay ────────────────────────────────────────────────── */
 
 .pipeline-detail-page__loading {
@@ -698,6 +704,30 @@
 .pipeline-detail-page__cancel-btn:hover {
   background: var(--app-surface-raised, rgba(148, 163, 184, 0.2));
   color: var(--app-text-primary);
+}
+
+/* ── Dry-run button ─────────────────────────────────────────────────────────── */
+
+.pipeline-detail-page__dry-run-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--app-transition);
+}
+
+.pipeline-detail-page__dry-run-btn:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__dry-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Update error ───────────────────────────────────────────────────────────── */
