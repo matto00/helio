@@ -118,6 +118,7 @@ class PipelineRunRoutes(
                                       if (pipelineRunRepo != null)
                                         pipelineRunRepo
                                           .insertDryRun(runId, pipelineId, startAt, resultRows.size)
+                                          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId))
                                           .recoverWith { case _ => Future.successful(()) }
                                       else Future.successful(())
                                     onComplete(dryWork) { _ =>

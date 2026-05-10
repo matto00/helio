@@ -56,18 +56,38 @@ class PipelineRunRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Ex
   }
 
   /**
-   * Delete all but the most recent `keepN` runs for a given pipeline.
+   * Delete all but the most recent `keepN` non-dry-run records for a given pipeline.
    * Called immediately after insertRun to enforce retention.
+   * Dry-run records are managed separately by deleteOldDryRuns.
    */
   def deleteOldRuns(pipelineId: String, keepN: Int = 10): Future[Unit] = {
     val keepIds = runsTable
-      .filter(_.pipelineId === pipelineId)
+      .filter(r => r.pipelineId === pipelineId && r.status =!= "dry_run")
       .sortBy(_.startedAt.desc)
       .take(keepN)
       .map(_.id)
 
     val action = runsTable
-      .filter(r => r.pipelineId === pipelineId && !r.id.in(keepIds))
+      .filter(r => r.pipelineId === pipelineId && r.status =!= "dry_run" && !r.id.in(keepIds))
+      .delete
+
+    db.run(action).map(_ => ())
+  }
+
+  /**
+   * Delete all but the most recent `keepN` dry-run records for a given pipeline.
+   * Called immediately after insertDryRun to enforce dry-run retention independently
+   * of the normal-run cap.
+   */
+  def deleteOldDryRuns(pipelineId: String, keepN: Int = 10): Future[Unit] = {
+    val keepIds = runsTable
+      .filter(r => r.pipelineId === pipelineId && r.status === "dry_run")
+      .sortBy(_.startedAt.desc)
+      .take(keepN)
+      .map(_.id)
+
+    val action = runsTable
+      .filter(r => r.pipelineId === pipelineId && r.status === "dry_run" && !r.id.in(keepIds))
       .delete
 
     db.run(action).map(_ => ())
