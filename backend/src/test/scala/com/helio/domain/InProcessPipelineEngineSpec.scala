@@ -524,6 +524,31 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result.head("total") shouldBe (30.0 + 25.0 + 0.0)
     }
 
+    // ── limit op ─────────────────────────────────────────────────────────────
+
+    "limit: truncates output to N rows" in {
+      val cfg  = """{ "count": 2 }"""
+      val step = makeStep("limit", cfg)
+      val result = run(sampleRows, step)
+      result should have size 2
+      result.head("name") shouldBe "alice"
+      result(1)("name") shouldBe "bob"
+    }
+
+    "limit: count greater than total rows returns all rows" in {
+      val cfg  = """{ "count": 100 }"""
+      val step = makeStep("limit", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
+    }
+
+    "limit: count = 0 is a no-op and returns all rows" in {
+      val cfg  = """{ "count": 0 }"""
+      val step = makeStep("limit", cfg)
+      val result = run(sampleRows, step)
+      result should have size sampleRows.size
+    }
+
     "unknown op fails with descriptive error" in {
       val step = makeStep("bogus", "{}")
       val fut  = engine.execute(sampleRows, Seq(step), null)

@@ -1,0 +1,9 @@
+- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` — added `applyLimit` private method and `"limit"` case in `applyStep`
+- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala` — added three limit test cases (truncate to N, count > total rows, count=0 no-op)
+- `backend/src/main/scala/com/helio/api/routes/PipelineStepRoutes.scala` — added `"limit"` to `allowedOps` so POST/PATCH requests with op=limit are accepted
+- `backend/src/main/resources/db/migration/V26__add_limit_op.sql` — new Flyway migration extending the `pipeline_steps_op_check` constraint to include `'limit'`
+- `frontend/src/components/LimitConfig.tsx` — new component: numeric input for row count with N > 0 validation
+- `frontend/src/components/LimitConfig.test.tsx` — Jest tests for LimitConfig: renders input, calls onChange with correct JSON, rejects invalid N
+- `frontend/src/components/PipelineDetailPage.tsx` — wired LimitConfig: added import, `parseLimitConfig` helper, `limitCount` state, `handleLimitChange` handler, `"limit"` OP_TYPES entry, initial config in `handleAddStep`, and render branch in StepCard
+- `openspec/changes/pipeline-op-limit/tasks.md` — marked all 12 tasks complete
+- `openspec/changes/pipeline-op-limit/files-modified.md` — this handoff file
