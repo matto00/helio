@@ -844,6 +844,56 @@ describe("PipelineDetailPage beforeunload", () => {
   });
 });
 
+// ── HEL-196: Run button disabled state and dispatch sequence ─────────────────
+
+describe("PipelineDetailPage Run button (HEL-196)", () => {
+  beforeEach(() => {
+    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 2.3 — Run button disabled/enabled based on runStatus
+  it("Run button is disabled when runStatus is queued", () => {
+    const store = makeStore([], { runStatus: "queued", runId: "run-1" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("button", { name: "Run pipeline ▶" })).toBeDisabled();
+  });
+
+  it("Run button is enabled when runStatus is null", () => {
+    renderDetailPage("pipe-1");
+    expect(screen.getByRole("button", { name: "Run pipeline ▶" })).toBeEnabled();
+  });
+
+  // 2.4 — Clicking Run dispatches submitPipelineRun then fetchPipelineRunHistory
+  it("clicking Run dispatches submitPipelineRun and then fetchPipelineRunHistory", async () => {
+    renderDetailPage("pipe-1");
+
+    // Wait for the on-mount fetchPipelineRunHistory dispatch to settle
+    await waitFor(() => {
+      expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
+
+    await waitFor(() => {
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1");
+    });
+
+    // fetchPipelineRunHistory should be called again after the run succeeds
+    await waitFor(() => {
+      expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+    });
+  });
+});
+
 // ── Step preview tests ────────────────────────────────────────────────────────
 
 const persistedPreviewStep: PipelineStep = {

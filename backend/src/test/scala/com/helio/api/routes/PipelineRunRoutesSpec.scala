@@ -331,6 +331,42 @@ class PipelineRunRoutesSpec
       }
     }
 
+    // 2.1 non-dry run success inserts a pipeline_runs row with status succeeded and correct rowCount
+    "POST /pipelines/:id/run (non-dry, success) inserts a pipeline_runs row with status succeeded" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      runs should have size 1
+      runs.head.pipelineId shouldBe pid
+      runs.head.status     shouldBe "succeeded"
+      runs.head.rowCount   shouldBe Some(2)
+      runs.head.errorLog   shouldBe None
+    }
+
+    // 2.2 non-dry run failure via bad join step inserts a pipeline_runs row with status failed and non-empty errorLog
+    "POST /pipelines/:id/run (non-dry, failure via bad join step) inserts a pipeline_runs row with status failed" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "join",
+        """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      runs should have size 1
+      runs.head.pipelineId shouldBe pid
+      runs.head.status     shouldBe "failed"
+      runs.head.errorLog   shouldBe defined
+      runs.head.errorLog.get should not be empty
+    }
+
     // 6.5 non-dry run failure sets last_run_status to failed and returns 422
     "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
       import PostgresProfile.api._

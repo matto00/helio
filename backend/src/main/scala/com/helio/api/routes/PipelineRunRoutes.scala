@@ -71,15 +71,36 @@ class PipelineRunRoutes(
                               complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
                             case Success(steps) =>
+                              val runId   = java.util.UUID.randomUUID().toString
+                              val startAt = Instant.now()
+
+                              // Pre-execution: insert run record and prune old runs (non-dry only).
+                              // recoverWith ensures a logging failure never blocks execution.
+                              val preExec: Future[Unit] =
+                                if (!isDry && pipelineRunRepo != null)
+                                  pipelineRunRepo
+                                    .insertRun(runId, pipelineId, startAt)
+                                    .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, keepN = 10))
+                                    .recoverWith { case _ => Future.successful(()) }
+                                else Future.successful(())
+
                               onComplete(
-                                inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
-                                  inProcessEngine.execute(sourceRows, steps, dataSourceRepo)
+                                preExec.flatMap { _ =>
+                                  inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
+                                    inProcessEngine.execute(sourceRows, steps, dataSourceRepo)
+                                  }
                                 }
                               ) {
                                 case Failure(ex) =>
                                   val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
                                   if (!isDry) {
-                                    onComplete(pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now())) { _ =>
+                                    val failWork: Future[Unit] = for {
+                                      _ <- if (pipelineRunRepo != null)
+                                             pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
+                                           else Future.successful(())
+                                      _ <- pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now())
+                                    } yield ()
+                                    onComplete(failWork) { _ =>
                                       complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
                                     }
                                   } else {
@@ -101,6 +122,9 @@ class PipelineRunRoutes(
                                              upsertFieldsFromRows(pipeline.outputDataTypeId, resultRows)
                                            else Future.successful(())
                                       _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now)
+                                      _ <- if (pipelineRunRepo != null)
+                                             pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size))
+                                           else Future.successful(())
                                     } yield ()
                                     onComplete(allWork) { _ =>
                                       complete(StatusCodes.OK, response)
