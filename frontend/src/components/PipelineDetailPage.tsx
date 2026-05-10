@@ -28,6 +28,7 @@ import { ComputeFieldConfig } from "./ComputeFieldConfig";
 import type { ComputeConfigValue } from "./ComputeFieldConfig";
 import { FilterConfig } from "./FilterConfig";
 import type { FilterConfigValue } from "./FilterConfig";
+import { LimitConfig } from "./LimitConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
@@ -47,6 +48,7 @@ const OP_TYPES: OpType[] = [
   { id: "compute", label: "Compute column", icon: "🧮" },
   { id: "aggregate", label: "Group & aggregate", icon: "📊" },
   { id: "cast", label: "Cast type", icon: "⇄" },
+  { id: "limit", label: "Limit rows", icon: "⬆" },
 ];
 
 // ── Step data ────────────────────────────────────────────────────────────────
@@ -240,6 +242,16 @@ function parseComputeConfig(config: string, opTypeId: string): ComputeConfigValu
   }
 }
 
+function parseLimitConfig(config: string, opTypeId: string): number {
+  if (opTypeId !== "limit" || !config) return 100;
+  try {
+    const parsed = JSON.parse(config) as { count?: number };
+    return typeof parsed.count === "number" && parsed.count > 0 ? parsed.count : 100;
+  } catch {
+    return 100;
+  }
+}
+
 function parseAggregateConfig(config: string, opTypeId: string): AggregateConfigValue {
   const empty: AggregateConfigValue = { groupBy: [], aggregations: [] };
   if (opTypeId !== "aggregate" || !config) return empty;
@@ -301,6 +313,9 @@ function StepCard({
   const [aggregateConfig, setAggregateConfig] = useState<AggregateConfigValue>(() =>
     parseAggregateConfig(step.config, step.opType.id),
   );
+  const [limitCount, setLimitCount] = useState<number>(() =>
+    parseLimitConfig(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -310,6 +325,7 @@ function StepCard({
     setFilterConfig(parseFilterConfig(step.config, step.opType.id));
     setComputeConfig(parseComputeConfig(step.config, step.opType.id));
     setAggregateConfig(parseAggregateConfig(step.config, step.opType.id));
+    setLimitCount(parseLimitConfig(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -394,6 +410,17 @@ function StepCard({
       });
   }
 
+  function handleLimitChange(newConfig: string) {
+    setLimitCount(parseLimitConfig(newConfig, "limit"));
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
   return (
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
@@ -454,6 +481,8 @@ function StepCard({
               analyzeColumns={analyzeColumns}
               onChange={handleAggregateChange}
             />
+          ) : step.opType.id === "limit" ? (
+            <LimitConfig count={limitCount} onChange={handleLimitChange} />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">
@@ -785,7 +814,9 @@ export function PipelineDetailPage() {
                   ? '{"column":"","expression":"","type":"number"}'
                   : opType.id === "aggregate"
                     ? '{"groupBy":[],"aggregations":[]}'
-                    : "{}";
+                    : opType.id === "limit"
+                      ? '{"count":100}'
+                      : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>

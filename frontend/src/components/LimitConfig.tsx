@@ -1,0 +1,44 @@
+// LimitConfig — numeric row-count input for the "limit" pipeline op.
+// Renders a single number input (min=1). Calls onChange with '{"count":<n>}'
+// on every valid change. N <= 0 is rejected with inline validation text.
+
+import type { ChangeEvent } from "react";
+
+interface LimitConfigProps {
+  /** Current row count limit (parsed from the step config). */
+  count: number;
+  /** Called with the new serialized config JSON string on a valid change. */
+  onChange: (newConfig: string) => void;
+}
+
+export function LimitConfig({ count, onChange }: LimitConfigProps) {
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    const parsed = parseInt(raw, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      onChange(JSON.stringify({ count: parsed }));
+    }
+  }
+
+  return (
+    <div className="pipeline-detail-page__limit-config">
+      <label className="pipeline-detail-page__limit-config-label" htmlFor="limit-count-input">
+        Row limit (N)
+      </label>
+      <input
+        id="limit-count-input"
+        type="number"
+        min={1}
+        value={count}
+        onChange={handleChange}
+        className="pipeline-detail-page__limit-config-input"
+        aria-label="Row limit"
+      />
+      {count <= 0 && (
+        <span className="pipeline-detail-page__limit-config-error" role="alert">
+          Row limit must be greater than 0.
+        </span>
+      )}
+    </div>
+  );
+}

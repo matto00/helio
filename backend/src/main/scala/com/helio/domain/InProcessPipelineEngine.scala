@@ -55,6 +55,7 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       case "cast"      => Future.successful(applyCast(rows, cfg))
       case "join"      => applyJoin(rows, cfg, dataSourceRepo)
       case "select"    => Future.successful(applySelect(rows, cfg))
+      case "limit"     => Future.successful(applyLimit(rows, cfg))
       case other       => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
     }
   }
@@ -212,6 +213,12 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       }.toMap
       keyMap ++ aggMap
     }.toSeq
+  }
+
+  private def applyLimit(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
+    // Config shape: {"count": <int>}. Missing/zero/negative count → no-op (return all rows).
+    val count = cfg.fields.get("count").flatMap(v => scala.util.Try(v.convertTo[Int]).toOption).getOrElse(0)
+    if (count <= 0) rows else rows.take(count)
   }
 
   private def applySelect(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
