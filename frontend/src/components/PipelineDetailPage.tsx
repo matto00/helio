@@ -30,6 +30,8 @@ import { FilterConfig } from "./FilterConfig";
 import type { FilterConfigValue } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
+import { SortConfig } from "./SortConfig";
+import type { SortKey } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 // ── Op types ────────────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ const OP_TYPES: OpType[] = [
   { id: "aggregate", label: "Group & aggregate", icon: "📊" },
   { id: "cast", label: "Cast type", icon: "⇄" },
   { id: "limit", label: "Limit rows", icon: "⬆" },
+  { id: "sort", label: "Sort rows", icon: "↕" },
 ];
 
 // ── Step data ────────────────────────────────────────────────────────────────
@@ -269,6 +272,16 @@ function parseAggregateConfig(config: string, opTypeId: string): AggregateConfig
   }
 }
 
+function parseSortConfig(config: string, opTypeId: string): SortKey[] {
+  if (opTypeId !== "sort" || !config) return [];
+  try {
+    const parsed = JSON.parse(config) as { sortBy?: SortKey[] };
+    return Array.isArray(parsed.sortBy) ? parsed.sortBy : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
@@ -316,6 +329,9 @@ function StepCard({
   const [limitCount, setLimitCount] = useState<number>(() =>
     parseLimitConfig(step.config, step.opType.id),
   );
+  const [sortConfig, setSortConfig] = useState<SortKey[]>(() =>
+    parseSortConfig(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -326,6 +342,7 @@ function StepCard({
     setComputeConfig(parseComputeConfig(step.config, step.opType.id));
     setAggregateConfig(parseAggregateConfig(step.config, step.opType.id));
     setLimitCount(parseLimitConfig(step.config, step.opType.id));
+    setSortConfig(parseSortConfig(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -421,6 +438,17 @@ function StepCard({
       });
   }
 
+  function handleSortChange(newConfig: string) {
+    setSortConfig(parseSortConfig(newConfig, "sort"));
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
   return (
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
@@ -483,6 +511,8 @@ function StepCard({
             />
           ) : step.opType.id === "limit" ? (
             <LimitConfig count={limitCount} onChange={handleLimitChange} />
+          ) : step.opType.id === "sort" ? (
+            <SortConfig sortBy={sortConfig} columns={analyzeColumns} onChange={handleSortChange} />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">
@@ -816,7 +846,9 @@ export function PipelineDetailPage() {
                     ? '{"groupBy":[],"aggregations":[]}'
                     : opType.id === "limit"
                       ? '{"count":100}'
-                      : "{}";
+                      : opType.id === "sort"
+                        ? '{"sortBy":[]}'
+                        : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>

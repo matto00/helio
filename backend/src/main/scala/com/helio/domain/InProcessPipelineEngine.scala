@@ -56,6 +56,7 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
       case "join"      => applyJoin(rows, cfg, dataSourceRepo)
       case "select"    => Future.successful(applySelect(rows, cfg))
       case "limit"     => Future.successful(applyLimit(rows, cfg))
+      case "sort"      => Future.successful(applySort(rows, cfg))
       case other       => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
     }
   }
@@ -219,6 +220,48 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
     // Config shape: {"count": <int>}. Missing/zero/negative count → no-op (return all rows).
     val count = cfg.fields.get("count").flatMap(v => scala.util.Try(v.convertTo[Int]).toOption).getOrElse(0)
     if (count <= 0) rows else rows.take(count)
+  }
+
+  private def applySort(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
+    // Config shape: {"sortBy": [{"field": "...", "direction": "asc"|"desc"}]}
+    // Empty sortBy → no-op (return rows unchanged).
+    // Multi-column stable sort: foldRight applies keys in reverse order so the first
+    // key in sortBy ends up as the primary sort key in the final output.
+    // Nulls sort last for both asc and desc directions.
+    // Comparison is type-aware: numeric values compare numerically; others compare as strings.
+    val sortBy = cfg.fields
+      .get("sortBy")
+      .map(_.convertTo[Vector[JsObject]])
+      .getOrElse(Vector.empty)
+
+    if (sortBy.isEmpty) return rows
+
+    sortBy.foldRight(rows) { case (keySpec, currentRows) =>
+      val field     = keySpec.fields.get("field").map(_.convertTo[String]).getOrElse("")
+      val direction = keySpec.fields.get("direction").map(_.convertTo[String]).getOrElse("asc")
+      val desc      = direction.equalsIgnoreCase("desc")
+      if (field.isEmpty) currentRows
+      else
+        currentRows.sortWith { (a, b) =>
+          val av = Option(a.getOrElse(field, null))
+          val bv = Option(b.getOrElse(field, null))
+          (av, bv) match {
+            case (None, _) => false // null sorts after non-null
+            case (_, None) => true  // non-null sorts before null
+            case (Some(x), Some(y)) =>
+              // Prefer numeric comparison when both values parse as Double.
+              val xn = toDouble(x)
+              val yn = toDouble(y)
+              (xn, yn) match {
+                case (Some(xd), Some(yd)) => if (desc) xd > yd else xd < yd
+                case _                    =>
+                  val xs = x.toString
+                  val ys = y.toString
+                  if (desc) xs > ys else xs < ys
+              }
+          }
+        }
+    }
   }
 
   private def applySelect(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
