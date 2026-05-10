@@ -68,17 +68,70 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
   }
 
   private def applyFilter(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val expr = cfg.fields("expression").convertTo[String]
+    // Config shape: {"combinator":"AND"|"OR","conditions":[{"field":"...","operator":"...","value":"..."}]}
+    // Supported operators: =, !=, >, >=, <, <=, contains, is null, is not null
+    val combinator = cfg.fields.get("combinator").map(_.convertTo[String]).getOrElse("AND")
+    val conditions = cfg.fields
+      .get("conditions")
+      .map(_.convertTo[Vector[JsObject]])
+      .getOrElse(Vector.empty)
+
+    if (conditions.isEmpty) return rows // empty conditions → pass all rows
+
     rows.filter { row =>
-      val jsRow = rowToJsMap(row)
-      ExpressionEvaluator.evaluate(expr, jsRow) match {
-        case Right(JsNumber(n))  => n != 0
-        case Right(JsBoolean(b)) => b
-        case Right(JsString(s))  => s.nonEmpty
-        case _                   => false
+      val results = conditions.flatMap { cond =>
+        val field = cond.fields.get("field").map(_.convertTo[String]).getOrElse("")
+        if (field.isEmpty) None // skip conditions with no field selected
+        else {
+          val operator = cond.fields.get("operator").map(_.convertTo[String]).getOrElse("=")
+          val value    = cond.fields.get("value").map(_.convertTo[String])
+          val fieldVal = row.getOrElse(field, null)
+          Some(evalCondition(fieldVal, operator, value))
+        }
       }
+      if (results.isEmpty) true // all conditions skipped → pass row
+      else
+        combinator.toUpperCase match {
+          case "OR" => results.exists(identity)
+          case _    => results.forall(identity) // AND (default)
+        }
     }
   }
+
+  /** Evaluate a single filter condition against a field value.
+   *  - Unary operators (`is null`, `is not null`) ignore `value`.
+   *  - Numeric operators (`>`, `>=`, `<`, `<=`) coerce both sides to Double;
+   *    coercion failure → no-match (row excluded).
+   *  - `contains` calls `.toString` on the field value then checks substring.
+   *  - `=` and `!=` compare as strings.
+   *  - Missing field (null) passes `is null`, fails all other operators.
+   */
+  private def evalCondition(fieldVal: Any, operator: String, value: Option[String]): Boolean =
+    operator match {
+      case "is null"     => fieldVal == null
+      case "is not null" => fieldVal != null
+      case "contains"    => fieldVal != null && fieldVal.toString.contains(value.getOrElse(""))
+      case "=" | "!="   =>
+        val fieldStr = if (fieldVal == null) null else fieldVal.toString
+        val valStr   = value.getOrElse("")
+        if (operator == "=") fieldStr == valStr else fieldStr != valStr
+      case ">" | ">=" | "<" | "<=" =>
+        // Numeric comparison: coercion failure → no-match
+        val fieldNum = Option(fieldVal).flatMap(v => Try(v.toString.toDouble).toOption)
+        val valNum   = Try(value.getOrElse("").toDouble).toOption
+        (fieldNum, valNum) match {
+          case (Some(f), Some(v)) =>
+            operator match {
+              case ">"  => f > v
+              case ">=" => f >= v
+              case "<"  => f < v
+              case "<=" => f <= v
+              case _    => false
+            }
+          case _ => false
+        }
+      case _ => false
+    }
 
   private def applyCompute(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
     val column = cfg.fields("column").convertTo[String]

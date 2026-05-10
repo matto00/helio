@@ -19,8 +19,11 @@ import type {
   DataSource,
   PipelineRunRecord,
   PipelineStep,
+  SchemaField,
 } from "../types/models";
 import { CastFieldsConfig } from "./CastFieldsConfig";
+import { FilterConfig } from "./FilterConfig";
+import type { FilterConfigValue } from "./FilterConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
@@ -198,21 +201,46 @@ function parseCasts(config: string, opTypeId: string): Record<string, string> {
   }
 }
 
+function parseFilterConfig(config: string, opTypeId: string): FilterConfigValue {
+  if (opTypeId !== "filter" || !config) return { combinator: "AND", conditions: [] };
+  try {
+    const parsed = JSON.parse(config) as {
+      combinator?: string;
+      conditions?: FilterConfigValue["conditions"];
+    };
+    return {
+      combinator: parsed.combinator === "OR" ? "OR" : "AND",
+      conditions: parsed.conditions ?? [],
+    };
+  } catch {
+    return { combinator: "AND", conditions: [] };
+  }
+}
+
 // ── Step card ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
   step: Step;
   onRemove: (id: string) => void;
-  /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig. */
+  /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig/RenameFieldsConfig/CastFieldsConfig. */
   analyzeColumns: string[];
+  /** Full schema fields from the analyze endpoint's inputSchema — used by FilterConfig for type-aware value input. */
+  analyzeSchema: SchemaField[];
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: string) => void;
 }
 
-function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardProps) {
+function StepCard({
+  step,
+  onRemove,
+  analyzeColumns,
+  analyzeSchema,
+  onConfigChange,
+}: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Derived state: sync selectedFields and renames when config or opType changes (during-render pattern).
+  // Derived state: sync selectedFields, renames, casts, and filterConfig when config or opType
+  // changes (during-render pattern).
   const [prevConfig, setPrevConfig] = useState(step.config);
   const [prevOpTypeId, setPrevOpTypeId] = useState(step.opType.id);
   const [selectedFields, setSelectedFields] = useState<string[]>(() =>
@@ -224,12 +252,16 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
   const [casts, setCasts] = useState<Record<string, string>>(() =>
     parseCasts(step.config, step.opType.id),
   );
+  const [filterConfig, setFilterConfig] = useState<FilterConfigValue>(() =>
+    parseFilterConfig(step.config, step.opType.id),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
     setSelectedFields(parseSelectedFields(step.config, step.opType.id));
     setRenames(parseRenames(step.config, step.opType.id));
     setCasts(parseCasts(step.config, step.opType.id));
+    setFilterConfig(parseFilterConfig(step.config, step.opType.id));
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
@@ -281,6 +313,17 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
       });
   }
 
+  function handleFilterChange(newConfig: string) {
+    setFilterConfig(parseFilterConfig(newConfig, "filter"));
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
+  }
+
   return (
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
@@ -322,6 +365,12 @@ function StepCard({ step, onRemove, analyzeColumns, onConfigChange }: StepCardPr
             />
           ) : step.opType.id === "cast" ? (
             <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={handleCastChange} />
+          ) : step.opType.id === "filter" ? (
+            <FilterConfig
+              config={filterConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={handleFilterChange}
+            />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">
@@ -598,15 +647,23 @@ export function PipelineDetailPage() {
     };
   }, [dispatch, id]);
 
-  // ── Per-step analyze columns ──
-  // Build a map from step.id → inputSchema field names so each StepCard can
-  // receive the correct columns without re-running the analyze logic in the UI.
+  // ── Per-step analyze columns / schema ──
+  // Build helpers from step.id → inputSchema data so each StepCard can receive
+  // the correct columns/schema without re-running the analyze logic in the UI.
   function getAnalyzeColumns(stepId: string): string[] {
     if (!analyzeResult) return [];
     const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
       (s) => s.id === stepId,
     );
     return analyzeStep ? analyzeStep.inputSchema.map((f) => f.name) : [];
+  }
+
+  function getAnalyzeSchema(stepId: string): SchemaField[] {
+    if (!analyzeResult) return [];
+    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
+      (s) => s.id === stepId,
+    );
+    return analyzeStep ? analyzeStep.inputSchema : [];
   }
 
   // ── Dirty-state tracking ──
@@ -639,7 +696,9 @@ export function PipelineDetailPage() {
             ? '{"renames":{}}'
             : opType.id === "cast"
               ? '{"casts":{}}'
-              : "{}";
+              : opType.id === "filter"
+                ? '{"combinator":"AND","conditions":[]}'
+                : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
         prev.map((s) =>
@@ -761,6 +820,7 @@ export function PipelineDetailPage() {
                     step={step}
                     onRemove={handleRemoveStep}
                     analyzeColumns={getAnalyzeColumns(step.id)}
+                    analyzeSchema={getAnalyzeSchema(step.id)}
                     onConfigChange={handleStepConfigChange}
                   />
                   {idx < steps.length - 1 && <RibbonSegment />}
