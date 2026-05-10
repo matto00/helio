@@ -95,3 +95,18 @@ export async function analyzePipeline(pipelineId: string): Promise<PipelineAnaly
   );
   return response.data;
 }
+
+export interface StepPreviewResponse {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+}
+
+export async function fetchStepPreview(
+  pipelineId: string,
+  stepId: string,
+): Promise<StepPreviewResponse> {
+  const response = await httpClient.get<StepPreviewResponse>(
+    `/api/pipelines/${pipelineId}/steps/${stepId}/preview`,
+  );
+  return response.data;
+}

@@ -425,6 +425,61 @@
   background: rgba(248, 113, 113, 0.1);
 }
 
+/* ── Step preview ── */
+.pipeline-detail-page__step-preview {
+  margin-top: 12px;
+  border-top: 1px solid var(--app-border-subtle);
+  padding-top: 10px;
+}
+
+.pipeline-detail-page__step-preview-loading,
+.pipeline-detail-page__step-preview-error,
+.pipeline-detail-page__step-preview-empty {
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  padding: 10px 0;
+  text-align: center;
+}
+
+.pipeline-detail-page__step-preview-error {
+  color: #f87171;
+}
+
+.pipeline-detail-page__step-preview-table-wrapper {
+  overflow-x: auto;
+}
+
+.pipeline-detail-page__step-preview-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  width: 100%;
+}
+
+.pipeline-detail-page__step-preview-th {
+  padding: 6px 8px;
+  text-align: left;
+  background: var(--app-surface-soft);
+  color: var(--app-accent);
+  font-weight: 600;
+  border-bottom: 1px solid var(--app-border-subtle);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__step-preview-td {
+  padding: 5px 8px;
+  color: var(--app-text);
+  border-bottom: 1px solid var(--app-border-subtle);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.pipeline-detail-page__step-preview-table tbody tr:hover {
+  background: var(--app-surface-soft);
+}
+
 /* ── Footer bar ── */
 .pipeline-detail-page__footer {
   display: flex;

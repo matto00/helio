@@ -134,6 +134,77 @@ class PipelineRunRoutes(
           }
         },
 
+        // GET /api/pipelines/:id/steps/:stepId/preview
+        path("steps" / Segment / "preview") { stepId =>
+          get {
+            onComplete(pipelineRepo.findById(pipelineId)) {
+              case Failure(ex) =>
+                complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+              case Success(None) =>
+                complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pipelineId))
+
+              case Success(Some(pipeline)) =>
+                onComplete(dataSourceRepo.findById(pipeline.sourceDataSourceId)) {
+                  case Failure(ex) =>
+                    complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+                  case Success(None) =>
+                    complete(
+                      StatusCodes.UnprocessableEntity,
+                      ErrorResponse("DataSource not found: " + pipeline.sourceDataSourceId.value)
+                    )
+
+                  case Success(Some(dataSource)) =>
+                    dataSource.sourceType match {
+                      case SourceType.RestApi | SourceType.Sql =>
+                        complete(
+                          StatusCodes.UnprocessableEntity,
+                          ErrorResponse(
+                            "Unsupported source type for preview: " +
+                              SourceType.asString(dataSource.sourceType) +
+                              ". Only static and csv are currently supported."
+                          )
+                        )
+
+                      case _ =>
+                        onComplete(pipelineStepRepo.listByPipeline(pipelineId)) {
+                          case Failure(ex) =>
+                            complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+                          case Success(allSteps) =>
+                            val sortedSteps = allSteps.sortBy(_.position)
+                            sortedSteps.indexWhere(_.id == stepId) match {
+                              case -1 =>
+                                complete(StatusCodes.NotFound, ErrorResponse("Step not found: " + stepId))
+
+                              case k =>
+                                val slicedSteps = sortedSteps.take(k + 1)
+                                onComplete(
+                                  inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
+                                    inProcessEngine.execute(sourceRows, slicedSteps, dataSourceRepo)
+                                  }
+                                ) {
+                                  case Failure(ex) =>
+                                    val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
+                                    complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
+
+                                  case Success(resultRows) =>
+                                    val allJsRows = resultRows.map { rowMap =>
+                                      JsObject(rowMap.map { case (k, v) => k -> anyToJsValue(v) })
+                                    }.toVector
+                                    val totalCount = allJsRows.size
+                                    val previewRows = allJsRows.take(10)
+                                    complete(StatusCodes.OK, RunResultResponse(previewRows, totalCount))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+          }
+        },
+
         // GET /api/pipelines/:id/run-history
         path("run-history") {
           get {
