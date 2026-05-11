@@ -829,6 +829,8 @@ export function PipelineDetailPage() {
   const [editingOutputName, setEditingOutputName] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
+  // Inline discard-confirm state (replaces window.confirm on dirty cancel).
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
   // ── SSE run-status hook ──
   const sseData = usePipelineRunEvents({
@@ -1007,12 +1009,19 @@ export function PipelineDetailPage() {
 
   function handleCancel() {
     if (isDirty) {
-      if (window.confirm("You have unsaved changes. Discard them?")) {
-        void navigate("/pipelines");
-      }
+      setIsConfirmingCancel(true);
     } else {
       void navigate("/pipelines");
     }
+  }
+
+  function confirmCancelDiscard() {
+    setIsConfirmingCancel(false);
+    void navigate("/pipelines");
+  }
+
+  function dismissCancelConfirm() {
+    setIsConfirmingCancel(false);
   }
 
   // ── Loading / Error guards ──
@@ -1186,14 +1195,42 @@ export function PipelineDetailPage() {
               >
                 {updateStatus === "loading" ? "Saving…" : "Save"}
               </button>
-              <button
-                type="button"
-                className="pipeline-detail-page__cancel-btn"
-                onClick={handleCancel}
-                aria-label="Cancel changes"
-              >
-                Cancel
-              </button>
+              {isConfirmingCancel ? (
+                <span
+                  className="pipeline-detail-page__cancel-confirm"
+                  role="alertdialog"
+                  aria-label="Discard unsaved changes"
+                >
+                  <span className="pipeline-detail-page__cancel-confirm-text">
+                    Discard changes?
+                  </span>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn pipeline-detail-page__cancel-confirm-btn--danger"
+                    onClick={confirmCancelDiscard}
+                    aria-label="Discard changes"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn"
+                    onClick={dismissCancelConfirm}
+                    aria-label="Keep editing"
+                  >
+                    Keep editing
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="pipeline-detail-page__cancel-btn"
+                  onClick={handleCancel}
+                  aria-label="Cancel changes"
+                >
+                  Cancel
+                </button>
+              )}
             </>
           )}
           <button type="button" className="pipeline-detail-page__preview-btn">

@@ -540,9 +540,8 @@ describe("PanelCreationModal — type-specific config fields", () => {
     );
   });
 
-  // 4.7 — Entering a config value sets dirty state (discard prompt shown)
-  it("4.7 entering a config value marks the modal dirty (discard prompt shown on dismiss)", () => {
-    jest.spyOn(window, "confirm").mockReturnValue(false);
+  // 4.7 — Entering a config value sets dirty state (inline discard banner shown)
+  it("4.7 entering a config value marks the modal dirty (inline discard banner shown on dismiss)", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
@@ -554,13 +553,14 @@ describe("PanelCreationModal — type-specific config fields", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    // Banner appears; "Keep editing" leaves the modal open.
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(onClose).not.toHaveBeenCalled();
   });
 
   // 4.8 — typeConfig state resets after modal close
   it("4.8 typeConfig state resets after modal close and reopen", () => {
-    jest.spyOn(window, "confirm").mockReturnValue(true);
     const onClose = jest.fn();
     const { unmount } = renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
@@ -571,8 +571,9 @@ describe("PanelCreationModal — type-specific config fields", () => {
     fireEvent.change(imageInput, { target: { value: "https://example.com/image.jpg" } });
     expect(imageInput.value).toBe("https://example.com/image.jpg");
 
-    // Close the modal (confirm the discard)
+    // Close the modal (confirm the discard via inline banner)
     fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     unmount();
 
     // Reopen the modal and navigate back to the image step
@@ -749,20 +750,18 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
   // 2.1 — Escape on clean modal closes without confirmation
   it("2.1 Escape on clean modal closes without confirmation", () => {
     const onClose = jest.fn();
-    const confirmSpy = jest.spyOn(window, "confirm");
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     const dialog = document.querySelector("dialog")!;
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
 
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog", { name: "Discard changes" })).not.toBeInTheDocument();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.2 — Escape on dirty modal (type selected) shows confirm and closes on accept
-  it("2.2 Escape on dirty modal (type selected) shows confirm and closes on accept", () => {
+  // 2.2 — Escape on dirty modal (type selected) shows inline confirm and closes on accept
+  it("2.2 Escape on dirty modal (type selected) shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
-    jest.spyOn(window, "confirm").mockReturnValue(true);
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
@@ -770,14 +769,14 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     const dialog = document.querySelector("dialog")!;
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.3 — Escape on dirty modal (type selected) shows confirm and stays open on cancel
-  it("2.3 Escape on dirty modal (type selected) shows confirm and stays open on cancel", () => {
+  // 2.3 — Escape on dirty modal (type selected) shows inline confirm and stays open on cancel
+  it("2.3 Escape on dirty modal (type selected) shows inline confirm and stays open on cancel", () => {
     const onClose = jest.fn();
-    jest.spyOn(window, "confirm").mockReturnValue(false);
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
@@ -785,7 +784,8 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     const dialog = document.querySelector("dialog")!;
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(onClose).not.toHaveBeenCalled();
     expect(dialog).toHaveAttribute("open");
   });
@@ -793,20 +793,18 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
   // 2.4 — Click outside on clean modal closes without confirmation
   it("2.4 click outside on clean modal closes without confirmation", () => {
     const onClose = jest.fn();
-    const confirmSpy = jest.spyOn(window, "confirm");
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     const dialog = document.querySelector("dialog")!;
     fireEvent.click(dialog);
 
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog", { name: "Discard changes" })).not.toBeInTheDocument();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.5 — Click outside on dirty modal shows confirm and closes on accept
-  it("2.5 click outside on dirty modal shows confirm and closes on accept", () => {
+  // 2.5 — Click outside on dirty modal shows inline confirm and closes on accept
+  it("2.5 click outside on dirty modal shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
-    jest.spyOn(window, "confirm").mockReturnValue(true);
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
@@ -814,21 +812,22 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     const dialog = document.querySelector("dialog")!;
     fireEvent.click(dialog);
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.6 — Close button on dirty modal shows confirm and closes on accept
-  it("2.6 close button on dirty modal shows confirm and closes on accept", () => {
+  // 2.6 — Close button on dirty modal shows inline confirm and closes on accept
+  it("2.6 close button on dirty modal shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
-    jest.spyOn(window, "confirm").mockReturnValue(true);
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

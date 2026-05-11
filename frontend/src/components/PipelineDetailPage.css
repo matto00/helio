@@ -774,6 +774,51 @@
   color: var(--app-text-primary);
 }
 
+.pipeline-detail-page__cancel-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline-detail-page__cancel-confirm-text {
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+  margin-right: 2px;
+}
+
+.pipeline-detail-page__cancel-confirm-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.pipeline-detail-page__cancel-confirm-btn:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__cancel-confirm-btn--danger {
+  border-color: rgba(248, 113, 113, 0.6);
+  color: #f87171;
+}
+
+.pipeline-detail-page__cancel-confirm-btn--danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: #f87171;
+  color: #f87171;
+}
+
 /* ── Dry-run button ─────────────────────────────────────────────────────────── */
 
 .pipeline-detail-page__dry-run-btn {

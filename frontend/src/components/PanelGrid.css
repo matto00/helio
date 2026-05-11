@@ -116,24 +116,30 @@
 }
 
 .panel-grid-card__delete-confirm-btn {
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid #f87171;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(248, 113, 113, 0.6);
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: #f87171;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
 }
 
 .panel-grid-card__delete-confirm-btn:hover {
   background: rgba(248, 113, 113, 0.12);
+  border-color: #f87171;
 }
 
 .panel-grid-card__delete-cancel-btn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -141,7 +147,17 @@
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 1rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.panel-grid-card__delete-cancel-btn:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
 }
 
 .panel-grid-card__copy {

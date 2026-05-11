@@ -246,6 +246,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [selectedDataTypeId, setSelectedDataTypeId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Inline discard confirmation banner (replaces window.confirm for dirty dismiss).
+  const [isShowingDiscardConfirm, setIsShowingDiscardConfirm] = useState(false);
 
   // 1.3 — Dirty when the user has selected a type, template, typed a title, entered any config, or selected a DataType.
   const isDirty =
@@ -318,15 +320,22 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     // 1.4 / 3.10 — typeConfig and selectedDataTypeId reset automatically when the component unmounts on close.
   }
 
-  // 1.2 — Shared dismiss helper: prompts when dirty, closes directly when clean.
+  // 1.2 — Shared dismiss helper: shows inline confirm when dirty, closes directly when clean.
   function handleDismiss() {
     if (isDirty) {
-      if (window.confirm("Discard changes? Any data you've entered will be lost.")) {
-        handleClose();
-      }
+      setIsShowingDiscardConfirm(true);
     } else {
       handleClose();
     }
+  }
+
+  function confirmDiscard() {
+    setIsShowingDiscardConfirm(false);
+    handleClose();
+  }
+
+  function cancelDiscard() {
+    setIsShowingDiscardConfirm(false);
   }
 
   // 1.4 — Backdrop click: close when the click target is the <dialog> itself (not inner content).
@@ -463,6 +472,35 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             ✕
           </button>
         </header>
+
+        {isShowingDiscardConfirm && (
+          <div
+            className="panel-creation-modal__discard-confirm"
+            role="alertdialog"
+            aria-label="Discard changes"
+          >
+            <span className="panel-creation-modal__discard-confirm-text">
+              Discard changes? Any data you&apos;ve entered will be lost.
+            </span>
+            <div className="panel-creation-modal__discard-confirm-actions">
+              <button
+                type="button"
+                className="panel-creation-modal__discard-confirm-btn panel-creation-modal__discard-confirm-btn--danger"
+                onClick={confirmDiscard}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="panel-creation-modal__discard-confirm-btn"
+                onClick={cancelDiscard}
+                autoFocus
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        )}
 
         {step === "type-select" && (
           <div className="panel-creation-modal__type-grid" role="group" aria-label="Panel type">

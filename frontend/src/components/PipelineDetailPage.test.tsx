@@ -588,29 +588,31 @@ describe("PipelineDetailPage Cancel confirmation", () => {
     await waitFor(() => expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument());
   }
 
-  it("navigates to /pipelines when user confirms cancel prompt", async () => {
-    jest.spyOn(window, "confirm").mockReturnValue(true);
+  it("navigates to /pipelines when user confirms inline discard prompt", async () => {
     renderDetailPage("pipe-1");
     await makeDirty();
 
     fireEvent.click(screen.getByLabelText("Cancel changes"));
+    // Inline confirm appears; clicking "Discard" navigates.
+    fireEvent.click(screen.getByLabelText("Discard changes"));
 
     await waitFor(() => {
       expect(screen.getByText("Pipelines List")).toBeInTheDocument();
     });
-    expect(window.confirm).toHaveBeenCalled();
   });
 
-  it("stays on page when user dismisses cancel prompt", async () => {
-    jest.spyOn(window, "confirm").mockReturnValue(false);
+  it("stays on page when user dismisses inline discard prompt", async () => {
     renderDetailPage("pipe-1");
     await makeDirty();
 
     fireEvent.click(screen.getByLabelText("Cancel changes"));
+    expect(
+      screen.getByRole("alertdialog", { name: "Discard unsaved changes" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Keep editing"));
 
-    expect(window.confirm).toHaveBeenCalled();
     expect(screen.queryByText("Pipelines List")).not.toBeInTheDocument();
-    // Cancel button still visible (still on page)
+    // Cancel button restored after dismissing the confirm.
     expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
   });
 });
