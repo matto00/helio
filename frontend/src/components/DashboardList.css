@@ -249,27 +249,14 @@
 
 .dashboard-list__delete-confirm-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid rgba(248, 113, 113, 0.4);
-  border-radius: var(--app-radius-sm);
-  background: rgba(248, 113, 113, 0.06);
-}
-
-.dashboard-list__delete-confirm-text {
-  font-size: 0.72rem;
-  color: var(--app-text-muted);
-  flex: 1;
-  min-width: 0;
+  justify-content: flex-end;
+  padding: 4px 0 0;
 }
 
 .dashboard-list__delete-confirm-actions {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
 }
 
 .dashboard-list__item--outside-filter {

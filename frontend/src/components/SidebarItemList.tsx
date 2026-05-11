@@ -115,7 +115,6 @@ export function SidebarItemList({
               ? "dashboard-list__button dashboard-list__button--active"
               : "dashboard-list__button";
             const activeLabel = heading.toLowerCase().replace(/s$/, "");
-            const itemKindLabel = activeLabel;
             const isConfirmingDelete = confirmDeleteId === item.id;
             return (
               <li key={item.id} className="dashboard-list__item dashboard-list__item--row">
@@ -167,13 +166,11 @@ export function SidebarItemList({
                 </div>
                 {isConfirmingDelete ? (
                   <div className="dashboard-list__delete-confirm-row">
-                    <span className="dashboard-list__delete-confirm-text">
-                      Delete this {itemKindLabel}?
-                    </span>
                     <div className="dashboard-list__delete-confirm-actions">
                       <button
                         type="button"
                         className="dashboard-list__delete-confirm-btn"
+                        aria-label={`Confirm delete ${item.name}`}
                         onClick={() => {
                           void onDelete?.(item);
                           setConfirmDeleteId(null);
