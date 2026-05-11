@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowsUpDown,
   faArrowUp,
   faCalculator,
   faChartColumn,
+  faClockRotateLeft,
   faFilter,
   faLink,
   faPencil,
@@ -15,6 +16,8 @@ import {
   faXmark,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
+
+import { RunHistoryModal } from "./RunHistoryModal";
 
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
@@ -717,94 +720,8 @@ function SourceChip({ source }: SourceChipProps) {
   );
 }
 
-// ── Run history panel ────────────────────────────────────────────────────────
-
-function formatDuration(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—";
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
-  if (ms < 1000) return `${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  return `${m}m ${s % 60}s`;
-}
-
-function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
-  const label =
-    status === "dry_run"
-      ? "Dry run"
-      : status === "running"
-        ? "Running…"
-        : status === "queued"
-          ? "Queued…"
-          : status;
-  return (
-    <span
-      className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${status}`}
-      aria-label={`Status: ${status}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-interface RunHistoryRowProps {
-  run: PipelineRunRecord;
-}
-
-function RunHistoryRow({ run }: RunHistoryRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const duration = formatDuration(run.startedAt, run.completedAt);
-  const startTime = new Date(run.startedAt).toLocaleString();
-
-  return (
-    <div className="pipeline-detail-page__history-row">
-      <div className="pipeline-detail-page__history-row-summary">
-        <span className="pipeline-detail-page__history-row-time">{startTime}</span>
-        <span className="pipeline-detail-page__history-row-duration">{duration}</span>
-        <span className="pipeline-detail-page__history-row-count">
-          {run.rowCount != null ? `${run.rowCount.toLocaleString()} rows` : "—"}
-        </span>
-        <StatusBadge status={run.status} />
-        {run.status === "failed" && run.errorLog && (
-          <button
-            type="button"
-            className="pipeline-detail-page__history-row-toggle"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label="Toggle error log"
-          >
-            {expanded ? "▲ Hide log" : "▼ Show log"}
-          </button>
-        )}
-      </div>
-      {expanded && run.errorLog && (
-        <pre className="pipeline-detail-page__history-row-error">{run.errorLog}</pre>
-      )}
-    </div>
-  );
-}
-
-interface RunHistoryPanelProps {
-  runs: PipelineRunRecord[];
-}
-
-function RunHistoryPanel({ runs }: RunHistoryPanelProps) {
-  return (
-    <details className="pipeline-detail-page__history-panel">
-      <summary className="pipeline-detail-page__history-panel-summary">
-        Run History ({runs.length})
-      </summary>
-      <div className="pipeline-detail-page__history-panel-body">
-        {runs.length === 0 ? (
-          <p className="pipeline-detail-page__history-empty">No runs recorded yet.</p>
-        ) : (
-          runs.map((run) => <RunHistoryRow key={run.id} run={run} />)
-        )}
-      </div>
-    </details>
-  );
-}
+// Run history is now rendered by RunHistoryModal (separate component); the
+// inline `<details>` panel and its helpers were removed from this file.
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
@@ -842,6 +759,7 @@ export function PipelineDetailPage() {
   const [sseActive, setSseActive] = useState(false);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
   // Inline discard-confirm state (replaces window.confirm on dirty cancel).
@@ -1248,6 +1166,14 @@ export function PipelineDetailPage() {
               )}
             </>
           )}
+          <button
+            type="button"
+            className="pipeline-detail-page__history-btn"
+            onClick={() => setHistoryOpen(true)}
+            aria-label="Open run history"
+          >
+            <FontAwesomeIcon icon={faClockRotateLeft} /> Run history ({runs.length})
+          </button>
           <button type="button" className="pipeline-detail-page__preview-btn">
             Preview
           </button>
@@ -1266,24 +1192,16 @@ export function PipelineDetailPage() {
             onClick={handleRunPipeline}
             disabled={runStatus === "queued" || runStatus === "running"}
           >
-            Run pipeline ▶
+            Run pipeline
           </button>
         </div>
       </div>
 
-      {/* ── Run history panel ── */}
-      <RunHistoryPanel runs={runs} />
+      {/* ── Run history modal (button lives in the footer) ── */}
+      {historyOpen && <RunHistoryModal runs={runs} onClose={() => setHistoryOpen(false)} />}
 
-      {/* ── Back breadcrumb shown inside page ── */}
-      <nav className="pipeline-detail-page__back-nav" aria-label="Breadcrumb">
-        <Link to="/pipelines" className="pipeline-detail-page__back-link">
-          ← Data Pipelines
-        </Link>
-        <span className="pipeline-detail-page__back-sep" aria-hidden="true">
-          /
-        </span>
-        <span className="pipeline-detail-page__back-current">{pipelineName}</span>
-      </nav>
+      {/* In-page back breadcrumb removed — the section breadcrumb in the top
+       * command bar already shows "Data Pipelines / <pipeline name>". */}
 
       {/* ── Last-run metadata bar ── */}
       {currentPipeline.lastRunAt != null && (

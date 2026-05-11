@@ -167,7 +167,7 @@
   background: transparent;
   border: none;
   color: var(--app-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
@@ -257,7 +257,7 @@
 }
 
 .pipeline-detail-page__empty-state-text {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: var(--app-text-muted);
   margin: 0;
 }
@@ -365,7 +365,7 @@
 }
 
 .pipeline-detail-page__step-card-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
 }
 
@@ -616,18 +616,72 @@
   color: var(--app-text-muted);
 }
 
-.pipeline-detail-page__preview-btn {
+.pipeline-detail-page__preview-btn,
+.pipeline-detail-page__history-btn {
   padding: 5px 12px;
-  border: 1px solid var(--app-accent-mid);
+  border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
   background: transparent;
-  color: var(--app-accent);
-  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__preview-btn:hover,
+.pipeline-detail-page__history-btn:hover {
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+/* ── Step-config inputs ─────────────────────────────────────────────────────
+ * The step config editors (Select / Rename / Cast / Filter / Compute /
+ * Aggregate / Limit / Sort) render raw <input> and <select> elements without
+ * per-component classes. Style them globally inside .pipeline-detail-page so
+ * they match the rest of the app (DashboardList filter, modals, etc.). Tokens
+ * (--app-border-subtle, --app-surface-soft, --app-accent) keep them aligned
+ * with the user's accent. */
+.pipeline-detail-page input[type="text"],
+.pipeline-detail-page input[type="number"],
+.pipeline-detail-page input[type="search"],
+.pipeline-detail-page select,
+.pipeline-detail-page textarea {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  font-family: inherit;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.pipeline-detail-page input[type="text"]:focus-visible,
+.pipeline-detail-page input[type="number"]:focus-visible,
+.pipeline-detail-page input[type="search"]:focus-visible,
+.pipeline-detail-page select:focus-visible,
+.pipeline-detail-page textarea:focus-visible {
+  outline: none;
+  border-color: var(--app-accent);
+  background: var(--app-surface);
+}
+
+.pipeline-detail-page select {
   cursor: pointer;
 }
 
-.pipeline-detail-page__preview-btn:hover {
-  background: var(--app-accent-dim);
+.pipeline-detail-page input[type="checkbox"] {
+  accent-color: var(--app-accent);
 }
 
 .pipeline-detail-page__run-btn {
@@ -724,7 +778,7 @@
   justify-content: center;
   height: 100%;
   min-height: 120px;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: var(--app-text-muted);
 }
 
@@ -734,7 +788,7 @@
   justify-content: center;
   padding: 24px;
   color: #f87171;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 /* ── Save / Cancel actions ──────────────────────────────────────────────────── */
