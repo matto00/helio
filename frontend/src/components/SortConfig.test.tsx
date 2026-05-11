@@ -23,8 +23,8 @@ describe("SortConfig", () => {
     render(<SortConfig sortBy={sortBy} columns={COLUMNS} onChange={jest.fn()} />);
     const selects = screen.getAllByRole("combobox");
     expect(selects).toHaveLength(2);
-    expect(selects[0]).toHaveValue("name");
-    expect(selects[1]).toHaveValue("age");
+    expect(selects[0]).toHaveTextContent("name");
+    expect(selects[1]).toHaveTextContent("age");
     expect(screen.getByLabelText(/sort key 1 direction/i)).toHaveTextContent(/asc/i);
     expect(screen.getByLabelText(/sort key 2 direction/i)).toHaveTextContent(/desc/i);
   });
@@ -78,7 +78,8 @@ describe("SortConfig", () => {
     const onChange = jest.fn();
     const sortBy: SortKey[] = [{ field: "name", direction: "asc" }];
     render(<SortConfig sortBy={sortBy} columns={COLUMNS} onChange={onChange} />);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "dept" } });
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "dept" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
     expect(parsed.sortBy[0].field).toBe("dept");

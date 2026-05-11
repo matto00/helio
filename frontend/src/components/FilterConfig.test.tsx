@@ -164,8 +164,13 @@ describe("FilterConfig", () => {
     };
     render(<FilterConfig config={config} analyzeSchema={sampleSchema} onChange={jest.fn()} />);
 
-    expect(screen.getByRole("combobox", { name: /field for condition 1/i })).toHaveValue("dept");
-    expect(screen.getByRole("combobox", { name: /operator for condition 1/i })).toHaveValue("!=");
+    expect(screen.getByRole("combobox", { name: /field for condition 1/i })).toHaveTextContent(
+      "dept",
+    );
+    // The custom Select's trigger renders the option label ("≠" for "!=").
+    expect(screen.getByRole("combobox", { name: /operator for condition 1/i })).toHaveTextContent(
+      "≠",
+    );
     expect(screen.getByRole("textbox", { name: /value for condition 1/i })).toHaveValue("eng");
   });
 

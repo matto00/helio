@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/models";
+import { Select, TextField } from "./ui";
 
 export interface AggregateGroupByField {
   name: string;
@@ -102,19 +103,13 @@ export function AggregateConfig({
         <div className="pipeline-detail-page__aggregate-groupby-rows">
           {config.groupBy.map((g, index) => (
             <div key={index} className="pipeline-detail-page__aggregate-groupby-row">
-              <select
-                className="pipeline-detail-page__aggregate-field-select"
-                aria-label={`Group-by field ${index + 1}`}
+              <Select
+                ariaLabel={`Group-by field ${index + 1}`}
                 value={g.name}
-                onChange={(e) => handleGroupByFieldChange(index, e.target.value)}
-              >
-                <option value="">— select field —</option>
-                {analyzeSchema.map((f) => (
-                  <option key={f.name} value={f.name}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="— select field —"
+                options={analyzeSchema.map((f) => ({ value: f.name, label: f.name }))}
+                onChange={(next) => handleGroupByFieldChange(index, next)}
+              />
               <button
                 type="button"
                 className="pipeline-detail-page__aggregate-remove-btn"
@@ -146,9 +141,7 @@ export function AggregateConfig({
             return (
               <div key={index} className="pipeline-detail-page__aggregate-agg-row">
                 {/* Alias input */}
-                <input
-                  className="pipeline-detail-page__aggregate-alias-input"
-                  type="text"
+                <TextField
                   aria-label={`Alias for aggregation ${index + 1}`}
                   placeholder="alias"
                   value={agg.alias}
@@ -158,35 +151,21 @@ export function AggregateConfig({
                 />
 
                 {/* Function dropdown */}
-                <select
-                  className="pipeline-detail-page__aggregate-fn-select"
-                  aria-label={`Function for aggregation ${index + 1}`}
+                <Select
+                  ariaLabel={`Function for aggregation ${index + 1}`}
                   value={agg.fn}
-                  onChange={(e) => handleAggregationChange(index, { ...agg, fn: e.target.value })}
-                >
-                  {AGG_FNS.map((fn) => (
-                    <option key={fn} value={fn}>
-                      {fn}
-                    </option>
-                  ))}
-                </select>
+                  options={AGG_FNS.map((fn) => ({ value: fn, label: fn }))}
+                  onChange={(next) => handleAggregationChange(index, { ...agg, fn: next })}
+                />
 
                 {/* Field dropdown */}
-                <select
-                  className="pipeline-detail-page__aggregate-field-select"
-                  aria-label={`Field for aggregation ${index + 1}`}
+                <Select
+                  ariaLabel={`Field for aggregation ${index + 1}`}
                   value={agg.field}
-                  onChange={(e) =>
-                    handleAggregationChange(index, { ...agg, field: e.target.value })
-                  }
-                >
-                  <option value="">— select field —</option>
-                  {analyzeSchema.map((f) => (
-                    <option key={f.name} value={f.name}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="— select field —"
+                  options={analyzeSchema.map((f) => ({ value: f.name, label: f.name }))}
+                  onChange={(next) => handleAggregationChange(index, { ...agg, field: next })}
+                />
 
                 {/* Remove button */}
                 <button

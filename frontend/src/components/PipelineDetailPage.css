@@ -641,54 +641,9 @@
   color: var(--app-text);
 }
 
-/* ── Step-config inputs ─────────────────────────────────────────────────────
- * The step config editors (Select / Rename / Cast / Filter / Compute /
- * Aggregate / Limit / Sort) render raw <input> and <select> elements without
- * per-component classes. Style them globally inside .pipeline-detail-page so
- * they match the rest of the app. */
-.pipeline-detail-page input[type="text"],
-.pipeline-detail-page input[type="number"],
-.pipeline-detail-page input[type="search"],
-.pipeline-detail-page select,
-.pipeline-detail-page textarea {
-  min-height: 30px;
-  padding: 5px 10px;
-  /* The base --app-border-subtle is barely visible on the dark step-card
-   * surface; bump opacity slightly to give the fields a defined edge. */
-  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface);
-  color: var(--app-text);
-  font-size: 0.8rem;
-  font-family: inherit;
-  transition:
-    border-color var(--app-transition),
-    background-color var(--app-transition);
-}
-
-.pipeline-detail-page input[type="text"]:hover,
-.pipeline-detail-page input[type="number"]:hover,
-.pipeline-detail-page input[type="search"]:hover,
-.pipeline-detail-page select:hover,
-.pipeline-detail-page textarea:hover {
-  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
-}
-
-.pipeline-detail-page input[type="text"]:focus-visible,
-.pipeline-detail-page input[type="number"]:focus-visible,
-.pipeline-detail-page input[type="search"]:focus-visible,
-.pipeline-detail-page select:focus-visible,
-.pipeline-detail-page textarea:focus-visible {
-  outline: none;
-  border-color: var(--app-accent);
-  background: var(--app-surface);
-  box-shadow: 0 0 0 3px var(--app-accent-surface);
-}
-
-.pipeline-detail-page select {
-  cursor: pointer;
-}
-
+/* Step-config primitive inputs/selects now use the shared ui-input /
+ * ui-select__trigger classes (see ui/inputs.css). The only thing scoped to
+ * this page is the checkbox accent so it tracks the user's accent. */
 .pipeline-detail-page input[type="checkbox"] {
   accent-color: var(--app-accent);
 }

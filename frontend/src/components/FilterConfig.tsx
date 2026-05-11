@@ -5,6 +5,7 @@
 // Value input type adapts to field type: "number" for numeric types, "text" otherwise.
 
 import type { SchemaField } from "../types/models";
+import { Select, TextField } from "./ui";
 
 export interface FilterCondition {
   field: string;
@@ -100,29 +101,20 @@ export function FilterConfig({ config, analyzeSchema, onChange }: FilterConfigPr
           return (
             <div key={index} className="pipeline-detail-page__filter-condition-row">
               {/* Field dropdown */}
-              <select
-                className="pipeline-detail-page__filter-field-select"
-                aria-label={`Field for condition ${index + 1}`}
+              <Select
+                ariaLabel={`Field for condition ${index + 1}`}
                 value={condition.field}
-                onChange={(e) =>
-                  handleConditionChange(index, { ...condition, field: e.target.value })
-                }
-              >
-                <option value="">— select field —</option>
-                {analyzeSchema.map((f) => (
-                  <option key={f.name} value={f.name}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="— select field —"
+                options={analyzeSchema.map((f) => ({ value: f.name, label: f.name }))}
+                onChange={(next) => handleConditionChange(index, { ...condition, field: next })}
+              />
 
               {/* Operator dropdown */}
-              <select
-                className="pipeline-detail-page__filter-operator-select"
-                aria-label={`Operator for condition ${index + 1}`}
+              <Select
+                ariaLabel={`Operator for condition ${index + 1}`}
                 value={condition.operator}
-                onChange={(e) => {
-                  const newOp = e.target.value;
+                options={FILTER_OPERATORS.map((op) => ({ value: op.value, label: op.label }))}
+                onChange={(newOp) => {
                   const updatedCondition: FilterCondition = { ...condition, operator: newOp };
                   if (UNARY_OPERATORS.has(newOp)) {
                     delete updatedCondition.value;
@@ -131,18 +123,11 @@ export function FilterConfig({ config, analyzeSchema, onChange }: FilterConfigPr
                   }
                   handleConditionChange(index, updatedCondition);
                 }}
-              >
-                {FILTER_OPERATORS.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
-              </select>
+              />
 
               {/* Value input — hidden for unary operators */}
               {!isUnary && (
-                <input
-                  className="pipeline-detail-page__filter-value-input"
+                <TextField
                   type={isNumeric ? "number" : "text"}
                   aria-label={`Value for condition ${index + 1}`}
                   value={condition.value ?? ""}

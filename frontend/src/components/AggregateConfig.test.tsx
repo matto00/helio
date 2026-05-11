@@ -81,7 +81,7 @@ describe("AggregateConfig", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByRole("combobox", { name: /group-by field 1/i })).toHaveValue("dept");
+    expect(screen.getByRole("combobox", { name: /group-by field 1/i })).toHaveTextContent("dept");
   });
 
   it("hydrates aggregation row with persisted alias, fn, and field", () => {
@@ -100,10 +100,12 @@ describe("AggregateConfig", () => {
     expect(screen.getByRole("textbox", { name: /alias for aggregation 1/i })).toHaveValue(
       "total_age",
     );
-    expect(screen.getByRole("combobox", { name: /function for aggregation 1/i })).toHaveValue(
+    expect(screen.getByRole("combobox", { name: /function for aggregation 1/i })).toHaveTextContent(
       "sum",
     );
-    expect(screen.getByRole("combobox", { name: /field for aggregation 1/i })).toHaveValue("age");
+    expect(screen.getByRole("combobox", { name: /field for aggregation 1/i })).toHaveTextContent(
+      "age",
+    );
   });
 
   // ── Add group-by field ─────────────────────────────────────────────────────
@@ -298,9 +300,8 @@ describe("AggregateConfig", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("combobox", { name: /function for aggregation 1/i }), {
-      target: { value: "avg" },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: /function for aggregation 1/i }));
+    fireEvent.click(screen.getByRole("option", { name: "avg" }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;

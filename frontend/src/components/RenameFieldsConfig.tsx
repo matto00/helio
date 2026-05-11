@@ -2,6 +2,8 @@
 // Renders one row per column from the per-step inputSchema provided by the analyze endpoint.
 // Renders an empty table when columns is empty (source has no schema yet).
 
+import { TextField } from "./ui";
+
 interface RenameFieldsConfigProps {
   /** Column names derived from the step's inputSchema (from the analyze response). */
   columns: string[];
@@ -25,9 +27,7 @@ export function RenameFieldsConfig({ columns, renames, onChange }: RenameFieldsC
           <tr key={col} className="pipeline-detail-page__rename-row">
             <td className="pipeline-detail-page__rename-source">{col}</td>
             <td className="pipeline-detail-page__rename-target">
-              <input
-                type="text"
-                className="pipeline-detail-page__rename-input"
+              <TextField
                 aria-label={`New name for ${col}`}
                 value={renames[col] ?? ""}
                 onChange={(e) => {

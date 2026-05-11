@@ -1,9 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 
+/** Open the custom Select identified by aria-label and click the option with
+ * the given label. Replaces fireEvent.change for our app-styled Select. */
+function chooseSelectOption(comboboxName: string, optionLabel: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: comboboxName }));
+  fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+}
+
 describe("CastFieldsConfig", () => {
-  // renders one row per column from inputSchema
-  it("renders one table row per column when columns are provided", () => {
+  it("renders one combobox per column when columns are provided", () => {
     render(<CastFieldsConfig columns={["id", "name", "value"]} casts={{}} onChange={jest.fn()} />);
 
     expect(screen.getByRole("combobox", { name: "Target type for id" })).toBeInTheDocument();
@@ -16,18 +22,13 @@ describe("CastFieldsConfig", () => {
     expect(screen.getByText("value")).toBeInTheDocument();
   });
 
-  // empty table when no columns
   it("renders an empty table body when columns is empty", () => {
     render(<CastFieldsConfig columns={[]} casts={{}} onChange={jest.fn()} />);
 
-    // Table is still rendered
     expect(screen.getByRole("table")).toBeInTheDocument();
-
-    // No dropdowns
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
-  // hydrates from persisted config — pre-selects existing cast types
   it("pre-selects existing cast types from the casts prop", () => {
     render(
       <CastFieldsConfig
@@ -37,34 +38,32 @@ describe("CastFieldsConfig", () => {
       />,
     );
 
-    expect(screen.getByRole("combobox", { name: "Target type for amount" })).toHaveValue("integer");
-    // label not in casts — should show "keep as is" (empty value)
-    expect(screen.getByRole("combobox", { name: "Target type for label" })).toHaveValue("");
+    // The trigger button's text content reflects the selected option's label.
+    expect(screen.getByRole("combobox", { name: "Target type for amount" })).toHaveTextContent(
+      "integer",
+    );
+    expect(screen.getByRole("combobox", { name: "Target type for label" })).toHaveTextContent(
+      "keep as is",
+    );
   });
 
-  // selecting a type calls onChange with correct field + type
   it("calls onChange with field name and target type when a type is selected", () => {
     const onChange = jest.fn();
     render(<CastFieldsConfig columns={["amount", "label"]} casts={{}} onChange={onChange} />);
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Target type for amount" }), {
-      target: { value: "double" },
-    });
+    chooseSelectOption("Target type for amount", "double");
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith("amount", "double");
   });
 
-  // selecting "keep as is" calls onChange with empty string (removes from casts map)
   it("calls onChange with empty string when — keep as is — is selected", () => {
     const onChange = jest.fn();
     render(
       <CastFieldsConfig columns={["amount"]} casts={{ amount: "integer" }} onChange={onChange} />,
     );
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Target type for amount" }), {
-      target: { value: "" },
-    });
+    chooseSelectOption("Target type for amount", "— keep as is —");
 
     expect(onChange).toHaveBeenCalledWith("amount", "");
   });
