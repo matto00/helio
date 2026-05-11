@@ -23,10 +23,12 @@
   background: currentColor;
 }
 
-.actions-menu__panel {
+/* Compound selector overrides Popover.css's default padding/width
+ * for the actions-menu variant. */
+.popover__panel.actions-menu__panel {
   width: max-content;
-  min-width: 148px;
-  padding: 6px;
+  min-width: 120px;
+  padding: 4px;
   margin: 0;
   list-style: none;
 }
@@ -34,12 +36,12 @@
 .actions-menu__item {
   width: 100%;
   display: block;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: none;
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   text-align: left;
   cursor: pointer;
   transition: background-color var(--app-transition);
