@@ -315,6 +315,7 @@
 .undo-redo-btn {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: var(--app-radius-md);
   font-size: 12px;
