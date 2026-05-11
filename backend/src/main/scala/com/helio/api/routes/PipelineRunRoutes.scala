@@ -114,7 +114,16 @@ class PipelineRunRoutes(
                                   val response = RunResultResponse(jsRows, jsRows.size)
 
                                   if (isDry) {
-                                    complete(StatusCodes.OK, response)
+                                    val dryWork: Future[Unit] =
+                                      if (pipelineRunRepo != null)
+                                        pipelineRunRepo
+                                          .insertDryRun(runId, pipelineId, startAt, resultRows.size)
+                                          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId))
+                                          .recoverWith { case _ => Future.successful(()) }
+                                      else Future.successful(())
+                                    onComplete(dryWork) { _ =>
+                                      complete(StatusCodes.OK, response)
+                                    }
                                   } else {
                                     val now = Instant.now()
                                     val allWork: Future[Unit] = for {

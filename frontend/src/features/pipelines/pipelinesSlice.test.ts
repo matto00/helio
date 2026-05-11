@@ -190,7 +190,10 @@ describe("fetchPipelines thunk", () => {
 
 describe("submitPipelineRun reducer", () => {
   it("sets runStatus to queued when submitPipelineRun is pending", () => {
-    const nextState = pipelinesReducer(undefined, submitPipelineRun.pending("req-1", "p-1"));
+    const nextState = pipelinesReducer(
+      undefined,
+      submitPipelineRun.pending("req-1", { pipelineId: "p-1" }),
+    );
     expect(nextState.runStatus).toBe("queued");
     expect(nextState.runId).toBeNull();
     expect(nextState.runError).toBeNull();
@@ -200,7 +203,7 @@ describe("submitPipelineRun reducer", () => {
     const rows = [{ col_a: 1, col_b: "x" }];
     const nextState = pipelinesReducer(
       undefined,
-      submitPipelineRun.fulfilled({ rowCount: 1, rows }, "req-1", "p-1"),
+      submitPipelineRun.fulfilled({ rowCount: 1, rows }, "req-1", { pipelineId: "p-1" }),
     );
     expect(nextState.runId).toBeNull();
     expect(nextState.runStatus).toBe("succeeded");
@@ -210,7 +213,12 @@ describe("submitPipelineRun reducer", () => {
   it("clears runId and sets runError when submitPipelineRun rejects", () => {
     const nextState = pipelinesReducer(
       undefined,
-      submitPipelineRun.rejected(null, "req-1", "p-1", "Failed to start pipeline run."),
+      submitPipelineRun.rejected(
+        null,
+        "req-1",
+        { pipelineId: "p-1" },
+        "Failed to start pipeline run.",
+      ),
     );
     expect(nextState.runId).toBeNull();
     expect(nextState.runStatus).toBeNull();
@@ -229,7 +237,7 @@ describe("submitPipelineRun thunk", () => {
 
     const dispatch = jest.fn();
     const getState = jest.fn();
-    const thunk = submitPipelineRun("p-1");
+    const thunk = submitPipelineRun({ pipelineId: "p-1" });
 
     await thunk(dispatch, getState, undefined);
 
@@ -239,6 +247,7 @@ describe("submitPipelineRun thunk", () => {
     );
     expect(fulfilledCall).toBeDefined();
     expect(fulfilledCall?.[0].payload).toEqual({ rowCount: 1, rows });
+    expect(runPipelineMock).toHaveBeenCalledWith("p-1", undefined);
   });
 
   it("dispatches rejected on service error", async () => {
@@ -246,7 +255,7 @@ describe("submitPipelineRun thunk", () => {
 
     const dispatch = jest.fn();
     const getState = jest.fn();
-    const thunk = submitPipelineRun("p-1");
+    const thunk = submitPipelineRun({ pipelineId: "p-1" });
 
     await thunk(dispatch, getState, undefined);
 
@@ -255,6 +264,26 @@ describe("submitPipelineRun thunk", () => {
       ([action]) => action.type === "pipelines/submitPipelineRun/rejected",
     );
     expect(rejectedCall).toBeDefined();
+  });
+
+  it("dispatches POST with ?dry=true when dryRun: true is passed", async () => {
+    const rows = [{ col_a: 1 }];
+    runPipelineMock.mockResolvedValueOnce({ rowCount: 1, rows });
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = submitPipelineRun({ pipelineId: "p-1", dryRun: true });
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(runPipelineMock).toHaveBeenCalledWith("p-1", true);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/submitPipelineRun/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual({ rowCount: 1, rows });
   });
 });
 

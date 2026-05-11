@@ -302,7 +302,7 @@ export interface PanelPaginationState {
 export interface PipelineRunRecord {
   id: string;
   pipelineId: string;
-  status: "queued" | "running" | "succeeded" | "failed";
+  status: "queued" | "running" | "succeeded" | "failed" | "dry_run";
   startedAt: string;
   completedAt: string | null;
   rowCount: number | null;

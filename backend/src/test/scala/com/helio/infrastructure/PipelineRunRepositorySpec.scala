@@ -151,5 +151,87 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs shouldBe empty
     }
+
+    "insertDryRun inserts a row with status dry_run and non-null completedAt" in {
+      val pid    = seedPipeline()
+      val runId  = UUID.randomUUID().toString
+      val now    = Instant.now()
+      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3))
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      runs should have size 1
+      runs.head.id          shouldBe runId
+      runs.head.pipelineId  shouldBe pid
+      runs.head.status      shouldBe "dry_run"
+      runs.head.completedAt shouldBe defined
+      runs.head.rowCount    shouldBe Some(3)
+      runs.head.errorLog    shouldBe None
+    }
+
+    "deleteOldDryRuns retains only the N most recent dry-run rows" in {
+      val pid  = seedPipeline()
+      val base = Instant.now()
+      // Insert 12 dry-run rows
+      for (i <- 1 to 12) {
+        val runId = UUID.randomUUID().toString
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i))
+      }
+
+      val before = await(pipelineRunRepo.listByPipeline(pid))
+      before should have size 12
+      before.map(_.status).distinct shouldBe Seq("dry_run")
+
+      await(pipelineRunRepo.deleteOldDryRuns(pid, keepN = 10))
+
+      val after = await(pipelineRunRepo.listByPipeline(pid))
+      after should have size 10
+      // Most recent 10 are kept; the first (DESC) should be base + 12s
+      after.head.startedAt.getEpochSecond shouldBe base.plusSeconds(12).getEpochSecond
+      after.map(_.status).distinct shouldBe Seq("dry_run")
+    }
+
+    "deleteOldDryRuns does not affect normal run records" in {
+      val pid  = seedPipeline()
+      val base = Instant.now()
+      // Insert 5 normal runs and 12 dry-run rows
+      for (i <- 1 to 5) {
+        val runId = UUID.randomUUID().toString
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+      }
+      for (i <- 1 to 12) {
+        val runId = UUID.randomUUID().toString
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
+      }
+
+      await(pipelineRunRepo.deleteOldDryRuns(pid, keepN = 10))
+
+      val after = await(pipelineRunRepo.listByPipeline(pid))
+      // 5 normal + 10 dry-run = 15 total
+      after should have size 15
+      after.count(_.status == "dry_run") shouldBe 10
+      after.count(_.status != "dry_run") shouldBe 5
+    }
+
+    "deleteOldRuns does not affect dry-run records" in {
+      val pid  = seedPipeline()
+      val base = Instant.now()
+      // Insert 12 normal runs and 5 dry-run rows
+      for (i <- 1 to 12) {
+        val runId = UUID.randomUUID().toString
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+      }
+      for (i <- 1 to 5) {
+        val runId = UUID.randomUUID().toString
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
+      }
+
+      await(pipelineRunRepo.deleteOldRuns(pid, keepN = 10))
+
+      val after = await(pipelineRunRepo.listByPipeline(pid))
+      // 10 normal + 5 dry-run = 15 total
+      after should have size 15
+      after.count(_.status == "dry_run") shouldBe 5
+      after.count(_.status != "dry_run") shouldBe 10
+    }
   }
 }

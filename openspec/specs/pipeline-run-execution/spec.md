@@ -157,7 +157,12 @@ be skipped when `pipelineRunRepo` is unavailable (null-safe guard).
 - **THEN** a `pipeline_runs` row exists with `status = "failed"` and `error_log` containing
   the error message
 
-#### Scenario: Dry run does not create a pipeline_runs record
+#### Scenario: Dry run creates a pipeline_runs record with status dry_run
 - **WHEN** `POST /api/pipelines/:id/run?dry=true` is called and execution succeeds
-- **THEN** no new row is inserted into `pipeline_runs`
+- **THEN** a `pipeline_runs` row is inserted with `status = "dry_run"`, `completed_at` set to the
+  run start time, `row_count` equal to the result row count, and `error_log` null
+
+#### Scenario: Failed dry run does not create a pipeline_runs record
+- **WHEN** `POST /api/pipelines/:id/run?dry=true` is called and execution fails
+- **THEN** no `pipeline_runs` row is inserted (the route returns 422 immediately without recording)
 

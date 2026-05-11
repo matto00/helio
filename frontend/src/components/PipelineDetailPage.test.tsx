@@ -270,7 +270,7 @@ describe("PipelineDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
 
     await waitFor(() => {
-      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1");
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
   });
 
@@ -884,7 +884,7 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
 
     await waitFor(() => {
-      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1");
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
 
     // fetchPipelineRunHistory should be called again after the run succeeds
@@ -1027,5 +1027,72 @@ describe("PipelineDetailPage step preview", () => {
     await waitFor(() => {
       expect(screen.queryByText("alice")).not.toBeInTheDocument();
     });
+  });
+});
+
+// ── HEL-197: Dry-run button and badge ────────────────────────────────────────
+
+describe("PipelineDetailPage dry-run (HEL-197)", () => {
+  beforeEach(() => {
+    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("renders a 'Dry run' button in the footer", () => {
+    renderDetailPage("pipe-1");
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
+  });
+
+  it("clicking Dry run dispatches submitPipelineRun with ?dry=true", async () => {
+    renderDetailPage("pipe-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+
+    await waitFor(() => {
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true);
+    });
+  });
+
+  it("Dry run button is disabled when runStatus is queued", () => {
+    const store = makeStore([], { runStatus: "queued", runId: "run-1" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeDisabled();
+  });
+
+  it("Dry run button is disabled when runStatus is running", () => {
+    const store = makeStore([], { runStatus: "running", runId: "run-1" });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeDisabled();
+  });
+
+  it("Dry run button is enabled when runStatus is null", () => {
+    renderDetailPage("pipe-1");
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeEnabled();
+  });
+
+  it("run history shows 'Dry run' badge for status=dry_run", () => {
+    const dryRun: PipelineRunRecord = {
+      id: "run-dry-1",
+      pipelineId: "pipe-1",
+      status: "dry_run",
+      startedAt: "2026-05-01T12:00:00Z",
+      completedAt: "2026-05-01T12:00:01Z",
+      rowCount: 5,
+      errorLog: null,
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
+    renderDetailPage("pipe-1", store);
+    // The status badge for the dry_run run
+    const badge = screen.getByLabelText("Status: dry_run");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent("Dry run");
   });
 });
