@@ -943,3 +943,261 @@
     opacity: 0.25;
   }
 }
+
+/* ── Step config: Select fields ─────────────────────────────────────────── */
+.pipeline-detail-page__select-fields-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px 12px;
+}
+
+.pipeline-detail-page__select-fields-item {
+  display: flex;
+}
+
+.pipeline-detail-page__select-fields-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--app-radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--app-text);
+  user-select: none;
+  transition: background-color var(--app-transition);
+}
+
+.pipeline-detail-page__select-fields-label:hover {
+  background: var(--app-surface-soft);
+}
+
+.pipeline-detail-page__select-fields-checkbox {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--app-accent);
+}
+
+/* ── Step config: Filter rows ───────────────────────────────────────────── */
+.pipeline-detail-page__filter-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pipeline-detail-page__filter-combinator {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__filter-combinator-label {
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__filter-combinator-btn {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__filter-combinator-btn:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__filter-combinator-btn--active {
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+
+.pipeline-detail-page__filter-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pipeline-detail-page__filter-condition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1.2fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.pipeline-detail-page__filter-remove-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__filter-remove-btn:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.pipeline-detail-page__filter-add-btn {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border: 1px dashed color-mix(in srgb, var(--app-accent) 35%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-accent);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-style var(--app-transition);
+}
+
+.pipeline-detail-page__filter-add-btn:hover {
+  background: var(--app-accent-surface);
+  border-style: solid;
+}
+
+.pipeline-detail-page__filter-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #f87171;
+}
+
+/* ── Step config: Sort rows ─────────────────────────────────────────────── */
+.pipeline-detail-page__sort-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pipeline-detail-page__sort-config-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__sort-config-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  counter-reset: sort-key;
+}
+
+.pipeline-detail-page__sort-config-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline-detail-page__sort-config-index {
+  font-size: 0.72rem;
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pipeline-detail-page__sort-config-direction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.pipeline-detail-page__sort-config-direction-btn:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  background: var(--app-surface-soft);
+}
+
+.pipeline-detail-page__sort-config-remove-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__sort-config-remove-btn:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.pipeline-detail-page__sort-config-add-btn {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border: 1px dashed color-mix(in srgb, var(--app-accent) 35%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-accent);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-style var(--app-transition);
+}
+
+.pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
+  background: var(--app-accent-surface);
+  border-style: solid;
+}
+
+.pipeline-detail-page__sort-config-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
