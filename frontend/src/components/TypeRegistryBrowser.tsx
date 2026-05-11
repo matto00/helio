@@ -9,11 +9,16 @@ import { TypeDetailPanel } from "./TypeDetailPanel";
 export function TypeRegistryBrowser() {
   const dispatch = useAppDispatch();
   const { items } = useAppSelector((state) => state.dataTypes);
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  // Tracks the explicit user selection; null means "fall back to first item".
+  // We derive the effective selection rather than syncing via useEffect to
+  // avoid cascading renders and the set-state-in-effect lint rule.
+  const [explicitSelectedTypeId, setExplicitSelectedTypeId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const selectedType = items.find((dt) => dt.id === selectedTypeId) ?? null;
+  const selectedType: DataType | null =
+    items.find((dt) => dt.id === explicitSelectedTypeId) ?? items[0] ?? null;
+  const selectedTypeId = selectedType?.id ?? null;
 
   if (items.length === 0) {
     return (
@@ -33,7 +38,7 @@ export function TypeRegistryBrowser() {
         result.payload ?? "One or more panels are bound to this type. Unbind them before deleting.",
       );
     } else {
-      if (selectedTypeId === id) setSelectedTypeId(null);
+      if (selectedTypeId === id) setExplicitSelectedTypeId(null);
     }
     setConfirmDeleteId(null);
   }
@@ -61,7 +66,7 @@ export function TypeRegistryBrowser() {
                   type="button"
                   className="type-registry-browser__item-btn"
                   aria-pressed={dt.id === selectedTypeId}
-                  onClick={() => setSelectedTypeId(dt.id)}
+                  onClick={() => setExplicitSelectedTypeId(dt.id)}
                 >
                   <span className="type-registry-browser__item-name">{dt.name}</span>
                   <span className="type-registry-browser__item-count">
@@ -107,7 +112,7 @@ export function TypeRegistryBrowser() {
       </div>
 
       {selectedType && (
-        <TypeDetailPanel dataType={selectedType} onClose={() => setSelectedTypeId(null)} />
+        <TypeDetailPanel dataType={selectedType} onClose={() => setExplicitSelectedTypeId(null)} />
       )}
     </div>
   );

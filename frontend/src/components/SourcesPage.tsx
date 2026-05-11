@@ -4,7 +4,7 @@ import "./SourcesPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
-import { DataSourceList } from "./DataSourceList";
+import { SourceBrowser } from "./SourceBrowser";
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();
@@ -36,7 +36,7 @@ export function SourcesPage() {
           </p>
         )}
         {(sourcesStatus === "succeeded" || sourcesStatus === "idle") && (
-          <DataSourceList onAddSource={() => setIsAddModalOpen(true)} />
+          <SourceBrowser onAddSource={() => setIsAddModalOpen(true)} />
         )}
       </div>
 

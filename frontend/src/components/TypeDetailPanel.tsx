@@ -3,8 +3,10 @@ import { useState, type FormEvent } from "react";
 import "./TypeDetailPanel.css";
 import { updateDataType } from "../features/dataTypes/dataTypesSlice";
 import { useAppDispatch } from "../hooks/reduxHooks";
+import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/models";
 import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
+import { PreviewTable } from "./PreviewTable";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
@@ -26,6 +28,23 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  async function handlePreview() {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const result = await fetchDataTypeRows(dataType.id);
+      setPreviewRows(result.rows);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Failed to fetch preview.");
+      setPreviewRows(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setSaved(false);
@@ -68,6 +87,14 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
         />
         <button
           type="button"
+          className="type-detail-panel__preview-btn"
+          onClick={() => void handlePreview()}
+          disabled={previewLoading}
+        >
+          {previewLoading ? "Loading…" : "Preview"}
+        </button>
+        <button
+          type="button"
           className="type-detail-panel__close"
           aria-label={`Close ${dataType.name} detail`}
           onClick={onClose}
@@ -75,6 +102,18 @@ export function TypeDetailPanel({ dataType, onClose }: TypeDetailPanelProps) {
           ✕
         </button>
       </div>
+
+      {previewError && (
+        <p className="type-detail-panel__error" role="alert">
+          {previewError}
+        </p>
+      )}
+      {previewRows !== null && (
+        <PreviewTable
+          rows={previewRows}
+          emptyText="No rows have been written to this type yet. Run a pipeline that writes to this type to populate it."
+        />
+      )}
 
       <form onSubmit={(e) => void handleSave(e)}>
         <table className="type-detail-panel__table" aria-label={`Fields for ${dataType.name}`}>

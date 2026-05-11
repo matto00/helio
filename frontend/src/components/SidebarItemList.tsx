@@ -30,7 +30,6 @@ export function SidebarItemList({
   toHref,
   activeId,
   emptyText,
-  filterLabel,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const normalizedQuery = filterQuery.toLowerCase().trim();
@@ -45,9 +44,6 @@ export function SidebarItemList({
         <h2>{heading}</h2>
       </header>
       <div className="dashboard-list__filter">
-        <label className="dashboard-list__filter-label" htmlFor={`sidebar-filter-${heading}`}>
-          {filterLabel ?? `Filter ${heading.toLowerCase()}`}
-        </label>
         <div className="dashboard-list__filter-wrapper">
           <input
             id={`sidebar-filter-${heading}`}

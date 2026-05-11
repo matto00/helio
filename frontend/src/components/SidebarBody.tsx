@@ -73,7 +73,6 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         error={dataTypes.error}
         toHref={() => "/registry"}
         emptyText="No data types yet"
-        filterLabel="Filter data types"
       />
     );
   }

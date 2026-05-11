@@ -1,0 +1,131 @@
+.source-browser {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.source-browser__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.source-browser__item {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.source-browser__item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.source-browser__item-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.source-browser__item-btn:hover {
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-strong);
+}
+
+.source-browser__item--selected .source-browser__item-btn {
+  border-color: var(--app-accent-mid);
+  background: var(--app-accent-dim);
+}
+
+.source-browser__item-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-browser__item-type {
+  font-size: 0.72rem;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
+.source-browser__delete-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--app-text-muted);
+  padding: 4px 6px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.75rem;
+  transition: color var(--app-transition);
+}
+
+.source-browser__delete-btn:hover {
+  color: var(--app-danger, #e53e3e);
+}
+
+.source-browser__item-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.source-browser__confirm-text {
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.source-browser__confirm-btn {
+  background: none;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  color: var(--app-text);
+}
+
+.source-browser__confirm-btn--danger {
+  border-color: var(--app-danger, #e53e3e);
+  color: var(--app-danger, #e53e3e);
+}
+
+.source-browser__delete-error {
+  font-size: 0.8rem;
+  color: var(--app-danger, #e53e3e);
+  margin: 0 0 0.5rem;
+  padding: 0.5rem;
+  background: var(--app-danger-surface, #fff5f5);
+  border-radius: var(--app-radius-sm);
+}
+
+.source-browser__empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.source-browser__empty-message {
+  font-size: 0.875rem;
+  color: var(--app-text-muted);
+  margin: 0 0 1rem;
+}
