@@ -1,10 +1,29 @@
 .auth-page {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   padding: 24px;
   background-color: var(--app-bg);
+  overflow: hidden;
+}
+
+/* Match the authed app shell's dot-grid overlay so login/register feel like
+ * the same product. Tracks the user's accent (via --app-bg-accent). */
+.auth-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--app-bg-accent) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
 }
 
 .auth-card {
