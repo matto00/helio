@@ -645,25 +645,33 @@
  * The step config editors (Select / Rename / Cast / Filter / Compute /
  * Aggregate / Limit / Sort) render raw <input> and <select> elements without
  * per-component classes. Style them globally inside .pipeline-detail-page so
- * they match the rest of the app (DashboardList filter, modals, etc.). Tokens
- * (--app-border-subtle, --app-surface-soft, --app-accent) keep them aligned
- * with the user's accent. */
+ * they match the rest of the app. */
 .pipeline-detail-page input[type="text"],
 .pipeline-detail-page input[type="number"],
 .pipeline-detail-page input[type="search"],
 .pipeline-detail-page select,
 .pipeline-detail-page textarea {
-  min-height: 28px;
-  padding: 4px 8px;
-  border: 1px solid var(--app-border-subtle);
+  min-height: 30px;
+  padding: 5px 10px;
+  /* The base --app-border-subtle is barely visible on the dark step-card
+   * surface; bump opacity slightly to give the fields a defined edge. */
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
   border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
+  background: var(--app-surface);
   color: var(--app-text);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-family: inherit;
   transition:
     border-color var(--app-transition),
     background-color var(--app-transition);
+}
+
+.pipeline-detail-page input[type="text"]:hover,
+.pipeline-detail-page input[type="number"]:hover,
+.pipeline-detail-page input[type="search"]:hover,
+.pipeline-detail-page select:hover,
+.pipeline-detail-page textarea:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
 }
 
 .pipeline-detail-page input[type="text"]:focus-visible,
@@ -674,6 +682,7 @@
   outline: none;
   border-color: var(--app-accent);
   background: var(--app-surface);
+  box-shadow: 0 0 0 3px var(--app-accent-surface);
 }
 
 .pipeline-detail-page select {
@@ -682,6 +691,64 @@
 
 .pipeline-detail-page input[type="checkbox"] {
   accent-color: var(--app-accent);
+}
+
+/* Step-config row layout: stack label above input, full-width inputs.
+ * Without this, the raw <label>/<input> pairs flow inline and the inputs
+ * shrink to content width, producing the cramped "pill" look. */
+.pipeline-detail-page__compute-config,
+.pipeline-detail-page__limit-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pipeline-detail-page__compute-field,
+.pipeline-detail-page__limit-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pipeline-detail-page__compute-label,
+.pipeline-detail-page__limit-config-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pipeline-detail-page__compute-input,
+.pipeline-detail-page__limit-config-input {
+  width: 100%;
+}
+
+.pipeline-detail-page__compute-fields-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__compute-fields-hint-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pipeline-detail-page__compute-fields-hint-item {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
 }
 
 .pipeline-detail-page__run-btn {
