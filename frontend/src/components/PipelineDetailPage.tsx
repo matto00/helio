@@ -811,6 +811,23 @@ export function PipelineDetailPage() {
     }
   }, [dispatch, sourcesStatus]);
 
+  // Re-run /analyze whenever the steps change (add / remove / config edit) so
+  // each StepCard's inputSchema (and the available-fields hints inside the op
+  // editors) stays in sync without a manual refresh. Debounced so a stream of
+  // keystrokes in a TextField doesn't fire a request per character.
+  // We key on the SHAPE of steps (id, op, config) — not the array reference —
+  // so transient setState calls that don't change content don't trigger
+  // re-analyze.
+  const stepsFingerprint = steps.map((s) => `${s.id}:${s.opType.id}:${s.config}`).join("|");
+  useEffect(() => {
+    if (!id || steps.length === 0) return;
+    const handle = window.setTimeout(() => {
+      void dispatch(analyzePipeline(id));
+    }, 300);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, stepsFingerprint, dispatch]);
+
   // Fetch run history on mount
   useEffect(() => {
     if (id) {
