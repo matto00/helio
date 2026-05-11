@@ -144,6 +144,66 @@ describe("smart panel placement", () => {
     expect(resolved.lg.find((i) => i.panelId === "p2")).toMatchObject({ x: 4, y: 0 });
   });
 
+  it("places a new panel without overlapping panels that have been moved from their fallback positions", () => {
+    // lg colCount=12, itemWidth=4. Suppose existing panels p1, p2 were dragged to row 5
+    // (positions a fresh fallback would never produce). Adding p3 with no saved entry
+    // previously fell through to a from-scratch fallback that put p3 at (0,0,4,5) — fine.
+    // But if p1 occupies (0,5) and p2 occupies (4,5), the fallback for p3 must consider
+    // those actual positions before claiming a slot, and not collide with them.
+    const p1 = makePanel("p1");
+    const p2 = makePanel("p2");
+    const p3 = makePanel("p3");
+    const resolved = resolveDashboardLayout([p1, p2, p3], {
+      lg: [
+        { panelId: "p1", x: 0, y: 5, w: 4, h: 5 },
+        { panelId: "p2", x: 4, y: 5, w: 4, h: 5 },
+      ],
+      md: [],
+      sm: [],
+      xs: [],
+    });
+    const placed = resolved.lg.find((i) => i.panelId === "p3")!;
+    expect(
+      resolved.lg
+        .filter((i) => i.panelId !== "p3")
+        .every(
+          (i) =>
+            !(
+              placed.x < i.x + i.w &&
+              placed.x + placed.w > i.x &&
+              placed.y < i.y + i.h &&
+              placed.y + placed.h > i.y
+            ),
+        ),
+    ).toBe(true);
+  });
+
+  it("projects to a breakpoint with no saved entries instead of resetting all panels to top-left", () => {
+    // User has lg layout saved with three panels at row 5 (after manual drag).
+    // Resizing the viewport into md (no saved md layout) used to pack all panels at (0,0).
+    // Expected: panels appear in roughly the same relative positions, scaled to md's 10 cols.
+    const p1 = makePanel("p1");
+    const p2 = makePanel("p2");
+    const p3 = makePanel("p3");
+    const resolved = resolveDashboardLayout([p1, p2, p3], {
+      lg: [
+        { panelId: "p1", x: 0, y: 5, w: 4, h: 5 },
+        { panelId: "p2", x: 4, y: 5, w: 4, h: 5 },
+        { panelId: "p3", x: 8, y: 5, w: 4, h: 5 },
+      ],
+      md: [],
+      sm: [],
+      xs: [],
+    });
+    // All three panels should retain y=5 (row preserved) and be horizontally distributed,
+    // not all collapsed at (0,0).
+    const ys = resolved.md.map((i) => i.y);
+    expect(ys).toEqual([5, 5, 5]);
+    const xs = resolved.md.map((i) => i.x).sort((a, b) => a - b);
+    expect(xs[0]).toBe(0);
+    expect(xs[2]).toBeGreaterThan(0);
+  });
+
   it("places one 2-wide item per row on the xs breakpoint (colCount=2)", () => {
     // xs: colCount=2, itemWidth=2 → only 1 item per row
     const layout = createFallbackDashboardLayout([

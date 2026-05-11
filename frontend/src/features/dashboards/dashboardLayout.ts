@@ -86,17 +86,126 @@ function sanitizeLayoutItem(item: DashboardLayoutItem): DashboardLayoutItem {
   };
 }
 
+function rectsOverlap(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Final pass: shift any overlapping items down until they're collision-free.
+ * Items are processed in their incoming order, so earlier items (typically saved
+ * positions) anchor; later items are bumped down. Defensive against corrupted
+ * saved state and against projection-produced collisions when scaling between
+ * column counts. */
+function cleanupOverlaps(items: DashboardLayoutItem[]): DashboardLayoutItem[] {
+  const out: DashboardLayoutItem[] = [];
+  for (const item of items) {
+    let { x, y, w, h } = item;
+    let bumped = true;
+    while (bumped) {
+      bumped = false;
+      for (const placed of out) {
+        if (rectsOverlap({ panelId: item.panelId, x, y, w, h }, placed)) {
+          y = placed.y + placed.h;
+          bumped = true;
+          break;
+        }
+      }
+    }
+    out.push({ panelId: item.panelId, x, y, w, h });
+  }
+  return out;
+}
+
+/** Projects a saved layout from one breakpoint to another by proportionally scaling
+ * each item's x and w against the column count. Heights are preserved (column-based
+ * grid; rows are unitless). If a panel has no entry in the source layout, it's omitted
+ * and resolveBreakpointLayout fills it via the normal non-overlapping placement path.
+ */
+function projectLayout(
+  sourceItems: DashboardLayoutItem[],
+  sourceCols: number,
+  targetCols: number,
+): DashboardLayoutItem[] {
+  const scale = targetCols / sourceCols;
+  return sourceItems.map((item) => {
+    const w = Math.max(1, Math.min(targetCols, Math.round(item.w * scale)));
+    const x = Math.max(0, Math.min(targetCols - w, Math.round(item.x * scale)));
+    return { panelId: item.panelId, x, y: item.y, w, h: item.h };
+  });
+}
+
+/** Pick the breakpoint with the most saved entries (preferring larger breakpoints on ties),
+ * so we project from the user's primary layout when other breakpoints are empty. */
+function pickProjectionSource(
+  savedLayout: DashboardLayout,
+): { breakpoint: DashboardLayoutBreakpoint; items: DashboardLayoutItem[] } | null {
+  let best: { breakpoint: DashboardLayoutBreakpoint; items: DashboardLayoutItem[] } | null = null;
+  for (const bp of dashboardLayoutBreakpoints) {
+    const items = savedLayout[bp];
+    if (items.length === 0) continue;
+    if (best === null || items.length > best.items.length) {
+      best = { breakpoint: bp, items };
+    }
+  }
+  return best;
+}
+
 export function resolveDashboardLayout(
   panels: Panel[],
   savedLayout: DashboardLayout,
 ): DashboardLayout {
   const fallbackLayout = createFallbackDashboardLayout(panels);
+  const projectionSource = pickProjectionSource(savedLayout);
+
+  // For each breakpoint, if the saved layout is empty (or smaller than the panel set),
+  // augment it with projections from the chosen source breakpoint so panels keep their
+  // relative positions across breakpoint changes instead of replacing to top-left.
+  function effectiveSaved(bp: DashboardLayoutBreakpoint): DashboardLayoutItem[] {
+    const saved = savedLayout[bp];
+    if (saved.length >= panels.length) return saved;
+    if (projectionSource === null || projectionSource.breakpoint === bp) return saved;
+
+    const haveIds = new Set(saved.map((item) => item.panelId));
+    const projected = projectLayout(
+      projectionSource.items.filter((item) => !haveIds.has(item.panelId)),
+      dashboardGridCols[projectionSource.breakpoint],
+      dashboardGridCols[bp],
+    );
+    return [...saved, ...projected];
+  }
 
   return {
-    lg: resolveBreakpointLayout(panels, savedLayout.lg, fallbackLayout.lg),
-    md: resolveBreakpointLayout(panels, savedLayout.md, fallbackLayout.md),
-    sm: resolveBreakpointLayout(panels, savedLayout.sm, fallbackLayout.sm),
-    xs: resolveBreakpointLayout(panels, savedLayout.xs, fallbackLayout.xs),
+    lg: cleanupOverlaps(
+      resolveBreakpointLayout(
+        panels,
+        effectiveSaved("lg"),
+        fallbackLayout.lg,
+        dashboardGridCols.lg,
+      ),
+    ),
+    md: cleanupOverlaps(
+      resolveBreakpointLayout(
+        panels,
+        effectiveSaved("md"),
+        fallbackLayout.md,
+        dashboardGridCols.md,
+      ),
+    ),
+    sm: cleanupOverlaps(
+      resolveBreakpointLayout(
+        panels,
+        effectiveSaved("sm"),
+        fallbackLayout.sm,
+        dashboardGridCols.sm,
+      ),
+    ),
+    xs: cleanupOverlaps(
+      resolveBreakpointLayout(
+        panels,
+        effectiveSaved("xs"),
+        fallbackLayout.xs,
+        dashboardGridCols.xs,
+      ),
+    ),
   };
 }
 
@@ -104,6 +213,7 @@ function resolveBreakpointLayout(
   panels: Panel[],
   savedItems: DashboardLayoutItem[],
   fallbackItems: DashboardLayoutItem[],
+  colCount: number,
 ): DashboardLayoutItem[] {
   const savedByPanelId = new Map(
     savedItems
@@ -112,7 +222,32 @@ function resolveBreakpointLayout(
   );
   const fallbackByPanelId = new Map(fallbackItems.map((item) => [item.panelId, item]));
 
-  return panels.map((panel) => savedByPanelId.get(panel.id) ?? fallbackByPanelId.get(panel.id)!);
+  // Collect resolved positions of panels that have saved layout entries first, so we can
+  // place any missing-from-saved panels into a non-overlapping slot.
+  const resolved: DashboardLayoutItem[] = [];
+  const placed: DashboardLayoutItem[] = [];
+
+  for (const panel of panels) {
+    const saved = savedByPanelId.get(panel.id);
+    if (saved) {
+      resolved.push(saved);
+      placed.push(saved);
+    } else {
+      // No saved entry — likely a newly-created panel, or a panel visiting a breakpoint
+      // for the first time. Compute a position that does not overlap with the actual
+      // saved positions of the other panels (the previous behavior used a fallback
+      // computed from scratch, which produced collisions).
+      const fallback = fallbackByPanelId.get(panel.id);
+      const itemWidth = fallback?.w ?? (colCount >= 10 ? 4 : colCount >= 6 ? 3 : 2);
+      const itemHeight = fallback?.h ?? defaultItemHeight;
+      const { x, y } = findNextAvailablePosition(placed, colCount, itemWidth, itemHeight);
+      const item: DashboardLayoutItem = { panelId: panel.id, x, y, w: itemWidth, h: itemHeight };
+      resolved.push(item);
+      placed.push(item);
+    }
+  }
+
+  return resolved;
 }
 
 export function areDashboardLayoutsEqual(a: DashboardLayout, b: DashboardLayout): boolean {

@@ -99,6 +99,9 @@
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
   cursor: grab;
+  /* Prevent the browser's default touch gestures (scroll/zoom) on the drag handle
+   * so react-grid-layout's pointer-events handler can take over and start a drag. */
+  touch-action: none;
 }
 
 .panel-grid-card__handle span {
