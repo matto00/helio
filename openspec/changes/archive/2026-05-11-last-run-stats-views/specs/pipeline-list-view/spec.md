@@ -1,8 +1,5 @@
-# pipeline-list-view Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-data-pipelines-list-view. Update Purpose after archive.
-## Requirements
 ### Requirement: PipelinesPage fetches and displays pipeline list
 `PipelinesPage` SHALL dispatch `fetchPipelines` on mount. When pipelines are loaded, a table or
 list SHALL render one row per pipeline showing: name, source data source name, output DataType name,
@@ -33,40 +30,7 @@ last-run status, last-run timestamp (relative format, e.g. "2 hours ago"), and l
 - **WHEN** a pipeline has a non-null `lastRunRowCount`
 - **THEN** the value is displayed with locale-formatted number (e.g. "1,234 rows")
 
-### Requirement: PipelinesPage shows empty state when no pipelines exist
-When no pipelines exist, `PipelinesPage` SHALL render an empty state containing a "Create pipeline"
-button. Clicking the button SHALL open the `CreatePipelineModal`.
-
-#### Scenario: Empty state is shown with no pipelines
-- **WHEN** `GET /api/pipelines` returns an empty array
-- **THEN** an empty state message is displayed with a "Create pipeline" button visible
-
-#### Scenario: Create pipeline button opens modal from empty state
-- **WHEN** the user clicks "Create pipeline" in the empty state
-- **THEN** the `CreatePipelineModal` opens
-
-### Requirement: PipelinesPage handles loading and error states
-`PipelinesPage` SHALL display a loading indicator while the pipeline fetch is in progress, and an error message if the fetch fails.
-
-#### Scenario: Loading state is shown during fetch
-- **WHEN** `fetchPipelines` is pending
-- **THEN** a loading indicator is visible
-
-#### Scenario: Error state is shown on fetch failure
-- **WHEN** `GET /api/pipelines` returns a non-2xx response
-- **THEN** an error message is displayed
-
-### Requirement: PipelineListTable header contains a Create pipeline button
-When pipelines exist, a "Create pipeline" button SHALL be displayed in a toolbar above the
-`PipelineListTable`. Clicking the button SHALL open the `CreatePipelineModal`.
-
-#### Scenario: Create pipeline button is visible in non-empty list
-- **WHEN** `GET /api/pipelines` returns one or more pipelines
-- **THEN** a "Create pipeline" button is visible above the pipeline table
-
-#### Scenario: Create pipeline button opens modal from non-empty state
-- **WHEN** the user clicks "Create pipeline" above the pipeline list
-- **THEN** the `CreatePipelineModal` opens
+## ADDED Requirements
 
 ### Requirement: PipelineListTable renders a Rows Written column
 `PipelineListTable` SHALL include a "Rows Written" column after "Last Run At". When
@@ -80,4 +44,3 @@ followed by " rows". When `lastRunRowCount` is null the cell SHALL render an em-
 #### Scenario: Row count column renders dash for never-run pipeline
 - **WHEN** a pipeline summary has `lastRunRowCount: null`
 - **THEN** the cell displays an em-dash placeholder
-

@@ -114,7 +114,7 @@ class PipelineRunRoutes(
                                       _ <- if (pipelineRunRepo != null)
                                              pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
                                            else Future.successful(())
-                                      _ <- pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now())
+                                      _ <- pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None)
                                     } yield ()
                                     onComplete(failWork) { _ =>
                                       complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
@@ -155,7 +155,7 @@ class PipelineRunRoutes(
                                                pipeline.outputDataTypeId.value, jsRows
                                              )
                                            else Future.successful(())
-                                      _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now)
+                                      _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong))
                                       _ <- if (pipelineRunRepo != null)
                                              pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size))
                                            else Future.successful(())

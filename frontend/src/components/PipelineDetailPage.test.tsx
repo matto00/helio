@@ -71,6 +71,7 @@ const defaultPipeline: PipelineSummary = {
   outputDataTypeName: "TestType",
   lastRunStatus: null,
   lastRunAt: null,
+  lastRunRowCount: null,
 };
 
 type SourceItem = {
@@ -251,6 +252,7 @@ describe("PipelineDetailPage", () => {
         outputDataTypeName: "Type",
         lastRunStatus: null,
         lastRunAt: null,
+        lastRunRowCount: null,
       },
       currentPipelineStatus: "succeeded",
     });
@@ -356,6 +358,69 @@ describe("PipelineDetailPage", () => {
     await waitFor(() => {
       expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
     });
+  });
+
+  it("meta bar is absent when currentPipeline.lastRunAt is null", () => {
+    // defaultPipeline has lastRunAt: null
+    renderDetailPage();
+    expect(screen.queryByLabelText("Last run metadata")).not.toBeInTheDocument();
+  });
+
+  it("meta bar is visible when currentPipeline.lastRunAt is non-null", () => {
+    const store = makeStore([], {
+      currentPipeline: {
+        id: "pipe-1",
+        name: "Test Pipeline",
+        sourceDataSourceName: "Test Source",
+        outputDataTypeName: "TestType",
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-05-01T10:00:00Z",
+        lastRunRowCount: 42,
+      },
+      currentPipelineStatus: "succeeded",
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Last run metadata")).toBeInTheDocument();
+  });
+
+  it("meta bar shows row count when lastRunRowCount is non-null", () => {
+    const store = makeStore([], {
+      currentPipeline: {
+        id: "pipe-1",
+        name: "Test Pipeline",
+        sourceDataSourceName: "Test Source",
+        outputDataTypeName: "TestType",
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-05-01T10:00:00Z",
+        lastRunRowCount: 5678,
+      },
+      currentPipelineStatus: "succeeded",
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText("5,678")).toBeInTheDocument();
+  });
+
+  it("meta bar does not crash when lastRunRowCount is undefined", () => {
+    // Simulates old Redux state (e.g. demo data) where the field is absent at
+    // runtime. Cast bypasses TypeScript so we can test the JS-level guard.
+    // The loose-equality guard (!= null) must protect against both null and undefined.
+    const store = makeStore([], {
+      currentPipeline: {
+        id: "pipe-1",
+        name: "Test Pipeline",
+        sourceDataSourceName: "Test Source",
+        outputDataTypeName: "TestType",
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-05-01T10:00:00Z",
+        lastRunRowCount: undefined,
+      } as unknown as PipelineSummary,
+      currentPipelineStatus: "succeeded",
+    });
+    // Should not throw — this was the regression introduced by using !== null
+    expect(() => renderDetailPage("pipe-1", store)).not.toThrow();
+    // Meta bar is present (lastRunAt is non-null) but row-count item is absent
+    expect(screen.getByLabelText("Last run metadata")).toBeInTheDocument();
+    expect(screen.queryByText("Rows written:")).not.toBeInTheDocument();
   });
 });
 

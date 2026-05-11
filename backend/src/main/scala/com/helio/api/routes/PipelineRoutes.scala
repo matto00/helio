@@ -45,7 +45,8 @@ class PipelineRoutes(
                         outputDataTypeName   = s.outputDataTypeName,
                         outputDataTypeId     = s.outputDataTypeId,
                         lastRunStatus        = s.lastRunStatus,
-                        lastRunAt            = s.lastRunAt
+                        lastRunAt            = s.lastRunAt,
+                        lastRunRowCount      = s.lastRunRowCount
                       )
                     )
                   )
@@ -73,7 +74,8 @@ class PipelineRoutes(
                           outputDataTypeName   = summary.outputDataTypeName,
                           outputDataTypeId     = summary.outputDataTypeId,
                           lastRunStatus        = summary.lastRunStatus,
-                          lastRunAt            = summary.lastRunAt
+                          lastRunAt            = summary.lastRunAt,
+                          lastRunRowCount      = summary.lastRunRowCount
                         )
                       )
                     case Success(Left(msg)) if msg.contains("not found") =>
@@ -166,7 +168,8 @@ class PipelineRoutes(
                       outputDataTypeName   = summary.outputDataTypeName,
                       outputDataTypeId     = summary.outputDataTypeId,
                       lastRunStatus        = summary.lastRunStatus,
-                      lastRunAt            = summary.lastRunAt
+                      lastRunAt            = summary.lastRunAt,
+                      lastRunRowCount      = summary.lastRunRowCount
                     )
                   )
                 case Success(None) =>
@@ -191,7 +194,8 @@ class PipelineRoutes(
                           outputDataTypeName   = summary.outputDataTypeName,
                           outputDataTypeId     = summary.outputDataTypeId,
                           lastRunStatus        = summary.lastRunStatus,
-                          lastRunAt            = summary.lastRunAt
+                          lastRunAt            = summary.lastRunAt,
+                          lastRunRowCount      = summary.lastRunRowCount
                         )
                       )
                     case Success(None) =>

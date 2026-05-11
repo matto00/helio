@@ -36,6 +36,7 @@ const newPipeline = {
   outputDataTypeId: "dt-sales",
   lastRunStatus: null as null,
   lastRunAt: null,
+  lastRunRowCount: null as null,
 };
 
 function renderModal(onClose = jest.fn()) {

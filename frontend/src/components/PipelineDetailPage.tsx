@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { formatRelativeTime } from "../utils/formatRelativeTime";
+
 import "./PipelineDetailPage.css";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import {
@@ -746,7 +748,7 @@ function RunHistoryRow({ run }: RunHistoryRowProps) {
         <span className="pipeline-detail-page__history-row-time">{startTime}</span>
         <span className="pipeline-detail-page__history-row-duration">{duration}</span>
         <span className="pipeline-detail-page__history-row-count">
-          {run.rowCount !== null ? `${run.rowCount.toLocaleString()} rows` : "—"}
+          {run.rowCount != null ? `${run.rowCount.toLocaleString()} rows` : "—"}
         </span>
         <StatusBadge status={run.status} />
         {run.status === "failed" && run.errorLog && (
@@ -1230,6 +1232,29 @@ export function PipelineDetailPage() {
         </span>
         <span className="pipeline-detail-page__back-current">{pipelineName}</span>
       </nav>
+
+      {/* ── Last-run metadata bar ── */}
+      {currentPipeline.lastRunAt != null && (
+        <div className="pipeline-detail-page__meta-bar" aria-label="Last run metadata">
+          <span className="pipeline-detail-page__meta-bar-item">
+            <span className="pipeline-detail-page__meta-bar-label">Last run:</span>{" "}
+            {formatRelativeTime(currentPipeline.lastRunAt)}
+          </span>
+          {currentPipeline.lastRunRowCount != null && (
+            <span className="pipeline-detail-page__meta-bar-item">
+              <span className="pipeline-detail-page__meta-bar-label">Rows written:</span>{" "}
+              {currentPipeline.lastRunRowCount.toLocaleString()}
+            </span>
+          )}
+          {currentPipeline.lastRunStatus != null && (
+            <span
+              className={`pipeline-detail-page__meta-bar-badge pipeline-detail-page__meta-bar-badge--${currentPipeline.lastRunStatus}`}
+            >
+              {currentPipeline.lastRunStatus}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

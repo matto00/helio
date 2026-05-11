@@ -28,6 +28,7 @@ const testPipelines = [
     outputDataTypeId: "dt-sales",
     lastRunStatus: "succeeded" as const,
     lastRunAt: "2026-05-01T10:00:00Z",
+    lastRunRowCount: 1234,
   },
   {
     id: "p-2",
@@ -37,6 +38,7 @@ const testPipelines = [
     outputDataTypeId: "dt-inventory",
     lastRunStatus: "failed" as const,
     lastRunAt: "2026-04-30T08:00:00Z",
+    lastRunRowCount: null,
   },
 ];
 
@@ -101,6 +103,27 @@ describe("PipelinesPage", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
   });
 
+  it("shows row count in Rows Written column when lastRunRowCount is non-null", async () => {
+    getPipelinesMock.mockResolvedValueOnce(testPipelines);
+    renderWithStore(<PipelinesPage />);
+
+    await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
+
+    // testPipelines[0] has lastRunRowCount: 1234
+    expect(screen.getByText("1,234 rows")).toBeInTheDocument();
+  });
+
+  it("shows — in Rows Written column when lastRunRowCount is null", async () => {
+    getPipelinesMock.mockResolvedValueOnce(testPipelines);
+    renderWithStore(<PipelinesPage />);
+
+    await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
+
+    // testPipelines[1] has lastRunRowCount: null — column shows a dash
+    const dashes = screen.getAllByText("—");
+    expect(dashes.length).toBeGreaterThan(0);
+  });
+
   it("shows a Create pipeline toolbar button in non-empty state", async () => {
     getPipelinesMock.mockResolvedValueOnce(testPipelines);
     renderWithStore(<PipelinesPage />);
@@ -149,11 +172,12 @@ describe("PipelinesPage", () => {
       outputDataTypeId: "dt-raw",
       lastRunStatus: null as null,
       lastRunAt: null,
+      lastRunRowCount: null,
     };
     getPipelinesMock.mockResolvedValueOnce([neverRunPipeline]);
     renderWithStore(<PipelinesPage />);
 
     await waitFor(() => expect(screen.getByText("New Pipeline")).toBeInTheDocument());
-    expect(screen.getByText("never run")).toBeInTheDocument();
+    expect(screen.getByText("Never run")).toBeInTheDocument();
   });
 });

@@ -54,7 +54,8 @@ class PipelineRepository(
         outputDataTypeName   = dtName,
         outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
-        lastRunAt            = p.lastRunAt.map(_.toString)
+        lastRunAt            = p.lastRunAt.map(_.toString),
+        lastRunRowCount      = p.lastRunRowCount
       )
     })
   }
@@ -105,7 +106,8 @@ class PipelineRepository(
             lastRunStatus      = None,
             lastRunAt          = None,
             createdAt          = now,
-            updatedAt          = now
+            updatedAt          = now,
+            lastRunRowCount    = None
           )
           db.run(pipelinesTable += pipelineRow).map { _ =>
             Right(PipelineSummary(
@@ -115,20 +117,21 @@ class PipelineRepository(
               outputDataTypeName   = outputDataTypeName,
               outputDataTypeId     = createdDataType.id.value,
               lastRunStatus        = None,
-              lastRunAt            = None
+              lastRunAt            = None,
+              lastRunRowCount      = None
             ))
           }
         }
     }
   }
 
-  /** Updates the lastRunStatus and lastRunAt columns for a pipeline after a run completes. */
-  def updateLastRun(id: String, status: String, at: Instant): Future[Unit] =
+  /** Updates the lastRunStatus, lastRunAt, and lastRunRowCount columns for a pipeline after a run completes. */
+  def updateLastRun(id: String, status: String, at: Instant, rowCount: Option[Long] = None): Future[Unit] =
     db.run(
       pipelinesTable
         .filter(_.id === id)
-        .map(r => (r.lastRunStatus, r.lastRunAt, r.updatedAt))
-        .update((Some(status), Some(at), at))
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, at))
     ).map(_ => ())
 
   /** Returns a flat summary projection for all pipelines, joined with source and data type names. */
@@ -147,7 +150,8 @@ class PipelineRepository(
         outputDataTypeName   = dtName,
         outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
-        lastRunAt            = p.lastRunAt.map(_.toString)
+        lastRunAt            = p.lastRunAt.map(_.toString),
+        lastRunRowCount      = p.lastRunRowCount
       )
     }.toVector)
   }
@@ -169,7 +173,8 @@ object PipelineRepository {
       outputDataTypeName: String,
       outputDataTypeId: String,
       lastRunStatus: Option[String],
-      lastRunAt: Option[String]
+      lastRunAt: Option[String],
+      lastRunRowCount: Option[Long]
   )
 
   case class PipelineRow(
@@ -180,7 +185,8 @@ object PipelineRepository {
       lastRunStatus: Option[String],
       lastRunAt: Option[Instant],
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      lastRunRowCount: Option[Long]
   )
 
   class PipelineTable(tag: Tag) extends Table[PipelineRow](tag, "pipelines") {
@@ -192,9 +198,10 @@ object PipelineRepository {
     def lastRunAt          = column[Option[Instant]]("last_run_at")
     def createdAt          = column[Instant]("created_at")
     def updatedAt          = column[Instant]("updated_at")
+    def lastRunRowCount    = column[Option[Long]]("last_run_row_count")
 
     def * =
-      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt)
+      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount)
         .mapTo[PipelineRow]
   }
 }

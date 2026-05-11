@@ -258,7 +258,8 @@ final case class PipelineSummaryResponse(
     outputDataTypeName: String,
     outputDataTypeId: String,
     lastRunStatus: Option[String],
-    lastRunAt: Option[String]
+    lastRunAt: Option[String],
+    lastRunRowCount: Option[Long]
 )
 
 
@@ -762,7 +763,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   // Pipeline API formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest] = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat7(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat8(PipelineSummaryResponse.apply)
 
   // Update API formats
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
