@@ -5,6 +5,12 @@
   align-items: start;
 }
 
+/* When the sidebar owns the list, the browser is just the detail panel.
+ * Drop the 280px column so the panel takes the full content width. */
+.type-registry-browser--single {
+  grid-template-columns: 1fr;
+}
+
 .type-registry-browser__empty {
   font-size: 0.875rem;
   color: var(--app-text-muted);

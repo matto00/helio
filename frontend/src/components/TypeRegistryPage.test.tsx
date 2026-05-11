@@ -54,31 +54,8 @@ describe("TypeRegistryPage", () => {
     );
   });
 
-  it("shows delete confirm/cancel buttons in the detail panel when Delete is clicked", async () => {
-    fetchDataTypesMock.mockResolvedValue([testDataType]);
-
-    renderWithStore(<TypeRegistryPage />);
-    const deleteBtn = await screen.findByRole("button", { name: "Delete" });
-    fireEvent.click(deleteBtn);
-    expect(await screen.findByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-  });
-
-  it("cancel restores the Delete button without calling the API", async () => {
-    fetchDataTypesMock.mockResolvedValue([testDataType]);
-
-    const { deleteDataType: deleteDataTypeMock } = jest.requireMock(
-      "../services/dataTypeService",
-    ) as {
-      deleteDataType: jest.Mock;
-    };
-    deleteDataTypeMock.mockReset();
-
-    renderWithStore(<TypeRegistryPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
-
-    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
-    expect(deleteDataTypeMock).not.toHaveBeenCalled();
-  });
+  // Note: Delete used to live in the detail panel; it's now owned by the
+  // sidebar (SidebarItemList's ellipsis menu) so the page-level test no
+  // longer asserts the Delete flow here. Sidebar delete is covered via the
+  // SidebarItemList component's own tests / playwright verification.
 });

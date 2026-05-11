@@ -10,13 +10,6 @@ import { PreviewTable } from "./PreviewTable";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
-  onClose: () => void;
-  /** Optional inline-delete affordance. When all four callbacks are set, the
-   * header renders a Delete button that toggles a Confirm/Cancel pair. */
-  confirmingDelete?: boolean;
-  onDeleteRequest?: () => void;
-  onDeleteConfirm?: () => void;
-  onDeleteCancel?: () => void;
 }
 
 interface EditableField extends DataTypeField {
@@ -24,14 +17,7 @@ interface EditableField extends DataTypeField {
   dataType: string;
 }
 
-export function TypeDetailPanel({
-  dataType,
-  onClose,
-  confirmingDelete = false,
-  onDeleteRequest,
-  onDeleteConfirm,
-  onDeleteCancel,
-}: TypeDetailPanelProps) {
+export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   const dispatch = useAppDispatch();
   const [name, setName] = useState(dataType.name);
   const [fields, setFields] = useState<EditableField[]>(dataType.fields.map((f) => ({ ...f })));
@@ -106,42 +92,6 @@ export function TypeDetailPanel({
             disabled={previewLoading}
           >
             {previewLoading ? "Loading…" : "Preview"}
-          </button>
-          {onDeleteRequest !== undefined ? (
-            confirmingDelete ? (
-              <>
-                <button
-                  type="button"
-                  className="type-detail-panel__delete-confirm-btn"
-                  onClick={onDeleteConfirm}
-                >
-                  Confirm delete
-                </button>
-                <button
-                  type="button"
-                  className="type-detail-panel__delete-cancel-btn"
-                  onClick={onDeleteCancel}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="type-detail-panel__delete-btn"
-                onClick={onDeleteRequest}
-              >
-                Delete
-              </button>
-            )
-          ) : null}
-          <button
-            type="button"
-            className="type-detail-panel__close"
-            aria-label={`Close ${dataType.name} detail`}
-            onClick={onClose}
-          >
-            ✕
           </button>
         </div>
       </div>

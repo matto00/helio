@@ -237,7 +237,7 @@
 
 .dashboard-list__item-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 6px;
 }
 
@@ -245,6 +245,20 @@
 .dashboard-list__item-row .dashboard-list__button {
   flex: 1;
   min-width: 0;
+}
+
+/* Reveal the per-row actions menu (vertical ellipsis) only on row hover so
+ * sidebar lists stay visually quiet. The trigger stays focusable via keyboard
+ * (it becomes visible on focus-within too). */
+.dashboard-list__item-row .actions-menu__trigger {
+  opacity: 0;
+  transition: opacity var(--app-transition);
+}
+
+.dashboard-list__item-row:hover .actions-menu__trigger,
+.dashboard-list__item-row:focus-within .actions-menu__trigger,
+.dashboard-list__item-row .actions-menu__trigger[aria-expanded="true"] {
+  opacity: 1;
 }
 
 .dashboard-list__delete-confirm-row {
