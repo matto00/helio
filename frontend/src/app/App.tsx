@@ -14,7 +14,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
 import { OrbitMark } from "../components/OrbitMark";
-import { DashboardList } from "../components/DashboardList";
+import { SidebarBody } from "../components/SidebarBody";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
@@ -238,7 +238,7 @@ function AppShell() {
                   Type Registry
                 </NavLink>
               </nav>
-              <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+              <SidebarBody onCollapse={() => setIsDashboardListCollapsed(true)} />
               <button
                 type="button"
                 className="app-sidebar-collapse"

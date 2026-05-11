@@ -479,9 +479,12 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Type Registry" }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument(),
-    );
+    // Two headings now share the name ("Type Registry" in the section-aware
+    // sidebar list AND as the page title). Locate the page-title one by class.
+    await waitFor(() => {
+      const headings = screen.getAllByRole("heading", { name: "Type Registry" });
+      expect(headings.some((h) => h.className.includes("type-registry-page__title"))).toBe(true);
+    });
   });
 
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
