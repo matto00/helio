@@ -40,6 +40,7 @@ const testPipeline = {
   outputDataTypeId: "dt-sales",
   lastRunStatus: "succeeded" as const,
   lastRunAt: "2026-05-01T10:00:00Z",
+  lastRunRowCount: null as null,
 };
 
 const newPipeline = {
@@ -50,6 +51,7 @@ const newPipeline = {
   outputDataTypeId: "dt-raw",
   lastRunStatus: null as null,
   lastRunAt: null,
+  lastRunRowCount: null as null,
 };
 
 describe("pipelinesSlice", () => {
@@ -437,6 +439,7 @@ const samplePipelineSummary: PipelineSummary = {
   outputDataTypeName: "SalesMetrics",
   lastRunStatus: null,
   lastRunAt: null,
+  lastRunRowCount: null,
 };
 
 describe("fetchPipelineById reducer", () => {

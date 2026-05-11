@@ -112,6 +112,7 @@ const dataTypeStoreAdditions = {
         outputDataTypeId: "dt-1",
         lastRunStatus: null as null,
         lastRunAt: null,
+        lastRunRowCount: null as null,
       },
     ],
     status: "succeeded" as const,

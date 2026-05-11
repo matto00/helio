@@ -219,6 +219,7 @@ export interface PipelineSummary {
   outputDataTypeId?: string;
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
+  lastRunRowCount: number | null;
 }
 
 export interface AuthResponse {

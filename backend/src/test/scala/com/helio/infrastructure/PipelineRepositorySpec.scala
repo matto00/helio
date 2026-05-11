@@ -93,5 +93,38 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       summary.get.lastRunStatus shouldBe Some("succeeded")
       summary.get.lastRunAt     shouldBe defined
     }
+
+    "persist lastRunRowCount when provided and reflect it in listSummaries" in {
+      val pid = seedPipeline()
+      val at  = Instant.now()
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L)))
+
+      val summaries = await(pipelineRepo.listSummaries())
+      val summary   = summaries.find(_.id == pid)
+      summary shouldBe defined
+      summary.get.lastRunRowCount shouldBe Some(1234L)
+    }
+
+    "leave lastRunRowCount as None when no rowCount is provided" in {
+      val pid = seedPipeline()
+      val at  = Instant.now()
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None))
+
+      val summaries = await(pipelineRepo.listSummaries())
+      val summary   = summaries.find(_.id == pid)
+      summary shouldBe defined
+      summary.get.lastRunRowCount shouldBe None
+    }
+
+    "return lastRunRowCount = None for a pipeline that has never been run" in {
+      val pid = seedPipeline()
+
+      val summaries = await(pipelineRepo.listSummaries())
+      val summary   = summaries.find(_.id == pid)
+      summary shouldBe defined
+      summary.get.lastRunStatus   shouldBe None
+      summary.get.lastRunAt       shouldBe None
+      summary.get.lastRunRowCount shouldBe None
+    }
   }
 }

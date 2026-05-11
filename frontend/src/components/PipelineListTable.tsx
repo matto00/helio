@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 import type { PipelineSummary } from "../types/models";
 
 interface Props {
@@ -23,6 +24,7 @@ export function PipelineListTable({ pipelines }: Props) {
           <th className="pipeline-list-table__th">Output Type</th>
           <th className="pipeline-list-table__th">Last Run Status</th>
           <th className="pipeline-list-table__th">Last Run At</th>
+          <th className="pipeline-list-table__th">Rows Written</th>
         </tr>
       </thead>
       <tbody>
@@ -36,10 +38,25 @@ export function PipelineListTable({ pipelines }: Props) {
             <td className="pipeline-list-table__td">{pipeline.sourceDataSourceName}</td>
             <td className="pipeline-list-table__td">{pipeline.outputDataTypeName}</td>
             <td className="pipeline-list-table__td">
-              <StatusBadge status={pipeline.lastRunStatus} />
+              {pipeline.lastRunStatus === null ? (
+                <span className="pipeline-list-table__never-run">Never run</span>
+              ) : (
+                <StatusBadge status={pipeline.lastRunStatus} />
+              )}
             </td>
             <td className="pipeline-list-table__td">
-              {pipeline.lastRunAt ?? <span className="pipeline-list-table__dash">—</span>}
+              {pipeline.lastRunAt !== null ? (
+                formatRelativeTime(pipeline.lastRunAt)
+              ) : (
+                <span className="pipeline-list-table__dash">—</span>
+              )}
+            </td>
+            <td className="pipeline-list-table__td">
+              {pipeline.lastRunRowCount != null ? (
+                pipeline.lastRunRowCount.toLocaleString() + " rows"
+              ) : (
+                <span className="pipeline-list-table__dash">—</span>
+              )}
             </td>
           </tr>
         ))}
