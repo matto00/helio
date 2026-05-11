@@ -49,6 +49,11 @@
   letter-spacing: 0.06em;
 }
 
+.type-detail-panel__preview {
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border-subtle);
+}
+
 .type-detail-panel__preview-header {
   display: flex;
   align-items: center;

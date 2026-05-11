@@ -247,32 +247,25 @@
   min-width: 0;
 }
 
-/* The per-row actions menu (vertical ellipsis) sits inside the row button on
- * the right edge, vertically centred, with no pill of its own so it reads as
- * part of the row. It's removed from layout flow when hidden so the item
- * button fills the full row width until the user hovers the row. */
-.dashboard-list__item-row {
-  position: relative;
-}
-
+/* The per-row actions menu (vertical ellipsis) is an inline flex child of the
+ * row that shows on hover. When hidden, display:none removes it from layout
+ * so the row button fills the full width; when shown it pushes the button
+ * over by its own width — natural vertical centring via the row's flex
+ * align-items: center. */
 .dashboard-list__item-row .popover.actions-menu {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
   display: none;
+  flex-shrink: 0;
 }
 
 .dashboard-list__item-row:hover .popover.actions-menu,
 .dashboard-list__item-row:focus-within .popover.actions-menu,
 .dashboard-list__item-row:has(.actions-menu__trigger[aria-expanded="true"]) .popover.actions-menu {
-  display: block;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Strip the trigger's pill (border + tinted background) inside sidebar rows
- * so it integrates with the row visually instead of reading as a separate
- * button floating next to it. Keep the trigger interactive via hover/focus
- * styles below. */
+ * so it reads as part of the row. */
 .dashboard-list__item-row .actions-menu__trigger {
   width: 24px;
   height: 24px;

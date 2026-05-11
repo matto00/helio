@@ -113,6 +113,11 @@
   margin-top: 12px;
 }
 
+.source-detail-panel__preview {
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border-subtle);
+}
+
 .source-detail-panel__section-title {
   margin: 0 0 6px;
   font-size: 0.78rem;
