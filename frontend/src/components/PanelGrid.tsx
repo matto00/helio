@@ -155,6 +155,11 @@ function fromResponsiveLayouts(
   panels: Panel[],
   layouts: NonNullable<ResponsiveGridLayoutProps["layouts"]>,
 ): DashboardLayout {
+  // Called by RGL's onLayoutChange on every drag tick. Must stay cheap.
+  // RGL already produces a non-overlapping layout (preventCollision:true), so
+  // we just read items out — no need to re-run the full resolveDashboardLayout
+  // (which rebuilds fallback layouts for all 4 breakpoints and is too heavy
+  // for the drag hot path).
   const panelIds = new Set(panels.map((panel) => panel.id));
   const toItems = (items: NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] = []) =>
     items
@@ -167,12 +172,12 @@ function fromResponsiveLayouts(
         h: item.h,
       }));
 
-  return resolveDashboardLayout(panels, {
+  return {
     lg: toItems(layouts.lg),
     md: toItems(layouts.md),
     sm: toItems(layouts.sm),
     xs: toItems(layouts.xs),
-  });
+  };
 }
 
 interface PanelCardBodyProps {
