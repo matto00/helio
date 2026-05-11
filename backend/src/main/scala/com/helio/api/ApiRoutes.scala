@@ -51,6 +51,7 @@ final class ApiRoutes(
 
   private val authDirectives = new AuthDirectives(userSessionRepo)
   private val aclDirective   = new AclDirective(permissionRepo, registry)
+  private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
@@ -132,7 +133,7 @@ final class ApiRoutes(
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
                 new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
-                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo).routes,
+                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes,
                 new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, aclDirective, authenticatedUser).routes
               )
             }

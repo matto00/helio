@@ -627,9 +627,32 @@
   color: var(--app-text-muted);
 }
 
+.pipeline-detail-page__run-status--queued::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pipeline-run-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
 .pipeline-detail-page__run-status--running {
   background: rgba(59, 130, 246, 0.12);
   color: #60a5fa;
+}
+
+.pipeline-detail-page__run-status--running::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: pipeline-run-spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .pipeline-detail-page__run-status--succeeded {
@@ -736,4 +759,21 @@
   font-size: 0.78rem;
   color: #f87171;
   margin-right: 8px;
+}
+
+/* ---- Run status animations ---- */
+@keyframes pipeline-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pipeline-run-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }

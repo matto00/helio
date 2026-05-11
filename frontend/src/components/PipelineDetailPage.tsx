@@ -13,6 +13,8 @@ import {
   updatePipeline,
 } from "../features/pipelines/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { usePipelineRunEvents } from "../hooks/usePipelineRunEvents";
+import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import {
   createPipelineStep,
   fetchStepPreview,
@@ -711,7 +713,14 @@ function formatDuration(startedAt: string, completedAt: string | null): string {
 }
 
 function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
-  const label = status === "dry_run" ? "Dry run" : status;
+  const label =
+    status === "dry_run"
+      ? "Dry run"
+      : status === "running"
+        ? "Running…"
+        : status === "queued"
+          ? "Queued…"
+          : status;
   return (
     <span
       className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${status}`}
@@ -813,10 +822,21 @@ export function PipelineDetailPage() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [stepsInitialized, setStepsInitialized] = useState(false);
   const [dropdownOpenAt, setDropdownOpenAt] = useState<"bottom" | null>(null);
+  const [sseActive, setSseActive] = useState(false);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
+
+  // ── SSE run-status hook ──
+  const sseData = usePipelineRunEvents({
+    pipelineId: id,
+    active: sseActive,
+    onTerminal: (event: RunStatusEventData) => {
+      setSseActive(false);
+      if (id) void dispatch(fetchPipelineRunHistory(id));
+    },
+  });
 
   // ── Derived-state initialization (React recommended pattern) ──
   // Sync outputName whenever a different pipeline becomes current.
@@ -951,20 +971,24 @@ export function PipelineDetailPage() {
 
   async function handleRunPipeline() {
     if (!id) return;
+    setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id })).unwrap();
       void dispatch(fetchPipelineRunHistory(id));
     } catch {
+      setSseActive(false);
       // runError is displayed via Redux state
     }
   }
 
   async function handleDryRun() {
     if (!id) return;
+    setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id, dryRun: true })).unwrap();
       void dispatch(fetchPipelineRunHistory(id));
     } catch {
+      setSseActive(false);
       // runError is displayed via Redux state
     }
   }
@@ -1117,20 +1141,29 @@ export function PipelineDetailPage() {
           <span className="pipeline-detail-page__footer-stats">
             {steps.length} step{steps.length !== 1 ? "s" : ""}
           </span>
-          {runStatus !== null && (
-            <span
-              className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${runStatus}`}
-              aria-label={`Run status: ${runStatus}`}
-            >
-              {runStatus === "queued" && "Queued…"}
-              {runStatus === "running" && "Running…"}
-              {runStatus === "succeeded" &&
-                (runIsDry
-                  ? `Preview: ${(runResult ?? []).length} rows`
-                  : `Snapshot replaced: ${(runResult ?? []).length} rows`)}
-              {runStatus === "failed" && `Failed${runError ? `: ${runError}` : ""}`}
-            </span>
-          )}
+          {(sseData.status !== null || runStatus !== null) &&
+            (() => {
+              const displayStatus = sseData.status ?? runStatus;
+              const displayRowCount =
+                sseData.rowCount !== null ? sseData.rowCount : (runResult ?? []).length;
+              const displayErrorLog = sseData.errorLog ?? runError;
+              return (
+                <span
+                  className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${displayStatus}`}
+                  aria-label={`Run status: ${displayStatus}`}
+                >
+                  {displayStatus === "queued" && "Queued…"}
+                  {displayStatus === "running" && "Running…"}
+                  {displayStatus === "succeeded" &&
+                    (runIsDry
+                      ? `Preview: ${displayRowCount} rows`
+                      : `Snapshot replaced: ${displayRowCount} rows`)}
+                  {displayStatus === "dry_run" && `Preview: ${displayRowCount} rows`}
+                  {displayStatus === "failed" &&
+                    `Failed${displayErrorLog ? `: ${displayErrorLog}` : ""}`}
+                </span>
+              );
+            })()}
           {isDirty && (
             <>
               {updateError && (
