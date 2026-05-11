@@ -160,6 +160,17 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
 }
 
 describe("PipelineDetailPage", () => {
+  beforeAll(() => {
+    // jsdom doesn't implement HTMLDialogElement.showModal — stub it for the
+    // RunHistoryModal opens.
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
   beforeEach(() => {
     runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
     fetchRunHistoryMock.mockResolvedValue([]);
@@ -193,15 +204,12 @@ describe("PipelineDetailPage", () => {
 
   it("renders when route is /pipelines/:id", async () => {
     renderDetailPage();
-    expect(screen.getByText("Run pipeline ▶")).toBeInTheDocument();
+    expect(screen.getByText("Run pipeline")).toBeInTheDocument();
   });
 
-  it("back navigation link renders and points to /pipelines", () => {
-    renderDetailPage();
-    const backLink = screen.getByRole("link", { name: /← Data Pipelines/i });
-    expect(backLink).toBeInTheDocument();
-    expect(backLink).toHaveAttribute("href", "/pipelines");
-  });
+  // The in-page back-navigation link was removed — the top command bar's
+  // section breadcrumb ("Data Pipelines / <name>") now handles that, and is
+  // covered by App.test.tsx.
 
   it("source selector renders sources from store", () => {
     const store = makeStore([
@@ -271,7 +279,7 @@ describe("PipelineDetailPage", () => {
   it("clicking Run pipeline dispatches submitPipelineRun", async () => {
     renderDetailPage("pipe-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
@@ -315,12 +323,14 @@ describe("PipelineDetailPage", () => {
     expect(screen.queryByLabelText(/Run status/)).not.toBeInTheDocument();
   });
 
-  it("run history panel shows empty state when no runs", () => {
+  it("run history button shows empty count when no runs", () => {
     renderDetailPage();
-    expect(screen.getByText(/Run History \(0\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open run history/i })).toHaveTextContent(
+      /Run history\s*\(0\)/i,
+    );
   });
 
-  it("run history panel shows runs from store", () => {
+  it("run history modal shows runs from store after opening", () => {
     const run: PipelineRunRecord = {
       id: "run-1",
       pipelineId: "pipe-1",
@@ -332,11 +342,11 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByText(/Run History \(1\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
     expect(screen.getByText("42 rows")).toBeInTheDocument();
   });
 
-  it("failed run shows toggle button to reveal error log", async () => {
+  it("failed run shows a Show log toggle in the run history modal", async () => {
     const run: PipelineRunRecord = {
       id: "run-2",
       pipelineId: "pipe-1",
@@ -348,8 +358,8 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle error log" }));
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
     expect(screen.getByText("out of memory error")).toBeInTheDocument();
   });
 
@@ -454,7 +464,7 @@ describe("PipelineDetailPage loading state", () => {
       currentPipeline: null,
     });
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByText("Run pipeline ▶")).not.toBeInTheDocument();
+    expect(screen.queryByText("Run pipeline")).not.toBeInTheDocument();
   });
 });
 
@@ -491,7 +501,7 @@ describe("PipelineDetailPage error state", () => {
       currentPipeline: null,
     });
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByText("Run pipeline ▶")).not.toBeInTheDocument();
+    expect(screen.queryByText("Run pipeline")).not.toBeInTheDocument();
   });
 });
 
@@ -588,29 +598,31 @@ describe("PipelineDetailPage Cancel confirmation", () => {
     await waitFor(() => expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument());
   }
 
-  it("navigates to /pipelines when user confirms cancel prompt", async () => {
-    jest.spyOn(window, "confirm").mockReturnValue(true);
+  it("navigates to /pipelines when user confirms inline discard prompt", async () => {
     renderDetailPage("pipe-1");
     await makeDirty();
 
     fireEvent.click(screen.getByLabelText("Cancel changes"));
+    // Inline confirm appears; clicking "Discard" navigates.
+    fireEvent.click(screen.getByLabelText("Discard changes"));
 
     await waitFor(() => {
       expect(screen.getByText("Pipelines List")).toBeInTheDocument();
     });
-    expect(window.confirm).toHaveBeenCalled();
   });
 
-  it("stays on page when user dismisses cancel prompt", async () => {
-    jest.spyOn(window, "confirm").mockReturnValue(false);
+  it("stays on page when user dismisses inline discard prompt", async () => {
     renderDetailPage("pipe-1");
     await makeDirty();
 
     fireEvent.click(screen.getByLabelText("Cancel changes"));
+    expect(
+      screen.getByRole("alertdialog", { name: "Discard unsaved changes" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Keep editing"));
 
-    expect(window.confirm).toHaveBeenCalled();
     expect(screen.queryByText("Pipelines List")).not.toBeInTheDocument();
-    // Cancel button still visible (still on page)
+    // Cancel button restored after dismissing the confirm.
     expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
   });
 });
@@ -938,12 +950,12 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
   it("Run button is disabled when runStatus is queued", () => {
     const store = makeStore([], { runStatus: "queued", runId: "run-1" });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Run pipeline ▶" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeDisabled();
   });
 
   it("Run button is enabled when runStatus is null", () => {
     renderDetailPage("pipe-1");
-    expect(screen.getByRole("button", { name: "Run pipeline ▶" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeEnabled();
   });
 
   // 2.4 — Clicking Run dispatches submitPipelineRun then fetchPipelineRunHistory
@@ -955,7 +967,7 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
       expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
@@ -1164,10 +1176,10 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
     renderDetailPage("pipe-1", store);
-    // The status badge for the dry_run run
-    const badge = screen.getByLabelText("Status: dry_run");
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveTextContent("Dry run");
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    const badge = document.querySelector(".run-history-modal__status--dry_run");
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toBe("Dry run");
   });
 });
 
@@ -1223,7 +1235,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
 
   it("clicking Run dispatches submitPipelineRun without dryRun flag", async () => {
     renderDetailPage("pipe-1");
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
@@ -1270,8 +1282,8 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     expect(badge).toHaveClass("pipeline-detail-page__run-status--queued");
   });
 
-  // 3.8c — history panel StatusBadge uses --running class
-  it("history panel StatusBadge renders with --running class for running status", () => {
+  // 3.8c — history modal status badge uses --running class
+  it("history modal status badge renders with --running class for running status", () => {
     const run = {
       id: "run-hist-1",
       pipelineId: "pipe-1",
@@ -1283,12 +1295,13 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    const badge = screen.getByLabelText("Status: running");
-    expect(badge).toHaveClass("pipeline-detail-page__run-status--running");
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    const badge = document.querySelector(".run-history-modal__status--running");
+    expect(badge).not.toBeNull();
   });
 
-  // 3.8d — history panel StatusBadge uses --queued class
-  it("history panel StatusBadge renders with --queued class for queued status", () => {
+  // 3.8d — history modal status badge uses --queued class
+  it("history modal status badge renders with --queued class for queued status", () => {
     const run = {
       id: "run-hist-2",
       pipelineId: "pipe-1",
@@ -1300,7 +1313,8 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    const badge = screen.getByLabelText("Status: queued");
-    expect(badge).toHaveClass("pipeline-detail-page__run-status--queued");
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    const badge = document.querySelector(".run-history-modal__status--queued");
+    expect(badge).not.toBeNull();
   });
 });

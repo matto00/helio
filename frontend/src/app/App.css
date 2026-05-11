@@ -193,7 +193,7 @@
 .app-sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 6px;
   padding: 12px 10px 8px;
 }
 
@@ -315,6 +315,7 @@
 .undo-redo-btn {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: var(--app-radius-md);
   font-size: 12px;

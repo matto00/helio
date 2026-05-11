@@ -4,6 +4,8 @@
 
 import type { ChangeEvent } from "react";
 
+import { TextField } from "./ui";
+
 interface LimitConfigProps {
   /** Current row count limit (parsed from the step config). */
   count: number;
@@ -22,18 +24,19 @@ export function LimitConfig({ count, onChange }: LimitConfigProps) {
 
   return (
     <div className="pipeline-detail-page__limit-config">
-      <label className="pipeline-detail-page__limit-config-label" htmlFor="limit-count-input">
-        Row limit (N)
-      </label>
-      <input
-        id="limit-count-input"
-        type="number"
-        min={1}
-        value={count}
-        onChange={handleChange}
-        className="pipeline-detail-page__limit-config-input"
-        aria-label="Row limit"
-      />
+      <div className="pipeline-detail-page__limit-config-row">
+        <label className="pipeline-detail-page__limit-config-label" htmlFor="limit-count-input">
+          Row limit (N)
+        </label>
+        <TextField
+          id="limit-count-input"
+          type="number"
+          min={1}
+          value={count}
+          onChange={handleChange}
+          aria-label="Row limit"
+        />
+      </div>
       {count <= 0 && (
         <span className="pipeline-detail-page__limit-config-error" role="alert">
           Row limit must be greater than 0.

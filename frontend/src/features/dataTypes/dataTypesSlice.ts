@@ -11,12 +11,16 @@ interface DataTypesState {
   items: DataType[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  /** Explicit user selection in the sidebar. Null means "fall back to first
+   * item" — the page derives the effective selection so it's never blank. */
+  selectedTypeId: string | null;
 }
 
 const initialState: DataTypesState = {
   items: [],
   status: "idle",
   error: null,
+  selectedTypeId: null,
 };
 
 export const updateDataType = createAsyncThunk<
@@ -66,7 +70,11 @@ export const fetchDataTypes = createAsyncThunk<DataType[], void, { rejectValue: 
 const dataTypesSlice = createSlice({
   name: "dataTypes",
   initialState,
-  reducers: {},
+  reducers: {
+    setSelectedTypeId(state, action: { payload: string | null }) {
+      state.selectedTypeId = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchDataTypes.pending, (state) => {
@@ -92,4 +100,5 @@ const dataTypesSlice = createSlice({
   },
 });
 
+export const { setSelectedTypeId } = dataTypesSlice.actions;
 export const dataTypesReducer = dataTypesSlice.reducer;

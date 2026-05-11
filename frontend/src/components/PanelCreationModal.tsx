@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -21,37 +24,53 @@ import type {
 } from "../types/models";
 import { PanelCreationPreview } from "./PanelCreationPreview";
 
-const PANEL_TYPES: { value: PanelType; label: string; icon: string; description: string }[] = [
+import {
+  faChartLine,
+  faChartSimple,
+  faFont,
+  faImage,
+  faMinus,
+  faTable as faTableIcon,
+  type IconDefinition,
+} from "@fortawesome/free-solid-svg-icons";
+import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
+
+const PANEL_TYPES: {
+  value: PanelType;
+  label: string;
+  icon: IconDefinition;
+  description: string;
+}[] = [
   {
     value: "metric",
     label: "Metric",
-    icon: "📊",
+    icon: faChartSimple,
     description: "Display a single KPI value or stat",
   },
   {
     value: "chart",
     label: "Chart",
-    icon: "📈",
+    icon: faChartLine,
     description: "Visualize trends with line, bar, or pie",
   },
-  { value: "text", label: "Text", icon: "T", description: "Add freeform text or headings" },
+  { value: "text", label: "Text", icon: faFont, description: "Add freeform text or headings" },
   {
     value: "table",
     label: "Table",
-    icon: "⊞",
+    icon: faTableIcon,
     description: "Show structured data in rows and columns",
   },
   {
     value: "markdown",
     label: "Markdown",
-    icon: "M↓",
+    icon: faMarkdownBrand,
     description: "Write formatted content with Markdown",
   },
-  { value: "image", label: "Image", icon: "🖼", description: "Embed an image from a URL" },
+  { value: "image", label: "Image", icon: faImage, description: "Embed an image from a URL" },
   {
     value: "divider",
     label: "Divider",
-    icon: "—",
+    icon: faMinus,
     description: "Separate sections with a visual line",
   },
 ];
@@ -246,6 +265,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [selectedDataTypeId, setSelectedDataTypeId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Inline discard confirmation banner (replaces window.confirm for dirty dismiss).
+  const [isShowingDiscardConfirm, setIsShowingDiscardConfirm] = useState(false);
 
   // 1.3 — Dirty when the user has selected a type, template, typed a title, entered any config, or selected a DataType.
   const isDirty =
@@ -318,15 +339,22 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     // 1.4 / 3.10 — typeConfig and selectedDataTypeId reset automatically when the component unmounts on close.
   }
 
-  // 1.2 — Shared dismiss helper: prompts when dirty, closes directly when clean.
+  // 1.2 — Shared dismiss helper: shows inline confirm when dirty, closes directly when clean.
   function handleDismiss() {
     if (isDirty) {
-      if (window.confirm("Discard changes? Any data you've entered will be lost.")) {
-        handleClose();
-      }
+      setIsShowingDiscardConfirm(true);
     } else {
       handleClose();
     }
+  }
+
+  function confirmDiscard() {
+    setIsShowingDiscardConfirm(false);
+    handleClose();
+  }
+
+  function cancelDiscard() {
+    setIsShowingDiscardConfirm(false);
   }
 
   // 1.4 — Backdrop click: close when the click target is the <dialog> itself (not inner content).
@@ -460,9 +488,38 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             aria-label="Close modal"
             onClick={handleDismiss}
           >
-            ✕
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>
+
+        {isShowingDiscardConfirm && (
+          <div
+            className="panel-creation-modal__discard-confirm"
+            role="alertdialog"
+            aria-label="Discard changes"
+          >
+            <span className="panel-creation-modal__discard-confirm-text">
+              Discard changes? Any data you&apos;ve entered will be lost.
+            </span>
+            <div className="panel-creation-modal__discard-confirm-actions">
+              <button
+                type="button"
+                className="panel-creation-modal__discard-confirm-btn panel-creation-modal__discard-confirm-btn--danger"
+                onClick={confirmDiscard}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="panel-creation-modal__discard-confirm-btn"
+                onClick={cancelDiscard}
+                autoFocus
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        )}
 
         {step === "type-select" && (
           <div className="panel-creation-modal__type-grid" role="group" aria-label="Panel type">
@@ -475,7 +532,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                 onClick={() => handleTypeSelect(value)}
               >
                 <span className="panel-creation-modal__type-icon" aria-hidden="true">
-                  {icon}
+                  <FontAwesomeIcon icon={icon} />
                 </span>
                 <span className="panel-creation-modal__type-label">{label}</span>
                 <span className="panel-creation-modal__type-description">{description}</span>

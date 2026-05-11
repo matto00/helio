@@ -155,6 +155,11 @@ function fromResponsiveLayouts(
   panels: Panel[],
   layouts: NonNullable<ResponsiveGridLayoutProps["layouts"]>,
 ): DashboardLayout {
+  // Called by RGL's onLayoutChange on every drag tick. Must stay cheap.
+  // RGL already produces a non-overlapping layout (preventCollision:true), so
+  // we just read items out — no need to re-run the full resolveDashboardLayout
+  // (which rebuilds fallback layouts for all 4 breakpoints and is too heavy
+  // for the drag hot path).
   const panelIds = new Set(panels.map((panel) => panel.id));
   const toItems = (items: NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] = []) =>
     items
@@ -167,12 +172,12 @@ function fromResponsiveLayouts(
         h: item.h,
       }));
 
-  return resolveDashboardLayout(panels, {
+  return {
     lg: toItems(layouts.lg),
     md: toItems(layouts.md),
     sm: toItems(layouts.sm),
     xs: toItems(layouts.xs),
-  });
+  };
 }
 
 interface PanelCardBodyProps {
@@ -254,7 +259,18 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   // react-grid-layout@2.2.2 exposes positionStrategy as the modern replacement for the legacy
   // transformScale prop; createScaledStrategy() is the built-in factory for scale-aware
   // coordinate remapping.
-  const scaledPositionStrategy = useMemo(() => createScaledStrategy(zoomLevel), [zoomLevel]);
+  //
+  // Important: createScaledStrategy returns the dragged item's *viewport-absolute*
+  // position as the drag baseline (clientRect.left / scale), but RGL's pointer-move
+  // handler adds the cursor delta directly to that baseline as if it were
+  // *parent-relative*. The default code path correctly subtracts the parent rect.
+  // Using the scaled strategy at zoom=1 therefore introduces a constant jump of
+  // parentRect.left/top on drag start. Fall back to the default strategy whenever
+  // there is no actual scale to correct for.
+  const scaledPositionStrategy = useMemo(
+    () => (zoomLevel === 1 ? undefined : createScaledStrategy(zoomLevel)),
+    [zoomLevel],
+  );
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
   const latestLayoutRef = useRef(resolvedLayout);

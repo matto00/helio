@@ -105,6 +105,7 @@ describe("pipelinesSlice", () => {
       analyzeResult: {},
       analyzeStatus: {},
       analyzeError: {},
+      createModalOpen: false,
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();

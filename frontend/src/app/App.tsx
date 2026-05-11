@@ -10,11 +10,13 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowRotateLeft, faArrowRotateRight } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
 import { OrbitMark } from "../components/OrbitMark";
-import { DashboardList } from "../components/DashboardList";
+import { SidebarBody } from "../components/SidebarBody";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
@@ -66,6 +68,29 @@ function AppShell() {
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
+
+  // Resolve the currently-active item name for the section breadcrumb. Each
+  // section derives its selection differently (sources/types via Redux,
+  // pipelines via the route :id, dashboards via Redux), so we centralise the
+  // lookup here to keep the header concise.
+  const sources = useAppSelector((state) => state.sources);
+  const pipelines = useAppSelector((state) => state.pipelines);
+  const dataTypes = useAppSelector((state) => state.dataTypes);
+  const breadcrumbItemName = ((): string | null => {
+    if (location.pathname.startsWith("/sources")) {
+      const id = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
+      return sources.items.find((s) => s.id === id)?.name ?? null;
+    }
+    if (location.pathname.startsWith("/pipelines/")) {
+      const id = location.pathname.split("/")[2];
+      return pipelines.items.find((p) => p.id === id)?.name ?? null;
+    }
+    if (location.pathname.startsWith("/registry")) {
+      const id = dataTypes.selectedTypeId ?? dataTypes.items[0]?.id ?? null;
+      return dataTypes.items.find((dt) => dt.id === id)?.name ?? null;
+    }
+    return null;
+  })();
   const flushFnRef = useRef<(() => void) | null>(null);
 
   const registerFlush = useCallback((fn: (() => void) | null) => {
@@ -167,6 +192,14 @@ function AppShell() {
                   </span>
                 </>
               )}
+              {!onDashboardView && breadcrumbItemName !== null && (
+                <>
+                  <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                    /
+                  </span>
+                  <span className="app-command-bar__breadcrumb-current">{breadcrumbItemName}</span>
+                </>
+              )}
             </nav>
             {onDashboardView && selectedDashboard !== null && (
               <SaveStateIndicator onSaveNow={flush} />
@@ -183,7 +216,7 @@ function AppShell() {
                   aria-label="Undo layout change"
                   title="Undo (Ctrl+Z)"
                 >
-                  ↩ Undo
+                  <FontAwesomeIcon icon={faArrowRotateLeft} /> Undo
                 </button>
                 <button
                   type="button"
@@ -193,7 +226,7 @@ function AppShell() {
                   aria-label="Redo layout change"
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  Redo ↪
+                  Redo <FontAwesomeIcon icon={faArrowRotateRight} />
                 </button>
               </>
             )}
@@ -238,7 +271,7 @@ function AppShell() {
                   Type Registry
                 </NavLink>
               </nav>
-              <DashboardList onCollapse={() => setIsDashboardListCollapsed(true)} />
+              <SidebarBody onCollapse={() => setIsDashboardListCollapsed(true)} />
               <button
                 type="button"
                 className="app-sidebar-collapse"

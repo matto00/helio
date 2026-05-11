@@ -52,6 +52,8 @@ describe("sourcesSlice", () => {
       items: [testSource],
       status: "succeeded" as const,
       error: null,
+      selectedSourceId: null,
+      addModalOpen: false,
     };
     const nextState = sourcesReducer(initialState, deleteSource.fulfilled("s-1", "req-1", "s-1"));
     expect(nextState.items).toHaveLength(0);
@@ -138,6 +140,8 @@ describe("updateSource", () => {
       items: [testSource],
       status: "succeeded" as const,
       error: null,
+      selectedSourceId: null,
+      addModalOpen: false,
     };
     const updatedSource = { ...testSource, name: "Renamed API" };
     const nextState = sourcesReducer(
@@ -153,6 +157,8 @@ describe("updateSource", () => {
       items: [testSource, otherSource],
       status: "succeeded" as const,
       error: null,
+      selectedSourceId: null,
+      addModalOpen: false,
     };
     const updatedSource = { ...testSource, name: "Renamed Sales" };
     const nextState = sourcesReducer(

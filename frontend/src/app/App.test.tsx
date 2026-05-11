@@ -479,9 +479,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Type Registry" }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument(),
-    );
+    // The in-page heading was dropped (top breadcrumb shows the section).
+    // Verify the page rendered by looking for its container.
+    await waitFor(() => expect(document.querySelector(".type-registry-page")).toBeInTheDocument());
   });
 
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {

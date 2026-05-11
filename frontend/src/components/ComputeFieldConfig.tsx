@@ -6,6 +6,8 @@
 
 import type { ChangeEvent } from "react";
 
+import { TextField } from "./ui";
+
 export interface ComputeConfigValue {
   column: string;
   expression: string;
@@ -40,10 +42,8 @@ export function ComputeFieldConfig({ config, analyzeColumns, onChange }: Compute
         <label className="pipeline-detail-page__compute-label" htmlFor="compute-column">
           Output field name
         </label>
-        <input
+        <TextField
           id="compute-column"
-          className="pipeline-detail-page__compute-input"
-          type="text"
           placeholder="e.g. revenue_per_user"
           value={config.column}
           onChange={handleColumnChange}
@@ -56,10 +56,9 @@ export function ComputeFieldConfig({ config, analyzeColumns, onChange }: Compute
         <label className="pipeline-detail-page__compute-label" htmlFor="compute-expression">
           Expression
         </label>
-        <input
+        <TextField
           id="compute-expression"
-          className="pipeline-detail-page__compute-input"
-          type="text"
+          mono
           placeholder="e.g. revenue / users"
           value={config.expression}
           onChange={handleExpressionChange}

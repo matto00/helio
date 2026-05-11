@@ -150,14 +150,18 @@ describe("PanelGrid", () => {
     expect(lastCall[0]).toMatchObject({ positionStrategy: { __scale: 0.75 } });
   });
 
-  it("defaults positionStrategy to scale 1.0 when zoomLevel is not provided", () => {
+  it("omits positionStrategy when zoomLevel is 1.0 so RGL uses its correct default drag math", () => {
+    // createScaledStrategy has an off-by-parent-offset bug when used at scale=1 —
+    // it returns a viewport-absolute baseline that RGL's pointer handler treats
+    // as parent-relative, causing a constant jump on drag start. When there is
+    // no real scale to correct for, fall through to the default strategy.
     renderWithStore(<PanelGrid dashboardId="d1" layout={defaultDashboardLayout} panels={[]} />, {
       panels: { items: [] },
     });
 
-    expect(mockCreateScaledStrategy).toHaveBeenCalledWith(1.0);
+    expect(mockCreateScaledStrategy).not.toHaveBeenCalled();
     const lastCall = MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1];
-    expect(lastCall[0]).toMatchObject({ positionStrategy: { __scale: 1.0 } });
+    expect(lastCall[0].positionStrategy).toBeUndefined();
   });
 
   // ─── AC: "All editing interactions work correctly at all zoom levels" ────────

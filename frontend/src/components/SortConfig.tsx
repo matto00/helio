@@ -2,6 +2,11 @@
 // Renders one row per sort key with a field selector and asc/desc toggle.
 // Calls onChange with '{"sortBy":[...]}' on every structural change.
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowDownLong, faArrowUpLong, faXmark } from "@fortawesome/free-solid-svg-icons";
+
+import { Select } from "./ui";
+
 export interface SortKey {
   field: string;
   direction: "asc" | "desc";
@@ -57,29 +62,27 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
               <span className="pipeline-detail-page__sort-config-index" aria-hidden="true">
                 {index + 1}.
               </span>
-              <select
-                className="pipeline-detail-page__sort-config-field-select"
+              <Select
+                ariaLabel={`Sort key ${index + 1} field`}
                 value={key.field}
-                aria-label={`Sort key ${index + 1} field`}
-                onChange={(e) => handleFieldChange(index, e.target.value)}
-              >
-                {columns.map((col) => (
-                  <option key={col} value={col}>
-                    {col}
-                  </option>
-                ))}
-                {/* Keep selected value even if no longer in columns */}
-                {key.field && !columns.includes(key.field) && (
-                  <option value={key.field}>{key.field}</option>
-                )}
-              </select>
+                options={(() => {
+                  const baseOpts = columns.map((col) => ({ value: col, label: col }));
+                  // Preserve the current value as an option even if it's no longer
+                  // in `columns` (schema changed but the user's selection stuck).
+                  return key.field && !columns.includes(key.field)
+                    ? [...baseOpts, { value: key.field, label: key.field }]
+                    : baseOpts;
+                })()}
+                onChange={(next) => handleFieldChange(index, next)}
+              />
               <button
                 type="button"
                 className="pipeline-detail-page__sort-config-direction-btn"
                 aria-label={`Sort key ${index + 1} direction: ${key.direction}`}
                 onClick={() => handleDirectionToggle(index)}
               >
-                {key.direction === "asc" ? "↑ asc" : "↓ desc"}
+                <FontAwesomeIcon icon={key.direction === "asc" ? faArrowUpLong : faArrowDownLong} />{" "}
+                {key.direction}
               </button>
               <button
                 type="button"
@@ -87,7 +90,7 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
                 aria-label={`Remove sort key ${index + 1}`}
                 onClick={() => handleRemoveKey(index)}
               >
-                ✕
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </li>
           ))}

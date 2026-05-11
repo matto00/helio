@@ -125,6 +125,11 @@ class PipelineRepository(
     }
   }
 
+  /** Deletes the pipeline by id. pipeline_steps and pipeline_runs cascade on
+    * delete via FK constraints (V23, V24). Returns true if a row was removed. */
+  def delete(id: String): Future[Boolean] =
+    db.run(pipelinesTable.filter(_.id === id).delete).map(_ > 0)
+
   /** Updates the lastRunStatus, lastRunAt, and lastRunRowCount columns for a pipeline after a run completes. */
   def updateLastRun(id: String, status: String, at: Instant, rowCount: Option[Long] = None): Future[Unit] =
     db.run(

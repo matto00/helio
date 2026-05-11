@@ -1,0 +1,176 @@
+.source-detail-panel {
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  padding: 16px;
+}
+
+.source-detail-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.source-detail-panel__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.source-detail-panel__name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-detail-panel__type {
+  font-size: 0.72rem;
+  color: var(--app-text-muted);
+  padding: 2px 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  flex-shrink: 0;
+}
+
+.source-detail-panel__preview-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.source-detail-panel__preview-btn:hover:not(:disabled) {
+  background: var(--app-accent-surface);
+  border-color: var(--app-border-strong);
+}
+
+.source-detail-panel__preview-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.source-detail-panel__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.source-detail-panel__delete-btn,
+.source-detail-panel__delete-confirm-btn,
+.source-detail-panel__delete-cancel-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.source-detail-panel__delete-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-danger, #e53e3e);
+}
+
+.source-detail-panel__delete-btn:hover {
+  background: rgba(229, 62, 62, 0.08);
+  border-color: var(--app-danger, #e53e3e);
+}
+
+.source-detail-panel__delete-confirm-btn {
+  border: 1px solid var(--app-danger, #e53e3e);
+  background: var(--app-danger, #e53e3e);
+  color: white;
+}
+
+.source-detail-panel__delete-cancel-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.source-detail-panel__schema,
+.source-detail-panel__preview {
+  margin-top: 12px;
+}
+
+.source-detail-panel__preview {
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border-subtle);
+}
+
+.source-detail-panel__section-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.source-detail-panel__preview-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.source-detail-panel__schema-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  overflow: hidden;
+  font-size: 0.78rem;
+}
+
+.source-detail-panel__schema-table thead th {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.source-detail-panel__schema-table tbody td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+}
+
+.source-detail-panel__schema-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.source-detail-panel__schema-field-name {
+  font-family: var(--app-font-mono, ui-monospace, monospace);
+  font-size: 0.76rem;
+}
+
+.source-detail-panel__error {
+  margin: 8px 0 0;
+  padding: 8px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-danger-surface, #fff5f5);
+  color: var(--app-danger, #e53e3e);
+  font-size: 0.78rem;
+}

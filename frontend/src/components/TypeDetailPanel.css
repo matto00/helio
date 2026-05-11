@@ -12,6 +12,107 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.type-detail-panel__preview-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.type-detail-panel__preview-btn:hover:not(:disabled) {
+  background: var(--app-accent-surface);
+  border-color: var(--app-border-strong);
+}
+
+.type-detail-panel__preview-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.type-detail-panel__section-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.type-detail-panel__preview {
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border-subtle);
+}
+
+.type-detail-panel__preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.type-detail-panel__preview-header .type-detail-panel__section-title {
+  margin: 0;
+}
+
+.type-detail-panel__preview-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.type-detail-panel__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.type-detail-panel__delete-btn,
+.type-detail-panel__delete-confirm-btn,
+.type-detail-panel__delete-cancel-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.type-detail-panel__delete-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-danger, #e53e3e);
+}
+
+.type-detail-panel__delete-btn:hover {
+  background: rgba(229, 62, 62, 0.08);
+  border-color: var(--app-danger, #e53e3e);
+}
+
+.type-detail-panel__delete-confirm-btn {
+  border: 1px solid var(--app-danger, #e53e3e);
+  background: var(--app-danger, #e53e3e);
+  color: white;
+}
+
+.type-detail-panel__delete-cancel-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
 }
 
 .type-detail-panel__title {

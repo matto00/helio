@@ -205,6 +205,15 @@ class PipelineRoutes(
                   }
                 }
               }
+            },
+            delete {
+              onComplete(pipelineRepo.delete(pipelineId)) {
+                case Success(true)  => complete(StatusCodes.NoContent)
+                case Success(false) =>
+                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                case Failure(ex)    =>
+                  complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+              }
             }
           )
         }

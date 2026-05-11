@@ -55,8 +55,11 @@ describe("UserMenu", () => {
 
   it("renders avatar image when avatarUrl is non-null", () => {
     renderMenu({ avatarUrl: "https://example.com/avatar.png" });
-    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    expect(screen.getByRole("img", { name: "User avatar" })).toBeInTheDocument();
+    // Alt is empty (presentational) so the avatar doesn't show literal text
+    // when the URL is broken — verify the img by class + src instead.
+    const img = document.querySelector("img.user-menu__avatar") as HTMLImageElement | null;
+    expect(img).not.toBeNull();
+    expect(img?.src).toBe("https://example.com/avatar.png");
   });
 
   it("renders initials fallback when avatarUrl is null", () => {

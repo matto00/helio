@@ -3,6 +3,8 @@
 // Renders an empty table when columns is empty (source has no schema yet).
 // Selecting "— keep as is —" removes the field from the casts map (passthrough).
 
+import { Select } from "./ui";
+
 export const CAST_TARGET_TYPES = ["string", "integer", "long", "double", "boolean"] as const;
 
 export type CastTargetType = (typeof CAST_TARGET_TYPES)[number];
@@ -34,21 +36,15 @@ export function CastFieldsConfig({ columns, casts, onChange }: CastFieldsConfigP
           <tr key={col} className="pipeline-detail-page__cast-row">
             <td className="pipeline-detail-page__cast-source">{col}</td>
             <td className="pipeline-detail-page__cast-target">
-              <select
-                className="pipeline-detail-page__cast-select"
-                aria-label={`Target type for ${col}`}
+              <Select
+                ariaLabel={`Target type for ${col}`}
                 value={casts[col] ?? KEEP_AS_IS_VALUE}
-                onChange={(e) => {
-                  onChange(col, e.target.value);
-                }}
-              >
-                <option value={KEEP_AS_IS_VALUE}>{KEEP_AS_IS_LABEL}</option>
-                {CAST_TARGET_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: KEEP_AS_IS_VALUE, label: KEEP_AS_IS_LABEL },
+                  ...CAST_TARGET_TYPES.map((t) => ({ value: t, label: t })),
+                ]}
+                onChange={(value) => onChange(col, value)}
+              />
             </td>
           </tr>
         ))}

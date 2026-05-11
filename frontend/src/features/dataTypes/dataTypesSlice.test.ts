@@ -43,6 +43,7 @@ describe("deleteDataType", () => {
     items: [testDataType],
     status: "succeeded" as const,
     error: null,
+    selectedTypeId: null,
   };
 
   it("removes the data type from items when fulfilled", () => {
@@ -82,6 +83,7 @@ describe("updateDataType", () => {
       items: [testDataType],
       status: "succeeded" as const,
       error: null,
+      selectedTypeId: null,
     };
     const updatedType = { ...testDataType, name: "Updated Metrics" };
     const nextState = dataTypesReducer(

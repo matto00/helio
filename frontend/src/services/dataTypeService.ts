@@ -40,6 +40,16 @@ export async function validateExpression(
   return response.data;
 }
 
+export interface DataTypeRowsResponse {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+}
+
+export async function fetchDataTypeRows(id: string): Promise<DataTypeRowsResponse> {
+  const response = await httpClient.get<DataTypeRowsResponse>(`/api/types/${id}/rows`);
+  return response.data;
+}
+
 export async function deleteDataType(id: string): Promise<void> {
   await httpClient.delete(`/api/types/${id}`);
 }

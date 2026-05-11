@@ -28,9 +28,9 @@ describe("TypeRegistryPage", () => {
     fetchDataTypesMock.mockResolvedValue([]);
   });
 
-  it("renders the Type Registry heading", () => {
+  it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
     renderWithStore(<TypeRegistryPage />);
-    expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument();
+    expect(document.querySelector(".type-registry-page")).toBeInTheDocument();
   });
 
   it("shows empty state for types when there are none", async () => {
@@ -42,50 +42,20 @@ describe("TypeRegistryPage", () => {
     );
   });
 
-  it("clicking a DataType sets selection without toggling it off on re-click", async () => {
+  it("auto-selects the first type and renders the detail panel when types load", async () => {
+    // Selection is now driven by the sidebar (Redux state); the page derives
+    // the effective type as "explicit selection OR first item" so the detail
+    // panel is never blank.
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     renderWithStore(<TypeRegistryPage />);
-    const typeBtn = await screen.findByRole("button", { name: "Metrics 1 field" });
-
-    fireEvent.click(typeBtn);
-    await waitFor(() => expect(typeBtn).toHaveAttribute("aria-pressed", "true"));
-
-    fireEvent.click(typeBtn);
-    expect(typeBtn).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Data type name" })).toHaveValue("Metrics"),
+    );
   });
 
-  it("shows delete confirm button when delete is clicked for a DataType", async () => {
-    fetchDataTypesMock.mockResolvedValue([testDataType]);
-
-    renderWithStore(<TypeRegistryPage />);
-    const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
-    fireEvent.click(deleteBtn);
-    expect(
-      await screen.findByRole("button", { name: "Confirm delete Metrics" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows cancel button in DataType delete confirm and does not call API on cancel", async () => {
-    fetchDataTypesMock.mockResolvedValue([testDataType]);
-
-    const { deleteDataType: deleteDataTypeMock } = jest.requireMock(
-      "../services/dataTypeService",
-    ) as {
-      deleteDataType: jest.Mock;
-    };
-    deleteDataTypeMock.mockReset();
-
-    renderWithStore(<TypeRegistryPage />);
-    const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
-    fireEvent.click(deleteBtn);
-
-    const cancelBtn = await screen.findByRole("button", { name: "No" });
-    fireEvent.click(cancelBtn);
-
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete Metrics" }),
-    ).not.toBeInTheDocument();
-    expect(deleteDataTypeMock).not.toHaveBeenCalled();
-  });
+  // Note: Delete used to live in the detail panel; it's now owned by the
+  // sidebar (SidebarItemList's ellipsis menu) so the page-level test no
+  // longer asserts the Delete flow here. Sidebar delete is covered via the
+  // SidebarItemList component's own tests / playwright verification.
 });

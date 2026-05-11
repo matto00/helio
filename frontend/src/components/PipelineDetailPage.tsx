@@ -1,5 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faArrowsUpDown,
+  faArrowUp,
+  faCalculator,
+  faChartColumn,
+  faClockRotateLeft,
+  faFilter,
+  faLink,
+  faPencil,
+  faRightLeft,
+  faSquareCheck,
+  faTable,
+  faXmark,
+  type IconDefinition,
+} from "@fortawesome/free-solid-svg-icons";
+
+import { RunHistoryModal } from "./RunHistoryModal";
 
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
@@ -48,19 +66,19 @@ import { SelectFieldsConfig } from "./SelectFieldsConfig";
 interface OpType {
   id: string;
   label: string;
-  icon: string;
+  icon: IconDefinition;
 }
 
 const OP_TYPES: OpType[] = [
-  { id: "select", label: "Select fields", icon: "☑" },
-  { id: "rename", label: "Rename column", icon: "✏️" },
-  { id: "filter", label: "Filter rows", icon: "🔍" },
-  { id: "join", label: "Join tables", icon: "🔗" },
-  { id: "compute", label: "Compute column", icon: "🧮" },
-  { id: "aggregate", label: "Group & aggregate", icon: "📊" },
-  { id: "cast", label: "Cast type", icon: "⇄" },
-  { id: "limit", label: "Limit rows", icon: "⬆" },
-  { id: "sort", label: "Sort rows", icon: "↕" },
+  { id: "select", label: "Select fields", icon: faSquareCheck },
+  { id: "rename", label: "Rename column", icon: faPencil },
+  { id: "filter", label: "Filter rows", icon: faFilter },
+  { id: "join", label: "Join tables", icon: faLink },
+  { id: "compute", label: "Compute column", icon: faCalculator },
+  { id: "aggregate", label: "Group & aggregate", icon: faChartColumn },
+  { id: "cast", label: "Cast type", icon: faRightLeft },
+  { id: "limit", label: "Limit rows", icon: faArrowUp },
+  { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
 ];
 
 // ── Step data ────────────────────────────────────────────────────────────────
@@ -179,7 +197,7 @@ function OpDropdown({ onSelect, onClose }: OpDropdownProps) {
               onClose();
             }}
           >
-            <span aria-hidden="true">{op.icon}</span> {op.label}
+            <FontAwesomeIcon icon={op.icon} aria-hidden="true" /> {op.label}
           </button>
         </li>
       ))}
@@ -496,7 +514,7 @@ function StepCard({
         aria-expanded={expanded}
       >
         <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
-          {step.opType.icon}
+          <FontAwesomeIcon icon={step.opType.icon} />
         </span>
         <span className="pipeline-detail-page__step-card-label">{step.label}</span>
         <span className="pipeline-detail-page__step-card-count">
@@ -668,7 +686,7 @@ function SourceChip({ source }: SourceChipProps) {
           aria-pressed={previewing}
           title="Preview data"
         >
-          ⊞
+          <FontAwesomeIcon icon={faTable} />
         </button>
       </div>
 
@@ -702,94 +720,8 @@ function SourceChip({ source }: SourceChipProps) {
   );
 }
 
-// ── Run history panel ────────────────────────────────────────────────────────
-
-function formatDuration(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—";
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
-  if (ms < 1000) return `${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  return `${m}m ${s % 60}s`;
-}
-
-function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
-  const label =
-    status === "dry_run"
-      ? "Dry run"
-      : status === "running"
-        ? "Running…"
-        : status === "queued"
-          ? "Queued…"
-          : status;
-  return (
-    <span
-      className={`pipeline-detail-page__run-status pipeline-detail-page__run-status--${status}`}
-      aria-label={`Status: ${status}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-interface RunHistoryRowProps {
-  run: PipelineRunRecord;
-}
-
-function RunHistoryRow({ run }: RunHistoryRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const duration = formatDuration(run.startedAt, run.completedAt);
-  const startTime = new Date(run.startedAt).toLocaleString();
-
-  return (
-    <div className="pipeline-detail-page__history-row">
-      <div className="pipeline-detail-page__history-row-summary">
-        <span className="pipeline-detail-page__history-row-time">{startTime}</span>
-        <span className="pipeline-detail-page__history-row-duration">{duration}</span>
-        <span className="pipeline-detail-page__history-row-count">
-          {run.rowCount != null ? `${run.rowCount.toLocaleString()} rows` : "—"}
-        </span>
-        <StatusBadge status={run.status} />
-        {run.status === "failed" && run.errorLog && (
-          <button
-            type="button"
-            className="pipeline-detail-page__history-row-toggle"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label="Toggle error log"
-          >
-            {expanded ? "▲ Hide log" : "▼ Show log"}
-          </button>
-        )}
-      </div>
-      {expanded && run.errorLog && (
-        <pre className="pipeline-detail-page__history-row-error">{run.errorLog}</pre>
-      )}
-    </div>
-  );
-}
-
-interface RunHistoryPanelProps {
-  runs: PipelineRunRecord[];
-}
-
-function RunHistoryPanel({ runs }: RunHistoryPanelProps) {
-  return (
-    <details className="pipeline-detail-page__history-panel">
-      <summary className="pipeline-detail-page__history-panel-summary">
-        Run History ({runs.length})
-      </summary>
-      <div className="pipeline-detail-page__history-panel-body">
-        {runs.length === 0 ? (
-          <p className="pipeline-detail-page__history-empty">No runs recorded yet.</p>
-        ) : (
-          runs.map((run) => <RunHistoryRow key={run.id} run={run} />)
-        )}
-      </div>
-    </details>
-  );
-}
+// Run history is now rendered by RunHistoryModal (separate component); the
+// inline `<details>` panel and its helpers were removed from this file.
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
@@ -827,8 +759,11 @@ export function PipelineDetailPage() {
   const [sseActive, setSseActive] = useState(false);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
+  // Inline discard-confirm state (replaces window.confirm on dirty cancel).
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
   // ── SSE run-status hook ──
   const sseData = usePipelineRunEvents({
@@ -875,6 +810,23 @@ export function PipelineDetailPage() {
       void dispatch(fetchSources());
     }
   }, [dispatch, sourcesStatus]);
+
+  // Re-run /analyze whenever the steps change (add / remove / config edit) so
+  // each StepCard's inputSchema (and the available-fields hints inside the op
+  // editors) stays in sync without a manual refresh. Debounced so a stream of
+  // keystrokes in a TextField doesn't fire a request per character.
+  // We key on the SHAPE of steps (id, op, config) — not the array reference —
+  // so transient setState calls that don't change content don't trigger
+  // re-analyze.
+  const stepsFingerprint = steps.map((s) => `${s.id}:${s.opType.id}:${s.config}`).join("|");
+  useEffect(() => {
+    if (!id || steps.length === 0) return;
+    const handle = window.setTimeout(() => {
+      void dispatch(analyzePipeline(id));
+    }, 300);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, stepsFingerprint, dispatch]);
 
   // Fetch run history on mount
   useEffect(() => {
@@ -1007,12 +959,19 @@ export function PipelineDetailPage() {
 
   function handleCancel() {
     if (isDirty) {
-      if (window.confirm("You have unsaved changes. Discard them?")) {
-        void navigate("/pipelines");
-      }
+      setIsConfirmingCancel(true);
     } else {
       void navigate("/pipelines");
     }
+  }
+
+  function confirmCancelDiscard() {
+    setIsConfirmingCancel(false);
+    void navigate("/pipelines");
+  }
+
+  function dismissCancelConfirm() {
+    setIsConfirmingCancel(false);
   }
 
   // ── Loading / Error guards ──
@@ -1186,16 +1145,52 @@ export function PipelineDetailPage() {
               >
                 {updateStatus === "loading" ? "Saving…" : "Save"}
               </button>
-              <button
-                type="button"
-                className="pipeline-detail-page__cancel-btn"
-                onClick={handleCancel}
-                aria-label="Cancel changes"
-              >
-                Cancel
-              </button>
+              {isConfirmingCancel ? (
+                <span
+                  className="pipeline-detail-page__cancel-confirm"
+                  role="alertdialog"
+                  aria-label="Discard unsaved changes"
+                >
+                  <span className="pipeline-detail-page__cancel-confirm-text">
+                    Discard changes?
+                  </span>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn pipeline-detail-page__cancel-confirm-btn--danger"
+                    onClick={confirmCancelDiscard}
+                    aria-label="Discard changes"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn"
+                    onClick={dismissCancelConfirm}
+                    aria-label="Keep editing"
+                  >
+                    Keep editing
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="pipeline-detail-page__cancel-btn"
+                  onClick={handleCancel}
+                  aria-label="Cancel changes"
+                >
+                  Cancel
+                </button>
+              )}
             </>
           )}
+          <button
+            type="button"
+            className="pipeline-detail-page__history-btn"
+            onClick={() => setHistoryOpen(true)}
+            aria-label="Open run history"
+          >
+            <FontAwesomeIcon icon={faClockRotateLeft} /> Run history ({runs.length})
+          </button>
           <button type="button" className="pipeline-detail-page__preview-btn">
             Preview
           </button>
@@ -1214,24 +1209,16 @@ export function PipelineDetailPage() {
             onClick={handleRunPipeline}
             disabled={runStatus === "queued" || runStatus === "running"}
           >
-            Run pipeline ▶
+            Run pipeline
           </button>
         </div>
       </div>
 
-      {/* ── Run history panel ── */}
-      <RunHistoryPanel runs={runs} />
+      {/* ── Run history modal (button lives in the footer) ── */}
+      {historyOpen && <RunHistoryModal runs={runs} onClose={() => setHistoryOpen(false)} />}
 
-      {/* ── Back breadcrumb shown inside page ── */}
-      <nav className="pipeline-detail-page__back-nav" aria-label="Breadcrumb">
-        <Link to="/pipelines" className="pipeline-detail-page__back-link">
-          ← Data Pipelines
-        </Link>
-        <span className="pipeline-detail-page__back-sep" aria-hidden="true">
-          /
-        </span>
-        <span className="pipeline-detail-page__back-current">{pipelineName}</span>
-      </nav>
+      {/* In-page back breadcrumb removed — the section breadcrumb in the top
+       * command bar already shows "Data Pipelines / <pipeline name>". */}
 
       {/* ── Last-run metadata bar ── */}
       {currentPipeline.lastRunAt != null && (

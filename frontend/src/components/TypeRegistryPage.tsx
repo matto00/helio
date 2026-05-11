@@ -15,10 +15,6 @@ export function TypeRegistryPage() {
 
   return (
     <div className="type-registry-page">
-      <div className="type-registry-page__header">
-        <h2 className="type-registry-page__title">Type Registry</h2>
-      </div>
-
       {status === "loading" && <p className="type-registry-page__loading">Loading types…</p>}
       {status === "failed" && error && (
         <p className="type-registry-page__error" role="alert">

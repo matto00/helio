@@ -55,10 +55,10 @@ describe("PipelinesPage", () => {
     });
   });
 
-  it("renders the Data Pipelines section heading", () => {
+  it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
     getPipelinesMock.mockResolvedValueOnce([]);
     renderWithStore(<PipelinesPage />);
-    expect(screen.getByRole("heading", { name: "Data Pipelines" })).toBeInTheDocument();
+    expect(document.querySelector(".pipelines-page")).toBeInTheDocument();
   });
 
   it("shows empty state with Create pipeline button when no pipelines exist", async () => {
@@ -124,24 +124,15 @@ describe("PipelinesPage", () => {
     expect(dashes.length).toBeGreaterThan(0);
   });
 
-  it("shows a Create pipeline toolbar button in non-empty state", async () => {
+  // The in-page "Create pipeline" toolbar button was removed; that affordance
+  // now lives on the sidebar (SidebarItemList's onAdd "+"). The modal itself
+  // is still rendered by the page but is controlled via Redux, so it's
+  // covered by sidebar/playwright tests instead of here.
+  it("does not render an in-page Create pipeline toolbar button", async () => {
     getPipelinesMock.mockResolvedValueOnce(testPipelines);
     renderWithStore(<PipelinesPage />);
-
     await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
-
-    expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument();
-  });
-
-  it("opens the modal when the toolbar Create pipeline button is clicked", async () => {
-    getPipelinesMock.mockResolvedValueOnce(testPipelines);
-    renderWithStore(<PipelinesPage />);
-
-    await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
-
-    expect(screen.getByRole("dialog", { name: "Create pipeline" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create pipeline" })).not.toBeInTheDocument();
   });
 
   it("does not render the empty state when pipelines exist", async () => {
