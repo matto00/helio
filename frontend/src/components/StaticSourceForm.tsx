@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { type FormEvent, useState } from "react";
 
 import type { StaticColumn, StaticColumnType } from "../types/models";
@@ -146,7 +149,7 @@ export function StaticSourceForm({
                     onClick={() => removeColumn(index)}
                     disabled={columns.length <= 1}
                   >
-                    ✕
+                    <FontAwesomeIcon icon={faXmark} />
                   </button>
                 </td>
               </tr>
@@ -236,7 +239,7 @@ export function StaticSourceForm({
                     aria-label={`Remove row ${ri + 1}`}
                     onClick={() => removeRow(ri)}
                   >
-                    ✕
+                    <FontAwesomeIcon icon={faXmark} />
                   </button>
                 </td>
               </tr>

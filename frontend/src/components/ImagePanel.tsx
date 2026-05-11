@@ -1,4 +1,7 @@
 import type { CSSProperties } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faImage } from "@fortawesome/free-solid-svg-icons";
+
 import "./ImagePanel.css";
 
 interface ImagePanelProps {
@@ -24,7 +27,7 @@ export function ImagePanel({ imageUrl, imageFit }: ImagePanelProps) {
     return (
       <div className="image-panel image-panel--empty">
         <span className="image-panel__placeholder-icon" aria-hidden="true">
-          🖼
+          <FontAwesomeIcon icon={faImage} />
         </span>
         <span className="image-panel__placeholder-text">
           No image URL set. Open panel settings to configure.

@@ -2,6 +2,9 @@
 // Renders one row per sort key with a field selector and asc/desc toggle.
 // Calls onChange with '{"sortBy":[...]}' on every structural change.
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 export interface SortKey {
   field: string;
   direction: "asc" | "desc";
@@ -87,7 +90,7 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
                 aria-label={`Remove sort key ${index + 1}`}
                 onClick={() => handleRemoveKey(index)}
               >
-                ✕
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </li>
           ))}

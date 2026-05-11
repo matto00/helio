@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+
 import "./PanelLegacyWarning.css";
 
 /**
@@ -9,7 +12,7 @@ export function PanelLegacyWarning() {
   return (
     <div className="panel-legacy-warning" role="alert">
       <span className="panel-legacy-warning__icon" aria-hidden="true">
-        ⚠
+        <FontAwesomeIcon icon={faTriangleExclamation} />
       </span>
       <span className="panel-legacy-warning__text">
         This panel uses a legacy data binding. Attach a pipeline to migrate to the current data

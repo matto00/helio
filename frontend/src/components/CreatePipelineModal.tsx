@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -111,7 +114,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
             aria-label="Close modal"
             onClick={handleClose}
           >
-            ✕
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>
 

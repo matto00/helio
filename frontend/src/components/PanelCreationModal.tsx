@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -21,37 +24,53 @@ import type {
 } from "../types/models";
 import { PanelCreationPreview } from "./PanelCreationPreview";
 
-const PANEL_TYPES: { value: PanelType; label: string; icon: string; description: string }[] = [
+import {
+  faChartLine,
+  faChartSimple,
+  faFont,
+  faImage,
+  faMinus,
+  faTable as faTableIcon,
+  type IconDefinition,
+} from "@fortawesome/free-solid-svg-icons";
+import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
+
+const PANEL_TYPES: {
+  value: PanelType;
+  label: string;
+  icon: IconDefinition;
+  description: string;
+}[] = [
   {
     value: "metric",
     label: "Metric",
-    icon: "📊",
+    icon: faChartSimple,
     description: "Display a single KPI value or stat",
   },
   {
     value: "chart",
     label: "Chart",
-    icon: "📈",
+    icon: faChartLine,
     description: "Visualize trends with line, bar, or pie",
   },
-  { value: "text", label: "Text", icon: "T", description: "Add freeform text or headings" },
+  { value: "text", label: "Text", icon: faFont, description: "Add freeform text or headings" },
   {
     value: "table",
     label: "Table",
-    icon: "⊞",
+    icon: faTableIcon,
     description: "Show structured data in rows and columns",
   },
   {
     value: "markdown",
     label: "Markdown",
-    icon: "M↓",
+    icon: faMarkdownBrand,
     description: "Write formatted content with Markdown",
   },
-  { value: "image", label: "Image", icon: "🖼", description: "Embed an image from a URL" },
+  { value: "image", label: "Image", icon: faImage, description: "Embed an image from a URL" },
   {
     value: "divider",
     label: "Divider",
-    icon: "—",
+    icon: faMinus,
     description: "Separate sections with a visual line",
   },
 ];
@@ -469,7 +488,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             aria-label="Close modal"
             onClick={handleDismiss}
           >
-            ✕
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>
 
@@ -513,7 +532,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                 onClick={() => handleTypeSelect(value)}
               >
                 <span className="panel-creation-modal__type-icon" aria-hidden="true">
-                  {icon}
+                  <FontAwesomeIcon icon={icon} />
                 </span>
                 <span className="panel-creation-modal__type-label">{label}</span>
                 <span className="panel-creation-modal__type-description">{description}</span>

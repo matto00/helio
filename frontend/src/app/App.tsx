@@ -10,6 +10,8 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowRotateLeft, faArrowRotateRight } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
@@ -214,7 +216,7 @@ function AppShell() {
                   aria-label="Undo layout change"
                   title="Undo (Ctrl+Z)"
                 >
-                  ↩ Undo
+                  <FontAwesomeIcon icon={faArrowRotateLeft} /> Undo
                 </button>
                 <button
                   type="button"
@@ -224,7 +226,7 @@ function AppShell() {
                   aria-label="Redo layout change"
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  Redo ↪
+                  Redo <FontAwesomeIcon icon={faArrowRotateRight} />
                 </button>
               </>
             )}

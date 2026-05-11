@@ -5,6 +5,9 @@
 // Follows the same props-driven pattern as FilterConfig / ComputeFieldConfig:
 // the parent (StepCard) owns state and calls onChange with serialized config JSON.
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+
 import type { SchemaField } from "../types/models";
 
 export interface AggregateGroupByField {
@@ -202,7 +205,8 @@ export function AggregateConfig({
                     role="alert"
                     aria-label={`Warning: field "${agg.field}" not in schema`}
                   >
-                    ⚠ Field &quot;{agg.field}&quot; not found in input schema
+                    <FontAwesomeIcon icon={faTriangleExclamation} /> Field &quot;{agg.field}&quot;
+                    not found in input schema
                   </span>
                 )}
               </div>

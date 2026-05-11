@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
@@ -191,7 +194,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
             aria-label="Close modal"
             onClick={handleClose}
           >
-            ✕
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>
 

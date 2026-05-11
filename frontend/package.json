@@ -13,6 +13,10 @@
     "test": "jest --config jest.config.cjs --passWithNoTests"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.2.0",
+    "@fortawesome/free-brands-svg-icons": "^7.2.0",
+    "@fortawesome/free-solid-svg-icons": "^7.2.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "@reduxjs/toolkit": "^2.10.1",
     "axios": "^1.15.0",
     "echarts": "^6.0.0",

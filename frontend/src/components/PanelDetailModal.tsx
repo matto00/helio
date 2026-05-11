@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -442,7 +445,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
               aria-label="Close panel settings"
               onClick={handleCloseButton}
             >
-              ✕
+              <FontAwesomeIcon icon={faXmark} />
             </button>
           </div>
         </header>

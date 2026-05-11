@@ -1,8 +1,41 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUser } from "@fortawesome/free-solid-svg-icons";
+
 import { AccentPicker } from "./AccentPicker";
 import type { Theme } from "../theme/theme";
 import type { User } from "../types/models";
 import "./UserMenu.css";
+
+/** Render the user's avatar image, falling back to their initial and then to a
+ * person icon when the URL fails to load (broken/missing). The previous
+ * implementation displayed the alt text "User avatar" when an img tag failed,
+ * which read as raw text in the chrome — this provides a graceful default. */
+function AvatarOrFallback({ avatarUrl, initial }: { avatarUrl: string | null; initial: string }) {
+  const [loadError, setLoadError] = useState(false);
+  if (avatarUrl !== null && !loadError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        className="user-menu__avatar"
+        onError={() => setLoadError(true)}
+      />
+    );
+  }
+  if (initial.length > 0) {
+    return (
+      <span className="user-menu__initials" aria-hidden="true">
+        {initial}
+      </span>
+    );
+  }
+  return (
+    <span className="user-menu__initials" aria-hidden="true">
+      <FontAwesomeIcon icon={faUser} />
+    </span>
+  );
+}
 
 interface UserMenuProps {
   currentUser: User;
@@ -63,13 +96,7 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-label="User menu"
       >
-        {currentUser.avatarUrl ? (
-          <img src={currentUser.avatarUrl} alt="User avatar" className="user-menu__avatar" />
-        ) : (
-          <span className="user-menu__initials" aria-hidden="true">
-            {initial}
-          </span>
-        )}
+        <AvatarOrFallback avatarUrl={currentUser.avatarUrl} initial={initial} />
       </button>
       {isOpen && (
         <div className="user-menu__popover" role="menu">

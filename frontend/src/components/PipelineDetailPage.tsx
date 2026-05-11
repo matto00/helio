@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faArrowsUpDown,
+  faArrowUp,
+  faCalculator,
+  faChartColumn,
+  faFilter,
+  faLink,
+  faPencil,
+  faRightLeft,
+  faSquareCheck,
+  faTable,
+  faXmark,
+  type IconDefinition,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
@@ -48,19 +63,19 @@ import { SelectFieldsConfig } from "./SelectFieldsConfig";
 interface OpType {
   id: string;
   label: string;
-  icon: string;
+  icon: IconDefinition;
 }
 
 const OP_TYPES: OpType[] = [
-  { id: "select", label: "Select fields", icon: "☑" },
-  { id: "rename", label: "Rename column", icon: "✏️" },
-  { id: "filter", label: "Filter rows", icon: "🔍" },
-  { id: "join", label: "Join tables", icon: "🔗" },
-  { id: "compute", label: "Compute column", icon: "🧮" },
-  { id: "aggregate", label: "Group & aggregate", icon: "📊" },
-  { id: "cast", label: "Cast type", icon: "⇄" },
-  { id: "limit", label: "Limit rows", icon: "⬆" },
-  { id: "sort", label: "Sort rows", icon: "↕" },
+  { id: "select", label: "Select fields", icon: faSquareCheck },
+  { id: "rename", label: "Rename column", icon: faPencil },
+  { id: "filter", label: "Filter rows", icon: faFilter },
+  { id: "join", label: "Join tables", icon: faLink },
+  { id: "compute", label: "Compute column", icon: faCalculator },
+  { id: "aggregate", label: "Group & aggregate", icon: faChartColumn },
+  { id: "cast", label: "Cast type", icon: faRightLeft },
+  { id: "limit", label: "Limit rows", icon: faArrowUp },
+  { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
 ];
 
 // ── Step data ────────────────────────────────────────────────────────────────
@@ -179,7 +194,7 @@ function OpDropdown({ onSelect, onClose }: OpDropdownProps) {
               onClose();
             }}
           >
-            <span aria-hidden="true">{op.icon}</span> {op.label}
+            <FontAwesomeIcon icon={op.icon} aria-hidden="true" /> {op.label}
           </button>
         </li>
       ))}
@@ -496,7 +511,7 @@ function StepCard({
         aria-expanded={expanded}
       >
         <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
-          {step.opType.icon}
+          <FontAwesomeIcon icon={step.opType.icon} />
         </span>
         <span className="pipeline-detail-page__step-card-label">{step.label}</span>
         <span className="pipeline-detail-page__step-card-count">
@@ -668,7 +683,7 @@ function SourceChip({ source }: SourceChipProps) {
           aria-pressed={previewing}
           title="Preview data"
         >
-          ⊞
+          <FontAwesomeIcon icon={faTable} />
         </button>
       </div>
 

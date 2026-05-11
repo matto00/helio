@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -90,7 +93,7 @@ export function SidebarItemList({
               aria-label="Clear filter"
               onClick={() => setFilterQuery("")}
             >
-              ✕
+              <FontAwesomeIcon icon={faXmark} />
             </button>
           ) : null}
         </div>

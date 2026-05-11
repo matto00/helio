@@ -1,3 +1,6 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
 import "./DashboardList.css";
@@ -185,7 +188,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
               aria-label="Clear filter"
               onClick={() => setFilterQuery("")}
             >
-              ✕
+              <FontAwesomeIcon icon={faXmark} />
             </button>
           ) : null}
         </div>
