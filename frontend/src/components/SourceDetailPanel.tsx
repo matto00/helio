@@ -73,7 +73,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
             onClick={() => void handlePreview()}
             disabled={isLoading}
           >
-            {isLoading ? "Loading…" : "Preview"}
+            {isLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
           </button>
         </div>
       </div>

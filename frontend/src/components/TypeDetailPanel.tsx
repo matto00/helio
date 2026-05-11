@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import "./TypeDetailPanel.css";
 import { updateDataType } from "../features/dataTypes/dataTypesSlice";
@@ -31,7 +31,7 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  async function handlePreview() {
+  const handlePreview = useCallback(async () => {
     setPreviewLoading(true);
     setPreviewError(null);
     try {
@@ -43,7 +43,14 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
     } finally {
       setPreviewLoading(false);
     }
-  }
+  }, [dataType.id]);
+
+  // Auto-load the preview when the user switches to a different data type.
+  // Re-runs are still manual via the Reload button.
+  useEffect(() => {
+    void handlePreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataType.id]);
 
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setSaved(false);
@@ -175,7 +182,7 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
             onClick={() => void handlePreview()}
             disabled={previewLoading}
           >
-            {previewLoading ? "Loading…" : "Preview"}
+            {previewLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
           </button>
         </div>
         {previewError && (
@@ -188,11 +195,9 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
             rows={previewRows}
             emptyText="No rows have been written to this type yet. Run a pipeline that writes to this type to populate it."
           />
-        ) : (
-          <p className="type-detail-panel__preview-empty">
-            Click <strong>Preview</strong> to load the latest snapshot of this data type.
-          </p>
-        )}
+        ) : previewLoading ? (
+          <p className="type-detail-panel__preview-empty">Loading preview…</p>
+        ) : null}
       </section>
     </div>
   );

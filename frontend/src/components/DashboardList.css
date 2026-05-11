@@ -247,17 +247,17 @@
   min-width: 0;
 }
 
-/* The per-row actions menu (vertical ellipsis) lives at the right end of the
- * row, vertically centred. It's removed from layout flow when not active so
- * the item button can grow to fill the full row width — only revealed on row
- * hover, focus, or while the menu itself is open. */
+/* The per-row actions menu (vertical ellipsis) sits inside the row button on
+ * the right edge, vertically centred, with no pill of its own so it reads as
+ * part of the row. It's removed from layout flow when hidden so the item
+ * button fills the full row width until the user hovers the row. */
 .dashboard-list__item-row {
   position: relative;
 }
 
 .dashboard-list__item-row .popover.actions-menu {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   display: none;
@@ -267,6 +267,29 @@
 .dashboard-list__item-row:focus-within .popover.actions-menu,
 .dashboard-list__item-row:has(.actions-menu__trigger[aria-expanded="true"]) .popover.actions-menu {
   display: block;
+}
+
+/* Strip the trigger's pill (border + tinted background) inside sidebar rows
+ * so it integrates with the row visually instead of reading as a separate
+ * button floating next to it. Keep the trigger interactive via hover/focus
+ * styles below. */
+.dashboard-list__item-row .actions-menu__trigger {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.dashboard-list__item-row .actions-menu__trigger:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  transform: none;
+}
+
+.dashboard-list__item-row .actions-menu__trigger:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
 }
 
 .dashboard-list__delete-confirm-row {
