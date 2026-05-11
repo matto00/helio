@@ -193,7 +193,7 @@
 .app-sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 6px;
   padding: 12px 10px 8px;
 }
 
