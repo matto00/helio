@@ -792,6 +792,8 @@ export function PipelineDetailPage() {
     runStatus,
     runError,
     runHistory,
+    runIsDry,
+    runResult,
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
@@ -1122,7 +1124,10 @@ export function PipelineDetailPage() {
             >
               {runStatus === "queued" && "Queued…"}
               {runStatus === "running" && "Running…"}
-              {runStatus === "succeeded" && "Succeeded"}
+              {runStatus === "succeeded" &&
+                (runIsDry
+                  ? `Preview: ${(runResult ?? []).length} rows`
+                  : `Snapshot replaced: ${(runResult ?? []).length} rows`)}
               {runStatus === "failed" && `Failed${runError ? `: ${runError}` : ""}`}
             </span>
           )}

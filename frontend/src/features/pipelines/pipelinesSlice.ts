@@ -27,6 +27,7 @@ interface PipelinesState {
   runId: string | null;
   runStatus: RunStatus | null;
   runError: string | null;
+  runIsDry: boolean | null;
   runHistory: Record<string, PipelineRunRecord[]>;
   // Single-pipeline detail
   currentPipeline: PipelineSummary | null;
@@ -56,6 +57,7 @@ const initialState: PipelinesState = {
   runId: null,
   runStatus: null,
   runError: null,
+  runIsDry: null,
   runHistory: {},
   currentPipeline: null,
   currentPipelineStatus: "idle",
@@ -176,6 +178,7 @@ const pipelinesSlice = createSlice({
       state.runId = null;
       state.runStatus = null;
       state.runError = null;
+      state.runIsDry = null;
       state.runResult = null;
     },
     setRunStatus(
@@ -268,10 +271,11 @@ const pipelinesSlice = createSlice({
         state.createError = action.payload ?? "Failed to create pipeline.";
       })
       // submitPipelineRun
-      .addCase(submitPipelineRun.pending, (state) => {
+      .addCase(submitPipelineRun.pending, (state, action) => {
         state.runId = null;
         state.runStatus = "queued";
         state.runError = null;
+        state.runIsDry = action.meta.arg.dryRun ?? false;
       })
       .addCase(submitPipelineRun.fulfilled, (state, action) => {
         state.runId = null;
@@ -281,6 +285,7 @@ const pipelinesSlice = createSlice({
       .addCase(submitPipelineRun.rejected, (state, action) => {
         state.runId = null;
         state.runStatus = null;
+        state.runIsDry = null;
         state.runError = action.payload ?? "Failed to start pipeline run.";
       })
       // fetchPipelineRunHistory

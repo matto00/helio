@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -51,6 +51,7 @@ object Main {
       val pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)
       val pipelineStepRepo   = new PipelineStepRepository(db)
       val pipelineRunRepo    = new PipelineRunRepository(db)
+      val dataTypeRowRepo    = new DataTypeRowRepository(db)
       val fileSystem         = LocalFileSystem.fromEnv()
 
       val sparkMasterUrl    = config.getString("spark.masterUrl")
@@ -90,6 +91,7 @@ object Main {
         pipelineRunCache,
         sparkJobSubmitter,
         pipelineRunRepo,
+        dataTypeRowRepo,
         googleClientId,
         googleClientSecret,
         googleRedirectUri,

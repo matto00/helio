@@ -85,6 +85,7 @@ type PipelinesPreloadedState = {
   runId?: string | null;
   runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
   runError?: string | null;
+  runIsDry?: boolean | null;
   runHistory?: Record<string, PipelineRunRecord[]>;
   runResult?: Record<string, unknown>[] | null;
   currentPipeline?: PipelineSummary | null;
@@ -120,6 +121,7 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         runId: pipelinesState.runId ?? null,
         runStatus: pipelinesState.runStatus ?? null,
         runError: pipelinesState.runError ?? null,
+        runIsDry: pipelinesState.runIsDry ?? null,
         runHistory: pipelinesState.runHistory ?? {},
         currentPipeline:
           "currentPipeline" in pipelinesState ? pipelinesState.currentPipeline : defaultPipeline,
@@ -287,10 +289,17 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText("Running…")).toBeInTheDocument();
   });
 
-  it("status indicator shows 'Succeeded' when runStatus is succeeded", () => {
-    const store = makeStore([], { runStatus: "succeeded", runId: "run-3" });
+  it("status indicator shows 'Snapshot replaced' when runStatus is succeeded (non-dry)", () => {
+    const store = makeStore([], {
+      runStatus: "succeeded",
+      runId: "run-3",
+      runIsDry: false,
+      runResult: [{ a: 1 }, { a: 2 }],
+    });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByText("Succeeded")).toBeInTheDocument();
+    expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(
+      "Snapshot replaced: 2 rows",
+    );
   });
 
   it("status indicator shows 'Failed' when runStatus is failed", () => {
@@ -1094,5 +1103,72 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     const badge = screen.getByLabelText("Status: dry_run");
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveTextContent("Dry run");
+  });
+});
+
+// ── HEL-198: Success toast wording ───────────────────────────────────────────
+
+describe("PipelineDetailPage run success message (HEL-198)", () => {
+  beforeEach(() => {
+    runPipelineMock.mockResolvedValue({ rowCount: 3, rows: [{}, {}, {}] });
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows 'Snapshot replaced: N rows' for a successful non-dry run", () => {
+    const store = makeStore([], {
+      runStatus: "succeeded",
+      runIsDry: false,
+      runResult: [{}, {}, {}],
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(
+      "Snapshot replaced: 3 rows",
+    );
+  });
+
+  it("shows 'Preview: N rows' for a successful dry run", () => {
+    const store = makeStore([], {
+      runStatus: "succeeded",
+      runIsDry: true,
+      runResult: [{}, {}],
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent("Preview: 2 rows");
+  });
+
+  it("shows 'Snapshot replaced: 0 rows' when non-dry run produces no rows", () => {
+    const store = makeStore([], {
+      runStatus: "succeeded",
+      runIsDry: false,
+      runResult: [],
+    });
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(
+      "Snapshot replaced: 0 rows",
+    );
+  });
+
+  it("clicking Run dispatches submitPipelineRun without dryRun flag", async () => {
+    renderDetailPage("pipe-1");
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline ▶" }));
+    await waitFor(() => {
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
+    });
+  });
+
+  it("clicking Dry run dispatches submitPipelineRun with dryRun=true", async () => {
+    renderDetailPage("pipe-1");
+    fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+    await waitFor(() => {
+      expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true);
+    });
   });
 });

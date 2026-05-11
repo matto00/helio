@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
 import com.helio.domain.ExpressionEvaluator
-import com.helio.infrastructure.DataTypeRepository
+import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
 
 import java.time.Instant
 import scala.concurrent.ExecutionContextExecutor
@@ -15,7 +15,8 @@ import scala.concurrent.ExecutionContextExecutor
 final class DataTypeRoutes(
     dataTypeRepo: DataTypeRepository,
     aclDirective: AclDirective,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    dataTypeRowRepo: DataTypeRowRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -31,6 +32,23 @@ final class DataTypeRoutes(
           get {
             onSuccess(dataTypeRepo.findAll(user.id)) { types =>
               complete(DataTypesResponse(items = types.map(DataTypeResponse.fromDomain)))
+            }
+          }
+        },
+        path(Segment / "rows") { typeId =>
+          get {
+            val id = DataTypeId(typeId)
+            onSuccess(dataTypeRepo.findById(id)) {
+              case None =>
+                complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
+              case Some(_) =>
+                if (dataTypeRowRepo == null) {
+                  complete(DataTypeRowsResponse(rows = Vector.empty, rowCount = 0))
+                } else {
+                  onSuccess(dataTypeRowRepo.listRows(typeId)) { rows =>
+                    complete(DataTypeRowsResponse(rows = rows, rowCount = rows.size))
+                  }
+                }
             }
           }
         },

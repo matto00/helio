@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -31,12 +31,13 @@ class PipelineRunRoutesSpec
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
 
-  private var embeddedPostgres: EmbeddedPostgres      = _
-  private var db: JdbcBackend.Database                = _
-  private var pipelineRepo: PipelineRepository        = _
-  private var stepRepo: PipelineStepRepository        = _
-  private var dataSourceRepo: DataSourceRepository    = _
-  private var pipelineRunRepo: PipelineRunRepository  = _
+  private var embeddedPostgres: EmbeddedPostgres        = _
+  private var db: JdbcBackend.Database                  = _
+  private var pipelineRepo: PipelineRepository          = _
+  private var stepRepo: PipelineStepRepository          = _
+  private var dataSourceRepo: DataSourceRepository      = _
+  private var pipelineRunRepo: PipelineRunRepository    = _
+  private var dataTypeRowRepo: DataTypeRowRepository    = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -52,6 +53,7 @@ class PipelineRunRoutesSpec
     stepRepo         = new PipelineStepRepository(db)(routeEc)
     pipelineRepo     = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(db)(routeEc)
+    dataTypeRowRepo  = new DataTypeRowRepository(db)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -87,7 +89,10 @@ class PipelineRunRoutesSpec
     dsId
   }
 
-  private def seedPipeline(dsId: String): String = {
+  private def seedPipeline(dsId: String): String = seedPipelineWithDtId(dsId)._1
+
+  /** Returns (pipelineId, dataTypeId). */
+  private def seedPipelineWithDtId(dsId: String): (String, String) = {
     import PostgresProfile.api._
     val pid  = java.util.UUID.randomUUID().toString
     val dtId = java.util.UUID.randomUUID().toString
@@ -98,7 +103,20 @@ class PipelineRunRoutesSpec
                (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
                VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
     )))
-    pid
+    (pid, dtId)
+  }
+
+  private def seedDsWithMixedTypes(): String = {
+    import PostgresProfile.api._
+    val dsId = java.util.UUID.randomUUID().toString
+    // "count" is an integer (whole JsNumber), "rate" is a fractional double
+    val dsConfig =
+      """{"columns":[{"name":"count","type":"integer"},{"name":"rate","type":"double"}],"rows":[[5,3.14]]}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-mixed', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
   }
 
   // ---------------------------------------------------------------------------
@@ -119,10 +137,15 @@ class PipelineRunRoutesSpec
     }
   }
 
-  private def makeRoutes(cache: PipelineRunCache, runRepo: PipelineRunRepository = null, dtRepo: DataTypeRepository = null): Route = {
+  private def makeRoutes(
+      cache: PipelineRunCache,
+      runRepo: PipelineRunRepository = null,
+      dtRepo: DataTypeRepository = null,
+      rowRepo: DataTypeRowRepository = null
+  ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val submitter = new StubSparkJobSubmitter()
-    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo, dtRepo).routes
+    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo, dtRepo, rowRepo).routes
   }
 
   "PipelineRunRoutes" should {
@@ -383,6 +406,75 @@ class PipelineRunRoutesSpec
       runs.head.status      shouldBe "dry_run"
       runs.head.completedAt shouldBe defined
       runs.head.rowCount    shouldBe Some(2)
+    }
+
+    // HEL-198 3.2 — non-dry run persists rows in data_type_rows; dry run does not
+    "POST /pipelines/:id/run (non-dry) stores rows in data_type_rows after success" in {
+      val cache              = new PipelineRunCache()
+      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dsId               = seedDsWithData()
+      val (pid, dtId)        = seedPipelineWithDtId(dsId)
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      storedRows should have size 2
+      // Rows contain the expected field names
+      storedRows.head.fields.keys should contain allOf ("name", "score")
+    }
+
+    "POST /pipelines/:id/run?dry=true does NOT write to data_type_rows" in {
+      val cache              = new PipelineRunCache()
+      val dsId               = seedDsWithData()
+      val (pid, dtId)        = seedPipelineWithDtId(dsId)
+      // Ensure no prior rows for this dtId
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq.empty))
+
+      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      storedRows shouldBe empty
+    }
+
+    "POST /pipelines/:id/run (non-dry, second run) overwrites previous snapshot" in {
+      val cache              = new PipelineRunCache()
+      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dsId               = seedDsWithData()
+      val (pid, dtId)        = seedPipelineWithDtId(dsId)
+
+      // First run: 2 rows
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      await(dataTypeRowRepo.listRows(dtId)) should have size 2
+
+      // Second run: same pipeline, same 2 rows (replace, not append)
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      await(dataTypeRowRepo.listRows(dtId)) should have size 2
+    }
+
+    // HEL-198 3.3 — improved type inference
+    "POST /pipelines/:id/run infers integer type for whole-number column and double for fractional" in {
+      val cache              = new PipelineRunCache()
+      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dsId               = seedDsWithMixedTypes()
+      val (pid, dtId)        = seedPipelineWithDtId(dsId)
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+      }
+      val dt = await(dtRepo.findById(com.helio.domain.DataTypeId(dtId))).get
+      val fieldMap = dt.fields.map(f => f.name -> f.dataType).toMap
+      fieldMap("count") shouldBe "integer"
+      fieldMap("rate")  shouldBe "double"
     }
 
     // 6.5 non-dry run failure sets last_run_status to failed and returns 422
