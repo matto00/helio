@@ -213,6 +213,11 @@ export function buildAccentTokens(hex: string): Record<string, string> {
     "--app-accent-dim": toRgbString(rgb, 0.12),
     "--app-accent-mid": toRgbString(rgb, 0.25),
     "--app-bg-accent": toRgbString(rgb, 0.06),
+    "--app-bg-secondary": toRgbString(rgb, 0.03),
+    // Borders were previously baked to orange in theme.css; derive them
+    // from the user's accent so non-orange palettes carry through.
+    "--app-border-strong": toRgbString(rgb, 0.3),
+    "--app-border-subtle": toRgbString(rgb, 0.1),
   };
 }
 

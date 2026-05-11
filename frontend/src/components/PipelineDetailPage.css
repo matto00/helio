@@ -634,20 +634,20 @@
   padding: 6px 16px;
   border: none;
   border-radius: var(--app-radius-md);
-  background: #f97316;
+  background: var(--app-accent);
   color: #fff;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 0 16px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 0 16px var(--app-border-strong);
   transition:
     box-shadow var(--app-transition),
     background var(--app-transition);
 }
 
 .pipeline-detail-page__run-btn:hover {
-  background: #ea6a0a;
-  box-shadow: 0 0 24px rgba(249, 115, 22, 0.5);
+  background: var(--app-accent-strong);
+  box-shadow: 0 0 24px var(--app-accent-mid);
 }
 
 .pipeline-detail-page__run-btn:disabled {

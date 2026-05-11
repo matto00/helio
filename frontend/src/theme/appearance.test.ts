@@ -35,15 +35,18 @@ describe("appearance resolution", () => {
 });
 
 describe("buildAccentTokens", () => {
-  it("returns all 6 CSS variable entries for a valid hex color", () => {
+  it("returns all 9 CSS variable entries for a valid hex color", () => {
     const tokens = buildAccentTokens("#f97316");
-    expect(Object.keys(tokens)).toHaveLength(6);
+    expect(Object.keys(tokens)).toHaveLength(9);
     expect(tokens["--app-accent"]).toBe("#f97316");
     expect(tokens["--app-accent-surface"]).toContain("rgba(");
     expect(tokens["--app-accent-dim"]).toContain("rgba(");
     expect(tokens["--app-accent-mid"]).toContain("rgba(");
     expect(tokens["--app-bg-accent"]).toContain("rgba(");
+    expect(tokens["--app-bg-secondary"]).toContain("rgba(");
     expect(tokens["--app-accent-strong"]).toContain("rgba(");
+    expect(tokens["--app-border-strong"]).toContain("rgba(");
+    expect(tokens["--app-border-subtle"]).toContain("rgba(");
   });
 
   it("produces correct rgba values for #f97316 (orange)", () => {
@@ -53,6 +56,9 @@ describe("buildAccentTokens", () => {
     expect(tokens["--app-accent-dim"]).toBe("rgba(249, 115, 22, 0.12)");
     expect(tokens["--app-accent-mid"]).toBe("rgba(249, 115, 22, 0.25)");
     expect(tokens["--app-bg-accent"]).toBe("rgba(249, 115, 22, 0.06)");
+    expect(tokens["--app-bg-secondary"]).toBe("rgba(249, 115, 22, 0.03)");
+    expect(tokens["--app-border-strong"]).toBe("rgba(249, 115, 22, 0.3)");
+    expect(tokens["--app-border-subtle"]).toBe("rgba(249, 115, 22, 0.1)");
   });
 
   it("returns an empty object for an invalid hex", () => {
