@@ -1172,3 +1172,70 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
     });
   });
 });
+
+// ---- HEL-199: StatusBadge running/queued visual states (task 3.8) ----------
+
+describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", () => {
+  beforeEach(() => {
+    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    updatePipelineMock.mockResolvedValue(defaultPipeline);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 3.8a — spinner class applied for running status
+  it("footer status badge has --running class when runStatus is running", () => {
+    const store = makeStore([], { runStatus: "running", runId: "run-spin" });
+    renderDetailPage("pipe-1", store);
+    const badge = screen.getByLabelText("Run status: running");
+    expect(badge).toHaveClass("pipeline-detail-page__run-status--running");
+  });
+
+  // 3.8b — pulse class applied for queued status
+  it("footer status badge has --queued class when runStatus is queued", () => {
+    const store = makeStore([], { runStatus: "queued", runId: "run-pulse" });
+    renderDetailPage("pipe-1", store);
+    const badge = screen.getByLabelText("Run status: queued");
+    expect(badge).toHaveClass("pipeline-detail-page__run-status--queued");
+  });
+
+  // 3.8c — history panel StatusBadge uses --running class
+  it("history panel StatusBadge renders with --running class for running status", () => {
+    const run = {
+      id: "run-hist-1",
+      pipelineId: "pipe-1",
+      status: "running" as const,
+      startedAt: "2026-05-01T10:00:00Z",
+      completedAt: null,
+      rowCount: null,
+      errorLog: null,
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+    const badge = screen.getByLabelText("Status: running");
+    expect(badge).toHaveClass("pipeline-detail-page__run-status--running");
+  });
+
+  // 3.8d — history panel StatusBadge uses --queued class
+  it("history panel StatusBadge renders with --queued class for queued status", () => {
+    const run = {
+      id: "run-hist-2",
+      pipelineId: "pipe-1",
+      status: "queued" as const,
+      startedAt: "2026-05-01T10:00:00Z",
+      completedAt: null,
+      rowCount: null,
+      errorLog: null,
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+    const badge = screen.getByLabelText("Status: queued");
+    expect(badge).toHaveClass("pipeline-detail-page__run-status--queued");
+  });
+});

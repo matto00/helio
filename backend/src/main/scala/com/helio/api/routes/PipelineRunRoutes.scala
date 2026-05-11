@@ -1,6 +1,6 @@
 package com.helio.api.routes
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
@@ -22,11 +22,16 @@ class PipelineRunRoutes(
     user: AuthenticatedUser,
     pipelineRunRepo: PipelineRunRepository = null,
     dataTypeRepo: DataTypeRepository = null,
-    dataTypeRowRepo: DataTypeRowRepository = null
+    dataTypeRowRepo: DataTypeRowRepository = null,
+    registry: PipelineRunRegistry = null
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
   private val inProcessEngine = new InProcessPipelineEngine()
+
+  // SSE content type: text/event-stream; charset=UTF-8
+  private val sseContentType: ContentType =
+    ContentType(MediaType.customWithOpenCharset("text", "event-stream"), HttpCharsets.`UTF-8`)
 
   val routes: Route =
     pathPrefix("pipelines" / Segment) { pipelineId =>
@@ -75,6 +80,10 @@ class PipelineRunRoutes(
                               val runId   = java.util.UUID.randomUUID().toString
                               val startAt = Instant.now()
 
+                              // Publish queued event before pre-execution work.
+                              if (registry != null)
+                                registry.publish(pipelineId, RunStatusEvent("queued"))
+
                               // Pre-execution: insert run record and prune old runs (non-dry only).
                               // recoverWith ensures a logging failure never blocks execution.
                               val preExec: Future[Unit] =
@@ -85,6 +94,10 @@ class PipelineRunRoutes(
                                     .recoverWith { case _ => Future.successful(()) }
                                 else Future.successful(())
 
+                              // Publish running event immediately before engine invocation.
+                              if (registry != null)
+                                registry.publish(pipelineId, RunStatusEvent("running"))
+
                               onComplete(
                                 preExec.flatMap { _ =>
                                   inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
@@ -94,6 +107,8 @@ class PipelineRunRoutes(
                               ) {
                                 case Failure(ex) =>
                                   val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
+                                  if (registry != null)
+                                    registry.publish(pipelineId, RunStatusEvent("failed", errorLog = Some(errMsg)))
                                   if (!isDry) {
                                     val failWork: Future[Unit] = for {
                                       _ <- if (pipelineRunRepo != null)
@@ -115,6 +130,8 @@ class PipelineRunRoutes(
                                   val response = RunResultResponse(jsRows, jsRows.size)
 
                                   if (isDry) {
+                                    if (registry != null)
+                                      registry.publish(pipelineId, RunStatusEvent("dry_run", rowCount = Some(resultRows.size)))
                                     val dryWork: Future[Unit] =
                                       if (pipelineRunRepo != null)
                                         pipelineRunRepo
@@ -126,6 +143,8 @@ class PipelineRunRoutes(
                                       complete(StatusCodes.OK, response)
                                     }
                                   } else {
+                                    if (registry != null)
+                                      registry.publish(pipelineId, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
                                     val now = Instant.now()
                                     val allWork: Future[Unit] = for {
                                       _ <- if (dataTypeRepo != null)
@@ -150,6 +169,28 @@ class PipelineRunRoutes(
                       }
                   }
               }
+            }
+          }
+        },
+
+
+        // GET /api/pipelines/:id/run-events  (SSE stream)
+        path("run-events") {
+          get {
+            onComplete(pipelineRepo.findById(pipelineId)) {
+              case Failure(ex) =>
+                complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+
+              case Success(None) =>
+                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+
+              case Success(Some(_)) =>
+                if (registry == null) {
+                  complete(StatusCodes.ServiceUnavailable, ErrorResponse("SSE registry not available"))
+                } else {
+                  val byteSource = registry.subscribe(pipelineId).map(RunStatusEvent.toSseBytes)
+                  complete(HttpResponse(entity = HttpEntity.Chunked.fromData(sseContentType, byteSource)))
+                }
             }
           }
         },

@@ -2,6 +2,9 @@ package com.helio.api.routes
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.stream.{Materializer}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -141,11 +144,12 @@ class PipelineRunRoutesSpec
       cache: PipelineRunCache,
       runRepo: PipelineRunRepository = null,
       dtRepo: DataTypeRepository = null,
-      rowRepo: DataTypeRowRepository = null
+      rowRepo: DataTypeRowRepository = null,
+      registry: PipelineRunRegistry = null
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val submitter = new StubSparkJobSubmitter()
-    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo, dtRepo, rowRepo).routes
+    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, runRepo, dtRepo, rowRepo, registry).routes
   }
 
   "PipelineRunRoutes" should {
@@ -495,5 +499,53 @@ class PipelineRunRoutesSpec
       ))
       statusOpt shouldBe Some("failed")
     }
+    // ---- SSE endpoint tests ------------------------------------------------
+
+    // 3.2 SSE endpoint returns text/event-stream content-type for existing pipeline
+    "GET /pipelines/:id/run-events returns text/event-stream for existing pipeline" in {
+      val cache    = new PipelineRunCache()
+      val dsId     = seedDs("static")
+      val pid      = seedPipeline(dsId)
+      val reg      = new PipelineRunRegistry()(typedSystem)
+      // Check only content-type; do not consume the streaming body
+      Get(s"/pipelines/$pid/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
+        status shouldBe StatusCodes.OK
+        contentType.mediaType.mainType shouldBe "text"
+        contentType.mediaType.subType  shouldBe "event-stream"
+      }
+    }
+
+    // 3.3 SSE endpoint returns 404 for unknown pipeline
+    "GET /pipelines/:id/run-events returns 404 for unknown pipeline" in {
+      val cache = new PipelineRunCache()
+      val reg   = new PipelineRunRegistry()(typedSystem)
+      Get("/pipelines/nonexistent-sse/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // 3.4 Full run publishes queued -> running -> succeeded event sequence
+    "POST /pipelines/:id/run publishes queued -> running -> succeeded via SSE" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val reg   = new PipelineRunRegistry()(typedSystem)
+
+      // Subscribe to events via registry directly (bypass HTTP for collection).
+      // The source completes after the terminal "succeeded" event.
+      val eventsFuture = reg
+        .subscribe(pid)
+        .runWith(Sink.seq)(Materializer(system))
+
+      // Run the pipeline; this publishes queued -> running -> succeeded.
+      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, registry = reg) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val events = Await.result(eventsFuture, 10.seconds)
+      events.map(_.status) shouldBe Seq("queued", "running", "succeeded")
+      events.last.rowCount shouldBe Some(2) // seedDsWithData has 2 rows
+    }
+
   }
 }

@@ -6,3 +6,10 @@ if (typeof globalThis.TextEncoder === "undefined") {
   globalThis.TextEncoder = TextEncoder as typeof globalThis.TextEncoder;
   globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
 }
+
+// Polyfill ReadableStream for tests that exercise fetch-based SSE streaming.
+// jsdom does not expose the Streams API but Node.js 18+ has it in stream/web.
+if (typeof globalThis.ReadableStream === "undefined") {
+  const { ReadableStream: RS } = require("stream/web") as { ReadableStream: typeof ReadableStream };
+  globalThis.ReadableStream = RS;
+}
