@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
 
@@ -21,7 +21,8 @@ class PipelineRunRoutes(
     cache: PipelineRunCache,
     user: AuthenticatedUser,
     pipelineRunRepo: PipelineRunRepository = null,
-    dataTypeRepo: DataTypeRepository = null
+    dataTypeRepo: DataTypeRepository = null,
+    dataTypeRowRepo: DataTypeRowRepository = null
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -127,8 +128,13 @@ class PipelineRunRoutes(
                                   } else {
                                     val now = Instant.now()
                                     val allWork: Future[Unit] = for {
-                                      _ <- if (dataTypeRepo != null && resultRows.nonEmpty)
+                                      _ <- if (dataTypeRepo != null)
                                              upsertFieldsFromRows(pipeline.outputDataTypeId, resultRows)
+                                           else Future.successful(())
+                                      _ <- if (dataTypeRowRepo != null)
+                                             dataTypeRowRepo.overwriteRows(
+                                               pipeline.outputDataTypeId.value, jsRows
+                                             )
                                            else Future.successful(())
                                       _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now)
                                       _ <- if (pipelineRunRepo != null)
@@ -277,14 +283,27 @@ class PipelineRunRoutes(
       )
     }
 
-  // 4.1 Infer field names from result rows and overwrite the output DataType schema
+  // Infer a DataField type string from the Scala runtime value of the field.
+  // jsValueToAny always produces Double for numeric JSON values, so whole-number
+  // Doubles are inferred as "integer" and fractional Doubles as "double".
+  private def inferFieldType(value: Any): String = value match {
+    case _: Boolean => "boolean"
+    case _: Int | _: Long => "integer"
+    case d: Double if !d.isNaN && !d.isInfinite && d % 1.0 == 0.0 => "integer"
+    case _: Float | _: Double => "double"
+    case _ => "string"
+  }
+
+  // Infer field names and types from result rows and overwrite the output DataType schema.
   private def upsertFieldsFromRows(
       dataTypeId: DataTypeId,
       rows: Seq[Map[String, Any]]
   ): Future[Unit] = {
     if (dataTypeRepo == null) return Future.successful(())
-    val fieldNames = rows.headOption.map(_.keys.toVector).getOrElse(Vector.empty)
-    val fields     = fieldNames.map(name => DataField(name, name, "string", nullable = true))
+    val firstRow   = rows.headOption.getOrElse(Map.empty)
+    val fields     = firstRow.keys.toVector.map { name =>
+      DataField(name, name, inferFieldType(firstRow.get(name).orNull), nullable = true)
+    }
     dataTypeRepo.findById(dataTypeId).flatMap {
       case None => Future.successful(())
       case Some(existing) =>

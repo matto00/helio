@@ -89,6 +89,7 @@ describe("pipelinesSlice", () => {
       runId: null,
       runStatus: null,
       runError: null,
+      runIsDry: null,
       runHistory: {},
       currentPipeline: null,
       currentPipelineStatus: "idle" as const,

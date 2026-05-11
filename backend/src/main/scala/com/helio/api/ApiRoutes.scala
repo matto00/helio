@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.RestApiConnector
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import scala.util.{Failure, Success}
 
@@ -31,6 +31,7 @@ final class ApiRoutes(
     pipelineRunCache: PipelineRunCache,
     sparkJobSubmitter: SparkJobSubmitter,
     pipelineRunRepo: PipelineRunRepository = null,
+    dataTypeRowRepo: DataTypeRowRepository = null,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -126,12 +127,12 @@ final class ApiRoutes(
                 new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser,
                   dataSourceRepo, new com.helio.spark.PanelQueryExecutor(sparkJobSubmitter)).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-                new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser).routes,
+                new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
                 new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
-                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo).routes,
+                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo).routes,
                 new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, aclDirective, authenticatedUser).routes
               )
             }
