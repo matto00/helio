@@ -28,9 +28,9 @@ describe("TypeRegistryPage", () => {
     fetchDataTypesMock.mockResolvedValue([]);
   });
 
-  it("renders the Type Registry heading", () => {
+  it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
     renderWithStore(<TypeRegistryPage />);
-    expect(screen.getByRole("heading", { name: "Type Registry" })).toBeInTheDocument();
+    expect(document.querySelector(".type-registry-page")).toBeInTheDocument();
   });
 
   it("shows empty state for types when there are none", async () => {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import "./DashboardList.css";
+import { ActionsMenu } from "./ActionsMenu";
 
 interface SidebarItem {
   id: string;
@@ -27,6 +28,10 @@ interface SidebarItemListProps {
   onAdd?: () => void;
   /** Accessible label for the "+" button (defaults to "Add <heading>"). */
   addLabel?: string;
+  /** If provided, an ellipsis menu is rendered per row with a Delete action.
+   * Selecting Delete swaps the row for an inline Confirm/Cancel pair *below*
+   * the item so confirmation buttons don't get squeezed beside narrow rows. */
+  onDelete?: (item: SidebarItem) => void | Promise<void>;
 }
 
 export function SidebarItemList({
@@ -40,8 +45,10 @@ export function SidebarItemList({
   emptyText,
   onAdd,
   addLabel,
+  onDelete,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const normalizedQuery = filterQuery.toLowerCase().trim();
   const filtered =
     normalizedQuery.length === 0
@@ -108,39 +115,81 @@ export function SidebarItemList({
               ? "dashboard-list__button dashboard-list__button--active"
               : "dashboard-list__button";
             const activeLabel = heading.toLowerCase().replace(/s$/, "");
+            const itemKindLabel = activeLabel;
+            const isConfirmingDelete = confirmDeleteId === item.id;
             return (
-              <li key={item.id} className="dashboard-list__item">
-                {onSelect !== undefined ? (
-                  <button
-                    type="button"
-                    className={className}
-                    aria-pressed={isActive}
-                    onClick={() => onSelect(item)}
-                  >
-                    <span className="dashboard-list__name">{item.name}</span>
-                    {isActive ? (
-                      <span
-                        className="dashboard-list__active-dot"
-                        aria-label={`Active ${activeLabel}`}
-                      />
-                    ) : null}
-                  </button>
-                ) : toHref !== undefined ? (
-                  <NavLink
-                    to={toHref(item)}
-                    className={({ isActive: routeActive }) =>
-                      routeActive || isActive ? className : "dashboard-list__button"
-                    }
-                    end
-                  >
-                    <span className="dashboard-list__name">{item.name}</span>
-                    {isActive ? (
-                      <span
-                        className="dashboard-list__active-dot"
-                        aria-label={`Active ${activeLabel}`}
-                      />
-                    ) : null}
-                  </NavLink>
+              <li key={item.id} className="dashboard-list__item dashboard-list__item--row">
+                <div className="dashboard-list__item-row">
+                  {onSelect !== undefined ? (
+                    <button
+                      type="button"
+                      className={className}
+                      aria-pressed={isActive}
+                      onClick={() => onSelect(item)}
+                    >
+                      <span className="dashboard-list__name">{item.name}</span>
+                      {isActive ? (
+                        <span
+                          className="dashboard-list__active-dot"
+                          aria-label={`Active ${activeLabel}`}
+                        />
+                      ) : null}
+                    </button>
+                  ) : toHref !== undefined ? (
+                    <NavLink
+                      to={toHref(item)}
+                      className={({ isActive: routeActive }) =>
+                        routeActive || isActive ? className : "dashboard-list__button"
+                      }
+                      end
+                    >
+                      <span className="dashboard-list__name">{item.name}</span>
+                      {isActive ? (
+                        <span
+                          className="dashboard-list__active-dot"
+                          aria-label={`Active ${activeLabel}`}
+                        />
+                      ) : null}
+                    </NavLink>
+                  ) : null}
+                  {onDelete !== undefined && !isConfirmingDelete ? (
+                    <ActionsMenu
+                      label={`${item.name} actions`}
+                      items={[
+                        {
+                          label: "Delete",
+                          onClick: () => setConfirmDeleteId(item.id),
+                          danger: true,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </div>
+                {isConfirmingDelete ? (
+                  <div className="dashboard-list__delete-confirm-row">
+                    <span className="dashboard-list__delete-confirm-text">
+                      Delete this {itemKindLabel}?
+                    </span>
+                    <div className="dashboard-list__delete-confirm-actions">
+                      <button
+                        type="button"
+                        className="dashboard-list__delete-confirm-btn"
+                        onClick={() => {
+                          void onDelete?.(item);
+                          setConfirmDeleteId(null);
+                        }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        className="dashboard-list__delete-cancel-btn"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
               </li>
             );

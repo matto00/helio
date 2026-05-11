@@ -27,10 +27,6 @@ export function PipelinesPage() {
   return (
     <div className="pipelines-page">
       <div className="pipelines-page__section">
-        <div className="pipelines-page__section-header">
-          <h2 className="pipelines-page__section-title">Data Pipelines</h2>
-        </div>
-
         {status === "loading" && <p className="pipelines-page__loading">Loading pipelines…</p>}
 
         {status === "failed" && error && (

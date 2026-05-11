@@ -44,6 +44,10 @@ export async function updatePipeline(id: string, name: string): Promise<Pipeline
   return response.data;
 }
 
+export async function deletePipeline(id: string): Promise<void> {
+  await httpClient.delete(`/api/pipelines/${id}`);
+}
+
 export async function createPipelineStep(
   pipelineId: string,
   op: string,

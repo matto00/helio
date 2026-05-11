@@ -108,6 +108,52 @@
   color: var(--app-text-muted);
 }
 
+.source-detail-panel__schema {
+  margin-top: 12px;
+}
+
+.source-detail-panel__schema-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.source-detail-panel__schema-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  overflow: hidden;
+  font-size: 0.78rem;
+}
+
+.source-detail-panel__schema-table thead th {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.source-detail-panel__schema-table tbody td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+}
+
+.source-detail-panel__schema-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.source-detail-panel__schema-field-name {
+  font-family: var(--app-font-mono, ui-monospace, monospace);
+  font-size: 0.76rem;
+}
+
 .source-detail-panel__error {
   margin: 8px 0 0;
   padding: 8px;

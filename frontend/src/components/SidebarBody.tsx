@@ -1,9 +1,14 @@
 import { useEffect } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { fetchDataTypes, setSelectedTypeId } from "../features/dataTypes/dataTypesSlice";
-import { fetchPipelines } from "../features/pipelines/pipelinesSlice";
 import {
+  deleteDataType,
+  fetchDataTypes,
+  setSelectedTypeId,
+} from "../features/dataTypes/dataTypesSlice";
+import { deletePipeline, fetchPipelines } from "../features/pipelines/pipelinesSlice";
+import {
+  deleteSource,
   fetchSources,
   setAddSourceModalOpen,
   setSelectedSourceId,
@@ -23,6 +28,7 @@ interface SidebarBodyProps {
 export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const { pathname } = useLocation();
   const { id: routeId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
   const sources = useAppSelector((state) => state.sources);
@@ -57,6 +63,12 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         emptyText="No data sources yet"
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
         addLabel="Add data source"
+        onDelete={async (item) => {
+          await dispatch(deleteSource(item.id));
+          if (sources.selectedSourceId === item.id) {
+            dispatch(setSelectedSourceId(null));
+          }
+        }}
       />
     );
   }
@@ -71,6 +83,10 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         toHref={(item) => `/pipelines/${item.id}`}
         activeId={routeId ?? null}
         emptyText="No pipelines yet"
+        onDelete={async (item) => {
+          await dispatch(deletePipeline(item.id));
+          if (routeId === item.id) navigate("/pipelines");
+        }}
       />
     );
   }
@@ -86,6 +102,12 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
         activeId={effectiveTypeId}
         emptyText="No data types yet"
+        onDelete={async (item) => {
+          await dispatch(deleteDataType(item.id));
+          if (dataTypes.selectedTypeId === item.id) {
+            dispatch(setSelectedTypeId(null));
+          }
+        }}
       />
     );
   }

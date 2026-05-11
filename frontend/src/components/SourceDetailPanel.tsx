@@ -2,12 +2,12 @@ import { useState } from "react";
 
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
+import { useAppSelector } from "../hooks/reduxHooks";
 import type { DataSource } from "../types/models";
 import { PreviewTable } from "./PreviewTable";
 
 interface SourceDetailPanelProps {
   source: DataSource;
-  onDelete?: () => void;
 }
 
 function labelForSourceType(sourceType: string): string {
@@ -18,26 +18,24 @@ function labelForSourceType(sourceType: string): string {
   return sourceType;
 }
 
-export function SourceDetailPanel({ source, onDelete }: SourceDetailPanelProps) {
+export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewHeaders, setPreviewHeaders] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // Pull the DataType inferred from this source (created automatically when the
+  // source is added; carries field/column metadata). Showing its schema lets
+  // the user inspect the inferred columns without running a preview first.
+  const relatedType = useAppSelector((state) =>
+    state.dataTypes.items.find((dt) => dt.sourceId === source.id),
+  );
 
   async function handlePreview() {
     setIsLoading(true);
     setError(null);
     try {
-      if (source.sourceType === "csv") {
-        const result = await fetchCsvPreview(source.id, 25);
-        setPreviewHeaders(result.headers);
-        setPreviewRows(
-          result.rows.map((row) =>
-            Object.fromEntries(result.headers.map((h, i) => [h, row[i] ?? null])),
-          ),
-        );
-      } else if (source.sourceType === "static") {
+      if (source.sourceType === "csv" || source.sourceType === "static") {
         const result = await fetchCsvPreview(source.id, 25);
         setPreviewHeaders(result.headers);
         setPreviewRows(
@@ -77,39 +75,32 @@ export function SourceDetailPanel({ source, onDelete }: SourceDetailPanelProps) 
           >
             {isLoading ? "Loading…" : "Preview"}
           </button>
-          {onDelete !== undefined ? (
-            confirmingDelete ? (
-              <>
-                <button
-                  type="button"
-                  className="source-detail-panel__delete-confirm-btn"
-                  onClick={() => {
-                    onDelete();
-                    setConfirmingDelete(false);
-                  }}
-                >
-                  Confirm delete
-                </button>
-                <button
-                  type="button"
-                  className="source-detail-panel__delete-cancel-btn"
-                  onClick={() => setConfirmingDelete(false)}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="source-detail-panel__delete-btn"
-                onClick={() => setConfirmingDelete(true)}
-              >
-                Delete
-              </button>
-            )
-          ) : null}
         </div>
       </div>
+
+      {relatedType !== undefined && relatedType.fields.length > 0 ? (
+        <section className="source-detail-panel__schema" aria-label="Inferred schema">
+          <h4 className="source-detail-panel__schema-title">Schema</h4>
+          <table className="source-detail-panel__schema-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Nullable</th>
+              </tr>
+            </thead>
+            <tbody>
+              {relatedType.fields.map((field) => (
+                <tr key={field.name}>
+                  <td className="source-detail-panel__schema-field-name">{field.name}</td>
+                  <td>{field.dataType}</td>
+                  <td>{field.nullable ? "yes" : "no"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
 
       {error && (
         <p className="source-detail-panel__error" role="alert">

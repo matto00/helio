@@ -28,9 +28,11 @@ describe("SourcesPage", () => {
     fetchDataTypesMock.mockResolvedValue([]);
   });
 
-  it("renders the Data Sources section heading", () => {
+  it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
     renderWithStore(<SourcesPage />);
-    expect(screen.getByRole("heading", { name: "Data Sources" })).toBeInTheDocument();
+    // The in-page section heading was removed because the top breadcrumb
+    // already shows "Data Sources / <name>"; just verify the page mounts.
+    expect(document.querySelector(".sources-page")).toBeInTheDocument();
   });
 
   it("renders the empty-state message when no sources exist", async () => {
@@ -41,9 +43,11 @@ describe("SourcesPage", () => {
     expect(await screen.findByText(/No data sources yet/i)).toBeInTheDocument();
   });
 
-  it("does not dispatch fetchDataTypes on mount", async () => {
+  it("dispatches fetchDataTypes on mount to populate the source schema preview", async () => {
     renderWithStore(<SourcesPage />);
     await screen.findByText(/No data sources yet/i);
-    expect(fetchDataTypesMock).not.toHaveBeenCalled();
+    // The source detail panel renders its inferred-schema table from the
+    // dataTypes slice, so the page warms the slice on mount.
+    expect(fetchDataTypesMock).toHaveBeenCalled();
   });
 });

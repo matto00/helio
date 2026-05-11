@@ -55,10 +55,10 @@ describe("PipelinesPage", () => {
     });
   });
 
-  it("renders the Data Pipelines section heading", () => {
+  it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
     getPipelinesMock.mockResolvedValueOnce([]);
     renderWithStore(<PipelinesPage />);
-    expect(screen.getByRole("heading", { name: "Data Pipelines" })).toBeInTheDocument();
+    expect(document.querySelector(".pipelines-page")).toBeInTheDocument();
   });
 
   it("shows empty state with Create pipeline button when no pipelines exist", async () => {

@@ -3,6 +3,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   getPipelines,
   createPipeline as createPipelineRequest,
+  deletePipeline as deletePipelineRequest,
   runPipeline,
   fetchRunHistory,
   getPipelineById,
@@ -119,6 +120,18 @@ export const updatePipeline = createAsyncThunk<
     return rejectWithValue("Failed to update pipeline.");
   }
 });
+
+export const deletePipeline = createAsyncThunk<string, string, { rejectValue: string }>(
+  "pipelines/deletePipeline",
+  async (id, { rejectWithValue }) => {
+    try {
+      await deletePipelineRequest(id);
+      return id;
+    } catch {
+      return rejectWithValue("Failed to delete pipeline.");
+    }
+  },
+);
 
 export const submitPipelineRun = createAsyncThunk<
   { rowCount: number; rows: Record<string, unknown>[] },
@@ -256,6 +269,13 @@ const pipelinesSlice = createSlice({
       .addCase(updatePipeline.rejected, (state, action) => {
         state.updateStatus = "failed";
         state.updateError = action.payload ?? "Failed to update pipeline.";
+      })
+      // deletePipeline
+      .addCase(deletePipeline.fulfilled, (state, action) => {
+        state.items = state.items.filter((p) => p.id !== action.payload);
+        if (state.currentPipeline?.id === action.payload) {
+          state.currentPipeline = null;
+        }
       })
       // createPipeline
       .addCase(createPipeline.pending, (state) => {
