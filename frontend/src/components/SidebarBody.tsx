@@ -6,7 +6,11 @@ import {
   fetchDataTypes,
   setSelectedTypeId,
 } from "../features/dataTypes/dataTypesSlice";
-import { deletePipeline, fetchPipelines } from "../features/pipelines/pipelinesSlice";
+import {
+  deletePipeline,
+  fetchPipelines,
+  setCreatePipelineModalOpen,
+} from "../features/pipelines/pipelinesSlice";
 import {
   deleteSource,
   fetchSources,
@@ -83,6 +87,8 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         toHref={(item) => `/pipelines/${item.id}`}
         activeId={routeId ?? null}
         emptyText="No pipelines yet"
+        onAdd={() => dispatch(setCreatePipelineModalOpen(true))}
+        addLabel="Create pipeline"
         onDelete={async (item) => {
           await dispatch(deletePipeline(item.id));
           if (routeId === item.id) navigate("/pipelines");

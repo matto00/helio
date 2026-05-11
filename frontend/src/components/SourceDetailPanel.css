@@ -108,17 +108,24 @@
   color: var(--app-text-muted);
 }
 
-.source-detail-panel__schema {
+.source-detail-panel__schema,
+.source-detail-panel__preview {
   margin-top: 12px;
 }
 
-.source-detail-panel__schema-title {
+.source-detail-panel__section-title {
   margin: 0 0 6px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--app-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.source-detail-panel__preview-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
 }
 
 .source-detail-panel__schema-table {

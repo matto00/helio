@@ -40,6 +40,33 @@
   cursor: not-allowed;
 }
 
+.type-detail-panel__section-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.type-detail-panel__preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.type-detail-panel__preview-header .type-detail-panel__section-title {
+  margin: 0;
+}
+
+.type-detail-panel__preview-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
 .type-detail-panel__header-actions {
   display: inline-flex;
   align-items: center;

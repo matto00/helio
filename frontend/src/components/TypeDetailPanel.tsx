@@ -84,88 +84,69 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
             setName(e.target.value);
           }}
         />
-        <div className="type-detail-panel__header-actions">
-          <button
-            type="button"
-            className="type-detail-panel__preview-btn"
-            onClick={() => void handlePreview()}
-            disabled={previewLoading}
-          >
-            {previewLoading ? "Loading…" : "Preview"}
-          </button>
-        </div>
       </div>
 
-      {previewError && (
-        <p className="type-detail-panel__error" role="alert">
-          {previewError}
-        </p>
-      )}
-      {previewRows !== null && (
-        <PreviewTable
-          rows={previewRows}
-          emptyText="No rows have been written to this type yet. Run a pipeline that writes to this type to populate it."
-        />
-      )}
-
       <form onSubmit={(e) => void handleSave(e)}>
-        <table className="type-detail-panel__table" aria-label={`Fields for ${dataType.name}`}>
-          <thead>
-            <tr>
-              <th>Field name</th>
-              <th>Display name</th>
-              <th>Data type</th>
-              <th>Nullable</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((field, index) => (
-              <tr key={field.name}>
-                <td className="type-detail-panel__field-name">{field.name}</td>
-                <td>
-                  <input
-                    type="text"
-                    className="type-detail-panel__cell-input"
-                    aria-label={`Display name for ${field.name}`}
-                    value={field.displayName}
-                    onChange={(e) => handleFieldChange(index, "displayName", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <select
-                    className="type-detail-panel__cell-select"
-                    aria-label={`Data type for ${field.name}`}
-                    value={field.dataType}
-                    onChange={(e) => handleFieldChange(index, "dataType", e.target.value)}
-                  >
-                    <option value="string">string</option>
-                    <option value="integer">integer</option>
-                    <option value="float">float</option>
-                    <option value="boolean">boolean</option>
-                    <option value="timestamp">timestamp</option>
-                  </select>
-                </td>
-                <td className="type-detail-panel__nullable-cell">
-                  <input
-                    type="checkbox"
-                    aria-label={`Nullable for ${field.name}`}
-                    checked={field.nullable}
-                    onChange={(e) => handleFieldChange(index, "nullable", e.target.checked)}
-                  />
-                </td>
+        <section className="type-detail-panel__schema" aria-label="Schema">
+          <h4 className="type-detail-panel__section-title">Schema</h4>
+          <table className="type-detail-panel__table" aria-label={`Fields for ${dataType.name}`}>
+            <thead>
+              <tr>
+                <th>Field name</th>
+                <th>Display name</th>
+                <th>Data type</th>
+                <th>Nullable</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {fields.map((field, index) => (
+                <tr key={field.name}>
+                  <td className="type-detail-panel__field-name">{field.name}</td>
+                  <td>
+                    <input
+                      type="text"
+                      className="type-detail-panel__cell-input"
+                      aria-label={`Display name for ${field.name}`}
+                      value={field.displayName}
+                      onChange={(e) => handleFieldChange(index, "displayName", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="type-detail-panel__cell-select"
+                      aria-label={`Data type for ${field.name}`}
+                      value={field.dataType}
+                      onChange={(e) => handleFieldChange(index, "dataType", e.target.value)}
+                    >
+                      <option value="string">string</option>
+                      <option value="integer">integer</option>
+                      <option value="float">float</option>
+                      <option value="boolean">boolean</option>
+                      <option value="timestamp">timestamp</option>
+                    </select>
+                  </td>
+                  <td className="type-detail-panel__nullable-cell">
+                    <input
+                      type="checkbox"
+                      aria-label={`Nullable for ${field.name}`}
+                      checked={field.nullable}
+                      onChange={(e) => handleFieldChange(index, "nullable", e.target.checked)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-        <ComputedFieldsEditor
-          typeId={dataType.id}
-          computedFields={computedFields}
-          onChange={(cfs) => {
-            setSaved(false);
-            setComputedFields(cfs);
-          }}
-        />
+          <ComputedFieldsEditor
+            typeId={dataType.id}
+            computedFields={computedFields}
+            onChange={(cfs) => {
+              setSaved(false);
+              setComputedFields(cfs);
+            }}
+          />
+        </section>
 
         {error && (
           <p className="type-detail-panel__error" role="alert">
@@ -184,6 +165,35 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
           </button>
         </div>
       </form>
+
+      <section className="type-detail-panel__preview" aria-label="Preview">
+        <div className="type-detail-panel__preview-header">
+          <h4 className="type-detail-panel__section-title">Preview</h4>
+          <button
+            type="button"
+            className="type-detail-panel__preview-btn"
+            onClick={() => void handlePreview()}
+            disabled={previewLoading}
+          >
+            {previewLoading ? "Loading…" : "Preview"}
+          </button>
+        </div>
+        {previewError && (
+          <p className="type-detail-panel__error" role="alert">
+            {previewError}
+          </p>
+        )}
+        {previewRows !== null ? (
+          <PreviewTable
+            rows={previewRows}
+            emptyText="No rows have been written to this type yet. Run a pipeline that writes to this type to populate it."
+          />
+        ) : (
+          <p className="type-detail-panel__preview-empty">
+            Click <strong>Preview</strong> to load the latest snapshot of this data type.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
 
       {relatedType !== undefined && relatedType.fields.length > 0 ? (
         <section className="source-detail-panel__schema" aria-label="Inferred schema">
-          <h4 className="source-detail-panel__schema-title">Schema</h4>
+          <h4 className="source-detail-panel__section-title">Schema</h4>
           <table className="source-detail-panel__schema-table">
             <thead>
               <tr>
@@ -102,19 +102,25 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
         </section>
       ) : null}
 
-      {error && (
-        <p className="source-detail-panel__error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {previewRows !== null && (
-        <PreviewTable
-          rows={previewRows}
-          headers={previewHeaders}
-          emptyText="Source returned no rows."
-        />
-      )}
+      <section className="source-detail-panel__preview" aria-label="Preview">
+        <h4 className="source-detail-panel__section-title">Preview</h4>
+        {error && (
+          <p className="source-detail-panel__error" role="alert">
+            {error}
+          </p>
+        )}
+        {previewRows !== null ? (
+          <PreviewTable
+            rows={previewRows}
+            headers={previewHeaders}
+            emptyText="Source returned no rows."
+          />
+        ) : (
+          <p className="source-detail-panel__preview-empty">
+            Click <strong>Preview</strong> to load a sample of this source.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

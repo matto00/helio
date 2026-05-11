@@ -247,18 +247,26 @@
   min-width: 0;
 }
 
-/* Reveal the per-row actions menu (vertical ellipsis) only on row hover so
- * sidebar lists stay visually quiet. The trigger stays focusable via keyboard
- * (it becomes visible on focus-within too). */
-.dashboard-list__item-row .actions-menu__trigger {
-  opacity: 0;
-  transition: opacity var(--app-transition);
+/* The per-row actions menu (vertical ellipsis) lives at the right end of the
+ * row, vertically centred. It's removed from layout flow when not active so
+ * the item button can grow to fill the full row width — only revealed on row
+ * hover, focus, or while the menu itself is open. */
+.dashboard-list__item-row {
+  position: relative;
 }
 
-.dashboard-list__item-row:hover .actions-menu__trigger,
-.dashboard-list__item-row:focus-within .actions-menu__trigger,
-.dashboard-list__item-row .actions-menu__trigger[aria-expanded="true"] {
-  opacity: 1;
+.dashboard-list__item-row .popover.actions-menu {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+}
+
+.dashboard-list__item-row:hover .popover.actions-menu,
+.dashboard-list__item-row:focus-within .popover.actions-menu,
+.dashboard-list__item-row:has(.actions-menu__trigger[aria-expanded="true"]) .popover.actions-menu {
+  display: block;
 }
 
 .dashboard-list__delete-confirm-row {

@@ -47,6 +47,9 @@ interface PipelinesState {
   analyzeResult: Record<string, PipelineAnalyzeResponse>;
   analyzeStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
   analyzeError: Record<string, string | null>;
+  /** Open/closed state for CreatePipelineModal — controlled from the sidebar's
+   * + button so the page itself doesn't need to own modal state. */
+  createModalOpen: boolean;
 }
 
 const initialState: PipelinesState = {
@@ -72,6 +75,7 @@ const initialState: PipelinesState = {
   analyzeResult: {},
   analyzeStatus: {},
   analyzeError: {},
+  createModalOpen: false,
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -193,6 +197,9 @@ const pipelinesSlice = createSlice({
       state.runError = null;
       state.runIsDry = null;
       state.runResult = null;
+    },
+    setCreatePipelineModalOpen(state, action: { payload: boolean }) {
+      state.createModalOpen = action.payload;
     },
     setRunStatus(
       state,
@@ -332,6 +339,6 @@ const pipelinesSlice = createSlice({
   },
 });
 
-export const { clearRunState, setRunStatus } = pipelinesSlice.actions;
+export const { clearRunState, setRunStatus, setCreatePipelineModalOpen } = pipelinesSlice.actions;
 export type { PipelinesState };
 export const pipelinesReducer = pipelinesSlice.reducer;
