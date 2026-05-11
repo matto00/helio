@@ -33,14 +33,17 @@ describe("SourcesPage", () => {
     expect(screen.getByRole("heading", { name: "Data Sources" })).toBeInTheDocument();
   });
 
-  it("renders Add source button", () => {
+  it("renders the empty-state message when no sources exist", async () => {
+    // The Add button moved to the sidebar (SidebarItemList's onAdd "+"). The
+    // page itself now only renders the detail panel for the selected source
+    // OR an empty-state nudge pointing the user at the sidebar.
     renderWithStore(<SourcesPage />);
-    expect(screen.getByRole("button", { name: "Add source" })).toBeInTheDocument();
+    expect(await screen.findByText(/No data sources yet/i)).toBeInTheDocument();
   });
 
   it("does not dispatch fetchDataTypes on mount", async () => {
     renderWithStore(<SourcesPage />);
-    await screen.findByRole("button", { name: "Add source" });
+    await screen.findByText(/No data sources yet/i);
     expect(fetchDataTypesMock).not.toHaveBeenCalled();
   });
 });

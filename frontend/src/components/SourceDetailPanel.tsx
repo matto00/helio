@@ -7,6 +7,7 @@ import { PreviewTable } from "./PreviewTable";
 
 interface SourceDetailPanelProps {
   source: DataSource;
+  onDelete?: () => void;
 }
 
 function labelForSourceType(sourceType: string): string {
@@ -17,11 +18,12 @@ function labelForSourceType(sourceType: string): string {
   return sourceType;
 }
 
-export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
+export function SourceDetailPanel({ source, onDelete }: SourceDetailPanelProps) {
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewHeaders, setPreviewHeaders] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   async function handlePreview() {
     setIsLoading(true);
@@ -66,14 +68,47 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
           <h3 className="source-detail-panel__name">{source.name}</h3>
           <span className="source-detail-panel__type">{labelForSourceType(source.sourceType)}</span>
         </div>
-        <button
-          type="button"
-          className="source-detail-panel__preview-btn"
-          onClick={() => void handlePreview()}
-          disabled={isLoading}
-        >
-          {isLoading ? "Loading…" : "Preview"}
-        </button>
+        <div className="source-detail-panel__header-actions">
+          <button
+            type="button"
+            className="source-detail-panel__preview-btn"
+            onClick={() => void handlePreview()}
+            disabled={isLoading}
+          >
+            {isLoading ? "Loading…" : "Preview"}
+          </button>
+          {onDelete !== undefined ? (
+            confirmingDelete ? (
+              <>
+                <button
+                  type="button"
+                  className="source-detail-panel__delete-confirm-btn"
+                  onClick={() => {
+                    onDelete();
+                    setConfirmingDelete(false);
+                  }}
+                >
+                  Confirm delete
+                </button>
+                <button
+                  type="button"
+                  className="source-detail-panel__delete-cancel-btn"
+                  onClick={() => setConfirmingDelete(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="source-detail-panel__delete-btn"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete
+              </button>
+            )
+          ) : null}
+        </div>
       </div>
 
       {error && (

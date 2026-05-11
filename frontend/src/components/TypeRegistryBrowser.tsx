@@ -1,26 +1,25 @@
 import { useState } from "react";
 
 import "./TypeRegistryBrowser.css";
-import { deleteDataType } from "../features/dataTypes/dataTypesSlice";
+import { deleteDataType, setSelectedTypeId } from "../features/dataTypes/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import type { DataType } from "../types/models";
 import { TypeDetailPanel } from "./TypeDetailPanel";
 
 export function TypeRegistryBrowser() {
   const dispatch = useAppDispatch();
-  const { items } = useAppSelector((state) => state.dataTypes);
-  // Tracks the explicit user selection; null means "fall back to first item".
-  // We derive the effective selection rather than syncing via useEffect to
-  // avoid cascading renders and the set-state-in-effect lint rule.
-  const [explicitSelectedTypeId, setExplicitSelectedTypeId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const { items, selectedTypeId } = useAppSelector((state) => state.dataTypes);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  // Derive the effective selection from the sidebar (Redux) — explicit user
+  // choice wins, otherwise fall back to the first item so the panel is never
+  // blank. Type selection is now driven entirely by the sidebar to match the
+  // dashboards pattern; the inline list is gone.
   const selectedType: DataType | null =
-    items.find((dt) => dt.id === explicitSelectedTypeId) ?? items[0] ?? null;
-  const selectedTypeId = selectedType?.id ?? null;
+    items.find((dt) => dt.id === selectedTypeId) ?? items[0] ?? null;
 
-  if (items.length === 0) {
+  if (selectedType === null) {
     return (
       <div className="type-registry-browser__empty-state">
         <p className="type-registry-browser__empty-message">
@@ -30,90 +29,36 @@ export function TypeRegistryBrowser() {
     );
   }
 
-  async function handleDeleteConfirm(id: string) {
+  async function handleDelete(id: string) {
     setDeleteError(null);
     const result = await dispatch(deleteDataType(id));
     if (deleteDataType.rejected.match(result)) {
       setDeleteError(
         result.payload ?? "One or more panels are bound to this type. Unbind them before deleting.",
       );
-    } else {
-      if (selectedTypeId === id) setExplicitSelectedTypeId(null);
+    } else if (selectedTypeId === id) {
+      // After deleting the selected type, clear the explicit selection so the
+      // page falls back to the next first item.
+      dispatch(setSelectedTypeId(null));
     }
-    setConfirmDeleteId(null);
+    setConfirmingDelete(false);
   }
 
   return (
-    <div className="type-registry-browser">
-      <div>
-        {deleteError && (
-          <p className="type-registry-browser__delete-error" role="alert">
-            {deleteError}
-          </p>
-        )}
-        <ul className="type-registry-browser__list" aria-label="Data types">
-          {items.map((dt: DataType) => (
-            <li
-              key={dt.id}
-              className={
-                dt.id === selectedTypeId
-                  ? "type-registry-browser__item type-registry-browser__item--selected"
-                  : "type-registry-browser__item"
-              }
-            >
-              <div className="type-registry-browser__item-row">
-                <button
-                  type="button"
-                  className="type-registry-browser__item-btn"
-                  aria-pressed={dt.id === selectedTypeId}
-                  onClick={() => setExplicitSelectedTypeId(dt.id)}
-                >
-                  <span className="type-registry-browser__item-name">{dt.name}</span>
-                  <span className="type-registry-browser__item-count">
-                    {dt.fields.length} field{dt.fields.length !== 1 ? "s" : ""}
-                  </span>
-                </button>
-                {confirmDeleteId === dt.id ? (
-                  <div className="type-registry-browser__item-confirm">
-                    <span className="type-registry-browser__confirm-text">Delete?</span>
-                    <button
-                      type="button"
-                      className="type-registry-browser__confirm-btn type-registry-browser__confirm-btn--danger"
-                      aria-label={`Confirm delete ${dt.name}`}
-                      onClick={() => void handleDeleteConfirm(dt.id)}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      className="type-registry-browser__confirm-btn"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="type-registry-browser__delete-btn"
-                    aria-label={`Delete ${dt.name}`}
-                    onClick={() => {
-                      setDeleteError(null);
-                      setConfirmDeleteId(dt.id);
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {selectedType && (
-        <TypeDetailPanel dataType={selectedType} onClose={() => setExplicitSelectedTypeId(null)} />
+    <div className="type-registry-browser type-registry-browser--single">
+      {deleteError && (
+        <p className="type-registry-browser__delete-error" role="alert">
+          {deleteError}
+        </p>
       )}
+      <TypeDetailPanel
+        dataType={selectedType}
+        onClose={() => dispatch(setSelectedTypeId(null))}
+        confirmingDelete={confirmingDelete}
+        onDeleteRequest={() => setConfirmingDelete(true)}
+        onDeleteConfirm={() => void handleDelete(selectedType.id)}
+        onDeleteCancel={() => setConfirmingDelete(false)}
+      />
     </div>
   );
 }

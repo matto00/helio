@@ -42,31 +42,29 @@ describe("TypeRegistryPage", () => {
     );
   });
 
-  it("clicking a DataType sets selection without toggling it off on re-click", async () => {
+  it("auto-selects the first type and renders the detail panel when types load", async () => {
+    // Selection is now driven by the sidebar (Redux state); the page derives
+    // the effective type as "explicit selection OR first item" so the detail
+    // panel is never blank.
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     renderWithStore(<TypeRegistryPage />);
-    const typeBtn = await screen.findByRole("button", { name: "Metrics 1 field" });
-
-    fireEvent.click(typeBtn);
-    await waitFor(() => expect(typeBtn).toHaveAttribute("aria-pressed", "true"));
-
-    fireEvent.click(typeBtn);
-    expect(typeBtn).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Data type name" })).toHaveValue("Metrics"),
+    );
   });
 
-  it("shows delete confirm button when delete is clicked for a DataType", async () => {
+  it("shows delete confirm/cancel buttons in the detail panel when Delete is clicked", async () => {
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     renderWithStore(<TypeRegistryPage />);
-    const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
+    const deleteBtn = await screen.findByRole("button", { name: "Delete" });
     fireEvent.click(deleteBtn);
-    expect(
-      await screen.findByRole("button", { name: "Confirm delete Metrics" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
-  it("shows cancel button in DataType delete confirm and does not call API on cancel", async () => {
+  it("cancel restores the Delete button without calling the API", async () => {
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     const { deleteDataType: deleteDataTypeMock } = jest.requireMock(
@@ -77,15 +75,10 @@ describe("TypeRegistryPage", () => {
     deleteDataTypeMock.mockReset();
 
     renderWithStore(<TypeRegistryPage />);
-    const deleteBtn = await screen.findByRole("button", { name: "Delete Metrics" });
-    fireEvent.click(deleteBtn);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
-    const cancelBtn = await screen.findByRole("button", { name: "No" });
-    fireEvent.click(cancelBtn);
-
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete Metrics" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(deleteDataTypeMock).not.toHaveBeenCalled();
   });
 });

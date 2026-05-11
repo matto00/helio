@@ -40,6 +40,49 @@
   cursor: not-allowed;
 }
 
+.type-detail-panel__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.type-detail-panel__delete-btn,
+.type-detail-panel__delete-confirm-btn,
+.type-detail-panel__delete-cancel-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.type-detail-panel__delete-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-danger, #e53e3e);
+}
+
+.type-detail-panel__delete-btn:hover {
+  background: rgba(229, 62, 62, 0.08);
+  border-color: var(--app-danger, #e53e3e);
+}
+
+.type-detail-panel__delete-confirm-btn {
+  border: 1px solid var(--app-danger, #e53e3e);
+  background: var(--app-danger, #e53e3e);
+  color: white;
+}
+
+.type-detail-panel__delete-cancel-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
 .type-detail-panel__title {
   margin: 0;
   font-size: 1rem;

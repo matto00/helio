@@ -26,12 +26,20 @@ interface SourcesState {
   items: DataSource[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  /** Explicit user selection in the sidebar. Null means "fall back to first
+   * item" — the page derives the effective selection so it's never blank. */
+  selectedSourceId: string | null;
+  /** Open/closed state for the AddSourceModal, dispatched from the sidebar so
+   * the + button there can open the modal without prop-drilling. */
+  addModalOpen: boolean;
 }
 
 const initialState: SourcesState = {
   items: [],
   status: "idle",
   error: null,
+  selectedSourceId: null,
+  addModalOpen: false,
 };
 
 export const fetchSources = createAsyncThunk<DataSource[], void, { rejectValue: string }>(
@@ -115,7 +123,14 @@ export const createStaticSource = createAsyncThunk<
 const sourcesSlice = createSlice({
   name: "sources",
   initialState,
-  reducers: {},
+  reducers: {
+    setSelectedSourceId(state, action: { payload: string | null }) {
+      state.selectedSourceId = action.payload;
+    },
+    setAddSourceModalOpen(state, action: { payload: boolean }) {
+      state.addModalOpen = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchSources.pending, (state) => {
@@ -147,4 +162,5 @@ const sourcesSlice = createSlice({
   },
 });
 
+export const { setSelectedSourceId, setAddSourceModalOpen } = sourcesSlice.actions;
 export const sourcesReducer = sourcesSlice.reducer;

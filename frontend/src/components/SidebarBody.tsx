@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { useLocation, useParams } from "react-router-dom";
 
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes, setSelectedTypeId } from "../features/dataTypes/dataTypesSlice";
 import { fetchPipelines } from "../features/pipelines/pipelinesSlice";
-import { fetchSources } from "../features/sources/sourcesSlice";
+import {
+  fetchSources,
+  setAddSourceModalOpen,
+  setSelectedSourceId,
+} from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { DashboardList } from "./DashboardList";
 import { SidebarItemList } from "./SidebarItemList";
@@ -38,14 +42,21 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   }, [section, dispatch, sources.status, pipelines.status, dataTypes.status]);
 
   if (section === "sources") {
+    // Drive the page's selection via Redux so the sidebar acts as the source
+    // list (mirroring the dashboards pattern). Fall back to the first item
+    // when no explicit selection — the page renders the resolved selection.
+    const effectiveSourceId = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
     return (
       <SidebarItemList
         heading="Data Sources"
         items={sources.items}
         status={sources.status}
         error={sources.error}
-        toHref={() => "/sources"}
+        onSelect={(item) => dispatch(setSelectedSourceId(item.id))}
+        activeId={effectiveSourceId}
         emptyText="No data sources yet"
+        onAdd={() => dispatch(setAddSourceModalOpen(true))}
+        addLabel="Add data source"
       />
     );
   }
@@ -65,13 +76,15 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   }
 
   if (section === "registry") {
+    const effectiveTypeId = dataTypes.selectedTypeId ?? dataTypes.items[0]?.id ?? null;
     return (
       <SidebarItemList
         heading="Type Registry"
         items={dataTypes.items}
         status={dataTypes.status}
         error={dataTypes.error}
-        toHref={() => "/registry"}
+        onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
+        activeId={effectiveTypeId}
         emptyText="No data types yet"
       />
     );

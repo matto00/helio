@@ -13,13 +13,20 @@ interface SidebarItemListProps {
   items: SidebarItem[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string | null;
-  /** Build the route to navigate to for a given item. */
-  toHref: (item: SidebarItem) => string;
-  /** Optional id of the currently-active item — surfaces the active-dot affordance. */
+  /** Build the route to navigate to for a given item. Provide this OR `onSelect`,
+   * not both — `onSelect` takes precedence when both are set. */
+  toHref?: (item: SidebarItem) => string;
+  /** Dispatch a local selection (e.g. Redux setSelectedSourceId) instead of
+   * navigating to a route. Renders item rows as buttons so the URL stays put. */
+  onSelect?: (item: SidebarItem) => void;
+  /** Id of the currently-active item — drives the highlight and active-dot. */
   activeId?: string | null;
   /** Optional placeholder when the list is empty and not loading. */
   emptyText?: string;
-  filterLabel?: string;
+  /** If provided, renders a "+" button in the header that triggers onAdd. */
+  onAdd?: () => void;
+  /** Accessible label for the "+" button (defaults to "Add <heading>"). */
+  addLabel?: string;
 }
 
 export function SidebarItemList({
@@ -28,8 +35,11 @@ export function SidebarItemList({
   status,
   error,
   toHref,
+  onSelect,
   activeId,
   emptyText,
+  onAdd,
+  addLabel,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const normalizedQuery = filterQuery.toLowerCase().trim();
@@ -42,6 +52,18 @@ export function SidebarItemList({
     <section className="dashboard-list" aria-label={heading.toLowerCase()}>
       <header className="dashboard-list__header">
         <h2>{heading}</h2>
+        {onAdd !== undefined ? (
+          <div className="dashboard-list__header-actions">
+            <button
+              type="button"
+              className="dashboard-list__add"
+              aria-label={addLabel ?? `Add ${heading.toLowerCase().replace(/s$/, "")}`}
+              onClick={onAdd}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        ) : null}
       </header>
       <div className="dashboard-list__filter">
         <div className="dashboard-list__filter-wrapper">
@@ -82,25 +104,44 @@ export function SidebarItemList({
         <ul className="dashboard-list__items">
           {filtered.map((item) => {
             const isActive = item.id === activeId;
+            const className = isActive
+              ? "dashboard-list__button dashboard-list__button--active"
+              : "dashboard-list__button";
+            const activeLabel = heading.toLowerCase().replace(/s$/, "");
             return (
               <li key={item.id} className="dashboard-list__item">
-                <NavLink
-                  to={toHref(item)}
-                  className={({ isActive: routeActive }) =>
-                    routeActive || isActive
-                      ? "dashboard-list__button dashboard-list__button--active"
-                      : "dashboard-list__button"
-                  }
-                  end
-                >
-                  <span className="dashboard-list__name">{item.name}</span>
-                  {isActive ? (
-                    <span
-                      className="dashboard-list__active-dot"
-                      aria-label={`Active ${heading.toLowerCase().replace(/s$/, "")}`}
-                    />
-                  ) : null}
-                </NavLink>
+                {onSelect !== undefined ? (
+                  <button
+                    type="button"
+                    className={className}
+                    aria-pressed={isActive}
+                    onClick={() => onSelect(item)}
+                  >
+                    <span className="dashboard-list__name">{item.name}</span>
+                    {isActive ? (
+                      <span
+                        className="dashboard-list__active-dot"
+                        aria-label={`Active ${activeLabel}`}
+                      />
+                    ) : null}
+                  </button>
+                ) : toHref !== undefined ? (
+                  <NavLink
+                    to={toHref(item)}
+                    className={({ isActive: routeActive }) =>
+                      routeActive || isActive ? className : "dashboard-list__button"
+                    }
+                    end
+                  >
+                    <span className="dashboard-list__name">{item.name}</span>
+                    {isActive ? (
+                      <span
+                        className="dashboard-list__active-dot"
+                        aria-label={`Active ${activeLabel}`}
+                      />
+                    ) : null}
+                  </NavLink>
+                ) : null}
               </li>
             );
           })}
