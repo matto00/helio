@@ -33,3 +33,6 @@ frontend/skills-lock.json
 # Leftover screenshot artifacts from E2E test sessions
 *.png
 !docs/*.png
+
+# Local demo/test artifacts (occasionally created by playwright sessions, etc.)
+docs/demo/
