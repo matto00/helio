@@ -462,9 +462,10 @@ describe("PanelCreationModal — type-specific config fields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    const selector = screen.getByLabelText("Chart type");
+    const selector = screen.getByRole("combobox", { name: "Chart type" });
     expect(selector).toBeInTheDocument();
-    // Selector offers Line, Bar, Pie options
+    // Open the custom Select to reveal options in the portal listbox
+    fireEvent.click(selector);
     expect(screen.getByRole("option", { name: "Line" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Bar" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pie" })).toBeInTheDocument();
@@ -489,8 +490,9 @@ describe("PanelCreationModal — type-specific config fields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Divider" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
-    const selector = screen.getByLabelText("Orientation");
+    const selector = screen.getByRole("combobox", { name: "Orientation" });
     expect(selector).toBeInTheDocument();
+    fireEvent.click(selector);
     expect(screen.getByRole("option", { name: "Horizontal" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Vertical" })).toBeInTheDocument();
   });
@@ -506,9 +508,9 @@ describe("PanelCreationModal — type-specific config fields", () => {
 
     expect(screen.queryByLabelText("Value label")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Chart type")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Chart type" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Image URL")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Orientation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Orientation" })).not.toBeInTheDocument();
   });
 
   // 4.6 — typeConfig values are included in the creation payload on submit

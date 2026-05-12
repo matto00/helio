@@ -7,6 +7,7 @@ import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/models";
 import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
 import { PreviewTable } from "./PreviewTable";
+import { Select, TextField } from "./ui";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
@@ -110,27 +111,26 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
                 <tr key={field.name}>
                   <td className="type-detail-panel__field-name">{field.name}</td>
                   <td>
-                    <input
+                    <TextField
                       type="text"
-                      className="type-detail-panel__cell-input"
                       aria-label={`Display name for ${field.name}`}
                       value={field.displayName}
                       onChange={(e) => handleFieldChange(index, "displayName", e.target.value)}
                     />
                   </td>
                   <td>
-                    <select
-                      className="type-detail-panel__cell-select"
-                      aria-label={`Data type for ${field.name}`}
+                    <Select
+                      ariaLabel={`Data type for ${field.name}`}
                       value={field.dataType}
-                      onChange={(e) => handleFieldChange(index, "dataType", e.target.value)}
-                    >
-                      <option value="string">string</option>
-                      <option value="integer">integer</option>
-                      <option value="float">float</option>
-                      <option value="boolean">boolean</option>
-                      <option value="timestamp">timestamp</option>
-                    </select>
+                      onChange={(v) => handleFieldChange(index, "dataType", v)}
+                      options={[
+                        { value: "string", label: "string" },
+                        { value: "integer", label: "integer" },
+                        { value: "float", label: "float" },
+                        { value: "boolean", label: "boolean" },
+                        { value: "timestamp", label: "timestamp" },
+                      ]}
+                    />
                   </td>
                   <td className="type-detail-panel__nullable-cell">
                     <input

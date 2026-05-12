@@ -19,6 +19,7 @@ import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
 import { EmptyState } from "./ui/EmptyState";
+import { TextField } from "./ui/TextField";
 
 interface DashboardListProps {
   onCollapse?: () => void;
@@ -173,7 +174,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           Filter dashboards
         </label>
         <div className="dashboard-list__filter-wrapper">
-          <input
+          <TextField
             id="dashboard-filter-input"
             className="dashboard-list__filter-input"
             type="text"
@@ -199,7 +200,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           <label className="dashboard-list__create-label" htmlFor="dashboard-create-name">
             Dashboard name
           </label>
-          <input
+          <TextField
             id="dashboard-create-name"
             className="dashboard-list__create-input"
             type="text"

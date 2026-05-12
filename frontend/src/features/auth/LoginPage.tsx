@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
+import { TextField } from "../../components/ui";
 import { API_BASE_URL } from "../../config/env";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { login } from "./authSlice";
@@ -42,7 +43,7 @@ export function LoginPage() {
         <form onSubmit={(e) => void handleSubmit(e)} noValidate>
           <div className="auth-field">
             <label htmlFor="email">Email</label>
-            <input
+            <TextField
               id="email"
               type="email"
               autoComplete="email"
@@ -54,7 +55,7 @@ export function LoginPage() {
 
           <div className="auth-field">
             <label htmlFor="password">Password</label>
-            <input
+            <TextField
               id="password"
               type="password"
               autoComplete="current-password"
