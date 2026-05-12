@@ -17,7 +17,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const { items: dataSources, status: sourcesStatus } = useAppSelector((state) => state.sources);
+  const { items: dataSources } = useAppSelector((state) => state.sources);
 
   const [name, setName] = useState("");
   const [sourceDataSourceId, setSourceDataSourceId] = useState("");
@@ -28,11 +28,11 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Always refetch on mount — modal is opened infrequently and the list must
+  // include sources added since the last navigation to /sources.
   useEffect(() => {
-    if (sourcesStatus === "idle") {
-      void dispatch(fetchSources());
-    }
-  }, [dispatch, sourcesStatus]);
+    void dispatch(fetchSources());
+  }, [dispatch]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

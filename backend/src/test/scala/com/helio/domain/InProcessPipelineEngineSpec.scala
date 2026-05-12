@@ -1,6 +1,6 @@
 package com.helio.domain
 
-import com.helio.infrastructure.{DataSourceRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem, PipelineStepRepository}
 import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +13,10 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
-  private val engine = new InProcessPipelineEngine()
+  // LocalFileSystem with absolute baseDir; LocalFileSystem.resolve passes absolute
+  // paths through unchanged, so tests can write CSVs to tmp and reference by absolute path.
+  private val fileSystem = new LocalFileSystem(java.nio.file.Paths.get("/"))
+  private val engine = new InProcessPipelineEngine(fileSystem)
 
   private def makeStep(op: String, config: String): PipelineStepRow =
     PipelineStepRow("step-id", "pipe-id", 0, op, config, Instant.now(), Instant.now())

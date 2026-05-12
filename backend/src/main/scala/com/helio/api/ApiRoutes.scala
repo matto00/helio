@@ -126,14 +126,18 @@ final class ApiRoutes(
                 },
                 new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
                 new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser,
-                  dataSourceRepo, new com.helio.spark.PanelQueryExecutor(sparkJobSubmitter)).routes,
+                  dataSourceRepo,
+                  new com.helio.domain.InProcessPanelQueryEngine(
+                    new com.helio.domain.InProcessPipelineEngine(fileSystem)(system.executionContext)
+                  )(system.executionContext)
+                ).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
                 new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
                 new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
-                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes,
+                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, fileSystem, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes,
                 new PanelExecuteRoutes(panelRepo, dataTypeRepo, dataSourceRepo, aclDirective, authenticatedUser).routes
               )
             }

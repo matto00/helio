@@ -7,7 +7,6 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
-import com.helio.spark.PanelQueryExecutor
 
 import java.time.Instant
 import java.util.UUID
@@ -22,7 +21,7 @@ final class PanelRoutes(
     aclDirective: AclDirective,
     user: AuthenticatedUser,
     dataSourceRepo: DataSourceRepository = null,
-    panelQueryExecutor: PanelQueryExecutor = null
+    panelQueryExecutor: PanelQueryEngine = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
