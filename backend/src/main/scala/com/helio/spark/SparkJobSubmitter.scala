@@ -116,7 +116,17 @@ class SparkJobSubmitter(
       )
 
     case SourceType.Csv =>
-      val filePath = ds.config.asJsObject.fields("filePath").convertTo[String]
+      // CSV sources store their path under the "path" key (set by the CSV upload
+      // route in DataSourceRoutes). Accept "filePath" as a legacy fallback.
+      val cfgFields = ds.config.asJsObject.fields
+      val pathOpt = cfgFields.get("path").orElse(cfgFields.get("filePath")).collect {
+        case JsString(p) => p
+      }
+      val filePath = pathOpt.getOrElse(
+        throw new IllegalArgumentException(
+          s"CSV data source '${ds.name}' (id=${ds.id.value}) is missing required config key 'path'"
+        )
+      )
       spark.read
         .option("header", "true")
         .option("inferSchema", "true")
