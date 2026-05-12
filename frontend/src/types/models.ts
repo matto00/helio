@@ -285,14 +285,6 @@ export interface UpdateUserPreferenceRequest {
 
 // ── Panel query pagination types ─────────────────────────────────────────────
 
-export interface PaginatedQueryResult {
-  rows: Record<string, unknown>[];
-  columns: string[];
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-
 export interface PanelPaginationState {
   currentPage: number;
   hasMore: boolean;
