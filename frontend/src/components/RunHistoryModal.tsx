@@ -1,15 +1,8 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import "./RunHistoryModal.css";
 import type { PipelineRunRecord } from "../types/models";
-
-interface RunHistoryModalProps {
-  runs: PipelineRunRecord[];
-  onClose: () => void;
-}
+import { Modal } from "./ui/Modal";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -70,45 +63,27 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
   );
 }
 
+interface RunHistoryModalProps {
+  runs: PipelineRunRecord[];
+  onClose: () => void;
+}
+
 export function RunHistoryModal({ runs, onClose }: RunHistoryModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
-  function handleClose() {
-    dialogRef.current?.close();
-    onClose();
-  }
-
   return (
-    <dialog
-      ref={dialogRef}
-      className="run-history-modal"
-      aria-label="Run history"
+    <Modal
+      open
+      title={`Run history (${runs.length})`}
+      size="lg"
+      ariaLabel="Run history"
       onClose={onClose}
     >
-      <div className="run-history-modal__inner">
-        <header className="run-history-modal__header">
-          <h2 className="run-history-modal__title">Run history ({runs.length})</h2>
-          <button
-            type="button"
-            className="run-history-modal__close"
-            aria-label="Close run history"
-            onClick={handleClose}
-          >
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
-        </header>
-        <div className="run-history-modal__body">
-          {runs.length === 0 ? (
-            <p className="run-history-modal__empty">No runs recorded yet.</p>
-          ) : (
-            runs.map((run) => <RunRow key={run.id} run={run} />)
-          )}
-        </div>
+      <div className="run-history-modal__list">
+        {runs.length === 0 ? (
+          <p className="run-history-modal__empty">No runs recorded yet.</p>
+        ) : (
+          runs.map((run) => <RunRow key={run.id} run={run} />)
+        )}
       </div>
-    </dialog>
+    </Modal>
   );
 }

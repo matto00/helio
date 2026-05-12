@@ -45,6 +45,12 @@ function renderModal(onClose = jest.fn()) {
   });
 }
 
+/** Helper: open the custom Select for "Data source" and pick an option by label. */
+function selectDataSource(label: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
+  fireEvent.click(screen.getByRole("option", { name: label }));
+}
+
 describe("CreatePipelineModal", () => {
   beforeEach(() => {
     createPipelineMock.mockReset();
@@ -63,9 +69,9 @@ describe("CreatePipelineModal", () => {
     expect(screen.getByLabelText("Pipeline name")).toBeInTheDocument();
   });
 
-  it("renders the data source select", () => {
+  it("renders the data source select trigger", () => {
     renderModal();
-    expect(screen.getByLabelText("Data source")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Data source" })).toBeInTheDocument();
   });
 
   it("renders the output type name input", () => {
@@ -73,8 +79,9 @@ describe("CreatePipelineModal", () => {
     expect(screen.getByLabelText("Output type name")).toBeInTheDocument();
   });
 
-  it("populates the data source select with available sources", () => {
+  it("populates the data source select with available sources when opened", () => {
     renderModal();
+    fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
     expect(screen.getByRole("option", { name: "Sales API" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "ERP DB" })).toBeInTheDocument();
   });
@@ -98,7 +105,7 @@ describe("CreatePipelineModal", () => {
   it("shows inline error when output type name is empty on submit", async () => {
     renderModal();
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    fireEvent.change(screen.getByLabelText("Data source"), { target: { value: "ds-1" } });
+    selectDataSource("Sales API");
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
     await waitFor(() =>
       expect(screen.getByText("Output type name is required.")).toBeInTheDocument(),
@@ -116,7 +123,7 @@ describe("CreatePipelineModal", () => {
     renderModal();
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    fireEvent.change(screen.getByLabelText("Data source"), { target: { value: "ds-1" } });
+    selectDataSource("Sales API");
     fireEvent.change(screen.getByLabelText("Output type name"), {
       target: { value: "SalesData" },
     });
@@ -137,7 +144,7 @@ describe("CreatePipelineModal", () => {
     renderModal(onClose);
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    fireEvent.change(screen.getByLabelText("Data source"), { target: { value: "ds-1" } });
+    selectDataSource("Sales API");
     fireEvent.change(screen.getByLabelText("Output type name"), {
       target: { value: "SalesData" },
     });
@@ -151,7 +158,7 @@ describe("CreatePipelineModal", () => {
     renderModal();
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    fireEvent.change(screen.getByLabelText("Data source"), { target: { value: "ds-1" } });
+    selectDataSource("Sales API");
     fireEvent.change(screen.getByLabelText("Output type name"), {
       target: { value: "SalesData" },
     });
