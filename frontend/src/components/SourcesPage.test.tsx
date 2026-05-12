@@ -36,16 +36,14 @@ describe("SourcesPage", () => {
   });
 
   it("renders the empty-state message when no sources exist", async () => {
-    // The Add button moved to the sidebar (SidebarItemList's onAdd "+"). The
-    // page itself now only renders the detail panel for the selected source
-    // OR an empty-state nudge pointing the user at the sidebar.
+    // The page renders an EmptyState when no sources are connected.
     renderWithStore(<SourcesPage />);
-    expect(await screen.findByText(/No data sources yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Connect a data source/i)).toBeInTheDocument();
   });
 
   it("dispatches fetchDataTypes on mount to populate the source schema preview", async () => {
     renderWithStore(<SourcesPage />);
-    await screen.findByText(/No data sources yet/i);
+    await screen.findByText(/Connect a data source/i);
     // The source detail panel renders its inferred-schema table from the
     // dataTypes slice, so the page warms the slice on mount.
     expect(fetchDataTypesMock).toHaveBeenCalled();

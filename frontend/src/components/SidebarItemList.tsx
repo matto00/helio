@@ -1,11 +1,13 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import "./DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
+import { EmptyState } from "./ui/EmptyState";
 
 interface SidebarItem {
   id: string;
@@ -27,6 +29,10 @@ interface SidebarItemListProps {
   activeId?: string | null;
   /** Optional placeholder when the list is empty and not loading. */
   emptyText?: string;
+  /** FontAwesome icon to show in the sidebar empty-state hero. */
+  emptyIcon?: IconDefinition;
+  /** Secondary description shown below the title in the sidebar empty-state. */
+  emptyDescription?: string;
   /** If provided, renders a "+" button in the header that triggers onAdd. */
   onAdd?: () => void;
   /** Accessible label for the "+" button (defaults to "Add <heading>"). */
@@ -46,6 +52,8 @@ export function SidebarItemList({
   onSelect,
   activeId,
   emptyText,
+  emptyIcon,
+  emptyDescription,
   onAdd,
   addLabel,
   onDelete,
@@ -57,6 +65,33 @@ export function SidebarItemList({
     normalizedQuery.length === 0
       ? items
       : items.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+
+  function renderEmpty() {
+    if (normalizedQuery.length > 0) {
+      return <p className="dashboard-list__status">No matches</p>;
+    }
+    if (emptyIcon !== undefined) {
+      return (
+        <EmptyState
+          variant="sidebar"
+          icon={emptyIcon}
+          title={emptyText ?? `No ${heading.toLowerCase()} yet`}
+          description={emptyDescription ?? ""}
+          cta={
+            onAdd !== undefined
+              ? {
+                  label: addLabel ?? `Add ${heading.toLowerCase().replace(/s$/, "")}`,
+                  onClick: onAdd,
+                }
+              : undefined
+          }
+        />
+      );
+    }
+    return (
+      <p className="dashboard-list__status">{emptyText ?? `No ${heading.toLowerCase()} yet`}</p>
+    );
+  }
 
   return (
     <section className="dashboard-list" aria-label={heading.toLowerCase()}>
@@ -105,11 +140,7 @@ export function SidebarItemList({
           {error}
         </p>
       ) : filtered.length === 0 ? (
-        <p className="dashboard-list__status">
-          {normalizedQuery.length > 0
-            ? "No matches"
-            : (emptyText ?? `No ${heading.toLowerCase()} yet`)}
-        </p>
+        renderEmpty()
       ) : (
         <ul className="dashboard-list__items">
           {filtered.map((item) => {

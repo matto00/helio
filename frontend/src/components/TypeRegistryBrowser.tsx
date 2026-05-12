@@ -1,7 +1,9 @@
 import "./TypeRegistryBrowser.css";
+import { faLayerGroup } from "@fortawesome/free-solid-svg-icons";
 import { useAppSelector } from "../hooks/reduxHooks";
 import type { DataType } from "../types/models";
 import { TypeDetailPanel } from "./TypeDetailPanel";
+import { EmptyState } from "./ui/EmptyState";
 
 export function TypeRegistryBrowser() {
   const { items, selectedTypeId } = useAppSelector((state) => state.dataTypes);
@@ -15,11 +17,12 @@ export function TypeRegistryBrowser() {
 
   if (selectedType === null) {
     return (
-      <div className="type-registry-browser__empty-state">
-        <p className="type-registry-browser__empty-message">
-          No data types yet. Add a data source to create types automatically.
-        </p>
-      </div>
+      <EmptyState
+        variant="main"
+        icon={faLayerGroup}
+        title="No types defined"
+        description="Types describe the shape of your data so panels can bind to it. Connect a data source or run a pipeline — types are generated automatically from their output."
+      />
     );
   }
 
