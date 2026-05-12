@@ -30,7 +30,19 @@ class InProcessPipelineEngine()(implicit ec: ExecutionContext) extends DefaultJs
           }.toMap
         }
       case SourceType.Csv =>
-        val filePath = ds.config.asJsObject.fields("filePath").convertTo[String]
+        // CSV sources store their path under the "path" key (set by the CSV upload
+        // route in DataSourceRoutes). An older draft used "filePath" — accept either
+        // as a fallback so any legacy seeded configs still load.
+        val cfgFields = ds.config.asJsObject.fields
+        val pathOpt = cfgFields.get("path").orElse(cfgFields.get("filePath")).collect {
+          case JsString(p) => p
+        }
+        val filePath = pathOpt.getOrElse(
+          throw new IllegalArgumentException(
+            "CSV data source '" + ds.name + "' (id=" + ds.id.value +
+              ") is missing required config key 'path'"
+          )
+        )
         loadCsvRows(filePath)
       case other =>
         throw new IllegalArgumentException(

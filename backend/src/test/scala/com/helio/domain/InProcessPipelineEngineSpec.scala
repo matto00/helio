@@ -623,6 +623,76 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val ex   = intercept[Exception](Await.result(fut, 5.seconds))
       ex.getMessage should include ("Unknown step op: bogus")
     }
+
+    // Regression: HEL-237 — CSV configs are persisted under the "path" key by
+    // DataSourceRoutes; the engine previously read "filePath", causing every
+    // CSV pipeline run to fail with `key not found: filePath` (HTTP 422).
+    "loadRows: CSV source reads filePath from the canonical 'path' config key" in {
+      val tmp = java.io.File.createTempFile("helio-csv-regression-", ".csv")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try {
+        writer.println("name,age")
+        writer.println("alice,30")
+        writer.println("bob,25")
+      } finally writer.close()
+
+      val ds = DataSource(
+        id         = DataSourceId("ds-csv-1"),
+        name       = "csv-src",
+        sourceType = SourceType.Csv,
+        config     = JsObject("path" -> JsString(tmp.getAbsolutePath)),
+        createdAt  = Instant.now(),
+        updatedAt  = Instant.now(),
+        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      )
+      val rows = Await.result(engine.loadRows(ds), 5.seconds)
+      rows should have size 2
+      rows.head("name") shouldBe "alice"
+      rows.head("age")  shouldBe "30"
+    }
+
+    "loadRows: CSV source accepts legacy 'filePath' config key" in {
+      val tmp = java.io.File.createTempFile("helio-csv-legacy-", ".csv")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try {
+        writer.println("x")
+        writer.println("1")
+      } finally writer.close()
+
+      val ds = DataSource(
+        id         = DataSourceId("ds-csv-legacy"),
+        name       = "csv-legacy",
+        sourceType = SourceType.Csv,
+        config     = JsObject("filePath" -> JsString(tmp.getAbsolutePath)),
+        createdAt  = Instant.now(),
+        updatedAt  = Instant.now(),
+        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      )
+      val rows = Await.result(engine.loadRows(ds), 5.seconds)
+      rows should have size 1
+      rows.head("x") shouldBe "1"
+    }
+
+    "loadRows: CSV source with no path config raises a diagnostic error (no 'key not found')" in {
+      val ds = DataSource(
+        id         = DataSourceId("ds-csv-bad"),
+        name       = "broken-csv",
+        sourceType = SourceType.Csv,
+        config     = JsObject(),
+        createdAt  = Instant.now(),
+        updatedAt  = Instant.now(),
+        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds), 5.seconds)
+      )
+      ex.getMessage                 should include ("broken-csv")
+      ex.getMessage                 should include ("path")
+      // Critically, it must NOT bubble up the raw Map lookup message.
+      ex.getMessage                 should not include "key not found"
+    }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
