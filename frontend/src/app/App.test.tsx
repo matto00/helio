@@ -444,7 +444,7 @@ describe("App", () => {
     fireEvent.click(pipelinesLink);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument(),
     );
   });
 

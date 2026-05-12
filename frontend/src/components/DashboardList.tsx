@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faXmark, faTableColumns, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
@@ -18,6 +18,7 @@ import type { DashboardSnapshot } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
+import { EmptyState } from "./ui/EmptyState";
 
 interface DashboardListProps {
   onCollapse?: () => void;
@@ -234,6 +235,26 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
         status={status}
         message={status === "loading" ? "Loading dashboards..." : (error ?? undefined)}
       />
+      {status !== "loading" && !error && visibleItems.length === 0 && !isCreateMode ? (
+        normalizedQuery.length > 0 ? (
+          <p className="dashboard-list__status">No matches</p>
+        ) : (
+          <EmptyState
+            variant="sidebar"
+            icon={faTableColumns}
+            title="No dashboards yet"
+            description="Create your first dashboard to start visualizing data."
+            cta={{
+              label: "New dashboard",
+              icon: faPlus,
+              onClick: () => {
+                setIsCreateMode(true);
+                setCreateError(null);
+              },
+            }}
+          />
+        )
+      ) : null}
       <ul className="dashboard-list__items">
         {visibleItems.map((dashboard) => {
           const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);

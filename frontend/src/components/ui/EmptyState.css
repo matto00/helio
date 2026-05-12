@@ -1,0 +1,133 @@
+/* ── EmptyState primitive ──────────────────────────────────────────────────── */
+
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* ── Main variant: full hero centred in the content pane ── */
+
+.ui-empty-state--main {
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-10) var(--space-7);
+  min-height: 320px;
+}
+
+.ui-empty-state--main .ui-empty-state__icon-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--app-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+  box-shadow:
+    0 0 32px color-mix(in srgb, var(--app-accent) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--app-accent) 18%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-empty-state--main .ui-empty-state__icon {
+  font-size: 2rem;
+  color: color-mix(in srgb, var(--app-accent) 80%, var(--app-text));
+}
+
+.ui-empty-state--main .ui-empty-state__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--app-text);
+  letter-spacing: -0.01em;
+}
+
+.ui-empty-state--main .ui-empty-state__description {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+/* ── Sidebar variant: compact, fits inside a narrow panel ── */
+
+.ui-empty-state--sidebar {
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+}
+
+.ui-empty-state--sidebar .ui-empty-state__icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--app-radius-md);
+  border: 1px solid color-mix(in srgb, var(--app-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--app-accent) 7%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--app-accent) 10%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-empty-state--sidebar .ui-empty-state__icon {
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--app-accent) 75%, var(--app-text));
+}
+
+.ui-empty-state--sidebar .ui-empty-state__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.ui-empty-state--sidebar .ui-empty-state__description {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.55;
+}
+
+/* ── CTA button — shared across variants ── */
+
+.ui-empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 45%, transparent);
+  border-radius: var(--app-radius-sm);
+  background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+  color: var(--app-accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-empty-state__cta:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 65%, transparent);
+  background: color-mix(in srgb, var(--app-accent) 16%, transparent);
+  color: var(--app-accent-strong);
+}
+
+.ui-empty-state__cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--app-accent-surface);
+}
+
+/* Sidebar CTA is slightly smaller */
+.ui-empty-state--sidebar .ui-empty-state__cta {
+  font-size: var(--text-xs);
+  padding: 5px 10px;
+}
+
+.ui-empty-state__cta-icon {
+  font-size: 0.8em;
+}

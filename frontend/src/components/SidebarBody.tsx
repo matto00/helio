@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
+import { faDatabase, faLayerGroup, faCodeBranch } from "@fortawesome/free-solid-svg-icons";
+
 import {
   deleteDataType,
   fetchDataTypes,
@@ -64,9 +66,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         error={sources.error}
         onSelect={(item) => dispatch(setSelectedSourceId(item.id))}
         activeId={effectiveSourceId}
-        emptyText="No data sources yet"
+        emptyText="Connect a data source"
+        emptyIcon={faDatabase}
+        emptyDescription="Pull in data from PostgreSQL, MySQL, CSV, or static input."
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
-        addLabel="Add data source"
+        addLabel="Add source"
         onDelete={async (item) => {
           await dispatch(deleteSource(item.id));
           if (sources.selectedSourceId === item.id) {
@@ -86,9 +90,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         error={pipelines.error}
         toHref={(item) => `/pipelines/${item.id}`}
         activeId={routeId ?? null}
-        emptyText="No pipelines yet"
+        emptyText="Build your first pipeline"
+        emptyIcon={faCodeBranch}
+        emptyDescription="Pipelines transform raw source data into typed rows you can chart."
         onAdd={() => dispatch(setCreatePipelineModalOpen(true))}
-        addLabel="Create pipeline"
+        addLabel="New pipeline"
         onDelete={async (item) => {
           await dispatch(deletePipeline(item.id));
           if (routeId === item.id) navigate("/pipelines");
@@ -107,7 +113,9 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         error={dataTypes.error}
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
         activeId={effectiveTypeId}
-        emptyText="No data types yet"
+        emptyText="No types defined"
+        emptyIcon={faLayerGroup}
+        emptyDescription="Types describe the shape of your data. Pipelines auto-generate types from their inputs."
         onDelete={async (item) => {
           await dispatch(deleteDataType(item.id));
           if (dataTypes.selectedTypeId === item.id) {
