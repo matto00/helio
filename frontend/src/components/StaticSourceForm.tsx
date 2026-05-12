@@ -4,6 +4,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { type FormEvent, useState } from "react";
 
 import type { StaticColumn, StaticColumnType } from "../types/models";
+import { Select, TextField } from "./ui";
 
 const COLUMN_TYPES: StaticColumnType[] = ["string", "integer", "float", "boolean"];
 
@@ -118,9 +119,8 @@ export function StaticSourceForm({
             {columns.map((col, index) => (
               <tr key={index}>
                 <td>
-                  <input
+                  <TextField
                     type="text"
-                    className="add-source-modal__cell-input"
                     aria-label={`Column ${index + 1} name`}
                     value={col.name}
                     onChange={(e) => updateColumn(index, "name", e.target.value)}
@@ -128,18 +128,12 @@ export function StaticSourceForm({
                   />
                 </td>
                 <td>
-                  <select
-                    className="add-source-modal__cell-select"
-                    aria-label={`Column ${index + 1} type`}
+                  <Select
+                    ariaLabel={`Column ${index + 1} type`}
                     value={col.type}
-                    onChange={(e) => updateColumn(index, "type", e.target.value)}
-                  >
-                    {COLUMN_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => updateColumn(index, "type", v)}
+                    options={COLUMN_TYPES.map((t) => ({ value: t, label: t }))}
+                  />
                 </td>
                 <td>
                   <button
@@ -222,9 +216,8 @@ export function StaticSourceForm({
               <tr key={ri}>
                 {row.map((cell, ci) => (
                   <td key={ci}>
-                    <input
-                      type={columns[ci]?.type === "boolean" ? "text" : "text"}
-                      className="add-source-modal__cell-input"
+                    <TextField
+                      type="text"
                       aria-label={`Row ${ri + 1} ${columns[ci]?.name ?? ""}`}
                       value={cell}
                       onChange={(e) => updateCell(ri, ci, e.target.value)}

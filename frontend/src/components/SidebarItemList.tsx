@@ -8,6 +8,7 @@ import { NavLink } from "react-router-dom";
 import "./DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
 import { EmptyState } from "./ui/EmptyState";
+import { TextField } from "./ui/TextField";
 
 interface SidebarItem {
   id: string;
@@ -112,7 +113,7 @@ export function SidebarItemList({
       </header>
       <div className="dashboard-list__filter">
         <div className="dashboard-list__filter-wrapper">
-          <input
+          <TextField
             id={`sidebar-filter-${heading}`}
             className="dashboard-list__filter-input"
             type="text"
