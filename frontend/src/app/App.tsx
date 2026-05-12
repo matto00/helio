@@ -11,7 +11,12 @@ import {
 } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowRotateLeft, faArrowRotateRight } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowRotateLeft,
+  faArrowRotateRight,
+  faSun,
+  faMoon,
+} from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
@@ -231,6 +236,15 @@ function AppShell() {
               </>
             )}
             {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+            <button
+              type="button"
+              className="topbar-theme-btn"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+            </button>
             {authStatus === "authenticated" && currentUser !== null && (
               <UserMenu
                 currentUser={currentUser}
