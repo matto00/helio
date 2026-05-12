@@ -1,0 +1,156 @@
+/* ── Toast system ────────────────────────────────────────────────────────── */
+
+/* Semantic intent tokens — not present in theme.css, added here. */
+:root {
+  --app-success: #22c55e;
+  --app-warning: #f59e0b;
+  --app-error: #ef4444;
+  --app-info: var(--app-accent);
+}
+
+/* Viewport: fixed stack in the bottom-right corner */
+.toast-viewport {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 340px;
+  max-width: calc(100vw - var(--space-7));
+  /* Pointer events off so clicks pass through the gap between toasts */
+  pointer-events: none;
+}
+
+/* Individual toast card */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--toast-intent-color) 30%, transparent);
+  border-left: 3px solid var(--toast-intent-color);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  color: var(--app-text);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  pointer-events: auto;
+
+  /* Slide-in from the right */
+  animation: toast-slide-in var(--app-transition) both;
+}
+
+.toast--exiting {
+  animation: toast-fade-out 0.2s ease forwards;
+}
+
+/* Variant intent colors */
+.toast--info {
+  --toast-intent-color: var(--app-info);
+}
+
+.toast--success {
+  --toast-intent-color: var(--app-success);
+}
+
+.toast--warning {
+  --toast-intent-color: var(--app-warning);
+}
+
+.toast--error {
+  --toast-intent-color: var(--app-error);
+}
+
+/* Icon column */
+.toast__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--toast-intent-color);
+  font-size: 0.875rem;
+}
+
+/* Text body */
+.toast__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.toast__message {
+  margin: 0;
+}
+
+/* Optional action button */
+.toast__action {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--toast-intent-color);
+  font-size: 0.775rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity var(--app-transition);
+}
+
+.toast__action:hover {
+  opacity: 0.8;
+}
+
+/* Close button */
+.toast__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: -2px -4px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: none;
+  color: var(--app-text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition:
+    color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.toast__close:hover {
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-text) 10%, transparent);
+}
+
+/* Animations */
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}

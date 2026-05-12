@@ -12,6 +12,7 @@ import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
+import { toastsReducer } from "../features/toasts/toastsSlice";
 import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
@@ -90,6 +91,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
     dataTypes: dataTypesReducer,
     pipelines: pipelinesReducer,
     sources: sourcesReducer,
+    toasts: toastsReducer,
   };
 
   const normalizedState = preloadedState

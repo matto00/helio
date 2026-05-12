@@ -50,6 +50,7 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
+import { ToastViewport } from "../components/ui/Toast";
 
 function breadcrumbLabel(pathname: string): string {
   if (pathname === "/") return "Dashboards";
@@ -313,29 +314,32 @@ export function App() {
   }, [dispatch]);
 
   return (
-    <Routes>
-      {/* Public-only routes (redirect to / when already authenticated) */}
-      <Route element={<PublicOnlyRoute />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-      </Route>
-
-      {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
-      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
-
-      {/* Protected routes (redirect to /login when unauthenticated) */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<PanelList />} />
-          <Route path="/sources" element={<SourcesPage />} />
-          <Route path="/pipelines" element={<PipelinesPage />} />
-          <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
-          <Route path="/registry" element={<TypeRegistryPage />} />
+    <>
+      <ToastViewport />
+      <Routes>
+        {/* Public-only routes (redirect to / when already authenticated) */}
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
         </Route>
-      </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+        {/* Protected routes (redirect to /login when unauthenticated) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<PanelList />} />
+            <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/pipelines" element={<PipelinesPage />} />
+            <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+            <Route path="/registry" element={<TypeRegistryPage />} />
+          </Route>
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

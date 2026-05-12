@@ -10,6 +10,7 @@ import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
+import { toastsReducer } from "../features/toasts/toastsSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
@@ -102,6 +103,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      toasts: toastsReducer,
     },
     preloadedState: {
       auth: authenticated
