@@ -301,7 +301,12 @@ final case class PipelineRunRecord(
 
 // ── Pipeline run result types ─────────────────────────────────────────────────
 
-final case class RunResultResponse(rows: Vector[spray.json.JsObject], rowCount: Int)
+final case class RunResultResponse(
+    rows: Vector[spray.json.JsObject],
+    rowCount: Int,
+    stepRowCounts: Map[String, Long] = Map.empty,
+    sourceRowCount: Long = 0L
+)
 
 // ── DataType row snapshot types ───────────────────────────────────────────────
 
@@ -793,7 +798,7 @@ trait JsonProtocols extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   // Pipeline run result format
-  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat2(RunResultResponse.apply)
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat4(RunResultResponse.apply)
   // DataType row snapshot format
   implicit val dataTypeRowsResponseFormat: RootJsonFormat[DataTypeRowsResponse] = jsonFormat2(DataTypeRowsResponse.apply)
 

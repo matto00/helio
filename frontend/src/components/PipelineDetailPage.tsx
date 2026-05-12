@@ -18,6 +18,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import { RunHistoryModal } from "./RunHistoryModal";
+import { PipelinePreviewModal } from "./PipelinePreviewModal";
 
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
@@ -87,7 +88,6 @@ interface Step {
   id: string;
   opType: OpType;
   label: string;
-  rowCount: number;
   config: string;
 }
 
@@ -98,7 +98,6 @@ function makeStep(opType: OpType): Step {
     id: `step-${stepCounter}`,
     opType,
     label: opType.label,
-    rowCount: Math.floor(Math.random() * 50000) + 1000,
     config: "",
   };
 }
@@ -109,7 +108,6 @@ function pipelineStepToStep(ps: PipelineStep): Step {
     id: ps.id,
     opType,
     label: opType.label,
-    rowCount: 0,
     config: ps.config,
   };
 }
@@ -321,6 +319,8 @@ interface StepCardProps {
   analyzeSchema: SchemaField[];
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: string) => void;
+  /** Output row count from the last run, if available. Null hides the chip. */
+  rowCount: number | null;
 }
 
 function StepCard({
@@ -330,6 +330,7 @@ function StepCard({
   analyzeColumns,
   analyzeSchema,
   onConfigChange,
+  rowCount,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -517,9 +518,11 @@ function StepCard({
           <FontAwesomeIcon icon={step.opType.icon} />
         </span>
         <span className="pipeline-detail-page__step-card-label">{step.label}</span>
-        <span className="pipeline-detail-page__step-card-count">
-          {step.rowCount.toLocaleString()} rows
-        </span>
+        {rowCount !== null && (
+          <span className="pipeline-detail-page__step-card-count">
+            {rowCount.toLocaleString()} rows
+          </span>
+        )}
         <span
           className={`pipeline-detail-page__step-card-chevron${expanded ? " pipeline-detail-page__step-card-chevron--open" : ""}`}
           aria-hidden="true"
@@ -737,6 +740,8 @@ export function PipelineDetailPage() {
     runHistory,
     runIsDry,
     runResult,
+    runStepRowCounts,
+    runSourceRowCount,
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
@@ -760,6 +765,7 @@ export function PipelineDetailPage() {
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
   // Inline discard-confirm state (replaces window.confirm on dirty cancel).
@@ -904,11 +910,7 @@ export function PipelineDetailPage() {
                         : "{}";
       const persisted = await createPipelineStep(id, opType.id, initialConfig);
       setSteps((prev) =>
-        prev.map((s) =>
-          s.id === tempStep.id
-            ? { ...pipelineStepToStep(persisted), rowCount: tempStep.rowCount }
-            : s,
-        ),
+        prev.map((s) => (s.id === tempStep.id ? pipelineStepToStep(persisted) : s)),
       );
     } catch {
       // Keep temp step if POST fails; PATCH calls will be no-ops until ID is real.
@@ -1047,6 +1049,7 @@ export function PipelineDetailPage() {
                     analyzeColumns={getAnalyzeColumns(step.id)}
                     analyzeSchema={getAnalyzeSchema(step.id)}
                     onConfigChange={handleStepConfigChange}
+                    rowCount={runStepRowCounts?.[step.id] ?? null}
                   />
                   {idx < steps.length - 1 && <RibbonSegment />}
                 </div>
@@ -1191,7 +1194,11 @@ export function PipelineDetailPage() {
           >
             <FontAwesomeIcon icon={faClockRotateLeft} /> Run history ({runs.length})
           </button>
-          <button type="button" className="pipeline-detail-page__preview-btn">
+          <button
+            type="button"
+            className="pipeline-detail-page__preview-btn"
+            onClick={() => setPreviewModalOpen(true)}
+          >
             Preview
           </button>
           <button
@@ -1216,6 +1223,20 @@ export function PipelineDetailPage() {
 
       {/* ── Run history modal (button lives in the footer) ── */}
       {historyOpen && <RunHistoryModal runs={runs} onClose={() => setHistoryOpen(false)} />}
+
+      {/* ── Pipeline output preview modal ── */}
+      {previewModalOpen && (
+        <PipelinePreviewModal
+          rows={runResult}
+          rowCount={
+            sseData?.rowCount !== null && sseData?.rowCount !== undefined
+              ? sseData.rowCount
+              : (runResult?.length ?? null)
+          }
+          isDry={runIsDry}
+          onClose={() => setPreviewModalOpen(false)}
+        />
+      )}
 
       {/* In-page back breadcrumb removed — the section breadcrumb in the top
        * command bar already shows "Data Pipelines / <pipeline name>". */}

@@ -67,16 +67,18 @@ export async function updatePipelineStep(stepId: string, config: string): Promis
   return response.data;
 }
 
-export async function runPipeline(
-  pipelineId: string,
-  dryRun?: boolean,
-): Promise<{ rowCount: number; rows: Record<string, unknown>[] }> {
+export interface RunResult {
+  rowCount: number;
+  rows: Record<string, unknown>[];
+  stepRowCounts: Record<string, number>;
+  sourceRowCount: number;
+}
+
+export async function runPipeline(pipelineId: string, dryRun?: boolean): Promise<RunResult> {
   const url = dryRun
     ? `/api/pipelines/${pipelineId}/run?dry=true`
     : `/api/pipelines/${pipelineId}/run`;
-  const response = await httpClient.post<{ rowCount: number; rows: Record<string, unknown>[] }>(
-    url,
-  );
+  const response = await httpClient.post<RunResult>(url);
   return response.data;
 }
 

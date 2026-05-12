@@ -14,9 +14,26 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
       steps: Seq[PipelineStepRepository.PipelineStepRow],
       dataSourceRepo: DataSourceRepository
   ): Future[Seq[Map[String, Any]]] =
-    steps.foldLeft(Future.successful(rows)) { (futRows, step) =>
-      futRows.flatMap(r => applyStep(r, step, dataSourceRepo))
+    executeWithStepCounts(rows, steps, dataSourceRepo).map(_._1)
+
+  /** Run the pipeline, returning both the final rows and the per-step output row
+   * counts. Counts are keyed by step id and reflect the row count after each
+   * step's transformation. */
+  def executeWithStepCounts(
+      rows: Seq[Map[String, Any]],
+      steps: Seq[PipelineStepRepository.PipelineStepRow],
+      dataSourceRepo: DataSourceRepository
+  ): Future[(Seq[Map[String, Any]], Map[String, Long])] = {
+    val initial: Future[(Seq[Map[String, Any]], Map[String, Long])] =
+      Future.successful((rows, Map.empty[String, Long]))
+    steps.foldLeft(initial) { (acc, step) =>
+      acc.flatMap { case (currentRows, counts) =>
+        applyStep(currentRows, step, dataSourceRepo).map { nextRows =>
+          (nextRows, counts.updated(step.id, nextRows.size.toLong))
+        }
+      }
     }
+  }
 
   def loadRows(ds: DataSource): Future[Seq[Map[String, Any]]] = ds.sourceType match {
     case SourceType.Static =>

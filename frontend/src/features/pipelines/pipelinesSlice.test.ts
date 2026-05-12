@@ -102,6 +102,8 @@ describe("pipelinesSlice", () => {
       updateStatus: "idle" as const,
       updateError: null,
       runResult: null,
+      runStepRowCounts: {},
+      runSourceRowCount: null,
       analyzeResult: {},
       analyzeStatus: {},
       analyzeError: {},
@@ -207,7 +209,11 @@ describe("submitPipelineRun reducer", () => {
     const rows = [{ col_a: 1, col_b: "x" }];
     const nextState = pipelinesReducer(
       undefined,
-      submitPipelineRun.fulfilled({ rowCount: 1, rows }, "req-1", { pipelineId: "p-1" }),
+      submitPipelineRun.fulfilled(
+        { rowCount: 1, rows, stepRowCounts: {}, sourceRowCount: 0 },
+        "req-1",
+        { pipelineId: "p-1" },
+      ),
     );
     expect(nextState.runId).toBeNull();
     expect(nextState.runStatus).toBe("succeeded");
@@ -237,7 +243,12 @@ describe("submitPipelineRun thunk", () => {
 
   it("dispatches fulfilled with rows on success", async () => {
     const rows = [{ col_a: 1, col_b: "x" }];
-    runPipelineMock.mockResolvedValueOnce({ rowCount: 1, rows });
+    runPipelineMock.mockResolvedValueOnce({
+      rowCount: 1,
+      rows,
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
 
     const dispatch = jest.fn();
     const getState = jest.fn();
@@ -250,7 +261,12 @@ describe("submitPipelineRun thunk", () => {
       ([action]) => action.type === "pipelines/submitPipelineRun/fulfilled",
     );
     expect(fulfilledCall).toBeDefined();
-    expect(fulfilledCall?.[0].payload).toEqual({ rowCount: 1, rows });
+    expect(fulfilledCall?.[0].payload).toEqual({
+      rowCount: 1,
+      rows,
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     expect(runPipelineMock).toHaveBeenCalledWith("p-1", undefined);
   });
 
@@ -272,7 +288,12 @@ describe("submitPipelineRun thunk", () => {
 
   it("dispatches POST with ?dry=true when dryRun: true is passed", async () => {
     const rows = [{ col_a: 1 }];
-    runPipelineMock.mockResolvedValueOnce({ rowCount: 1, rows });
+    runPipelineMock.mockResolvedValueOnce({
+      rowCount: 1,
+      rows,
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
 
     const dispatch = jest.fn();
     const getState = jest.fn();
@@ -287,7 +308,12 @@ describe("submitPipelineRun thunk", () => {
       ([action]) => action.type === "pipelines/submitPipelineRun/fulfilled",
     );
     expect(fulfilledCall).toBeDefined();
-    expect(fulfilledCall?.[0].payload).toEqual({ rowCount: 1, rows });
+    expect(fulfilledCall?.[0].payload).toEqual({
+      rowCount: 1,
+      rows,
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
   });
 });
 
