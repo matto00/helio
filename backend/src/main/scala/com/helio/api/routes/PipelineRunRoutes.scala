@@ -11,6 +11,7 @@ import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -80,7 +81,7 @@ class PipelineRunRoutes(
                               complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
                             case Success(steps) =>
-                              val runId   = java.util.UUID.randomUUID().toString
+                              val runId   = UUID.randomUUID().toString
                               val startAt = Instant.now()
 
                               // Publish queued event before pre-execution work.

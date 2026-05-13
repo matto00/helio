@@ -124,7 +124,7 @@ object DataTypeRepository {
       version: Int,
       createdAt: Instant,
       updatedAt: Instant,
-      ownerId: Option[java.util.UUID]
+      ownerId: Option[UUID]
   )
 
   class DataTypeTable(tag: Tag) extends Table[DataTypeRow](tag, "data_types") {
@@ -136,7 +136,7 @@ object DataTypeRepository {
     def version        = column[Int]("version")
     def createdAt      = column[Instant]("created_at")
     def updatedAt      = column[Instant]("updated_at")
-    def ownerId        = column[Option[java.util.UUID]]("owner_id")
+    def ownerId        = column[Option[UUID]]("owner_id")
 
     def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt, ownerId).mapTo[DataTypeRow]
   }

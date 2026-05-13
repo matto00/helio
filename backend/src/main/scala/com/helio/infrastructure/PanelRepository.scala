@@ -271,7 +271,7 @@ object PanelRepository {
       panelType: String,
       typeId: Option[String],
       fieldMapping: Option[String],
-      ownerId: java.util.UUID,
+      ownerId: UUID,
       content: Option[String],
       imageUrl: Option[String],
       imageFit: Option[String],
@@ -291,7 +291,7 @@ object PanelRepository {
     def panelType    = column[String]("type")
     def typeId       = column[Option[String]]("type_id")
     def fieldMapping = column[Option[String]]("field_mapping")
-    def ownerId      = column[java.util.UUID]("owner_id")
+    def ownerId      = column[UUID]("owner_id")
     def content      = column[Option[String]]("content")
     def imageUrl            = column[Option[String]]("image_url")
     def imageFit            = column[Option[String]]("image_fit")

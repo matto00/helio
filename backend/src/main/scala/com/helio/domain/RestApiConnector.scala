@@ -4,7 +4,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
-import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
+import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
 import org.apache.pekko.stream.Materializer
 import spray.json._
 
@@ -22,7 +22,7 @@ class RestApiConnector(
   private val poolSettings: ConnectionPoolSettings =
     ConnectionPoolSettings(system.classicSystem)
       .withConnectionSettings(
-        org.apache.pekko.http.scaladsl.settings.ClientConnectionSettings(system.classicSystem)
+        ClientConnectionSettings(system.classicSystem)
           .withConnectingTimeout(10.seconds)
           .withIdleTimeout(30.seconds)
       )
