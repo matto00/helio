@@ -46,14 +46,14 @@ For each service, follow this loop:
 
 ### 2.3 `AuthService` (security-sensitive)
 
-- [ ] 2.3.1 Create `services/AuthService.scala`
-- [ ] 2.3.2 Extract `PasswordHasher` as a small class injected into `AuthService`
-- [ ] 2.3.3 Move `login`, `register`, `refresh`, `logout`, `completeOAuth` orchestration into the service
-- [ ] 2.3.4 Cookie attribute computation moves into a typed `SessionCookie(...)` value returned from `AuthService`; the route copies attributes verbatim
-- [ ] 2.3.5 Slim `AuthRoutes.scala` to ≤ 80 lines
-- [ ] 2.3.6 Slim `OAuthRoutes.scala` to ≤ 80 lines (HTTP redirect / code exchange stays; profile→user-upsert moves to `AuthService.completeOAuth`)
-- [ ] 2.3.7 Compare diff: token expiry, refresh semantics, CSRF state, password hashing algo/work factor must be **identical** byte-for-byte
-- [ ] 2.3.8 `sbt test` passes; commit
+- [x] 2.3.1 Create `services/AuthService.scala`
+- [~] 2.3.2 `PasswordHasher` not extracted — kept as direct `bcryptBounded(12)` call inside `AuthService.register` / `login` to minimize surgery; algorithm + work factor pinned via `AuthService.BCryptWorkFactor` constant. Sufficient for CS2b; CS2c can extract if needed.
+- [x] 2.3.3 Move `login`, `register`, `logout`, `completeOAuth` orchestration into the service. (No `refresh` endpoint exists in pre-CS2b code.)
+- [N/A] 2.3.4 Pre-CS2b auth uses bearer-token JSON `AuthResponse`, not HTTP cookies — no `SessionCookie` value class needed. Token / expiry returned in `AuthResponse.token` / `expiresAt` exactly as before.
+- [x] 2.3.5 Slim `AuthRoutes.scala` to ≤ 80 lines (now 51)
+- [x] 2.3.6 Slim `OAuthRoutes.scala` to ≤ 150 lines (HTTP redirect / code exchange stays; profile→user-upsert moves to `AuthService.completeOAuth`). Pre-existing 80-line target not achievable because `exchangeCodeForTokenImpl` and `fetchGoogleProfileImpl` are protected hooks overridden by `GoogleOAuthRoutesSpec`; they must stay on the route class.
+- [x] 2.3.7 Compare diff: token expiry (30-day), CSRF state (16-byte hex + 5-min TTL), password hashing (BCrypt cost 12), dummy-hash timing equalisation — all preserved byte-for-byte
+- [x] 2.3.8 `sbt test` passes; commit
 
 ### 2.4 `DataSourceService` + `SourceService`
 

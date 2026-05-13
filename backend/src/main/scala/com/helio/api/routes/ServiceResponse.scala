@@ -46,6 +46,7 @@ object ServiceResponse extends JsonProtocols {
 
   private def completeError(e: ServiceError): Route = e match {
     case ServiceError.BadRequest(m)    => complete(StatusCodes.BadRequest, ErrorResponse(m))
+    case ServiceError.Unauthorized(m)  => complete(StatusCodes.Unauthorized, ErrorResponse(m))
     case ServiceError.NotFound(m)      => complete(StatusCodes.NotFound, ErrorResponse(m))
     case ServiceError.Forbidden(m)     => complete(StatusCodes.Forbidden, ErrorResponse(m))
     case ServiceError.Conflict(m)      => complete(StatusCodes.Conflict, ErrorResponse(m))

@@ -17,6 +17,7 @@ sealed trait ServiceError {
 
 object ServiceError {
   final case class BadRequest(message: String) extends ServiceError
+  final case class Unauthorized(message: String = "Invalid email or password") extends ServiceError
   final case class NotFound(message: String = "Not found") extends ServiceError
   final case class Forbidden(message: String = "Forbidden") extends ServiceError
   final case class Conflict(message: String) extends ServiceError

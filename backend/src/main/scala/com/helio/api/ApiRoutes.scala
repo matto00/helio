@@ -10,7 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
-import com.helio.services.{DashboardService, PanelService}
+import com.helio.services.{AuthService, DashboardService, PanelService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -54,13 +54,15 @@ final class ApiRoutes(
   private val aclDirective   = new AclDirective(permissionRepo, registry)
   private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
-  private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
-  private val oauth          = new OAuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
   // Services
   private val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
+  private val authService      = new AuthService(userRepo)
   private val dashboardService = new DashboardService(dashboardRepo)
   private val panelService     = new PanelService(panelRepo, dataTypeRepo, accessChecker)
+
+  private val auth  = new AuthRoutes(authService)
+  private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
 
   private val corsSettings = CorsSettings.defaultSettings
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
