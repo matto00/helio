@@ -9,6 +9,7 @@ import com.helio.infrastructure.UserRepository
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Security-critical service.
@@ -162,7 +163,7 @@ object AuthService {
   /** In-memory CSRF state store: state -> expiry (epochSecond). In production
    *  this would be a session cookie or distributed store; behaviour preserved
    *  from the pre-CS2b `AuthSupport.csrfStateStore`. */
-  private val csrfStateStore     = new java.util.concurrent.ConcurrentHashMap[String, Long]()
+  private val csrfStateStore     = new ConcurrentHashMap[String, Long]()
   private val CsrfStateTtlSeconds = 300L // 5 minutes — unchanged from pre-CS2b.
 
   /** Generate a 16-byte hex (32-char) CSRF state token and store its expiry. */

@@ -4,7 +4,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.Files
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 class LocalFileSystemSpec extends AnyWordSpec with BeforeAndAfterAll {
@@ -14,7 +14,7 @@ class LocalFileSystemSpec extends AnyWordSpec with BeforeAndAfterAll {
   private val tempDir = Files.createTempDirectory("helio-fs-test")
   private val fs      = new LocalFileSystem(tempDir)
 
-  private def await[A](f: scala.concurrent.Future[A]): A =
+  private def await[A](f: Future[A]): A =
     Await.result(f, 5.seconds)
 
   "LocalFileSystem" should {

@@ -7,6 +7,8 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
+import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
@@ -65,7 +67,7 @@ class DataSourceRoutesSpec
     super.afterAll()
   }
 
-  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 5.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
@@ -73,13 +75,13 @@ class DataSourceRoutesSpec
   }
 
   private val stubConnector: RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left("no real HTTP in tests"))))
+    new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
   private def successConnector(json: JsValue): RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Right(json))))
+    new RestApiConnector(Some(_ => Future.successful(Right(json))))
 
   private def errorConnector(msg: String): RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left(msg))))
+    new RestApiConnector(Some(_ => Future.successful(Left(msg))))
 
   private val testToken   = "ds-spec-test-token"
   private val testUserId  = "a0000000-0000-0000-0000-000000000001"
@@ -105,7 +107,7 @@ class DataSourceRoutesSpec
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
     }
   }
 
@@ -175,7 +177,7 @@ class DataSourceRoutesSpec
           "file",
           HttpEntity(
             ContentTypes.`text/plain(UTF-8)`,
-            org.apache.pekko.util.ByteString(Array.fill(1024)(0x41.toByte))
+            ByteString(Array.fill(1024)(0x41.toByte))
           )
         )
       )

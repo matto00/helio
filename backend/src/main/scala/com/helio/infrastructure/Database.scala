@@ -18,6 +18,6 @@ object Database {
       .load()
       .migrate()
 
-    slick.jdbc.JdbcBackend.Database.forConfig("helio.db", config)
+    JdbcBackend.Database.forConfig("helio.db", config)
   }
 }

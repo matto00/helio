@@ -9,7 +9,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
@@ -35,7 +35,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     db.close(); embeddedPostgres.close()
   }
 
-  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 10.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   private def seedPipeline(): String = {
     import PostgresProfile.api._

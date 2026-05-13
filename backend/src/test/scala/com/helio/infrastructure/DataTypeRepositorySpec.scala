@@ -11,7 +11,7 @@ import spray.json.JsObject
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
@@ -43,7 +43,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     embeddedPostgres.close()
   }
 
-  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 5.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._

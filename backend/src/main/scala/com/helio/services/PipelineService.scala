@@ -14,6 +14,7 @@ import com.helio.api.protocols.{
 import com.helio.domain.{AuthenticatedUser, PipelineAnalyzeService, PipelineId, SchemaField}
 import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
+import org.postgresql.util.PSQLException
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -187,7 +188,7 @@ object PipelineService {
   /** Classify a DB exception into the appropriate ServiceError variant.
    *  Mirrors `PipelineStepRoutes.classifyDbError` exactly. */
   private[services] def classifyDbError(ex: Throwable): ServiceError = ex match {
-    case e: org.postgresql.util.PSQLException =>
+    case e: PSQLException =>
       val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
       if (msg.contains("violates foreign key constraint"))
         ServiceError.NotFound(msg)

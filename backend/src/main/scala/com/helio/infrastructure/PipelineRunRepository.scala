@@ -1,12 +1,13 @@
 package com.helio.infrastructure
 
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
-class PipelineRunRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import PipelineRunRepository._
 

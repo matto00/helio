@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -11,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * Overwrite semantics: every successful non-dry run atomically replaces the
  * entire snapshot for a given DataType via a transactional DELETE + bulk INSERT.
  */
-class DataTypeRowRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class DataTypeRowRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   /**
    * Atomically replace the snapshot for `dataTypeId` with `rows`.

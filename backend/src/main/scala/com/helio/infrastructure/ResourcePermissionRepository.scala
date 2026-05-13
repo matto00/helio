@@ -1,13 +1,14 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class ResourcePermissionRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class ResourcePermissionRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import ResourcePermissionRepository._
 

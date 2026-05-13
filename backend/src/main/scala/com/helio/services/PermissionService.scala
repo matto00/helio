@@ -3,6 +3,7 @@ package com.helio.services
 import com.helio.api.protocols.GrantPermissionRequest
 import com.helio.domain._
 import com.helio.infrastructure.ResourcePermissionRepository
+import org.postgresql.util.PSQLException
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +44,7 @@ final class PermissionService(
             permissionRepo.insert(permission)
               .map(created => Right(created))
               .recover {
-                case _: org.postgresql.util.PSQLException => Left(ServiceError.Conflict("Permission already exists"))
+                case _: PSQLException => Left(ServiceError.Conflict("Permission already exists"))
               }
         }
     }

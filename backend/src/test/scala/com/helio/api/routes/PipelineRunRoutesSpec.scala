@@ -11,6 +11,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -131,7 +132,7 @@ class PipelineRunRoutesSpec
     override def submit(
         pipeline: Pipeline,
         dataSource: DataSource,
-        steps: Seq[com.helio.infrastructure.PipelineStepRepository.PipelineStepRow],
+        steps: Seq[PipelineStepRow],
         cache: PipelineRunCache
     ): Future[String] = {
       val runId = java.util.UUID.randomUUID().toString
@@ -475,7 +476,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
       }
-      val dt = await(dtRepo.findById(com.helio.domain.DataTypeId(dtId))).get
+      val dt = await(dtRepo.findById(DataTypeId(dtId))).get
       val fieldMap = dt.fields.map(f => f.name -> f.dataType).toMap
       fieldMap("count") shouldBe "integer"
       fieldMap("rate")  shouldBe "double"

@@ -15,6 +15,8 @@ import com.helio.services.{AuthService, DashboardService, DataSourceService, Dat
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 final class ApiRoutes(
@@ -112,7 +114,7 @@ final class ApiRoutes(
                     patch {
                       entity(as[UpdateUserPreferenceRequest]) { req =>
                         val userId = authenticatedUser.id
-                        val futures = scala.collection.mutable.ListBuffer[scala.concurrent.Future[Unit]]()
+                        val futures = ListBuffer[Future[Unit]]()
 
                         if (req.fields.contains("accentColor")) {
                           req.user.accentColor.foreach { color =>
@@ -129,7 +131,7 @@ final class ApiRoutes(
                           }
                         }
 
-                        val updateFuture = scala.concurrent.Future.sequence(futures.toSeq)
+                        val updateFuture = Future.sequence(futures.toSeq)
                         onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
                           case Success(prefs) =>
                             complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))

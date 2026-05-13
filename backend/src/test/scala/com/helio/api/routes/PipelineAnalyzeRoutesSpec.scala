@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 
 import java.util.UUID
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 class PipelineAnalyzeRoutesSpec
@@ -92,7 +92,7 @@ class PipelineAnalyzeRoutesSpec
   }
 
   private def routes: Route = {
-    implicit val ec: scala.concurrent.ExecutionContext = routeEc
+    implicit val ec: ExecutionContext = routeEc
     val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
     new PipelineRoutes(service, dummyUser).routes
   }

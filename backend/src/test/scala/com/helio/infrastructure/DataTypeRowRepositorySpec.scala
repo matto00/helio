@@ -13,7 +13,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
-  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database            = _

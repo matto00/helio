@@ -3,7 +3,7 @@ package com.helio.services
 import spray.json.{JsString, JsValue}
 
 import java.nio.ByteBuffer
-import java.nio.charset.{CodingErrorAction, StandardCharsets}
+import java.nio.charset.{CharacterCodingException, CodingErrorAction, StandardCharsets}
 
 /** CSV-related helpers used by `DataSourceService` and the multipart-handling
  *  route shells that pass raw bytes through to it. Kept lightweight (no
@@ -17,7 +17,7 @@ object DataSourceCsvSupport {
         .onUnmappableCharacter(CodingErrorAction.REPORT)
       Some(decoder.decode(ByteBuffer.wrap(bytes)).toString)
     } catch {
-      case _: java.nio.charset.CharacterCodingException => None
+      case _: CharacterCodingException => None
     }
 
   def csvPathFromConfig(config: JsValue): Option[String] =

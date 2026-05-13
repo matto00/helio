@@ -2,6 +2,7 @@ package com.helio.infrastructure
 
 import com.helio.api.protocols.DataTypeProtocol
 import com.helio.domain._
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -9,7 +10,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class DataTypeRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
+class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
     extends DataTypeProtocol {
 
   import DataTypeRepository._

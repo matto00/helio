@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json.JsonParser
 
@@ -8,7 +9,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class DataSourceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import DataSourceRepository._
 
