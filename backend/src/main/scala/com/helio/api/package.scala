@@ -27,8 +27,6 @@ package object api {
   val AuthResponse: protocols.AuthResponse.type = protocols.AuthResponse
   type GoogleProfile = protocols.GoogleProfile
   val GoogleProfile: protocols.GoogleProfile.type = protocols.GoogleProfile
-  type UserPreferencePayload = protocols.UserPreferencePayload
-  val UserPreferencePayload: protocols.UserPreferencePayload.type = protocols.UserPreferencePayload
   type UpdateUserPreferenceRequest = protocols.UpdateUserPreferenceRequest
   val UpdateUserPreferenceRequest: protocols.UpdateUserPreferenceRequest.type = protocols.UpdateUserPreferenceRequest
 
@@ -85,10 +83,6 @@ package object api {
   val UpdatePanelsBatchResponse: protocols.UpdatePanelsBatchResponse.type = protocols.UpdatePanelsBatchResponse
 
   // DataType
-  type DataFieldResponse = protocols.DataFieldResponse
-  val DataFieldResponse: protocols.DataFieldResponse.type = protocols.DataFieldResponse
-  type ComputedFieldResponse = protocols.ComputedFieldResponse
-  val ComputedFieldResponse: protocols.ComputedFieldResponse.type = protocols.ComputedFieldResponse
   type DataTypeResponse = protocols.DataTypeResponse
   val DataTypeResponse: protocols.DataTypeResponse.type = protocols.DataTypeResponse
   type DataTypesResponse = protocols.DataTypesResponse
@@ -115,8 +109,6 @@ package object api {
   val DataSourceResponse: protocols.DataSourceResponse.type = protocols.DataSourceResponse
   type DataSourcesResponse = protocols.DataSourcesResponse
   val DataSourcesResponse: protocols.DataSourcesResponse.type = protocols.DataSourcesResponse
-  type CreateDataSourceRequest = protocols.CreateDataSourceRequest
-  val CreateDataSourceRequest: protocols.CreateDataSourceRequest.type = protocols.CreateDataSourceRequest
   type UpdateDataSourceRequest = protocols.UpdateDataSourceRequest
   val UpdateDataSourceRequest: protocols.UpdateDataSourceRequest.type = protocols.UpdateDataSourceRequest
   type CsvPreviewResponse = protocols.CsvPreviewResponse
@@ -129,8 +121,6 @@ package object api {
   val SqlCreateSourceRequest: protocols.SqlCreateSourceRequest.type = protocols.SqlCreateSourceRequest
   type SqlInferRequest = protocols.SqlInferRequest
   val SqlInferRequest: protocols.SqlInferRequest.type = protocols.SqlInferRequest
-  type RestApiAuthPayload = protocols.RestApiAuthPayload
-  val RestApiAuthPayload: protocols.RestApiAuthPayload.type = protocols.RestApiAuthPayload
   type RestApiConfigPayload = protocols.RestApiConfigPayload
   val RestApiConfigPayload: protocols.RestApiConfigPayload.type = protocols.RestApiConfigPayload
   type FieldOverridePayload = protocols.FieldOverridePayload
