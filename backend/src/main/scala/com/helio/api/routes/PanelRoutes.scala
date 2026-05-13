@@ -15,9 +15,9 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 
 final class PanelRoutes(
     panelRepo: PanelRepository,
-    dashboardRepo: DashboardRepository,
+    @annotation.unused dashboardRepo: DashboardRepository,
     dataTypeRepo: DataTypeRepository,
-    permissionRepo: ResourcePermissionRepository,
+    @annotation.unused permissionRepo: ResourcePermissionRepository,
     aclDirective: AclDirective,
     user: AuthenticatedUser,
 )(implicit system: ActorSystem[_])
@@ -26,21 +26,7 @@ final class PanelRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  /** Resolve a panel's typeId against the authenticated user's owned types.
-   *  If the panel's typeId references a type owned by a different user, the
-   *  typeId and fieldMapping are cleared (treated as unbound). */
-  private def resolveTypeBinding(panel: Panel): Future[Panel] =
-    panel.typeId match {
-      case None => Future.successful(panel)
-      case Some(typeId) =>
-        dataTypeRepo.findById(typeId, user.id).map {
-          case None    => panel.copy(typeId = None, fieldMapping = None)
-          case Some(_) => panel
-        }
-    }
-
-  private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
-    Future.traverse(panels)(resolveTypeBinding)
+  private val patchService = new PanelPatchService(panelRepo, dataTypeRepo, user)
 
   val routes: Route =
     pathPrefix("panels") {
@@ -155,133 +141,18 @@ final class PanelRoutes(
                       existing.dashboardId.value,
                       Some(user),
                       "Dashboard not found"
-                    ) { access =>
-                      access match {
-                        case ResourceAccess.Viewer =>
-                          complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-                        case ResourceAccess.Editor | ResourceAccess.Owner =>
-                    val trimmedTitle  = request.title.map(_.trim)
-                    val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
-                    val hasContent    = request.content.isDefined
-                    val hasImage      = request.imageUrl.isDefined || request.imageFit.isDefined
-                    val hasDivider    = request.dividerOrientation.isDefined || request.dividerWeight.isDefined || request.dividerColor.isDefined
-                    val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined || hasContent
-
-                    if (trimmedTitle.contains("")) {
-                      complete(StatusCodes.BadRequest, ErrorResponse("title must not be blank"))
-                    } else if (!hasOtherField && !hasBinding && !hasImage && !hasDivider) {
-                      complete(StatusCodes.BadRequest, ErrorResponse("at least one field is required"))
-                    } else {
-                      RequestValidation.validateImageFit(request.imageFit) match {
-                        case Left(err) =>
-                          complete(StatusCodes.BadRequest, ErrorResponse(err))
-                        case Right(_) =>
-                      RequestValidation.validateDividerOrientation(request.dividerOrientation) match {
-                        case Left(err) =>
-                          complete(StatusCodes.BadRequest, ErrorResponse(err))
-                        case Right(_) =>
-                      validatePanelTypeOpt(request.`type`) match {
-                        case Left(err) =>
-                          complete(StatusCodes.BadRequest, ErrorResponse(err))
-                        case Right(panelTypeOpt) =>
-                          val now           = Instant.now()
-                          val appearanceOpt = request.appearance.map(p =>
-                            PanelAppearance(
-                              background   = RequestValidation.normalizePanelBackground(p.background),
-                              color        = RequestValidation.normalizePanelColor(p.color),
-                              transparency = RequestValidation.normalizeTransparency(p.transparency),
-                              chart        = p.chart
-                            )
-                          )
-
-                          def applyTypeUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                            panelTypeOpt match {
-                              case None     => Future.successful(panelOpt)
-                              case Some(pt) => panelOpt match {
-                                case None    => Future.successful(None)
-                                case Some(_) => panelRepo.updateType(panelId, pt, now)
-                              }
+                    ) {
+                      case ResourceAccess.Viewer =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                      case ResourceAccess.Editor | ResourceAccess.Owner =>
+                        patchService.resolvePatch(request) match {
+                          case Left(err)   => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                          case Right(spec) =>
+                            onSuccess(patchService.applyPanelPatch(panelId, spec)) {
+                              case Some(panel) => complete(PanelResponse.fromDomain(panel))
+                              case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                             }
-
-                          def applyContentUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                            if (!hasContent) Future.successful(panelOpt)
-                            else panelOpt match {
-                              case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateContent(panelId, request.content, now)
-                            }
-
-                          def applyBindingUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                            if (!hasBinding) Future.successful(panelOpt)
-                            else panelOpt match {
-                              case None => Future.successful(None)
-                              case Some(panel) =>
-                                val newTypeId       = request.typeId.fold(panel.typeId)(_.map(DataTypeId(_)))
-                                val newFieldMapping = request.fieldMapping.fold(panel.fieldMapping)(identity)
-                                panelRepo.updateTypeBinding(panelId, newTypeId, newFieldMapping, now)
-                            }
-
-                          def applyImageUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                            if (!hasImage) Future.successful(panelOpt)
-                            else panelOpt match {
-                              case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateImage(panelId, request.imageUrl, request.imageFit, now)
-                            }
-
-                          def applyDividerUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
-                            if (!hasDivider) Future.successful(panelOpt)
-                            else panelOpt match {
-                              case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateDividerFields(panelId, request.dividerOrientation, request.dividerWeight, request.dividerColor, now)
-                            }
-
-                          val coreFuture: Future[Option[Panel]] =
-                            if (!hasOtherField) {
-                              panelRepo.findById(panelId)
-                            } else {
-                              val titleFuture: Future[Option[Panel]] = trimmedTitle match {
-                                case Some(title) =>
-                                  panelRepo.updateTitle(panelId, title, now).flatMap { result =>
-                                    appearanceOpt match {
-                                      case None             => applyTypeUpdate(result).flatMap(applyContentUpdate)
-                                      case Some(appearance) =>
-                                        result match {
-                                          case None    => Future.successful(None)
-                                          case Some(_) =>
-                                            panelRepo.updateAppearance(panelId, appearance, now)
-                                              .flatMap(applyTypeUpdate)
-                                              .flatMap(applyContentUpdate)
-                                        }
-                                    }
-                                  }
-                                case None =>
-                                  appearanceOpt match {
-                                    case Some(appearance) =>
-                                      panelRepo.updateAppearance(panelId, appearance, now)
-                                        .flatMap(applyTypeUpdate)
-                                        .flatMap(applyContentUpdate)
-                                    case None =>
-                                      if (panelTypeOpt.isDefined)
-                                        panelRepo.updateType(panelId, panelTypeOpt.get, now)
-                                          .flatMap(applyContentUpdate)
-                                      else
-                                        panelRepo.updateContent(panelId, request.content, now)
-                                  }
-                              }
-                              titleFuture
-                            }
-
-                          onSuccess(coreFuture.flatMap(applyBindingUpdate).flatMap(applyImageUpdate).flatMap(applyDividerUpdate).flatMap {
-                            case None        => Future.successful(None)
-                            case Some(panel) => resolveTypeBinding(panel).map(Some(_))
-                          }) {
-                            case Some(panel) => complete(PanelResponse.fromDomain(panel))
-                            case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-                          }
-                      }
-                      }
-                      }
-                    }
-                      }
+                        }
                     }
                 }
               }
@@ -340,11 +211,4 @@ final class PanelRoutes(
       case None    => Right(PanelType.Default)
       case Some(t) => PanelType.fromString(t)
     }
-
-  private def validatePanelTypeOpt(typeOpt: Option[String]): Either[String, Option[PanelType]] =
-    typeOpt match {
-      case None    => Right(None)
-      case Some(t) => PanelType.fromString(t).map(Some(_))
-    }
-
 }

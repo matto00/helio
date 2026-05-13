@@ -11,37 +11,24 @@ import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelR
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContextExecutor
 
+// Snapshot import/export handlers now live in `DashboardSnapshotRoutes`; this file
+// retains the dashboard CRUD + duplicate + batch-update surface.
+//
+// `panelRepo` and `dataTypeRepo` remain in the constructor to preserve the public
+// wiring signature even though the dead `resolvePanels` helper that depended on them
+// has been removed.
 final class DashboardRoutes(
     dashboardRepo: DashboardRepository,
-    panelRepo: PanelRepository,
+    @annotation.unused panelRepo: PanelRepository,
     user: AuthenticatedUser,
-    dataTypeRepo: Option[DataTypeRepository] = None
+    @annotation.unused dataTypeRepo: Option[DataTypeRepository] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
-
-  /** Resolve cross-user typeId bindings for a list of panels.
-   *  If a panel's typeId belongs to a different user, it is cleared (treated as unbound). */
-  private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
-    dataTypeRepo match {
-      case None => Future.successful(panels)
-      case Some(dtRepo) =>
-        Future.traverse(panels) { panel =>
-          panel.typeId match {
-            case None => Future.successful(panel)
-            case Some(typeId) =>
-              dtRepo.findById(typeId, user.id).map {
-                case None    => panel.copy(typeId = None, fieldMapping = None)
-                case Some(_) => panel
-              }
-          }
-        }
-    }
 
   val routes: Route =
     pathPrefix("dashboards") {
@@ -94,87 +81,10 @@ final class DashboardRoutes(
             }
           }
         },
-        path(DashboardIdSegment / "export") { dashboardId =>
-          get {
-            onSuccess(dashboardRepo.findById(dashboardId)) {
-              case None =>
-                complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-              case Some(dashboard) if dashboard.ownerId != user.id =>
-                complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-              case Some(_) =>
-                onSuccess(dashboardRepo.exportSnapshot(dashboardId)) {
-                  case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                  case Some(snapshot) => complete(snapshot)
-                }
-            }
-          }
-        },
         path(DashboardIdSegment / "update") { dashboardId =>
           patch {
             entity(as[UpdateDashboardBatchRequest]) { request =>
-              validateDashboardUpdateRequest(request.dashboard) match {
-                case Left(error) =>
-                  complete(StatusCodes.BadRequest, ErrorResponse(error))
-                case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-                  onSuccess(dashboardRepo.findById(dashboardId)) {
-                    case None =>
-                      complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                    case Some(existing) if existing.ownerId != user.id =>
-                      complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-                    case Some(existing) =>
-                      val now = Instant.now()
-                      nameOpt match {
-                        case Some(name) =>
-                          onSuccess(dashboardRepo.updateName(dashboardId, name, now)) {
-                            case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                            case Some(renamed) =>
-                              if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
-                                complete(DashboardResponse.fromDomain(renamed))
-                              } else {
-                                val updated = renamed.copy(
-                                  appearance = appearanceOpt.getOrElse(renamed.appearance),
-                                  layout     = layoutOpt.getOrElse(renamed.layout),
-                                  meta       = renamed.meta.copy(lastUpdated = now)
-                                )
-                                onSuccess(dashboardRepo.update(updated)) {
-                                  case Some(d) => complete(DashboardResponse.fromDomain(d))
-                                  case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                                }
-                              }
-                          }
-                        case None =>
-                          val updated = existing.copy(
-                            appearance = appearanceOpt.getOrElse(existing.appearance),
-                            layout     = layoutOpt.getOrElse(existing.layout),
-                            meta       = existing.meta.copy(lastUpdated = now)
-                          )
-                          onSuccess(dashboardRepo.update(updated)) {
-                            case Some(d) => complete(DashboardResponse.fromDomain(d))
-                            case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                          }
-                      }
-                  }
-              }
-            }
-          }
-        },
-        path("import") {
-          post {
-            entity(as[DashboardSnapshotPayload]) { payload =>
-              validateSnapshotPayload(payload) match {
-                case Left(error) =>
-                  complete(StatusCodes.BadRequest, ErrorResponse(error))
-                case Right(_) =>
-                  onSuccess(dashboardRepo.importSnapshot(payload, user.id)) { case (dashboard, panels) =>
-                    complete(
-                      StatusCodes.Created,
-                      DuplicateDashboardResponse(
-                        dashboard = DashboardResponse.fromDomain(dashboard),
-                        panels    = panels.map(PanelResponse.fromDomain)
-                      )
-                    )
-                  }
-              }
+              applyDashboardUpdate(dashboardId, request.dashboard)
             }
           }
         },
@@ -195,54 +105,59 @@ final class DashboardRoutes(
             },
             patch {
               entity(as[UpdateDashboardRequest]) { request =>
-                validateDashboardUpdateRequest(request) match {
-                  case Left(error) =>
-                    complete(StatusCodes.BadRequest, ErrorResponse(error))
-                  case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-                    onSuccess(dashboardRepo.findById(dashboardId)) {
-                      case None =>
-                        complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                      case Some(existing) if existing.ownerId != user.id =>
-                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
-                      case Some(existing) =>
-                        val now = Instant.now()
-                        nameOpt match {
-                          case Some(name) =>
-                            onSuccess(dashboardRepo.updateName(dashboardId, name, now)) {
-                              case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                              case Some(renamed) =>
-                                if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
-                                  complete(DashboardResponse.fromDomain(renamed))
-                                } else {
-                                  val updated = renamed.copy(
-                                    appearance = appearanceOpt.getOrElse(renamed.appearance),
-                                    layout     = layoutOpt.getOrElse(renamed.layout),
-                                    meta       = renamed.meta.copy(lastUpdated = now)
-                                  )
-                                  onSuccess(dashboardRepo.update(updated)) {
-                                    case Some(d) => complete(DashboardResponse.fromDomain(d))
-                                    case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                                  }
-                                }
-                            }
-                          case None =>
-                            val updated = existing.copy(
-                              appearance = appearanceOpt.getOrElse(existing.appearance),
-                              layout     = layoutOpt.getOrElse(existing.layout),
-                              meta       = existing.meta.copy(lastUpdated = now)
-                            )
-                            onSuccess(dashboardRepo.update(updated)) {
-                              case Some(d) => complete(DashboardResponse.fromDomain(d))
-                              case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
-                            }
-                        }
-                    }
-                }
+                applyDashboardUpdate(dashboardId, request)
               }
             }
           )
         }
       )
+    }
+
+  /** Shared PATCH body used by both `/dashboards/:id` and `/dashboards/:id/update`.
+   *  Validates, authorizes, then fans out name/appearance/layout updates against the repository. */
+  private def applyDashboardUpdate(dashboardId: DashboardId, request: UpdateDashboardRequest): Route =
+    validateDashboardUpdateRequest(request) match {
+      case Left(error) =>
+        complete(StatusCodes.BadRequest, ErrorResponse(error))
+      case Right((nameOpt, appearanceOpt, layoutOpt)) =>
+        onSuccess(dashboardRepo.findById(dashboardId)) {
+          case None =>
+            complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+          case Some(existing) if existing.ownerId != user.id =>
+            complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+          case Some(existing) =>
+            val now = Instant.now()
+            nameOpt match {
+              case Some(name) =>
+                onSuccess(dashboardRepo.updateName(dashboardId, name, now)) {
+                  case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                  case Some(renamed) =>
+                    if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
+                      complete(DashboardResponse.fromDomain(renamed))
+                    } else {
+                      val updated = renamed.copy(
+                        appearance = appearanceOpt.getOrElse(renamed.appearance),
+                        layout     = layoutOpt.getOrElse(renamed.layout),
+                        meta       = renamed.meta.copy(lastUpdated = now)
+                      )
+                      onSuccess(dashboardRepo.update(updated)) {
+                        case Some(d) => complete(DashboardResponse.fromDomain(d))
+                        case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                      }
+                    }
+                }
+              case None =>
+                val updated = existing.copy(
+                  appearance = appearanceOpt.getOrElse(existing.appearance),
+                  layout     = layoutOpt.getOrElse(existing.layout),
+                  meta       = existing.meta.copy(lastUpdated = now)
+                )
+                onSuccess(dashboardRepo.update(updated)) {
+                  case Some(d) => complete(DashboardResponse.fromDomain(d))
+                  case None    => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
+                }
+            }
+        }
     }
 
   private def validateDashboardUpdateRequest(
@@ -304,37 +219,4 @@ final class DashboardRoutes(
         ))
     }
 
-  private def validateSnapshotPayload(payload: DashboardSnapshotPayload): Either[String, Unit] = {
-    if (payload.version < 1) {
-      return Left(s"version must be >= 1, got ${payload.version}")
-    }
-
-    val name = payload.dashboard.name.trim
-    if (name.isEmpty) {
-      return Left("dashboard.name must not be blank")
-    }
-
-    val snapshotIds = payload.panels.map(_.snapshotId).toSet
-
-    for (panel <- payload.panels) {
-      PanelType.fromString(panel.`type`) match {
-        case Left(err) => return Left(err)
-        case Right(_)  => ()
-      }
-    }
-
-    val allLayoutItems =
-      payload.dashboard.layout.lg ++
-      payload.dashboard.layout.md ++
-      payload.dashboard.layout.sm ++
-      payload.dashboard.layout.xs
-
-    for (item <- allLayoutItems) {
-      if (!snapshotIds.contains(item.panelId)) {
-        return Left(s"layout references unknown snapshotId: '${item.panelId}'")
-      }
-    }
-
-    Right(())
-  }
 }

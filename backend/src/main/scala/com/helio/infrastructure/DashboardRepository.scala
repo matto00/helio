@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
-import com.helio.api.{DashboardLayoutPayload, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, JsonProtocols, RequestValidation}
+import com.helio.api.RequestValidation
+import com.helio.api.protocols.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardProtocol, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, PanelProtocol}
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -10,7 +11,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
-    extends JsonProtocols {
+    extends DashboardProtocol with PanelProtocol {
 
   import DashboardRepository._
 
@@ -150,8 +151,8 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
         panelTable.filter(_.dashboardId === id.value).result.map { panelRows =>
           val sourceDash = rowToDomain(sourceRow)
 
-          def layoutItemToSnapshot(item: DashboardLayoutItem): com.helio.api.DashboardLayoutItemPayload =
-            com.helio.api.DashboardLayoutItemPayload(
+          def layoutItemToSnapshot(item: DashboardLayoutItem): DashboardLayoutItemPayload =
+            DashboardLayoutItemPayload(
               panelId = item.panelId.value,
               x = item.x,
               y = item.y,
@@ -159,7 +160,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
               h = item.h
             )
 
-          val snapshotLayout = com.helio.api.DashboardLayoutPayload(
+          val snapshotLayout = DashboardLayoutPayload(
             lg = sourceDash.layout.lg.map(layoutItemToSnapshot),
             md = sourceDash.layout.md.map(layoutItemToSnapshot),
             sm = sourceDash.layout.sm.map(layoutItemToSnapshot),
@@ -172,7 +173,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
 
           val snapshotDashboard = DashboardSnapshotDashboardEntry(
             name       = sourceDash.name,
-            appearance = com.helio.api.DashboardAppearancePayload(
+            appearance = DashboardAppearancePayload(
               background     = Some(sourceDash.appearance.background),
               gridBackground = Some(sourceDash.appearance.gridBackground)
             ),
@@ -197,7 +198,7 @@ class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exec
     val newDashId = UUID.randomUUID().toString
     val idMap     = payload.panels.map(p => p.snapshotId -> UUID.randomUUID().toString).toMap
 
-    def remapLayoutItem(item: com.helio.api.DashboardLayoutItemPayload): Option[DashboardLayoutItem] =
+    def remapLayoutItem(item: DashboardLayoutItemPayload): Option[DashboardLayoutItem] =
       idMap.get(item.panelId).map(nid =>
         DashboardLayoutItem(panelId = PanelId(nid), x = item.x, y = item.y, w = item.w, h = item.h)
       )
@@ -276,7 +277,7 @@ object DashboardRepository {
       lastUpdated: Instant,
       appearance: String,
       layout: String,
-      ownerId: java.util.UUID
+      ownerId: UUID
   )
 
   class DashboardTable(tag: Tag) extends Table[DashboardRow](tag, "dashboards") {
@@ -287,7 +288,7 @@ object DashboardRepository {
     def lastUpdated = column[Instant]("last_updated")
     def appearance  = column[String]("appearance")
     def layout      = column[String]("layout")
-    def ownerId     = column[java.util.UUID]("owner_id")
+    def ownerId     = column[UUID]("owner_id")
 
     def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId).mapTo[DashboardRow]
   }

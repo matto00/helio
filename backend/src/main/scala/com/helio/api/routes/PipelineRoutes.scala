@@ -13,7 +13,8 @@ import com.helio.api.{
   SchemaFieldResponse,
   UpdatePipelineRequest
 }
-import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineAnalyzeService, SchemaField}
+import com.helio.api.protocols.IdParsing.PipelineIdSegment
+import com.helio.domain.{AuthenticatedUser, PipelineAnalyzeService, SchemaField}
 import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 
 import scala.concurrent.ExecutionContext
@@ -91,11 +92,11 @@ class PipelineRoutes(
           )
         },
         // ── GET /pipelines/:id/analyze ──────────────────────────────────────
-        path(Segment / "analyze") { pipelineId =>
+        path(PipelineIdSegment / "analyze") { pipelineId =>
           get {
-            val summaryF  = pipelineRepo.findSummaryById(pipelineId)
-            val pipelineF = pipelineRepo.findById(pipelineId)
-            val stepsF    = pipelineStepRepo.listByPipeline(pipelineId)
+            val summaryF  = pipelineRepo.findSummaryById(pipelineId.value)
+            val pipelineF = pipelineRepo.findById(pipelineId.value)
+            val stepsF    = pipelineStepRepo.listByPipeline(pipelineId.value)
 
             onComplete(for {
               summary  <- summaryF
@@ -146,7 +147,7 @@ class PipelineRoutes(
                 }
 
               case Success((None, _, _)) | Success((_, None, _)) =>
-                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: ${pipelineId.value}"))
 
               case Failure(ex) =>
                 complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
@@ -154,10 +155,10 @@ class PipelineRoutes(
           }
         },
         // ── GET/PATCH /pipelines/:id ────────────────────────────────────────
-        path(Segment) { pipelineId =>
+        path(PipelineIdSegment) { pipelineId =>
           concat(
             get {
-              onComplete(pipelineRepo.findSummaryById(pipelineId)) {
+              onComplete(pipelineRepo.findSummaryById(pipelineId.value)) {
                 case Success(Some(summary)) =>
                   complete(
                     StatusCodes.OK,
@@ -173,7 +174,7 @@ class PipelineRoutes(
                     )
                   )
                 case Success(None) =>
-                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: ${pipelineId.value}"))
                 case Failure(ex) =>
                   complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
               }
@@ -183,7 +184,7 @@ class PipelineRoutes(
                 if (req.name.trim.isEmpty)
                   complete(StatusCodes.BadRequest, ErrorResponse("name must not be empty"))
                 else {
-                  onComplete(pipelineRepo.updateName(pipelineId, req.name.trim)) {
+                  onComplete(pipelineRepo.updateName(pipelineId.value, req.name.trim)) {
                     case Success(Some(summary)) =>
                       complete(
                         StatusCodes.OK,
@@ -199,7 +200,7 @@ class PipelineRoutes(
                         )
                       )
                     case Success(None) =>
-                      complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                      complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: ${pipelineId.value}"))
                     case Failure(ex) =>
                       complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
                   }
@@ -207,10 +208,10 @@ class PipelineRoutes(
               }
             },
             delete {
-              onComplete(pipelineRepo.delete(pipelineId)) {
+              onComplete(pipelineRepo.delete(pipelineId.value)) {
                 case Success(true)  => complete(StatusCodes.NoContent)
                 case Success(false) =>
-                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: ${pipelineId.value}"))
                 case Failure(ex)    =>
                   complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
               }

@@ -2,6 +2,7 @@ package com.helio.infrastructure
 
 import com.helio.domain._
 import slick.jdbc.PostgresProfile.api._
+import spray.json.JsonParser
 
 import java.time.Instant
 import java.util.UUID
@@ -18,7 +19,7 @@ class DataSourceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: Exe
       id         = DataSourceId(row.id),
       name       = row.name,
       sourceType = SourceType.fromString(row.sourceType).getOrElse(SourceType.Static),
-      config     = spray.json.JsonParser(row.config),
+      config     = JsonParser(row.config),
       createdAt  = row.createdAt,
       updatedAt  = row.updatedAt,
       ownerId    = row.ownerId.map(id => UserId(id.toString)).getOrElse(UserId("00000000-0000-0000-0000-000000000000"))
@@ -78,7 +79,7 @@ object DataSourceRepository {
       config: String,
       createdAt: Instant,
       updatedAt: Instant,
-      ownerId: Option[java.util.UUID]
+      ownerId: Option[UUID]
   )
 
   class DataSourceTable(tag: Tag) extends Table[DataSourceRow](tag, "data_sources") {
@@ -88,7 +89,7 @@ object DataSourceRepository {
     def config     = column[String]("config")
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
-    def ownerId    = column[Option[java.util.UUID]]("owner_id")
+    def ownerId    = column[Option[UUID]]("owner_id")
 
     def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId).mapTo[DataSourceRow]
   }
