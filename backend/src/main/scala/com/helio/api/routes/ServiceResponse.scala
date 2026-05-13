@@ -50,6 +50,7 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.NotFound(m)      => complete(StatusCodes.NotFound, ErrorResponse(m))
     case ServiceError.Forbidden(m)     => complete(StatusCodes.Forbidden, ErrorResponse(m))
     case ServiceError.Conflict(m)      => complete(StatusCodes.Conflict, ErrorResponse(m))
+    case ServiceError.BadGateway(m)    => complete(StatusCodes.BadGateway, ErrorResponse(m))
     case ServiceError.InternalError(m) => complete(StatusCodes.InternalServerError, ErrorResponse(m))
   }
 }

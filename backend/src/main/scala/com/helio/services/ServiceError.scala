@@ -21,5 +21,8 @@ object ServiceError {
   final case class NotFound(message: String = "Not found") extends ServiceError
   final case class Forbidden(message: String = "Forbidden") extends ServiceError
   final case class Conflict(message: String) extends ServiceError
+  /** Upstream / external service failure — used by connector preview / refresh
+   *  paths that propagate REST or SQL fetch errors back as 502. */
+  final case class BadGateway(message: String) extends ServiceError
   final case class InternalError(message: String) extends ServiceError
 }

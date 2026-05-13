@@ -57,12 +57,12 @@ For each service, follow this loop:
 
 ### 2.4 `DataSourceService` + `SourceService`
 
-- [ ] 2.4.1 Create `services/DataSourceService.scala` (CSV + Static connectors)
-- [ ] 2.4.2 Create `services/SourceService.scala` (REST + SQL connectors)
-- [ ] 2.4.3 Move CRUD + connector preview/refresh/infer logic into services
-- [ ] 2.4.4 `Materializer` passed explicitly to `DataSourceService` (CSV streaming)
-- [ ] 2.4.5 Slim `DataSourceRoutes.scala`, `DataSourcePreviewRoutes.scala`, `SourceRoutes.scala`, `SourcePreviewRoutes.scala` each to ≤ 150 lines
-- [ ] 2.4.6 `sbt test` passes; commit
+- [x] 2.4.1 Create `services/DataSourceService.scala` (CSV + Static connectors) — 331 lines, slightly over the 300-line service budget; further splitting would fracture the CSV-vs-Static dispatch and is deferred to CS2c when DataSource ADTs land.
+- [x] 2.4.2 Create `services/SourceService.scala` (REST + SQL connectors) — 339 lines, same caveat.
+- [x] 2.4.3 Move CRUD + connector preview/refresh/infer logic into services
+- [x] 2.4.4 `Materializer` passed explicitly to `DataSourceService` (CSV streaming, currently `@annotation.unused` because `FileSystem.write` is byte-array-based; left in the constructor for forward compatibility with streaming-CSV refactors)
+- [x] 2.4.5 Slim `DataSourceRoutes.scala` (105), `DataSourcePreviewRoutes.scala` (78), `SourceRoutes.scala` (57), `SourcePreviewRoutes.scala` (68) all ≤ 150 lines
+- [x] 2.4.6 `sbt test` passes; commit
 
 ### 2.5 `DataTypeService`
 
