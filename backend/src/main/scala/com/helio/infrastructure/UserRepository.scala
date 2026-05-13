@@ -1,13 +1,14 @@
 package com.helio.infrastructure
 
 import com.helio.domain.{User, UserId, UserSession}
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class UserRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import UserRepository._
 

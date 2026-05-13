@@ -6,10 +6,10 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
+import com.helio.domain.{AuthenticatedUser, DashboardId, PanelId, RestApiConfig, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -257,7 +257,7 @@ class ApiRoutesSpec
       }
 
       // Re-query via repository directly to confirm DB persistence
-      val found = await(dashboardRepo.findById(com.helio.domain.DashboardId(dashboardId)))
+      val found = await(dashboardRepo.findById(DashboardId(dashboardId)))
       found.isDefined shouldBe true
       found.get.name shouldBe "Persistent"
     }
@@ -517,7 +517,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.NoContent
       }
 
-      val found = await(panelRepo.findById(com.helio.domain.PanelId(panelId)))
+      val found = await(panelRepo.findById(PanelId(panelId)))
       found shouldBe None
     }
 
@@ -2098,9 +2098,9 @@ class ApiRoutesSpec
         dupId = responseAs[PanelResponse].id
       }
 
-      val dupPanel = await(panelRepo.findById(com.helio.domain.PanelId(dupId)))
+      val dupPanel = await(panelRepo.findById(PanelId(dupId)))
       dupPanel.isDefined shouldBe true
-      dupPanel.get.ownerId shouldBe com.helio.domain.UserId(testUserId)
+      dupPanel.get.ownerId shouldBe UserId(testUserId)
     }
 
     "POST /api/panels/:id/duplicate returns 403 when caller does not own the source panel" in {
@@ -2140,7 +2140,7 @@ class ApiRoutesSpec
         id         = DataSourceId(otherId),
         name       = "Other Source",
         sourceType = SourceType.Static,
-        config     = spray.json.JsObject.empty,
+        config     = JsObject.empty,
         createdAt  = now,
         updatedAt  = now,
         ownerId    = UserId(otherUserId)

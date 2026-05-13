@@ -3,6 +3,7 @@ package com.helio.domain
 import com.helio.infrastructure.{DataSourceRepository, FileSystem, PipelineStepRepository}
 import spray.json._
 
+import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -363,7 +364,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
   }
 
   private def loadCsvRowsFromBytes(bytes: Array[Byte]): Seq[Map[String, Any]] = {
-    val content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+    val content = new String(bytes, StandardCharsets.UTF_8)
     val lines   = content.linesIterator.toVector
     if (lines.isEmpty) return Seq.empty
     val headers = parseCsvLine(lines.head)

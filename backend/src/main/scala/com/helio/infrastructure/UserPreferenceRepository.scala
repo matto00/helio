@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.domain.{DashboardId, UserId}
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -12,7 +13,7 @@ final case class UserPreferencesData(
     zoomLevels: Map[String, Double]
 )
 
-class UserPreferenceRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import UserPreferenceRepository._
 

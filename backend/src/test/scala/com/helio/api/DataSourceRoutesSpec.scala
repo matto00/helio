@@ -7,6 +7,8 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
+import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
@@ -105,7 +107,7 @@ class DataSourceRoutesSpec
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
     }
   }
 
@@ -175,7 +177,7 @@ class DataSourceRoutesSpec
           "file",
           HttpEntity(
             ContentTypes.`text/plain(UTF-8)`,
-            org.apache.pekko.util.ByteString(Array.fill(1024)(0x41.toByte))
+            ByteString(Array.fill(1024)(0x41.toByte))
           )
         )
       )

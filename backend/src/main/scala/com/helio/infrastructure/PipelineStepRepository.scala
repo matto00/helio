@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -8,7 +9,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class PipelineStepRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import PipelineStepRepository._
 

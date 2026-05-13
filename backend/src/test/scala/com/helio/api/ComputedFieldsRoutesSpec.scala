@@ -7,7 +7,8 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2Bearer
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes._
-import com.helio.domain.{AuthenticatedUser, RestApiConfig, RestApiConnector, UserId}
+import com.helio.domain.{AuthenticatedUser, DataField, DataType, RestApiConfig, RestApiConnector, UserId}
+import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{
   DashboardRepository,
   DataSourceRepository,
@@ -125,13 +126,13 @@ class ComputedFieldsRoutesSpec
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
         stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo,
-        new com.helio.spark.PipelineRunCache(), new com.helio.spark.SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
+        new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
       ).routes
     }
   }
 
   /** Insert a DataType directly via the repository and return it. */
-  private def insertType(fields: com.helio.domain.DataField*): com.helio.domain.DataType = {
+  private def insertType(fields: DataField*): DataType = {
     import com.helio.domain._
     val now = Instant.now()
     val dt = DataType(

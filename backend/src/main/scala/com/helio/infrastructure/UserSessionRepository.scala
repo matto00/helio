@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.domain.{AuthenticatedUser, UserId}
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
@@ -11,7 +12,7 @@ trait UserSessionRepository {
   def findValidSession(token: String): Future[Option[AuthenticatedUser]]
 }
 
-class SlickUserSessionRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
+class SlickUserSessionRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
     extends UserSessionRepository {
 
   import UserRepository._

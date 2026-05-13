@@ -58,12 +58,15 @@ Before starting work on anything non-trivial, open an issue or comment on an exi
 Husky runs the following automatically on every commit — fix failures before pushing:
 
 ```bash
-npm run lint          # ESLint (zero-warnings)
-npm run format:check  # Prettier
-npm run check:schemas # JSON Schema ↔ Scala protocol parity
-npm run check:openspec
-npm test              # Frontend Jest suite
+npm run lint               # ESLint (zero-warnings)
+npm run format:check       # Prettier
+npm run check:schemas      # JSON Schema ↔ Scala protocol parity
+npm run check:openspec     # OpenSpec hygiene
+npm run check:scala-quality # No inline FQNs; file-size soft budgets
+npm test                   # Frontend Jest suite
 ```
+
+The `check:scala-quality` script enforces the **Imports & Qualifiers** rule mechanically — any inline `com.helio.X`, `spray.json.X`, `java.util.UUID`, `org.apache.pekko.X`, etc. that isn't a top-of-file `import` or a `package` declaration will fail the commit. File-size warnings (~250 lines per source, ~80 for aggregators) are informational only.
 
 Backend tests are not in the Husky chain by default — run them yourself before pushing backend changes:
 

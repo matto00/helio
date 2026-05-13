@@ -3,6 +3,7 @@ package com.helio.infrastructure
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardProtocol, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, PanelProtocol}
 import com.helio.domain._
+import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -10,7 +11,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class DashboardRepository(db: slick.jdbc.JdbcBackend.Database)(implicit ec: ExecutionContext)
+class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
     extends DashboardProtocol with PanelProtocol {
 
   import DashboardRepository._

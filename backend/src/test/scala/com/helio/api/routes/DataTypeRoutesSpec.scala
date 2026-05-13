@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AclDirective, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.{AuthenticatedUser, DataTypeId, UserId}
 import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -62,7 +62,7 @@ class DataTypeRoutesSpec
     implicit val ec: ExecutionContext = routeEc
     val permissionRepo = new ResourcePermissionRepository(db)(ec)
     val registry = new ResourceTypeRegistry(
-      ResourceType("data-type", id => dataTypeRepo.findById(com.helio.domain.DataTypeId(id)).map(_.map(_.ownerId.value)))
+      ResourceType("data-type", id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value)))
     )
     new AclDirective(permissionRepo, registry)
   }

@@ -3,7 +3,7 @@ package com.helio.api.routes
 import spray.json.{JsString, JsValue}
 
 import java.nio.ByteBuffer
-import java.nio.charset.{CodingErrorAction, StandardCharsets}
+import java.nio.charset.{CharacterCodingException, CodingErrorAction, StandardCharsets}
 
 /** CSV-related helpers shared by `DataSourceRoutes` and `DataSourcePreviewRoutes`.
  *  Kept lightweight (no Pekko / repository dependencies) so it can be unit-tested
@@ -17,7 +17,7 @@ object DataSourceCsvSupport {
         .onUnmappableCharacter(CodingErrorAction.REPORT)
       Some(decoder.decode(ByteBuffer.wrap(bytes)).toString)
     } catch {
-      case _: java.nio.charset.CharacterCodingException => None
+      case _: CharacterCodingException => None
     }
 
   def csvPathFromConfig(config: JsValue): Option[String] =
