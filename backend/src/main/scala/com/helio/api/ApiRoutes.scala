@@ -10,7 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
-import com.helio.services.DashboardService
+import com.helio.services.{DashboardService, PanelService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -58,7 +58,9 @@ final class ApiRoutes(
   private val oauth          = new OAuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
 
   // Services
+  private val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
   private val dashboardService = new DashboardService(dashboardRepo)
+  private val panelService     = new PanelService(panelRepo, dataTypeRepo, accessChecker)
 
   private val corsSettings = CorsSettings.defaultSettings
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
@@ -71,7 +73,7 @@ final class ApiRoutes(
           concat(
             pathPrefix("auth") { concat(auth.routes, oauth.routes) },
             authDirectives.optionalAuthenticate { userOpt =>
-              new PublicDashboardRoutes(dashboardRepo, panelRepo, permissionRepo, aclDirective, userOpt, Some(dataTypeRepo)).routes
+              new PublicDashboardRoutes(panelRepo, panelService, aclDirective, userOpt).routes
             },
             authDirectives.authenticate { authenticatedUser =>
               concat(
@@ -131,7 +133,7 @@ final class ApiRoutes(
                 },
                 new DashboardRoutes(dashboardService, authenticatedUser).routes,
                 new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
-                new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
+                new PanelRoutes(panelService, authenticatedUser).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
                 new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,

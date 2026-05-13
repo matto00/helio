@@ -36,13 +36,13 @@ For each service, follow this loop:
 
 ### 2.2 `PanelService`
 
-- [ ] 2.2.1 Create `services/PanelService.scala`
-- [ ] 2.2.2 Move `ResolvedPanelPatch`, `resolvePatch`, `applyPanelPatch`, `resolveTypeBinding`, `resolveBindingsForRead` from `PanelPatchService.scala` whole-cloth into `PanelService`
-- [ ] 2.2.3 Move CRUD orchestration (find, create, update, delete, duplicate, batchUpdate) into service methods
-- [ ] 2.2.4 Slim `PanelRoutes.scala` to ≤ 150 lines
-- [ ] 2.2.5 **Delete** `routes/PanelPatchService.scala`
-- [ ] 2.2.6 Wire `PublicDashboardRoutes` to call `PanelService.resolveBindingsForRead(...)` instead of its private `resolvePanels` (CS2a spinoff item)
-- [ ] 2.2.7 `sbt test` passes; commit
+- [x] 2.2.1 Create `services/PanelService.scala`
+- [x] 2.2.2 Move `ResolvedPanelPatch`, `resolvePatch`, `applyPanelPatch`, `resolveTypeBinding`, `resolveBindingsForRead` from `PanelPatchService.scala` whole-cloth into `PanelService` (apply chain split into `PanelPatchApplier` to keep `PanelService` under the 300-line budget)
+- [x] 2.2.3 Move CRUD orchestration (find, create, update, delete, duplicate, batchUpdate) into service methods
+- [x] 2.2.4 Slim `PanelRoutes.scala` to ≤ 150 lines
+- [x] 2.2.5 **Delete** `routes/PanelPatchService.scala`
+- [x] 2.2.6 Wire `PublicDashboardRoutes` to call `PanelService.resolveBindingsForRead(...)` instead of its private `resolvePanels` (CS2a spinoff item)
+- [x] 2.2.7 `sbt test` passes; commit
 
 ### 2.3 `AuthService` (security-sensitive)
 

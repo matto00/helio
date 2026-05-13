@@ -1,44 +1,29 @@
 package com.helio.api.routes
 
 import org.apache.pekko.actor.typed.ActorSystem
-import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
+import com.helio.infrastructure.PanelRepository
+import com.helio.services.PanelService
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
+/** Public (unauthenticated-friendly) read access to a dashboard's panels.
+ *  Sharing-aware ACL is enforced via `AclDirective.authorizeResourceWithSharing`;
+ *  cross-user `typeId` bindings are resolved through
+ *  [[PanelService.resolveBindingsForRead]] — the same helper PanelService.update
+ *  uses, closing the CS2a "unify resolvePanels" spinoff. */
 final class PublicDashboardRoutes(
-    dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
-    permissionRepo: ResourcePermissionRepository,
+    panelService: PanelService,
     aclDirective: AclDirective,
-    userOpt: Option[AuthenticatedUser],
-    dataTypeRepo: Option[DataTypeRepository] = None
+    userOpt: Option[AuthenticatedUser]
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
-
-  /** Resolve cross-user typeId bindings for a list of panels.
-   *  If a panel's typeId belongs to a different user, it is cleared (treated as unbound). */
-  private def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
-    (userOpt, dataTypeRepo) match {
-      case (Some(user), Some(dtRepo)) =>
-        Future.traverse(panels) { panel =>
-          panel.typeId match {
-            case None => Future.successful(panel)
-            case Some(typeId) =>
-              dtRepo.findById(typeId, user.id).map {
-                case None    => panel.copy(typeId = None, fieldMapping = None)
-                case Some(_) => panel
-              }
-          }
-        }
-      case _ => Future.successful(panels.map(p => p.copy(typeId = None, fieldMapping = None)))
-    }
 
   val routes: Route =
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
@@ -50,7 +35,9 @@ final class PublicDashboardRoutes(
             userOpt,
             "Dashboard not found"
           ) { _ =>
-            onSuccess(panelRepo.findByDashboardId(DashboardId(dashboardId)).flatMap(resolvePanels)) { panels =>
+            val panelsF = panelRepo.findByDashboardId(DashboardId(dashboardId))
+              .flatMap(panels => panelService.resolveBindingsForRead(panels, userOpt))
+            onSuccess(panelsF) { panels =>
               complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
             }
           }
