@@ -8,6 +8,8 @@ import com.helio.api.protocols.IdParsing.UserIdSegment
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, ResourcePermissionRepository}
 
+import org.postgresql.util.PSQLException
+
 import java.time.Instant
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
@@ -53,7 +55,7 @@ final class PermissionRoutes(
                       onComplete(permissionRepo.insert(permission)) {
                         case Success(created) =>
                           complete(StatusCodes.Created, PermissionResponse.fromDomain(created))
-                        case Failure(_: org.postgresql.util.PSQLException) =>
+                        case Failure(_: PSQLException) =>
                           complete(StatusCodes.Conflict, ErrorResponse("Permission already exists"))
                         case Failure(ex) =>
                           complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))

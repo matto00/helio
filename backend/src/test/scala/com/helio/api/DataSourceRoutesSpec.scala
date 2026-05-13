@@ -67,7 +67,7 @@ class DataSourceRoutesSpec
     super.afterAll()
   }
 
-  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 5.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
@@ -75,13 +75,13 @@ class DataSourceRoutesSpec
   }
 
   private val stubConnector: RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left("no real HTTP in tests"))))
+    new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
   private def successConnector(json: JsValue): RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Right(json))))
+    new RestApiConnector(Some(_ => Future.successful(Right(json))))
 
   private def errorConnector(msg: String): RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(Left(msg))))
+    new RestApiConnector(Some(_ => Future.successful(Left(msg))))
 
   private val testToken   = "ds-spec-test-token"
   private val testUserId  = "a0000000-0000-0000-0000-000000000001"

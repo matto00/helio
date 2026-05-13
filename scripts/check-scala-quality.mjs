@@ -34,10 +34,13 @@ const FQN_PREFIXES = [
   "com.helio.",
   "spray.json.",
   "org.apache.pekko.",
+  "org.postgresql.",
   "java.util.UUID",
   "java.util.Base64",
+  "java.util.concurrent.",
   "java.nio.charset.",
   "java.security.",
+  "scala.concurrent.",
   "at.favre.lib.",
   "slick.jdbc.",
 ];

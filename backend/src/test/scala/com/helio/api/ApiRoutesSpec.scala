@@ -75,7 +75,7 @@ class ApiRoutesSpec
     super.afterAll()
   }
 
-  private def await[T](f: scala.concurrent.Future[T]): T = Await.result(f, 5.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
@@ -85,7 +85,6 @@ class ApiRoutesSpec
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
-    import scala.concurrent.Future
     def write(path: String, bytes: Array[Byte]): Future[Unit]  = Future.successful(())
     def read(path: String): Future[Array[Byte]]                = Future.successful(Array.empty)
     def delete(path: String): Future[Unit]                     = Future.successful(())
@@ -94,7 +93,7 @@ class ApiRoutesSpec
   }
 
   private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
-    new RestApiConnector(Some(_ => scala.concurrent.Future.successful(response)))
+    new RestApiConnector(Some(_ => Future.successful(response)))
 
   // Fixed test user injected by the stub session repository
   private val testUserId  = "00000000-0000-0000-0000-000000000099"

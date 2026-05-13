@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class AclDirectiveSpec
     extends AnyWordSpec
@@ -37,7 +37,7 @@ class AclDirectiveSpec
       grantFor: Map[String, Role] = Map.empty,
       hasPublicGrant: Boolean     = false
   ): ResourcePermissionRepository =
-    new ResourcePermissionRepository(null)(scala.concurrent.ExecutionContext.global) {
+    new ResourcePermissionRepository(null)(ExecutionContext.global) {
       override def findGrant(rt: String, rid: String, granteeId: UserId): Future[Option[ResourcePermission]] =
         Future.successful(grantFor.get(granteeId.value).map { role =>
           ResourcePermission(rt, rid, Some(granteeId), role, Instant.now())

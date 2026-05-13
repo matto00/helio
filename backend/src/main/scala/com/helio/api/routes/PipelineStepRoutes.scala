@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, CreatePipelineStepRequest, UpdatePipelineStepRequest, PipelineStepResponse}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
 import com.helio.infrastructure.{PipelineRepository, PipelineStepRepository}
+import org.postgresql.util.PSQLException
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -17,7 +18,7 @@ class PipelineStepRoutes(stepRepo: PipelineStepRepository, pipelineRepo: Pipelin
 
   /** Classify a database exception into an appropriate HTTP status code + error message. */
   private def classifyDbError(ex: Throwable): (StatusCode, ErrorResponse) = ex match {
-    case e: org.postgresql.util.PSQLException =>
+    case e: PSQLException =>
       val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
       if (msg.contains("violates foreign key constraint"))
         (StatusCodes.NotFound, ErrorResponse(msg))
