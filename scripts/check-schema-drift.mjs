@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Verifies that JSON Schemas in `schemas/` agree with the matching
-// case classes in backend/.../JsonProtocols.scala. Exits non-zero on drift.
+// case classes in backend/.../JsonProtocols.scala (aggregator) and every
+// per-domain trait under backend/.../api/protocols/. Exits non-zero on drift.
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -8,9 +9,11 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemasDir = join(repoRoot, "schemas");
-const protocolsPath = join(repoRoot, "backend/src/main/scala/com/helio/api/JsonProtocols.scala");
-
-const protocolsSrc = readFileSync(protocolsPath, "utf8");
+const protocolsAggregator = join(
+  repoRoot,
+  "backend/src/main/scala/com/helio/api/JsonProtocols.scala",
+);
+const protocolsDir = join(repoRoot, "backend/src/main/scala/com/helio/api/protocols");
 
 // Extract `case class <Name>(<params>)` (handles multi-line param lists).
 // Returns Map<className, fieldName[]>.
@@ -35,7 +38,31 @@ function parseCaseClasses(src) {
   return map;
 }
 
-const classes = parseCaseClasses(protocolsSrc);
+// Aggregate case classes across the aggregator and every per-domain trait.
+// Guard against duplicates — if the same case class appears in two files,
+// the split has been violated.
+const sources = [
+  protocolsAggregator,
+  ...readdirSync(protocolsDir)
+    .filter((f) => f.endsWith(".scala"))
+    .map((f) => join(protocolsDir, f)),
+];
+
+const classes = new Map();
+const classOrigin = new Map();
+for (const src of sources) {
+  const fileSrc = readFileSync(src, "utf8");
+  for (const [name, fields] of parseCaseClasses(fileSrc)) {
+    if (classes.has(name)) {
+      console.error(
+        `Duplicate case class "${name}" found in both ${classOrigin.get(name)} and ${src}`,
+      );
+      process.exit(1);
+    }
+    classes.set(name, fields);
+    classOrigin.set(name, src);
+  }
+}
 
 // Schemas that don't map 1:1 to a single case class (e.g. response shapes
 // composed from multiple types). Listed explicitly so the check fails loudly
@@ -69,7 +96,7 @@ for (const file of readdirSync(schemasDir).sort()) {
   const fields = classes.get(title);
   if (!fields) {
     errors.push(
-      `${file}: no case class "${title}" found in JsonProtocols.scala (add to SKIP set in scripts/check-schema-drift.mjs if intentional)`,
+      `${file}: no case class "${title}" found in JsonProtocols.scala or api/protocols/*.scala (add to SKIP set in scripts/check-schema-drift.mjs if intentional)`,
     );
     continue;
   }
@@ -96,9 +123,11 @@ if (errors.length) {
   console.error("Schema/JsonProtocols drift detected:\n");
   for (const e of errors) console.error(e + "\n");
   console.error(
-    "Update either the schema in schemas/ or the case class in JsonProtocols.scala so they agree.",
+    "Update either the schema in schemas/ or the case class under backend/.../api/protocols/ so they agree.",
   );
   process.exit(1);
 }
 
-console.log(`schemas in sync with JsonProtocols.scala (${checked.length} checked)`);
+console.log(
+  `schemas in sync with JsonProtocols (${checked.length} checked across ${sources.length} protocol files)`,
+);
