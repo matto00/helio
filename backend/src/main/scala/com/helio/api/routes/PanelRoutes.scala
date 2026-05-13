@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
+import com.helio.api.protocols.IdParsing.PanelIdSegment
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
 
@@ -118,10 +119,10 @@ final class PanelRoutes(
             }
           }
         },
-        path(Segment) { panelId =>
+        path(PanelIdSegment) { panelId =>
           concat(
             delete {
-              onSuccess(panelRepo.findById(PanelId(panelId))) {
+              onSuccess(panelRepo.findById(panelId)) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                 case Some(panel) =>
@@ -135,7 +136,7 @@ final class PanelRoutes(
                       case ResourceAccess.Viewer =>
                         complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
                       case ResourceAccess.Editor | ResourceAccess.Owner =>
-                        onSuccess(panelRepo.delete(PanelId(panelId))) {
+                        onSuccess(panelRepo.delete(panelId)) {
                           case true  => complete(StatusCodes.NoContent)
                           case false => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                         }
@@ -145,7 +146,7 @@ final class PanelRoutes(
             },
             patch {
               entity(as[UpdatePanelRequest]) { request =>
-                onSuccess(panelRepo.findById(PanelId(panelId))) {
+                onSuccess(panelRepo.findById(panelId)) {
                   case None =>
                     complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                   case Some(existing) =>
@@ -198,7 +199,7 @@ final class PanelRoutes(
                               case None     => Future.successful(panelOpt)
                               case Some(pt) => panelOpt match {
                                 case None    => Future.successful(None)
-                                case Some(_) => panelRepo.updateType(PanelId(panelId), pt, now)
+                                case Some(_) => panelRepo.updateType(panelId, pt, now)
                               }
                             }
 
@@ -206,7 +207,7 @@ final class PanelRoutes(
                             if (!hasContent) Future.successful(panelOpt)
                             else panelOpt match {
                               case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateContent(PanelId(panelId), request.content, now)
+                              case Some(_) => panelRepo.updateContent(panelId, request.content, now)
                             }
 
                           def applyBindingUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
@@ -216,37 +217,37 @@ final class PanelRoutes(
                               case Some(panel) =>
                                 val newTypeId       = request.typeId.fold(panel.typeId)(_.map(DataTypeId(_)))
                                 val newFieldMapping = request.fieldMapping.fold(panel.fieldMapping)(identity)
-                                panelRepo.updateTypeBinding(PanelId(panelId), newTypeId, newFieldMapping, now)
+                                panelRepo.updateTypeBinding(panelId, newTypeId, newFieldMapping, now)
                             }
 
                           def applyImageUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
                             if (!hasImage) Future.successful(panelOpt)
                             else panelOpt match {
                               case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateImage(PanelId(panelId), request.imageUrl, request.imageFit, now)
+                              case Some(_) => panelRepo.updateImage(panelId, request.imageUrl, request.imageFit, now)
                             }
 
                           def applyDividerUpdate(panelOpt: Option[Panel]): Future[Option[Panel]] =
                             if (!hasDivider) Future.successful(panelOpt)
                             else panelOpt match {
                               case None    => Future.successful(None)
-                              case Some(_) => panelRepo.updateDividerFields(PanelId(panelId), request.dividerOrientation, request.dividerWeight, request.dividerColor, now)
+                              case Some(_) => panelRepo.updateDividerFields(panelId, request.dividerOrientation, request.dividerWeight, request.dividerColor, now)
                             }
 
                           val coreFuture: Future[Option[Panel]] =
                             if (!hasOtherField) {
-                              panelRepo.findById(PanelId(panelId))
+                              panelRepo.findById(panelId)
                             } else {
                               val titleFuture: Future[Option[Panel]] = trimmedTitle match {
                                 case Some(title) =>
-                                  panelRepo.updateTitle(PanelId(panelId), title, now).flatMap { result =>
+                                  panelRepo.updateTitle(panelId, title, now).flatMap { result =>
                                     appearanceOpt match {
                                       case None             => applyTypeUpdate(result).flatMap(applyContentUpdate)
                                       case Some(appearance) =>
                                         result match {
                                           case None    => Future.successful(None)
                                           case Some(_) =>
-                                            panelRepo.updateAppearance(PanelId(panelId), appearance, now)
+                                            panelRepo.updateAppearance(panelId, appearance, now)
                                               .flatMap(applyTypeUpdate)
                                               .flatMap(applyContentUpdate)
                                         }
@@ -255,15 +256,15 @@ final class PanelRoutes(
                                 case None =>
                                   appearanceOpt match {
                                     case Some(appearance) =>
-                                      panelRepo.updateAppearance(PanelId(panelId), appearance, now)
+                                      panelRepo.updateAppearance(panelId, appearance, now)
                                         .flatMap(applyTypeUpdate)
                                         .flatMap(applyContentUpdate)
                                     case None =>
                                       if (panelTypeOpt.isDefined)
-                                        panelRepo.updateType(PanelId(panelId), panelTypeOpt.get, now)
+                                        panelRepo.updateType(panelId, panelTypeOpt.get, now)
                                           .flatMap(applyContentUpdate)
                                       else
-                                        panelRepo.updateContent(PanelId(panelId), request.content, now)
+                                        panelRepo.updateContent(panelId, request.content, now)
                                   }
                               }
                               titleFuture
@@ -287,9 +288,9 @@ final class PanelRoutes(
             }
           )
         },
-        path(Segment / "query") { panelId =>
+        path(PanelIdSegment / "query") { panelId =>
           get {
-            onSuccess(panelRepo.findById(PanelId(panelId))) {
+            onSuccess(panelRepo.findById(panelId)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
               case Some(panel) =>
@@ -300,9 +301,9 @@ final class PanelRoutes(
             }
           }
         },
-        path(Segment / "duplicate") { panelId =>
+        path(PanelIdSegment / "duplicate") { panelId =>
           post {
-            onSuccess(panelRepo.findById(PanelId(panelId))) {
+            onSuccess(panelRepo.findById(panelId)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
               case Some(panel) =>
@@ -316,7 +317,7 @@ final class PanelRoutes(
                     case ResourceAccess.Viewer =>
                       complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
                     case ResourceAccess.Editor | ResourceAccess.Owner =>
-                      onSuccess(panelRepo.duplicate(PanelId(panelId), user.id)) {
+                      onSuccess(panelRepo.duplicate(panelId, user.id)) {
                         case Some(panel) => complete(StatusCodes.Created, PanelResponse.fromDomain(panel))
                         case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
                       }

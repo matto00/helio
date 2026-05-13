@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
+import com.helio.api.protocols.IdParsing.DashboardIdSegment
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 
@@ -70,15 +71,15 @@ final class DashboardRoutes(
             }
           )
         },
-        path(Segment / "duplicate") { dashboardId =>
+        path(DashboardIdSegment / "duplicate") { dashboardId =>
           post {
-            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+            onSuccess(dashboardRepo.findById(dashboardId)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
               case Some(dashboard) if dashboard.ownerId != user.id =>
                 complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
               case Some(_) =>
-                onSuccess(dashboardRepo.duplicate(DashboardId(dashboardId), user.id)) {
+                onSuccess(dashboardRepo.duplicate(dashboardId, user.id)) {
                   case None =>
                     complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                   case Some((dashboard, panels)) =>
@@ -93,29 +94,29 @@ final class DashboardRoutes(
             }
           }
         },
-        path(Segment / "export") { dashboardId =>
+        path(DashboardIdSegment / "export") { dashboardId =>
           get {
-            onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+            onSuccess(dashboardRepo.findById(dashboardId)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
               case Some(dashboard) if dashboard.ownerId != user.id =>
                 complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
               case Some(_) =>
-                onSuccess(dashboardRepo.exportSnapshot(DashboardId(dashboardId))) {
+                onSuccess(dashboardRepo.exportSnapshot(dashboardId)) {
                   case None           => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                   case Some(snapshot) => complete(snapshot)
                 }
             }
           }
         },
-        path(Segment / "update") { dashboardId =>
+        path(DashboardIdSegment / "update") { dashboardId =>
           patch {
             entity(as[UpdateDashboardBatchRequest]) { request =>
               validateDashboardUpdateRequest(request.dashboard) match {
                 case Left(error) =>
                   complete(StatusCodes.BadRequest, ErrorResponse(error))
                 case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-                  onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                  onSuccess(dashboardRepo.findById(dashboardId)) {
                     case None =>
                       complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                     case Some(existing) if existing.ownerId != user.id =>
@@ -124,7 +125,7 @@ final class DashboardRoutes(
                       val now = Instant.now()
                       nameOpt match {
                         case Some(name) =>
-                          onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
+                          onSuccess(dashboardRepo.updateName(dashboardId, name, now)) {
                             case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                             case Some(renamed) =>
                               if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
@@ -177,16 +178,16 @@ final class DashboardRoutes(
             }
           }
         },
-        path(Segment) { dashboardId =>
+        path(DashboardIdSegment) { dashboardId =>
           concat(
             delete {
-              onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+              onSuccess(dashboardRepo.findById(dashboardId)) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                 case Some(dashboard) if dashboard.ownerId != user.id =>
                   complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
                 case Some(_) =>
-                  onSuccess(dashboardRepo.delete(DashboardId(dashboardId))) {
+                  onSuccess(dashboardRepo.delete(dashboardId)) {
                     case true  => complete(StatusCodes.NoContent)
                     case false => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                   }
@@ -198,7 +199,7 @@ final class DashboardRoutes(
                   case Left(error) =>
                     complete(StatusCodes.BadRequest, ErrorResponse(error))
                   case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-                    onSuccess(dashboardRepo.findById(DashboardId(dashboardId))) {
+                    onSuccess(dashboardRepo.findById(dashboardId)) {
                       case None =>
                         complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                       case Some(existing) if existing.ownerId != user.id =>
@@ -207,7 +208,7 @@ final class DashboardRoutes(
                         val now = Instant.now()
                         nameOpt match {
                           case Some(name) =>
-                            onSuccess(dashboardRepo.updateName(DashboardId(dashboardId), name, now)) {
+                            onSuccess(dashboardRepo.updateName(dashboardId, name, now)) {
                               case None => complete(StatusCodes.NotFound, ErrorResponse("Dashboard not found"))
                               case Some(renamed) =>
                                 if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
