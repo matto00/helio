@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.util.ByteString
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
 import com.helio.domain._
@@ -178,7 +179,7 @@ final class DataSourceRoutes(
       }
     }
 
-  private def insertCsvSource(name: String, bytes: Array[Byte], csvContent: String, partsMap: Map[String, org.apache.pekko.util.ByteString]): Route = {
+  private def insertCsvSource(name: String, bytes: Array[Byte], csvContent: String, partsMap: Map[String, ByteString]): Route = {
     val overridesMap = partsMap.get("fields")
       .flatMap(data => Try(data.utf8String.parseJson.convertTo[Vector[FieldOverridePayload]]).toOption)
       .getOrElse(Vector.empty)

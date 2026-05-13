@@ -3,6 +3,7 @@ package com.helio.api.routes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
@@ -62,7 +63,7 @@ class OAuthRoutes(
       method  = HttpMethods.GET,
       uri     = "https://www.googleapis.com/oauth2/v3/userinfo",
       headers = scala.collection.immutable.Seq(
-        org.apache.pekko.http.scaladsl.model.headers.RawHeader("Authorization", s"Bearer $accessToken")
+        RawHeader("Authorization", s"Bearer $accessToken")
       )
     )
     Http()(system.classicSystem).singleRequest(request).flatMap { response =>

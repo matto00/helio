@@ -145,11 +145,6 @@ final class PanelPatchService(
       }
   }
 
-  /** Used by the GET-list handlers in `PanelRoutes` / `PublicDashboardRoutes` to strip
-   *  cross-user bindings before serialization. */
-  def resolvePanels(panels: Vector[Panel]): Future[Vector[Panel]] =
-    Future.traverse(panels)(resolveTypeBinding)
-
   /** Validate + normalize an `UpdatePanelRequest`. Replaces the previous 8-level
    *  nested branching with a single `for`-comprehension over `Either`. The
    *  `Option[Option[_]]` wire semantics for `typeId` and `fieldMapping` are preserved
