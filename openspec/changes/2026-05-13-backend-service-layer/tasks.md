@@ -26,13 +26,13 @@ For each service, follow this loop:
 
 ### 2.1 `DashboardService`
 
-- [ ] 2.1.1 Create `services/DashboardService.scala`
-- [ ] 2.1.2 Move `applyDashboardUpdate` (DashboardRoutes) → `DashboardService.update`
-- [ ] 2.1.3 Move CRUD orchestration (find, create, delete, duplicate, findPanels) into service methods
-- [ ] 2.1.4 Slim `DashboardRoutes.scala` to ≤ 150 lines
-- [ ] 2.1.5 Move snapshot export/import + 4 validators (`validateVersion/Name/PanelTypes/LayoutReferences`) into `DashboardService` (or a dedicated `DashboardSnapshotService` — executor decides)
-- [ ] 2.1.6 Slim `DashboardSnapshotRoutes.scala` to ≤ 80 lines
-- [ ] 2.1.7 `sbt test` passes; commit
+- [x] 2.1.1 Create `services/DashboardService.scala`
+- [x] 2.1.2 Move `applyDashboardUpdate` (DashboardRoutes) → `DashboardService.update`
+- [x] 2.1.3 Move CRUD orchestration (find, create, delete, duplicate, findPanels) into service methods
+- [x] 2.1.4 Slim `DashboardRoutes.scala` to ≤ 150 lines
+- [x] 2.1.5 Move snapshot export/import + 4 validators (`validateVersion/Name/PanelTypes/LayoutReferences`) into `DashboardService` (or a dedicated `DashboardSnapshotService` — executor decides)
+- [x] 2.1.6 Slim `DashboardSnapshotRoutes.scala` to ≤ 80 lines
+- [x] 2.1.7 `sbt test` passes; commit
 
 ### 2.2 `PanelService`
 

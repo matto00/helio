@@ -10,6 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
+import com.helio.services.DashboardService
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -55,6 +56,9 @@ final class ApiRoutes(
   private val health         = new HealthRoutes()
   private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
   private val oauth          = new OAuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
+
+  // Services
+  private val dashboardService = new DashboardService(dashboardRepo)
 
   private val corsSettings = CorsSettings.defaultSettings
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
@@ -125,8 +129,8 @@ final class ApiRoutes(
                     }
                   }
                 },
-                new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
-                new DashboardSnapshotRoutes(dashboardRepo, authenticatedUser).routes,
+                new DashboardRoutes(dashboardService, authenticatedUser).routes,
+                new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                 new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
                 new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
