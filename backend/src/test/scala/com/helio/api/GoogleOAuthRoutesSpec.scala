@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.routes.AuthRoutes
+import com.helio.api.routes.OAuthRoutes
 import com.helio.infrastructure.UserRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -80,8 +80,8 @@ class GoogleOAuthRoutesSpec
   "GET /api/auth/google" should {
 
     "redirect to Google consent URL" in {
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       Get("/api/auth/google") ~> route ~> check {
         status shouldBe StatusCodes.Found
@@ -97,8 +97,8 @@ class GoogleOAuthRoutesSpec
 
     "return 400 when error=access_denied" in {
       cleanDb()
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       // First get a valid state by hitting the initiation route
       var stateParam = ""
@@ -115,8 +115,8 @@ class GoogleOAuthRoutesSpec
 
     "return 400 when error is another value" in {
       cleanDb()
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       var stateParam = ""
       Get("/api/auth/google") ~> route ~> check {
@@ -132,8 +132,8 @@ class GoogleOAuthRoutesSpec
 
     "return 400 when state is missing" in {
       cleanDb()
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       Get("/api/auth/google/callback?code=some-code") ~> route ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -143,8 +143,8 @@ class GoogleOAuthRoutesSpec
 
     "return 400 when state is invalid" in {
       cleanDb()
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       Get("/api/auth/google/callback?code=some-code&state=bad-state") ~> route ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -159,13 +159,13 @@ class GoogleOAuthRoutesSpec
       cleanDb()
 
       val profile    = GoogleProfile("google-sub-001", Some("alice@example.com"), Some("Alice"), Some("https://pic.url/alice"))
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
           Future.successful("access-token-abc")
         override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
           Future.successful(profile)
       }
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       var stateParam = ""
       Get("/api/auth/google") ~> route ~> check {
@@ -189,7 +189,7 @@ class GoogleOAuthRoutesSpec
 
       val profile = GoogleProfile("google-sub-002", Some("bob@example.com"), Some("Bob"), Some("https://pic.url/bob"))
 
-      def makeAuthRoutes() = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
+      def makeOAuthRoutes() = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
           Future.successful("access-token-xyz")
         override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
@@ -198,7 +198,7 @@ class GoogleOAuthRoutesSpec
 
       // First login — creates user
       var firstUserId = ""
-      val routes1     = makeAuthRoutes()
+      val routes1     = makeOAuthRoutes()
       val route1: Route = pathPrefix("api") { pathPrefix("auth") { routes1.routes } }
 
       var stateParam1 = ""
@@ -212,7 +212,7 @@ class GoogleOAuthRoutesSpec
       }
 
       // Second login — same google_id, should return same user ID, no duplicate
-      val routes2     = makeAuthRoutes()
+      val routes2     = makeOAuthRoutes()
       val route2: Route = pathPrefix("api") { pathPrefix("auth") { routes2.routes } }
 
       var stateParam2 = ""
@@ -238,13 +238,13 @@ class GoogleOAuthRoutesSpec
     "return 502 when Google token exchange fails" in {
       cleanDb()
 
-      val authRoutes = new AuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
+      val oauthRoutes = new OAuthRoutes(userRepo, "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
           Future.failed(new RuntimeException("Google token exchange failed: 400 Bad Request"))
         override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
           Future.successful(GoogleProfile("x", None, None, None))
       }
-      val route: Route = pathPrefix("api") { pathPrefix("auth") { authRoutes.routes } }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       var stateParam = ""
       Get("/api/auth/google") ~> route ~> check {

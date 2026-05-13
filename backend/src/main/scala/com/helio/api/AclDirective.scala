@@ -3,6 +3,7 @@ package com.helio.api
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directive0, Directive1}
 import org.apache.pekko.http.scaladsl.server.Directives._
+import com.helio.api.protocols.ResourceProtocol
 import com.helio.domain.{AuthenticatedUser, ResourceAccess, Role}
 import com.helio.infrastructure.ResourcePermissionRepository
 
@@ -25,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class AclDirective(
     permissionRepo: ResourcePermissionRepository,
     registry: ResourceTypeRegistry
-)(implicit ec: ExecutionContext) extends JsonProtocols {
+)(implicit ec: ExecutionContext) extends ResourceProtocol {
 
   def authorizeResource(
       resourceId: String,

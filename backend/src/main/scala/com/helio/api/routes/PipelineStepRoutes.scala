@@ -4,6 +4,7 @@ import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, CreatePipelineStepRequest, UpdatePipelineStepRequest, PipelineStepResponse}
+import com.helio.api.protocols.IdParsing.PipelineIdSegment
 import com.helio.infrastructure.{PipelineRepository, PipelineStepRepository}
 
 import scala.concurrent.ExecutionContext
@@ -29,17 +30,18 @@ class PipelineStepRoutes(stepRepo: PipelineStepRepository, pipelineRepo: Pipelin
   }
 
   val routes: Route = concat(
-    pathPrefix("pipelines" / Segment / "steps") { pipelineId =>
+    pathPrefix("pipelines" / PipelineIdSegment / "steps") { pipelineId =>
+      val pid: String = pipelineId.value
       pathEndOrSingleSlash {
         concat(
           get {
-            onComplete(pipelineRepo.exists(pipelineId)) {
+            onComplete(pipelineRepo.exists(pid)) {
               case Failure(ex) =>
                 complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
               case Success(false) =>
-                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pid"))
               case Success(true) =>
-                onComplete(stepRepo.listByPipeline(pipelineId)) {
+                onComplete(stepRepo.listByPipeline(pid)) {
                   case Success(rows) =>
                     complete(StatusCodes.OK, rows.map(PipelineStepResponse.fromRow))
                   case Failure(ex) =>
@@ -55,13 +57,13 @@ class PipelineStepRoutes(stepRepo: PipelineStepRepository, pipelineRepo: Pipelin
                   ErrorResponse(s"Invalid op '${req.op}'. Allowed values: ${allowedOps.mkString(", ")}")
                 )
               else
-                onComplete(pipelineRepo.exists(pipelineId)) {
+                onComplete(pipelineRepo.exists(pid)) {
                   case Failure(ex) =>
                     complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
                   case Success(false) =>
-                    complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                    complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pid"))
                   case Success(true) =>
-                    onComplete(stepRepo.insert(pipelineId, req.op, req.config)) {
+                    onComplete(stepRepo.insert(pid, req.op, req.config)) {
                       case Success(row) =>
                         complete(StatusCodes.Created, PipelineStepResponse.fromRow(row))
                       case Failure(ex) =>

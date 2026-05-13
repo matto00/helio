@@ -4,6 +4,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
+import com.helio.api.protocols.IdParsing.UserIdSegment
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, ResourcePermissionRepository}
 
@@ -63,10 +64,9 @@ final class PermissionRoutes(
             }
           )
         },
-        path(Segment) { granteeIdStr =>
+        path(UserIdSegment) { granteeId =>
           delete {
             aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
-              val granteeId = UserId(granteeIdStr)
               onSuccess(permissionRepo.delete("dashboard", dashboardId, granteeId)) { deleted =>
                 if (deleted) {
                   complete(StatusCodes.NoContent)

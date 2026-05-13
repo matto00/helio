@@ -4,6 +4,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentType, HttpCharsets, HttpEnti
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
+import com.helio.api.protocols.IdParsing.PipelineIdSegment
 import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, SourceType}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
@@ -35,19 +36,20 @@ class PipelineRunRoutes(
     ContentType(MediaType.customWithOpenCharset("text", "event-stream"), HttpCharsets.`UTF-8`)
 
   val routes: Route =
-    pathPrefix("pipelines" / Segment) { pipelineId =>
+    pathPrefix("pipelines" / PipelineIdSegment) { pipelineId =>
+      val pid: String = pipelineId.value
       concat(
         // POST /api/pipelines/:id/run[?dry=true]
         path("run") {
           post {
             parameter("dry".?) { dryParam =>
               val isDry = dryParam.contains("true")
-              onComplete(pipelineRepo.findById(pipelineId)) {
+              onComplete(pipelineRepo.findById(pid)) {
                 case Failure(ex) =>
                   complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
                 case Success(None) =>
-                  complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pipelineId))
+                  complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pid))
 
                 case Success(Some(pipeline)) =>
                   onComplete(dataSourceRepo.findById(pipeline.sourceDataSourceId)) {
@@ -73,7 +75,7 @@ class PipelineRunRoutes(
                           )
 
                         case _ =>
-                          onComplete(pipelineStepRepo.listByPipeline(pipelineId)) {
+                          onComplete(pipelineStepRepo.listByPipeline(pid)) {
                             case Failure(ex) =>
                               complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
@@ -83,21 +85,21 @@ class PipelineRunRoutes(
 
                               // Publish queued event before pre-execution work.
                               if (registry != null)
-                                registry.publish(pipelineId, RunStatusEvent("queued"))
+                                registry.publish(pid, RunStatusEvent("queued"))
 
                               // Pre-execution: insert run record and prune old runs (non-dry only).
                               // recoverWith ensures a logging failure never blocks execution.
                               val preExec: Future[Unit] =
                                 if (!isDry && pipelineRunRepo != null)
                                   pipelineRunRepo
-                                    .insertRun(runId, pipelineId, startAt)
-                                    .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, keepN = 10))
+                                    .insertRun(runId, pid, startAt)
+                                    .flatMap(_ => pipelineRunRepo.deleteOldRuns(pid, keepN = 10))
                                     .recoverWith { case _ => Future.successful(()) }
                                 else Future.successful(())
 
                               // Publish running event immediately before engine invocation.
                               if (registry != null)
-                                registry.publish(pipelineId, RunStatusEvent("running"))
+                                registry.publish(pid, RunStatusEvent("running"))
 
                               onComplete(
                                 preExec.flatMap { _ =>
@@ -111,13 +113,13 @@ class PipelineRunRoutes(
                                 case Failure(ex) =>
                                   val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
                                   if (registry != null)
-                                    registry.publish(pipelineId, RunStatusEvent("failed", errorLog = Some(errMsg)))
+                                    registry.publish(pid, RunStatusEvent("failed", errorLog = Some(errMsg)))
                                   if (!isDry) {
                                     val failWork: Future[Unit] = for {
                                       _ <- if (pipelineRunRepo != null)
                                              pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
                                            else Future.successful(())
-                                      _ <- pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None)
+                                      _ <- pipelineRepo.updateLastRun(pid, "failed", Instant.now(), rowCount = None)
                                     } yield ()
                                     onComplete(failWork) { _ =>
                                       complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
@@ -134,12 +136,12 @@ class PipelineRunRoutes(
 
                                   if (isDry) {
                                     if (registry != null)
-                                      registry.publish(pipelineId, RunStatusEvent("dry_run", rowCount = Some(resultRows.size)))
+                                      registry.publish(pid, RunStatusEvent("dry_run", rowCount = Some(resultRows.size)))
                                     val dryWork: Future[Unit] =
                                       if (pipelineRunRepo != null)
                                         pipelineRunRepo
-                                          .insertDryRun(runId, pipelineId, startAt, resultRows.size)
-                                          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId))
+                                          .insertDryRun(runId, pid, startAt, resultRows.size)
+                                          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pid))
                                           .recoverWith { case _ => Future.successful(()) }
                                       else Future.successful(())
                                     onComplete(dryWork) { _ =>
@@ -147,7 +149,7 @@ class PipelineRunRoutes(
                                     }
                                   } else {
                                     if (registry != null)
-                                      registry.publish(pipelineId, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
+                                      registry.publish(pid, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
                                     val now = Instant.now()
                                     val allWork: Future[Unit] = for {
                                       _ <- if (dataTypeRepo != null)
@@ -158,7 +160,7 @@ class PipelineRunRoutes(
                                                pipeline.outputDataTypeId.value, jsRows
                                              )
                                            else Future.successful(())
-                                      _ <- pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong))
+                                      _ <- pipelineRepo.updateLastRun(pid, "succeeded", now, rowCount = Some(resultRows.size.toLong))
                                       _ <- if (pipelineRunRepo != null)
                                              pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size))
                                            else Future.successful(())
@@ -180,18 +182,18 @@ class PipelineRunRoutes(
         // GET /api/pipelines/:id/run-events  (SSE stream)
         path("run-events") {
           get {
-            onComplete(pipelineRepo.findById(pipelineId)) {
+            onComplete(pipelineRepo.findById(pid)) {
               case Failure(ex) =>
                 complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
               case Success(None) =>
-                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pid"))
 
               case Success(Some(_)) =>
                 if (registry == null) {
                   complete(StatusCodes.ServiceUnavailable, ErrorResponse("SSE registry not available"))
                 } else {
-                  val byteSource = registry.subscribe(pipelineId).map(RunStatusEvent.toSseBytes)
+                  val byteSource = registry.subscribe(pid).map(RunStatusEvent.toSseBytes)
                   complete(HttpResponse(entity = HttpEntity.Chunked.fromData(sseContentType, byteSource)))
                 }
             }
@@ -220,12 +222,12 @@ class PipelineRunRoutes(
         // GET /api/pipelines/:id/steps/:stepId/preview
         path("steps" / Segment / "preview") { stepId =>
           get {
-            onComplete(pipelineRepo.findById(pipelineId)) {
+            onComplete(pipelineRepo.findById(pid)) {
               case Failure(ex) =>
                 complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
               case Success(None) =>
-                complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pipelineId))
+                complete(StatusCodes.NotFound, ErrorResponse("Pipeline not found: " + pid))
 
               case Success(Some(pipeline)) =>
                 onComplete(dataSourceRepo.findById(pipeline.sourceDataSourceId)) {
@@ -251,7 +253,7 @@ class PipelineRunRoutes(
                         )
 
                       case _ =>
-                        onComplete(pipelineStepRepo.listByPipeline(pipelineId)) {
+                        onComplete(pipelineStepRepo.listByPipeline(pid)) {
                           case Failure(ex) =>
                             complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
@@ -299,15 +301,15 @@ class PipelineRunRoutes(
             if (pipelineRunRepo == null) {
               complete(StatusCodes.OK, Vector.empty[PipelineRunRecord])
             } else {
-              onComplete(pipelineRepo.findById(pipelineId)) {
+              onComplete(pipelineRepo.findById(pid)) {
                 case Failure(ex) =>
                   complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 
                 case Success(None) =>
-                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pipelineId"))
+                  complete(StatusCodes.NotFound, ErrorResponse(s"Pipeline not found: $pid"))
 
                 case Success(Some(_)) =>
-                  onComplete(pipelineRunRepo.listByPipeline(pipelineId)) {
+                  onComplete(pipelineRunRepo.listByPipeline(pid)) {
                     case Failure(ex) =>
                       complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
 

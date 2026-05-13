@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
+import com.helio.api.protocols.IdParsing.DataTypeIdSegment
 import com.helio.domain._
 import com.helio.domain.ExpressionEvaluator
 import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
@@ -35,9 +36,8 @@ final class DataTypeRoutes(
             }
           }
         },
-        path(Segment / "rows") { typeId =>
+        path(DataTypeIdSegment / "rows") { id =>
           get {
-            val id = DataTypeId(typeId)
             onSuccess(dataTypeRepo.findById(id)) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
@@ -45,17 +45,16 @@ final class DataTypeRoutes(
                 if (dataTypeRowRepo == null) {
                   complete(DataTypeRowsResponse(rows = Vector.empty, rowCount = 0))
                 } else {
-                  onSuccess(dataTypeRowRepo.listRows(typeId)) { rows =>
+                  onSuccess(dataTypeRowRepo.listRows(id.value)) { rows =>
                     complete(DataTypeRowsResponse(rows = rows, rowCount = rows.size))
                   }
                 }
             }
           }
         },
-        path(Segment / "validate-expression") { typeId =>
+        path(DataTypeIdSegment / "validate-expression") { id =>
           get {
             parameter("expr") { expr =>
-              val id = DataTypeId(typeId)
               onSuccess(dataTypeRepo.findById(id)) {
                 case None =>
                   complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
@@ -71,8 +70,7 @@ final class DataTypeRoutes(
             }
           }
         },
-        path(Segment) { typeId =>
-          val id = DataTypeId(typeId)
+        path(DataTypeIdSegment) { id =>
           concat(
             get {
               onSuccess(dataTypeRepo.findById(id)) {
@@ -81,7 +79,7 @@ final class DataTypeRoutes(
               }
             },
             patch {
-              acl.authorizeResource(typeId, user, "data-type", "DataType not found") {
+              acl.authorizeResource(id.value, user, "data-type", "DataType not found") {
                 entity(as[UpdateDataTypeRequest]) { request =>
                   onSuccess(dataTypeRepo.findById(id)) {
                     case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
@@ -139,7 +137,7 @@ final class DataTypeRoutes(
               }
             },
             delete {
-              acl.authorizeResource(typeId, user, "data-type", "DataType not found") {
+              acl.authorizeResource(id.value, user, "data-type", "DataType not found") {
                 onSuccess(dataTypeRepo.findById(id)) {
                   case None => complete(StatusCodes.NotFound, ErrorResponse("DataType not found"))
                   case Some(_) =>

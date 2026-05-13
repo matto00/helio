@@ -4,6 +4,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import org.apache.pekko.http.scaladsl.server.Directive1
 import org.apache.pekko.http.scaladsl.server.Directives._
+import com.helio.api.protocols.ResourceProtocol
 import com.helio.domain.AuthenticatedUser
 import com.helio.infrastructure.UserSessionRepository
 
@@ -11,7 +12,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 class AuthDirectives(userSessionRepo: UserSessionRepository)(implicit ec: ExecutionContext)
-    extends JsonProtocols {
+    extends ResourceProtocol {
 
   /** Extracts a Bearer token from the Authorization header, validates it against
    *  the session store, and provides the resolved AuthenticatedUser to the inner route.
