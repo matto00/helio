@@ -4,6 +4,7 @@ import com.helio.api.RequestValidation
 import com.helio.api.protocols.{ComputedFieldPayload, UpdateDataTypeRequest}
 import com.helio.domain._
 import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
+import spray.json.JsObject
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +28,7 @@ final class DataTypeService(
       case None     => Left(ServiceError.NotFound("DataType not found"))
     }
 
-  def listRows(id: DataTypeId): Future[Either[ServiceError, Vector[spray.json.JsObject]]] =
+  def listRows(id: DataTypeId): Future[Either[ServiceError, Vector[JsObject]]] =
     dataTypeRepo.findById(id).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
       case Some(_) =>

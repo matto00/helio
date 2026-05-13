@@ -8,6 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.domain.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -15,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 
+import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -70,10 +72,10 @@ class PipelineAnalyzeRoutesSpec
    *  Returns (pipelineId, dataSourceId). */
   private def seedPipelineWithSchema(fields: String): (String, String) = {
     import PostgresProfile.api._
-    val dsId  = java.util.UUID.randomUUID().toString
-    val dtId  = java.util.UUID.randomUUID().toString   // source DataType
-    val outId = java.util.UUID.randomUUID().toString   // output DataType
-    val pid   = java.util.UUID.randomUUID().toString
+    val dsId  = UUID.randomUUID().toString
+    val dtId  = UUID.randomUUID().toString   // source DataType
+    val outId = UUID.randomUUID().toString   // output DataType
+    val pid   = UUID.randomUUID().toString
     val ownerId = dummyUser.id.value
 
     await(db.run(DBIO.seq(
@@ -91,7 +93,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def routes: Route = {
     implicit val ec: scala.concurrent.ExecutionContext = routeEc
-    val service = new com.helio.services.PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
     new PipelineRoutes(service, dummyUser).routes
   }
 

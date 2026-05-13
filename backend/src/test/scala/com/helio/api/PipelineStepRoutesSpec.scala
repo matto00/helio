@@ -15,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile
+import java.util.UUID
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
@@ -60,9 +61,9 @@ class PipelineStepRoutesSpec
 
   private def seedPipeline(): String = {
     import PostgresProfile.api._
-    val pid  = java.util.UUID.randomUUID().toString
-    val dsId = java.util.UUID.randomUUID().toString
-    val dtId = java.util.UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    val dsId = UUID.randomUUID().toString
+    val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at) VALUES ($dsId, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000001', now(), now())""",
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at) VALUES ($dtId, 'dt', '[]', 1, '00000000-0000-0000-0000-000000000001', now(), now())""",

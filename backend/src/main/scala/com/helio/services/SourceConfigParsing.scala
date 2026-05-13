@@ -1,7 +1,7 @@
 package com.helio.services
 
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.{RestApiConfigPayload, SqlSourceConfigPayload}
+import com.helio.api.protocols.{FieldOverridePayload, RestApiConfigPayload, SqlSourceConfigPayload}
 import com.helio.domain.{RestApiConfig, SqlSourceConfig}
 import spray.json._
 
@@ -25,6 +25,6 @@ private[services] object SourceConfigParsing extends JsonProtocols {
 
   /** Re-export the format for `Vector[FieldOverridePayload]` — used by
    *  `DataSourceService.parseFieldOverrides` for the CSV-upload multipart. */
-  implicit val fieldOverrideVectorFormat: RootJsonFormat[Vector[com.helio.api.protocols.FieldOverridePayload]] =
+  implicit val fieldOverrideVectorFormat: RootJsonFormat[Vector[FieldOverridePayload]] =
     vectorFormat(fieldOverridePayloadFormat)
 }
