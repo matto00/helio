@@ -5,10 +5,11 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{AclDirective, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
+import com.helio.api.{AccessCheckerImpl, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
 import com.helio.domain.{AuthenticatedUser, DataTypeId, UserId}
 import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
+import com.helio.services.DataTypeService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -17,6 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -56,25 +58,28 @@ class DataTypeRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  /** Minimal AclDirective — the GET /rows route doesn't call authorizeResource so
-   *  the real permission repo is sufficient with no extra setup. */
-  private def makeAcl: AclDirective = {
+  /** Build a real AccessChecker against the same repo wiring the service expects.
+   *  The /rows route doesn't actually exercise ACL so no extra setup is needed. */
+  private def makeAccessChecker: AccessCheckerImpl = {
     implicit val ec: ExecutionContext = routeEc
     val permissionRepo = new ResourcePermissionRepository(db)(ec)
     val registry = new ResourceTypeRegistry(
       ResourceType("data-type", id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value)))
     )
-    new AclDirective(permissionRepo, registry)
+    new AccessCheckerImpl(permissionRepo, registry)
   }
 
-  private def makeRoutes: Route =
-    new DataTypeRoutes(dataTypeRepo, makeAcl, dummyUser, dataTypeRowRepo)(typedSystem).routes
+  private def makeRoutes: Route = {
+    implicit val ec: ExecutionContext = routeEc
+    val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, makeAccessChecker)
+    new DataTypeRoutes(service, dummyUser)(typedSystem).routes
+  }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private def seedDataType(): String = {
     import PostgresProfile.api._
-    val dtId = java.util.UUID.randomUUID().toString
+    val dtId = UUID.randomUUID().toString
     await(db.run(
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
              VALUES ($dtId, 'TestType', '[]', 1,

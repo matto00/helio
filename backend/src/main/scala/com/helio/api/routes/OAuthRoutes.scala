@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.helio.api._
-import com.helio.infrastructure.UserRepository
+import com.helio.services.AuthService
 import spray.json._
 
 import java.net.URLEncoder
@@ -16,10 +16,18 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-/** Google OAuth handlers split out of `AuthRoutes`.
- *  Hosts `GET /google` (kickoff) and `GET /google/callback` (token exchange + sign-in). */
+/** Google OAuth handlers.
+ *
+ *  HTTP-heavy concerns (redirect kickoff, code → token exchange, userinfo
+ *  fetch, CSRF state parameter) stay here because the test suite overrides
+ *  `exchangeCodeForTokenImpl` / `fetchGoogleProfileImpl` as protected hooks.
+ *  Once the Google profile has been obtained, the route hands off to
+ *  [[AuthService.completeOAuth]] for the user upsert + session mint.
+ *
+ *  CSRF state generation/validation is also delegated to `AuthService` so the
+ *  in-memory token store lives next to the rest of the auth surface. */
 class OAuthRoutes(
-    userRepo: UserRepository,
+    authService: AuthService,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = ""
@@ -80,65 +88,56 @@ class OAuthRoutes(
   val routes: Route =
     concat(
       path("google") {
-        get {
-          val state = AuthSupport.generateCsrfState()
-          val params = Map(
-            "client_id"     -> googleClientId,
-            "redirect_uri"  -> googleRedirectUri,
-            "response_type" -> "code",
-            "scope"         -> "openid email profile",
-            "state"         -> state
-          )
-          val queryString = params.map { case (k, v) =>
-            s"${URLEncoder.encode(k, StandardCharsets.UTF_8)}=${URLEncoder.encode(v, StandardCharsets.UTF_8)}"
-          }.mkString("&")
-          val googleAuthUrl = s"https://accounts.google.com/o/oauth2/v2/auth?$queryString"
-          redirect(googleAuthUrl, StatusCodes.Found)
-        }
+        get { redirect(buildGoogleAuthUrl(authService.generateCsrfState()), StatusCodes.Found) }
       },
       path("google" / "callback") {
         get {
           parameters("code".?, "error".?, "state".?) { (codeOpt, errorOpt, stateOpt) =>
-            val stateValid = stateOpt.exists(AuthSupport.validateCsrfState)
-            if (!stateValid)
-              complete(StatusCodes.BadRequest, ErrorResponse("Invalid or missing OAuth state parameter"))
-            else errorOpt match {
-              case Some(err) =>
-                val message = if (err == "access_denied") "OAuth access denied" else s"OAuth error: $err"
-                complete(StatusCodes.BadRequest, ErrorResponse(message))
-
-              case None =>
-                codeOpt match {
-                  case None =>
-                    complete(StatusCodes.BadRequest, ErrorResponse("OAuth error: missing authorization code"))
-
-                  case Some(code) =>
-                    val result = for {
-                      accessToken <- exchangeCodeForTokenImpl(code)
-                      profile     <- fetchGoogleProfileImpl(accessToken)
-                      email        = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
-                      user        <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture)
-                      session     <- AuthSupport.createSession(userRepo, user.id)
-                    } yield AuthResponse(
-                      token     = session.token,
-                      expiresAt = session.expiresAt.toString,
-                      user      = UserResponse.fromDomain(user)
-                    )
-
-                    onComplete(result) {
-                      case Success(authResp) =>
-                        complete(StatusCodes.OK, authResp)
-                      case Failure(ex) if isUpstreamOAuthError(ex) =>
-                        complete(StatusCodes.BadGateway, ErrorResponse("Failed to exchange authorization code"))
-                      case Failure(ex) =>
-                        complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
-                    }
-                }
-            }
+            handleCallback(codeOpt, errorOpt, stateOpt)
           }
         }
       }
     )
+
+  private def handleCallback(codeOpt: Option[String], errorOpt: Option[String], stateOpt: Option[String]): Route =
+    if (!stateOpt.exists(authService.validateCsrfState))
+      complete(StatusCodes.BadRequest, ErrorResponse("Invalid or missing OAuth state parameter"))
+    else errorOpt match {
+      case Some("access_denied") => complete(StatusCodes.BadRequest, ErrorResponse("OAuth access denied"))
+      case Some(err)             => complete(StatusCodes.BadRequest, ErrorResponse(s"OAuth error: $err"))
+      case None => codeOpt match {
+        case None       => complete(StatusCodes.BadRequest, ErrorResponse("OAuth error: missing authorization code"))
+        case Some(code) => completeOAuthExchange(code)
+      }
+    }
+
+  private def completeOAuthExchange(code: String): Route = {
+    val result = for {
+      accessToken <- exchangeCodeForTokenImpl(code)
+      profile     <- fetchGoogleProfileImpl(accessToken)
+      authResp    <- authService.completeOAuth(profile)
+    } yield authResp
+
+    onComplete(result) {
+      case Success(authResp)                       => complete(StatusCodes.OK, authResp)
+      case Failure(ex) if isUpstreamOAuthError(ex) => complete(StatusCodes.BadGateway, ErrorResponse("Failed to exchange authorization code"))
+      case Failure(ex)                             => complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+    }
+  }
+
+  private def buildGoogleAuthUrl(state: String): String = {
+    val params = Map(
+      "client_id"     -> googleClientId,
+      "redirect_uri"  -> googleRedirectUri,
+      "response_type" -> "code",
+      "scope"         -> "openid email profile",
+      "state"         -> state
+    )
+    val queryString = params.map { case (k, v) =>
+      s"${URLEncoder.encode(k, StandardCharsets.UTF_8)}=${URLEncoder.encode(v, StandardCharsets.UTF_8)}"
+    }.mkString("&")
+    s"https://accounts.google.com/o/oauth2/v2/auth?$queryString"
+  }
 
   private def isUpstreamOAuthError(ex: Throwable): Boolean = {
     val msg = Option(ex.getMessage).getOrElse("")

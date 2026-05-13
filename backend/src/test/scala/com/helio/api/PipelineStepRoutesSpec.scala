@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.api.routes.PipelineStepRoutes
+import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -14,8 +15,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile
-import scala.concurrent.Await
-import scala.concurrent.Future
+import java.util.UUID
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 class PipelineStepRoutesSpec
@@ -31,6 +32,7 @@ class PipelineStepRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var stepRepo: PipelineStepRepository   = _
   private var pipelineRepo: PipelineRepository   = _
+  private var dataTypeRepo: DataTypeRepository   = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -39,7 +41,7 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
     val dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(db)(typedSystem.executionContext)
     pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
@@ -58,9 +60,9 @@ class PipelineStepRoutesSpec
 
   private def seedPipeline(): String = {
     import PostgresProfile.api._
-    val pid  = java.util.UUID.randomUUID().toString
-    val dsId = java.util.UUID.randomUUID().toString
-    val dtId = java.util.UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    val dsId = UUID.randomUUID().toString
+    val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at) VALUES ($dsId, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000001', now(), now())""",
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at) VALUES ($dtId, 'dt', '[]', 1, '00000000-0000-0000-0000-000000000001', now(), now())""",
@@ -69,7 +71,11 @@ class PipelineStepRoutesSpec
     pid
   }
 
-  private def routes: Route = new PipelineStepRoutes(stepRepo, pipelineRepo)(typedSystem.executionContext).routes
+  private def routes: Route = {
+    implicit val ec: ExecutionContext = typedSystem.executionContext
+    val service = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
+    new PipelineStepRoutes(service).routes
+  }
 
   "PipelineStepRoutes" should {
 

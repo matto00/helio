@@ -8,8 +8,10 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
+import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
+import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -43,6 +45,7 @@ final class ApiRoutes(
     with JsonProtocols {
 
   private implicit val ec = system.executionContext
+  private implicit val mat: Materializer = SystemMaterializer(system).materializer
 
   private val registry = new ResourceTypeRegistry(
     ResourceType("dashboard",   id => dashboardRepo.findById(DashboardId(id)).map(_.map(_.ownerId.value))),
@@ -55,8 +58,20 @@ final class ApiRoutes(
   private val aclDirective   = new AclDirective(permissionRepo, registry)
   private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
-  private val auth           = new AuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
-  private val oauth          = new OAuthRoutes(userRepo, googleClientId, googleClientSecret, googleRedirectUri)
+
+  // Services
+  private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
+  private val authService       = new AuthService(userRepo)
+  private val dashboardService  = new DashboardService(dashboardRepo)
+  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
+  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
+  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, accessChecker)
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+  private val permissionService = new PermissionService(permissionRepo, accessChecker)
+
+  private val auth  = new AuthRoutes(authService)
+  private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
 
   private val corsSettings = CorsSettings.defaultSettings
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
@@ -69,7 +84,7 @@ final class ApiRoutes(
           concat(
             pathPrefix("auth") { concat(auth.routes, oauth.routes) },
             authDirectives.optionalAuthenticate { userOpt =>
-              new PublicDashboardRoutes(dashboardRepo, panelRepo, permissionRepo, aclDirective, userOpt, Some(dataTypeRepo)).routes
+              new PublicDashboardRoutes(panelRepo, panelService, aclDirective, userOpt).routes
             },
             authDirectives.authenticate { authenticatedUser =>
               concat(
@@ -127,17 +142,17 @@ final class ApiRoutes(
                     }
                   }
                 },
-                new DashboardRoutes(dashboardRepo, panelRepo, authenticatedUser, Some(dataTypeRepo)).routes,
-                new DashboardSnapshotRoutes(dashboardRepo, authenticatedUser).routes,
-                new PanelRoutes(panelRepo, dashboardRepo, dataTypeRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-                new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-                new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
-                new DataSourceRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
-                new DataSourcePreviewRoutes(dataSourceRepo, dataTypeRepo, fileSystem, aclDirective, authenticatedUser).routes,
-                new SourceRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
-                new SourcePreviewRoutes(dataSourceRepo, dataTypeRepo, connector, authenticatedUser).routes,
-                new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, authenticatedUser).routes,
-                new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
+                new DashboardRoutes(dashboardService, authenticatedUser).routes,
+                new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
+                new PanelRoutes(panelService, authenticatedUser).routes,
+                new PermissionRoutes(permissionService, authenticatedUser).routes,
+                new DataTypeRoutes(dataTypeService, authenticatedUser).routes,
+                new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
+                new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
+                new SourceRoutes(sourceService, authenticatedUser).routes,
+                new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
+                new PipelineRoutes(pipelineService, authenticatedUser).routes,
+                new PipelineStepRoutes(pipelineService).routes,
                 new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, fileSystem, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes
               )
             }

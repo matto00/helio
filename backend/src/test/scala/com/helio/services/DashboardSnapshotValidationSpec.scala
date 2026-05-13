@@ -1,4 +1,4 @@
-package com.helio.api.routes
+package com.helio.services
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +13,7 @@ import com.helio.api.protocols.{
 }
 
 /** Unit coverage for the four `Either`-returning helpers underpinning
- *  `DashboardSnapshotRoutes.validateSnapshotPayload`. The integration tests round-trip
+ *  `DashboardService.validateSnapshotPayload`. The integration tests round-trip
  *  these paths through HTTP; this spec confirms each failure case directly so the
  *  `for`-comprehension chain didn't silently drop a case during refactoring. */
 final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
@@ -33,11 +33,11 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
       content    = None
     )
 
-  "DashboardSnapshotRoutes.validateSnapshotPayload" should {
+  "DashboardService.validateSnapshotPayload" should {
 
     "reject version < 1" in {
       val payload = DashboardSnapshotPayload(version = 0, dashboard = emptyDashboard, panels = Vector.empty)
-      val result  = DashboardSnapshotRoutes.validateSnapshotPayload(payload)
+      val result  = DashboardService.validateSnapshotPayload(payload)
       result shouldBe Left("version must be >= 1, got 0")
     }
 
@@ -47,7 +47,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
         dashboard = emptyDashboard.copy(name = "   "),
         panels    = Vector.empty
       )
-      val result = DashboardSnapshotRoutes.validateSnapshotPayload(payload)
+      val result = DashboardService.validateSnapshotPayload(payload)
       result shouldBe Left("dashboard.name must not be blank")
     }
 
@@ -57,7 +57,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
         dashboard = emptyDashboard,
         panels    = Vector(panel("p1", panelType = "not-a-real-type"))
       )
-      val result = DashboardSnapshotRoutes.validateSnapshotPayload(payload)
+      val result = DashboardService.validateSnapshotPayload(payload)
       result.left.toOption.exists(_.toLowerCase.contains("type")) shouldBe true
     }
 
@@ -69,7 +69,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
         dashboard = emptyDashboard.copy(layout = layout),
         panels    = Vector(panel("p1"))
       )
-      val result = DashboardSnapshotRoutes.validateSnapshotPayload(payload)
+      val result = DashboardService.validateSnapshotPayload(payload)
       result shouldBe Left("layout references unknown snapshotId: 'ghost-panel'")
     }
 
@@ -81,7 +81,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
         dashboard = emptyDashboard.copy(layout = layout),
         panels    = Vector(panel("p1"))
       )
-      DashboardSnapshotRoutes.validateSnapshotPayload(payload) shouldBe Right(())
+      DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
     }
   }
 }

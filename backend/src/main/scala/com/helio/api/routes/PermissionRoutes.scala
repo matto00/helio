@@ -6,18 +6,14 @@ import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.UserIdSegment
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, ResourcePermissionRepository}
+import com.helio.services.PermissionService
 
-import org.postgresql.util.PSQLException
-
-import java.time.Instant
 import scala.concurrent.ExecutionContextExecutor
-import scala.util.{Failure, Success}
 
+/** Thin HTTP shell for `/api/dashboards/:id/permissions`.
+ *  All logic in [[PermissionService]]. */
 final class PermissionRoutes(
-    dashboardRepo: DashboardRepository,
-    permissionRepo: ResourcePermissionRepository,
-    aclDirective: AclDirective,
+    permissionService: PermissionService,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -31,36 +27,14 @@ final class PermissionRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
-                onSuccess(permissionRepo.findByResource("dashboard", dashboardId)) { permissions =>
-                  complete(PermissionsResponse(permissions.map(PermissionResponse.fromDomain)))
-                }
+              ServiceResponse.run(permissionService.list(dashboardId, user)) { permissions =>
+                PermissionsResponse(permissions.map(PermissionResponse.fromDomain))
               }
             },
             post {
               entity(as[GrantPermissionRequest]) { request =>
-                aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
-                  Role.fromString(request.role) match {
-                    case Left(error) =>
-                      complete(StatusCodes.BadRequest, ErrorResponse(error))
-                    case Right(role) =>
-                      val granteeId = request.granteeId.map(UserId(_))
-                      val permission = ResourcePermission(
-                        resourceType = "dashboard",
-                        resourceId   = dashboardId,
-                        granteeId    = granteeId,
-                        role         = role,
-                        createdAt    = Instant.now()
-                      )
-                      onComplete(permissionRepo.insert(permission)) {
-                        case Success(created) =>
-                          complete(StatusCodes.Created, PermissionResponse.fromDomain(created))
-                        case Failure(_: PSQLException) =>
-                          complete(StatusCodes.Conflict, ErrorResponse("Permission already exists"))
-                        case Failure(ex) =>
-                          complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
-                      }
-                  }
+                ServiceResponse.run(permissionService.grant(dashboardId, request, user)) { created =>
+                  StatusCodes.Created -> PermissionResponse.fromDomain(created)
                 }
               }
             }
@@ -68,15 +42,7 @@ final class PermissionRoutes(
         },
         path(UserIdSegment) { granteeId =>
           delete {
-            aclDirective.authorizeResource(dashboardId, user, "dashboard", "Dashboard not found") {
-              onSuccess(permissionRepo.delete("dashboard", dashboardId, granteeId)) { deleted =>
-                if (deleted) {
-                  complete(StatusCodes.NoContent)
-                } else {
-                  complete(StatusCodes.NotFound, ErrorResponse("Permission not found"))
-                }
-              }
-            }
+            ServiceResponse.runNoContent(permissionService.revoke(dashboardId, granteeId, user))
           }
         }
       )
