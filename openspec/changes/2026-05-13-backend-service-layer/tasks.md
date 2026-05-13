@@ -66,10 +66,10 @@ For each service, follow this loop:
 
 ### 2.5 `DataTypeService`
 
-- [ ] 2.5.1 Create `services/DataTypeService.scala`
-- [ ] 2.5.2 Move CRUD + computed-field validation into service methods
-- [ ] 2.5.3 Slim `DataTypeRoutes.scala` to ≤ 100 lines
-- [ ] 2.5.4 `sbt test` passes; commit
+- [x] 2.5.1 Create `services/DataTypeService.scala` (138 lines)
+- [x] 2.5.2 Move CRUD + computed-field validation into service methods
+- [x] 2.5.3 Slim `DataTypeRoutes.scala` to 66 lines
+- [x] 2.5.4 `sbt test` passes; commit
 
 ### 2.6 `PipelineService`
 

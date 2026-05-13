@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
-import com.helio.services.{AuthService, DashboardService, DataSourceService, PanelService, SourceService}
+import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -64,6 +64,7 @@ final class ApiRoutes(
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
+  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, accessChecker)
 
   private val auth  = new AuthRoutes(authService)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
@@ -141,7 +142,7 @@ final class ApiRoutes(
                 new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                 new PanelRoutes(panelService, authenticatedUser).routes,
                 new PermissionRoutes(dashboardRepo, permissionRepo, aclDirective, authenticatedUser).routes,
-                new DataTypeRoutes(dataTypeRepo, aclDirective, authenticatedUser, dataTypeRowRepo).routes,
+                new DataTypeRoutes(dataTypeService, authenticatedUser).routes,
                 new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                 new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                 new SourceRoutes(sourceService, authenticatedUser).routes,
