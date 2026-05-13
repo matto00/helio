@@ -82,10 +82,10 @@ For each service, follow this loop:
 
 ### 2.7 `PermissionService`
 
-- [ ] 2.7.1 Create `services/PermissionService.scala`
-- [ ] 2.7.2 Move grant/list/revoke into service methods
-- [ ] 2.7.3 Slim `PermissionRoutes.scala` to ≤ 60 lines
-- [ ] 2.7.4 `sbt test` passes; commit
+- [x] 2.7.1 Create `services/PermissionService.scala` (60 lines)
+- [x] 2.7.2 Move grant/list/revoke into service methods
+- [x] 2.7.3 Slim `PermissionRoutes.scala` to 50 lines
+- [x] 2.7.4 `sbt test` passes; commit
 
 ## 3. Mechanical fold-ins (only if tractable inside the service extraction)
 
