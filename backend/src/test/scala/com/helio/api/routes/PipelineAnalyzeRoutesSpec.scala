@@ -89,8 +89,11 @@ class PipelineAnalyzeRoutesSpec
     (pid, dsId)
   }
 
-  private def routes: Route =
-    new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, dummyUser)(routeEc).routes
+  private def routes: Route = {
+    implicit val ec: scala.concurrent.ExecutionContext = routeEc
+    val service = new com.helio.services.PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+    new PipelineRoutes(service, dummyUser).routes
+  }
 
   // ---------------------------------------------------------------------------
   // Tests

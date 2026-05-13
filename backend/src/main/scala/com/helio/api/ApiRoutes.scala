@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
-import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, SourceService}
+import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -65,6 +65,7 @@ final class ApiRoutes(
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, accessChecker)
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
 
   private val auth  = new AuthRoutes(authService)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
@@ -147,8 +148,8 @@ final class ApiRoutes(
                 new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                 new SourceRoutes(sourceService, authenticatedUser).routes,
                 new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
-                new PipelineRoutes(pipelineRepo, pipelineStepRepo, dataTypeRepo, authenticatedUser).routes,
-                new PipelineStepRoutes(pipelineStepRepo, pipelineRepo).routes,
+                new PipelineRoutes(pipelineService, authenticatedUser).routes,
+                new PipelineStepRoutes(pipelineService).routes,
                 new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, fileSystem, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes
               )
             }

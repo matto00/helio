@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.api.routes.PipelineStepRoutes
+import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -31,6 +32,7 @@ class PipelineStepRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var stepRepo: PipelineStepRepository   = _
   private var pipelineRepo: PipelineRepository   = _
+  private var dataTypeRepo: DataTypeRepository   = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -39,7 +41,7 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
     val dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(db)(typedSystem.executionContext)
     pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
@@ -69,7 +71,11 @@ class PipelineStepRoutesSpec
     pid
   }
 
-  private def routes: Route = new PipelineStepRoutes(stepRepo, pipelineRepo)(typedSystem.executionContext).routes
+  private def routes: Route = {
+    implicit val ec: scala.concurrent.ExecutionContext = typedSystem.executionContext
+    val service = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
+    new PipelineStepRoutes(service).routes
+  }
 
   "PipelineStepRoutes" should {
 

@@ -73,12 +73,12 @@ For each service, follow this loop:
 
 ### 2.6 `PipelineService`
 
-- [ ] 2.6.1 Create `services/PipelineService.scala`
-- [ ] 2.6.2 Move pipeline + step CRUD into the service; reuse existing `domain/PipelineAnalyzeService`
-- [ ] 2.6.3 Slim `PipelineRoutes.scala` to ≤ 120 lines
-- [ ] 2.6.4 Slim `PipelineStepRoutes.scala` to ≤ 80 lines
-- [ ] 2.6.5 **Do NOT touch `PipelineRunRoutes.scala`** — CS2c scope
-- [ ] 2.6.6 `sbt test` passes; commit
+- [x] 2.6.1 Create `services/PipelineService.scala` (201 lines)
+- [x] 2.6.2 Move pipeline + step CRUD into the service; reuse existing `domain/PipelineAnalyzeService`
+- [x] 2.6.3 Slim `PipelineRoutes.scala` to 59 lines
+- [x] 2.6.4 Slim `PipelineStepRoutes.scala` to 49 lines
+- [x] 2.6.5 `PipelineRunRoutes.scala` untouched (CS2c scope)
+- [x] 2.6.6 `sbt test` passes; commit
 
 ### 2.7 `PermissionService`
 
