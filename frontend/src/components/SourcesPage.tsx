@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 
 import "./SourcesPage.css";
+import { faDatabase, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { fetchSources, setAddSourceModalOpen } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { SourceDetailPanel } from "./SourceDetailPanel";
+import { EmptyState } from "./ui/EmptyState";
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();
@@ -40,9 +42,17 @@ export function SourcesPage() {
           (selected !== null ? (
             <SourceDetailPanel source={selected} />
           ) : (
-            <div className="sources-page__empty-state">
-              <p>No data sources yet. Use the + button in the sidebar to add one.</p>
-            </div>
+            <EmptyState
+              variant="main"
+              icon={faDatabase}
+              title="Connect a data source"
+              description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Once connected, Helio infers a type schema you can bind to panels."
+              cta={{
+                label: "Add source",
+                icon: faPlus,
+                onClick: () => dispatch(setAddSourceModalOpen(true)),
+              }}
+            />
           ))}
       </div>
 

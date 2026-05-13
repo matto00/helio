@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { TextField, Textarea } from "./ui";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { inferSqlSource } from "../features/sources/sourcesSlice";
 import type { InferredField } from "../types/models";
@@ -101,10 +102,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-host">
           Host
         </label>
-        <input
+        <TextField
           id="sql-host"
           type="text"
-          className="add-source-modal__input"
           value={host}
           onChange={(e) => setHost(e.target.value)}
           placeholder="localhost"
@@ -115,10 +115,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-port">
           Port
         </label>
-        <input
+        <TextField
           id="sql-port"
           type="number"
-          className="add-source-modal__input"
           value={port}
           onChange={(e) => setPort(Number(e.target.value))}
         />
@@ -128,10 +127,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-database">
           Database
         </label>
-        <input
+        <TextField
           id="sql-database"
           type="text"
-          className="add-source-modal__input"
           value={database}
           onChange={(e) => setDatabase(e.target.value)}
           placeholder="my_database"
@@ -142,10 +140,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-username">
           Username
         </label>
-        <input
+        <TextField
           id="sql-username"
           type="text"
-          className="add-source-modal__input"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="db_user"
@@ -156,10 +153,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-password">
           Password
         </label>
-        <input
+        <TextField
           id="sql-password"
           type="password"
-          className="add-source-modal__input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -169,9 +165,9 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
         <label className="add-source-modal__label" htmlFor="sql-query">
           Query
         </label>
-        <textarea
+        <Textarea
           id="sql-query"
-          className="add-source-modal__input add-source-modal__textarea"
+          mono
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="SELECT * FROM my_table LIMIT 100"

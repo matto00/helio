@@ -1,67 +1,19 @@
-.add-source-modal {
-  border: 1px solid var(--app-border-strong);
-  border-radius: var(--app-radius-md);
-  background: var(--app-surface-strong);
-  box-shadow: var(--app-shadow-soft);
-  padding: 0;
-  max-width: 640px;
-  width: 100%;
-  color: var(--app-text);
-}
-
-.add-source-modal::backdrop {
-  background: rgba(7, 11, 20, 0.72);
-}
-
-.add-source-modal__inner {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.75rem;
-}
-
-.add-source-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.add-source-modal__title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--app-text);
-}
-
-.add-source-modal__close {
-  border: none;
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-  transition: color var(--app-transition);
-}
-
-.add-source-modal__close:hover {
-  color: var(--app-text);
-}
+/* Form-level styles only — modal shell is provided by <Modal> / ui-modal */
 
 .add-source-modal__form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 14px;
 }
 
 .add-source-modal__field {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 5px;
 }
 
 .add-source-modal__label {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--app-text-muted);
 }
@@ -71,34 +23,27 @@
   opacity: 0.7;
 }
 
-.add-source-modal__input {
-  padding: 0.5625rem 0.875rem;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border-strong);
-  border-radius: 10px;
-  color: var(--app-text);
-  font-size: 0.9375rem;
-  outline: none;
-  transition: border-color var(--app-transition);
-  width: 100%;
+/* File input (type=file) — keep native since it's a platform widget */
+.add-source-modal__input[type="file"] {
+  padding: 5px 0;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
 }
 
-.add-source-modal__input:focus {
-  border-color: var(--app-accent);
-}
-
+/* Source type toggle buttons */
 .add-source-modal__type-toggle {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .add-source-modal__type-btn {
-  padding: 0.5rem 1.125rem;
+  padding: 4px 12px;
   border: 1px solid var(--app-border-strong);
-  border-radius: 8px;
+  border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -114,58 +59,63 @@
 .add-source-modal__type-btn--active {
   background: var(--app-accent-surface);
   color: var(--app-accent-strong);
-  border-color: var(--app-accent);
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
 }
 
+/* Preview / schema section */
 .add-source-modal__preview-hint {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   color: var(--app-text-muted);
 }
 
 .add-source-modal__empty {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   color: var(--app-text-muted);
 }
 
+/* Schema table */
 .add-source-modal__fields-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
 }
 
 .add-source-modal__fields-table th {
   text-align: left;
-  padding: 0.5rem 0.625rem;
+  padding: 6px 8px;
   color: var(--app-text-muted);
   font-weight: 500;
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
 .add-source-modal__fields-table td {
-  padding: 0.375rem 0.375rem;
+  padding: 4px 4px;
   border-bottom: 1px solid var(--app-border-subtle);
   vertical-align: middle;
 }
 
 .add-source-modal__field-name {
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: 0.78rem;
   color: var(--app-accent);
-  padding-left: 0.625rem !important;
+  padding-left: 8px !important;
 }
 
+/* Inline table inputs — small compact style, not full ui-input */
 .add-source-modal__cell-input,
 .add-source-modal__cell-select {
   width: 100%;
-  padding: 0.3125rem 0.5rem;
+  padding: 4px 6px;
   background: var(--app-surface);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 20%, transparent);
+  border-radius: var(--app-radius-sm);
   color: var(--app-text);
-  font-size: 0.8125rem;
+  font-size: 0.78rem;
+  font-family: inherit;
   outline: none;
+  transition: border-color var(--app-transition);
 }
 
 .add-source-modal__cell-input:focus,
@@ -177,63 +127,21 @@
   text-align: center;
 }
 
+/* Error */
 .add-source-modal__error {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   color: #f87171;
 }
 
-.add-source-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.add-source-modal__btn {
-  padding: 0.5625rem 1.25rem;
-  border-radius: var(--app-radius-sm);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background var(--app-transition),
-    color var(--app-transition);
-}
-
-.add-source-modal__btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.add-source-modal__btn--secondary {
-  border: 1px solid var(--app-border-strong);
-  background: transparent;
-  color: var(--app-text-muted);
-}
-
-.add-source-modal__btn--secondary:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
-
-.add-source-modal__btn--primary {
-  border: none;
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
-}
-
-.add-source-modal__btn--primary:hover:not(:disabled) {
-  background: var(--app-accent);
-  color: var(--app-bg);
-}
-
+/* Misc legacy action-link used by SqlTab or StaticSourceForm children */
 .add-source-modal__action-link {
   border: none;
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 2px;
   line-height: 1;
   transition: color var(--app-transition);
 }

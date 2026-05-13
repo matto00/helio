@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import "./ComputedFieldForm.css";
+import { Select, TextField } from "./ui";
 import { validateExpression } from "../services/dataTypeService";
 import type { ComputedField } from "../types/models";
 
@@ -95,9 +96,8 @@ export function ComputedFieldForm({ typeId, initial, onSave, onCancel }: Compute
         <label className="computed-field-form__label" htmlFor="cf-name">
           Field name
         </label>
-        <input
+        <TextField
           id="cf-name"
-          className="computed-field-form__input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. total"
@@ -110,9 +110,8 @@ export function ComputedFieldForm({ typeId, initial, onSave, onCancel }: Compute
         <label className="computed-field-form__label" htmlFor="cf-display-name">
           Display name
         </label>
-        <input
+        <TextField
           id="cf-display-name"
-          className="computed-field-form__input"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="e.g. Total"
@@ -124,9 +123,9 @@ export function ComputedFieldForm({ typeId, initial, onSave, onCancel }: Compute
         <label className="computed-field-form__label" htmlFor="cf-expression">
           Expression
         </label>
-        <input
+        <TextField
           id="cf-expression"
-          className="computed-field-form__input"
+          mono
           value={expression}
           onChange={(e) => setExpression(e.target.value)}
           placeholder="e.g. price * quantity"
@@ -147,19 +146,12 @@ export function ComputedFieldForm({ typeId, initial, onSave, onCancel }: Compute
         <label className="computed-field-form__label" htmlFor="cf-output-type">
           Output type
         </label>
-        <select
-          id="cf-output-type"
-          className="computed-field-form__select"
+        <Select
           value={dataType}
-          onChange={(e) => setDataType(e.target.value)}
-          aria-label="Computed field output type"
-        >
-          {OUTPUT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+          onChange={setDataType}
+          ariaLabel="Computed field output type"
+          options={OUTPUT_TYPES.map((t) => ({ value: t, label: t }))}
+        />
       </div>
 
       <div className="computed-field-form__actions">

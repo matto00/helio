@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import "./PanelDetailModal.css";
+import { Select, TextField, Textarea } from "./ui";
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { PANEL_SLOTS } from "../features/panels/panelSlots";
 import {
@@ -483,10 +484,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                 <label className="panel-detail-modal__data-label" htmlFor="panel-title">
                   Title
                 </label>
-                <input
+                <TextField
                   id="panel-title"
                   type="text"
-                  className="panel-detail-modal__type-search"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   aria-label="Panel title"
@@ -572,24 +572,25 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                       <div className="panel-detail-modal__row">
                         <label className="panel-detail-modal__field">
                           <span>Legend position</span>
-                          <select
+                          <Select
+                            ariaLabel="Legend position"
                             value={chartAppearance.legend.position}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setChartAppearance((prev) => ({
                                 ...prev,
                                 legend: {
                                   ...prev.legend,
-                                  position: e.target.value as "top" | "bottom" | "left" | "right",
+                                  position: v as "top" | "bottom" | "left" | "right",
                                 },
                               }))
                             }
-                            aria-label="Legend position"
-                          >
-                            <option value="top">Top</option>
-                            <option value="bottom">Bottom</option>
-                            <option value="left">Left</option>
-                            <option value="right">Right</option>
-                          </select>
+                            options={[
+                              { value: "top", label: "Top" },
+                              { value: "bottom", label: "Bottom" },
+                              { value: "left", label: "Left" },
+                              { value: "right", label: "Right" },
+                            ]}
+                          />
                         </label>
                       </div>
                     )}
@@ -631,9 +632,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                       Show X-axis label
                     </label>
                     {chartAppearance.axisLabels.x.show && (
-                      <input
+                      <TextField
                         type="text"
-                        className="panel-detail-modal__type-search"
                         placeholder="X axis label text"
                         value={chartAppearance.axisLabels.x.label ?? ""}
                         onChange={(e) =>
@@ -669,9 +669,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                       Show Y-axis label
                     </label>
                     {chartAppearance.axisLabels.y.show && (
-                      <input
+                      <TextField
                         type="text"
-                        className="panel-detail-modal__type-search"
                         placeholder="Y axis label text"
                         value={chartAppearance.axisLabels.y.label ?? ""}
                         onChange={(e) =>
@@ -738,7 +737,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     <label className="panel-detail-modal__data-label" htmlFor="markdown-content">
                       Markdown content
                     </label>
-                    <textarea
+                    <Textarea
                       id="markdown-content"
                       className="panel-detail-modal__markdown-textarea"
                       value={markdownContent}
@@ -760,10 +759,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     <label className="panel-detail-modal__data-label" htmlFor="image-url">
                       Image URL
                     </label>
-                    <input
+                    <TextField
                       id="image-url"
                       type="text"
-                      className="panel-detail-modal__type-search"
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
                       aria-label="Image URL"
@@ -774,17 +772,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     <label className="panel-detail-modal__data-label" htmlFor="image-fit">
                       Image fit
                     </label>
-                    <select
-                      id="image-fit"
-                      className="panel-detail-modal__mapping-select"
+                    <Select
+                      ariaLabel="Image fit"
                       value={imageFit}
-                      onChange={(e) => setImageFit(e.target.value as ImageFit)}
-                      aria-label="Image fit"
-                    >
-                      <option value="contain">Contain</option>
-                      <option value="cover">Cover</option>
-                      <option value="fill">Fill</option>
-                    </select>
+                      onChange={(v) => setImageFit(v as ImageFit)}
+                      options={[
+                        { value: "contain", label: "Contain" },
+                        { value: "cover", label: "Cover" },
+                        { value: "fill", label: "Fill" },
+                      ]}
+                    />
                   </div>
                   <InlineError error={imageSaveError} />
                 </>
@@ -798,27 +795,25 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     <label className="panel-detail-modal__data-label" htmlFor="divider-orientation">
                       Orientation
                     </label>
-                    <select
-                      id="divider-orientation"
-                      className="panel-detail-modal__mapping-select"
+                    <Select
+                      ariaLabel="Divider orientation"
                       value={dividerOrientation}
-                      onChange={(e) => setDividerOrientation(e.target.value as DividerOrientation)}
-                      aria-label="Divider orientation"
-                    >
-                      <option value="horizontal">Horizontal</option>
-                      <option value="vertical">Vertical</option>
-                    </select>
+                      onChange={(v) => setDividerOrientation(v as DividerOrientation)}
+                      options={[
+                        { value: "horizontal", label: "Horizontal" },
+                        { value: "vertical", label: "Vertical" },
+                      ]}
+                    />
                   </div>
                   <div className="panel-detail-modal__data-section">
                     <label className="panel-detail-modal__data-label" htmlFor="divider-weight">
                       Weight (px)
                     </label>
-                    <input
+                    <TextField
                       id="divider-weight"
                       type="number"
-                      min="1"
-                      max="100"
-                      className="panel-detail-modal__type-search"
+                      min={1}
+                      max={100}
                       value={dividerWeight}
                       onChange={(e) => setDividerWeight(Math.max(1, Number(e.target.value)))}
                       aria-label="Divider weight"
@@ -872,9 +867,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                       </div>
                     ) : (
                       <>
-                        <input
+                        <TextField
                           type="text"
-                          className="panel-detail-modal__type-search"
                           placeholder="Search data types…"
                           value={typeSearch}
                           onChange={(e) => setTypeSearch(e.target.value)}
@@ -932,30 +926,24 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                           >
                             {slot.label}
                           </label>
-                          <select
-                            id={`slot-${slot.key}`}
-                            className="panel-detail-modal__mapping-select"
+                          <Select
+                            ariaLabel={`${slot.label} field`}
                             value={fieldMapping[slot.key] ?? ""}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setFieldMapping((prev) => ({
                                 ...prev,
-                                [slot.key]: e.target.value,
+                                [slot.key]: v,
                               }))
                             }
-                            aria-label={`${slot.label} field`}
-                          >
-                            <option value="">— None —</option>
-                            {selectedType.fields.map((f) => (
-                              <option key={f.name} value={f.name}>
-                                {f.name}
-                              </option>
-                            ))}
-                            {(selectedType.computedFields ?? []).map((cf) => (
-                              <option key={`computed:${cf.name}`} value={cf.name}>
-                                {cf.name} (computed)
-                              </option>
-                            ))}
-                          </select>
+                            placeholder="— None —"
+                            options={[
+                              ...selectedType.fields.map((f) => ({ value: f.name, label: f.name })),
+                              ...(selectedType.computedFields ?? []).map((cf) => ({
+                                value: cf.name,
+                                label: `${cf.name} (computed)`,
+                              })),
+                            ]}
+                          />
                         </div>
                       ))}
                     </div>
@@ -965,22 +953,19 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                     <label className="panel-detail-modal__data-label" htmlFor="refresh-interval">
                       Refresh interval
                     </label>
-                    <select
-                      id="refresh-interval"
-                      className="panel-detail-modal__mapping-select"
-                      value={refreshInterval ?? ""}
-                      onChange={(e) =>
-                        setRefreshInterval(e.target.value === "" ? null : Number(e.target.value))
-                      }
-                      aria-label="Refresh interval"
-                    >
-                      <option value="">Manual</option>
-                      <option value="30">30s</option>
-                      <option value="60">1m</option>
-                      <option value="300">5m</option>
-                      <option value="900">15m</option>
-                      <option value="3600">1h</option>
-                    </select>
+                    <Select
+                      ariaLabel="Refresh interval"
+                      value={refreshInterval === null ? "" : String(refreshInterval)}
+                      onChange={(v) => setRefreshInterval(v === "" ? null : Number(v))}
+                      options={[
+                        { value: "", label: "Manual" },
+                        { value: "30", label: "30s" },
+                        { value: "60", label: "1m" },
+                        { value: "300", label: "5m" },
+                        { value: "900", label: "15m" },
+                        { value: "3600", label: "1h" },
+                      ]}
+                    />
                   </div>
 
                   <InlineError error={dataSaveError} />

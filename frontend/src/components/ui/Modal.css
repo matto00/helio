@@ -1,0 +1,173 @@
+/* ── Modal primitive ──────────────────────────────────────────────────────── */
+
+.ui-modal {
+  padding: 0;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow-soft);
+  /* Prevent the dialog from growing taller than the viewport */
+  max-height: 90vh;
+}
+
+/* Size presets */
+.ui-modal--sm {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.ui-modal--md {
+  width: min(540px, calc(100vw - 32px));
+}
+
+.ui-modal--lg {
+  width: min(720px, calc(100vw - 32px));
+}
+
+/* Backdrop */
+.ui-modal::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* Inner flex container */
+.ui-modal__inner {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.ui-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+.ui-modal__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ui-modal__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--app-text);
+  line-height: 1.3;
+}
+
+.ui-modal__description {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  line-height: 1.4;
+}
+
+/* Close button — matches RunHistoryModal reference */
+.ui-modal__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-modal__close:hover {
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.ui-modal__close:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+
+.ui-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.ui-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ── Shared button styles for modal footers ───────────────────────────────── */
+
+.ui-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-modal-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-modal-btn--secondary {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.ui-modal-btn--secondary:hover:not(:disabled) {
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.ui-modal-btn--primary {
+  border: 1px solid var(--app-accent);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+}
+
+.ui-modal-btn--primary:hover:not(:disabled) {
+  background: var(--app-accent);
+  color: var(--app-bg);
+}
+
+.ui-modal-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}

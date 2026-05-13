@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, SourceType}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
 
@@ -20,6 +20,7 @@ class PipelineRunRoutes(
     submitter: SparkJobSubmitter,
     cache: PipelineRunCache,
     user: AuthenticatedUser,
+    fileSystem: FileSystem,
     pipelineRunRepo: PipelineRunRepository = null,
     dataTypeRepo: DataTypeRepository = null,
     dataTypeRowRepo: DataTypeRowRepository = null,
@@ -27,7 +28,7 @@ class PipelineRunRoutes(
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
-  private val inProcessEngine = new InProcessPipelineEngine()
+  private val inProcessEngine = new InProcessPipelineEngine(fileSystem)
 
   // SSE content type: text/event-stream; charset=UTF-8
   private val sseContentType: ContentType =
@@ -101,7 +102,9 @@ class PipelineRunRoutes(
                               onComplete(
                                 preExec.flatMap { _ =>
                                   inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
-                                    inProcessEngine.execute(sourceRows, steps, dataSourceRepo)
+                                    inProcessEngine
+                                      .executeWithStepCounts(sourceRows, steps, dataSourceRepo)
+                                      .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
                                   }
                                 }
                               ) {
@@ -123,11 +126,11 @@ class PipelineRunRoutes(
                                     complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
                                   }
 
-                                case Success(resultRows) =>
+                                case Success((resultRows, stepCounts, sourceCount)) =>
                                   val jsRows = resultRows.map { rowMap =>
                                     JsObject(rowMap.map { case (k, v) => k -> anyToJsValue(v) })
                                   }.toVector
-                                  val response = RunResultResponse(jsRows, jsRows.size)
+                                  val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
 
                                   if (isDry) {
                                     if (registry != null)
@@ -262,20 +265,25 @@ class PipelineRunRoutes(
                                 val slicedSteps = sortedSteps.take(k + 1)
                                 onComplete(
                                   inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
-                                    inProcessEngine.execute(sourceRows, slicedSteps, dataSourceRepo)
+                                    inProcessEngine
+                                      .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
+                                      .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
                                   }
                                 ) {
                                   case Failure(ex) =>
                                     val errMsg = "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
                                     complete(StatusCodes.UnprocessableEntity, ErrorResponse(errMsg))
 
-                                  case Success(resultRows) =>
+                                  case Success((resultRows, stepCounts, sourceCount)) =>
                                     val allJsRows = resultRows.map { rowMap =>
                                       JsObject(rowMap.map { case (k, v) => k -> anyToJsValue(v) })
                                     }.toVector
                                     val totalCount = allJsRows.size
                                     val previewRows = allJsRows.take(10)
-                                    complete(StatusCodes.OK, RunResultResponse(previewRows, totalCount))
+                                    complete(
+                                      StatusCodes.OK,
+                                      RunResultResponse(previewRows, totalCount, stepCounts, sourceCount)
+                                    )
                                 }
                             }
                         }

@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { AccentPicker } from "./AccentPicker";
 import type { Theme } from "../theme/theme";
@@ -113,11 +113,12 @@ export function UserMenu({
             ref={firstItemRef}
             type="button"
             role="menuitem"
-            className="user-menu__item"
+            className="user-menu__item user-menu__item--theme"
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
           >
-            {theme === "dark" ? "\u2600 Light" : "\u263e Dark"}
+            <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+            {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
           <div className="user-menu__divider" />
           <div className="user-menu__section">
@@ -132,6 +133,7 @@ export function UserMenu({
             onClick={onLogout}
             aria-label="Sign out"
           >
+            <FontAwesomeIcon icon={faArrowRightFromBracket} />
             Sign out
           </button>
         </div>

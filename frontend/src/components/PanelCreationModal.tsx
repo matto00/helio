@@ -23,6 +23,7 @@ import type {
   TypeConfig,
 } from "../types/models";
 import { PanelCreationPreview } from "./PanelCreationPreview";
+import { Select, TextField } from "./ui";
 
 import {
   faChartLine,
@@ -121,9 +122,8 @@ function MetricConfigFields({
         <label className="panel-creation-modal__label" htmlFor="panel-create-value-label">
           Value label
         </label>
-        <input
+        <TextField
           id="panel-create-value-label"
-          className="panel-creation-modal__input"
           type="text"
           value={config.valueLabel ?? ""}
           onChange={(e) => onChange({ ...config, valueLabel: e.target.value || undefined })}
@@ -135,9 +135,8 @@ function MetricConfigFields({
         <label className="panel-creation-modal__label" htmlFor="panel-create-unit">
           Unit
         </label>
-        <input
+        <TextField
           id="panel-create-unit"
-          className="panel-creation-modal__input"
           type="text"
           value={config.unit ?? ""}
           onChange={(e) => onChange({ ...config, unit: e.target.value || undefined })}
@@ -162,21 +161,19 @@ function ChartTypeField({
       <label className="panel-creation-modal__label" htmlFor="panel-create-chart-type">
         Chart type
       </label>
-      <select
-        id="panel-create-chart-type"
-        className="panel-creation-modal__input"
+      <Select
+        ariaLabel="Chart type"
         value={config.chartType ?? ""}
-        onChange={(e) => {
-          const v = e.target.value;
-          onChange({ ...config, chartType: v ? (v as "line" | "bar" | "pie") : undefined });
-        }}
-        aria-label="Chart type"
-      >
-        <option value="">Select chart type</option>
-        <option value="line">Line</option>
-        <option value="bar">Bar</option>
-        <option value="pie">Pie</option>
-      </select>
+        onChange={(v) =>
+          onChange({ ...config, chartType: v ? (v as "line" | "bar" | "pie") : undefined })
+        }
+        placeholder="Select chart type"
+        options={[
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "pie", label: "Pie" },
+        ]}
+      />
     </div>
   );
 }
@@ -194,9 +191,8 @@ function ImageConfigField({
       <label className="panel-creation-modal__label" htmlFor="panel-create-image-url">
         Image URL
       </label>
-      <input
+      <TextField
         id="panel-create-image-url"
-        className="panel-creation-modal__input"
         type="url"
         value={config.imageUrl ?? ""}
         onChange={(e) => onChange({ ...config, imageUrl: e.target.value || undefined })}
@@ -220,23 +216,21 @@ function DividerConfigField({
       <label className="panel-creation-modal__label" htmlFor="panel-create-orientation">
         Orientation
       </label>
-      <select
-        id="panel-create-orientation"
-        className="panel-creation-modal__input"
+      <Select
+        ariaLabel="Orientation"
         value={config.dividerOrientation ?? ""}
-        onChange={(e) => {
-          const v = e.target.value;
+        onChange={(v) =>
           onChange({
             ...config,
             dividerOrientation: v ? (v as DividerOrientation) : undefined,
-          });
-        }}
-        aria-label="Orientation"
-      >
-        <option value="">Select orientation</option>
-        <option value="horizontal">Horizontal</option>
-        <option value="vertical">Vertical</option>
-      </select>
+          })
+        }
+        placeholder="Select orientation"
+        options={[
+          { value: "horizontal", label: "Horizontal" },
+          { value: "vertical", label: "Vertical" },
+        ]}
+      />
     </div>
   );
 }
@@ -664,9 +658,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
                 <label className="panel-creation-modal__label" htmlFor="panel-create-title">
                   Panel title
                 </label>
-                <input
+                <TextField
                   id="panel-create-title"
-                  className="panel-creation-modal__input"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}

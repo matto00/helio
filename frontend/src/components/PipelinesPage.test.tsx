@@ -61,27 +61,23 @@ describe("PipelinesPage", () => {
     expect(document.querySelector(".pipelines-page")).toBeInTheDocument();
   });
 
-  it("shows empty state with Create pipeline button when no pipelines exist", async () => {
+  it("shows empty state with New pipeline button when no pipelines exist", async () => {
     getPipelinesMock.mockResolvedValueOnce([]);
     renderWithStore(<PipelinesPage />);
 
-    await waitFor(() =>
-      expect(
-        screen.getByText("No pipelines yet. Create one to start transforming your data."),
-      ).toBeInTheDocument(),
-    );
-    expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Build your first pipeline")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument();
   });
 
-  it("opens the modal when the empty state Create pipeline button is clicked", async () => {
+  it("opens the modal when the empty state New pipeline button is clicked", async () => {
     getPipelinesMock.mockResolvedValueOnce([]);
     renderWithStore(<PipelinesPage />);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Create pipeline" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
 
     expect(screen.getByRole("dialog", { name: "Create pipeline" })).toBeInTheDocument();
   });
@@ -141,9 +137,7 @@ describe("PipelinesPage", () => {
 
     await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
 
-    expect(
-      screen.queryByText("No pipelines yet. Create one to start transforming your data."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Build your first pipeline")).not.toBeInTheDocument();
   });
 
   it("shows error message when fetch fails", async () => {

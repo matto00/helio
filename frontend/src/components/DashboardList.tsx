@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faXmark, faTableColumns, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
@@ -18,6 +18,8 @@ import type { DashboardSnapshot } from "../types/models";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { StatusMessage } from "./StatusMessage";
+import { EmptyState } from "./ui/EmptyState";
+import { TextField } from "./ui/TextField";
 
 interface DashboardListProps {
   onCollapse?: () => void;
@@ -172,7 +174,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           Filter dashboards
         </label>
         <div className="dashboard-list__filter-wrapper">
-          <input
+          <TextField
             id="dashboard-filter-input"
             className="dashboard-list__filter-input"
             type="text"
@@ -198,7 +200,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           <label className="dashboard-list__create-label" htmlFor="dashboard-create-name">
             Dashboard name
           </label>
-          <input
+          <TextField
             id="dashboard-create-name"
             className="dashboard-list__create-input"
             type="text"
@@ -234,6 +236,26 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
         status={status}
         message={status === "loading" ? "Loading dashboards..." : (error ?? undefined)}
       />
+      {status !== "loading" && !error && visibleItems.length === 0 && !isCreateMode ? (
+        normalizedQuery.length > 0 ? (
+          <p className="dashboard-list__status">No matches</p>
+        ) : (
+          <EmptyState
+            variant="sidebar"
+            icon={faTableColumns}
+            title="No dashboards yet"
+            description="Create your first dashboard to start visualizing data."
+            cta={{
+              label: "New dashboard",
+              icon: faPlus,
+              onClick: () => {
+                setIsCreateMode(true);
+                setCreateError(null);
+              },
+            }}
+          />
+        )
+      ) : null}
       <ul className="dashboard-list__items">
         {visibleItems.map((dashboard) => {
           const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);

@@ -11,7 +11,12 @@ import {
 } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowRotateLeft, faArrowRotateRight } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowRotateLeft,
+  faArrowRotateRight,
+  faSun,
+  faMoon,
+} from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
@@ -45,6 +50,7 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
+import { ToastViewport } from "../components/ui/Toast";
 
 function breadcrumbLabel(pathname: string): string {
   if (pathname === "/") return "Dashboards";
@@ -231,6 +237,15 @@ function AppShell() {
               </>
             )}
             {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+            <button
+              type="button"
+              className="topbar-theme-btn"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+            </button>
             {authStatus === "authenticated" && currentUser !== null && (
               <UserMenu
                 currentUser={currentUser}
@@ -299,29 +314,32 @@ export function App() {
   }, [dispatch]);
 
   return (
-    <Routes>
-      {/* Public-only routes (redirect to / when already authenticated) */}
-      <Route element={<PublicOnlyRoute />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-      </Route>
-
-      {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
-      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
-
-      {/* Protected routes (redirect to /login when unauthenticated) */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<PanelList />} />
-          <Route path="/sources" element={<SourcesPage />} />
-          <Route path="/pipelines" element={<PipelinesPage />} />
-          <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
-          <Route path="/registry" element={<TypeRegistryPage />} />
+    <>
+      <ToastViewport />
+      <Routes>
+        {/* Public-only routes (redirect to / when already authenticated) */}
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
         </Route>
-      </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+        {/* Protected routes (redirect to /login when unauthenticated) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<PanelList />} />
+            <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/pipelines" element={<PipelinesPage />} />
+            <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+            <Route path="/registry" element={<TypeRegistryPage />} />
+          </Route>
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

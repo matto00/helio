@@ -4,7 +4,6 @@ import {
   createPanel as createPanelRequest,
   deletePanel as deletePanelRequest,
   duplicatePanel as duplicatePanelRequest,
-  fetchPanelExecutePage,
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
@@ -14,6 +13,7 @@ import {
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
+import { fetchDataTypeRows } from "../../services/dataTypeService";
 import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
 import type { RootState } from "../../store/store";
 import type {
@@ -244,15 +244,23 @@ export const updatePanelsBatch = createAsyncThunk<
   }
 });
 
-// Task 3.4 — fetchPanelPage async thunk
+// Panels read rows from their bound DataType (populated by pipeline runs). The
+// rows endpoint returns the full set; pagination is sliced on the client.
 export const fetchPanelPage = createAsyncThunk<
   { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
   { panelId: string; page: number; pageSize: number },
-  { rejectValue: string }
->("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { rejectWithValue }) => {
+  { state: RootState; rejectValue: string }
+>("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { getState, rejectWithValue }) => {
+  const panel = getState().panels.items.find((p) => p.id === panelId);
+  if (!panel?.typeId) {
+    return rejectWithValue("Panel is not bound to a data type.");
+  }
   try {
-    const result = await fetchPanelExecutePage(panelId, page, pageSize);
-    return { panelId, page: result.page, rows: result.rows, hasMore: result.hasMore };
+    const { rows } = await fetchDataTypeRows(panel.typeId);
+    const start = page * pageSize;
+    const slice = rows.slice(start, start + pageSize);
+    const hasMore = start + pageSize < rows.length;
+    return { panelId, page, rows: slice, hasMore };
   } catch {
     return rejectWithValue("Failed to load panel data.");
   }

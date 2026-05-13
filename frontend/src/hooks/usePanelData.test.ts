@@ -5,14 +5,14 @@ import { createElement } from "react";
 import { Provider } from "react-redux";
 
 import { panelsReducer } from "../features/panels/panelsSlice";
-import * as panelService from "../services/panelService";
+import * as dataTypeService from "../services/dataTypeService";
 import type { Panel } from "../types/models";
 import { usePanelData } from "./usePanelData";
 
-jest.mock("../services/panelService");
+jest.mock("../services/dataTypeService");
 
-const mockFetchPanelExecutePage = panelService.fetchPanelExecutePage as jest.MockedFunction<
-  typeof panelService.fetchPanelExecutePage
+const mockFetchDataTypeRows = dataTypeService.fetchDataTypeRows as jest.MockedFunction<
+  typeof dataTypeService.fetchDataTypeRows
 >;
 
 const defaultMeta = {
@@ -43,11 +43,24 @@ function makePanel(overrides: Partial<Panel> = {}): Panel {
   } as Panel;
 }
 
-function makeStore() {
+function makeStore(panel?: Panel) {
   return configureStore({
     reducer: {
       panels: panelsReducer,
     } as never,
+    preloadedState: panel
+      ? ({
+          panels: {
+            items: [panel],
+            loadedDashboardId: "d1",
+            status: "succeeded",
+            error: null,
+            pendingPanelUpdates: {},
+            lastSavedAt: null,
+            paginationState: {},
+          },
+        } as never)
+      : undefined,
   });
 }
 
@@ -70,75 +83,35 @@ describe("usePanelData", () => {
     expect(result.current.data).toBeNull();
     expect(result.current.error).toBeNull();
     expect(result.current.noData).toBe(false);
-    expect(mockFetchPanelExecutePage).not.toHaveBeenCalled();
+    expect(mockFetchDataTypeRows).not.toHaveBeenCalled();
   });
 
-  it("dispatches fetchPanelPage with pageSize 10 for metric panel", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 10,
-      hasMore: false,
-      columns: ["revenue", "region"],
+  it("fetches DataType rows for a bound metric panel", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
       rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
     });
 
-    const store = makeStore();
     const panel = makePanel({ type: "metric", typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const store = makeStore(panel);
 
     renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
-    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 10));
+    await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledWith("dt-1"));
   });
 
-  it("dispatches fetchPanelPage with pageSize 200 for chart panel", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 200,
-      hasMore: false,
-      columns: ["x", "y"],
-      rows: [{ x: "1", y: "100" }],
-    });
-
-    const store = makeStore();
-    const panel = makePanel({ type: "chart", typeId: "dt-1", fieldMapping: { x: "x", y: "y" } });
-
-    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
-
-    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 200));
-  });
-
-  it("dispatches fetchPanelPage with pageSize 50 for table panel", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 50,
-      hasMore: false,
-      columns: [],
-      rows: [],
-    });
-
-    const store = makeStore();
-    const panel = makePanel({ type: "table", typeId: "dt-1", fieldMapping: {} });
-
-    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
-
-    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledWith("p1", 0, 50));
-  });
-
-  it("maps fieldMapping from paginationEntry rows", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 10,
-      hasMore: false,
-      columns: ["revenue", "region"],
+  it("maps fieldMapping from rows", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
       rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
     });
 
-    const store = makeStore();
     const panel = makePanel({
       type: "metric",
       typeId: "dt-1",
       fieldMapping: { value: "revenue", label: "region" },
     });
+    const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
@@ -151,17 +124,11 @@ describe("usePanelData", () => {
     expect(result.current.noData).toBe(false);
   });
 
-  it("sets noData when execute page returns empty rows", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 10,
-      hasMore: false,
-      columns: [],
-      rows: [],
-    });
+  it("sets noData when DataType has no rows", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({ rows: [], rowCount: 0 });
 
-    const store = makeStore();
     const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
@@ -171,11 +138,11 @@ describe("usePanelData", () => {
     expect(result.current.data).toBeNull();
   });
 
-  it("sets error when fetchPanelPage fails", async () => {
-    mockFetchPanelExecutePage.mockRejectedValue(new Error("Network error"));
+  it("sets error when fetch fails", async () => {
+    mockFetchDataTypeRows.mockRejectedValue(new Error("Network error"));
 
-    const store = makeStore();
     const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
@@ -191,30 +158,27 @@ describe("usePanelData", () => {
   });
 
   it("refresh callback triggers a re-fetch for a bound panel", async () => {
-    mockFetchPanelExecutePage.mockResolvedValue({
-      page: 0,
-      pageSize: 10,
-      hasMore: false,
-      columns: ["revenue", "region"],
+    mockFetchDataTypeRows.mockResolvedValue({
       rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
     });
 
-    const store = makeStore();
     const panel = makePanel({
       typeId: "dt-1",
       fieldMapping: { value: "revenue", label: "region" },
     });
+    const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(mockFetchPanelExecutePage).toHaveBeenCalledTimes(1);
+    expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(1);
 
     act(() => {
       result.current.refresh();
     });
 
-    await waitFor(() => expect(mockFetchPanelExecutePage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual({ value: "1000", label: "North" });
   });

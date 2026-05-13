@@ -43,6 +43,7 @@ export function Select({
     left: number;
     width: number;
   } | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
 
   const selected = options.find((o) => o.value === value) ?? null;
   const enabledIndices = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i !== -1);
@@ -52,6 +53,9 @@ export function Select({
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       setPanelPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      // Portal into the nearest open <dialog> if present so the listbox renders
+      // in the dialog's top layer (otherwise it falls behind the modal backdrop).
+      setPortalTarget(triggerRef.current.closest("dialog[open]") ?? document.body);
     }
     const selectedIndex = options.findIndex((o) => o.value === value);
     setFocusedIndex(selectedIndex >= 0 ? selectedIndex : (enabledIndices[0] ?? -1));
@@ -196,7 +200,7 @@ export function Select({
               })}
             </ul>
           </>,
-          document.body,
+          portalTarget ?? document.body,
         )}
     </div>
   );

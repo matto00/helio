@@ -83,11 +83,9 @@ describe("Field picker — computed fields", () => {
     );
     expect(valueSelect).toBeDefined();
 
-    // Should contain an option for the computed field
-    const computedOption = Array.from(valueSelect!.querySelectorAll("option")).find(
-      (opt) => opt.value === "total",
-    );
-    expect(computedOption).toBeDefined();
-    expect(computedOption!.textContent).toMatch(/computed/i);
+    // Open the custom Select to reveal options in the portal listbox
+    fireEvent.click(valueSelect!);
+    const computedOption = screen.getByRole("option", { name: /total \(computed\)/i });
+    expect(computedOption).toBeInTheDocument();
   });
 });

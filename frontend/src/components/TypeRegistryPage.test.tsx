@@ -35,11 +35,7 @@ describe("TypeRegistryPage", () => {
 
   it("shows empty state for types when there are none", async () => {
     renderWithStore(<TypeRegistryPage />);
-    await waitFor(() =>
-      expect(
-        screen.getByText("No data types yet. Add a data source to create types automatically."),
-      ).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());
   });
 
   it("auto-selects the first type and renders the detail panel when types load", async () => {

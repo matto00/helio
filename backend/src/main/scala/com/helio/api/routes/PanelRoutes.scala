@@ -6,13 +6,11 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
-import com.helio.spark.PanelQueryExecutor
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository, ResourcePermissionRepository}
 
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success}
 
 final class PanelRoutes(
     panelRepo: PanelRepository,
@@ -21,8 +19,6 @@ final class PanelRoutes(
     permissionRepo: ResourcePermissionRepository,
     aclDirective: AclDirective,
     user: AuthenticatedUser,
-    dataSourceRepo: DataSourceRepository = null,
-    panelQueryExecutor: PanelQueryExecutor = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -304,65 +300,6 @@ final class PanelRoutes(
             }
           }
         },
-        path(Segment / "execute") { panelId =>
-          post {
-            onSuccess(panelRepo.findById(PanelId(panelId))) {
-              case None =>
-                complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-              case Some(panel) =>
-                Panel.buildQuery(panel) match {
-                  case None =>
-                    complete(StatusCodes.NotFound, ErrorResponse("Panel is not bound to a data type"))
-                  case Some(query) =>
-                    if (dataSourceRepo == null || panelQueryExecutor == null) {
-                      complete(StatusCodes.InternalServerError, ErrorResponse("Panel query execution is not configured"))
-                    } else {
-                      panel.typeId match {
-                        case None =>
-                          complete(StatusCodes.NotFound, ErrorResponse("Panel is not bound to a data type"))
-                        case Some(typeId) =>
-                          onSuccess(dataTypeRepo.findById(typeId, user.id)) {
-                            case None =>
-                              complete(StatusCodes.NotFound, ErrorResponse("Bound data type not found"))
-                            case Some(dataType) =>
-                              dataType.sourceId match {
-                                case None =>
-                                  complete(StatusCodes.UnprocessableEntity, ErrorResponse("Data type has no source attached"))
-                                case Some(sourceId) =>
-                                  onSuccess(dataSourceRepo.findById(sourceId)) {
-                                    case None =>
-                                      complete(StatusCodes.UnprocessableEntity, ErrorResponse("Data source not found"))
-                                    case Some(dataSource) =>
-                                      import com.helio.domain.SourceType
-                                      dataSource.sourceType match {
-                                        case SourceType.RestApi | SourceType.Sql =>
-                                          complete(
-                                            StatusCodes.UnprocessableEntity,
-                                            ErrorResponse(
-                                              s"Unsupported source type for panel execution: ${SourceType.asString(dataSource.sourceType)}. " +
-                                                "Only 'static' and 'csv' are currently supported."
-                                            )
-                                          )
-                                        case _ =>
-                                          onComplete(panelQueryExecutor.execute(dataSource, query)) {
-                                            case Success(rows) =>
-                                              val jsRows = rows.map { row =>
-                                                spray.json.JsObject(row.map { case (k, v) => k -> anyToJsValue(v) })
-                                              }.toVector
-                                              complete(StatusCodes.OK, PanelExecuteResponse(jsRows))
-                                            case Failure(ex) =>
-                                              complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                    }
-                }
-            }
-          }
-        },
         path(Segment / "duplicate") { panelId =>
           post {
             onSuccess(panelRepo.findById(PanelId(panelId))) {
@@ -409,18 +346,4 @@ final class PanelRoutes(
       case Some(t) => PanelType.fromString(t).map(Some(_))
     }
 
-  private def anyToJsValue(v: Any): spray.json.JsValue = {
-    import spray.json._
-    v match {
-      case null           => JsNull
-      case b: Boolean     => JsBoolean(b)
-      case i: Int         => JsNumber(i)
-      case l: Long        => JsNumber(l)
-      case f: Float       => JsNumber(BigDecimal(f.toDouble))
-      case d: Double      => JsNumber(d)
-      case bd: java.math.BigDecimal => JsNumber(BigDecimal(bd))
-      case s: String      => JsString(s)
-      case _              => JsString(v.toString)
-    }
-  }
 }

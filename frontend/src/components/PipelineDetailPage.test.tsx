@@ -172,7 +172,12 @@ describe("PipelineDetailPage", () => {
   });
 
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    runPipelineMock.mockResolvedValue({
+      rowCount: 0,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
@@ -934,7 +939,12 @@ describe("PipelineDetailPage beforeunload", () => {
 
 describe("PipelineDetailPage Run button (HEL-196)", () => {
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    runPipelineMock.mockResolvedValue({
+      rowCount: 0,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
@@ -1120,7 +1130,12 @@ describe("PipelineDetailPage step preview", () => {
 
 describe("PipelineDetailPage dry-run (HEL-197)", () => {
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    runPipelineMock.mockResolvedValue({
+      rowCount: 0,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
@@ -1187,7 +1202,12 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
 
 describe("PipelineDetailPage run success message (HEL-198)", () => {
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ rowCount: 3, rows: [{}, {}, {}] });
+    runPipelineMock.mockResolvedValue({
+      rowCount: 3,
+      rows: [{}, {}, {}],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
@@ -1254,7 +1274,12 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
 
 describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", () => {
   beforeEach(() => {
-    runPipelineMock.mockResolvedValue({ rowCount: 0, rows: [] });
+    runPipelineMock.mockResolvedValue({
+      rowCount: 0,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);

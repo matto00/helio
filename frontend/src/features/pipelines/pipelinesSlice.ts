@@ -43,6 +43,10 @@ interface PipelinesState {
   updateError: string | null;
   // Last successful run output rows (used to derive available field names for select ops)
   runResult: Record<string, unknown>[] | null;
+  // Per-step output row counts from the last run, keyed by step id.
+  // sourceRowCount is the input row count to the first step.
+  runStepRowCounts: Record<string, number>;
+  runSourceRowCount: number | null;
   // Per-pipeline schema inference results from GET /api/pipelines/:id/analyze
   analyzeResult: Record<string, PipelineAnalyzeResponse>;
   analyzeStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
@@ -72,6 +76,8 @@ const initialState: PipelinesState = {
   updateStatus: "idle",
   updateError: null,
   runResult: null,
+  runStepRowCounts: {},
+  runSourceRowCount: null,
   analyzeResult: {},
   analyzeStatus: {},
   analyzeError: {},
@@ -138,7 +144,12 @@ export const deletePipeline = createAsyncThunk<string, string, { rejectValue: st
 );
 
 export const submitPipelineRun = createAsyncThunk<
-  { rowCount: number; rows: Record<string, unknown>[] },
+  {
+    rowCount: number;
+    rows: Record<string, unknown>[];
+    stepRowCounts: Record<string, number>;
+    sourceRowCount: number;
+  },
   { pipelineId: string; dryRun?: boolean },
   { rejectValue: string }
 >("pipelines/submitPipelineRun", async ({ pipelineId, dryRun }, { rejectWithValue }) => {
@@ -308,6 +319,8 @@ const pipelinesSlice = createSlice({
         state.runId = null;
         state.runStatus = "succeeded";
         state.runResult = action.payload.rows;
+        state.runStepRowCounts = action.payload.stepRowCounts ?? {};
+        state.runSourceRowCount = action.payload.sourceRowCount ?? null;
       })
       .addCase(submitPipelineRun.rejected, (state, action) => {
         state.runId = null;
