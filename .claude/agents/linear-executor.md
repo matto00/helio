@@ -51,8 +51,10 @@ context you already have** — skip steps 1 and jump to step 2 with the new
 
 ### 1. Read initial context (first run only)
 
-Read `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/ticket.md` — the ticket
-title, description, and acceptance criteria.
+Read in this order:
+
+1. `WORKTREE_PATH/CONTRIBUTING.md` — the repo's coding standards. **Binding for all your edits.** Pay particular attention to the _Imports & Qualifiers_ section (never inline a fully-qualified name when an `import` would do) and the _General_ file-size soft budgets (~250 lines per source file, ~80 for aggregators). The _AI Collaborators_ section spells out what is expected of you specifically
+2. `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/ticket.md` — the ticket title, description, and acceptance criteria
 
 Do **not** read proposal/design/tasks/specs here — step 3's
 `openspec instructions apply` returns those via `contextFiles` and reading
@@ -169,3 +171,4 @@ Summary:
 - Flag impossible change requests rather than guessing
 - `--no-verify` requires all gates to have passed first
 - On SendMessage-resume, do NOT re-read step 1 context — trust your warm state
+- **CONTRIBUTING.md is binding.** Inline fully-qualified names, oversized files, and behavior-changing "drive-by improvements" during a structural refactor are rejection-worthy by the evaluator. Surface non-trivial findings as spinoff candidates in your final report rather than fixing inline

@@ -103,8 +103,14 @@ or note the issue for each:
 
 ## Phase 2: Code Review
 
-Review modified code via diff + targeted full-file reads. Check:
+Read `WORKTREE_PATH/CONTRIBUTING.md` first — it is the authoritative
+standard for code quality in this repo. Then review modified code via
+diff + targeted full-file reads. Check:
 
+- [ ] **CONTRIBUTING.md compliance** — especially the _Imports & Qualifiers_
+      rule (no inline fully-qualified names where an `import` would do)
+      and the file-size soft budgets (~250 lines per source file,
+      ~80 for aggregators)
 - [ ] **DRY** — no unnecessary duplication; existing utilities reused
 - [ ] **Readable** — clear naming, no magic values, logic self-evident
 - [ ] **Modular** — small composable units, proper separation of concerns
@@ -116,6 +122,9 @@ Review modified code via diff + targeted full-file reads. Check:
 - [ ] **No dead code** — no unused imports, leftover TODO/FIXME
 - [ ] **No over-engineering** — no premature abstractions, no hypothetical
       future requirements
+- [ ] **Behavior-preserving when expected** — for structural refactors,
+      verify the diff actually moves and de-duplicates; flag any drive-by
+      behavior changes
 
 ---
 

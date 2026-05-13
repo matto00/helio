@@ -23,6 +23,7 @@ frontend/skills-lock.json
 
 # Git worktrees (managed by Claude Code orchestrator)
 .claude/worktrees/
+.worktrees/
 .claire/
 
 # Playwright MCP session artifacts
