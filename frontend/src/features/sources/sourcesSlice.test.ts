@@ -5,6 +5,7 @@ import {
   sourcesReducer,
   updateSource,
 } from "./sourcesSlice";
+import type { DataSource } from "../../types/models";
 import * as dataSourceService from "../../services/dataSourceService";
 
 jest.mock("../../services/dataSourceService", () => ({
@@ -16,12 +17,13 @@ jest.mock("../../services/dataSourceService", () => ({
 
 const createStaticSourceMock = jest.mocked(dataSourceService.createStaticSource);
 
-const testSource = {
+const testSource: DataSource = {
   id: "s-1",
   name: "Sales API",
-  sourceType: "rest_api",
+  type: "rest_api",
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",
+  config: { url: "https://example.com/api" },
 };
 
 describe("sourcesSlice", () => {
@@ -60,10 +62,10 @@ describe("sourcesSlice", () => {
   });
 
   it("appends item when createStaticSource fulfills", () => {
-    const staticSource = {
+    const staticSource: DataSource = {
       id: "s-2",
       name: "Lookup",
-      sourceType: "static",
+      type: "static",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
     };
@@ -76,7 +78,7 @@ describe("sourcesSlice", () => {
       }),
     );
     expect(nextState.items).toHaveLength(1);
-    expect(nextState.items[0].sourceType).toBe("static");
+    expect(nextState.items[0].type).toBe("static");
   });
 });
 
@@ -86,10 +88,10 @@ describe("createStaticSource thunk", () => {
   });
 
   it("dispatches fulfilled with the created source on success", async () => {
-    const staticSource = {
+    const staticSource: DataSource = {
       id: "s-3",
       name: "My Table",
-      sourceType: "static",
+      type: "static",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
     };

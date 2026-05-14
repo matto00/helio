@@ -74,13 +74,9 @@ const defaultPipeline: PipelineSummary = {
   lastRunRowCount: null,
 };
 
-type SourceItem = {
-  id: string;
-  name: string;
-  sourceType: string;
-  createdAt: string;
-  updatedAt: string;
-};
+// Source fixture shape — uses the same discriminated-union as production code.
+import type { DataSource } from "../types/models";
+type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {
   runId?: string | null;
@@ -218,8 +214,30 @@ describe("PipelineDetailPage", () => {
 
   it("source selector renders sources from store", () => {
     const store = makeStore([
-      { id: "src-1", name: "Sales DB", sourceType: "sql", createdAt: "", updatedAt: "" },
-      { id: "src-2", name: "CSV Upload", sourceType: "csv", createdAt: "", updatedAt: "" },
+      {
+        id: "src-1",
+        name: "Sales DB",
+        type: "sql",
+        createdAt: "",
+        updatedAt: "",
+        config: {
+          dialect: "postgresql",
+          host: "h",
+          port: 5432,
+          database: "d",
+          user: "u",
+          password: "p",
+          query: "SELECT 1",
+        },
+      },
+      {
+        id: "src-2",
+        name: "CSV Upload",
+        type: "csv",
+        createdAt: "",
+        updatedAt: "",
+        config: { path: "uploads/test.csv" },
+      },
     ]);
     renderDetailPage("pipe-1", store);
     expect(screen.getByText("Sales DB")).toBeInTheDocument();

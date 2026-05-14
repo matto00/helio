@@ -126,7 +126,15 @@ final case class StaticDataSourceRequest(
 )
 
 object DataSourceResponse {
-  /** Project the domain ADT into the discriminated-union wire response. */
+  /** Project the domain ADT into the discriminated-union wire response.
+   *
+   *  **Credential redaction**: REST auth tokens and SQL passwords are stripped
+   *  before serialization. The `rest-api-connector` and `data-source-acl`
+   *  specs require that credentials never appear in API responses; the
+   *  CS2c-2 wire-shape evolution preserves that invariant by zeroing the
+   *  sensitive fields here. Existing pre-CS2c-2 behaviour was to omit
+   *  `config` entirely — now we surface a non-credential subset (URL, method,
+   *  query, dialect, etc.) which the UI needs for previews and editing. */
   def fromDomain(ds: DataSource): DataSourceResponse = ds match {
     case c: CsvSource =>
       CsvSourceResponse(
@@ -142,7 +150,7 @@ object DataSourceResponse {
         name      = r.name,
         createdAt = r.createdAt.toString,
         updatedAt = r.updatedAt.toString,
-        config    = RestApiConfigPayload.fromDomain(r.config)
+        config    = redactRestPayload(RestApiConfigPayload.fromDomain(r.config))
       )
     case s: SqlSource =>
       SqlSourceResponse(
@@ -150,7 +158,7 @@ object DataSourceResponse {
         name      = s.name,
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
-        config    = SqlSourceConfigPayload.fromDomain(s.config)
+        config    = redactSqlPayload(SqlSourceConfigPayload.fromDomain(s.config))
       )
     case s: StaticSource =>
       StaticSourceResponse(
@@ -160,6 +168,23 @@ object DataSourceResponse {
         updatedAt = s.updatedAt.toString
       )
   }
+
+  /** Strip bearer tokens and api-key values from REST auth payloads before
+   *  returning them on the wire. The `auth.type` discriminator is preserved
+   *  so the UI can render "Auth: bearer" without leaking the token. */
+  private def redactRestPayload(p: RestApiConfigPayload): RestApiConfigPayload =
+    p.copy(auth = p.auth.map(redactRestAuth))
+
+  private def redactRestAuth(a: RestApiAuthPayload): RestApiAuthPayload = a.`type` match {
+    case "bearer"  => a.copy(token = a.token.map(_ => "***"))
+    case "api_key" => a.copy(value = a.value.map(_ => "***"))
+    case _         => a
+  }
+
+  /** Strip SQL passwords. The other fields (dialect, host, database, user,
+   *  query) are non-credential and shown in the UI. */
+  private def redactSqlPayload(p: SqlSourceConfigPayload): SqlSourceConfigPayload =
+    if (p.password.isEmpty) p else p.copy(password = "***")
 }
 
 object SqlSourceConfigPayload {

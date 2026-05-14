@@ -104,4 +104,48 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       DataSourceConfigCodec.decodeSql(encoded) shouldBe cfg
     }
   }
+
+  "DataSourceResponse.fromDomain credential redaction" should {
+    import com.helio.domain.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
+    import java.time.Instant
+
+    val now   = Instant.parse("2026-05-14T00:00:00Z")
+    val owner = UserId("00000000-0000-0000-0000-000000000001")
+    val id    = DataSourceId("ds-redact")
+
+    "redact REST bearer tokens" in {
+      val src = RestSource(id, "rest", owner, now, now,
+        RestApiConfig(url = "https://example.com", method = "GET",
+          auth = RestApiAuth.BearerAuth("super-secret-token")))
+      val resp = DataSourceResponse.fromDomain(src).asInstanceOf[RestSourceResponse]
+      resp.config.auth.flatMap(_.token) shouldBe Some("***")
+    }
+
+    "redact REST api-key values" in {
+      val src = RestSource(id, "rest", owner, now, now,
+        RestApiConfig(url = "https://example.com", method = "GET",
+          auth = RestApiAuth.ApiKeyAuth("X-Api-Key", "super-secret", ApiKeyPlacement.Header)))
+      val resp = DataSourceResponse.fromDomain(src).asInstanceOf[RestSourceResponse]
+      resp.config.auth.flatMap(_.value) shouldBe Some("***")
+      // The key name (non-credential) is preserved.
+      resp.config.auth.flatMap(_.name)  shouldBe Some("X-Api-Key")
+    }
+
+    "redact SQL passwords (non-empty)" in {
+      val src = SqlSource(id, "sql", owner, now, now,
+        SqlSourceConfig("postgresql", "host", 5432, "db", "user", "real-password", "SELECT 1"))
+      val resp = DataSourceResponse.fromDomain(src).asInstanceOf[SqlSourceResponse]
+      resp.config.password shouldBe "***"
+      // Other fields are preserved.
+      resp.config.user     shouldBe "user"
+      resp.config.query    shouldBe "SELECT 1"
+    }
+
+    "leave empty SQL passwords untouched (no spurious redaction)" in {
+      val src = SqlSource(id, "sql", owner, now, now,
+        SqlSourceConfig("postgresql", "host", 5432, "db", "user", "", "SELECT 1"))
+      val resp = DataSourceResponse.fromDomain(src).asInstanceOf[SqlSourceResponse]
+      resp.config.password shouldBe ""
+    }
+  }
 }

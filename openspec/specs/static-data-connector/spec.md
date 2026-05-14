@@ -4,11 +4,11 @@
 Manual data entry connector that stores tabular column/row data directly in the DataSource config JSONB. Supports create, refresh (replace rows), and preview without any external connection.
 ## Requirements
 ### Requirement: POST /api/data-sources accepts static source payload
-The backend SHALL accept `POST /api/data-sources` with `Content-Type: application/json` when `source_type` is `"static"`. The body SHALL be `{ "name": string, "source_type": "static", "columns": [{ "name": string, "type": string }], "rows": [[...]] }`. The handler SHALL store the columns and rows in the `data_sources.config` JSONB column and register a `DataType` using the declared column types.
+The backend SHALL accept `POST /api/data-sources` with `Content-Type: application/json` when the discriminator `type` is `"static"`. The body SHALL be `{ "name": string, "type": "static", "columns": [{ "name": string, "type": string }], "rows": [[...]] }`. The handler SHALL store the columns and rows in the `data_sources.config` JSONB column and register a `DataType` using the declared column types.
 
 #### Scenario: Valid static source is created
 - **WHEN** `POST /api/data-sources` is called with a valid static payload containing 2 columns and 3 rows
-- **THEN** the response is 201 with a `DataSource` object whose `sourceType` is `"static"`
+- **THEN** the response is 201 with a `DataSource` object whose `type` is `"static"`
 
 #### Scenario: Static DataType is registered on creation
 - **WHEN** a static source is created with columns `[{ name: "id", type: "integer" }, { name: "label", type: "string" }]`

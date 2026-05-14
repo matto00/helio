@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: POST /api/data-sources accepts a CSV file upload
-The endpoint SHALL accept `multipart/form-data` with a `file` part (the CSV) and a `name` part (the source name). It SHALL parse the file, infer a schema, store the file via the `FileSystem` abstraction, create a `DataSource` record with `sourceType = csv` and `config = {"path": "<relative-path>"}`, register a linked `DataType`, and return 201 with the created `DataSource`.
+The endpoint SHALL accept `multipart/form-data` with a `file` part (the CSV) and a `name` part (the source name). It SHALL parse the file, infer a schema, store the file via the `FileSystem` abstraction, create a `DataSource` record with `discriminator `type = "csv"`` and `config = {"path": "<relative-path>"}`, register a linked `DataType`, and return 201 with the created `DataSource`.
 
 #### Scenario: Valid CSV upload creates DataSource and DataType
 - **WHEN** `POST /api/data-sources` is called with a valid CSV file and a name
-- **THEN** the response is 201 with the created DataSource including `id`, `name`, `sourceType: "csv"`, and `config.path`
+- **THEN** the response is 201 with the created DataSource including `id`, `name`, `type: "csv"`, and `config.path`
 - **AND** a `DataType` linked to the new source is registered and retrievable via `GET /api/types`
 
 #### Scenario: Upload with no file part returns 400
@@ -47,7 +47,7 @@ The endpoint SHALL read the stored CSV file for the given source via `FileSystem
 - **THEN** the response is 404 Not Found
 
 #### Scenario: Refresh on non-csv source returns 400
-- **WHEN** `POST /api/data-sources/:id/refresh` is called for a source with `sourceType != csv`
+- **WHEN** `POST /api/data-sources/:id/refresh` is called for a source whose `type` is not `csv`
 - **THEN** the response is 400 Bad Request
 
 ### Requirement: GET /api/data-sources/:id/preview returns first 10 rows
@@ -67,10 +67,10 @@ The endpoint SHALL read the stored CSV file, parse up to 10 data rows, and retur
 - **THEN** the response is 404 Not Found
 
 ### Requirement: DELETE /api/data-sources/:id removes the stored file for csv sources
-When deleting a data source with `sourceType = csv`, the backend SHALL call `FileSystem.delete` with the path from `config.path` in addition to removing the database record.
+When deleting a data source with `discriminator `type = "csv"``, the backend SHALL call `FileSystem.delete` with the path from `config.path` in addition to removing the database record.
 
 #### Scenario: Deleting a csv source removes the stored file
-- **WHEN** `DELETE /api/data-sources/:id` is called for a source with `sourceType = csv`
+- **WHEN** `DELETE /api/data-sources/:id` is called for a source with `discriminator `type = "csv"``
 - **THEN** the data source record is removed
 - **AND** the stored file is deleted from the FileSystem
 
