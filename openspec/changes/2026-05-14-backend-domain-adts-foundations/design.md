@@ -1,4 +1,6 @@
-# Design — backend-domain-adts (CS2c)
+# Design — backend-domain-adts (CS2c series)
+
+> **Scope note (added when CS2c was split):** This OpenSpec change (`backend-domain-adts-foundations`) only delivers the foundations — `PipelineRunId` value class + ID segments + pipeline repo signature narrowing. The architectural design below covers the full CS2c series (Panel + DataSource + PipelineStep ADTs + wire shape evolution + engine split + run-lifecycle decomp + frontend lockstep). CS2c-2 will inherit this design for the DataSource ADT; CS2c-3 will inherit it for PipelineStep + Panel ADTs. Sections about ADT package layout, wire shape transition, polymorphic methods, frontend coordination, and Playwright smoke are forward-looking — only the foundations section applies to this PR.
 
 ## Package layout
 
