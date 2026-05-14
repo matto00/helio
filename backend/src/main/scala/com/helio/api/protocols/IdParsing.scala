@@ -12,10 +12,12 @@ import com.helio.domain._
  *  inside repositories. The repository layer accepts value-class IDs only.
  */
 object IdParsing {
-  val DashboardIdSegment: PathMatcher1[DashboardId]   = Segment.map(DashboardId(_))
-  val PanelIdSegment: PathMatcher1[PanelId]           = Segment.map(PanelId(_))
-  val DataTypeIdSegment: PathMatcher1[DataTypeId]     = Segment.map(DataTypeId(_))
-  val DataSourceIdSegment: PathMatcher1[DataSourceId] = Segment.map(DataSourceId(_))
-  val PipelineIdSegment: PathMatcher1[PipelineId]     = Segment.map(PipelineId(_))
-  val UserIdSegment: PathMatcher1[UserId]             = Segment.map(UserId(_))
+  val DashboardIdSegment: PathMatcher1[DashboardId]         = Segment.map(DashboardId(_))
+  val PanelIdSegment: PathMatcher1[PanelId]                 = Segment.map(PanelId(_))
+  val DataTypeIdSegment: PathMatcher1[DataTypeId]           = Segment.map(DataTypeId(_))
+  val DataSourceIdSegment: PathMatcher1[DataSourceId]       = Segment.map(DataSourceId(_))
+  val PipelineIdSegment: PathMatcher1[PipelineId]           = Segment.map(PipelineId(_))
+  val PipelineStepIdSegment: PathMatcher1[PipelineStepId]   = Segment.map(PipelineStepId(_))
+  val PipelineRunIdSegment: PathMatcher1[PipelineRunId]     = Segment.map(PipelineRunId(_))
+  val UserIdSegment: PathMatcher1[UserId]                   = Segment.map(UserId(_))
 }

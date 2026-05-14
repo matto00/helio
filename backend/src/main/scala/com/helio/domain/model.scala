@@ -319,6 +319,7 @@ final case class Pipeline(
 )
 
 final case class PipelineStepId(value: String) extends AnyVal
+final case class PipelineRunId(value: String) extends AnyVal
 
 final case class PipelineStep(
     id: PipelineStepId,

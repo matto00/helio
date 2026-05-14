@@ -11,7 +11,7 @@ import com.helio.api.protocols.{
   UpdatePipelineRequest,
   UpdatePipelineStepRequest
 }
-import com.helio.domain.{AuthenticatedUser, PipelineAnalyzeService, PipelineId, SchemaField}
+import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineAnalyzeService, PipelineId, PipelineStepId, SchemaField}
 import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
@@ -34,7 +34,7 @@ final class PipelineService(
     pipelineRepo.listSummaries().map(_.map(toSummaryResponse))
 
   def findSummaryById(pipelineId: PipelineId): Future[Either[ServiceError, PipelineSummaryResponse]] =
-    pipelineRepo.findSummaryById(pipelineId.value).map {
+    pipelineRepo.findSummaryById(pipelineId).map {
       case Some(summary) => Right(toSummaryResponse(summary))
       case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
@@ -47,7 +47,7 @@ final class PipelineService(
     else if (req.outputDataTypeName.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("outputDataTypeName is required")))
     else
-      pipelineRepo.create(req.name.trim, req.sourceDataSourceId.trim, req.outputDataTypeName.trim, user.id).map {
+      pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user.id).map {
         case Right(summary)                       => Right(toSummaryResponse(summary))
         case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
         case Left(msg)                              => Left(ServiceError.BadRequest(msg))
@@ -58,13 +58,13 @@ final class PipelineService(
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
     else
-      pipelineRepo.updateName(pipelineId.value, req.name.trim).map {
+      pipelineRepo.updateName(pipelineId, req.name.trim).map {
         case Some(summary) => Right(toSummaryResponse(summary))
         case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
       }
 
   def delete(pipelineId: PipelineId): Future[Either[ServiceError, Unit]] =
-    pipelineRepo.delete(pipelineId.value).map {
+    pipelineRepo.delete(pipelineId).map {
       case true  => Right(())
       case false => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
@@ -72,9 +72,9 @@ final class PipelineService(
   // ── Analyze ───────────────────────────────────────────────────────────────
 
   def analyze(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeResponse]] = {
-    val summaryF  = pipelineRepo.findSummaryById(pipelineId.value)
-    val pipelineF = pipelineRepo.findById(pipelineId.value)
-    val stepsF    = pipelineStepRepo.listByPipeline(pipelineId.value)
+    val summaryF  = pipelineRepo.findSummaryById(pipelineId)
+    val pipelineF = pipelineRepo.findById(pipelineId)
+    val stepsF    = pipelineStepRepo.listByPipeline(pipelineId)
 
     val combined = for {
       summary  <- summaryF
@@ -121,10 +121,10 @@ final class PipelineService(
   // ── Pipeline step CRUD ────────────────────────────────────────────────────
 
   def listSteps(pipelineId: PipelineId): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
-    pipelineRepo.exists(pipelineId.value).flatMap {
+    pipelineRepo.exists(pipelineId).flatMap {
       case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case true  =>
-        pipelineStepRepo.listByPipeline(pipelineId.value).map(rows => Right(rows.map(PipelineStepResponse.fromRow)))
+        pipelineStepRepo.listByPipeline(pipelineId).map(rows => Right(rows.map(PipelineStepResponse.fromRow)))
     }
 
   def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] =
@@ -133,15 +133,15 @@ final class PipelineService(
         s"Invalid op '${req.op}'. Allowed values: ${PipelineService.AllowedOps.mkString(", ")}"
       )))
     else
-      pipelineRepo.exists(pipelineId.value).flatMap {
+      pipelineRepo.exists(pipelineId).flatMap {
         case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
         case true  =>
-          pipelineStepRepo.insert(pipelineId.value, req.op, req.config)
+          pipelineStepRepo.insert(pipelineId, req.op, req.config)
             .map(row => Right(PipelineStepResponse.fromRow(row)))
             .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
       }
 
-  def updateStep(stepId: String, req: UpdatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] =
+  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] =
     req.op match {
       case Some(op) if !PipelineService.AllowedOps.contains(op) =>
         Future.successful(Left(ServiceError.BadRequest(
@@ -151,15 +151,15 @@ final class PipelineService(
         pipelineStepRepo.update(stepId, req.op, req.config, req.position)
           .map {
             case Some(row) => Right(PipelineStepResponse.fromRow(row))
-            case None      => Left(ServiceError.NotFound(s"Pipeline step not found: $stepId"))
+            case None      => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
           }
           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
     }
 
-  def deleteStep(stepId: String): Future[Either[ServiceError, Unit]] =
+  def deleteStep(stepId: PipelineStepId): Future[Either[ServiceError, Unit]] =
     pipelineStepRepo.delete(stepId).map {
       case true  => Right(())
-      case false => Left(ServiceError.NotFound(s"Pipeline step not found: $stepId"))
+      case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
     }
 
   // ── Internal helpers ──────────────────────────────────────────────────────

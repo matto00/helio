@@ -4,7 +4,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{CreatePipelineStepRequest, JsonProtocols, UpdatePipelineStepRequest}
-import com.helio.api.protocols.IdParsing.PipelineIdSegment
+import com.helio.api.protocols.IdParsing.{PipelineIdSegment, PipelineStepIdSegment}
 import com.helio.services.PipelineService
 
 import scala.concurrent.ExecutionContext
@@ -31,7 +31,7 @@ class PipelineStepRoutes(pipelineService: PipelineService)(implicit ec: Executio
         )
       }
     },
-    pathPrefix("pipeline-steps" / Segment) { stepId =>
+    pathPrefix("pipeline-steps" / PipelineStepIdSegment) { stepId =>
       pathEndOrSingleSlash {
         concat(
           patch {

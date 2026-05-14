@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -132,7 +132,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
       // Insert a select step via the repo
-      await(pipelineStepRepo.insert(pid, "select", """{"fields":["order_id","amount"]}"""))
+      await(pipelineStepRepo.insert(PipelineId(pid), "select", """{"fields":["order_id","amount"]}"""))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK

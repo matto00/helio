@@ -93,10 +93,10 @@ class PipelineRunRoutesSpec
     dsId
   }
 
-  private def seedPipeline(dsId: String): String = seedPipelineWithDtId(dsId)._1
+  private def seedPipeline(dsId: String): PipelineId = seedPipelineWithDtId(dsId)._1
 
   /** Returns (pipelineId, dataTypeId). */
-  private def seedPipelineWithDtId(dsId: String): (String, String) = {
+  private def seedPipelineWithDtId(dsId: String): (PipelineId, String) = {
     import PostgresProfile.api._
     val pid  = java.util.UUID.randomUUID().toString
     val dtId = java.util.UUID.randomUUID().toString
@@ -107,7 +107,7 @@ class PipelineRunRoutesSpec
                (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
                VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
     )))
-    (pid, dtId)
+    (PipelineId(pid), dtId)
   }
 
   private def seedDsWithMixedTypes(): String = {
@@ -159,7 +159,7 @@ class PipelineRunRoutesSpec
       val cache  = new PipelineRunCache()
       val dsId   = seedDs("static")
       val pid    = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 0
@@ -177,7 +177,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("rest_api")
       val pid   = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
     }
@@ -186,7 +186,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("sql")
       val pid   = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
     }
@@ -230,7 +230,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("static")
       val pid   = seedPipeline(dsId)
-      Get(s"/pipelines/$pid/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+      Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
         val records = responseAs[Vector[PipelineRunRecord]]
         records shouldBe empty
@@ -241,15 +241,15 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("static")
       val pid   = seedPipeline(dsId)
-      val runId = java.util.UUID.randomUUID().toString
+      val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRun(runId, pid, java.time.Instant.now()))
       await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", java.time.Instant.now(), rowCount = Some(5)))
 
-      Get(s"/pipelines/$pid/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+      Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
         val records = responseAs[Vector[PipelineRunRecord]]
         records should have size 1
-        records.head.id       shouldBe runId
+        records.head.id       shouldBe runId.value
         records.head.status   shouldBe "succeeded"
         records.head.rowCount shouldBe Some(5)
       }
@@ -267,13 +267,13 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache) ~> check {
+      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
       val statusOpt = await(db.run(
-        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+        sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe None
     }
@@ -285,13 +285,13 @@ class PipelineRunRoutesSpec
       val dtRepo = new DataTypeRepository(db)(routeEc)
       val dsId   = seedDsWithData()
       val pid    = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
       val statusOpt = await(db.run(
-        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+        sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("succeeded")
       val pipeline = await(pipelineRepo.findById(pid)).get
@@ -306,7 +306,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       val step  = await(stepRepo.insert(pid, "select", """{"fields":["name","score"]}"""))
-      Get(s"/pipelines/$pid/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+      Get(s"/pipelines/${pid.value}/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rows.size should be <= 10
@@ -325,7 +325,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("static")
       val pid   = seedPipeline(dsId)
-      Get(s"/pipelines/$pid/steps/nonexistent-step-id/preview") ~> makeRoutes(cache) ~> check {
+      Get(s"/pipelines/${pid.value}/steps/nonexistent-step-id/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
@@ -335,7 +335,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDs("rest_api")
       val pid   = seedPipeline(dsId)
       val step  = await(stepRepo.insert(pid, "select", """{"fields":[]}"""))
-      Get(s"/pipelines/$pid/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+      Get(s"/pipelines/${pid.value}/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
         resp.message should include("Unsupported source type")
@@ -352,7 +352,7 @@ class PipelineRunRoutesSpec
       // limit step at position 1 — would reduce to 1 row if applied
       await(stepRepo.insert(pid, "limit", """{"count":1}"""))
       // Preview up to selectStep only — should return 2 rows (limit not applied)
-      Get(s"/pipelines/$pid/steps/${selectStep.id}/preview") ~> makeRoutes(cache) ~> check {
+      Get(s"/pipelines/${pid.value}/steps/${selectStep.id}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
@@ -364,14 +364,14 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs should have size 1
-      runs.head.pipelineId shouldBe pid
+      runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "succeeded"
       runs.head.rowCount   shouldBe Some(2)
       runs.head.errorLog   shouldBe None
@@ -384,12 +384,12 @@ class PipelineRunRoutesSpec
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
         """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs should have size 1
-      runs.head.pipelineId shouldBe pid
+      runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "failed"
       runs.head.errorLog   shouldBe defined
       runs.head.errorLog.get should not be empty
@@ -400,14 +400,14 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs should have size 1
-      runs.head.pipelineId  shouldBe pid
+      runs.head.pipelineId  shouldBe pid.value
       runs.head.status      shouldBe "dry_run"
       runs.head.completedAt shouldBe defined
       runs.head.rowCount    shouldBe Some(2)
@@ -419,7 +419,7 @@ class PipelineRunRoutesSpec
       val dtRepo             = new DataTypeRepository(db)(routeEc)
       val dsId               = seedDsWithData()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
@@ -437,7 +437,7 @@ class PipelineRunRoutesSpec
       // Ensure no prior rows for this dtId
       await(dataTypeRowRepo.overwriteRows(dtId, Seq.empty))
 
-      Post(s"/pipelines/$pid/run?dry=true") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
@@ -453,13 +453,13 @@ class PipelineRunRoutesSpec
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
 
       // First run: 2 rows
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(dataTypeRowRepo.listRows(dtId)) should have size 2
 
       // Second run: same pipeline, same 2 rows (replace, not append)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(dataTypeRowRepo.listRows(dtId)) should have size 2
@@ -471,7 +471,7 @@ class PipelineRunRoutesSpec
       val dtRepo             = new DataTypeRepository(db)(routeEc)
       val dsId               = seedDsWithMixedTypes()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
@@ -490,13 +490,13 @@ class PipelineRunRoutesSpec
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
         """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
         resp.message should include ("Pipeline execution failed")
       }
       val statusOpt = await(db.run(
-        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+        sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("failed")
     }
@@ -509,7 +509,7 @@ class PipelineRunRoutesSpec
       val pid      = seedPipeline(dsId)
       val reg      = new PipelineRunRegistry()(typedSystem)
       // Check only content-type; do not consume the streaming body
-      Get(s"/pipelines/$pid/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
+      Get(s"/pipelines/${pid.value}/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
         status shouldBe StatusCodes.OK
         contentType.mediaType.mainType shouldBe "text"
         contentType.mediaType.subType  shouldBe "event-stream"
@@ -535,11 +535,11 @@ class PipelineRunRoutesSpec
       // Subscribe to events via registry directly (bypass HTTP for collection).
       // The source completes after the terminal "succeeded" event.
       val eventsFuture = reg
-        .subscribe(pid)
+        .subscribe(pid.value)
         .runWith(Sink.seq)(Materializer(system))
 
       // Run the pipeline; this publishes queued -> running -> succeeded.
-      Post(s"/pipelines/$pid/run") ~> makeRoutes(cache, registry = reg) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, registry = reg) ~> check {
         status shouldBe StatusCodes.OK
       }
 

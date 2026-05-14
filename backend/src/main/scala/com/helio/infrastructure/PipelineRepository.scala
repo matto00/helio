@@ -20,11 +20,11 @@ class PipelineRepository(
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
 
-  def exists(id: String): Future[Boolean] =
-    db.run(pipelinesTable.filter(_.id === id).exists.result)
+  def exists(id: PipelineId): Future[Boolean] =
+    db.run(pipelinesTable.filter(_.id === id.value).exists.result)
 
-  def findById(id: String): Future[Option[Pipeline]] =
-    db.run(pipelinesTable.filter(_.id === id).result.headOption).map {
+  def findById(id: PipelineId): Future[Option[Pipeline]] =
+    db.run(pipelinesTable.filter(_.id === id.value).result.headOption).map {
       _.map(row =>
         Pipeline(
           id                 = PipelineId(row.id),
@@ -40,9 +40,9 @@ class PipelineRepository(
     }
 
   /** Returns the joined summary for a single pipeline by id, or None if not found. */
-  def findSummaryById(id: String): Future[Option[PipelineSummary]] = {
+  def findSummaryById(id: PipelineId): Future[Option[PipelineSummary]] = {
     val query = for {
-      pipeline   <- pipelinesTable if pipeline.id === id
+      pipeline   <- pipelinesTable if pipeline.id === id.value
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)
@@ -62,11 +62,11 @@ class PipelineRepository(
   }
 
   /** Updates the pipeline name and returns the updated summary, or None if not found. */
-  def updateName(id: String, name: String): Future[Option[PipelineSummary]] = {
+  def updateName(id: PipelineId, name: String): Future[Option[PipelineSummary]] = {
     val now = Instant.now()
     db.run(
       pipelinesTable
-        .filter(_.id === id)
+        .filter(_.id === id.value)
         .map(r => (r.name, r.updatedAt))
         .update((name, now))
     ).flatMap {
@@ -77,11 +77,11 @@ class PipelineRepository(
 
   def create(
       name: String,
-      sourceDataSourceId: String,
+      sourceDataSourceId: DataSourceId,
       outputDataTypeName: String,
       ownerId: UserId
   ): Future[Either[String, PipelineSummary]] = {
-    dataSourceRepo.findById(DataSourceId(sourceDataSourceId)).flatMap {
+    dataSourceRepo.findById(sourceDataSourceId).flatMap {
       case None =>
         Future.successful(Left("Data source not found"))
       case Some(dataSource) =>
@@ -102,7 +102,7 @@ class PipelineRepository(
           val pipelineRow = PipelineRow(
             id                 = pipelineId,
             name               = name,
-            sourceDataSourceId = sourceDataSourceId,
+            sourceDataSourceId = sourceDataSourceId.value,
             outputDataTypeId   = createdDataType.id.value,
             lastRunStatus      = None,
             lastRunAt          = None,
@@ -128,14 +128,14 @@ class PipelineRepository(
 
   /** Deletes the pipeline by id. pipeline_steps and pipeline_runs cascade on
     * delete via FK constraints (V23, V24). Returns true if a row was removed. */
-  def delete(id: String): Future[Boolean] =
-    db.run(pipelinesTable.filter(_.id === id).delete).map(_ > 0)
+  def delete(id: PipelineId): Future[Boolean] =
+    db.run(pipelinesTable.filter(_.id === id.value).delete).map(_ > 0)
 
   /** Updates the lastRunStatus, lastRunAt, and lastRunRowCount columns for a pipeline after a run completes. */
-  def updateLastRun(id: String, status: String, at: Instant, rowCount: Option[Long] = None): Future[Unit] =
+  def updateLastRun(id: PipelineId, status: String, at: Instant, rowCount: Option[Long] = None): Future[Unit] =
     db.run(
       pipelinesTable
-        .filter(_.id === id)
+        .filter(_.id === id.value)
         .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
         .update((Some(status), Some(at), rowCount, at))
     ).map(_ => ())

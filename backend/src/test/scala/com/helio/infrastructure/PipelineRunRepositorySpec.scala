@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.domain.{PipelineId, PipelineRunId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -37,7 +38,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  private def seedPipeline(): String = {
+  private def seedPipeline(): PipelineId = {
     import PostgresProfile.api._
     val ownerId = "00000000-0000-0000-0000-000000000001"
     val dsId    = UUID.randomUUID().toString
@@ -54,21 +55,21 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
                (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
                VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
     )))
-    pid
+    PipelineId(pid)
   }
 
   "PipelineRunRepository" should {
 
     "insertRun creates a run with queued status" in {
       val pid    = seedPipeline()
-      val runId  = UUID.randomUUID().toString
+      val runId  = PipelineRunId(UUID.randomUUID().toString)
       val now    = Instant.now()
       await(pipelineRunRepo.insertRun(runId, pid, now))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs should have size 1
-      runs.head.id        shouldBe runId
-      runs.head.pipelineId shouldBe pid
+      runs.head.id        shouldBe runId.value
+      runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "queued"
       runs.head.completedAt shouldBe None
       runs.head.rowCount    shouldBe None
@@ -77,7 +78,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "updateRunTerminal sets succeeded status with rowCount" in {
       val pid   = seedPipeline()
-      val runId = UUID.randomUUID().toString
+      val runId = PipelineRunId(UUID.randomUUID().toString)
       val start = Instant.now()
       await(pipelineRunRepo.insertRun(runId, pid, start))
 
@@ -93,7 +94,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "updateRunTerminal sets failed status with errorLog" in {
       val pid   = seedPipeline()
-      val runId = UUID.randomUUID().toString
+      val runId = PipelineRunId(UUID.randomUUID().toString)
       val start = Instant.now()
       await(pipelineRunRepo.insertRun(runId, pid, start))
 
@@ -111,7 +112,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       // Insert 12 runs
       val base = Instant.now()
       for (i <- 1 to 12) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
       }
 
@@ -132,9 +133,9 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid = seedPipeline()
       val base = Instant.now()
       val ids = (1 to 3).map { i =>
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
-        runId
+        runId.value
       }
 
       val runs = await(pipelineRunRepo.listByPipeline(pid))
@@ -154,14 +155,14 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "insertDryRun inserts a row with status dry_run and non-null completedAt" in {
       val pid    = seedPipeline()
-      val runId  = UUID.randomUUID().toString
+      val runId  = PipelineRunId(UUID.randomUUID().toString)
       val now    = Instant.now()
       await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid))
       runs should have size 1
-      runs.head.id          shouldBe runId
-      runs.head.pipelineId  shouldBe pid
+      runs.head.id          shouldBe runId.value
+      runs.head.pipelineId  shouldBe pid.value
       runs.head.status      shouldBe "dry_run"
       runs.head.completedAt shouldBe defined
       runs.head.rowCount    shouldBe Some(3)
@@ -173,7 +174,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       // Insert 12 dry-run rows
       for (i <- 1 to 12) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i))
       }
 
@@ -195,11 +196,11 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       // Insert 5 normal runs and 12 dry-run rows
       for (i <- 1 to 5) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
       }
       for (i <- 1 to 12) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
       }
 
@@ -217,11 +218,11 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       // Insert 12 normal runs and 5 dry-run rows
       for (i <- 1 to 12) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
       }
       for (i <- 1 to 5) {
-        val runId = UUID.randomUUID().toString
+        val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
       }
 
