@@ -29,11 +29,11 @@ final class SourceRoutes(
       pathEndOrSingleSlash {
         post {
           entity(as[JsValue]) { json =>
-            val sourceTypeStr = json.asJsObject.fields.get("sourceType")
+            val typeStr = json.asJsObject.fields.get("type")
               .collect { case JsString(s) => s }
-              .getOrElse("rest_api")
+              .getOrElse(DataSourceKind.RestApi)
 
-            if (sourceTypeStr == "sql") {
+            if (typeStr == DataSourceKind.Sql) {
               Try(json.convertTo[SqlCreateSourceRequest]) match {
                 case Success(request) =>
                   ServiceResponse.run(sourceService.createSql(request, user)) { resp =>

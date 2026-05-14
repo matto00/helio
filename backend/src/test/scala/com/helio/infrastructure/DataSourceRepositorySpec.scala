@@ -7,7 +7,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
-import spray.json.JsObject
 
 import java.time.Instant
 import java.util.UUID
@@ -54,14 +53,13 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private def newSource(name: String = "Test Source", ownerId: UserId = owner1): DataSource = {
     val now = Instant.now()
-    DataSource(
-      id         = DataSourceId(UUID.randomUUID().toString),
-      name       = name,
-      sourceType = SourceType.RestApi,
-      config     = JsObject.empty,
-      createdAt  = now,
-      updatedAt  = now,
-      ownerId    = ownerId
+    RestSource(
+      id        = DataSourceId(UUID.randomUUID().toString),
+      name      = name,
+      ownerId   = ownerId,
+      createdAt = now,
+      updatedAt = now,
+      config    = RestApiConfig(url = "https://example.test", method = "GET")
     )
   }
 
@@ -73,10 +71,11 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       await(repo.insert(source))
       val found = await(repo.findById(source.id))
       found shouldBe defined
-      found.get.id        shouldBe source.id
-      found.get.name      shouldBe source.name
-      found.get.sourceType shouldBe source.sourceType
-      found.get.ownerId   shouldBe owner1
+      found.get.id      shouldBe source.id
+      found.get.name    shouldBe source.name
+      found.get.kind    shouldBe source.kind
+      found.get.ownerId shouldBe owner1
+      found.get         shouldBe a [RestSource]
     }
 
     "findAll returns only records owned by the given user" in {
@@ -128,7 +127,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb()
       val source = newSource("Original")
       await(repo.insert(source))
-      val updated = source.copy(name = "Renamed", updatedAt = Instant.now())
+      val updated = source.asInstanceOf[RestSource].copy(name = "Renamed", updatedAt = Instant.now())
       val result  = await(repo.update(updated))
       result shouldBe defined
       result.get.name shouldBe "Renamed"
@@ -136,9 +135,40 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
     "update returns None for unknown id" in {
       cleanDb()
-      val source = newSource().copy(id = DataSourceId(UUID.randomUUID().toString))
+      val source = newSource().asInstanceOf[RestSource].copy(id = DataSourceId(UUID.randomUUID().toString))
       val result = await(repo.update(source))
       result shouldBe None
+    }
+
+    "round-trips each ADT subtype through insert + findById" in {
+      cleanDb()
+      val now      = Instant.now()
+      val csv      = CsvSource(DataSourceId(UUID.randomUUID().toString), "csv-src", owner1, now, now,
+                                CsvSourceConfig("uploads/test.csv"))
+      val rest     = RestSource(DataSourceId(UUID.randomUUID().toString), "rest-src", owner1, now, now,
+                                 RestApiConfig(url = "https://api.example/test", method = "POST"))
+      val sql      = SqlSource(DataSourceId(UUID.randomUUID().toString), "sql-src", owner1, now, now,
+                                SqlSourceConfig("postgresql", "host", 5432, "db", "u", "p", "SELECT 1"))
+      val static   = StaticSource(DataSourceId(UUID.randomUUID().toString), "static-src", owner1, now, now)
+
+      await(repo.insert(csv))
+      await(repo.insert(rest))
+      await(repo.insert(sql))
+      await(repo.insert(static))
+
+      await(repo.findById(csv.id)).get    shouldBe a [CsvSource]
+      await(repo.findById(rest.id)).get   shouldBe a [RestSource]
+      await(repo.findById(sql.id)).get    shouldBe a [SqlSource]
+      await(repo.findById(static.id)).get shouldBe a [StaticSource]
+
+      val csvRound = await(repo.findById(csv.id)).get.asInstanceOf[CsvSource]
+      csvRound.config.path shouldBe "uploads/test.csv"
+      val sqlRound = await(repo.findById(sql.id)).get.asInstanceOf[SqlSource]
+      sqlRound.config.query    shouldBe "SELECT 1"
+      sqlRound.config.dialect  shouldBe "postgresql"
+      val restRound = await(repo.findById(rest.id)).get.asInstanceOf[RestSource]
+      restRound.config.url     shouldBe "https://api.example/test"
+      restRound.config.method  shouldBe "POST"
     }
   }
 }

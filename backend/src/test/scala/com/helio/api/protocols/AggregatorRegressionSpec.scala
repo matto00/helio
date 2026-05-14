@@ -49,13 +49,13 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
       roundTrip(original) shouldBe original
     }
 
-    "round-trip DataSourceResponse" in {
-      val original = DataSourceResponse(
-        id         = "ds-1",
-        name       = "Source 1",
-        sourceType = "rest_api",
-        createdAt  = "2026-01-01T00:00:00Z",
-        updatedAt  = "2026-01-02T00:00:00Z"
+    "round-trip DataSourceResponse (discriminated-union, REST subtype)" in {
+      val original: DataSourceResponse = RestSourceResponse(
+        id        = "ds-1",
+        name      = "Source 1",
+        createdAt = "2026-01-01T00:00:00Z",
+        updatedAt = "2026-01-02T00:00:00Z",
+        config    = RestApiConfigPayload(url = "http://example.com", method = Some("GET"), auth = None, headers = None)
       )
       roundTrip(original) shouldBe original
     }

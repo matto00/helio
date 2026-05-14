@@ -1,6 +1,7 @@
 package com.helio.domain
 
 import com.helio.infrastructure.{DataSourceRepository, FileSystem, PipelineStepRepository}
+import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
 import spray.json._
 
 import java.nio.charset.StandardCharsets
@@ -36,43 +37,40 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     }
   }
 
-  def loadRows(ds: DataSource): Future[Seq[Map[String, Any]]] = ds.sourceType match {
-    case SourceType.Static =>
-      Future(loadStaticRows(ds))
-    case SourceType.Csv =>
-      // CSV sources store their path under the "path" key (set by the CSV upload
-      // route in DataSourceRoutes). An older draft used "filePath" — accept either
-      // as a fallback so any legacy seeded configs still load.
-      val cfgFields = ds.config.asJsObject.fields
-      val pathOpt = cfgFields.get("path").orElse(cfgFields.get("filePath")).collect {
-        case JsString(p) => p
+  def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Map[String, Any]]] = ds match {
+    case s: StaticSource =>
+      // Static-source rows live in the `data_sources.config` JSON column (not
+      // on the ADT — see `domain/DataSource.scala`). Read the raw blob via
+      // the repository and parse the same `{columns, rows}` shape the
+      // pre-CS2c-2 engine consumed.
+      dataSourceRepo.readRawConfig(s.id).map {
+        case None      => Seq.empty
+        case Some(raw) => parseStaticRowsFromRaw(raw)
       }
-      pathOpt match {
-        case Some(filePath) =>
-          // Resolve via FileSystem (which knows the uploads root) instead of treating
-          // the stored relative path as CWD-relative.
-          fileSystem.read(filePath).map(loadCsvRowsFromBytes)
-        case None =>
-          Future.failed(
-            new IllegalArgumentException(
-              "CSV data source '" + ds.name + "' (id=" + ds.id.value +
-                ") is missing required config key 'path'"
-            )
+    case c: CsvSource =>
+      // CSV sources resolve their path via FileSystem (which knows the uploads
+      // root) rather than treating the stored value as CWD-relative.
+      if (c.config.path.isEmpty)
+        Future.failed(
+          new IllegalArgumentException(
+            "CSV data source '" + c.name + "' (id=" + c.id.value +
+              ") is missing required config key 'path'"
           )
-      }
+        )
+      else fileSystem.read(c.config.path).map(loadCsvRowsFromBytes)
     case other =>
       Future.failed(
         new IllegalArgumentException(
           "Unsupported source type for in-process pipeline engine: " +
-            SourceType.asString(other) + ". Only static and csv are supported."
+            other.kind + ". Only static and csv are supported."
         )
       )
   }
 
-  private def loadStaticRows(ds: DataSource): Seq[Map[String, Any]] = {
-    val obj      = ds.config.asJsObject
-    val columns  = obj.fields("columns").convertTo[Vector[JsObject]]
-    val rows     = obj.fields("rows").convertTo[Vector[Vector[JsValue]]]
+  private def parseStaticRowsFromRaw(raw: String): Seq[Map[String, Any]] = {
+    val obj      = parseStaticPayload(raw)
+    val columns  = obj.fields.getOrElse("columns", JsArray.empty).convertTo[Vector[JsObject]]
+    val rows     = obj.fields.getOrElse("rows", JsArray.empty).convertTo[Vector[Vector[JsValue]]]
     val colNames = columns.map(_.fields("name").convertTo[String])
     rows.map { row =>
       colNames.zip(row).map { case (name, jsValue) =>
@@ -337,7 +335,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
           new IllegalArgumentException("DataSource not found for join: " + rightDsId)
         )
       case Some(rightDs) =>
-        loadRows(rightDs).map { rightRows =>
+        loadRows(rightDs, dataSourceRepo).map { rightRows =>
           val rightIndex: Map[Any, Seq[Map[String, Any]]] =
             rightRows.groupBy(_.getOrElse(joinKey, null))
           joinType.toLowerCase match {

@@ -30,12 +30,11 @@ final class SourcePreviewRoutes(
         path("infer") {
           post {
             entity(as[JsValue]) { json =>
-              val sourceTypeStr = json.asJsObject.fields.get("sourceType")
-                .orElse(json.asJsObject.fields.get("source_type"))
+              val typeStr = json.asJsObject.fields.get("type")
                 .collect { case JsString(s) => s }
-                .getOrElse("rest_api")
+                .getOrElse(DataSourceKind.RestApi)
 
-              if (sourceTypeStr == "sql") {
+              if (typeStr == DataSourceKind.Sql) {
                 Try(json.convertTo[SqlInferRequest]) match {
                   case Success(request) =>
                     ServiceResponse.run(sourceService.inferSql(request))(identity)

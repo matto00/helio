@@ -7,7 +7,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
-import spray.json.JsObject
 
 import java.time.Instant
 import java.util.UUID
@@ -56,14 +55,13 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private def newSource(ownerId: UserId = owner1): DataSource = {
     val now = Instant.now()
-    DataSource(
-      id         = DataSourceId(UUID.randomUUID().toString),
-      name       = "Test Source",
-      sourceType = SourceType.Csv,
-      config     = JsObject.empty,
-      createdAt  = now,
-      updatedAt  = now,
-      ownerId    = ownerId
+    CsvSource(
+      id        = DataSourceId(UUID.randomUUID().toString),
+      name      = "Test Source",
+      ownerId   = ownerId,
+      createdAt = now,
+      updatedAt = now,
+      config    = CsvSourceConfig("uploads/test.csv")
     )
   }
 

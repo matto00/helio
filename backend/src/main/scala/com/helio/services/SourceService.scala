@@ -15,13 +15,11 @@ import com.helio.api.protocols.{
 }
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}
-import SourceConfigParsing._
 import spray.json._
 
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 /** Business logic for REST + SQL data sources.
  *
@@ -44,14 +42,13 @@ final class SourceService(
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
         val now = Instant.now()
-        val source = DataSource(
-          id         = DataSourceId(UUID.randomUUID().toString),
-          name       = request.name,
-          sourceType = SourceType.Sql,
-          config     = request.config.toJson,
-          createdAt  = now,
-          updatedAt  = now,
-          ownerId    = user.id
+        val source = SqlSource(
+          id        = DataSourceId(UUID.randomUUID().toString),
+          name      = request.name,
+          ownerId   = user.id,
+          createdAt = now,
+          updatedAt = now,
+          config    = sqlConfig
         )
         dataSourceRepo.insert(source).flatMap { inserted =>
           SqlConnector.execute(sqlConfig, maxRows = 100).flatMap {
@@ -93,59 +90,57 @@ final class SourceService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(restConfig) =>
-        SourceType.fromString(request.sourceType) match {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadRequest(err)))
-          case Right(sourceType) =>
-            val now = Instant.now()
-            val source = DataSource(
-              id         = DataSourceId(UUID.randomUUID().toString),
-              name       = request.name,
-              sourceType = sourceType,
-              config     = request.config.toJson,
-              createdAt  = now,
-              updatedAt  = now,
-              ownerId    = user.id
-            )
-            dataSourceRepo.insert(source).flatMap { inserted =>
-              connector.fetch(restConfig).flatMap {
-                case Left(err) =>
-                  Future.successful(Right(CreateSourceResponse(
-                    source     = DataSourceResponse.fromDomain(inserted),
-                    dataType   = None,
-                    fetchError = Some(err)
-                  )))
-                case Right(json) =>
-                  val schema       = SchemaInferenceEngine.fromJson(json)
-                  val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-                  val fields = schema.fields.map { f =>
-                    val ov = overridesMap.get(f.name)
-                    DataField(
-                      f.name,
-                      ov.map(_.displayName).getOrElse(f.displayName),
-                      ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
-                      f.nullable
-                    )
-                  }.toVector
-                  val dt = DataType(
-                    id        = DataTypeId(UUID.randomUUID().toString),
-                    sourceId  = Some(inserted.id),
-                    name      = inserted.name,
-                    fields    = fields,
-                    version   = 1,
-                    createdAt = now,
-                    updatedAt = now,
-                    ownerId   = user.id
+        if (request.`type` != DataSourceKind.RestApi)
+          Future.successful(Left(ServiceError.BadRequest(s"Expected type='${DataSourceKind.RestApi}', got '${request.`type`}'")))
+        else {
+          val now = Instant.now()
+          val source = RestSource(
+            id        = DataSourceId(UUID.randomUUID().toString),
+            name      = request.name,
+            ownerId   = user.id,
+            createdAt = now,
+            updatedAt = now,
+            config    = restConfig
+          )
+          dataSourceRepo.insert(source).flatMap { inserted =>
+            connector.fetch(restConfig).flatMap {
+              case Left(err) =>
+                Future.successful(Right(CreateSourceResponse(
+                  source     = DataSourceResponse.fromDomain(inserted),
+                  dataType   = None,
+                  fetchError = Some(err)
+                )))
+              case Right(json) =>
+                val schema       = SchemaInferenceEngine.fromJson(json)
+                val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
+                val fields = schema.fields.map { f =>
+                  val ov = overridesMap.get(f.name)
+                  DataField(
+                    f.name,
+                    ov.map(_.displayName).getOrElse(f.displayName),
+                    ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
+                    f.nullable
                   )
-                  dataTypeRepo.insert(dt).map { createdDt =>
-                    Right(CreateSourceResponse(
-                      source     = DataSourceResponse.fromDomain(inserted),
-                      dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
-                      fetchError = None
-                    ))
-                  }
-              }
+                }.toVector
+                val dt = DataType(
+                  id        = DataTypeId(UUID.randomUUID().toString),
+                  sourceId  = Some(inserted.id),
+                  name      = inserted.name,
+                  fields    = fields,
+                  version   = 1,
+                  createdAt = now,
+                  updatedAt = now,
+                  ownerId   = user.id
+                )
+                dataTypeRepo.insert(dt).map { createdDt =>
+                  Right(CreateSourceResponse(
+                    source     = DataSourceResponse.fromDomain(inserted),
+                    dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
+                    fetchError = None
+                  ))
+                }
             }
+          }
         }
     }
 
@@ -182,51 +177,43 @@ final class SourceService(
         Future.successful(Left(ServiceError.NotFound("DataSource not found")))
       case Some(source) if source.ownerId != user.id =>
         Future.successful(Left(ServiceError.Forbidden()))
-      case Some(source) if source.sourceType == SourceType.Sql =>
-        refreshSql(source, user)
-      case Some(source) =>
-        refreshRest(source, user)
+      case Some(s: SqlSource) =>
+        refreshSql(s, user)
+      case Some(r: RestSource) =>
+        refreshRest(r, user)
+      case Some(_) =>
+        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for rest_api and sql sources via this endpoint")))
     }
 
-  private def refreshSql(source: DataSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    Try(SourceConfigParsing.sqlConfigFromJson(source.config)) match {
-      case Failure(e) =>
-        Future.successful(Left(ServiceError.BadRequest(s"Invalid stored SQL config: ${e.getMessage}")))
-      case Success(sqlConfig) =>
-        SqlConnector.execute(sqlConfig, maxRows = 100).flatMap {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
-          case Right(rows) =>
-            val now    = Instant.now()
-            val schema = SqlConnector.inferSchema(rows)
-            val fields = schema.fields.map(f =>
-              DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-            ).toVector
-            upsertDataType(source, fields, now, bumpVersion = true, user).map {
-              case Some(dt) => Right(dt)
-              case None     => Left(ServiceError.NotFound("DataType not found"))
-            }
+  private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+    SqlConnector.execute(source.config, maxRows = 100).flatMap {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
+      case Right(rows) =>
+        val now    = Instant.now()
+        val schema = SqlConnector.inferSchema(rows)
+        val fields = schema.fields.map(f =>
+          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+        ).toVector
+        upsertDataType(source, fields, now, bumpVersion = true, user).map {
+          case Some(dt) => Right(dt)
+          case None     => Left(ServiceError.NotFound("DataType not found"))
         }
     }
 
-  private def refreshRest(source: DataSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    SourceConfigParsing.restConfigFromJson(source.config) match {
+  private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+    connector.fetch(source.config).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(s"Invalid stored config: $err")))
-      case Right(restConfig) =>
-        connector.fetch(restConfig).flatMap {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
-          case Right(json) =>
-            val now    = Instant.now()
-            val schema = SchemaInferenceEngine.fromJson(json)
-            val fields = schema.fields.map(f =>
-              DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-            ).toVector
-            upsertDataType(source, fields, now, bumpVersion = false, user).map {
-              case Some(dt) => Right(dt)
-              case None     => Left(ServiceError.NotFound("DataType not found"))
-            }
+        Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
+      case Right(json) =>
+        val now    = Instant.now()
+        val schema = SchemaInferenceEngine.fromJson(json)
+        val fields = schema.fields.map(f =>
+          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+        ).toVector
+        upsertDataType(source, fields, now, bumpVersion = false, user).map {
+          case Some(dt) => Right(dt)
+          case None     => Left(ServiceError.NotFound("DataType not found"))
         }
     }
 
@@ -238,45 +225,37 @@ final class SourceService(
         Future.successful(Left(ServiceError.NotFound("DataSource not found")))
       case Some(source) if source.ownerId != user.id =>
         Future.successful(Left(ServiceError.Forbidden()))
-      case Some(source) if source.sourceType == SourceType.Sql =>
-        previewSql(source, user)
-      case Some(source) =>
-        previewRest(source, user)
+      case Some(s: SqlSource) =>
+        previewSql(s, user)
+      case Some(r: RestSource) =>
+        previewRest(r, user)
+      case Some(_) =>
+        Future.successful(Left(ServiceError.BadRequest("preview is only supported for rest_api and sql sources via this endpoint")))
     }
 
-  private def previewSql(source: DataSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    Try(SourceConfigParsing.sqlConfigFromJson(source.config)) match {
-      case Failure(e) =>
-        Future.successful(Left(ServiceError.BadRequest(s"Invalid stored SQL config: ${e.getMessage}")))
-      case Success(sqlConfig) =>
-        SqlConnector.execute(sqlConfig, maxRows = 10).flatMap {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
-          case Right(rows) =>
-            dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
-              val computedFields          = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-              val rawRows                 = SqlConnector.toRows(rows)
-              val (augmented, evalErrors) = applyComputedFields(rawRows, computedFields)
-              Right(PreviewSourceResponse(augmented, evalErrors))
-            }
+  private def previewSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
+    SqlConnector.execute(source.config, maxRows = 10).flatMap {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
+      case Right(rows) =>
+        dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
+          val computedFields          = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
+          val rawRows                 = SqlConnector.toRows(rows)
+          val (augmented, evalErrors) = applyComputedFields(rawRows, computedFields)
+          Right(PreviewSourceResponse(augmented, evalErrors))
         }
     }
 
-  private def previewRest(source: DataSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    SourceConfigParsing.restConfigFromJson(source.config) match {
+  private def previewRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
+    connector.fetch(source.config).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(s"Invalid stored config: $err")))
-      case Right(restConfig) =>
-        connector.fetch(restConfig).flatMap {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
-          case Right(json) =>
-            val rawRows = connector.toRows(json).take(10)
-            dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
-              val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-              val (rows, evalErrors) = applyComputedFields(rawRows, computedFields)
-              Right(PreviewSourceResponse(rows, evalErrors))
-            }
+        Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
+      case Right(json) =>
+        val rawRows = connector.toRows(json).take(10)
+        dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
+          val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
+          val (rows, evalErrors) = applyComputedFields(rawRows, computedFields)
+          Right(PreviewSourceResponse(rows, evalErrors))
         }
     }
 

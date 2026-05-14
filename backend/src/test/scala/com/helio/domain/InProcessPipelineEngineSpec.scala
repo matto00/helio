@@ -334,18 +334,19 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
           Map[String, Any]("id" -> "2", "dept" -> "mkt")
         )
       )
-      val rightDs = DataSource(
-        id         = DataSourceId("ds-right"),
-        name       = "right",
-        sourceType = SourceType.Static,
-        config     = rightConfig,
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      val rightDs = StaticSource(
+        id        = DataSourceId("ds-right"),
+        name      = "right",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
       )
+      val rightConfigJson = rightConfig.compactPrint
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findById(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right") Some(rightDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-right") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
         """{ "rightDataSourceId": "ds-right", "joinKey": "id", "joinType": "inner" }""")
@@ -365,18 +366,19 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
         Seq("id", "dept"),
         Seq(Map[String, Any]("id" -> "1", "dept" -> "eng"))
       )
-      val rightDs = DataSource(
-        id         = DataSourceId("ds-right-left"),
-        name       = "right",
-        sourceType = SourceType.Static,
-        config     = rightConfig,
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      val rightDs = StaticSource(
+        id        = DataSourceId("ds-right-left"),
+        name      = "right",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
       )
+      val rightConfigJson = rightConfig.compactPrint
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findById(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right-left") Some(rightDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-right-left") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
         """{ "rightDataSourceId": "ds-right-left", "joinKey": "id", "joinType": "left" }""")
@@ -640,56 +642,37 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
         writer.println("bob,25")
       } finally writer.close()
 
-      val ds = DataSource(
-        id         = DataSourceId("ds-csv-1"),
-        name       = "csv-src",
-        sourceType = SourceType.Csv,
-        config     = JsObject("path" -> JsString(tmp.getAbsolutePath)),
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-1"),
+        name      = "csv-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath)
       )
-      val rows = Await.result(engine.loadRows(ds), 5.seconds)
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
       rows should have size 2
       rows.head("name") shouldBe "alice"
       rows.head("age")  shouldBe "30"
     }
 
-    "loadRows: CSV source accepts legacy 'filePath' config key" in {
-      val tmp = java.io.File.createTempFile("helio-csv-legacy-", ".csv")
-      tmp.deleteOnExit()
-      val writer = new java.io.PrintWriter(tmp)
-      try {
-        writer.println("x")
-        writer.println("1")
-      } finally writer.close()
-
-      val ds = DataSource(
-        id         = DataSourceId("ds-csv-legacy"),
-        name       = "csv-legacy",
-        sourceType = SourceType.Csv,
-        config     = JsObject("filePath" -> JsString(tmp.getAbsolutePath)),
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
-      )
-      val rows = Await.result(engine.loadRows(ds), 5.seconds)
-      rows should have size 1
-      rows.head("x") shouldBe "1"
-    }
+    // Legacy 'filePath' tolerance lives at the row→domain boundary in
+    // `DataSourceRepository` / `DataSourceConfigCodec`; once the typed
+    // `CsvSourceConfig` is in the domain layer, the engine itself never sees
+    // a JSON blob and the only path field that exists is `CsvSourceConfig.path`.
+    // This is asserted by `DataSourceConfigCodec.decodeCsv` round-trip tests.
 
     "loadRows: CSV source with no path config raises a diagnostic error (no 'key not found')" in {
-      val ds = DataSource(
-        id         = DataSourceId("ds-csv-bad"),
-        name       = "broken-csv",
-        sourceType = SourceType.Csv,
-        config     = JsObject(),
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("00000000-0000-0000-0000-000000000001")
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-bad"),
+        name      = "broken-csv",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig("")
       )
       val ex = intercept[IllegalArgumentException](
-        Await.result(engine.loadRows(ds), 5.seconds)
+        Await.result(engine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage                 should include ("broken-csv")
       ex.getMessage                 should include ("path")

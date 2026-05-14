@@ -134,7 +134,7 @@ class DataSourceRoutesSpec
         status shouldBe StatusCodes.Created
         val body = responseAs[DataSourceResponse]
         body.name       shouldBe "Sales Data"
-        body.sourceType shouldBe "csv"
+        body.`type` shouldBe "csv"
         body.id         should not be empty
 
         // DataType should be registered
@@ -391,7 +391,7 @@ class DataSourceRoutesSpec
       val body =
         """{
           |  "name": "Lookup Table",
-          |  "sourceType": "static",
+          |  "type": "static",
           |  "columns": [{"name": "id", "type": "integer"}, {"name": "label", "type": "string"}],
           |  "rows": [[1, "Alice"], [2, "Bob"]]
           |}""".stripMargin
@@ -402,7 +402,7 @@ class DataSourceRoutesSpec
         status shouldBe StatusCodes.Created
         val ds = responseAs[DataSourceResponse]
         ds.name       shouldBe "Lookup Table"
-        ds.sourceType shouldBe "static"
+        ds.`type` shouldBe "static"
         ds.id         should not be empty
 
         Get("/api/types") ~> routes() ~> check {
@@ -422,7 +422,7 @@ class DataSourceRoutesSpec
       val body =
         """{
           |  "name": "",
-          |  "sourceType": "static",
+          |  "type": "static",
           |  "columns": [{"name": "x", "type": "string"}],
           |  "rows": []
           |}""".stripMargin
@@ -441,7 +441,7 @@ class DataSourceRoutesSpec
       val body =
         s"""{
            |  "name": "Too Big",
-           |  "sourceType": "static",
+           |  "type": "static",
            |  "columns": [{"name": "id", "type": "integer"}, {"name": "v", "type": "string"}],
            |  "rows": $rows
            |}""".stripMargin
@@ -462,7 +462,7 @@ class DataSourceRoutesSpec
       val createBody =
         """{
           |  "name": "Static Refresh Test",
-          |  "sourceType": "static",
+          |  "type": "static",
           |  "columns": [{"name": "col1", "type": "string"}],
           |  "rows": [["hello"]]
           |}""".stripMargin
@@ -500,7 +500,7 @@ class DataSourceRoutesSpec
       val createBody =
         """{
           |  "name": "Static Refresh Limit",
-          |  "sourceType": "static",
+          |  "type": "static",
           |  "columns": [{"name": "x", "type": "string"}],
           |  "rows": []
           |}""".stripMargin
@@ -531,7 +531,7 @@ class DataSourceRoutesSpec
       val createBody =
         """{
           |  "name": "Static Preview Test",
-          |  "sourceType": "static",
+          |  "type": "static",
           |  "columns": [{"name": "id", "type": "integer"}, {"name": "name", "type": "string"}],
           |  "rows": [[1, "Alice"], [2, "Bob"]]
           |}""".stripMargin
@@ -562,7 +562,7 @@ class DataSourceRoutesSpec
       val body =
         """{
           |  "name": "REST Overridden",
-          |  "sourceType": "rest_api",
+          |  "type": "rest_api",
           |  "config": {"url": "http://example.com"},
           |  "fieldOverrides": [{"name": "id", "displayName": "Identifier", "dataType": "integer"}]
           |}""".stripMargin

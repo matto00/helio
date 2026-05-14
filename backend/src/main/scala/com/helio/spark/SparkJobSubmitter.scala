@@ -1,7 +1,8 @@
 package com.helio.spark
 
-import com.helio.domain.{DataSource, DataSourceId, Pipeline, PipelineRunId, SourceType}
+import com.helio.domain.{CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, StaticSource}
 import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
@@ -91,11 +92,19 @@ class SparkJobSubmitter(
     Future.successful(runIdStr)
   }
 
-  private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds.sourceType match {
-    case SourceType.Static =>
-      val obj     = ds.config.asJsObject
-      val columns = obj.fields("columns").convertTo[Vector[JsObject]]
-      val rows    = obj.fields("rows").convertTo[Vector[Vector[JsValue]]]
+  private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds match {
+    case s: StaticSource =>
+      // Static-source payload lives in the `data_sources.config` JSON column
+      // (the ADT itself stays flat — see `domain/DataSource.scala`). Read the
+      // raw blob via the repository's accessor; tolerate a null repo in tests
+      // that exercise `loadDataFrame` directly with an empty payload.
+      val raw =
+        if (dataSourceRepo != null)
+          Await.result(dataSourceRepo.readRawConfig(s.id), 30.seconds).getOrElse("{}")
+        else "{}"
+      val obj     = parseStaticPayload(raw)
+      val columns = obj.fields.getOrElse("columns", JsArray.empty).convertTo[Vector[JsObject]]
+      val rows    = obj.fields.getOrElse("rows", JsArray.empty).convertTo[Vector[Vector[JsValue]]]
 
       val schema = StructType(columns.map { col =>
         StructField(
@@ -116,26 +125,20 @@ class SparkJobSubmitter(
         schema
       )
 
-    case SourceType.Csv =>
-      // CSV sources store their path under the "path" key (set by the CSV upload
-      // route in DataSourceRoutes). Accept "filePath" as a legacy fallback.
-      val cfgFields = ds.config.asJsObject.fields
-      val pathOpt = cfgFields.get("path").orElse(cfgFields.get("filePath")).collect {
-        case JsString(p) => p
-      }
-      val filePath = pathOpt.getOrElse(
+    case c: CsvSource =>
+      // CSV sources resolve their path directly from the typed config.
+      if (c.config.path.isEmpty)
         throw new IllegalArgumentException(
-          s"CSV data source '${ds.name}' (id=${ds.id.value}) is missing required config key 'path'"
+          s"CSV data source '${c.name}' (id=${c.id.value}) is missing required config key 'path'"
         )
-      )
       spark.read
         .option("header", "true")
         .option("inferSchema", "true")
-        .csv(filePath)
+        .csv(c.config.path)
 
     case other =>
       throw new IllegalArgumentException(
-        s"Unsupported source type for Spark job submission: ${SourceType.asString(other)}. " +
+        s"Unsupported source type for Spark job submission: ${other.kind}. " +
           "Only 'static' and 'csv' are currently supported."
       )
   }
