@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.domain.PipelineId
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -40,7 +41,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   /** Seed a data source and pipeline, returning the pipeline id. */
-  private def seedPipeline(): String = {
+  private def seedPipeline(): PipelineId = {
     import PostgresProfile.api._
     val ownerId = "00000000-0000-0000-0000-000000000001"
     val dsId    = UUID.randomUUID().toString
@@ -57,7 +58,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
                (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
                VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
     )))
-    pid
+    PipelineId(pid)
   }
 
   "PipelineRepository.updateLastRun" should {
@@ -88,7 +89,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(pipelineRepo.updateLastRun(pid, "succeeded", at))
 
       val summaries = await(pipelineRepo.listSummaries())
-      val summary   = summaries.find(_.id == pid)
+      val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunStatus shouldBe Some("succeeded")
       summary.get.lastRunAt     shouldBe defined
@@ -100,7 +101,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L)))
 
       val summaries = await(pipelineRepo.listSummaries())
-      val summary   = summaries.find(_.id == pid)
+      val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunRowCount shouldBe Some(1234L)
     }
@@ -111,7 +112,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None))
 
       val summaries = await(pipelineRepo.listSummaries())
-      val summary   = summaries.find(_.id == pid)
+      val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunRowCount shouldBe None
     }
@@ -120,7 +121,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val pid = seedPipeline()
 
       val summaries = await(pipelineRepo.listSummaries())
-      val summary   = summaries.find(_.id == pid)
+      val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunStatus   shouldBe None
       summary.get.lastRunAt       shouldBe None

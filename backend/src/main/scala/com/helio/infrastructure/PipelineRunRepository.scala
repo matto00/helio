@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.domain.{PipelineId, PipelineRunId}
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
@@ -14,10 +15,10 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   private val runsTable = TableQuery[PipelineRunTable]
 
   /** Insert a new run record in "queued" state. */
-  def insertRun(runId: String, pipelineId: String, startedAt: Instant): Future[Unit] = {
+  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant): Future[Unit] = {
     val row = PipelineRunRow(
-      id          = runId,
-      pipelineId  = pipelineId,
+      id          = runId.value,
+      pipelineId  = pipelineId.value,
       status      = "queued",
       startedAt   = startedAt,
       completedAt = None,
@@ -29,7 +30,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
 
   /** Update a run to a terminal state (succeeded or failed). */
   def updateRunTerminal(
-      runId: String,
+      runId: PipelineRunId,
       status: String,
       completedAt: Instant,
       rowCount: Option[Int] = None,
@@ -37,16 +38,16 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   ): Future[Unit] =
     db.run(
       runsTable
-        .filter(_.id === runId)
+        .filter(_.id === runId.value)
         .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog))
         .update((status, Some(completedAt), rowCount, errorLog))
     ).map(_ => ())
 
   /** Insert a completed dry-run record in a single step (no queued → terminal transition). */
-  def insertDryRun(runId: String, pipelineId: String, startedAt: Instant, rowCount: Int): Future[Unit] = {
+  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int): Future[Unit] = {
     val row = PipelineRunRow(
-      id          = runId,
-      pipelineId  = pipelineId,
+      id          = runId.value,
+      pipelineId  = pipelineId.value,
       status      = "dry_run",
       startedAt   = startedAt,
       completedAt = Some(startedAt),
@@ -61,15 +62,16 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
    * Called immediately after insertRun to enforce retention.
    * Dry-run records are managed separately by deleteOldDryRuns.
    */
-  def deleteOldRuns(pipelineId: String, keepN: Int = 10): Future[Unit] = {
+  def deleteOldRuns(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
+    val pid = pipelineId.value
     val keepIds = runsTable
-      .filter(r => r.pipelineId === pipelineId && r.status =!= "dry_run")
+      .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
       .sortBy(_.startedAt.desc)
       .take(keepN)
       .map(_.id)
 
     val action = runsTable
-      .filter(r => r.pipelineId === pipelineId && r.status =!= "dry_run" && !r.id.in(keepIds))
+      .filter(r => r.pipelineId === pid && r.status =!= "dry_run" && !r.id.in(keepIds))
       .delete
 
     db.run(action).map(_ => ())
@@ -80,25 +82,26 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
    * Called immediately after insertDryRun to enforce dry-run retention independently
    * of the normal-run cap.
    */
-  def deleteOldDryRuns(pipelineId: String, keepN: Int = 10): Future[Unit] = {
+  def deleteOldDryRuns(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
+    val pid = pipelineId.value
     val keepIds = runsTable
-      .filter(r => r.pipelineId === pipelineId && r.status === "dry_run")
+      .filter(r => r.pipelineId === pid && r.status === "dry_run")
       .sortBy(_.startedAt.desc)
       .take(keepN)
       .map(_.id)
 
     val action = runsTable
-      .filter(r => r.pipelineId === pipelineId && r.status === "dry_run" && !r.id.in(keepIds))
+      .filter(r => r.pipelineId === pid && r.status === "dry_run" && !r.id.in(keepIds))
       .delete
 
     db.run(action).map(_ => ())
   }
 
   /** Return all runs for a pipeline ordered by startedAt DESC. */
-  def listByPipeline(pipelineId: String): Future[Vector[PipelineRunRow]] =
+  def listByPipeline(pipelineId: PipelineId): Future[Vector[PipelineRunRow]] =
     db.run(
       runsTable
-        .filter(_.pipelineId === pipelineId)
+        .filter(_.pipelineId === pipelineId.value)
         .sortBy(_.startedAt.desc)
         .result
     ).map(_.toVector)

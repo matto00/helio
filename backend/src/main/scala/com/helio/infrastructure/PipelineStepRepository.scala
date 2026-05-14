@@ -15,26 +15,26 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
 
   private val stepsTable = TableQuery[PipelineStepTable]
 
-  def listByPipeline(pipelineId: String): Future[Vector[PipelineStepRow]] =
-    db.run(stepsTable.filter(_.pipelineId === pipelineId).sortBy(_.position).result)
+  def listByPipeline(pipelineId: PipelineId): Future[Vector[PipelineStepRow]] =
+    db.run(stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result)
       .map(_.toVector)
 
-  def insert(pipelineId: String, op: String, config: String): Future[PipelineStepRow] = {
+  def insert(pipelineId: PipelineId, op: String, config: String): Future[PipelineStepRow] = {
     val now = Instant.now()
     val action = for {
-      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId).map(_.position).max.result
+      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId, position, op, config, now, now)
+      row       = PipelineStepRow(id, pipelineId.value, position, op, config, now, now)
       _        <- stepsTable += row
     } yield row
     db.run(action.transactionally)
   }
 
-  def update(id: String, op: Option[String], config: Option[String], position: Option[Int]): Future[Option[PipelineStepRow]] = {
+  def update(id: PipelineStepId, op: Option[String], config: Option[String], position: Option[Int]): Future[Option[PipelineStepRow]] = {
     val now = Instant.now()
     val action = for {
-      existing <- stepsTable.filter(_.id === id).result.headOption
+      existing <- stepsTable.filter(_.id === id.value).result.headOption
       updated  <- existing match {
         case None => DBIO.successful(None)
         case Some(row) =>
@@ -44,14 +44,14 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
             position  = position.getOrElse(row.position),
             updatedAt = now
           )
-          stepsTable.filter(_.id === id).update(newRow).map(_ => Some(newRow))
+          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(newRow))
       }
     } yield updated
     db.run(action.transactionally)
   }
 
-  def delete(id: String): Future[Boolean] =
-    db.run(stepsTable.filter(_.id === id).delete).map(_ > 0)
+  def delete(id: PipelineStepId): Future[Boolean] =
+    db.run(stepsTable.filter(_.id === id.value).delete).map(_ > 0)
 }
 
 object PipelineStepRepository {

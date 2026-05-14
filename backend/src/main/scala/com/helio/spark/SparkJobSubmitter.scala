@@ -1,6 +1,6 @@
 package com.helio.spark
 
-import com.helio.domain.{DataSource, DataSourceId, Pipeline, SourceType}
+import com.helio.domain.{DataSource, DataSourceId, Pipeline, PipelineRunId, SourceType}
 import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
@@ -41,26 +41,27 @@ class SparkJobSubmitter(
       steps: Seq[PipelineStepRepository.PipelineStepRow],
       cache: PipelineRunCache
   ): Future[String] = {
-    val runId     = UUID.randomUUID().toString
+    val runIdStr  = UUID.randomUUID().toString
+    val runId     = PipelineRunId(runIdStr)
     val startedAt = Instant.now()
-    cache.put(runId, RunStatus.Queued)
+    cache.put(runIdStr, RunStatus.Queued)
 
     // Record the run in the database (fire-and-forget; errors are non-fatal)
     if (pipelineRunRepo != null) {
-      pipelineRunRepo.insertRun(runId, pipeline.id.value, startedAt)
-      pipelineRunRepo.deleteOldRuns(pipeline.id.value)
+      pipelineRunRepo.insertRun(runId, pipeline.id, startedAt)
+      pipelineRunRepo.deleteOldRuns(pipeline.id)
     }
 
     Future {
       blocking {
-        cache.update(runId, RunStatus.Running)
+        cache.update(runIdStr, RunStatus.Running)
         try {
           val df       = loadDataFrame(dataSource)
           val resultDf = steps.foldLeft(df)((cur, step) => applyStep(cur, step))
           val rows     = collectRows(resultDf)
           val now      = Instant.now()
-          cache.update(runId, RunStatus.Succeeded, rows = Some(rows))
-          pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Succeeded, now)
+          cache.update(runIdStr, RunStatus.Succeeded, rows = Some(rows))
+          pipelineRepo.updateLastRun(pipeline.id, RunStatus.Succeeded, now)
           if (pipelineRunRepo != null) {
             pipelineRunRepo.updateRunTerminal(
               runId,
@@ -73,8 +74,8 @@ class SparkJobSubmitter(
           case ex: Throwable =>
             val now      = Instant.now()
             val errorMsg = Option(ex.getMessage).getOrElse(ex.getClass.getName)
-            cache.update(runId, RunStatus.Failed, error = Some(errorMsg))
-            pipelineRepo.updateLastRun(pipeline.id.value, RunStatus.Failed, now)
+            cache.update(runIdStr, RunStatus.Failed, error = Some(errorMsg))
+            pipelineRepo.updateLastRun(pipeline.id, RunStatus.Failed, now)
             if (pipelineRunRepo != null) {
               pipelineRunRepo.updateRunTerminal(
                 runId,
@@ -87,7 +88,7 @@ class SparkJobSubmitter(
       }
     }(sparkEc)
 
-    Future.successful(runId)
+    Future.successful(runIdStr)
   }
 
   private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds.sourceType match {
