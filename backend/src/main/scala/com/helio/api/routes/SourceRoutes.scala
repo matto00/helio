@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
 /** Thin HTTP shell for `/api/sources` create.
- *  Dispatches REST vs SQL based on the JSON payload's `sourceType` field;
+ *  Dispatches REST vs SQL based on the JSON payload's `type` discriminator;
  *  all logic in [[SourceService]]. */
 final class SourceRoutes(
     sourceService: SourceService,
