@@ -150,7 +150,9 @@ package object api {
   type PipelineStepResponse = protocols.PipelineStepResponse
   val PipelineStepResponse: protocols.PipelineStepResponse.type = protocols.PipelineStepResponse
   type AnalyzeStepResponse = protocols.AnalyzeStepResponse
-  val AnalyzeStepResponse: protocols.AnalyzeStepResponse.type = protocols.AnalyzeStepResponse
+  // AnalyzeStepResponse is a sealed trait (no companion object); per-subtype
+  // case classes (RenameAnalyzeStepResponse, etc.) are accessed directly from
+  // protocols where needed.
   type PipelineAnalyzeResponse = protocols.PipelineAnalyzeResponse
   val PipelineAnalyzeResponse: protocols.PipelineAnalyzeResponse.type = protocols.PipelineAnalyzeResponse
   type RunSubmitResponse = protocols.RunSubmitResponse
