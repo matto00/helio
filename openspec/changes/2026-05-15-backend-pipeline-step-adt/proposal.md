@@ -172,3 +172,56 @@ CS2c-3a covers the Pipeline half of the original CS2c-3 scope. CS2c-3b (Panel AD
 ## Estimate
 
 Comparable to CS2c-2 in surface count (~70 files) but lower wire-evolution risk (Pipeline UI is less central than DataSource flow). Engine split adds new files but is mechanical. Realistic: 1 executor cycle + 1 evaluator cycle + smoke.
+
+## Cycle 3 scope addition (per-step-file refactor)
+
+After cycles 1+2 landed and PR #151 was approved, a structural follow-up was
+folded in before merge: the central `PipelineStepHandlers` object + central
+`PipelineStepConfigCodec` are replaced by **self-contained per-step modules**
+under `domain/steps/<Kind>Step.scala`. Each module owns:
+
+- the typed `*Config` case class
+- the `*Step` case class implementing a polymorphic `evaluate(rows, ctx)` method on the trait
+- the JSON codec for its config (tolerant read + canonical write)
+- a `PipelineStep.Companion` registered with `PipelineStep.Registry`
+
+Trade-offs accepted:
+
+1. **Uniform async signature.** Every step's `evaluate` returns `Future` and
+   accepts a `PipelineExecutionContext`, even pure-sync steps (Select / Limit /
+   Cast / etc.) which just wrap their result in `Future.successful` and ignore
+   `ctx`. The cost is one line of boilerplate per sync step; the benefit is a
+   single dispatch shape in the engine.
+2. **`PipelineStep` is not `sealed`.** Scala 2's `sealed` constrains subclasses
+   to the same compilation unit, which would defeat the per-file structure.
+   Discipline is enforced via `PipelineStep.Registry` (which `PipelineStepKind.All`
+   now derives from) plus an existing exhaustiveness test that enumerates the
+   10 subtypes in a match block. Adding an 11th kind without updating the
+   registry fails the kind-set parity test.
+3. **`PipelineStepConfigCodec` kept as a thin facade.** Service + repository
+   call sites continue to use `PipelineStepConfigCodec.{decode, encode,
+   encodeConfig, encodeJsObject}`; the facade delegates to the per-step
+   `companion`. This preserves the cycle-2 public surface while moving the
+   per-kind tolerance defaults into their step files.
+
+The wire shape, the DB shape, the cross-type PATCH lock, the analyze-layer
+behaviour, and the entire frontend remain unchanged. The analyze-layer
+stringly-typed carve-out (`validationError: "Unknown op: 'join'"` on the
+analyze response) is explicitly **deferred** — folding `inferOutputSchema`
+into the trait alongside `evaluate` would double the surface and risk the
+cycle. Captured as a forward marker.
+
+File-size targets met after cycle 3:
+
+| File | Cycle 2 | Cycle 3 | Target |
+|---|---:|---:|---:|
+| `domain/Pipeline.scala` | 189 | (deleted) | n/a |
+| `domain/PipelineStep.scala` | — | 150 | ≤ 250 |
+| `domain/steps/<Kind>Step.scala` × 10 | — | 60–121 each | ≤ 200 |
+| `domain/PipelineStepHandlers.scala` | 311 | (deleted) | n/a |
+| `domain/PipelineRowJson.scala` | — | 77 | ≤ 100 |
+| `domain/InProcessPipelineEngine.scala` | 145 | 124 | ≤ 250 |
+| `api/protocols/PipelineStepConfigCodec.scala` | 264 | 115 | ≤ 250 |
+| `api/protocols/PipelineStepProtocol.scala` | 176 | 178 | ≤ 250 |
+
+Both cycle-2 soft overages (codec 264L, handlers 311L) close as a side effect.

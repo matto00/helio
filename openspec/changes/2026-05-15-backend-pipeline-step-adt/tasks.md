@@ -148,3 +148,26 @@
 - [ ] 15.3 Spark application-side ADT propagation if submitter changes break Spark-side consumer
 - [ ] 15.4 `Redactable` typeclass for step configs (e.g. SQL password in `JoinConfig`) — defer until webhook secrets land
 - [ ] 15.5 Anything else surfaced during work
+
+## 16. Cycle 3 — per-step-file refactor (folded in before merge)
+
+- [x] 16.1 Define `trait PipelineStep` with polymorphic `evaluate(rows, ctx)` method + `PipelineExecutionContext` bundle (dataSourceRepo + loadSource closure)
+- [x] 16.2 Define `PipelineStep.Companion` contract + `PipelineStep.Registry` Map (single source of truth for kinds)
+- [x] 16.3 Make `PipelineStepKind.All` registry-derived (no more hard-coded enumeration)
+- [x] 16.4 Move shared row<->JsValue helpers (`anyToJsValue`, `jsValueToAny`, `toDouble`, `parseStaticRows`) into `domain/PipelineRowJson.scala`
+- [x] 16.5 Create `domain/steps/<Kind>Step.scala` × 10 (Rename / Filter / Join / Compute / GroupBy / Cast / Select / Limit / Sort / Aggregate). Each file owns: `*Config` case class + JSON format + tolerant `decode(raw)` + `*Step` case class implementing `evaluate` + `companion` registry entry
+- [x] 16.6 Add `domain/steps/StepCodecUtil.scala` for shared `asObject(raw)` + `stringOr(obj, key, default)` helpers used by per-step decoders
+- [x] 16.7 Add `domain/package.scala` re-exports so `import com.helio.domain._` still resolves every step / config type
+- [x] 16.8 Rewrite `InProcessPipelineEngine.applyStep` to `step.evaluate(rows, ctx)` polymorphic dispatch; engine assembles the execution context
+- [x] 16.9 Reduce `PipelineStepConfigCodec` to a thin facade over `PipelineStep.Registry` (preserves the cycle-2 public surface: `decode` / `encode` / `encodeConfig` / `encodeJsObject`)
+- [x] 16.10 Reduce `PipelineStepProtocol` to import per-config formats from the step modules (each `*Config.format`) instead of re-declaring them
+- [x] 16.11 Migrate `PipelineRunService` from `PipelineStepHandlers.anyToJsValue` to `PipelineRowJson.anyToJsValue`
+- [x] 16.12 Delete `domain/Pipeline.scala` (superseded)
+- [x] 16.13 Delete `domain/PipelineStepHandlers.scala` (logic distributed to step files)
+- [x] 16.14 Decide on `sealed` — drop it from the trait (Scala 2 sealed constrains subclasses to the same compilation unit; document in scaladoc; rely on Registry + exhaustiveness test for safety)
+- [x] 16.15 Verify all 577 sbt tests still pass with zero regressions
+- [x] 16.16 Verify all 664 jest tests still pass (frontend untouched)
+- [x] 16.17 Verify all quality gates pass (lint / format / schemas / openspec / scala-quality)
+- [x] 16.18 Verify file-size targets: every new step file ≤ 200; engine ≤ 250; codec ≤ 250
+- [x] 16.19 Confirm `AuthService.scala` diff vs main is empty
+- [x] 16.20 Capture deferred items as forward markers (analyze-layer typed inference; further per-step protocol split if Registry grows)

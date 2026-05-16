@@ -178,3 +178,142 @@ Regression count: 0.
 Negative-path inspection:
 - Attempt cross-type PATCH via DevTools — expect 400 with clear message
 - Inspect Network panel: confirm `config` is an object, not a string, in both request and response bodies
+
+## Cycle 3 — per-step-file refactor
+
+Cycles 1+2 landed the typed ADT, the wire-shape evolution, and read-path
+tolerance. Cycle 3 (folded in before merge) restructures the per-kind
+implementation surface from a "data ADT + central handlers + central codec"
+shape into "self-contained step modules" — one file per kind, owning data
++ behavior + codec + tolerance defaults.
+
+### Why the structural shift
+
+After cycle 2, three central files held per-kind logic:
+
+| File | Cycle 2 lines | Contains |
+|---|---:|---|
+| `domain/Pipeline.scala` | 189 | All 10 `*Step` case classes + all 10 `*Config` case classes + `PipelineStepKind` |
+| `domain/PipelineStepHandlers.scala` | 311 | All 10 `applyX(rows, cfg)` functions + helpers |
+| `api/protocols/PipelineStepConfigCodec.scala` | 264 | All 10 `decode<Kind>` tolerance helpers + encode dispatchers |
+
+Adding an 11th step kind required editing **three different files** (plus
+the protocol union, plus `PipelineStepKind.All`, plus the engine match,
+plus the Spark submitter match — five or six locations). The user's
+explicit ask before merge: collapse to one-file-per-kind so adding a kind
+is a single-file drop-in.
+
+### Polymorphic `evaluate` on the trait
+
+```scala
+trait PipelineStep {
+  def id: PipelineStepId
+  def pipelineId: PipelineId
+  def position: Int
+  def kind: String
+  def createdAt: Instant
+  def updatedAt: Instant
+
+  def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)
+              (implicit ec: ExecutionContext): Future[Seq[Map[String, Any]]]
+}
+
+final case class PipelineExecutionContext(
+    dataSourceRepo: DataSourceRepository,
+    loadSource: DataSource => Future[Seq[Map[String, Any]]]
+)
+```
+
+Trade-off accepted: every step's `evaluate` returns `Future` and accepts
+`ctx`, even pure-sync steps (Select / Limit / Cast / etc.). They wrap their
+result in `Future.successful` and ignore `ctx`. The cost is one line of
+boilerplate per sync step; the benefit is a single dispatch shape in the
+engine (`step.evaluate(rows, ctx)` — no per-kind branching anywhere except
+inside each step file).
+
+`ctx.loadSource` is a closure the engine assembles over its own `loadRows`
+method. This means each step (today only `JoinStep`) can re-enter the
+source-loading dispatch without needing an engine reference, and the engine
+stays the single owner of the static/CSV row-source policy.
+
+### Registry-derived `PipelineStepKind.All`
+
+The cycle-2 `PipelineStepKind.All` was a hard-coded `Set(...)` enumerating
+the 10 kind strings. Cycle 3 makes it registry-derived:
+
+```scala
+object PipelineStep {
+  trait Companion { def kind: String; def decodeConfig(raw: String): Any; ... }
+
+  val Registry: Map[String, Companion] = Map(
+    RenameStep.Kind    -> RenameStep.companion,
+    FilterStep.Kind    -> FilterStep.companion,
+    JoinStep.Kind      -> JoinStep.companion,
+    // ... 10 entries total
+  )
+}
+
+object PipelineStepKind {
+  val Rename: String = RenameStep.Kind   // re-exported for back-compat
+  // ...
+  def All: Set[String] = PipelineStep.Registry.keySet
+}
+```
+
+Now adding an 11th kind means dropping a new `domain/steps/NewStep.scala`
+file and adding one `Registry` line — no edits to `PipelineStepKind.All`,
+no edits to the codec, no edits to the protocol-union read/write
+(which still enumerates the 10 subtypes but is caught by an
+exhaustiveness test if it falls out of sync).
+
+### `sealed` dropped on the trait — and why that's OK
+
+Scala 2's `sealed` keyword constrains subclasses to the **same compilation
+unit** (file). Cycle 3 puts each `*Step extends PipelineStep` in its own
+file, which is incompatible with `sealed`. The trait is therefore declared
+non-`sealed` (a plain `trait`).
+
+The safety properties cycle 1's `sealed` provided are preserved by:
+
+1. **Registry as the dispatch contract.** Only kinds registered in
+   `PipelineStep.Registry` round-trip through the codec / protocol /
+   engine. The registry is the single source of truth.
+2. **`PipelineStepSpec` exhaustiveness test.** Cycle 1's test enumerates
+   the 10 subtypes in a match block and asserts kind correctness; adding
+   an 11th subtype without updating the test surface is caught by the
+   `PipelineStepKind.All shouldBe Set(...)` assertion (the test's
+   hard-coded expectation must be updated, which forces a registry update).
+3. **Documented in the trait's scaladoc** so future contributors
+   understand the trade-off.
+
+### Thin `PipelineStepConfigCodec` facade
+
+The codec object stays — service + repository call sites continue to use
+`PipelineStepConfigCodec.{decode, encode, encodeConfig, encodeJsObject}`.
+The implementation collapses from 264L (cycle 2: 10 inlined decoders + 10
+encoders + tolerance helpers) to 115L (cycle 3: pure dispatch over
+`PipelineStep.Registry`). Per-kind tolerance defaults now live in each
+step file's `*Config.decode(raw)` — co-located with the data definition
+they protect.
+
+### What stays the same
+
+- **Wire shape** — same `{ type, config: {...} }` discriminated-union
+  format. Per-step JSON formats just live in different files now.
+- **Read-path tolerance** — same per-kind defaults as cycle 2's codec
+  (Rename → empty Map, Join → empty strings + "inner", etc.). Tolerance
+  logic moves into each step's `Config.decode` method.
+- **DB columns** — `pipeline_steps.op` stays the discriminator;
+  `pipeline_steps.config` stays JSON text.
+- **Cross-type PATCH** — still returns 400 via `PipelineService.updateStep`.
+- **`PipelineRunService` API** — unchanged.
+- **Frontend** — untouched.
+
+### Deferred to a future cycle
+
+- **Analyze-layer typed inference.** `PipelineAnalyzeService` still
+  consumes a stringly-typed `PipelineStepInput` and returns
+  `validationError: "Unknown op: 'join'"` on every typed-codec round
+  trip (the cycle-2 evaluation's forward marker #4). Folding
+  `inferOutputSchema` into the trait alongside `evaluate` would double
+  the surface this cycle. Tracked as a forward marker for CS3.

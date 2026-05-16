@@ -109,3 +109,57 @@ created interactively in their local dev DB and persisted across restarts).
 
 - `sbt test`: **577 / 577 PASS** (566 cycle-1 + 8 new codec + 3 new repo = 577)
 - `npm test`: **664 / 664 PASS** (unchanged; cycle 2 is backend-only)
+
+## Cycle 3 deltas
+
+Cycle 3 folds in the polymorphic-method-per-step-file refactor requested
+by the user after PR #151 was approved at the end of cycle 2. The wire
+shape, DB columns, frontend, and cross-type-PATCH semantics are
+unchanged; the change is purely structural — collapsing "data ADT +
+central handlers + central codec" into self-contained per-kind modules
+under `domain/steps/`.
+
+### New
+
+- `backend/src/main/scala/com/helio/domain/PipelineStep.scala` (NEW, 150L) — `trait PipelineStep` with polymorphic `evaluate(rows, ctx)` method; `PipelineExecutionContext` bundle (dataSourceRepo + loadSource closure); `PipelineStep.Companion` contract + `PipelineStep.Registry` Map. `PipelineStepKind` re-exports the kind constants from each step file and derives `All` from `Registry.keySet` (no more hard-coded enumeration).
+- `backend/src/main/scala/com/helio/domain/PipelineRowJson.scala` (NEW, 77L) — cross-cutting row<->JsValue helpers extracted from the deleted `PipelineStepHandlers` object: `anyToJsValue`, `jsValueToAny`, `toDouble`, `rowToJsMap`, `parseStaticRows`. Consumed by step modules + `PipelineRunService`.
+- `backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala` (NEW, 30L) — shared `asObject(raw)` + `stringOr(obj, key, default)` helpers used by per-step decoders.
+- `backend/src/main/scala/com/helio/domain/steps/RenameStep.scala` (NEW, 70L) — `RenameConfig` + tolerant decode + `RenameStep` with `evaluate` + companion registry entry.
+- `backend/src/main/scala/com/helio/domain/steps/FilterStep.scala` (NEW, 121L) — `FilterCondition` + `FilterConfig` + tolerant decode + `FilterStep` with `evaluate` (filter combinator + operator evaluation) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/JoinStep.scala` (NEW, 97L) — `JoinConfig` + tolerant decode + `JoinStep` with `evaluate` (async; consumes `ctx.dataSourceRepo` + `ctx.loadSource`) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/ComputeStep.scala` (NEW, 79L) — `ComputeConfig` + tolerant decode + `ComputeStep` with `evaluate` (uses `ExpressionEvaluator`) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/GroupByStep.scala` (NEW, 84L) — `GroupByConfig` + tolerant decode + `GroupByStep` with `evaluate` (single-aggregation group-by) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/CastStep.scala` (NEW, 84L) — `CastConfig` + tolerant decode + `CastStep` with `evaluate` (per-target-type coercion) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/SelectStep.scala` (NEW, 60L) — `SelectConfig` + tolerant decode + `SelectStep` with `evaluate` + companion.
+- `backend/src/main/scala/com/helio/domain/steps/LimitStep.scala` (NEW, 61L) — `LimitConfig` + tolerant decode + `LimitStep` with `evaluate` + companion.
+- `backend/src/main/scala/com/helio/domain/steps/SortStep.scala` (NEW, 96L) — `SortKey` + `SortConfig` + tolerant decode + `SortStep` with `evaluate` (multi-key stable sort; numeric coercion fallback) + companion.
+- `backend/src/main/scala/com/helio/domain/steps/AggregateStep.scala` (NEW, 113L) — `AggregateField` + `Aggregation` + `AggregateConfig` + tolerant decode + `AggregateStep` with `evaluate` (multi-aggregation group-by) + companion.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/executor-report-3.md` (NEW) — this cycle's report.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/evaluation-2.md` (already on disk pre-cycle-3; not new this cycle).
+
+### Modified
+
+- `backend/src/main/scala/com/helio/domain/package.scala` (MOD, 4 → 61L) — re-exports every step subtype + typed config from `com.helio.domain.steps` into `com.helio.domain`. The wildcard `import com.helio.domain._` surface that services / repositories / tests rely on resolves through these aliases without any caller changes.
+- `backend/src/main/scala/com/helio/domain/InProcessPipelineEngine.scala` (MOD, 145 → 124L) — `applyStep` removed; engine now folds over steps invoking `step.evaluate(rows, ctx)`. New private `makeContext(dataSourceRepo)` builds the `PipelineExecutionContext`. Static / CSV row-source loading unchanged.
+- `backend/src/main/scala/com/helio/api/protocols/PipelineStepConfigCodec.scala` (MOD, 264 → 115L) — reduced to a thin facade over `PipelineStep.Registry`. The four public methods (`decode` / `encode` / `encodeConfig` / `encodeJsObject`) preserve their cycle-2 signatures, delegating to per-step companions. Per-kind tolerance defaults now live in each step file's `*Config.decode(raw)`.
+- `backend/src/main/scala/com/helio/api/protocols/PipelineStepProtocol.scala` (MOD, 176 → 178L) — per-config formats now sourced from each step module's companion (`RenameConfig.format`, etc.) instead of being re-declared in the protocol trait. Wire shape unchanged.
+- `backend/src/main/scala/com/helio/services/PipelineRunService.scala` (MOD, 323 → 323L) — three call sites switched from `PipelineStepHandlers.anyToJsValue` to `PipelineRowJson.anyToJsValue`. Logic + signatures + line count unchanged.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/proposal.md` (APPENDED) — cycle 3 scope section + file-size target table.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/design.md` (APPENDED) — cycle 3 design section: why the structural shift, polymorphic evaluate trait, registry-derived kind set, sealed-trait trade-off, codec facade decision, what stays the same, deferred items.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/tasks.md` (APPENDED) — section 16 with cycle 3 sub-tasks (all checked).
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/files-modified.md` (APPENDED) — this section.
+
+### Deleted
+
+- `backend/src/main/scala/com/helio/domain/Pipeline.scala` (DELETED, was 189L) — contents superseded by `PipelineStep.scala` + `domain/steps/<Kind>Step.scala`.
+- `backend/src/main/scala/com/helio/domain/PipelineStepHandlers.scala` (DELETED, was 311L) — per-kind `applyX` functions distributed into the corresponding `domain/steps/<Kind>Step.scala` `apply` methods; shared row helpers moved to `PipelineRowJson.scala`.
+
+### Test count
+
+- `sbt test`: **577 / 577 PASS** (unchanged — no new tests this cycle; the existing tests exercise every per-step path via the registry-derived codec)
+- `npm test`: **664 / 664 PASS** (unchanged — frontend untouched)
+
+### Scala-quality soft-warnings
+
+- Cycle 2: 21 soft warnings (20 cycle-1 pre-existing + 1 new from codec at 264L)
+- Cycle 3: 19 soft warnings (cycle-2 codec 264L + cycle-1 handlers 311L both retired; no new warnings introduced)
