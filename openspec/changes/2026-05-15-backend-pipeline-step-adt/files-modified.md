@@ -85,3 +85,27 @@
 ## OpenSpec change folder (this PR's artifacts)
 
 - `openspec/changes/2026-05-15-backend-pipeline-step-adt/` (NEW) — ticket / proposal / design / tasks / executor-report-1 / files-modified.
+
+## Cycle 2 deltas
+
+Cycle 2 addresses the evaluator's read-path tolerance blocker plus two of the
+non-blocking suggestions (FQN cleanup in `PipelineRunService` + `submit`
+nesting refactor). The DemoData seed-hygiene suggestion is not actionable —
+`ProfitAgg` is not seeded by `DemoData.scala` (the evaluator's row was
+created interactively in their local dev DB and persisted across restarts).
+
+### Modified
+
+- `backend/src/main/scala/com/helio/api/protocols/PipelineStepConfigCodec.scala` (170 → 265L, +95L) — added 7 per-kind tolerance helpers (`decodeRename` / `decodeJoin` / `decodeGroupBy` / `decodeCast` / `decodeSelect` / `decodeLimit` / `decodeSort`) matching the pattern of the 3 existing helpers; shared `asObject(raw)` extractor used by all 10 decoders; updated file-header docstring to describe the read-path tolerance contract. Soft over by 15L (acceptable per cycle-1 precedent).
+- `backend/src/main/scala/com/helio/services/PipelineRunService.scala` (306 → 323L, +17L) — added `import scala.util.{Failure, Success}` (FQN cleanup at cycle-1 lines 96/112); added `Pipeline` / `DataSource` / `PipelineStep` to the domain import group; extracted the inner `submit` body (pre-execution + `runFuture.transformWith`) into a private `executeRun(pipeline, dataSource, steps, isDry)` helper. `submit` is now a flat delegation. Behaviour-preserving.
+- `backend/src/test/scala/com/helio/api/protocols/PipelineStepConfigCodecSpec.scala` (134 → 187L, +53L) — added 7 per-kind `decode(kind, "{}")` tolerance cases plus 1 parametric "every kind tolerates decode({})" case.
+
+### New
+
+- `backend/src/test/scala/com/helio/infrastructure/PipelineStepRepositorySpec.scala` (NEW, 113L) — embedded-Postgres regression coverage: reproduces the cycle-1 blocker by inserting a raw `pipeline_steps` row with `op='join'` / `config='{}'` and asserting `listByPipeline` returns a `JoinStep` with `JoinConfig("", "", "inner")` rather than throwing. Plus an "every kind tolerates raw config='{}'" round-trip and a full typed-config round-trip via `insert` + `listByPipeline`.
+- `openspec/changes/2026-05-15-backend-pipeline-step-adt/executor-report-2.md` (NEW) — cycle 2 report.
+
+### Test count
+
+- `sbt test`: **577 / 577 PASS** (566 cycle-1 + 8 new codec + 3 new repo = 577)
+- `npm test`: **664 / 664 PASS** (unchanged; cycle 2 is backend-only)
