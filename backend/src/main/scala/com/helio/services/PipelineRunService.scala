@@ -4,10 +4,13 @@ import com.helio.api.protocols.{PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.{
   DataField,
+  DataSource,
   DataTypeId,
   InProcessPipelineEngine,
+  Pipeline,
   PipelineId,
   PipelineRunId,
+  PipelineStep,
   PipelineStepHandlers,
   RestSource,
   SqlSource
@@ -27,6 +30,7 @@ import spray.json._
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Service-side run lifecycle. Extracted from the pre-CS2c-3a 380-line
  *  `PipelineRunRoutes` so HTTP routes become thin shells that translate
@@ -66,60 +70,9 @@ final class PipelineRunService(
                     dataSource.kind + ". Only static and csv are currently supported."
                 )))
               case _ =>
-                pipelineStepRepo.listByPipeline(pipelineId).flatMap { steps =>
-                  val runIdStr = UUID.randomUUID().toString
-                  val runId    = PipelineRunId(runIdStr)
-                  val startAt  = Instant.now()
-                  val pidStr   = pipelineId.value
-
-                  publish(pidStr, RunStatusEvent("queued"))
-
-                  val preExec: Future[Unit] =
-                    if (!isDry && pipelineRunRepo != null)
-                      pipelineRunRepo
-                        .insertRun(runId, pipelineId, startAt)
-                        .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, keepN = 10))
-                        .recoverWith { case _ => Future.successful(()) }
-                    else Future.successful(())
-
-                  publish(pidStr, RunStatusEvent("running"))
-
-                  val runFuture = preExec.flatMap { _ =>
-                    engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
-                      engine
-                        .executeWithStepCounts(sourceRows, steps, dataSourceRepo)
-                        .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
-                    }
-                  }
-
-                  runFuture.transformWith {
-                    case scala.util.Failure(ex) =>
-                      val errMsg = "Pipeline execution failed: " +
-                        Option(ex.getMessage).getOrElse(ex.getClass.getName)
-                      publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
-                      val failWork: Future[Unit] =
-                        if (!isDry) {
-                          val updateRun =
-                            if (pipelineRunRepo != null)
-                              pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
-                            else Future.successful(())
-                          updateRun.flatMap { _ =>
-                            pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None)
-                          }.map(_ => ())
-                        } else Future.successful(())
-                      failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
-
-                    case scala.util.Success((resultRows, stepCounts, sourceCount)) =>
-                      val jsRows = resultRows.map { rowMap =>
-                        JsObject(rowMap.map { case (k, v) => k -> PipelineStepHandlers.anyToJsValue(v) })
-                      }.toVector
-                      val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
-                      val followUp: Future[Unit] =
-                        if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size)
-                        else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows)
-                      followUp.map(_ => Right(response))
-                  }
-                }
+                pipelineStepRepo
+                  .listByPipeline(pipelineId)
+                  .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry))
             }
         }
     }
@@ -220,6 +173,69 @@ final class PipelineRunService(
 
   private def publish(pipelineId: String, event: RunStatusEvent): Unit =
     if (registry != null) registry.publish(pipelineId, event)
+
+  /** Pre-execute (insert run record + prune) → load source rows → run engine
+   *  → publish SSE events → handle success/failure. Extracted from `submit`
+   *  to flatten the nested flatMap chain. Behaviour-preserving. */
+  private def executeRun(
+      pipeline:   Pipeline,
+      dataSource: DataSource,
+      steps:      Vector[PipelineStep],
+      isDry:      Boolean
+  ): Future[Either[ServiceError, RunResultResponse]] = {
+    val pipelineId = pipeline.id
+    val runId      = PipelineRunId(UUID.randomUUID().toString)
+    val startAt    = Instant.now()
+    val pidStr     = pipelineId.value
+
+    publish(pidStr, RunStatusEvent("queued"))
+
+    val preExec: Future[Unit] =
+      if (!isDry && pipelineRunRepo != null)
+        pipelineRunRepo
+          .insertRun(runId, pipelineId, startAt)
+          .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, keepN = 10))
+          .recoverWith { case _ => Future.successful(()) }
+      else Future.successful(())
+
+    publish(pidStr, RunStatusEvent("running"))
+
+    val runFuture = preExec.flatMap { _ =>
+      engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
+        engine
+          .executeWithStepCounts(sourceRows, steps, dataSourceRepo)
+          .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
+      }
+    }
+
+    runFuture.transformWith {
+      case Failure(ex) =>
+        val errMsg = "Pipeline execution failed: " +
+          Option(ex.getMessage).getOrElse(ex.getClass.getName)
+        publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
+        val failWork: Future[Unit] =
+          if (!isDry) {
+            val updateRun =
+              if (pipelineRunRepo != null)
+                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
+              else Future.successful(())
+            updateRun.flatMap { _ =>
+              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None)
+            }.map(_ => ())
+          } else Future.successful(())
+        failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
+
+      case Success((resultRows, stepCounts, sourceCount)) =>
+        val jsRows = resultRows.map { rowMap =>
+          JsObject(rowMap.map { case (k, v) => k -> PipelineStepHandlers.anyToJsValue(v) })
+        }.toVector
+        val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
+        val followUp: Future[Unit] =
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size)
+          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows)
+        followUp.map(_ => Right(response))
+    }
+  }
 
   private def onDryRunSuccess(
       pipelineId: PipelineId,
