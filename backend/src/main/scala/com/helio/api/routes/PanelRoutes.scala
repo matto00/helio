@@ -62,7 +62,7 @@ final class PanelRoutes(
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
               case Some(panel) =>
-                Panel.buildQuery(panel) match {
+                panel.buildQuery match {
                   case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel is not bound to a data type"))
                   case Some(query) => complete(query)
                 }

@@ -1,7 +1,9 @@
 package com.helio.app
 
 import com.helio.domain._
+import com.helio.domain.panels._
 import com.helio.infrastructure.{DashboardRepository, PanelRepository}
+import spray.json.JsObject
 
 import java.time.Instant
 import scala.concurrent.{Await, ExecutionContext}
@@ -92,42 +94,46 @@ object DemoData {
       )
     )
 
-    val panels = Vector(
-      Panel(
+    val emptyMetric = MetricPanelConfig(DataTypeId(""), JsObject.empty)
+    val emptyTable  = TablePanelConfig(DataTypeId(""), JsObject.empty)
+    val emptyChart  = ChartPanelConfig(DataTypeId(""), JsObject.empty)
+
+    val panels: Vector[Panel] = Vector(
+      MetricPanel(
         id          = PanelId("panel-ops-latency"),
         dashboardId = operationsId,
         title       = "Latency",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
         appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12),
-        panelType   = PanelType.Metric,
-        ownerId     = SystemUserId
+        ownerId     = SystemUserId,
+        config      = emptyMetric
       ),
-      Panel(
+      TablePanel(
         id          = PanelId("panel-ops-incidents"),
         dashboardId = operationsId,
         title       = "Incident Queue",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
         appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18),
-        panelType   = PanelType.Table,
-        ownerId     = SystemUserId
+        ownerId     = SystemUserId,
+        config      = emptyTable
       ),
-      Panel(
+      ChartPanel(
         id          = PanelId("panel-exec-revenue"),
         dashboardId = executiveId,
         title       = "Revenue Pulse",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
         appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08),
-        panelType   = PanelType.Chart,
-        ownerId     = SystemUserId
+        ownerId     = SystemUserId,
+        config      = emptyChart
       ),
-      Panel(
+      ChartPanel(
         id          = PanelId("panel-exec-forecast"),
         dashboardId = executiveId,
         title       = "Forecast",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
         appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16),
-        panelType   = PanelType.Chart,
-        ownerId     = SystemUserId
+        ownerId     = SystemUserId,
+        config      = emptyChart
       )
     )
 

@@ -2,6 +2,7 @@ package com.helio.infrastructure
 
 import com.helio.api.protocols.{PanelBatchItem, PanelProtocol}
 import com.helio.domain._
+import com.helio.domain.panels._
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -18,44 +19,10 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
   private val table = TableQuery[PanelTable]
 
   private def rowToDomain(row: PanelRow): Panel =
-    Panel(
-      id           = PanelId(row.id),
-      dashboardId  = DashboardId(row.dashboardId),
-      title        = row.title,
-      meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-      appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
-      panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
-      ownerId      = UserId(row.ownerId.toString),
-      typeId       = row.typeId.map(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.map(_.parseJson),
-      content      = row.content,
-      imageUrl            = row.imageUrl,
-      imageFit            = row.imageFit,
-      dividerOrientation  = row.dividerOrientation,
-      dividerWeight       = row.dividerWeight,
-      dividerColor        = row.dividerColor
-    )
+    PanelRowMapper.rowToDomain(row)
 
   private def domainToRow(p: Panel): PanelRow =
-    PanelRow(
-      id           = p.id.value,
-      dashboardId  = p.dashboardId.value,
-      title        = p.title,
-      createdBy    = p.meta.createdBy,
-      createdAt    = p.meta.createdAt,
-      lastUpdated  = p.meta.lastUpdated,
-      appearance   = p.appearance.toJson.compactPrint,
-      panelType    = PanelType.asString(p.panelType),
-      typeId       = p.typeId.map(_.value),
-      fieldMapping = p.fieldMapping.map(_.compactPrint),
-      ownerId      = UUID.fromString(p.ownerId.value),
-      content      = p.content,
-      imageUrl            = p.imageUrl,
-      imageFit            = p.imageFit,
-      dividerOrientation  = p.dividerOrientation,
-      dividerWeight       = p.dividerWeight,
-      dividerColor        = p.dividerColor
-    )
+    PanelRowMapper.domainToRow(p)
 
   def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
     db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)

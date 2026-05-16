@@ -2,6 +2,7 @@ package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain._
+import com.helio.domain.panels._
 import spray.json._
 
 // ── Panel request / response types ───────────────────────────────────────────
@@ -67,24 +68,60 @@ final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector
 final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
 
 object PanelResponse {
-  def fromDomain(panel: Panel): PanelResponse =
-    PanelResponse(
-      id                  = panel.id.value,
-      dashboardId         = panel.dashboardId.value,
-      title               = panel.title,
-      `type`              = PanelType.asString(panel.panelType),
-      meta                = ResourceMetaResponse.fromDomain(panel.meta),
-      appearance          = PanelAppearanceResponse.fromDomain(panel.appearance),
-      typeId              = panel.typeId.map(_.value),
-      fieldMapping        = panel.fieldMapping,
-      ownerId             = panel.ownerId.value,
-      content             = panel.content,
-      imageUrl            = panel.imageUrl,
-      imageFit            = panel.imageFit,
-      dividerOrientation  = panel.dividerOrientation,
-      dividerWeight       = panel.dividerWeight,
-      dividerColor        = panel.dividerColor
+
+  /** Build a wide-flat wire response from the typed `Panel` ADT.
+   *
+   *  Cycle 1 of CS2c-3b keeps the wire shape unchanged: nullable per-subtype
+   *  fields at the panel root. This pattern-match is the single integration
+   *  point that CS2c-3c rewrites for the typed `config`-collapse wire shape;
+   *  no other call site enumerates the 7 panel subtypes today. */
+  def fromDomain(panel: Panel): PanelResponse = {
+    val base = PanelResponse(
+      id          = panel.id.value,
+      dashboardId = panel.dashboardId.value,
+      title       = panel.title,
+      `type`      = panel.kind,
+      meta        = ResourceMetaResponse.fromDomain(panel.meta),
+      appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
+      typeId      = None,
+      fieldMapping = None,
+      ownerId     = panel.ownerId.value
     )
+
+    panel match {
+      case mp: MetricPanel =>
+        base.copy(
+          typeId       = if (mp.config.dataTypeId.value.isEmpty) None else Some(mp.config.dataTypeId.value),
+          fieldMapping = if (mp.config.fieldMapping.fields.isEmpty) None else Some(mp.config.fieldMapping)
+        )
+      case cp: ChartPanel =>
+        base.copy(
+          typeId       = if (cp.config.dataTypeId.value.isEmpty) None else Some(cp.config.dataTypeId.value),
+          fieldMapping = if (cp.config.fieldMapping.fields.isEmpty) None else Some(cp.config.fieldMapping)
+        )
+      case tp: TablePanel =>
+        base.copy(
+          typeId       = if (tp.config.dataTypeId.value.isEmpty) None else Some(tp.config.dataTypeId.value),
+          fieldMapping = if (tp.config.fieldMapping.fields.isEmpty) None else Some(tp.config.fieldMapping)
+        )
+      case t: TextPanel =>
+        base.copy(content = if (t.config.content.isEmpty) None else Some(t.config.content))
+      case m: MarkdownPanel =>
+        base.copy(content = if (m.config.content.isEmpty) None else Some(m.config.content))
+      case i: ImagePanel =>
+        base.copy(
+          imageUrl = if (i.config.imageUrl.isEmpty) None else Some(i.config.imageUrl),
+          imageFit = Some(i.config.imageFit)
+        )
+      case d: DividerPanel =>
+        base.copy(
+          dividerOrientation = Some(d.config.orientation),
+          dividerWeight      = d.config.weight,
+          dividerColor       = d.config.color
+        )
+      case _ => base
+    }
+  }
 }
 
 object PanelAppearanceResponse {
