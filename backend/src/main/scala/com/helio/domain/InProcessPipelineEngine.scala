@@ -1,30 +1,18 @@
 package com.helio.domain
 
 import com.helio.infrastructure.{DataSourceRepository, FileSystem}
-import PipelineStepHandlers.{
-  Row,
-  applyAggregate,
-  applyCast,
-  applyCompute,
-  applyFilter,
-  applyGroupBy,
-  applyJoin,
-  applyLimit,
-  applyRename,
-  applySelect,
-  applySort,
-  parseStaticRows
-}
+import PipelineRowJson.{Row, parseStaticRows}
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 
 /** In-process pipeline executor.
  *
- *  CS2c-3a turns the previous 11-case `match { case "filter" => ... }` into
- *  typed sealed-trait dispatch over [[PipelineStep]]. Per-kind logic lives in
- *  [[PipelineStepHandlers]] so this file stays a thin orchestration shell
- *  (execute → fold over steps → dispatch). */
+ *  Cycle 3 reduces this to a thin orchestration shell — `applyStep` becomes
+ *  `step.evaluate(rows, ctx)` and per-kind logic lives in
+ *  [[com.helio.domain.steps]] modules. The engine's remaining responsibility
+ *  is row-source loading (static / csv) and assembling the
+ *  [[PipelineExecutionContext]] every step receives. */
 class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionContext) {
 
   def execute(
@@ -35,27 +23,29 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     executeWithStepCounts(rows, steps, dataSourceRepo).map(_._1)
 
   /** Run the pipeline, returning both the final rows and the per-step output
-   *  row counts. Counts are keyed by step id and reflect the row count after
-   *  each step's transformation. */
+   *  row counts (keyed by step id). */
   def executeWithStepCounts(
       rows: Seq[Row],
       steps: Seq[PipelineStep],
       dataSourceRepo: DataSourceRepository
   ): Future[(Seq[Row], Map[String, Long])] = {
+    val ctx = makeContext(dataSourceRepo)
     val initial: Future[(Seq[Row], Map[String, Long])] =
       Future.successful((rows, Map.empty[String, Long]))
     steps.foldLeft(initial) { (acc, step) =>
       acc.flatMap { case (currentRows, counts) =>
-        applyStep(currentRows, step, dataSourceRepo).map { nextRows =>
+        step.evaluate(currentRows, ctx).map { nextRows =>
           (nextRows, counts.updated(step.id.value, nextRows.size.toLong))
         }
       }
     }
   }
 
+  /** Load the initial rows for a pipeline's source data source. Static /
+   *  CSV are supported in-process; other source kinds belong on the Spark
+   *  path. */
   def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Row]] = ds match {
     case s: StaticSource =>
-      // Static-source rows live in the `data_sources.config` JSON column.
       dataSourceRepo.readRawConfig(s.id).map {
         case None      => Seq.empty
         case Some(raw) => parseStaticRows(raw)
@@ -78,27 +68,16 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
       )
   }
 
-  /** Sealed-trait dispatch. The compiler enforces handler coverage — adding
-   *  an 11th step kind without adding its match arm fails compilation. */
-  private def applyStep(
-      rows: Seq[Row],
-      step: PipelineStep,
-      dataSourceRepo: DataSourceRepository
-  ): Future[Seq[Row]] = step match {
-    case s: RenameStep    => Future.successful(applyRename(rows, s.config))
-    case s: FilterStep    => Future.successful(applyFilter(rows, s.config))
-    case s: ComputeStep   => Future.successful(applyCompute(rows, s.config))
-    case s: GroupByStep   => Future.successful(applyGroupBy(rows, s.config))
-    case s: AggregateStep => Future.successful(applyAggregate(rows, s.config))
-    case s: CastStep      => Future.successful(applyCast(rows, s.config))
-    case s: JoinStep      =>
-      applyJoin(rows, s.config, dataSourceRepo, ds => loadRows(ds, dataSourceRepo))
-    case s: SelectStep    => Future.successful(applySelect(rows, s.config))
-    case s: LimitStep     => Future.successful(applyLimit(rows, s.config))
-    case s: SortStep      => Future.successful(applySort(rows, s.config))
-  }
+  /** Build the execution context handed to every step. `loadSource` closes
+   *  over the engine's own [[loadRows]] so each step can re-enter the same
+   *  source-loading dispatch without needing the engine reference itself. */
+  private def makeContext(dataSourceRepo: DataSourceRepository): PipelineExecutionContext =
+    PipelineExecutionContext(
+      dataSourceRepo = dataSourceRepo,
+      loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo)
+    )
 
-  // ── CSV loader (uses an inline minimal parser to avoid an extra dep) ─────
+  // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
 
   private def loadCsvRowsFromBytes(bytes: Array[Byte]): Seq[Row] = {
     val content = new String(bytes, StandardCharsets.UTF_8)

@@ -9,9 +9,9 @@ import com.helio.domain.{
   InProcessPipelineEngine,
   Pipeline,
   PipelineId,
+  PipelineRowJson,
   PipelineRunId,
   PipelineStep,
-  PipelineStepHandlers,
   RestSource,
   SqlSource
 }
@@ -109,7 +109,7 @@ final class PipelineRunService(
                           .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
                           .map { case (out, counts) =>
                             val allJsRows = out.map { rowMap =>
-                              JsObject(rowMap.map { case (k, v) => k -> PipelineStepHandlers.anyToJsValue(v) })
+                              JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                             }.toVector
                             val totalCount = allJsRows.size
                             val previewRows = allJsRows.take(10)
@@ -131,7 +131,7 @@ final class PipelineRunService(
     cache.get(runId).map { entry =>
       val rowsJson: Option[JsValue] = entry.rows.map { rows =>
         JsArray(rows.map { rowMap =>
-          JsObject(rowMap.map { case (k, v) => k -> PipelineStepHandlers.anyToJsValue(v) })
+          JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector)
       }
       val rowCount: Option[Int] = entry.rows.map(_.size)
@@ -227,7 +227,7 @@ final class PipelineRunService(
 
       case Success((resultRows, stepCounts, sourceCount)) =>
         val jsRows = resultRows.map { rowMap =>
-          JsObject(rowMap.map { case (k, v) => k -> PipelineStepHandlers.anyToJsValue(v) })
+          JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector
         val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
         val followUp: Future[Unit] =

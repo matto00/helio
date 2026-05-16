@@ -4,15 +4,16 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain._
 import spray.json._
 
-// ── Pipeline step API types (CS2c-3a) ────────────────────────────────────────
+// ── Pipeline step API types (CS2c-3a cycle 3) ────────────────────────────────
 //
 // Wire shape is a discriminated union on `type` with a typed `config` object
-// per subtype — replaces the pre-CS2c-3a `{ op: string, config: string }`
-// shape that stored config as a JSON-stringified blob inside a JSON envelope.
+// per subtype. Per-config JSON formats are owned by each step module under
+// [[com.helio.domain.steps]] and re-exported from `com.helio.domain` via the
+// package object; this file only adds the per-subtype response wrappers and
+// the union-format dispatch.
 
 /** Common shape mirrored by every per-subtype response. The discriminator is
- *  the `type` JSON field — `kind` here is just the Scala-side accessor used
- *  by the formatter to emit the right discriminator string. */
+ *  the `type` JSON field — `kind` here is just the Scala-side accessor. */
 sealed trait PipelineStepResponse {
   def id: String
   def pipelineId: String
@@ -73,14 +74,11 @@ final case class AggregateStepResponse(
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Aggregate }
 
 /** Create request — the `type` discriminator selects which subtype's config
- *  shape `config` must conform to. The route layer hands the typed
- *  [[PipelineStep]] off to the service after [[PipelineStepRequestBinding]]
- *  validates the `type` / `config` pair. */
+ *  shape `config` must conform to. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
 
 /** PATCH request — `type` is optional. If present and different from the
- *  persisted row's kind, the service returns 400 (cross-type PATCH locked,
- *  matching CS2c-2 DataSource policy). */
+ *  persisted row's kind, the service returns 400 (cross-type PATCH locked). */
 final case class UpdatePipelineStepRequest(`type`: Option[String], config: Option[JsObject], position: Option[Int])
 
 object PipelineStepResponse {
@@ -100,27 +98,31 @@ object PipelineStepResponse {
 }
 
 /** Per-domain protocol trait for the PipelineStep ADT — owns the
- *  discriminated-union formatters for request/response wire shapes plus the
- *  typed per-subtype `*Config` formatters used inside them. Mixed into
- *  [[PipelineProtocol]] (which adds the pipeline summary / analyze / run
- *  formatters on top). */
+ *  discriminated-union formatters for request/response wire shapes. Each
+ *  step's per-config JSON format is sourced from its step module's companion
+ *  (`SomeConfig.format`), keeping the codec, the wire format, and the
+ *  tolerance defaults co-located per kind. */
 trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
-  // ── Typed config formatters (used by both wire formats and the codec) ────
-  implicit val renameConfigFormat: RootJsonFormat[RenameConfig]                 = jsonFormat1(RenameConfig.apply)
-  implicit val filterConditionFormat: RootJsonFormat[FilterCondition]           = jsonFormat3(FilterCondition.apply)
-  implicit val filterConfigFormat: RootJsonFormat[FilterConfig]                 = jsonFormat2(FilterConfig.apply)
-  implicit val joinConfigFormat: RootJsonFormat[JoinConfig]                     = jsonFormat3(JoinConfig.apply)
-  implicit val computeConfigFormat: RootJsonFormat[ComputeConfig]               = jsonFormat3(ComputeConfig.apply)
-  implicit val groupByConfigFormat: RootJsonFormat[GroupByConfig]               = jsonFormat3(GroupByConfig.apply)
-  implicit val castConfigFormat: RootJsonFormat[CastConfig]                     = jsonFormat1(CastConfig.apply)
-  implicit val selectConfigFormat: RootJsonFormat[SelectConfig]                 = jsonFormat1(SelectConfig.apply)
-  implicit val limitConfigFormat: RootJsonFormat[LimitConfig]                   = jsonFormat1(LimitConfig.apply)
-  implicit val sortKeyFormat: RootJsonFormat[SortKey]                           = jsonFormat2(SortKey.apply)
-  implicit val sortConfigFormat: RootJsonFormat[SortConfig]                     = jsonFormat1(SortConfig.apply)
-  implicit val aggregateFieldFormat: RootJsonFormat[AggregateField]             = jsonFormat2(AggregateField.apply)
-  implicit val aggregationFormat: RootJsonFormat[Aggregation]                   = jsonFormat3(Aggregation.apply)
-  implicit val aggregateConfigFormat: RootJsonFormat[AggregateConfig]           = jsonFormat2(AggregateConfig.apply)
+  // ── Typed config formatters re-exported from the per-step modules ───────
+  //
+  // Each step module exposes its own RootJsonFormat as `SomeConfig.format`.
+  // The protocol-trait scope needs them as `implicit val` to satisfy the
+  // jsonFormat6-derived response formatters below.
+  implicit val renameConfigFormat: RootJsonFormat[RenameConfig]       = RenameConfig.format
+  implicit val filterConditionFormat: RootJsonFormat[FilterCondition] = FilterCondition.format
+  implicit val filterConfigFormat: RootJsonFormat[FilterConfig]       = FilterConfig.format
+  implicit val joinConfigFormat: RootJsonFormat[JoinConfig]           = JoinConfig.format
+  implicit val computeConfigFormat: RootJsonFormat[ComputeConfig]     = ComputeConfig.format
+  implicit val groupByConfigFormat: RootJsonFormat[GroupByConfig]     = GroupByConfig.format
+  implicit val castConfigFormat: RootJsonFormat[CastConfig]           = CastConfig.format
+  implicit val selectConfigFormat: RootJsonFormat[SelectConfig]       = SelectConfig.format
+  implicit val limitConfigFormat: RootJsonFormat[LimitConfig]         = LimitConfig.format
+  implicit val sortKeyFormat: RootJsonFormat[SortKey]                 = SortKey.format
+  implicit val sortConfigFormat: RootJsonFormat[SortConfig]           = SortConfig.format
+  implicit val aggregateFieldFormat: RootJsonFormat[AggregateField]   = AggregateField.format
+  implicit val aggregationFormat: RootJsonFormat[Aggregation]         = Aggregation.format
+  implicit val aggregateConfigFormat: RootJsonFormat[AggregateConfig] = AggregateConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
@@ -135,8 +137,8 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val aggregateStepResponseFormat: RootJsonFormat[AggregateStepResponse] = jsonFormat6(AggregateStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
-   *  is on the top-level `type` field; inbound deserialization is the inverse
-   *  and rejects unknown discriminators with `deserializationError`. */
+   *  is on the top-level `type` field; inbound deserialization rejects unknown
+   *  discriminators. */
   implicit object pipelineStepResponseFormat extends RootJsonFormat[PipelineStepResponse] {
     override def write(s: PipelineStepResponse): JsValue = {
       val inner = s match {
