@@ -47,8 +47,8 @@ private[services] final class PanelPatchApplier(panelRepo: PanelRepository)(impl
       else panelOpt match {
         case None => Future.successful(None)
         case Some(panel) =>
-          val newTypeId       = spec.typeIdUpdate.fold(panel.typeId)(identity)
-          val newFieldMapping = spec.fieldMappingUpdate.fold(panel.fieldMapping)(identity)
+          val newTypeId       = spec.typeIdUpdate.fold(panel.dataTypeId)(x => x)
+          val newFieldMapping = spec.fieldMappingUpdate.fold(panel.fieldMapping)(x => x)
           panelRepo.updateTypeBinding(panelId, newTypeId, newFieldMapping, now)
       }
     }

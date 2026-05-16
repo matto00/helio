@@ -1,7 +1,7 @@
 package com.helio.domain
 
 import java.time.Instant
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.JsValue
 
 final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
@@ -129,24 +129,6 @@ final case class Dashboard(
     layout: DashboardLayout,
     ownerId: UserId
 )
-final case class Panel(
-    id: PanelId,
-    dashboardId: DashboardId,
-    title: String,
-    meta: ResourceMeta,
-    appearance: PanelAppearance,
-    panelType: PanelType,
-    ownerId: UserId,
-    typeId: Option[DataTypeId] = None,
-    fieldMapping: Option[JsValue] = None,
-    content: Option[String] = None,
-    imageUrl: Option[String] = None,
-    imageFit: Option[String] = None,
-    dividerOrientation: Option[String] = None,
-    dividerWeight: Option[Int] = None,
-    dividerColor: Option[String] = None
-)
-
 final case class PanelQuery(
     selectedFields: List[String],
     filters: List[JsValue],
@@ -154,16 +136,8 @@ final case class PanelQuery(
     limit: Option[Int]
 )
 
-object Panel {
-  def buildQuery(panel: Panel): Option[PanelQuery] =
-    panel.typeId.map { _ =>
-      val selectedFields = panel.fieldMapping match {
-        case Some(JsObject(fields)) => fields.values.collect { case JsString(s) => s }.toList
-        case _                      => List.empty
-      }
-      PanelQuery(selectedFields = selectedFields, filters = List.empty, sort = None, limit = None)
-    }
-}
+// `Panel` ADT lives in `Panel.scala` (trait + 7 typed subtypes under
+// `panels/`). The pre-CS2c-3b flat case class is removed.
 
 final case class SqlSourceConfig(
     dialect: String,

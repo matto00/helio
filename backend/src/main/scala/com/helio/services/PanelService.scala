@@ -3,8 +3,9 @@ package com.helio.services
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{CreatePanelRequest, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain._
+import com.helio.domain.panels._
 import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 
 import java.time.Instant
 import java.util.UUID
@@ -69,7 +70,7 @@ final class PanelService(
     case Some(user) =>
       Future.traverse(panels)(p => resolveSingleBinding(p, user))
     case None =>
-      Future.successful(panels.map(p => p.copy(typeId = None, fieldMapping = None)))
+      Future.successful(panels.map(_.withBindingCleared))
   }
 
   /** Public method used by routes that already have a Panel + a user. */
@@ -77,11 +78,11 @@ final class PanelService(
     resolveSingleBinding(panel, user)
 
   private def resolveSingleBinding(panel: Panel, user: AuthenticatedUser): Future[Panel] =
-    panel.typeId match {
+    panel.dataTypeId match {
       case None => Future.successful(panel)
       case Some(typeId) =>
         dataTypeRepo.findById(typeId, user.id).map {
-          case None    => panel.copy(typeId = None, fieldMapping = None)
+          case None    => panel.withBindingCleared
           case Some(_) => panel
         }
     }
@@ -106,7 +107,7 @@ final class PanelService(
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(panelType) =>
                 val now = Instant.now()
-                val panel = Panel(
+                val panel = PanelService.buildNewPanel(
                   id          = PanelId(UUID.randomUUID().toString),
                   dashboardId = dashboardId,
                   title       = RequestValidation.normalizePanelTitle(request.title),
@@ -115,7 +116,7 @@ final class PanelService(
                   panelType   = panelType,
                   ownerId     = user.id,
                   content     = request.content,
-                  typeId      = request.dataTypeId.map(DataTypeId(_))
+                  dataTypeId  = request.dataTypeId.map(DataTypeId(_))
                 )
                 panelRepo.insert(panel).map(Right(_))
             }
@@ -265,6 +266,44 @@ object PanelService {
       dividerColor       = request.dividerColor,
       hasDivider         = hasDivider
     )
+  }
+
+  /** Construct a brand-new `Panel` subtype with all-empty config except the
+   *  initial bind / content that came from the `CreatePanelRequest`. Used by
+   *  `PanelService.create`. Bound subtypes accept an optional `dataTypeId`
+   *  (carried over from request.dataTypeId); content-bearing subtypes accept
+   *  an optional `content` (carried over from request.content). Other fields
+   *  are filled from the subtype's `Empty` config. */
+  private[services] def buildNewPanel(
+      id: PanelId,
+      dashboardId: DashboardId,
+      title: String,
+      meta: ResourceMeta,
+      appearance: PanelAppearance,
+      panelType: PanelType,
+      ownerId: UserId,
+      content: Option[String],
+      dataTypeId: Option[DataTypeId]
+  ): Panel = panelType match {
+    case PanelType.Metric =>
+      MetricPanel(id, dashboardId, title, meta, appearance, ownerId,
+        MetricPanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
+    case PanelType.Chart =>
+      ChartPanel(id, dashboardId, title, meta, appearance, ownerId,
+        ChartPanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
+    case PanelType.Table =>
+      TablePanel(id, dashboardId, title, meta, appearance, ownerId,
+        TablePanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
+    case PanelType.Text =>
+      TextPanel(id, dashboardId, title, meta, appearance, ownerId,
+        TextPanelConfig(content.getOrElse("")))
+    case PanelType.Markdown =>
+      MarkdownPanel(id, dashboardId, title, meta, appearance, ownerId,
+        MarkdownPanelConfig(content.getOrElse("")))
+    case PanelType.Image =>
+      ImagePanel(id, dashboardId, title, meta, appearance, ownerId, ImagePanelConfig.Empty)
+    case PanelType.Divider =>
+      DividerPanel(id, dashboardId, title, meta, appearance, ownerId, DividerPanelConfig.Empty)
   }
 
   private[services] def validateCreatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =

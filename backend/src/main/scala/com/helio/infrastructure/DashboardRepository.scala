@@ -19,23 +19,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
   private val table = TableQuery[DashboardTable]
 
   private def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
-    Panel(
-      id           = PanelId(row.id),
-      dashboardId  = DashboardId(row.dashboardId),
-      title        = row.title,
-      meta         = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-      appearance   = row.appearance.parseJson.convertTo[PanelAppearance],
-      panelType    = PanelType.fromString(row.panelType).getOrElse(PanelType.Default),
-      ownerId      = UserId(row.ownerId.toString),
-      typeId       = row.typeId.map(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.map(_.parseJson),
-      content      = row.content,
-      imageUrl            = row.imageUrl,
-      imageFit            = row.imageFit,
-      dividerOrientation  = row.dividerOrientation,
-      dividerWeight       = row.dividerWeight,
-      dividerColor        = row.dividerColor
-    )
+    PanelRowMapper.rowToDomain(row)
 
   private def rowToDomain(row: DashboardRow): Dashboard =
     Dashboard(
