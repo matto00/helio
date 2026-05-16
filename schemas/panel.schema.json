@@ -2,65 +2,100 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/panel.schema.json",
   "title": "Panel",
+  "description": "Discriminated panel response — `type` selects the shape of `config`.",
   "type": "object",
-  "required": ["id", "dashboardId", "title", "type", "meta", "appearance", "ownerId"],
+  "required": ["id", "dashboardId", "title", "type", "meta", "appearance", "ownerId", "config"],
   "properties": {
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "dashboardId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "title": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 160
-    },
+    "id": { "type": "string", "minLength": 1 },
+    "dashboardId": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
     "type": {
       "type": "string",
       "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
     },
-    "meta": {
-      "$ref": "https://helio.local/schemas/resource-meta.schema.json"
-    },
-    "appearance": {
-      "$ref": "https://helio.local/schemas/panel-appearance.schema.json"
-    },
-    "ownerId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "typeId": {
-      "type": ["string", "null"]
-    },
-    "fieldMapping": {
-      "type": ["object", "null"]
-    },
-    "content": {
-      "type": ["string", "null"]
-    },
-    "imageUrl": {
-      "type": ["string", "null"]
-    },
-    "imageFit": {
-      "type": ["string", "null"],
-      "enum": ["contain", "cover", "fill", null]
-    },
-    "dividerOrientation": {
-      "type": ["string", "null"],
-      "enum": ["horizontal", "vertical", null]
-    },
-    "dividerWeight": {
-      "type": ["integer", "null"],
-      "minimum": 1
-    },
-    "dividerColor": {
-      "type": ["string", "null"],
-      "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
-    }
+    "meta": { "$ref": "https://helio.local/schemas/resource-meta.schema.json" },
+    "appearance": { "$ref": "https://helio.local/schemas/panel-appearance.schema.json" },
+    "ownerId": { "type": "string", "minLength": 1 },
+    "config": { "type": "object" }
   },
   "additionalProperties": false,
-  "$comment": "dataSourceId is not a valid field. Panels bind to DataTypes (typeId), not DataSources directly. Any PATCH request including dataSourceId will be rejected with 400 due to additionalProperties: false."
+  "$comment": "Per-subtype config shapes live in $defs and are selected via the top-level oneOf below. dataSourceId is not a valid field — panels bind to DataTypes (config.dataTypeId), not DataSources directly.",
+  "oneOf": [
+    {
+      "properties": { "type": { "const": "metric" }, "config": { "$ref": "#/$defs/MetricConfig" } }
+    },
+    { "properties": { "type": { "const": "chart" }, "config": { "$ref": "#/$defs/ChartConfig" } } },
+    { "properties": { "type": { "const": "table" }, "config": { "$ref": "#/$defs/TableConfig" } } },
+    { "properties": { "type": { "const": "text" }, "config": { "$ref": "#/$defs/TextConfig" } } },
+    {
+      "properties": {
+        "type": { "const": "markdown" },
+        "config": { "$ref": "#/$defs/MarkdownConfig" }
+      }
+    },
+    { "properties": { "type": { "const": "image" }, "config": { "$ref": "#/$defs/ImageConfig" } } },
+    {
+      "properties": {
+        "type": { "const": "divider" },
+        "config": { "$ref": "#/$defs/DividerConfig" }
+      }
+    }
+  ],
+  "$defs": {
+    "MetricConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": { "type": "object" }
+      }
+    },
+    "ChartConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": { "type": "object" }
+      }
+    },
+    "TableConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": { "type": "object" }
+      }
+    },
+    "TextConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content": { "type": "string" }
+      }
+    },
+    "MarkdownConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content": { "type": "string" }
+      }
+    },
+    "ImageConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "imageFit": { "type": "string", "enum": ["contain", "cover", "fill"] }
+      }
+    },
+    "DividerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "orientation": { "type": "string", "enum": ["horizontal", "vertical"] },
+        "weight": { "type": ["integer", "null"], "minimum": 1 },
+        "color": { "type": ["string", "null"], "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$" }
+      }
+    }
+  }
 }

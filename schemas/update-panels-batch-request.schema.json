@@ -1,8 +1,8 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
-  "$id": "update-panels-batch-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/update-panels-batch-request.schema.json",
   "title": "UpdatePanelsBatchRequest",
-  "description": "Payload for POST /api/panels/updateBatch",
+  "description": "Payload for POST /api/panels/updateBatch. Each entry's `config` (when present) carries a typed patch whose shape matches the panel's `type`.",
   "type": "object",
   "required": ["fields", "panels"],
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "fields": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Names of the fields being updated across the batch (e.g. [\"appearance\"], [\"title\"])"
+      "description": "Names of the fields being updated across the batch (e.g. [\"appearance\"], [\"title\"], [\"config\"])"
     },
     "panels": {
       "type": "array",
@@ -22,8 +22,12 @@
         "properties": {
           "id": { "type": "string" },
           "title": { "type": "string" },
-          "type": { "type": "string" },
-          "appearance": { "$ref": "panel-appearance.schema.json" }
+          "type": {
+            "type": "string",
+            "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
+          },
+          "appearance": { "$ref": "panel-appearance.schema.json" },
+          "config": { "type": "object" }
         }
       }
     }
