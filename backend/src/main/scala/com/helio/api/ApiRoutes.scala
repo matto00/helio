@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
-import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelineService, SourceService}
+import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -68,6 +68,10 @@ final class ApiRoutes(
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, accessChecker)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+  private val pipelineRunService = new PipelineRunService(
+    pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
+    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem
+  )
   private val permissionService = new PermissionService(permissionRepo, accessChecker)
 
   private val auth  = new AuthRoutes(authService)
@@ -153,7 +157,10 @@ final class ApiRoutes(
                 new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
                 new PipelineRoutes(pipelineService, authenticatedUser).routes,
                 new PipelineStepRoutes(pipelineService).routes,
-                new PipelineRunRoutes(pipelineRepo, pipelineStepRepo, dataSourceRepo, sparkJobSubmitter, pipelineRunCache, authenticatedUser, fileSystem, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo, runRegistry).routes
+                new PipelineRunSubmitRoutes(pipelineRunService).routes,
+                new PipelineRunStatusRoutes(pipelineRunService).routes,
+                new PipelineRunHistoryRoutes(pipelineRunService).routes,
+                new PipelineRunStreamRoutes(pipelineRunService).routes
               )
             }
           )
