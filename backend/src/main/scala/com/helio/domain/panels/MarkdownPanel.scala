@@ -22,6 +22,28 @@ object MarkdownPanelConfig {
       MarkdownPanelConfig(content)
     case _ => Empty
   }
+
+  def decodeCreate(json: JsValue): MarkdownPanelConfig = decode(json)
+
+  final case class Patch(content: Option[String]) {
+    def isEmpty: Boolean = content.isEmpty
+  }
+
+  object Patch {
+    val Empty: Patch = Patch(None)
+
+    def decode(json: JsValue): Patch = json match {
+      case JsObject(fields) =>
+        val content = fields.get("content") match {
+          case None              => None
+          case Some(JsNull)      => Some("")
+          case Some(JsString(s)) => Some(s)
+          case Some(x)           => deserializationError(s"content must be a string or null, got $x")
+        }
+        Patch(content)
+      case _ => Empty
+    }
+  }
 }
 
 final case class MarkdownPanel(
@@ -39,6 +61,10 @@ final case class MarkdownPanel(
   def validateConfig: Either[String, Unit] = Right(())
   def buildQuery: Option[PanelQuery]  = None
   def withBindingCleared: Panel       = this
+
+  def applyPatch(patch: MarkdownPanelConfig.Patch): MarkdownPanel = copy(
+    config = MarkdownPanelConfig(content = patch.content.getOrElse(config.content))
+  )
 }
 
 object MarkdownPanel {

@@ -4,17 +4,9 @@ import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelI
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-/** Typed config for a [[ChartPanel]].
- *
- *  Identical shape to [[MetricPanelConfig]] / [[TablePanelConfig]] today (the
- *  "bound trio" all carry `dataTypeId + fieldMapping`). Cycle-1 keeps each as a
- *  distinct type per design.md §1's user preference for strict per-type; if
- *  the trio diverges in a future cycle the per-file structure is unaffected.
- *
- *  Chart-specific appearance (`seriesColors`, axis labels, legend, etc.)
- *  lives on the common [[PanelAppearance]] `chart: Option[ChartAppearance]`
- *  per design.md §11 — moving it into `ChartPanelConfig` is out of scope
- *  for CS2c-3b and tracked as a CS3-era spinoff. */
+/** Typed config for a [[ChartPanel]]. Same shape as the other "bound trio"
+ *  configs ([[MetricPanelConfig]] / [[TablePanelConfig]]) — they are kept
+ *  as distinct types per design.md §1 so future divergence is structural. */
 final case class ChartPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject
@@ -37,6 +29,37 @@ object ChartPanelConfig {
       }
       ChartPanelConfig(dataTypeId, mapping)
     case _ => Empty
+  }
+
+  def decodeCreate(json: JsValue): ChartPanelConfig = decode(json)
+
+  final case class Patch(
+      dataTypeId: Option[Option[DataTypeId]],
+      fieldMapping: Option[Option[JsObject]]
+  ) {
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+  }
+
+  object Patch {
+    val Empty: Patch = Patch(None, None)
+
+    def decode(json: JsValue): Patch = json match {
+      case JsObject(fields) =>
+        val typeId = fields.get("dataTypeId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(DataTypeId(s)))
+          case Some(x)           => deserializationError(s"dataTypeId must be a string or null, got $x")
+        }
+        val mapping = fields.get("fieldMapping") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(o))
+          case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
+        }
+        Patch(typeId, mapping)
+      case _ => Empty
+    }
   }
 }
 
@@ -68,6 +91,13 @@ final case class ChartPanel(
     ))
 
   def withBindingCleared: Panel = copy(config = ChartPanelConfig.Empty)
+
+  def applyPatch(patch: ChartPanelConfig.Patch): ChartPanel = copy(
+    config = ChartPanelConfig(
+      dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+    )
+  )
 }
 
 object ChartPanel {

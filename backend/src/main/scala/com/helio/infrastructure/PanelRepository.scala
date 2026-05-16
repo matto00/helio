@@ -98,83 +98,28 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
-  def updateType(id: PanelId, panelType: PanelType, lastUpdated: Instant): Future[Option[Panel]] =
+  /** Persist the typed config of the supplied panel — writes every config
+   *  column derived from the panel's subtype, leaving identity / metadata
+   *  columns (title, appearance, type) untouched except for `lastUpdated`.
+   *
+   *  Used by `PanelPatchApplier` after `PanelConfigCodec.applyConfigPatch`
+   *  produces an updated typed Panel from a wire-shape patch. */
+  def replace(panel: Panel, lastUpdated: Instant): Future[Option[Panel]] = {
+    val row = domainToRow(panel)
+    val updated = row.copy(lastUpdated = lastUpdated)
     db.run(
       table
-        .filter(_.id === id.value)
-        .map(r => (r.panelType, r.lastUpdated))
-        .update((PanelType.asString(panelType), lastUpdated))
-        .andThen(table.filter(_.id === id.value).result.headOption)
+        .filter(_.id === panel.id.value)
+        .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
+        .update((updated.typeId, updated.fieldMapping, updated.content, updated.imageUrl, updated.imageFit, updated.dividerOrientation, updated.dividerWeight, updated.dividerColor, lastUpdated))
+        .andThen(table.filter(_.id === panel.id.value).result.headOption)
     ).map(_.map(rowToDomain))
-
-  def updateContent(id: PanelId, content: Option[String], lastUpdated: Instant): Future[Option[Panel]] =
-    db.run(
-      table
-        .filter(_.id === id.value)
-        .map(r => (r.content, r.lastUpdated))
-        .update((content, lastUpdated))
-        .andThen(table.filter(_.id === id.value).result.headOption)
-    ).map(_.map(rowToDomain))
-
-  /** Update image_url and/or image_fit. A None argument means "leave existing value unchanged". */
-  def updateImage(
-      id: PanelId,
-      imageUrl: Option[String],
-      imageFit: Option[String],
-      lastUpdated: Instant
-  ): Future[Option[Panel]] = {
-    val action = table.filter(_.id === id.value).result.headOption.flatMap {
-      case None => DBIO.successful(None): DBIO[Option[PanelRow]]
-      case Some(existing) =>
-        val newUrl = imageUrl.orElse(existing.imageUrl)
-        val newFit = imageFit.orElse(existing.imageFit)
-        table
-          .filter(_.id === id.value)
-          .map(r => (r.imageUrl, r.imageFit, r.lastUpdated))
-          .update((newUrl, newFit, lastUpdated))
-          .flatMap(_ => table.filter(_.id === id.value).result.headOption): DBIO[Option[PanelRow]]
-    }.transactionally
-    db.run(action).map(_.map(rowToDomain))
   }
 
-  /** Update divider_orientation, divider_weight, and/or divider_color.
-   *  A None argument means "leave existing value unchanged". */
-  def updateDividerFields(
-      id: PanelId,
-      dividerOrientation: Option[String],
-      dividerWeight: Option[Int],
-      dividerColor: Option[String],
-      lastUpdated: Instant
-  ): Future[Option[Panel]] = {
-    val action = table.filter(_.id === id.value).result.headOption.flatMap {
-      case None => DBIO.successful(None): DBIO[Option[PanelRow]]
-      case Some(existing) =>
-        val newOrientation = dividerOrientation.orElse(existing.dividerOrientation)
-        val newWeight      = dividerWeight.orElse(existing.dividerWeight)
-        val newColor       = dividerColor.orElse(existing.dividerColor)
-        table
-          .filter(_.id === id.value)
-          .map(r => (r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
-          .update((newOrientation, newWeight, newColor, lastUpdated))
-          .flatMap(_ => table.filter(_.id === id.value).result.headOption): DBIO[Option[PanelRow]]
-    }.transactionally
-    db.run(action).map(_.map(rowToDomain))
-  }
-
-  def updateTypeBinding(
-      id: PanelId,
-      typeId: Option[DataTypeId],
-      fieldMapping: Option[JsValue],
-      lastUpdated: Instant
-  ): Future[Option[Panel]] =
-    db.run(
-      table
-        .filter(_.id === id.value)
-        .map(r => (r.typeId, r.fieldMapping, r.lastUpdated))
-        .update((typeId.map(_.value), fieldMapping.map(_.compactPrint), lastUpdated))
-        .andThen(table.filter(_.id === id.value).result.headOption)
-    ).map(_.map(rowToDomain))
-
+  /** Batch update: applies title / appearance / typed-config patches to many
+   *  panels in one transaction. Cross-type lock is enforced at the service
+   *  layer; this method assumes each item's `type` (if any) matches the
+   *  stored row's `type` column. */
   def batchUpdate(items: Vector[PanelBatchItem], now: Instant): Future[Vector[Panel]] = {
     if (items.isEmpty) return Future.successful(Vector.empty)
 
@@ -201,10 +146,20 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
             updates += table.filter(_.id === item.id).map(r => (r.appearance, r.lastUpdated)).update((merged.toJson.compactPrint, now)).map(_ => ())
           }
 
-          item.`type`.foreach { typeStr =>
-            PanelType.fromString(typeStr).foreach { pt =>
-              updates += table.filter(_.id === item.id).map(r => (r.panelType, r.lastUpdated)).update((PanelType.asString(pt), now)).map(_ => ())
+          // CS2c-3c: typed-config patch path. Builds a fresh Panel from the
+          // stored row, applies the per-subtype Patch, writes every config
+          // column back via domainToRow.
+          item.config.foreach { configJson =>
+            val existingPanel = rowToDomain(row)
+            val patched = PanelConfigCodec.applyConfigPatch(existingPanel, configJson) match {
+              case Right(p)  => p
+              case Left(err) => throw new IllegalArgumentException(s"panel '${item.id}' config patch: $err")
             }
+            val patchedRow = domainToRow(patched)
+            updates += table.filter(_.id === item.id)
+              .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
+              .update((patchedRow.typeId, patchedRow.fieldMapping, patchedRow.content, patchedRow.imageUrl, patchedRow.imageFit, patchedRow.dividerOrientation, patchedRow.dividerWeight, patchedRow.dividerColor, now))
+              .map(_ => ())
           }
 
           val actions = updates.result()

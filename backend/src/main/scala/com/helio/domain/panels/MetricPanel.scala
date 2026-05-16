@@ -33,6 +33,41 @@ object MetricPanelConfig {
       MetricPanelConfig(dataTypeId, mapping)
     case _ => Empty
   }
+
+  /** Create-side decoder: tolerant; `decode("{}")` returns [[Empty]]. */
+  def decodeCreate(json: JsValue): MetricPanelConfig = decode(json)
+
+  /** Update-side patch carrying absent-vs-null per field
+   *  (outer `None` = absent; `Some(None)` = explicit null/clear;
+   *  `Some(Some(v))` = set). */
+  final case class Patch(
+      dataTypeId: Option[Option[DataTypeId]],
+      fieldMapping: Option[Option[JsObject]]
+  ) {
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+  }
+
+  object Patch {
+    val Empty: Patch = Patch(None, None)
+
+    def decode(json: JsValue): Patch = json match {
+      case JsObject(fields) =>
+        val typeId = fields.get("dataTypeId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(DataTypeId(s)))
+          case Some(x)           => deserializationError(s"dataTypeId must be a string or null, got $x")
+        }
+        val mapping = fields.get("fieldMapping") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(o))
+          case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
+        }
+        Patch(typeId, mapping)
+      case _ => Empty
+    }
+  }
 }
 
 /** Metric panel — a single-value (or small-grid) display bound to a
@@ -67,6 +102,14 @@ final case class MetricPanel(
     ))
 
   def withBindingCleared: Panel = copy(config = MetricPanelConfig.Empty)
+
+  /** Apply an update-side patch, preserving absent-vs-null semantics. */
+  def applyPatch(patch: MetricPanelConfig.Patch): MetricPanel = copy(
+    config = MetricPanelConfig(
+      dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+    )
+  )
 }
 
 object MetricPanel {

@@ -1,8 +1,8 @@
 package com.helio.infrastructure
 
-import com.helio.api.RequestValidation
 import com.helio.api.protocols.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardProtocol, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, PanelProtocol}
 import com.helio.domain._
+import com.helio.domain.panels._
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -166,7 +166,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
           )
 
           Some(DashboardSnapshotPayload(
-            version   = 1,
+            version   = DashboardSnapshotPayload.CurrentVersion,
             dashboard = snapshotDashboard,
             panels    = snapshotPanels
           ))
@@ -207,35 +207,36 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
       ownerId = ownerId
     )
 
-    val newPanelRows: Vector[PanelRepository.PanelRow] = payload.panels.map { entry =>
-      val panelType = PanelType.fromString(entry.`type`).getOrElse(PanelType.Default)
-      PanelRepository.PanelRow(
-        id          = idMap(entry.snapshotId),
-        dashboardId = newDashId,
-        title       = entry.title,
-        createdBy   = ownerId.value,
-        createdAt   = now,
-        lastUpdated = now,
-        appearance  = PanelAppearance(
-          background   = entry.appearance.background.getOrElse(PanelAppearance.Default.background),
-          color        = entry.appearance.color.getOrElse(PanelAppearance.Default.color),
-          transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency),
-          chart        = entry.appearance.chart
-        ).toJson.compactPrint,
-        panelType    = PanelType.asString(panelType),
-        typeId       = entry.typeId,
-        fieldMapping = entry.fieldMapping.map(_.compactPrint),
-        ownerId      = UUID.fromString(ownerId.value),
-        content      = entry.content,
-        imageUrl            = entry.imageUrl,
-        imageFit            = entry.imageFit,
-        dividerOrientation  = entry.dividerOrientation,
-        dividerWeight       = entry.dividerWeight,
-        dividerColor        = entry.dividerColor
+    // CS2c-3c: reconstruct each panel's typed config from the wire `(type, config)`
+    // payload via the per-subtype tolerant create-decoder, then build the domain
+    // Panel and persist via PanelRowMapper.domainToRow. The pre-CS2c-3c "flat
+    // entry fields → row columns" path is gone (snapshot wire shape changed).
+    val newPanels: Vector[Panel] = payload.panels.map { entry =>
+      val panelId   = PanelId(idMap(entry.snapshotId))
+      val dashId    = DashboardId(newDashId)
+      val meta      = ResourceMeta(ownerId.value, now, now)
+      val appearance = PanelAppearance(
+        background   = entry.appearance.background.getOrElse(PanelAppearance.Default.background),
+        color        = entry.appearance.color.getOrElse(PanelAppearance.Default.color),
+        transparency = entry.appearance.transparency.getOrElse(PanelAppearance.Default.transparency),
+        chart        = entry.appearance.chart
       )
+      val created = PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config)) match {
+        case Right(c) => c
+        case Left(err) => throw new IllegalArgumentException(s"snapshot panel '${entry.snapshotId}' invalid config: $err")
+      }
+      created match {
+        case PanelConfigCodec.MetricCreate(c)   => MetricPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.ChartCreate(c)    => ChartPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.TableCreate(c)    => TablePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.TextCreate(c)     => TextPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.MarkdownCreate(c) => MarkdownPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.ImageCreate(c)    => ImagePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.DividerCreate(c)  => DividerPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+      }
     }
 
-    val newPanels = newPanelRows.map(panelRowToDomain)
+    val newPanelRows: Vector[PanelRepository.PanelRow] = newPanels.map(PanelRowMapper.domainToRow)
 
     val action = (
       (table += domainToRow(newDash))

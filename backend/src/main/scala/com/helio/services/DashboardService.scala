@@ -10,6 +10,7 @@ import com.helio.api.protocols.{
   UpdateDashboardRequest
 }
 import com.helio.domain._
+import com.helio.domain.panels.PanelConfigCodec
 import com.helio.infrastructure.DashboardRepository
 
 import java.time.Instant
@@ -184,23 +185,37 @@ object DashboardService {
     for {
       _ <- validateVersion(payload.version)
       _ <- validateName(payload.dashboard.name)
-      _ <- validatePanelTypes(payload.panels)
+      _ <- validatePanelEntries(payload.panels)
       _ <- validateLayoutReferences(payload)
     } yield ()
 
+  /** CS2c-3c: prior versions are rejected (design.md D3) because the prior
+   *  wire shape silently dropped Image / Divider config fields — a snapshot
+   *  exported pre-fix cannot be losslessly imported anyway. */
   private[services] def validateVersion(version: Int): Either[String, Unit] =
-    if (version < 1) Left(s"version must be >= 1, got $version")
-    else Right(())
+    if (version == DashboardSnapshotPayload.CurrentVersion) Right(())
+    else
+      Left(
+        s"snapshot version $version is no longer supported (current version: ${DashboardSnapshotPayload.CurrentVersion}); " +
+          "please re-export the dashboard from the current app version"
+      )
 
   private[services] def validateName(name: String): Either[String, Unit] =
     if (name.trim.isEmpty) Left("dashboard.name must not be blank")
     else Right(())
 
-  private[services] def validatePanelTypes(panels: Vector[DashboardSnapshotPanelEntry]): Either[String, Unit] =
+  /** Validate each entry's `type` against the registry AND its `config`
+   *  against the per-subtype decoder (catches type/config shape mismatch
+   *  before the importer reaches the repository). */
+  private[services] def validatePanelEntries(panels: Vector[DashboardSnapshotPanelEntry]): Either[String, Unit] =
     panels.foldLeft[Either[String, Unit]](Right(())) {
       case (Left(err), _) => Left(err)
-      case (Right(_), panel) =>
-        PanelType.fromString(panel.`type`).map(_ => ())
+      case (Right(_), entry) =>
+        PanelType.fromString(entry.`type`).flatMap { _ =>
+          PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config))
+            .left.map(msg => s"panel '${entry.snapshotId}': $msg")
+            .map(_ => ())
+        }
     }
 
   private[services] def validateLayoutReferences(payload: DashboardSnapshotPayload): Either[String, Unit] = {

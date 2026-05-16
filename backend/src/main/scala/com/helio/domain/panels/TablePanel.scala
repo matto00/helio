@@ -29,6 +29,37 @@ object TablePanelConfig {
       TablePanelConfig(dataTypeId, mapping)
     case _ => Empty
   }
+
+  def decodeCreate(json: JsValue): TablePanelConfig = decode(json)
+
+  final case class Patch(
+      dataTypeId: Option[Option[DataTypeId]],
+      fieldMapping: Option[Option[JsObject]]
+  ) {
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+  }
+
+  object Patch {
+    val Empty: Patch = Patch(None, None)
+
+    def decode(json: JsValue): Patch = json match {
+      case JsObject(fields) =>
+        val typeId = fields.get("dataTypeId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(DataTypeId(s)))
+          case Some(x)           => deserializationError(s"dataTypeId must be a string or null, got $x")
+        }
+        val mapping = fields.get("fieldMapping") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(o))
+          case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
+        }
+        Patch(typeId, mapping)
+      case _ => Empty
+    }
+  }
 }
 
 final case class TablePanel(
@@ -59,6 +90,13 @@ final case class TablePanel(
     ))
 
   def withBindingCleared: Panel = copy(config = TablePanelConfig.Empty)
+
+  def applyPatch(patch: TablePanelConfig.Patch): TablePanel = copy(
+    config = TablePanelConfig(
+      dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+    )
+  )
 }
 
 object TablePanel {

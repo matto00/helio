@@ -5,7 +5,7 @@ import com.helio.api.protocols.{CreatePanelRequest, PanelBatchItem, UpdatePanelR
 import com.helio.domain._
 import com.helio.domain.panels._
 import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
-import spray.json.{JsObject, JsValue}
+import spray.json.JsValue
 
 import java.time.Instant
 import java.util.UUID
@@ -13,30 +13,19 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** A pre-validated, normalized snapshot of an `UpdatePanelRequest`.
  *
- *  `typeIdUpdate` and `fieldMappingUpdate` preserve the `Option[Option[_]]` wire
- *  semantics from the request:
- *    - outer `None`        — field absent (no change)
- *    - `Some(None)`        — explicit JSON `null` (clear binding)
- *    - `Some(Some(value))` — set to `value`
- *
- *  The custom Spray formatter in `PanelProtocol` produces this shape directly,
- *  so the apply chain threads it through unchanged. */
+ *  CS2c-3c collapses the prior 14-field flat shape to four fields: title,
+ *  appearance, type (with cross-type 400 lock at apply time), and a raw
+ *  `config: JsValue` patch that the per-subtype `*Config.Patch.decode`
+ *  resolves at apply time. */
 final case class ResolvedPanelPatch(
-    trimmedTitle:       Option[String],
-    appearance:         Option[PanelAppearance],
-    panelType:          Option[PanelType],
-    typeIdUpdate:       Option[Option[DataTypeId]],
-    fieldMappingUpdate: Option[Option[JsValue]],
-    content:            Option[String],
-    hasContent:         Boolean,
-    imageUrl:           Option[String],
-    imageFit:           Option[String],
-    hasImage:           Boolean,
-    dividerOrientation: Option[String],
-    dividerWeight:      Option[Int],
-    dividerColor:       Option[String],
-    hasDivider:         Boolean
-)
+    trimmedTitle: Option[String],
+    appearance:   Option[PanelAppearance],
+    panelType:    Option[PanelType],
+    configPatch:  Option[JsValue]
+) {
+  def hasAnyField: Boolean =
+    trimmedTitle.isDefined || appearance.isDefined || panelType.isDefined || configPatch.isDefined
+}
 
 /** Business logic for `/api/panels`. Absorbs the prior `PanelPatchService` so
  *  the patch resolver + step-by-step applier live with the rest of panel CRUD.
@@ -102,21 +91,19 @@ final class PanelService(
           case Right(ResourceAccess.Viewer) =>
             Future.successful(Left(ServiceError.Forbidden()))
           case Right(_) =>
-            PanelService.validatePanelType(request.`type`) match {
+            PanelService.resolveCreateConfig(request) match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right(panelType) =>
+              case Right(createConfig) =>
                 val now = Instant.now()
                 val panel = PanelService.buildNewPanel(
-                  id          = PanelId(UUID.randomUUID().toString),
-                  dashboardId = dashboardId,
-                  title       = RequestValidation.normalizePanelTitle(request.title),
-                  meta        = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                  appearance  = PanelAppearance.Default,
-                  panelType   = panelType,
-                  ownerId     = user.id,
-                  content     = request.content,
-                  dataTypeId  = request.dataTypeId.map(DataTypeId(_))
+                  id           = PanelId(UUID.randomUUID().toString),
+                  dashboardId  = dashboardId,
+                  title        = RequestValidation.normalizePanelTitle(request.title),
+                  meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+                  appearance   = PanelAppearance.Default,
+                  ownerId      = user.id,
+                  createConfig = createConfig
                 )
                 panelRepo.insert(panel).map(Right(_))
             }
@@ -174,10 +161,14 @@ final class PanelService(
               case Some(_) =>
                 Future.successful(Left(ServiceError.Forbidden()))
               case None =>
-                val now = Instant.now()
-                panelRepo.batchUpdate(items, now)
-                  .map(updated => Right(updated))
-                  .recover { case ex => Left(ServiceError.BadRequest(ex.getMessage)) }
+                PanelService.validateBatchTypeMatch(items.zip(panels)) match {
+                  case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+                  case Right(_) =>
+                    val now = Instant.now()
+                    panelRepo.batchUpdate(items, now)
+                      .map(updated => Right(updated))
+                      .recover { case ex => Left(ServiceError.BadRequest(ex.getMessage)) }
+                }
             }
         }
       }
@@ -197,14 +188,16 @@ final class PanelService(
         authorizeEditorOnDashboard(existing.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            PanelService.resolvePatch(request) match {
+            PanelService.resolvePatch(request, existing) match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
-                patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user)).map {
-                  case Some(panel) => Right(panel)
-                  case None        => Left(ServiceError.NotFound("Panel not found"))
-                }
+                patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
+                  .map {
+                    case Some(panel) => Right(panel)
+                    case None        => Left(ServiceError.NotFound("Panel not found"))
+                  }
+                  .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
             }
         }
     }
@@ -225,85 +218,79 @@ final class PanelService(
 
 object PanelService {
 
-  /** Validate + normalize an `UpdatePanelRequest`. The `Option[Option[_]]`
-   *  wire semantics for `typeId` and `fieldMapping` are preserved by
-   *  `ResolvedPanelPatch`. */
-  def resolvePatch(request: UpdatePanelRequest): Either[String, ResolvedPanelPatch] = {
-    val trimmedTitle  = request.title.map(_.trim)
-    val hasBinding    = request.typeId.isDefined || request.fieldMapping.isDefined
-    val hasContent    = request.content.isDefined
-    val hasImage      = request.imageUrl.isDefined || request.imageFit.isDefined
-    val hasDivider    = request.dividerOrientation.isDefined || request.dividerWeight.isDefined || request.dividerColor.isDefined
-    val hasOtherField = trimmedTitle.isDefined || request.appearance.isDefined || request.`type`.isDefined || hasContent
-
+  /** Validate + normalize an `UpdatePanelRequest`. The `config` patch JsValue
+   *  is preserved as-is and decoded against the stored panel's typed shape
+   *  at apply-time (via [[PanelConfigCodec.applyConfigPatch]]).
+   *
+   *  Cross-type PATCH lock: if the request carries an explicit `type` that
+   *  differs from the stored panel's `kind`, return 400 here. */
+  def resolvePatch(request: UpdatePanelRequest, existing: Panel): Either[String, ResolvedPanelPatch] = {
+    val trimmedTitle = request.title.map(_.trim)
     for {
       _            <- if (trimmedTitle.contains("")) Left("title must not be blank") else Right(())
-      _            <- if (hasOtherField || hasBinding || hasImage || hasDivider) Right(())
-                      else Left("at least one field is required")
-      _            <- RequestValidation.validateImageFit(request.imageFit)
-      _            <- RequestValidation.validateDividerOrientation(request.dividerOrientation)
       panelTypeOpt <- validatePanelTypeOpt(request.`type`)
-    } yield ResolvedPanelPatch(
-      trimmedTitle       = trimmedTitle,
-      appearance         = request.appearance.map(p =>
-                             PanelAppearance(
-                               background   = RequestValidation.normalizePanelBackground(p.background),
-                               color        = RequestValidation.normalizePanelColor(p.color),
-                               transparency = RequestValidation.normalizeTransparency(p.transparency),
-                               chart        = p.chart
-                             )
-                           ),
-      panelType          = panelTypeOpt,
-      typeIdUpdate       = request.typeId.map(_.map(DataTypeId(_))),
-      fieldMappingUpdate = request.fieldMapping,
-      content            = request.content,
-      hasContent         = hasContent,
-      imageUrl           = request.imageUrl,
-      imageFit           = request.imageFit,
-      hasImage           = hasImage,
-      dividerOrientation = request.dividerOrientation,
-      dividerWeight      = request.dividerWeight,
-      dividerColor       = request.dividerColor,
-      hasDivider         = hasDivider
-    )
+      _            <- panelTypeOpt match {
+                        case Some(pt) if PanelType.asString(pt) != existing.kind =>
+                          Left(s"cannot change panel type: stored type is '${existing.kind}', request type is '${PanelType.asString(pt)}'")
+                        case _ => Right(())
+                      }
+      resolved = ResolvedPanelPatch(
+                   trimmedTitle = trimmedTitle,
+                   appearance   = request.appearance.map(p =>
+                                    PanelAppearance(
+                                      background   = RequestValidation.normalizePanelBackground(p.background),
+                                      color        = RequestValidation.normalizePanelColor(p.color),
+                                      transparency = RequestValidation.normalizeTransparency(p.transparency),
+                                      chart        = p.chart
+                                    )
+                                  ),
+                   panelType    = panelTypeOpt,
+                   configPatch  = request.config
+                 )
+      _ <- if (resolved.hasAnyField) Right(()) else Left("at least one field is required")
+    } yield resolved
   }
 
-  /** Construct a brand-new `Panel` subtype with all-empty config except the
-   *  initial bind / content that came from the `CreatePanelRequest`. Used by
-   *  `PanelService.create`. Bound subtypes accept an optional `dataTypeId`
-   *  (carried over from request.dataTypeId); content-bearing subtypes accept
-   *  an optional `content` (carried over from request.content). Other fields
-   *  are filled from the subtype's `Empty` config. */
+  /** Decode the create-side typed config from the request. Discriminator is
+   *  required; an absent or empty `config` falls back to the subtype's
+   *  `Empty` defaults (codec read-path tolerance rule). */
+  private[services] def resolveCreateConfig(request: CreatePanelRequest): Either[String, PanelConfigCodec.CreateConfig] =
+    validatePanelType(request.`type`).flatMap { pt =>
+      PanelConfigCodec.decodeCreateConfig(PanelType.asString(pt), request.config)
+    }
+
+  /** Cross-type batch lock: every entry's request `type` (when present) must
+   *  match the stored panel's `kind`. */
+  private[services] def validateBatchTypeMatch(
+      pairs: Vector[(PanelBatchItem, Panel)]
+  ): Either[String, Unit] =
+    pairs.foldLeft[Either[String, Unit]](Right(())) {
+      case (Left(err), _) => Left(err)
+      case (Right(_), (item, panel)) =>
+        item.`type` match {
+          case Some(t) if t != panel.kind =>
+            Left(s"cannot change panel type for '${item.id}': stored type is '${panel.kind}', request type is '$t'")
+          case _ => Right(())
+        }
+    }
+
+  /** Construct a brand-new `Panel` from the decoded typed create-config. */
   private[services] def buildNewPanel(
       id: PanelId,
       dashboardId: DashboardId,
       title: String,
       meta: ResourceMeta,
       appearance: PanelAppearance,
-      panelType: PanelType,
       ownerId: UserId,
-      content: Option[String],
-      dataTypeId: Option[DataTypeId]
-  ): Panel = panelType match {
-    case PanelType.Metric =>
-      MetricPanel(id, dashboardId, title, meta, appearance, ownerId,
-        MetricPanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
-    case PanelType.Chart =>
-      ChartPanel(id, dashboardId, title, meta, appearance, ownerId,
-        ChartPanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
-    case PanelType.Table =>
-      TablePanel(id, dashboardId, title, meta, appearance, ownerId,
-        TablePanelConfig(dataTypeId.getOrElse(DataTypeId("")), JsObject.empty))
-    case PanelType.Text =>
-      TextPanel(id, dashboardId, title, meta, appearance, ownerId,
-        TextPanelConfig(content.getOrElse("")))
-    case PanelType.Markdown =>
-      MarkdownPanel(id, dashboardId, title, meta, appearance, ownerId,
-        MarkdownPanelConfig(content.getOrElse("")))
-    case PanelType.Image =>
-      ImagePanel(id, dashboardId, title, meta, appearance, ownerId, ImagePanelConfig.Empty)
-    case PanelType.Divider =>
-      DividerPanel(id, dashboardId, title, meta, appearance, ownerId, DividerPanelConfig.Empty)
+      createConfig: PanelConfigCodec.CreateConfig
+  ): Panel = createConfig match {
+    case PanelConfigCodec.MetricCreate(c)   => MetricPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.ChartCreate(c)    => ChartPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.TableCreate(c)    => TablePanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.TextCreate(c)     => TextPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.MarkdownCreate(c) => MarkdownPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.ImageCreate(c)    => ImagePanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.DividerCreate(c)  => DividerPanel(id, dashboardId, title, meta, appearance, ownerId, c)
   }
 
   private[services] def validateCreatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
