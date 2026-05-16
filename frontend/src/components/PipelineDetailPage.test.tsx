@@ -183,8 +183,8 @@ describe("PipelineDetailPage", () => {
       id: "step-1",
       pipelineId: "pipe-1",
       position: 0,
-      op: "select",
-      config: '{"fields":[]}',
+      type: "select",
+      config: { fields: [] },
       createdAt: "",
       updatedAt: "",
     });
@@ -192,8 +192,8 @@ describe("PipelineDetailPage", () => {
       id: "step-uuid-new",
       pipelineId: "pipe-1",
       position: 0,
-      op: "select",
-      config: "{}",
+      type: "select",
+      config: { fields: [] },
       createdAt: "",
       updatedAt: "",
     });
@@ -657,8 +657,8 @@ describe("PipelineDetailPage select step config round-trip", () => {
     id: "step-uuid-1",
     pipelineId: "pipe-1",
     position: 0,
-    op: "select",
-    config: '{"fields":["id","name"]}',
+    type: "select",
+    config: { fields: ["id", "name"] },
     createdAt: "",
     updatedAt: "",
   };
@@ -671,8 +671,8 @@ describe("PipelineDetailPage select step config round-trip", () => {
       id: "step-uuid-new",
       pipelineId: "pipe-1",
       position: 0,
-      op: "select",
-      config: "{}",
+      type: "select",
+      config: { fields: [] },
       createdAt: "",
       updatedAt: "",
     });
@@ -693,8 +693,8 @@ describe("PipelineDetailPage select step config round-trip", () => {
         {
           id: "step-uuid-1",
           position: 0,
-          op: "select",
-          config: '{"fields":["id","name"]}',
+          type: "select",
+          config: { fields: ["id", "name"] },
           inputSchema: [
             { name: "id", type: "string" },
             { name: "name", type: "string" },
@@ -743,8 +743,8 @@ describe("PipelineDetailPage rename step config", () => {
     id: "step-rename-1",
     pipelineId: "pipe-1",
     position: 0,
-    op: "rename",
-    config: '{"renames":{"name":"full_name"}}',
+    type: "rename",
+    config: { renames: { name: "full_name" } },
     createdAt: "",
     updatedAt: "",
   };
@@ -764,8 +764,8 @@ describe("PipelineDetailPage rename step config", () => {
       {
         id: "step-rename-1",
         position: 0,
-        op: "rename",
-        config: '{"renames":{"name":"full_name"}}',
+        type: "rename",
+        config: { renames: { name: "full_name" } },
         inputSchema: [
           { name: "id", type: "string" },
           { name: "name", type: "string" },
@@ -789,8 +789,8 @@ describe("PipelineDetailPage rename step config", () => {
       id: "step-uuid-new",
       pipelineId: "pipe-1",
       position: 0,
-      op: "rename",
-      config: '{"renames":{}}',
+      type: "rename",
+      config: { renames: {} },
       createdAt: "",
       updatedAt: "",
     });
@@ -799,8 +799,8 @@ describe("PipelineDetailPage rename step config", () => {
       id: "step-rename-1",
       pipelineId: "pipe-1",
       position: 0,
-      op: "rename",
-      config: '{"renames":{"name":"full_name"}}',
+      type: "rename",
+      config: { renames: { name: "full_name" } },
       createdAt: "",
       updatedAt: "",
     });
@@ -868,7 +868,9 @@ describe("PipelineDetailPage rename step config", () => {
     await waitFor(() => {
       expect(updatePipelineStepMock).toHaveBeenCalledWith(
         "step-rename-1",
-        expect.stringContaining('"department"'),
+        expect.objectContaining({
+          renames: expect.objectContaining({ dept: "department" }),
+        }),
       );
     });
   });
@@ -895,10 +897,11 @@ describe("PipelineDetailPage rename step config", () => {
 
     // Config sent to the backend must NOT contain the "name" key
     await waitFor(() => {
-      expect(updatePipelineStepMock).toHaveBeenCalledWith(
-        "step-rename-1",
-        expect.not.stringContaining('"name"'),
-      );
+      const lastCall =
+        updatePipelineStepMock.mock.calls[updatePipelineStepMock.mock.calls.length - 1];
+      expect(lastCall[0]).toBe("step-rename-1");
+      const cfg = lastCall[1] as { renames: Record<string, string> };
+      expect(cfg.renames).not.toHaveProperty("name");
     });
   });
 });
@@ -1014,8 +1017,8 @@ const persistedPreviewStep: PipelineStep = {
   id: "step-preview-1",
   pipelineId: "pipe-1",
   position: 0,
-  op: "select",
-  config: '{"fields":["name","score"]}',
+  type: "select",
+  config: { fields: ["name", "score"] },
   createdAt: "",
   updatedAt: "",
 };

@@ -9,12 +9,12 @@ describe("LimitConfig", () => {
     expect(input).toHaveValue(50);
   });
 
-  it("calls onChange with correct JSON when a valid count is entered", () => {
+  it("calls onChange with a typed config object when a valid count is entered", () => {
     const onChange = jest.fn();
     render(<LimitConfig count={50} onChange={onChange} />);
     const input = screen.getByRole("spinbutton", { name: /row limit/i });
     fireEvent.change(input, { target: { value: "25" } });
-    expect(onChange).toHaveBeenCalledWith('{"count":25}');
+    expect(onChange).toHaveBeenCalledWith({ count: 25 });
   });
 
   it("does not call onChange when the value is 0 (invalid)", () => {

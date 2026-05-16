@@ -1,27 +1,58 @@
 package com.helio.services
 
 import com.helio.api.protocols.{
+  AggregateAnalyzeStepResponse,
   AnalyzeStepResponse,
+  CastAnalyzeStepResponse,
+  ComputeAnalyzeStepResponse,
   CreatePipelineRequest,
   CreatePipelineStepRequest,
+  FilterAnalyzeStepResponse,
+  GroupByAnalyzeStepResponse,
+  JoinAnalyzeStepResponse,
+  LimitAnalyzeStepResponse,
   PipelineAnalyzeResponse,
+  PipelineStepConfigCodec,
   PipelineStepResponse,
   PipelineSummaryResponse,
+  RenameAnalyzeStepResponse,
   SchemaFieldResponse,
+  SelectAnalyzeStepResponse,
+  SortAnalyzeStepResponse,
   UpdatePipelineRequest,
   UpdatePipelineStepRequest
 }
-import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineAnalyzeService, PipelineId, PipelineStepId, SchemaField}
+import com.helio.domain.{
+  AggregateConfig,
+  AuthenticatedUser,
+  CastConfig,
+  ComputeConfig,
+  DataSourceId,
+  FilterConfig,
+  GroupByConfig,
+  JoinConfig,
+  LimitConfig,
+  PipelineAnalyzeService,
+  PipelineId,
+  PipelineStepId,
+  PipelineStepKind,
+  RenameConfig,
+  SchemaField,
+  SelectConfig,
+  SortConfig
+}
 import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Business logic for `/api/pipelines` and `/api/pipeline-steps`.
  *
- *  Excludes run lifecycle (`PipelineRunRoutes`) — that's CS2c when the engine
- *  is also being decomposed. */
+ *  Run lifecycle lives in [[PipelineRunService]] (split out in CS2c-3a). The
+ *  allow-list of step kinds is sourced from [[PipelineStepKind.All]] —
+ *  the sealed-trait subclasses are the single source of truth. */
 final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
@@ -88,8 +119,18 @@ final class PipelineService(
           val sourceSchema: Vector[SchemaField] =
             sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
 
+          // Re-encode the typed config to a JSON string for the (still
+          // stringly-typed) PipelineAnalyzeService inference engine. The
+          // analyze layer is a downstream consumer that we deliberately keep
+          // untouched in CS2c-3a — its operators read raw JSON fields, so
+          // round-tripping through the codec preserves behavior.
           val stepInputs = steps.map(s =>
-            PipelineAnalyzeService.PipelineStepInput(s.id, s.position, s.op, s.config)
+            PipelineAnalyzeService.PipelineStepInput(
+              id       = s.id.value,
+              position = s.position,
+              op       = s.kind,
+              config   = PipelineStepConfigCodec.encode(s)
+            )
           )
           val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
 
@@ -100,21 +141,42 @@ final class PipelineService(
             outputDataTypeName   = summary.outputDataTypeName,
             outputDataTypeId     = summary.outputDataTypeId,
             sourceSchema         = sourceSchema.map(toFieldResponse),
-            steps                = analyzed.map { s =>
-              AnalyzeStepResponse(
-                id              = s.id,
-                position        = s.position,
-                op              = s.op,
-                config          = s.config,
-                inputSchema     = s.inputSchema.map(toFieldResponse),
-                outputSchema    = s.outputSchema.map(toFieldResponse),
-                validationError = s.validationError
-              )
-            }
+            steps                = analyzed.map(toAnalyzeStepResponse)
           ))
         }
       case _ =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+    }
+  }
+
+  /** Map the analyze service's stringly-typed step output back into the
+   *  discriminated-union wire shape by re-decoding the config blob into its
+   *  typed `*Config` and constructing the appropriate per-subtype response. */
+  private def toAnalyzeStepResponse(s: PipelineAnalyzeService.AnalyzedStep): AnalyzeStepResponse = {
+    val inSchema  = s.inputSchema.map(toFieldResponse)
+    val outSchema = s.outputSchema.map(toFieldResponse)
+    PipelineStepConfigCodec.decode(s.op, s.config) match {
+      case Success(cfg: RenameConfig)    => RenameAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: FilterConfig)    => FilterAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: JoinConfig)      => JoinAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: ComputeConfig)   => ComputeAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: GroupByConfig)   => GroupByAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: CastConfig)      => CastAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: SelectConfig)    => SelectAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: LimitConfig)     => LimitAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: SortConfig)      => SortAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: AggregateConfig) => AggregateAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(other) =>
+        throw new IllegalStateException(
+          s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
+        )
+      case Failure(ex) =>
+        // Surface the error in the step's validationError; preserve the input
+        // schema as the output schema (matches the analyze fallback contract).
+        throw new IllegalStateException(
+          s"PipelineService.toAnalyzeStepResponse: failed to decode persisted config for analyze step ${s.id}: ${ex.getMessage}",
+          ex
+        )
     }
   }
 
@@ -124,37 +186,73 @@ final class PipelineService(
     pipelineRepo.exists(pipelineId).flatMap {
       case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case true  =>
-        pipelineStepRepo.listByPipeline(pipelineId).map(rows => Right(rows.map(PipelineStepResponse.fromRow)))
+        pipelineStepRepo.listByPipeline(pipelineId).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
     }
 
-  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] =
-    if (!PipelineService.AllowedOps.contains(req.op))
+  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] = {
+    if (!PipelineStepKind.All.contains(req.`type`))
       Future.successful(Left(ServiceError.BadRequest(
-        s"Invalid op '${req.op}'. Allowed values: ${PipelineService.AllowedOps.mkString(", ")}"
+        s"Invalid step type '${req.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
       )))
     else
-      pipelineRepo.exists(pipelineId).flatMap {
-        case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-        case true  =>
-          pipelineStepRepo.insert(pipelineId, req.op, req.config)
-            .map(row => Right(PipelineStepResponse.fromRow(row)))
-            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-      }
-
-  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] =
-    req.op match {
-      case Some(op) if !PipelineService.AllowedOps.contains(op) =>
-        Future.successful(Left(ServiceError.BadRequest(
-          s"Invalid op '$op'. Allowed values: ${PipelineService.AllowedOps.mkString(", ")}"
-        )))
-      case _ =>
-        pipelineStepRepo.update(stepId, req.op, req.config, req.position)
-          .map {
-            case Some(row) => Right(PipelineStepResponse.fromRow(row))
-            case None      => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+      PipelineStepConfigCodec.decode(req.`type`, req.config.compactPrint) match {
+        case Failure(ex) =>
+          Future.successful(Left(ServiceError.BadRequest(
+            s"Invalid '${req.`type`}' config: ${ex.getMessage}"
+          )))
+        case Success(typedConfig) =>
+          pipelineRepo.exists(pipelineId).flatMap {
+            case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+            case true  =>
+              pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig)
+                .map(step => Right(PipelineStepResponse.fromDomain(step)))
+                .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
-          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+      }
+  }
+
+  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] = {
+    // Cross-type PATCH lock: matches CS2c-2 DataSource policy. If a `type`
+    // discriminator is supplied and disagrees with the persisted row's kind,
+    // we reject with 400. The UI never offers cross-type conversion; this
+    // keeps the ADT honest against accidental client misuse.
+    pipelineStepRepo.findById(stepId).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+      case Some(existing) =>
+        req.`type` match {
+          case Some(t) if t != existing.kind =>
+            Future.successful(Left(ServiceError.BadRequest(
+              s"Cannot change step type from '${existing.kind}' to '$t'. " +
+                "Delete the step and create a new one instead."
+            )))
+          case _ =>
+            req.config match {
+              case None =>
+                pipelineStepRepo.update(stepId, config = None, position = req.position)
+                  .map {
+                    case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                    case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                  }
+                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+              case Some(cfgJson) =>
+                PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
+                  case Failure(ex) =>
+                    Future.successful(Left(ServiceError.BadRequest(
+                      s"Invalid '${existing.kind}' config: ${ex.getMessage}"
+                    )))
+                  case Success(typedConfig) =>
+                    pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position)
+                      .map {
+                        case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                        case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                      }
+                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                }
+            }
+        }
     }
+  }
 
   def deleteStep(stepId: PipelineStepId): Future[Either[ServiceError, Unit]] =
     pipelineStepRepo.delete(stepId).map {
@@ -182,11 +280,7 @@ final class PipelineService(
 
 object PipelineService {
 
-  val AllowedOps: Set[String] =
-    Set("rename", "filter", "join", "compute", "groupby", "cast", "select", "limit", "sort")
-
-  /** Classify a DB exception into the appropriate ServiceError variant.
-   *  Mirrors `PipelineStepRoutes.classifyDbError` exactly. */
+  /** Classify a DB exception into the appropriate ServiceError variant. */
   private[services] def classifyDbError(ex: Throwable): ServiceError = ex match {
     case e: PSQLException =>
       val msg = Option(e.getMessage).getOrElse(e.getClass.getName)

@@ -19,13 +19,13 @@ interface ComputeFieldConfigProps {
   config: ComputeConfigValue;
   /** Column names from the analyze endpoint's inputSchema — shown as available-fields hints. */
   analyzeColumns: string[];
-  /** Called with the new serialized config JSON string on any field change. */
-  onChange: (newConfig: string) => void;
+  /** Called with the typed config object on any field change (CS2c-3a). */
+  onChange: (newConfig: ComputeConfigValue) => void;
 }
 
 export function ComputeFieldConfig({ config, analyzeColumns, onChange }: ComputeFieldConfigProps) {
   function emit(next: ComputeConfigValue) {
-    onChange(JSON.stringify(next));
+    onChange(next);
   }
 
   function handleColumnChange(e: ChangeEvent<HTMLInputElement>) {

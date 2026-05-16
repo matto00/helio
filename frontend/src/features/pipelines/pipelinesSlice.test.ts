@@ -541,8 +541,8 @@ const sampleStep: PipelineStep = {
   id: "step-1",
   pipelineId: "p-1",
   position: 0,
-  op: "filter",
-  config: "{}",
+  type: "filter",
+  config: { combinator: "AND", conditions: [] },
   createdAt: "2026-05-01T10:00:00Z",
   updatedAt: "2026-05-01T10:00:00Z",
 };
@@ -717,8 +717,8 @@ const sampleAnalyzeResponse: PipelineAnalyzeResponse = {
     {
       id: "step-1",
       position: 0,
-      op: "select",
-      config: '{"fields":["order_id"]}',
+      type: "select",
+      config: { fields: ["order_id"] },
       inputSchema: [
         { name: "order_id", type: "string" },
         { name: "amount", type: "number" },

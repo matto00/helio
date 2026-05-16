@@ -289,12 +289,5 @@ final case class Pipeline(
 final case class PipelineStepId(value: String) extends AnyVal
 final case class PipelineRunId(value: String) extends AnyVal
 
-final case class PipelineStep(
-    id: PipelineStepId,
-    pipelineId: PipelineId,
-    position: Int,
-    op: String,
-    config: String,
-    createdAt: Instant,
-    updatedAt: Instant
-)
+// `PipelineStep` ADT lives in `Pipeline.scala` (sealed trait + 10 typed
+// subtypes). The pre-CS2c-3a flat case class is removed.

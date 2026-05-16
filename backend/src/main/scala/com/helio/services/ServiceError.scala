@@ -21,6 +21,10 @@ object ServiceError {
   final case class NotFound(message: String = "Not found") extends ServiceError
   final case class Forbidden(message: String = "Forbidden") extends ServiceError
   final case class Conflict(message: String) extends ServiceError
+  /** 422 Unprocessable Entity — the request was well-formed but couldn't be
+   *  processed due to semantic issues (e.g. pipeline source type unsupported,
+   *  execution failed for a request-supplied input). */
+  final case class UnprocessableEntity(message: String) extends ServiceError
   /** Upstream / external service failure — used by connector preview / refresh
    *  paths that propagate REST or SQL fetch errors back as 502. */
   final case class BadGateway(message: String) extends ServiceError

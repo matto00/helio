@@ -74,9 +74,10 @@ Step 0's `inputSchema` equals `sourceSchema`. Step N's `inputSchema` equals step
 ### Requirement: GET /api/pipelines/:id/analyze returns pipeline with per-step schemas
 The API SHALL expose `GET /api/pipelines/:id/analyze`. The response SHALL include the pipeline summary fields
 (`id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, `outputDataTypeId`), a `sourceSchema` array, and a
-`steps` array. Each step SHALL include its `id`, `position`, `op`, `config`, `inputSchema`, and `outputSchema`.
-Step 0's `inputSchema` SHALL equal `sourceSchema`. Step N's `inputSchema` SHALL equal step N-1's `outputSchema`.
-If the pipeline is not found, the response SHALL be 404.
+`steps` array. Each step SHALL include its `id`, `position`, `type` (discriminator), `config` (typed object
+matching the discriminator), `inputSchema`, and `outputSchema` (CS2c-3a wire shape — `config` is no longer a
+stringified JSON blob). Step 0's `inputSchema` SHALL equal `sourceSchema`. Step N's `inputSchema` SHALL equal
+step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 404.
 
 #### Scenario: Empty step list returns pipeline with empty steps and populated sourceSchema
 - **WHEN** `GET /api/pipelines/:id/analyze` is called for a pipeline with no steps and a source DataType

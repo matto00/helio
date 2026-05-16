@@ -3,6 +3,8 @@ import type {
   PipelineAnalyzeResponse,
   PipelineRunRecord,
   PipelineStep,
+  PipelineStepConfig,
+  PipelineStepKind,
   PipelineSummary,
   RunStatusResponse,
 } from "../types/models";
@@ -48,19 +50,25 @@ export async function deletePipeline(id: string): Promise<void> {
   await httpClient.delete(`/api/pipelines/${id}`);
 }
 
+/** CS2c-3a — `type` discriminator + typed `config` object. The old
+ *  stringified-JSON `config` path is gone; callers pass typed configs
+ *  directly. */
 export async function createPipelineStep(
   pipelineId: string,
-  op: string,
-  config: string,
+  type: PipelineStepKind,
+  config: PipelineStepConfig,
 ): Promise<PipelineStep> {
   const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
-    op,
+    type,
     config,
   });
   return response.data;
 }
 
-export async function updatePipelineStep(stepId: string, config: string): Promise<PipelineStep> {
+export async function updatePipelineStep(
+  stepId: string,
+  config: PipelineStepConfig,
+): Promise<PipelineStep> {
   const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
     config,
   });

@@ -34,7 +34,7 @@ describe("SortConfig", () => {
     render(<SortConfig sortBy={[]} columns={COLUMNS} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: /add sort key/i }));
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
+    const parsed = onChange.mock.calls[0][0] as { sortBy: SortKey[] };
     expect(parsed.sortBy).toHaveLength(1);
     expect(parsed.sortBy[0].field).toBe("name");
     expect(parsed.sortBy[0].direction).toBe("asc");
@@ -49,7 +49,7 @@ describe("SortConfig", () => {
     render(<SortConfig sortBy={sortBy} columns={COLUMNS} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/remove sort key 1/i));
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
+    const parsed = onChange.mock.calls[0][0] as { sortBy: SortKey[] };
     expect(parsed.sortBy).toHaveLength(1);
     expect(parsed.sortBy[0].field).toBe("age");
   });
@@ -60,7 +60,7 @@ describe("SortConfig", () => {
     render(<SortConfig sortBy={sortBy} columns={COLUMNS} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/sort key 1 direction/i));
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
+    const parsed = onChange.mock.calls[0][0] as { sortBy: SortKey[] };
     expect(parsed.sortBy[0].direction).toBe("desc");
   });
 
@@ -70,7 +70,7 @@ describe("SortConfig", () => {
     render(<SortConfig sortBy={sortBy} columns={COLUMNS} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/sort key 1 direction/i));
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
+    const parsed = onChange.mock.calls[0][0] as { sortBy: SortKey[] };
     expect(parsed.sortBy[0].direction).toBe("asc");
   });
 
@@ -81,7 +81,7 @@ describe("SortConfig", () => {
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.click(screen.getByRole("option", { name: "dept" }));
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as { sortBy: SortKey[] };
+    const parsed = onChange.mock.calls[0][0] as { sortBy: SortKey[] };
     expect(parsed.sortBy[0].field).toBe("dept");
   });
 

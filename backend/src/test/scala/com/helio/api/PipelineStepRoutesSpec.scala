@@ -6,6 +6,13 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.api.protocols.{
+  CastStepResponse,
+  FilterStepResponse,
+  PipelineStepResponse,
+  RenameStepResponse,
+  SelectStepResponse
+}
 import com.helio.api.routes.PipelineStepRoutes
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -15,6 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile
+import spray.json._
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -77,6 +85,16 @@ class PipelineStepRoutesSpec
     new PipelineStepRoutes(service).routes
   }
 
+  // ── Request body helpers (CS2c-3a discriminated-union shape) ─────────────
+  private def renameReq(): JsObject = JsObject("type" -> JsString("rename"), "config" -> JsObject("renames" -> JsObject()))
+  private def filterReq(): JsObject = JsObject(
+    "type" -> JsString("filter"),
+    "config" -> JsObject("combinator" -> JsString("AND"), "conditions" -> JsArray())
+  )
+  private def castReq(): JsObject = JsObject("type" -> JsString("cast"), "config" -> JsObject("casts" -> JsObject()))
+  private def selectReq(fields: Vector[String] = Vector.empty): JsObject =
+    JsObject("type" -> JsString("select"), "config" -> JsObject("fields" -> JsArray(fields.map(JsString(_)))))
+
   "PipelineStepRoutes" should {
 
     "GET /pipelines/:id/steps returns empty list for new pipeline" in {
@@ -89,20 +107,21 @@ class PipelineStepRoutesSpec
 
     "POST /pipelines/:id/steps creates a step and returns 201" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("rename", "{}")) ~> routes ~> check {
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[PipelineStepResponse]
         resp.pipelineId shouldBe pid
-        resp.op shouldBe "rename"
+        resp.`type` shouldBe "rename"
         resp.position shouldBe 0
         resp.id should not be empty
+        resp shouldBe a [RenameStepResponse]
       }
     }
 
     "POST auto-increments position" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("rename", "{}")) ~> routes ~> check { status shouldBe StatusCodes.Created }
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("filter", "{}")) ~> routes ~> check {
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         responseAs[PipelineStepResponse].position shouldBe 1
       }
@@ -110,8 +129,8 @@ class PipelineStepRoutesSpec
 
     "GET returns steps ordered by position" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("rename", "{}")) ~> routes ~> check { status shouldBe StatusCodes.Created }
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("filter", "{}")) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
@@ -120,20 +139,41 @@ class PipelineStepRoutesSpec
       }
     }
 
-    "PATCH updates a step and returns 200" in {
+    "PATCH updates a rename step's config and returns 200" in {
       cleanSteps(); val pid = seedPipeline()
       var stepId = ""
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("rename", "{}")) ~> routes ~> check {
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
         stepId = responseAs[PipelineStepResponse].id
       }
-      Patch(s"/pipeline-steps/$stepId", UpdatePipelineStepRequest(Some("filter"), Some("{}"), None)) ~> routes ~> check {
+      val patchBody = JsObject(
+        "config" -> JsObject("renames" -> JsObject("foo" -> JsString("bar")))
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[PipelineStepResponse].op shouldBe "filter"
+        val resp = responseAs[PipelineStepResponse]
+        resp.`type` shouldBe "rename"
+        resp shouldBe a [RenameStepResponse]
+      }
+    }
+
+    "PATCH with cross-type discriminator returns 400 (cross-type lock)" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      val crossBody = JsObject(
+        "type" -> JsString("filter"),
+        "config" -> JsObject("combinator" -> JsString("AND"), "conditions" -> JsArray())
+      )
+      Patch(s"/pipeline-steps/$stepId", crossBody) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
       }
     }
 
     "PATCH returns 404 for unknown id" in {
-      Patch("/pipeline-steps/nonexistent-id", UpdatePipelineStepRequest(None, None, None)) ~> routes ~> check {
+      val body = JsObject("config" -> JsObject("renames" -> JsObject()))
+      Patch("/pipeline-steps/nonexistent-id", body) ~> routes ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
@@ -141,8 +181,10 @@ class PipelineStepRoutesSpec
     "DELETE removes a step and returns 204" in {
       cleanSteps(); val pid = seedPipeline()
       var stepId = ""
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("cast", "{}")) ~> routes ~> check {
-        stepId = responseAs[PipelineStepResponse].id
+      Post(s"/pipelines/$pid/steps", castReq()) ~> routes ~> check {
+        val r = responseAs[PipelineStepResponse]
+        stepId = r.id
+        r shouldBe a [CastStepResponse]
       }
       Delete(s"/pipeline-steps/$stepId") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
@@ -163,29 +205,44 @@ class PipelineStepRoutesSpec
     }
 
     "POST returns 404 for unknown pipeline id" in {
-      Post("/pipelines/nonexistent-pipeline/steps", CreatePipelineStepRequest("rename", "{}")) ~> routes ~> check {
+      Post("/pipelines/nonexistent-pipeline/steps", renameReq()) ~> routes ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
 
-    "POST returns 400 for invalid op value" in {
+    "POST returns 400 for invalid type discriminator" in {
       val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", CreatePipelineStepRequest("invalid-op", "{}")) ~> routes ~> check {
+      val bad = JsObject("type" -> JsString("invalid-op"), "config" -> JsObject())
+      Post(s"/pipelines/$pid/steps", bad) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }
 
-    // 3.2 — select op accepted by the API
-    "POST with op 'select' returns 201" in {
+    // 3.2 — select op accepted by the API with the discriminated-union shape
+    "POST with type 'select' returns 201 with typed SelectStepResponse" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(
-        s"/pipelines/$pid/steps",
-        CreatePipelineStepRequest("select", """{"fields":[]}""")
-      ) ~> routes ~> check {
+      Post(s"/pipelines/$pid/steps", selectReq()) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[PipelineStepResponse]
-        resp.op shouldBe "select"
+        resp.`type` shouldBe "select"
         resp.pipelineId shouldBe pid
+        resp shouldBe a [SelectStepResponse]
+      }
+    }
+
+    // CS2c-3a — aggregate was previously absent from PipelineService.AllowedOps
+    "POST with type 'aggregate' is accepted (regression: AllowedOps drift)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val body = JsObject(
+        "type" -> JsString("aggregate"),
+        "config" -> JsObject(
+          "groupBy"      -> JsArray(),
+          "aggregations" -> JsArray()
+        )
+      )
+      Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].`type` shouldBe "aggregate"
       }
     }
   }

@@ -1,11 +1,29 @@
 package com.helio.spark
 
-import com.helio.domain.{CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, StaticSource}
-import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.domain.{
+  AggregateStep,
+  CastStep,
+  ComputeStep,
+  CsvSource,
+  DataSource,
+  DataSourceId,
+  FilterStep,
+  GroupByStep,
+  JoinStep,
+  LimitStep,
+  Pipeline,
+  PipelineRunId,
+  PipelineStep,
+  RenameStep,
+  SelectStep,
+  SortStep,
+  StaticSource
+}
+import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
-import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
+import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
 import DefaultJsonProtocol._
 
 import java.time.Instant
@@ -39,7 +57,7 @@ class SparkJobSubmitter(
   def submit(
       pipeline: Pipeline,
       dataSource: DataSource,
-      steps: Seq[PipelineStepRepository.PipelineStepRow],
+      steps: Seq[PipelineStep],
       cache: PipelineRunCache
   ): Future[String] = {
     val runIdStr  = UUID.randomUUID().toString
@@ -47,7 +65,6 @@ class SparkJobSubmitter(
     val startedAt = Instant.now()
     cache.put(runIdStr, RunStatus.Queued)
 
-    // Record the run in the database (fire-and-forget; errors are non-fatal)
     if (pipelineRunRepo != null) {
       pipelineRunRepo.insertRun(runId, pipeline.id, startedAt)
       pipelineRunRepo.deleteOldRuns(pipeline.id)
@@ -64,12 +81,7 @@ class SparkJobSubmitter(
           cache.update(runIdStr, RunStatus.Succeeded, rows = Some(rows))
           pipelineRepo.updateLastRun(pipeline.id, RunStatus.Succeeded, now)
           if (pipelineRunRepo != null) {
-            pipelineRunRepo.updateRunTerminal(
-              runId,
-              RunStatus.Succeeded,
-              now,
-              rowCount = Some(rows.size)
-            )
+            pipelineRunRepo.updateRunTerminal(runId, RunStatus.Succeeded, now, rowCount = Some(rows.size))
           }
         } catch {
           case ex: Throwable =>
@@ -78,12 +90,7 @@ class SparkJobSubmitter(
             cache.update(runIdStr, RunStatus.Failed, error = Some(errorMsg))
             pipelineRepo.updateLastRun(pipeline.id, RunStatus.Failed, now)
             if (pipelineRunRepo != null) {
-              pipelineRunRepo.updateRunTerminal(
-                runId,
-                RunStatus.Failed,
-                now,
-                errorLog = Some(errorMsg)
-              )
+              pipelineRunRepo.updateRunTerminal(runId, RunStatus.Failed, now, errorLog = Some(errorMsg))
             }
         }
       }
@@ -94,10 +101,6 @@ class SparkJobSubmitter(
 
   private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds match {
     case s: StaticSource =>
-      // Static-source payload lives in the `data_sources.config` JSON column
-      // (the ADT itself stays flat — see `domain/DataSource.scala`). Read the
-      // raw blob via the repository's accessor; tolerate a null repo in tests
-      // that exercise `loadDataFrame` directly with an empty payload.
       val raw =
         if (dataSourceRepo != null)
           Await.result(dataSourceRepo.readRawConfig(s.id), 30.seconds).getOrElse("{}")
@@ -120,13 +123,9 @@ class SparkJobSubmitter(
         })
       }
 
-      spark.createDataFrame(
-        spark.sparkContext.parallelize(sparkRows.toList),
-        schema
-      )
+      spark.createDataFrame(spark.sparkContext.parallelize(sparkRows.toList), schema)
 
     case c: CsvSource =>
-      // CSV sources resolve their path directly from the typed config.
       if (c.config.path.isEmpty)
         throw new IllegalArgumentException(
           s"CSV data source '${c.name}' (id=${c.id.value}) is missing required config key 'path'"
@@ -143,67 +142,70 @@ class SparkJobSubmitter(
       )
   }
 
-  private[spark] def applyStep(
-      df: DataFrame,
-      step: PipelineStepRepository.PipelineStepRow
-  ): DataFrame = {
-    val cfg = JsonParser(step.config).asJsObject
+  /** Sealed-trait dispatch — same coverage shape as the in-process engine's
+   *  `applyStep`. The Spark side currently supports a subset of ops
+   *  (Aggregate / Select / Limit / Sort don't have Spark handlers today).
+   *  Adding them without throwing here keeps the door open for HEL-202;
+   *  for now the unsupported cases fail explicitly. */
+  private[spark] def applyStep(df: DataFrame, step: PipelineStep): DataFrame = step match {
+    case s: RenameStep =>
+      s.config.renames.foldLeft(df) { case (d, (from, to)) => d.withColumnRenamed(from, to) }
 
-    step.op match {
-      case "rename" =>
-        val mappings = cfg.fields("mappings").convertTo[Vector[JsObject]]
-        mappings.foldLeft(df) { (d, m) =>
-          d.withColumnRenamed(
-            m.fields("from").convertTo[String],
-            m.fields("to").convertTo[String]
+    case s: FilterStep =>
+      // Spark filter uses a single SQL expression (existing wire shape via
+      // the pre-CS2c-3a engine read it as `expression`). We synthesize the
+      // expression from the typed conditions: AND/OR over `field op value`.
+      val combinator = s.config.combinator.toUpperCase
+      val parts = s.config.conditions.collect {
+        case c if c.field.nonEmpty =>
+          val v = c.value.getOrElse("")
+          c.operator match {
+            case "is null"     => s"`${c.field}` IS NULL"
+            case "is not null" => s"`${c.field}` IS NOT NULL"
+            case "contains"    => s"`${c.field}` LIKE '%${v.replace("'", "''")}%'"
+            case op            => s"`${c.field}` $op '${v.replace("'", "''")}'"
+          }
+      }
+      if (parts.isEmpty) df
+      else df.filter(parts.mkString(s" $combinator "))
+
+    case s: ComputeStep =>
+      df.withColumn(s.config.column, F.expr(s.config.expression))
+
+    case s: GroupByStep =>
+      val cfg    = s.config
+      val aggCol = cfg.aggColumn
+      val aggFn  = cfg.aggFunction.toLowerCase
+      val aggExpr = aggFn match {
+        case "sum"   => F.sum(aggCol)
+        case "count" => F.count(aggCol)
+        case "avg"   => F.avg(aggCol)
+        case "min"   => F.min(aggCol)
+        case "max"   => F.max(aggCol)
+        case other =>
+          throw new IllegalArgumentException(
+            s"Unsupported aggregation function: $other. Supported: sum, count, avg, min, max"
           )
-        }
+      }
+      df.groupBy(cfg.groupBy.head, cfg.groupBy.tail: _*).agg(aggExpr.as(s"${aggFn}_$aggCol"))
 
-      case "filter" =>
-        df.filter(cfg.fields("expression").convertTo[String])
+    case s: CastStep =>
+      s.config.casts.foldLeft(df) { case (d, (col, dt)) =>
+        d.withColumn(col, d(col).cast(sparkDataType(dt)))
+      }
 
-      case "compute" =>
-        val column     = cfg.fields("column").convertTo[String]
-        val expression = cfg.fields("expression").convertTo[String]
-        df.withColumn(column, F.expr(expression))
+    case s: JoinStep =>
+      val rightDs = Await
+        .result(dataSourceRepo.findById(DataSourceId(s.config.rightDataSourceId)), 30.seconds)
+        .getOrElse(throw new IllegalArgumentException(s"DataSource not found for join: ${s.config.rightDataSourceId}"))
+      val rightDf = loadDataFrame(rightDs)
+      df.join(rightDf, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")
 
-      case "groupby" =>
-        val groupCols = cfg.fields("groupBy").convertTo[Vector[String]]
-        val aggCol    = cfg.fields("aggColumn").convertTo[String]
-        val aggFn     = cfg.fields("aggFunction").convertTo[String].toLowerCase
-
-        val aggExpr = aggFn match {
-          case "sum"   => F.sum(aggCol)
-          case "count" => F.count(aggCol)
-          case "avg"   => F.avg(aggCol)
-          case "min"   => F.min(aggCol)
-          case "max"   => F.max(aggCol)
-          case other =>
-            throw new IllegalArgumentException(
-              s"Unsupported aggregation function: $other. Supported: sum, count, avg, min, max"
-            )
-        }
-        df.groupBy(groupCols.head, groupCols.tail: _*).agg(aggExpr.as(s"${aggFn}_$aggCol"))
-
-      case "cast" =>
-        val column   = cfg.fields("column").convertTo[String]
-        val dataType = cfg.fields("dataType").convertTo[String]
-        df.withColumn(column, df(column).cast(sparkDataType(dataType)))
-
-      case "join" =>
-        val rightDsId = cfg.fields("rightDataSourceId").convertTo[String]
-        val joinKey   = cfg.fields("joinKey").convertTo[String]
-        val rightDs = Await
-          .result(dataSourceRepo.findById(DataSourceId(rightDsId)), 30.seconds)
-          .getOrElse(
-            throw new IllegalArgumentException(s"DataSource not found for join: $rightDsId")
-          )
-        val rightDf = loadDataFrame(rightDs)
-        df.join(rightDf, Seq(joinKey), "inner")
-
-      case other =>
-        throw new IllegalArgumentException(s"Unknown step op: $other")
-    }
+    case _: SelectStep | _: LimitStep | _: SortStep | _: AggregateStep =>
+      throw new IllegalArgumentException(
+        s"Step type '${step.kind}' is not yet supported on the Spark execution path. " +
+          "Run via the in-process engine."
+      )
   }
 
   private[spark] def collectRows(df: DataFrame): Seq[Map[String, Any]] = {

@@ -79,7 +79,7 @@ describe("ComputeFieldConfig", () => {
     });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const emitted = JSON.parse(onChange.mock.calls[0][0] as string) as ComputeConfigValue;
+    const emitted = onChange.mock.calls[0][0] as ComputeConfigValue;
     expect(emitted.column).toBe("rev_per_user");
     expect(emitted.expression).toBe("revenue / users");
     expect(emitted.type).toBe("number");
@@ -100,7 +100,7 @@ describe("ComputeFieldConfig", () => {
     });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const emitted = JSON.parse(onChange.mock.calls[0][0] as string) as ComputeConfigValue;
+    const emitted = onChange.mock.calls[0][0] as ComputeConfigValue;
     expect(emitted.column).toBe("result");
     expect(emitted.expression).toBe("price * quantity");
     expect(emitted.type).toBe("number");

@@ -1,55 +1,56 @@
 package com.helio.domain
 
-import com.helio.infrastructure.{DataSourceRepository, FileSystem, PipelineStepRepository}
-import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
-import spray.json._
+import com.helio.infrastructure.{DataSourceRepository, FileSystem}
+import PipelineRowJson.{Row, parseStaticRows}
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
-class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionContext)
-    extends DefaultJsonProtocol {
+/** In-process pipeline executor.
+ *
+ *  Cycle 3 reduces this to a thin orchestration shell — `applyStep` becomes
+ *  `step.evaluate(rows, ctx)` and per-kind logic lives in
+ *  [[com.helio.domain.steps]] modules. The engine's remaining responsibility
+ *  is row-source loading (static / csv) and assembling the
+ *  [[PipelineExecutionContext]] every step receives. */
+class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionContext) {
 
   def execute(
-      rows: Seq[Map[String, Any]],
-      steps: Seq[PipelineStepRepository.PipelineStepRow],
+      rows: Seq[Row],
+      steps: Seq[PipelineStep],
       dataSourceRepo: DataSourceRepository
-  ): Future[Seq[Map[String, Any]]] =
+  ): Future[Seq[Row]] =
     executeWithStepCounts(rows, steps, dataSourceRepo).map(_._1)
 
-  /** Run the pipeline, returning both the final rows and the per-step output row
-   * counts. Counts are keyed by step id and reflect the row count after each
-   * step's transformation. */
+  /** Run the pipeline, returning both the final rows and the per-step output
+   *  row counts (keyed by step id). */
   def executeWithStepCounts(
-      rows: Seq[Map[String, Any]],
-      steps: Seq[PipelineStepRepository.PipelineStepRow],
+      rows: Seq[Row],
+      steps: Seq[PipelineStep],
       dataSourceRepo: DataSourceRepository
-  ): Future[(Seq[Map[String, Any]], Map[String, Long])] = {
-    val initial: Future[(Seq[Map[String, Any]], Map[String, Long])] =
+  ): Future[(Seq[Row], Map[String, Long])] = {
+    val ctx = makeContext(dataSourceRepo)
+    val initial: Future[(Seq[Row], Map[String, Long])] =
       Future.successful((rows, Map.empty[String, Long]))
     steps.foldLeft(initial) { (acc, step) =>
       acc.flatMap { case (currentRows, counts) =>
-        applyStep(currentRows, step, dataSourceRepo).map { nextRows =>
-          (nextRows, counts.updated(step.id, nextRows.size.toLong))
+        step.evaluate(currentRows, ctx).map { nextRows =>
+          (nextRows, counts.updated(step.id.value, nextRows.size.toLong))
         }
       }
     }
   }
 
-  def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Map[String, Any]]] = ds match {
+  /** Load the initial rows for a pipeline's source data source. Static /
+   *  CSV are supported in-process; other source kinds belong on the Spark
+   *  path. */
+  def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Row]] = ds match {
     case s: StaticSource =>
-      // Static-source rows live in the `data_sources.config` JSON column (not
-      // on the ADT — see `domain/DataSource.scala`). Read the raw blob via
-      // the repository and parse the same `{columns, rows}` shape the
-      // pre-CS2c-2 engine consumed.
       dataSourceRepo.readRawConfig(s.id).map {
         case None      => Seq.empty
-        case Some(raw) => parseStaticRowsFromRaw(raw)
+        case Some(raw) => parseStaticRows(raw)
       }
     case c: CsvSource =>
-      // CSV sources resolve their path via FileSystem (which knows the uploads
-      // root) rather than treating the stored value as CWD-relative.
       if (c.config.path.isEmpty)
         Future.failed(
           new IllegalArgumentException(
@@ -67,301 +68,18 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
       )
   }
 
-  private def parseStaticRowsFromRaw(raw: String): Seq[Map[String, Any]] = {
-    val obj      = parseStaticPayload(raw)
-    val columns  = obj.fields.getOrElse("columns", JsArray.empty).convertTo[Vector[JsObject]]
-    val rows     = obj.fields.getOrElse("rows", JsArray.empty).convertTo[Vector[Vector[JsValue]]]
-    val colNames = columns.map(_.fields("name").convertTo[String])
-    rows.map { row =>
-      colNames.zip(row).map { case (name, jsValue) =>
-        name -> jsValueToAny(jsValue)
-      }.toMap
-    }
-  }
+  /** Build the execution context handed to every step. `loadSource` closes
+   *  over the engine's own [[loadRows]] so each step can re-enter the same
+   *  source-loading dispatch without needing the engine reference itself. */
+  private def makeContext(dataSourceRepo: DataSourceRepository): PipelineExecutionContext =
+    PipelineExecutionContext(
+      dataSourceRepo = dataSourceRepo,
+      loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo)
+    )
 
-  private def applyStep(
-      rows: Seq[Map[String, Any]],
-      step: PipelineStepRepository.PipelineStepRow,
-      dataSourceRepo: DataSourceRepository
-  ): Future[Seq[Map[String, Any]]] = {
-    val cfg = JsonParser(step.config).asJsObject
-    step.op match {
-      case "rename"    => Future.successful(applyRename(rows, cfg))
-      case "filter"    => Future.successful(applyFilter(rows, cfg))
-      case "compute"   => Future.successful(applyCompute(rows, cfg))
-      case "groupby"   => Future.successful(applyGroupBy(rows, cfg))
-      case "aggregate" => Future.successful(applyAggregate(rows, cfg))
-      case "cast"      => Future.successful(applyCast(rows, cfg))
-      case "join"      => applyJoin(rows, cfg, dataSourceRepo)
-      case "select"    => Future.successful(applySelect(rows, cfg))
-      case "limit"     => Future.successful(applyLimit(rows, cfg))
-      case "sort"      => Future.successful(applySort(rows, cfg))
-      case other       => Future.failed(new IllegalArgumentException("Unknown step op: " + other))
-    }
-  }
+  // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
 
-  private def applyRename(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val renames = cfg.fields.get("renames").map(_.convertTo[Map[String, String]]).getOrElse(Map.empty)
-    rows.map { row =>
-      renames.foldLeft(row) { case (r, (from, to)) =>
-        if (r.contains(from)) (r - from) + (to -> r(from)) else r
-      }
-    }
-  }
-
-  private def applyFilter(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    // Config shape: {"combinator":"AND"|"OR","conditions":[{"field":"...","operator":"...","value":"..."}]}
-    // Supported operators: =, !=, >, >=, <, <=, contains, is null, is not null
-    val combinator = cfg.fields.get("combinator").map(_.convertTo[String]).getOrElse("AND")
-    val conditions = cfg.fields
-      .get("conditions")
-      .map(_.convertTo[Vector[JsObject]])
-      .getOrElse(Vector.empty)
-
-    if (conditions.isEmpty) return rows // empty conditions → pass all rows
-
-    rows.filter { row =>
-      val results = conditions.flatMap { cond =>
-        val field = cond.fields.get("field").map(_.convertTo[String]).getOrElse("")
-        if (field.isEmpty) None // skip conditions with no field selected
-        else {
-          val operator = cond.fields.get("operator").map(_.convertTo[String]).getOrElse("=")
-          val value    = cond.fields.get("value").map(_.convertTo[String])
-          val fieldVal = row.getOrElse(field, null)
-          Some(evalCondition(fieldVal, operator, value))
-        }
-      }
-      if (results.isEmpty) true // all conditions skipped → pass row
-      else
-        combinator.toUpperCase match {
-          case "OR" => results.exists(identity)
-          case _    => results.forall(identity) // AND (default)
-        }
-    }
-  }
-
-  /** Evaluate a single filter condition against a field value.
-   *  - Unary operators (`is null`, `is not null`) ignore `value`.
-   *  - Numeric operators (`>`, `>=`, `<`, `<=`) coerce both sides to Double;
-   *    coercion failure → no-match (row excluded).
-   *  - `contains` calls `.toString` on the field value then checks substring.
-   *  - `=` and `!=` compare as strings.
-   *  - Missing field (null) passes `is null`, fails all other operators.
-   */
-  private def evalCondition(fieldVal: Any, operator: String, value: Option[String]): Boolean =
-    operator match {
-      case "is null"     => fieldVal == null
-      case "is not null" => fieldVal != null
-      case "contains"    => fieldVal != null && fieldVal.toString.contains(value.getOrElse(""))
-      case "=" | "!="   =>
-        val fieldStr = if (fieldVal == null) null else fieldVal.toString
-        val valStr   = value.getOrElse("")
-        if (operator == "=") fieldStr == valStr else fieldStr != valStr
-      case ">" | ">=" | "<" | "<=" =>
-        // Numeric comparison: coercion failure → no-match
-        val fieldNum = Option(fieldVal).flatMap(v => Try(v.toString.toDouble).toOption)
-        val valNum   = Try(value.getOrElse("").toDouble).toOption
-        (fieldNum, valNum) match {
-          case (Some(f), Some(v)) =>
-            operator match {
-              case ">"  => f > v
-              case ">=" => f >= v
-              case "<"  => f < v
-              case "<=" => f <= v
-              case _    => false
-            }
-          case _ => false
-        }
-      case _ => false
-    }
-
-  private def applyCompute(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val column = cfg.fields("column").convertTo[String]
-    val expr   = cfg.fields("expression").convertTo[String]
-    rows.map { row =>
-      val jsRow = rowToJsMap(row)
-      val value = ExpressionEvaluator.evaluate(expr, jsRow) match {
-        case Right(v) => jsValueToAny(v)
-        case Left(_)  => null
-      }
-      row + (column -> value)
-    }
-  }
-
-  private def applyGroupBy(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val groupCols = cfg.fields("groupBy").convertTo[Vector[String]]
-    val aggCol    = cfg.fields("aggColumn").convertTo[String]
-    val aggFn     = cfg.fields("aggFunction").convertTo[String].toLowerCase
-    val outputCol = aggFn + "_" + aggCol
-    val grouped   = rows.groupBy(row => groupCols.map(c => row.getOrElse(c, null)))
-    grouped.map { case (keyValues, groupRows) =>
-      val keyMap: Map[String, Any] = groupCols.zip(keyValues).toMap
-      val aggValue: Any = aggFn match {
-        case "sum" =>
-          val nums = groupRows.flatMap(r => toDouble(r.getOrElse(aggCol, null)))
-          nums.sum
-        case "count" =>
-          groupRows.count(r => r.getOrElse(aggCol, null) != null).toLong
-        case other =>
-          throw new IllegalArgumentException(
-            "Unsupported aggregation function: " + other + ". Supported: sum, count"
-          )
-      }
-      keyMap + (outputCol -> aggValue)
-    }.toSeq
-  }
-
-  private def applyAggregate(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    // Config shape: {groupBy:[{name,type}], aggregations:[{alias,fn,field}]}
-    // groupBy: zero or more fields to group on (uses obj.name for key lookup).
-    // aggregations: one or more rows producing {alias → aggregated value}.
-    // Null-safe: skip nulls for sum/avg/min/max; count counts non-null values.
-    val groupByFields = cfg.fields
-      .get("groupBy")
-      .map(_.convertTo[Vector[JsObject]])
-      .getOrElse(Vector.empty)
-      .map(obj => obj.fields("name").convertTo[String])
-
-    val aggregations = cfg.fields
-      .get("aggregations")
-      .map(_.convertTo[Vector[JsObject]])
-      .getOrElse(Vector.empty)
-
-    val grouped: Map[Seq[Any], Seq[Map[String, Any]]] =
-      rows.groupBy(row => groupByFields.map(name => row.getOrElse(name, null)))
-
-    grouped.map { case (keyValues, groupRows) =>
-      val keyMap: Map[String, Any] = groupByFields.zip(keyValues).toMap
-      val aggMap: Map[String, Any] = aggregations.map { agg =>
-        val alias = agg.fields("alias").convertTo[String]
-        val fn    = agg.fields("fn").convertTo[String].toLowerCase
-        val field = agg.fields("field").convertTo[String]
-        val nums  = groupRows.flatMap(r => toDouble(r.getOrElse(field, null)))
-        val value: Any = fn match {
-          case "sum"   => nums.sum
-          case "avg"   => if (nums.isEmpty) null else nums.sum / nums.size
-          case "min"   => if (nums.isEmpty) null else nums.min
-          case "max"   => if (nums.isEmpty) null else nums.max
-          case "count" => groupRows.count(r => r.getOrElse(field, null) != null).toLong
-          case other =>
-            throw new IllegalArgumentException(
-              "Unsupported aggregation function: " + other +
-                ". Supported: sum, avg, min, max, count"
-            )
-        }
-        alias -> value
-      }.toMap
-      keyMap ++ aggMap
-    }.toSeq
-  }
-
-  private def applyLimit(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    // Config shape: {"count": <int>}. Missing/zero/negative count → no-op (return all rows).
-    val count = cfg.fields.get("count").flatMap(v => scala.util.Try(v.convertTo[Int]).toOption).getOrElse(0)
-    if (count <= 0) rows else rows.take(count)
-  }
-
-  private def applySort(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    // Config shape: {"sortBy": [{"field": "...", "direction": "asc"|"desc"}]}
-    // Empty sortBy → no-op (return rows unchanged).
-    // Multi-column stable sort: foldRight applies keys in reverse order so the first
-    // key in sortBy ends up as the primary sort key in the final output.
-    // Nulls sort last for both asc and desc directions.
-    // Comparison is type-aware: numeric values compare numerically; others compare as strings.
-    val sortBy = cfg.fields
-      .get("sortBy")
-      .map(_.convertTo[Vector[JsObject]])
-      .getOrElse(Vector.empty)
-
-    if (sortBy.isEmpty) return rows
-
-    sortBy.foldRight(rows) { case (keySpec, currentRows) =>
-      val field     = keySpec.fields.get("field").map(_.convertTo[String]).getOrElse("")
-      val direction = keySpec.fields.get("direction").map(_.convertTo[String]).getOrElse("asc")
-      val desc      = direction.equalsIgnoreCase("desc")
-      if (field.isEmpty) currentRows
-      else
-        currentRows.sortWith { (a, b) =>
-          val av = Option(a.getOrElse(field, null))
-          val bv = Option(b.getOrElse(field, null))
-          (av, bv) match {
-            case (None, _) => false // null sorts after non-null
-            case (_, None) => true  // non-null sorts before null
-            case (Some(x), Some(y)) =>
-              // Prefer numeric comparison when both values parse as Double.
-              val xn = toDouble(x)
-              val yn = toDouble(y)
-              (xn, yn) match {
-                case (Some(xd), Some(yd)) => if (desc) xd > yd else xd < yd
-                case _                    =>
-                  val xs = x.toString
-                  val ys = y.toString
-                  if (desc) xs > ys else xs < ys
-              }
-          }
-        }
-    }
-  }
-
-  private def applySelect(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    val fields   = cfg.fields("fields").convertTo[Vector[String]]
-    val fieldSet = fields.toSet
-    rows.map(row => row.view.filterKeys(fieldSet.contains).toMap)
-  }
-
-  private def applyCast(rows: Seq[Map[String, Any]], cfg: JsObject): Seq[Map[String, Any]] = {
-    // Config shape: {"casts": {"fieldName": "targetType", ...}}
-    // Fields not listed in `casts` pass through unchanged.
-    val casts = cfg.fields.get("casts").map(_.convertTo[Map[String, String]]).getOrElse(Map.empty)
-    rows.map { row =>
-      casts.foldLeft(row) { case (r, (field, targetType)) =>
-        val rawValue = r.getOrElse(field, null)
-        r + (field -> castValue(rawValue, targetType))
-      }
-    }
-  }
-
-  private def applyJoin(
-      rows: Seq[Map[String, Any]],
-      cfg: JsObject,
-      dataSourceRepo: DataSourceRepository
-  ): Future[Seq[Map[String, Any]]] = {
-    val rightDsId = cfg.fields("rightDataSourceId").convertTo[String]
-    val joinKey   = cfg.fields("joinKey").convertTo[String]
-    val joinType  = cfg.fields.get("joinType").map(_.convertTo[String]).getOrElse("inner")
-    dataSourceRepo.findById(DataSourceId(rightDsId)).flatMap {
-      case None =>
-        Future.failed(
-          new IllegalArgumentException("DataSource not found for join: " + rightDsId)
-        )
-      case Some(rightDs) =>
-        loadRows(rightDs, dataSourceRepo).map { rightRows =>
-          val rightIndex: Map[Any, Seq[Map[String, Any]]] =
-            rightRows.groupBy(_.getOrElse(joinKey, null))
-          joinType.toLowerCase match {
-            case "inner" =>
-              rows.flatMap { leftRow =>
-                val key     = leftRow.getOrElse(joinKey, null)
-                val matches = rightIndex.getOrElse(key, Seq.empty)
-                matches.map(rightRow => leftRow ++ rightRow)
-              }
-            case "left" =>
-              rows.flatMap { leftRow =>
-                val key     = leftRow.getOrElse(joinKey, null)
-                val matches = rightIndex.getOrElse(key, Seq.empty)
-                if (matches.isEmpty) Seq(leftRow)
-                else matches.map(rightRow => leftRow ++ rightRow)
-              }
-            case other =>
-              throw new IllegalArgumentException(
-                "Unsupported join type: " + other + ". Supported: inner, left"
-              )
-          }
-        }
-    }
-  }
-
-  private def loadCsvRowsFromBytes(bytes: Array[Byte]): Seq[Map[String, Any]] = {
+  private def loadCsvRowsFromBytes(bytes: Array[Byte]): Seq[Row] = {
     val content = new String(bytes, StandardCharsets.UTF_8)
     val lines   = content.linesIterator.toVector
     if (lines.isEmpty) return Seq.empty
@@ -402,55 +120,5 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     }
     buf += sb.toString
     buf.toVector
-  }
-
-  private[domain] def rowToJsMap(row: Map[String, Any]): Map[String, JsValue] =
-    row.map { case (k, v) => k -> anyToJsValue(v) }
-
-  private[domain] def anyToJsValue(v: Any): JsValue = v match {
-    case null                     => JsNull
-    case b: Boolean               => JsBoolean(b)
-    case i: Int                   => JsNumber(i)
-    case l: Long                  => JsNumber(l)
-    case f: Float                 => JsNumber(BigDecimal(f.toDouble))
-    case d: Double                => JsNumber(d)
-    case bd: BigDecimal           => JsNumber(bd)
-    case bd: java.math.BigDecimal => JsNumber(BigDecimal(bd))
-    case s: String                => JsString(s)
-    case _                        => JsString(v.toString)
-  }
-
-  private def jsValueToAny(v: JsValue): Any = v match {
-    case JsNull       => null
-    case JsBoolean(b) => b
-    case JsNumber(n)  => n.toDouble
-    case JsString(s)  => s
-    case other        => other.compactPrint
-  }
-
-  private def toDouble(v: Any): Option[Double] = v match {
-    case null           => None
-    case i: Int         => Some(i.toDouble)
-    case l: Long        => Some(l.toDouble)
-    case f: Float       => Some(f.toDouble)
-    case d: Double      => Some(d)
-    case bd: BigDecimal => Some(bd.toDouble)
-    case s: String      => s.toDoubleOption
-    case _              => None
-  }
-
-  private def castValue(v: Any, dataType: String): Any = {
-    if (v == null) return null
-    val str = v.toString
-    dataType match {
-      case "string"  => str
-      case "integer" => Try(str.toInt).orElse(Try(str.toDouble.toInt)).getOrElse(null)
-      case "long"    => Try(str.toLong).orElse(Try(str.toDouble.toLong)).getOrElse(null)
-      case "double"  => Try(str.toDouble).getOrElse(null)
-      case "boolean" => Try(str.toBoolean).getOrElse(null)
-      // "date" is not yet supported for in-process conversion; passes through as string.
-      case "date"    => str
-      case _         => str
-    }
   }
 }

@@ -2,29 +2,34 @@ package com.helio.api.routes
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.model.MediaTypes
-import org.apache.pekko.stream.{Materializer}
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
-import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
-import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
+import com.helio.services.PipelineRunService
+import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json._
 
+import java.nio.file.Paths
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
+/** Route-layer integration tests for the four CS2c-3a run route files
+ *  (Submit / Status / History / Stream). The pre-CS2c-3a single
+ *  `PipelineRunRoutes` is split; this spec exercises the composed surface end
+ *  to end so the wire contract is preserved. */
 class PipelineRunRoutesSpec
     extends AnyWordSpec
     with Matchers
@@ -42,8 +47,6 @@ class PipelineRunRoutesSpec
   private var dataSourceRepo: DataSourceRepository      = _
   private var pipelineRunRepo: PipelineRunRepository    = _
   private var dataTypeRowRepo: DataTypeRowRepository    = _
-
-  private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.start()
@@ -65,13 +68,12 @@ class PipelineRunRoutesSpec
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
-  // ---------------------------------------------------------------------------
-  // DB helpers
-  // ---------------------------------------------------------------------------
+
+  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedDsWithData(): String = {
     import PostgresProfile.api._
-    val dsId = java.util.UUID.randomUUID().toString
+    val dsId = UUID.randomUUID().toString
     val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0]]}"""
     await(db.run(sqlu"""INSERT INTO data_sources
       (id, name, source_type, config, owner_id, created_at, updated_at)
@@ -82,7 +84,7 @@ class PipelineRunRoutesSpec
 
   private def seedDs(sourceType: String): String = {
     import PostgresProfile.api._
-    val dsId = java.util.UUID.randomUUID().toString
+    val dsId = UUID.randomUUID().toString
     val dsConfig = if (sourceType == "static") """{"columns":[],"rows":[]}"""
                    else if (sourceType == "csv") """{"filePath":"/tmp/test.csv"}"""
                    else "{}"
@@ -95,11 +97,10 @@ class PipelineRunRoutesSpec
 
   private def seedPipeline(dsId: String): PipelineId = seedPipelineWithDtId(dsId)._1
 
-  /** Returns (pipelineId, dataTypeId). */
   private def seedPipelineWithDtId(dsId: String): (PipelineId, String) = {
     import PostgresProfile.api._
-    val pid  = java.util.UUID.randomUUID().toString
-    val dtId = java.util.UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
                VALUES ($dtId, 'dt', '[]', 1, '00000000-0000-0000-0000-000000000001', now(), now())""",
@@ -112,8 +113,7 @@ class PipelineRunRoutesSpec
 
   private def seedDsWithMixedTypes(): String = {
     import PostgresProfile.api._
-    val dsId = java.util.UUID.randomUUID().toString
-    // "count" is an integer (whole JsNumber), "rate" is a fractional double
+    val dsId = UUID.randomUUID().toString
     val dsConfig =
       """{"columns":[{"name":"count","type":"integer"},{"name":"rate","type":"double"}],"rows":[[5,3.14]]}"""
     await(db.run(sqlu"""INSERT INTO data_sources
@@ -123,24 +123,11 @@ class PipelineRunRoutesSpec
     dsId
   }
 
-  // ---------------------------------------------------------------------------
-  // Stub SparkJobSubmitter that stores queued in cache without touching Spark
-  // ---------------------------------------------------------------------------
+  // ── Test fixture helpers ──────────────────────────────────────────────────
 
-  private class StubSparkJobSubmitter()(implicit stubEc: ExecutionContext)
-      extends SparkJobSubmitter("local", null, null) {
-    override def submit(
-        pipeline: Pipeline,
-        dataSource: DataSource,
-        steps: Seq[PipelineStepRow],
-        cache: PipelineRunCache
-    ): Future[String] = {
-      val runId = java.util.UUID.randomUUID().toString
-      cache.put(runId, RunStatus.Queued)
-      Future.successful(runId)
-    }
-  }
+  private val fileSystem = new LocalFileSystem(Paths.get("/"))
 
+  /** Compose the 4 CS2c-3a run route files into a single route for testing. */
   private def makeRoutes(
       cache: PipelineRunCache,
       runRepo: PipelineRunRepository = null,
@@ -149,16 +136,23 @@ class PipelineRunRoutesSpec
       registry: PipelineRunRegistry = null
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val submitter = new StubSparkJobSubmitter()
-    new PipelineRunRoutes(pipelineRepo, stepRepo, dataSourceRepo, submitter, cache, dummyUser, new LocalFileSystem(java.nio.file.Paths.get("/")), runRepo, dtRepo, rowRepo, registry).routes
+    val service = new PipelineRunService(
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem
+    )
+    concat(
+      new PipelineRunSubmitRoutes(service).routes,
+      new PipelineRunStatusRoutes(service).routes,
+      new PipelineRunHistoryRoutes(service).routes,
+      new PipelineRunStreamRoutes(service).routes
+    )
   }
 
-  "PipelineRunRoutes" should {
+  "PipelineRun routes (composed)" should {
 
     "POST /pipelines/:id/run returns 200 with inline rows for a static pipeline" in {
-      val cache  = new PipelineRunCache()
-      val dsId   = seedDs("static")
-      val pid    = seedPipeline(dsId)
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("static")
+      val pid   = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -192,8 +186,8 @@ class PipelineRunRoutesSpec
     }
 
     "GET /pipelines/:id/runs/:runId returns 200 with queued status" in {
-      val cache  = new PipelineRunCache()
-      val runId  = "test-run-123"
+      val cache = new PipelineRunCache()
+      val runId = "test-run-123"
       cache.put(runId, RunStatus.Queued)
       Get(s"/pipelines/any/runs/$runId") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
@@ -224,8 +218,6 @@ class PipelineRunRoutesSpec
       }
     }
 
-    // ── run-history tests ──────────────────────────────────────────────────
-
     "GET /pipelines/:id/run-history returns 200 with empty list when no runs" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDs("static")
@@ -241,9 +233,9 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("static")
       val pid   = seedPipeline(dsId)
-      val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertRun(runId, pid, java.time.Instant.now()))
-      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", java.time.Instant.now(), rowCount = Some(5)))
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(5)))
 
       Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
@@ -261,7 +253,7 @@ class PipelineRunRoutesSpec
         status shouldBe StatusCodes.NotFound
       }
     }
-    // 6.3 dry-run returns rows without modifying last_run_status
+
     "POST /pipelines/:id/run?dry=true returns rows without updating last_run_status" in {
       import PostgresProfile.api._
       val cache = new PipelineRunCache()
@@ -278,7 +270,6 @@ class PipelineRunRoutesSpec
       statusOpt shouldBe None
     }
 
-    // 6.4 non-dry run updates last_run_status to succeeded and writes to Type Registry
     "POST /pipelines/:id/run updates last_run_status to succeeded and writes Type Registry fields" in {
       import PostgresProfile.api._
       val cache  = new PipelineRunCache()
@@ -305,8 +296,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", """{"fields":["name","score"]}"""))
-      Get(s"/pipelines/${pid.value}/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
+      Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rows.size should be <= 10
@@ -334,8 +325,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("rest_api")
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", """{"fields":[]}"""))
-      Get(s"/pipelines/${pid.value}/steps/${step.id}/preview") ~> makeRoutes(cache) ~> check {
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty)))
+      Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
         resp.message should include("Unsupported source type")
@@ -344,22 +335,17 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/steps/:stepId/preview only applies steps up to and including the target step" in {
       val cache = new PipelineRunCache()
-      // seed DS with 2 rows
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      // select step at position 0 — keeps both rows
-      val selectStep = await(stepRepo.insert(pid, "select", """{"fields":["name","score"]}"""))
-      // limit step at position 1 — would reduce to 1 row if applied
-      await(stepRepo.insert(pid, "limit", """{"count":1}"""))
-      // Preview up to selectStep only — should return 2 rows (limit not applied)
-      Get(s"/pipelines/${pid.value}/steps/${selectStep.id}/preview") ~> makeRoutes(cache) ~> check {
+      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
+      await(stepRepo.insert(pid, "limit", LimitConfig(1)))
+      Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
     }
 
-    // 2.1 non-dry run success inserts a pipeline_runs row with status succeeded and correct rowCount
     "POST /pipelines/:id/run (non-dry, success) inserts a pipeline_runs row with status succeeded" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
@@ -377,13 +363,12 @@ class PipelineRunRoutesSpec
       runs.head.errorLog   shouldBe None
     }
 
-    // 2.2 non-dry run failure via bad join step inserts a pipeline_runs row with status failed and non-empty errorLog
     "POST /pipelines/:id/run (non-dry, failure via bad join step) inserts a pipeline_runs row with status failed" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -395,7 +380,6 @@ class PipelineRunRoutesSpec
       runs.head.errorLog.get should not be empty
     }
 
-    // HEL-197 dry-run row insertion
     "POST /pipelines/:id/run?dry=true inserts a dry_run row in the repository" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
@@ -413,7 +397,6 @@ class PipelineRunRoutesSpec
       runs.head.rowCount    shouldBe Some(2)
     }
 
-    // HEL-198 3.2 — non-dry run persists rows in data_type_rows; dry run does not
     "POST /pipelines/:id/run (non-dry) stores rows in data_type_rows after success" in {
       val cache              = new PipelineRunCache()
       val dtRepo             = new DataTypeRepository(db)(routeEc)
@@ -426,7 +409,6 @@ class PipelineRunRoutesSpec
       }
       val storedRows = await(dataTypeRowRepo.listRows(dtId))
       storedRows should have size 2
-      // Rows contain the expected field names
       storedRows.head.fields.keys should contain allOf ("name", "score")
     }
 
@@ -434,7 +416,6 @@ class PipelineRunRoutesSpec
       val cache              = new PipelineRunCache()
       val dsId               = seedDsWithData()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      // Ensure no prior rows for this dtId
       await(dataTypeRowRepo.overwriteRows(dtId, Seq.empty))
 
       Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo) ~> check {
@@ -452,20 +433,17 @@ class PipelineRunRoutesSpec
       val dsId               = seedDsWithData()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
 
-      // First run: 2 rows
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(dataTypeRowRepo.listRows(dtId)) should have size 2
 
-      // Second run: same pipeline, same 2 rows (replace, not append)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(dataTypeRowRepo.listRows(dtId)) should have size 2
     }
 
-    // HEL-198 3.3 — improved type inference
     "POST /pipelines/:id/run infers integer type for whole-number column and double for fractional" in {
       val cache              = new PipelineRunCache()
       val dtRepo             = new DataTypeRepository(db)(routeEc)
@@ -482,14 +460,13 @@ class PipelineRunRoutesSpec
       fieldMap("rate")  shouldBe "double"
     }
 
-    // 6.5 non-dry run failure sets last_run_status to failed and returns 422
     "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
       import PostgresProfile.api._
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        """{"rightDataSourceId": "00000000-0000-0000-0000-000000000099", "joinKey": "name"}"""))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
@@ -500,15 +477,14 @@ class PipelineRunRoutesSpec
       ))
       statusOpt shouldBe Some("failed")
     }
-    // ---- SSE endpoint tests ------------------------------------------------
 
-    // 3.2 SSE endpoint returns text/event-stream content-type for existing pipeline
+    // ── SSE endpoint tests ─────────────────────────────────────────────────
+
     "GET /pipelines/:id/run-events returns text/event-stream for existing pipeline" in {
-      val cache    = new PipelineRunCache()
-      val dsId     = seedDs("static")
-      val pid      = seedPipeline(dsId)
-      val reg      = new PipelineRunRegistry()(typedSystem)
-      // Check only content-type; do not consume the streaming body
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("static")
+      val pid   = seedPipeline(dsId)
+      val reg   = new PipelineRunRegistry()(typedSystem)
       Get(s"/pipelines/${pid.value}/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
         status shouldBe StatusCodes.OK
         contentType.mediaType.mainType shouldBe "text"
@@ -516,7 +492,6 @@ class PipelineRunRoutesSpec
       }
     }
 
-    // 3.3 SSE endpoint returns 404 for unknown pipeline
     "GET /pipelines/:id/run-events returns 404 for unknown pipeline" in {
       val cache = new PipelineRunCache()
       val reg   = new PipelineRunRegistry()(typedSystem)
@@ -525,27 +500,23 @@ class PipelineRunRoutesSpec
       }
     }
 
-    // 3.4 Full run publishes queued -> running -> succeeded event sequence
     "POST /pipelines/:id/run publishes queued -> running -> succeeded via SSE" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       val reg   = new PipelineRunRegistry()(typedSystem)
 
-      // Subscribe to events via registry directly (bypass HTTP for collection).
-      // The source completes after the terminal "succeeded" event.
       val eventsFuture = reg
         .subscribe(pid.value)
         .runWith(Sink.seq)(Materializer(system))
 
-      // Run the pipeline; this publishes queued -> running -> succeeded.
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, registry = reg) ~> check {
         status shouldBe StatusCodes.OK
       }
 
       val events = Await.result(eventsFuture, 10.seconds)
       events.map(_.status) shouldBe Seq("queued", "running", "succeeded")
-      events.last.rowCount shouldBe Some(2) // seedDsWithData has 2 rows
+      events.last.rowCount shouldBe Some(2)
     }
 
   }

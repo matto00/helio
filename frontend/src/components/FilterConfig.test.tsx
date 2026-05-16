@@ -44,7 +44,7 @@ describe("FilterConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /any \(or\)/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as FilterConfigValue;
+    const parsed = onChange.mock.calls[0][0] as FilterConfigValue;
     expect(parsed.combinator).toBe("OR");
   });
 
@@ -56,7 +56,7 @@ describe("FilterConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /all \(and\)/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as FilterConfigValue;
+    const parsed = onChange.mock.calls[0][0] as FilterConfigValue;
     expect(parsed.combinator).toBe("AND");
   });
 
@@ -132,7 +132,7 @@ describe("FilterConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /add condition/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as FilterConfigValue;
+    const parsed = onChange.mock.calls[0][0] as FilterConfigValue;
     expect(parsed.conditions).toHaveLength(1);
     expect(parsed.conditions[0].operator).toBe("=");
   });
@@ -151,7 +151,7 @@ describe("FilterConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove condition 1/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as FilterConfigValue;
+    const parsed = onChange.mock.calls[0][0] as FilterConfigValue;
     expect(parsed.conditions).toHaveLength(1);
     expect(parsed.conditions[0].field).toBe("age");
   });
