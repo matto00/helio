@@ -1,11 +1,12 @@
 package com.helio.domain
 
-import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem, PipelineStepRepository}
-import com.helio.infrastructure.PipelineStepRepository.PipelineStepRow
+import com.helio.api.protocols.PipelineStepConfigCodec
+import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.nio.file.Paths
 import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -15,13 +16,33 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
   private implicit val ec: ExecutionContext = ExecutionContext.global
   // LocalFileSystem with absolute baseDir; LocalFileSystem.resolve passes absolute
   // paths through unchanged, so tests can write CSVs to tmp and reference by absolute path.
-  private val fileSystem = new LocalFileSystem(java.nio.file.Paths.get("/"))
+  private val fileSystem = new LocalFileSystem(Paths.get("/"))
   private val engine = new InProcessPipelineEngine(fileSystem)
 
-  private def makeStep(op: String, config: String): PipelineStepRow =
-    PipelineStepRow("step-id", "pipe-id", 0, op, config, Instant.now(), Instant.now())
+  /** Build a typed PipelineStep from (op, configJson) by round-tripping
+   *  through the codec — fixtures stay stringly-typed but the engine
+   *  receives the typed ADT. */
+  private def makeStep(op: String, config: String): PipelineStep = {
+    val now = Instant.now()
+    val cfg = PipelineStepConfigCodec.decode(op, config).get
+    val id  = PipelineStepId("step-id")
+    val pid = PipelineId("pipe-id")
+    cfg match {
+      case c: RenameConfig    => RenameStep(id, pid, 0, c, now, now)
+      case c: FilterConfig    => FilterStep(id, pid, 0, c, now, now)
+      case c: JoinConfig      => JoinStep(id, pid, 0, c, now, now)
+      case c: ComputeConfig   => ComputeStep(id, pid, 0, c, now, now)
+      case c: GroupByConfig   => GroupByStep(id, pid, 0, c, now, now)
+      case c: CastConfig      => CastStep(id, pid, 0, c, now, now)
+      case c: SelectConfig    => SelectStep(id, pid, 0, c, now, now)
+      case c: LimitConfig     => LimitStep(id, pid, 0, c, now, now)
+      case c: SortConfig      => SortStep(id, pid, 0, c, now, now)
+      case c: AggregateConfig => AggregateStep(id, pid, 0, c, now, now)
+      case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
+    }
+  }
 
-  private def run(rows: Seq[Map[String, Any]], steps: PipelineStepRow*): Seq[Map[String, Any]] =
+  private def run(rows: Seq[Map[String, Any]], steps: PipelineStep*): Seq[Map[String, Any]] =
     Await.result(engine.execute(rows, steps.toSeq, null), 5.seconds)
 
   val sampleRows: Seq[Map[String, Any]] = Seq(
@@ -622,11 +643,12 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       result.map(_("name")) shouldBe sampleRows.map(_("name"))
     }
 
-    "unknown op fails with descriptive error" in {
-      val step = makeStep("bogus", "{}")
-      val fut  = engine.execute(sampleRows, Seq(step), null)
-      val ex   = intercept[Exception](Await.result(fut, 5.seconds))
-      ex.getMessage should include ("Unknown step op: bogus")
+    "unknown op fails at the codec boundary (compile-time exhaustive in the engine)" in {
+      // Pre-CS2c-3a the engine rejected unknown ops at runtime via a string
+      // `match`. After CS2c-3a the sealed-trait dispatch is exhaustive, so
+      // unknown ops can't reach the engine — they're rejected at decode time.
+      val ex = intercept[Exception](PipelineStepConfigCodec.decode("bogus", "{}").get)
+      ex.getMessage should include ("Unknown step op: 'bogus'")
     }
 
     // Regression: HEL-237 — CSV configs are persisted under the "path" key by
