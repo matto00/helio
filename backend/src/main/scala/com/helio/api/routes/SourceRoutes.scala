@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
 /** Thin HTTP shell for `/api/sources` create.
- *  Dispatches REST vs SQL based on the JSON payload's `sourceType` field;
+ *  Dispatches REST vs SQL based on the JSON payload's `type` discriminator;
  *  all logic in [[SourceService]]. */
 final class SourceRoutes(
     sourceService: SourceService,
@@ -29,11 +29,11 @@ final class SourceRoutes(
       pathEndOrSingleSlash {
         post {
           entity(as[JsValue]) { json =>
-            val sourceTypeStr = json.asJsObject.fields.get("sourceType")
+            val typeStr = json.asJsObject.fields.get("type")
               .collect { case JsString(s) => s }
-              .getOrElse("rest_api")
+              .getOrElse(DataSourceKind.RestApi)
 
-            if (sourceTypeStr == "sql") {
+            if (typeStr == DataSourceKind.Sql) {
               Try(json.convertTo[SqlCreateSourceRequest]) match {
                 case Success(request) =>
                   ServiceResponse.run(sourceService.createSql(request, user)) { resp =>

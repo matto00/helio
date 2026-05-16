@@ -3,19 +3,24 @@ import { useState } from "react";
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
 import { useAppSelector } from "../hooks/reduxHooks";
-import type { DataSource } from "../types/models";
+import type { DataSource, DataSourceKind } from "../types/models";
 import { PreviewTable } from "./PreviewTable";
 
 interface SourceDetailPanelProps {
   source: DataSource;
 }
 
-function labelForSourceType(sourceType: string): string {
-  if (sourceType === "rest_api") return "REST API";
-  if (sourceType === "csv") return "CSV";
-  if (sourceType === "static") return "Static";
-  if (sourceType === "sql") return "SQL";
-  return sourceType;
+function labelForKind(kind: DataSourceKind): string {
+  switch (kind) {
+    case "rest_api":
+      return "REST API";
+    case "csv":
+      return "CSV";
+    case "static":
+      return "Static";
+    case "sql":
+      return "SQL";
+  }
 }
 
 export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
@@ -35,7 +40,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
     setIsLoading(true);
     setError(null);
     try {
-      if (source.sourceType === "csv" || source.sourceType === "static") {
+      if (source.type === "csv" || source.type === "static") {
         const result = await fetchCsvPreview(source.id, 25);
         setPreviewHeaders(result.headers);
         setPreviewRows(
@@ -43,12 +48,12 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
             Object.fromEntries(result.headers.map((h, i) => [h, row[i] ?? null])),
           ),
         );
-      } else if (source.sourceType === "rest_api") {
+      } else if (source.type === "rest_api") {
         const result = await fetchRestPreview(source.id);
         setPreviewHeaders(undefined);
         setPreviewRows(result.rows);
       } else {
-        setError(`Preview is not supported for ${labelForSourceType(source.sourceType)} sources.`);
+        setError(`Preview is not supported for ${labelForKind(source.type)} sources.`);
         setPreviewRows(null);
       }
     } catch (err) {
@@ -64,7 +69,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
       <div className="source-detail-panel__header">
         <div className="source-detail-panel__title-row">
           <h3 className="source-detail-panel__name">{source.name}</h3>
-          <span className="source-detail-panel__type">{labelForSourceType(source.sourceType)}</span>
+          <span className="source-detail-panel__type">{labelForKind(source.type)}</span>
         </div>
         <div className="source-detail-panel__header-actions">
           <button

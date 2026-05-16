@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Create a REST/HTTP data source
-The backend SHALL expose `POST /api/sources` accepting a JSON body with `name`, `sourceType: "rest_api"`, and a `config` object containing `url`, optional `method` (default `GET`), optional `auth`, and optional `headers`. On success it SHALL insert the DataSource, attempt an initial fetch+inference, and if inference succeeds, insert a DataType linked to the source. The response SHALL include `fetchError` if the initial fetch failed.
+The backend SHALL expose `POST /api/sources` accepting a JSON body with `name`, discriminator `type: "rest_api"`, and a `config` object containing `url`, optional `method` (default `GET`), optional `auth`, and optional `headers`. On success it SHALL insert the DataSource, attempt an initial fetch+inference, and if inference succeeds, insert a DataType linked to the source. The response SHALL include `fetchError` if the initial fetch failed.
 
 #### Scenario: Successful creation with schema registration
 - **WHEN** `POST /api/sources` is called with a valid config and the URL returns a 2xx JSON response
@@ -61,8 +61,16 @@ The `RestApiConnector` SHALL inject authentication into outgoing requests based 
 - **THEN** the outgoing HTTP request URL includes `?key=secret`
 
 ### Requirement: Credentials are never returned in API responses
-The `DataSource` response object SHALL never include the `config` field (which may contain tokens or keys). Only `id`, `name`, `sourceType`, `createdAt`, and `updatedAt` are returned.
+The `DataSource` response object SHALL emit a redacted `config` payload: bearer tokens, API-key values, and SQL passwords SHALL be replaced with `"***"` before serialization. Non-credential fields (URL, method, headers, auth type discriminator, dialect, host, database, user, query) ARE included so the UI can display and edit sources without round-tripping the stored config.
 
-#### Scenario: Create response omits config
-- **WHEN** `POST /api/sources` succeeds
-- **THEN** the response body does not contain any `config`, `token`, `key`, or `auth` fields
+#### Scenario: Bearer tokens are redacted in the create response
+- **WHEN** `POST /api/sources` succeeds with `auth: { type: "bearer", token: "secret" }`
+- **THEN** the response body's `config.auth.token` is `"***"`, not the original token
+
+#### Scenario: API-key values are redacted in the create response
+- **WHEN** `POST /api/sources` succeeds with `auth: { type: "api_key", name: "X-Api-Key", value: "secret", in: "header" }`
+- **THEN** the response body's `config.auth.value` is `"***"`, not the original value
+
+#### Scenario: SQL passwords are redacted in the create response
+- **WHEN** `POST /api/sources` succeeds for a SQL source
+- **THEN** the response body's `config.password` is `"***"`, not the original password

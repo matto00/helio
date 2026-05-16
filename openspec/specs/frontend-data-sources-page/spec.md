@@ -17,7 +17,7 @@ The frontend SHALL register a `/sources` route via React Router that renders `So
 - **THEN** `PipelinesPage` is rendered
 
 ### Requirement: SourcesPage lists data sources
-`SourcesPage` SHALL dispatch `fetchSources` and `fetchDataTypes` on mount. When sources are loaded, `DataSourceList` renders one row per source showing: name, sourceType badge, Refresh and Delete action buttons.
+`SourcesPage` SHALL dispatch `fetchSources` and `fetchDataTypes` on mount. When sources are loaded, `DataSourceList` renders one row per source showing: name, `type` badge (one of REST API / CSV / Static / SQL), Refresh and Delete action buttons.
 
 #### Scenario: Empty sources state
 - **WHEN** `GET /api/data-sources` returns an empty list
@@ -79,15 +79,15 @@ The frontend `DataTypeField` interface SHALL be `{ name: string; displayName: st
 - **WHEN** TypeDetailPanel is open for a DataType with fields
 - **THEN** each field row shows the displayName and dataType values from the field object
 
-### Requirement: DataType model removes sourceType
-The frontend `DataType` interface SHALL NOT include a `sourceType` field, which was never returned by the backend. Source-type information SHALL be accessed via `DataType.sourceId` (non-null means source-backed). The `PanelDetailModal` type badge SHALL use `sourceId !== null` as its condition.
+### Requirement: DataType model removes source kind discriminator
+The frontend `DataType` interface SHALL NOT include a source-kind discriminator field, which is never returned by the backend on `DataType`. Source-kind information SHALL be accessed via `DataType.sourceId` (non-null means source-backed). The `PanelDetailModal` type badge SHALL use `sourceId !== null` as its condition.
 
 #### Scenario: Panel type badge reflects source-backed status
 - **WHEN** PanelDetailModal is open for a panel bound to a DataType with a non-null sourceId
 - **THEN** the type badge is displayed to indicate the type is source-backed
 
 ### Requirement: AddSourceModal has a Manual/Static tab
-`AddSourceModal` SHALL include a third tab labelled "Manual" alongside the existing "REST API" and "CSV" tabs. Selecting this tab SHALL show a two-step flow: Step 1 — define columns (name and type selector: string/integer/float/boolean); Step 2 — enter row values inline using inputs matched to each column's declared type. Clicking "Create source" in Step 2 SHALL POST to `/api/data-sources` with `Content-Type: application/json` and `source_type: "static"`.
+`AddSourceModal` SHALL include a third tab labelled "Manual" alongside the existing "REST API" and "CSV" tabs. Selecting this tab SHALL show a two-step flow: Step 1 — define columns (name and type selector: string/integer/float/boolean); Step 2 — enter row values inline using inputs matched to each column's declared type. Clicking "Create source" in Step 2 SHALL POST to `/api/data-sources` with `Content-Type: application/json` and discriminator `type: "static"`.
 
 #### Scenario: Manual tab is accessible
 - **WHEN** the user opens `AddSourceModal`
@@ -103,16 +103,16 @@ The frontend `DataType` interface SHALL NOT include a `sourceType` field, which 
 
 #### Scenario: Save posts static payload
 - **WHEN** the user has defined columns and rows and clicks "Create source"
-- **THEN** `POST /api/data-sources` is called with `Content-Type: application/json`, `source_type: "static"`, `columns`, and `rows`
+- **THEN** `POST /api/data-sources` is called with `Content-Type: application/json`, discriminator `type: "static"`, `columns`, and `rows`
 
 #### Scenario: Empty column list prevents progression
 - **WHEN** no columns have been defined
 - **THEN** the "Next" button is disabled
 
 ### Requirement: DataSourceList shows a Static badge for static sources
-`DataSourceList` SHALL render a "Static" badge for sources whose `sourceType` is `"static"`, consistent with the existing badge rendering for other source types.
+`DataSourceList` SHALL render a "Static" badge for sources whose discriminator `type` is `"static"`, consistent with the existing badge rendering for other source types.
 
 #### Scenario: Static badge is visible
-- **WHEN** a data source with `sourceType: "static"` appears in `DataSourceList`
+- **WHEN** a data source with `type: "static"` appears in `DataSourceList`
 - **THEN** a badge with the text "Static" is rendered next to the source name
 

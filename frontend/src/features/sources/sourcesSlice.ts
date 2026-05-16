@@ -8,9 +8,8 @@ import {
   inferSqlSource as inferSqlSourceRequest,
   createSqlSource as createSqlSourceRequest,
   updateSource as updateSourceRequest,
-  type SqlSourceConfig,
 } from "../../services/dataSourceService";
-import type { DataSource, InferredField, StaticColumn } from "../../types/models";
+import type { DataSource, InferredField, SqlSourceConfig, StaticColumn } from "../../types/models";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {

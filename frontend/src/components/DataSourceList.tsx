@@ -5,6 +5,7 @@ import { deleteSource, fetchSources, updateSource } from "../features/sources/so
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
+import type { DataSourceKind } from "../types/models";
 
 interface DataSourceListProps {
   onAddSource?: () => void;
@@ -28,11 +29,11 @@ export function DataSourceList({ onAddSource }: DataSourceListProps) {
     return panels.some((p) => p.typeId === relatedType.id);
   }
 
-  async function handleRefresh(sourceId: string, sourceType: string) {
+  async function handleRefresh(sourceId: string, kind: DataSourceKind) {
     setRefreshingId(sourceId);
     setRefreshError(null);
     try {
-      await refreshSource(sourceId, sourceType);
+      await refreshSource(sourceId, kind);
       void dispatch(fetchDataTypes());
     } catch {
       setRefreshError("Failed to refresh source.");
@@ -109,13 +110,13 @@ export function DataSourceList({ onAddSource }: DataSourceListProps) {
                 <span className="data-source-list__item-name">{source.name}</span>
               )}
               <span className="data-source-list__item-type">
-                {source.sourceType === "rest_api"
+                {source.type === "rest_api"
                   ? "REST API"
-                  : source.sourceType === "csv"
+                  : source.type === "csv"
                     ? "CSV"
-                    : source.sourceType === "static"
+                    : source.type === "static"
                       ? "Static"
-                      : source.sourceType}
+                      : "SQL"}
               </span>
             </div>
             <div className="data-source-list__item-actions">
@@ -152,7 +153,7 @@ export function DataSourceList({ onAddSource }: DataSourceListProps) {
                     className="data-source-list__action-btn"
                     aria-label={`Refresh ${source.name}`}
                     disabled={refreshingId === source.id}
-                    onClick={() => void handleRefresh(source.id, source.sourceType)}
+                    onClick={() => void handleRefresh(source.id, source.type)}
                   >
                     {refreshingId === source.id ? "Refreshing…" : "Refresh"}
                   </button>

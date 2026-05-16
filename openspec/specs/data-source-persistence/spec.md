@@ -80,16 +80,18 @@ insertion, using the same matching logic as `POST /api/sources`.
 
 ### Requirement: Static source config shape is persisted in config JSONB
 The `data_sources.config` JSONB column SHALL store `{ "columns": [{ "name": string, "type": string }], "rows": [[...]] }`
-for sources with `source_type = "static"`. The `DataSourceRepository.update` method SHALL be used to
-replace this config on refresh.
+for sources with `source_type = "static"`. The `DataSourceRepository.updateStaticPayload` method
+SHALL be used to replace this config on refresh; the typed `StaticSource` ADT itself does not
+carry the payload (which would force the engine to round-trip a potentially-large blob through
+the ADT on every read).
 
 #### Scenario: Static config is round-tripped through the repository
-- **WHEN** a `DataSource` with `sourceType = Static` and a `config` containing `columns` and `rows` is inserted
-- **THEN** `DataSourceRepository.findById` returns the same `config` JSON value unchanged
+- **WHEN** a `StaticSource` is inserted and its `{columns, rows}` payload is written via `updateStaticPayload`
+- **THEN** `DataSourceRepository.readRawConfig` returns the same `config` JSON value unchanged
 
 #### Scenario: Config is replaced on update
-- **WHEN** `DataSourceRepository.update` is called with a modified `config` for an existing static source
-- **THEN** `findById` returns the source with the updated `config`
+- **WHEN** `DataSourceRepository.updateStaticPayload` is called with a modified payload for an existing static source
+- **THEN** `readRawConfig` returns the source's updated config payload
 
 ### Requirement: SQL source type is accepted in data_sources
 The `source_type` column in the `data_sources` table SHALL accept the value `"sql"` in addition to the

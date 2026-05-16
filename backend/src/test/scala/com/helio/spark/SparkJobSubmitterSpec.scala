@@ -20,28 +20,41 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
+  // In-memory mock DataSourceRepository — serves the static-payload JSON the
+  // `staticDs` helper stashes for each test. The Spark submitter reads the
+  // payload via `readRawConfig` (rather than off the ADT itself, which is
+  // identity-only for StaticSource).
+  private val staticPayloads = scala.collection.mutable.Map.empty[String, String]
+  private val mockDsRepo = new DataSourceRepository(null) {
+    override def readRawConfig(id: DataSourceId): Future[Option[String]] =
+      Future.successful(staticPayloads.get(id.value))
+  }
+
   // Use local mode to avoid external cluster dependency in tests.
   // pipelineRepo is null here — these tests exercise DataFrame ops only, not DB persistence.
-  private val submitter = new SparkJobSubmitter("local[*]", null, null)
+  private val submitter = new SparkJobSubmitter("local[*]", mockDsRepo, null)
 
-  // Helper: build a minimal static DataSource with given columns and rows.
+  /** Build a `StaticSource` with the given columns and rows. The `{columns,
+   *  rows}` JSON payload is stashed in `staticPayloads` keyed by id so the
+   *  mock repo's `readRawConfig` can serve it back. */
   private def staticDs(
       cols: Seq[(String, String)],
-      rows: Seq[Seq[JsValue]]
+      rows: Seq[Seq[JsValue]],
+      idOverride: Option[String] = None
   ): DataSource = {
+    val id      = DataSourceId(idOverride.getOrElse(java.util.UUID.randomUUID().toString))
     val colJson = JsArray(cols.map { case (n, t) =>
       JsObject("name" -> JsString(n), "type" -> JsString(t))
     }.toVector)
     val rowJson = JsArray(rows.map(r => JsArray(r.toVector)).toVector)
-    val config  = JsObject("columns" -> colJson, "rows" -> rowJson)
-    DataSource(
-      id         = DataSourceId("ds-1"),
-      name       = "test-source",
-      sourceType = SourceType.Static,
-      config     = config,
-      createdAt  = Instant.now(),
-      updatedAt  = Instant.now(),
-      ownerId    = UserId("user-1")
+    val payload = JsObject("columns" -> colJson, "rows" -> rowJson).compactPrint
+    staticPayloads(id.value) = payload
+    StaticSource(
+      id        = id,
+      name      = "test-source",
+      ownerId   = UserId("user-1"),
+      createdAt = Instant.now(),
+      updatedAt = Instant.now()
     )
   }
 
@@ -73,14 +86,13 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     }
 
     "throw for unsupported rest_api source type" in {
-      val ds = DataSource(
-        id         = DataSourceId("ds-2"),
-        name       = "rest",
-        sourceType = SourceType.RestApi,
-        config     = JsObject(),
-        createdAt  = Instant.now(),
-        updatedAt  = Instant.now(),
-        ownerId    = UserId("user-1")
+      val ds = RestSource(
+        id        = DataSourceId("ds-2"),
+        name      = "rest",
+        ownerId   = UserId("user-1"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(url = "https://example.test", method = "GET")
       )
       an[IllegalArgumentException] should be thrownBy submitter.loadDataFrame(ds)
     }
@@ -206,10 +218,11 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
   "submit" when {
 
-    var embeddedPostgres: EmbeddedPostgres           = null
-    var db: JdbcBackend.Database                     = null
-    var pipelineRepoForSubmit: PipelineRepository    = null
+    var embeddedPostgres: EmbeddedPostgres              = null
+    var db: JdbcBackend.Database                        = null
+    var pipelineRepoForSubmit: PipelineRepository       = null
     var pipelineRunRepoForSubmit: PipelineRunRepository = null
+    var dsRepoForSubmit: DataSourceRepository           = null
 
     def startDb(): Unit = {
       embeddedPostgres = EmbeddedPostgres.start()
@@ -220,8 +233,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         .migrate()
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
       val dtRepo = new DataTypeRepository(db)
-      val dsRepo = new DataSourceRepository(db)
-      pipelineRepoForSubmit    = new PipelineRepository(db, dtRepo, dsRepo)
+      dsRepoForSubmit          = new DataSourceRepository(db)
+      pipelineRepoForSubmit    = new PipelineRepository(db, dtRepo, dsRepoForSubmit)
       pipelineRunRepoForSubmit = new PipelineRunRepository(db)
     }
 
@@ -237,7 +250,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       await(db.run(DBIO.seq(
         sqlu"""INSERT INTO data_sources
                  (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[{"name":"x","type":"string"}],"rows":[["a"]]}', $ownerId::uuid, now(), now())""",
         sqlu"""INSERT INTO data_types
                  (id, name, fields, version, owner_id, created_at, updated_at)
                  VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
@@ -266,8 +279,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         try {
           val dsId = UUID.randomUUID().toString
           val pid  = seedPipeline(dsId)
-          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
-          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", dsRepoForSubmit, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
+          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))), Some(dsId))
           val pip = makePipeline(pid, dsId)
           val cache = new PipelineRunCache()
           await(submitterWithRepo.submit(pip, ds, Seq.empty, cache))
@@ -292,9 +305,9 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         try {
           val dsId = UUID.randomUUID().toString
           val pid  = seedPipeline(dsId)
-          val submitterWithRepo = new SparkJobSubmitter("local[*]", null, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
+          val submitterWithRepo = new SparkJobSubmitter("local[*]", dsRepoForSubmit, pipelineRepoForSubmit, pipelineRunRepoForSubmit)
           // A filter step with an invalid expression will cause a Spark analysis exception
-          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))))
+          val ds  = staticDs(Seq("x" -> "string"), Seq(Seq(JsString("a"))), Some(dsId))
           val badStep = PipelineStepRow(
             id = "s1", pipelineId = pid, position = 0,
             op = "filter",

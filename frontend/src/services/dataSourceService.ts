@@ -1,5 +1,16 @@
-import type { DataSource, DataType, InferredField, StaticColumn } from "../types/models";
+import type {
+  DataSource,
+  DataSourceKind,
+  DataType,
+  InferredField,
+  SqlSourceConfig,
+  StaticColumn,
+} from "../types/models";
 import { httpClient } from "./httpClient";
+
+// Re-export so existing call sites that imported `SqlSourceConfig` from this
+// module (back when the type lived here) keep compiling unchanged.
+export type { SqlSourceConfig } from "../types/models";
 
 interface DataSourcesResponse {
   items: DataSource[];
@@ -11,7 +22,10 @@ interface CreateSourceResponse {
   fetchError: string | null;
 }
 
-interface RestApiConfig {
+// Wire shape for REST connector config in inference / create-source bodies.
+// Backend `RestApiConfigPayload` allows `method` / `auth` / `headers` to be
+// optional and adds a `jsonPath` extension used by the AddSourceModal flow.
+export interface RestApiConfigBody {
   url: string;
   method?: string;
   headers?: Record<string, string>;
@@ -36,12 +50,12 @@ export async function fetchSources(): Promise<DataSource[]> {
 
 export async function createRestSource(
   name: string,
-  config: RestApiConfig,
+  config: RestApiConfigBody,
   fieldOverrides?: FieldOverride[],
 ): Promise<CreateSourceResponse> {
   const response = await httpClient.post<CreateSourceResponse>("/api/sources", {
     name,
-    sourceType: "rest_api",
+    type: "rest_api",
     config,
     fieldOverrides,
   });
@@ -72,7 +86,7 @@ export async function createStaticSource(
 ): Promise<DataSource> {
   const response = await httpClient.post<DataSource>("/api/data-sources", {
     name,
-    sourceType: "static",
+    type: "static",
     columns,
     rows,
   });
@@ -83,13 +97,13 @@ export async function deleteSource(sourceId: string): Promise<void> {
   await httpClient.delete(`/api/data-sources/${sourceId}`);
 }
 
-export async function refreshSource(sourceId: string, sourceType: string): Promise<DataType> {
-  const base = sourceType === "rest_api" ? "/api/sources" : "/api/data-sources";
+export async function refreshSource(sourceId: string, kind: DataSourceKind): Promise<DataType> {
+  const base = kind === "rest_api" || kind === "sql" ? "/api/sources" : "/api/data-sources";
   const response = await httpClient.post<DataType>(`${base}/${sourceId}/refresh`);
   return response.data;
 }
 
-export async function inferFromJson(config: RestApiConfig): Promise<InferredField[]> {
+export async function inferFromJson(config: RestApiConfigBody): Promise<InferredField[]> {
   const response = await httpClient.post<InferredSchemaResponse>("/api/sources/infer", config);
   return response.data.fields;
 }
@@ -107,19 +121,9 @@ export async function inferFromCsv(file: File): Promise<InferredField[]> {
   return response.data.fields;
 }
 
-export interface SqlSourceConfig {
-  dialect: "postgresql" | "mysql";
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  query: string;
-}
-
 export async function inferSqlSource(config: SqlSourceConfig): Promise<InferredField[]> {
   const response = await httpClient.post<InferredSchemaResponse>("/api/sources/infer", {
-    sourceType: "sql",
+    type: "sql",
     config,
   });
   return response.data.fields;
@@ -131,7 +135,7 @@ export async function createSqlSource(
 ): Promise<CreateSourceResponse> {
   const response = await httpClient.post<CreateSourceResponse>("/api/sources", {
     name,
-    sourceType: "sql",
+    type: "sql",
     config,
   });
   return response.data;

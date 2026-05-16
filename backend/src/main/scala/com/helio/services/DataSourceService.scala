@@ -52,28 +52,34 @@ final class DataSourceService(
     else {
       val now      = Instant.now()
       val sourceId = DataSourceId(UUID.randomUUID().toString)
-      val config   = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
-      val source   = DataSource(
-        id         = sourceId,
-        name       = req.name.trim,
-        sourceType = SourceType.Static,
-        config     = config,
-        createdAt  = now,
-        updatedAt  = now,
-        ownerId    = user.id
+      val source   = StaticSource(
+        id        = sourceId,
+        name      = req.name.trim,
+        ownerId   = user.id,
+        createdAt = now,
+        updatedAt = now
       )
-      dataSourceRepo.insert(source).flatMap { ds =>
-        val dataType = DataType(
-          id        = DataTypeId(UUID.randomUUID().toString),
-          sourceId  = Some(ds.id),
-          name      = req.name.trim,
-          fields    = req.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true)),
-          version   = 1,
-          createdAt = now,
-          updatedAt = now,
-          ownerId   = user.id
-        )
-        dataTypeRepo.insert(dataType).map(_ => Right(ds))
+      // StaticSource is identity-only in the ADT; the {columns, rows} payload
+      // is written to the `config` column directly via a static-payload-aware
+      // update so the engine + Spark submitter (which consume the raw blob)
+      // continue to work without further changes.
+      val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
+      dataSourceRepo.insert(source).flatMap { _ =>
+        dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now).flatMap {
+          case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
+          case Some(ds) =>
+            val dataType = DataType(
+              id        = DataTypeId(UUID.randomUUID().toString),
+              sourceId  = Some(ds.id),
+              name      = req.name.trim,
+              fields    = req.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true)),
+              version   = 1,
+              createdAt = now,
+              updatedAt = now,
+              ownerId   = user.id
+            )
+            dataTypeRepo.insert(dataType).map(_ => Right(ds))
+        }
       }
     }
 
@@ -94,14 +100,13 @@ final class DataSourceService(
         val now          = Instant.now()
         val sourceId     = DataSourceId(UUID.randomUUID().toString)
         val filePath     = s"csv/${sourceId.value}.csv"
-        val source = DataSource(
-          id         = sourceId,
-          name       = name,
-          sourceType = SourceType.Csv,
-          config     = JsObject("path" -> JsString(filePath)),
-          createdAt  = now,
-          updatedAt  = now,
-          ownerId    = user.id
+        val source = CsvSource(
+          id        = sourceId,
+          name      = name,
+          ownerId   = user.id,
+          createdAt = now,
+          updatedAt = now,
+          config    = CsvSourceConfig(filePath)
         )
         fileSystem.write(filePath, bytes).flatMap { _ =>
           dataSourceRepo.insert(source).flatMap { ds =>
@@ -142,10 +147,14 @@ final class DataSourceService(
               case None =>
                 Future.successful(Left(ServiceError.NotFound("Data source not found")))
               case Some(source) =>
-                val updated = source.copy(
-                  name      = req.name.map(_.trim).getOrElse(source.name),
-                  updatedAt = Instant.now()
-                )
+                val newName = req.name.map(_.trim).getOrElse(source.name)
+                val now     = Instant.now()
+                val updated = source match {
+                  case c: CsvSource    => c.copy(name = newName, updatedAt = now)
+                  case r: RestSource   => r.copy(name = newName, updatedAt = now)
+                  case s: SqlSource    => s.copy(name = newName, updatedAt = now)
+                  case s: StaticSource => s.copy(name = newName, updatedAt = now)
+                }
                 dataSourceRepo.update(updated).map {
                   case None     => Left(ServiceError.NotFound("Data source not found"))
                   case Some(ds) => Right(ds)
@@ -162,14 +171,11 @@ final class DataSourceService(
           case None =>
             Future.successful(Left(ServiceError.NotFound("Data source not found")))
           case Some(source) =>
-            val deleteFileF: Future[Unit] =
-              if (source.sourceType == SourceType.Csv)
-                DataSourceCsvSupport.csvPathFromConfig(source.config) match {
-                  case Some(path) =>
-                    fileSystem.delete(path).recover { case _ => () }
-                  case None => Future.successful(())
-                }
-              else Future.successful(())
+            val deleteFileF: Future[Unit] = source match {
+              case c: CsvSource =>
+                fileSystem.delete(c.config.path).recover { case _ => () }
+              case _ => Future.successful(())
+            }
             deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id)).map(_ => Right(()))
         }
     }
@@ -193,25 +199,24 @@ final class DataSourceService(
         dataSourceRepo.findById(sourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(source) if source.sourceType == SourceType.Static =>
+          case Some(s: StaticSource) =>
             staticPayload match {
               case Some(payload) if payload.rows.size > staticMaxRows =>
                 Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
-              case Some(payload) => applyStaticRefresh(source, payload, user)
+              case Some(payload) => applyStaticRefresh(s, payload, user)
               case None          => Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
             }
-          case Some(source) if source.sourceType == SourceType.Csv =>
-            refreshCsv(source, user)
+          case Some(c: CsvSource) =>
+            refreshCsv(c, user)
           case Some(_) =>
             Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
         }
     }
 
-  private def applyStaticRefresh(source: DataSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
-    val now    = Instant.now()
-    val config = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
-    val updatedSource = source.copy(config = config, updatedAt = now)
-    dataSourceRepo.update(updatedSource).flatMap {
+  private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+    val now     = Instant.now()
+    val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
+    dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now).flatMap {
       case None     => Future.failed(new RuntimeException("Source disappeared during update"))
       case Some(ds) =>
         dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
@@ -228,30 +233,28 @@ final class DataSourceService(
     }
   }
 
-  private def refreshCsv(source: DataSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    DataSourceCsvSupport.csvPathFromConfig(source.config) match {
-      case None =>
-        Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
-      case Some(path) =>
-        fileSystem.read(path).flatMap { bytes =>
-          val csv    = new String(bytes, StandardCharsets.UTF_8)
-          val schema = SchemaInferenceEngine.fromCsv(csv)
-          dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
-            types.headOption match {
-              case None => Future.successful(Right(source))
-              case Some(dt) =>
-                val now     = Instant.now()
-                val updated = dt.copy(
-                  fields    = schema.fields.map(f =>
-                    DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                  ).toVector,
-                  updatedAt = now
-                )
-                dataTypeRepo.update(updated).map(_ => Right(source))
-            }
+  private def refreshCsv(source: CsvSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    if (source.config.path.isEmpty)
+      Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+    else
+      fileSystem.read(source.config.path).flatMap { bytes =>
+        val csv    = new String(bytes, StandardCharsets.UTF_8)
+        val schema = SchemaInferenceEngine.fromCsv(csv)
+        dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
+          types.headOption match {
+            case None => Future.successful(Right(source))
+            case Some(dt) =>
+              val now     = Instant.now()
+              val updated = dt.copy(
+                fields    = schema.fields.map(f =>
+                  DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                ).toVector,
+                updatedAt = now
+              )
+              dataTypeRepo.update(updated).map(_ => Right(source))
           }
         }
-    }
+      }
 
   // ── Preview ───────────────────────────────────────────────────────────────
 
@@ -263,47 +266,50 @@ final class DataSourceService(
         dataSourceRepo.findById(sourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(source) if source.sourceType == SourceType.Static =>
-            Future.successful(Right(previewStatic(source)))
-          case Some(source) =>
-            previewCsv(source, clampedLimit)
+          case Some(s: StaticSource) =>
+            previewStatic(s).map(Right(_))
+          case Some(c: CsvSource) =>
+            previewCsv(c, clampedLimit)
+          case Some(_) =>
+            Future.successful(Left(ServiceError.BadRequest("preview is only supported for csv and static sources")))
         }
     }
   }
 
-  private def previewStatic(source: DataSource): CsvPreviewResponse = {
-    val fields  = source.config.asJsObject.fields
-    val headers = fields.get("columns")
-      .map(_.convertTo[Vector[StaticColumnPayload]].map(_.name))
-      .getOrElse(Vector.empty)
-    val rows = fields.get("rows")
-      .map(_.convertTo[Vector[Vector[JsValue]]].map(_.map {
-        case JsString(s)  => s
-        case JsNumber(n)  => n.toString
-        case JsBoolean(b) => b.toString
-        case JsNull       => ""
-        case other        => other.compactPrint
-      }))
-      .getOrElse(Vector.empty)
-    CsvPreviewResponse(headers, rows)
-  }
-
-  private def previewCsv(source: DataSource, limit: Int): Future[Either[ServiceError, CsvPreviewResponse]] =
-    DataSourceCsvSupport.csvPathFromConfig(source.config) match {
-      case None =>
-        Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
-      case Some(path) =>
-        fileSystem.read(path).map { bytes =>
-          val csv             = new String(bytes, StandardCharsets.UTF_8)
-          val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = limit)
-          Right(CsvPreviewResponse(headers, rows))
-        }.recover {
-          case _: java.nio.file.NoSuchFileException =>
-            Left(ServiceError.NotFound("Data file not found; the source may need to be re-uploaded"))
-          case _ =>
-            Left(ServiceError.InternalError("Failed to read data file"))
-        }
+  private def previewStatic(source: StaticSource): Future[CsvPreviewResponse] =
+    dataSourceRepo.readRawConfig(source.id).map {
+      case None => CsvPreviewResponse(Vector.empty, Vector.empty)
+      case Some(raw) =>
+        val obj     = DataSourceRepository.parseStaticPayload(raw)
+        val headers = obj.fields.get("columns")
+          .map(_.convertTo[Vector[StaticColumnPayload]].map(_.name))
+          .getOrElse(Vector.empty)
+        val rows = obj.fields.get("rows")
+          .map(_.convertTo[Vector[Vector[JsValue]]].map(_.map {
+            case JsString(s)  => s
+            case JsNumber(n)  => n.toString
+            case JsBoolean(b) => b.toString
+            case JsNull       => ""
+            case other        => other.compactPrint
+          }))
+          .getOrElse(Vector.empty)
+        CsvPreviewResponse(headers, rows)
     }
+
+  private def previewCsv(source: CsvSource, limit: Int): Future[Either[ServiceError, CsvPreviewResponse]] =
+    if (source.config.path.isEmpty)
+      Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+    else
+      fileSystem.read(source.config.path).map { bytes =>
+        val csv             = new String(bytes, StandardCharsets.UTF_8)
+        val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = limit)
+        Right(CsvPreviewResponse(headers, rows)): Either[ServiceError, CsvPreviewResponse]
+      }.recover {
+        case _: java.nio.file.NoSuchFileException =>
+          Left(ServiceError.NotFound("Data file not found; the source may need to be re-uploaded"))
+        case _ =>
+          Left(ServiceError.InternalError("Failed to read data file"))
+      }
 
   // ── Infer ─────────────────────────────────────────────────────────────────
 

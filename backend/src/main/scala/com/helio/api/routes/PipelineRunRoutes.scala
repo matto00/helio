@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse, RunSubmitResponse}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
-import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, PipelineId, PipelineRunId, SourceType}
+import com.helio.domain.{AuthenticatedUser, DataField, DataTypeId, InProcessPipelineEngine, PipelineId, PipelineRunId, RestSource, SqlSource}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import spray.json._
@@ -65,13 +65,13 @@ class PipelineRunRoutes(
                       )
 
                     case Success(Some(dataSource)) =>
-                      dataSource.sourceType match {
-                        case SourceType.RestApi | SourceType.Sql =>
+                      dataSource match {
+                        case _: RestSource | _: SqlSource =>
                           complete(
                             StatusCodes.UnprocessableEntity,
                             ErrorResponse(
                               "Unsupported source type for Spark job submission: " +
-                                SourceType.asString(dataSource.sourceType) +
+                                dataSource.kind +
                                 ". Only static and csv are currently supported."
                             )
                           )
@@ -106,7 +106,7 @@ class PipelineRunRoutes(
 
                               onComplete(
                                 preExec.flatMap { _ =>
-                                  inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
+                                  inProcessEngine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
                                     inProcessEngine
                                       .executeWithStepCounts(sourceRows, steps, dataSourceRepo)
                                       .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
@@ -244,13 +244,13 @@ class PipelineRunRoutes(
                     )
 
                   case Success(Some(dataSource)) =>
-                    dataSource.sourceType match {
-                      case SourceType.RestApi | SourceType.Sql =>
+                    dataSource match {
+                      case _: RestSource | _: SqlSource =>
                         complete(
                           StatusCodes.UnprocessableEntity,
                           ErrorResponse(
                             "Unsupported source type for preview: " +
-                              SourceType.asString(dataSource.sourceType) +
+                              dataSource.kind +
                               ". Only static and csv are currently supported."
                           )
                         )
@@ -269,7 +269,7 @@ class PipelineRunRoutes(
                               case k =>
                                 val slicedSteps = sortedSteps.take(k + 1)
                                 onComplete(
-                                  inProcessEngine.loadRows(dataSource).flatMap { sourceRows =>
+                                  inProcessEngine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
                                     inProcessEngine
                                       .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
                                       .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }

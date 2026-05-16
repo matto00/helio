@@ -1227,7 +1227,7 @@ class ApiRoutesSpec
         "/api/sources",
         CreateSourceRequest(
           name           = "My API",
-          sourceType     = "rest_api",
+          `type`         = "rest_api",
           config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
           fieldOverrides = None
         )
@@ -1247,7 +1247,7 @@ class ApiRoutesSpec
         "/api/sources",
         CreateSourceRequest(
           name           = "Bad API",
-          sourceType     = "rest_api",
+          `type`         = "rest_api",
           config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
           fieldOverrides = None
         )
@@ -1267,14 +1267,13 @@ class ApiRoutesSpec
       import spray.json._
 
       val now = Instant.now()
-      val source = DataSource(
-        id         = DataSourceId(UUID.randomUUID().toString),
-        name       = "Refresh Source",
-        sourceType = SourceType.RestApi,
-        config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
-        createdAt  = now,
-        updatedAt  = now,
-        ownerId    = UserId(testUserId)
+      val source = RestSource(
+        id        = DataSourceId(UUID.randomUUID().toString),
+        name      = "Refresh Source",
+        ownerId   = UserId(testUserId),
+        createdAt = now,
+        updatedAt = now,
+        config    = RestApiConfig(url = "http://example.com", method = "GET")
       )
       await(dataSourceRepo.insert(source))
 
@@ -1314,14 +1313,13 @@ class ApiRoutesSpec
       import spray.json._
 
       val now = Instant.now()
-      val source = DataSource(
-        id         = DataSourceId(UUID.randomUUID().toString),
-        name       = "Preview Source",
-        sourceType = SourceType.RestApi,
-        config     = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None).toJson,
-        createdAt  = now,
-        updatedAt  = now,
-        ownerId    = UserId(testUserId)
+      val source = RestSource(
+        id        = DataSourceId(UUID.randomUUID().toString),
+        name      = "Preview Source",
+        ownerId   = UserId(testUserId),
+        createdAt = now,
+        updatedAt = now,
+        config    = RestApiConfig(url = "http://example.com", method = "GET")
       )
       await(dataSourceRepo.insert(source))
 
@@ -2127,7 +2125,7 @@ class ApiRoutesSpec
 
       // testUser creates a source via the API
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Source","sourceType":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
+        """{"name":"My Source","type":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
@@ -2135,14 +2133,12 @@ class ApiRoutesSpec
       // Insert a source owned by another user directly
       val otherId = UUID.randomUUID().toString
       val now = Instant.now()
-      await(dataSourceRepo.insert(DataSource(
-        id         = DataSourceId(otherId),
-        name       = "Other Source",
-        sourceType = SourceType.Static,
-        config     = JsObject.empty,
-        createdAt  = now,
-        updatedAt  = now,
-        ownerId    = UserId(otherUserId)
+      await(dataSourceRepo.insert(StaticSource(
+        id        = DataSourceId(otherId),
+        name      = "Other Source",
+        ownerId   = UserId(otherUserId),
+        createdAt = now,
+        updatedAt = now
       )))
 
       Get("/api/data-sources") ~> routes() ~> check {
@@ -2162,7 +2158,7 @@ class ApiRoutesSpec
       // Create a source as testUser
       var sourceId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"Protected Source","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+        """{"name":"Protected Source","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         sourceId = responseAs[DataSourceResponse].id
@@ -2179,7 +2175,7 @@ class ApiRoutesSpec
       cleanDb()
       var sourceId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"Private Source","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[["hello"]]}"""
+        """{"name":"Private Source","type":"static","columns":[{"name":"x","type":"string"}],"rows":[["hello"]]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         sourceId = responseAs[DataSourceResponse].id
@@ -2204,7 +2200,7 @@ class ApiRoutesSpec
 
       // testUser creates a type via CSV upload (which auto-creates a DataType)
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"User Type","sourceType":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
+        """{"name":"User Type","type":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
@@ -2239,7 +2235,7 @@ class ApiRoutesSpec
       // testUser creates a type
       var typeId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+        """{"name":"My Type","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
@@ -2265,7 +2261,7 @@ class ApiRoutesSpec
       // testUser creates a type
       var typeId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type2","sourceType":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
+        """{"name":"My Type2","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
       )) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }

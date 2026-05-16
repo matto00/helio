@@ -11,20 +11,32 @@ jest.mock("../services/pipelineService", () => ({
 
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
 
-const testDataSources = [
+import type { DataSource } from "../types/models";
+
+const testDataSources: DataSource[] = [
   {
     id: "ds-1",
     name: "Sales API",
-    sourceType: "rest_api",
+    type: "rest_api",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    config: { url: "https://example.com/api" },
   },
   {
     id: "ds-2",
     name: "ERP DB",
-    sourceType: "sql",
+    type: "sql",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    config: {
+      dialect: "postgresql",
+      host: "h",
+      port: 5432,
+      database: "d",
+      user: "u",
+      password: "p",
+      query: "SELECT 1",
+    },
   },
 ];
 
