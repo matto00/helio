@@ -38,13 +38,13 @@ interface FilterConfigProps {
   config: FilterConfigValue;
   /** Full schema fields from the analyze endpoint's inputSchema for type-aware value input. */
   analyzeSchema: SchemaField[];
-  /** Called with the new serialized config JSON string on any change. */
-  onChange: (newConfig: string) => void;
+  /** Called with the typed config object on any change (CS2c-3a). */
+  onChange: (newConfig: FilterConfigValue) => void;
 }
 
 export function FilterConfig({ config, analyzeSchema, onChange }: FilterConfigProps) {
   function emit(next: FilterConfigValue) {
-    onChange(JSON.stringify(next));
+    onChange(next);
   }
 
   function handleCombinatorChange(combinator: "AND" | "OR") {

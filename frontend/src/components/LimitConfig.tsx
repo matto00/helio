@@ -9,8 +9,8 @@ import { TextField } from "./ui";
 interface LimitConfigProps {
   /** Current row count limit (parsed from the step config). */
   count: number;
-  /** Called with the new serialized config JSON string on a valid change. */
-  onChange: (newConfig: string) => void;
+  /** Called with the typed config object on a valid change (CS2c-3a). */
+  onChange: (newConfig: { count: number }) => void;
 }
 
 export function LimitConfig({ count, onChange }: LimitConfigProps) {
@@ -18,7 +18,7 @@ export function LimitConfig({ count, onChange }: LimitConfigProps) {
     const raw = e.target.value;
     const parsed = parseInt(raw, 10);
     if (!isNaN(parsed) && parsed > 0) {
-      onChange(JSON.stringify({ count: parsed }));
+      onChange({ count: parsed });
     }
   }
 

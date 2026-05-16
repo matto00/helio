@@ -43,11 +43,21 @@ import {
 } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
 import type {
+  AggregateConfig as AggregateConfigType,
   AnalyzeStepResult,
+  CastConfig as CastConfigType,
+  ComputeConfig as ComputeConfigType,
   DataSource,
+  FilterConfig as FilterConfigType,
+  LimitConfig as LimitConfigType,
   PipelineRunRecord,
   PipelineStep,
+  PipelineStepConfig,
+  PipelineStepKind,
+  RenameConfig as RenameConfigType,
   SchemaField,
+  SelectConfig as SelectConfigType,
+  SortConfig as SortConfigType,
 } from "../types/models";
 import { AggregateConfig } from "./AggregateConfig";
 import type { AggregateConfigValue } from "./AggregateConfig";
@@ -88,7 +98,38 @@ interface Step {
   id: string;
   opType: OpType;
   label: string;
-  config: string;
+  config: PipelineStepConfig;
+}
+
+/** Empty / default config per kind. Matches the seed shapes used in the
+ *  `handleAddStep` flow — kept as a single source of truth so seeding new
+ *  steps and parsing the absence of persisted config (legacy in-flight steps
+ *  with no body) produce the same shape. */
+function defaultConfigFor(kind: string): PipelineStepConfig {
+  switch (kind) {
+    case "select":
+      return { fields: [] } as SelectConfigType;
+    case "rename":
+      return { renames: {} } as RenameConfigType;
+    case "cast":
+      return { casts: {} } as CastConfigType;
+    case "filter":
+      return { combinator: "AND", conditions: [] } as FilterConfigType;
+    case "compute":
+      return { column: "", expression: "", type: "number" } as ComputeConfigType;
+    case "aggregate":
+      return { groupBy: [], aggregations: [] } as AggregateConfigType;
+    case "limit":
+      return { count: 100 } as LimitConfigType;
+    case "sort":
+      return { sortBy: [] } as SortConfigType;
+    case "join":
+      return { rightDataSourceId: "", joinKey: "", joinType: "inner" };
+    case "groupby":
+      return { groupBy: [], aggColumn: "", aggFunction: "sum" };
+    default:
+      return { fields: [] } as SelectConfigType;
+  }
 }
 
 let stepCounter = 0;
@@ -98,12 +139,12 @@ function makeStep(opType: OpType): Step {
     id: `step-${stepCounter}`,
     opType,
     label: opType.label,
-    config: "",
+    config: defaultConfigFor(opType.id),
   };
 }
 
 function pipelineStepToStep(ps: PipelineStep): Step {
-  const opType = OP_TYPES.find((op) => op.id === ps.op) ?? OP_TYPES[0];
+  const opType = OP_TYPES.find((op) => op.id === ps.type) ?? OP_TYPES[0];
   return {
     id: ps.id,
     opType,
@@ -203,108 +244,63 @@ function OpDropdown({ onSelect, onClose }: OpDropdownProps) {
   );
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Narrowing helpers ────────────────────────────────────────────────────────
+//
+// CS2c-3a: configs are already typed objects (the wire shape is a
+// discriminated union). These helpers narrow `Step.config` to the kind-specific
+// shape — no JSON.parse needed.
 
-function parseSelectedFields(config: string, opTypeId: string): string[] {
-  if (opTypeId !== "select" || !config) return [];
-  try {
-    const parsed = JSON.parse(config) as { fields?: string[] };
-    return parsed.fields ?? [];
-  } catch {
-    return [];
-  }
+function selectedFieldsOf(step: Step): string[] {
+  return step.opType.id === "select" ? (step.config as SelectConfigType).fields : [];
 }
 
-function parseRenames(config: string, opTypeId: string): Record<string, string> {
-  if (opTypeId !== "rename" || !config) return {};
-  try {
-    const parsed = JSON.parse(config) as { renames?: Record<string, string> };
-    return parsed.renames ?? {};
-  } catch {
-    return {};
-  }
+function renamesOf(step: Step): Record<string, string> {
+  return step.opType.id === "rename" ? (step.config as RenameConfigType).renames : {};
 }
 
-function parseCasts(config: string, opTypeId: string): Record<string, string> {
-  if (opTypeId !== "cast" || !config) return {};
-  try {
-    const parsed = JSON.parse(config) as { casts?: Record<string, string> };
-    return parsed.casts ?? {};
-  } catch {
-    return {};
-  }
+function castsOf(step: Step): Record<string, string> {
+  return step.opType.id === "cast" ? (step.config as CastConfigType).casts : {};
 }
 
-function parseFilterConfig(config: string, opTypeId: string): FilterConfigValue {
-  if (opTypeId !== "filter" || !config) return { combinator: "AND", conditions: [] };
-  try {
-    const parsed = JSON.parse(config) as {
-      combinator?: string;
-      conditions?: FilterConfigValue["conditions"];
-    };
-    return {
-      combinator: parsed.combinator === "OR" ? "OR" : "AND",
-      conditions: parsed.conditions ?? [],
-    };
-  } catch {
-    return { combinator: "AND", conditions: [] };
-  }
+function filterConfigOf(step: Step): FilterConfigValue {
+  if (step.opType.id !== "filter") return { combinator: "AND", conditions: [] };
+  const cfg = step.config as FilterConfigType;
+  return {
+    combinator: cfg.combinator === "OR" ? "OR" : "AND",
+    conditions: (cfg.conditions ?? []) as FilterConfigValue["conditions"],
+  };
 }
 
-function parseComputeConfig(config: string, opTypeId: string): ComputeConfigValue {
+function computeConfigOf(step: Step): ComputeConfigValue {
   const empty: ComputeConfigValue = { column: "", expression: "", type: "number" };
-  if (opTypeId !== "compute" || !config) return empty;
-  try {
-    const parsed = JSON.parse(config) as {
-      column?: string;
-      expression?: string;
-      type?: string;
-    };
-    return {
-      column: parsed.column ?? "",
-      expression: parsed.expression ?? "",
-      type: parsed.type ?? "number",
-    };
-  } catch {
-    return empty;
-  }
+  if (step.opType.id !== "compute") return empty;
+  const cfg = step.config as ComputeConfigType;
+  return {
+    column: cfg.column ?? "",
+    expression: cfg.expression ?? "",
+    type: cfg.type ?? "number",
+  };
 }
 
-function parseLimitConfig(config: string, opTypeId: string): number {
-  if (opTypeId !== "limit" || !config) return 100;
-  try {
-    const parsed = JSON.parse(config) as { count?: number };
-    return typeof parsed.count === "number" && parsed.count > 0 ? parsed.count : 100;
-  } catch {
-    return 100;
-  }
+function limitCountOf(step: Step): number {
+  if (step.opType.id !== "limit") return 100;
+  const cfg = step.config as LimitConfigType;
+  return typeof cfg.count === "number" && cfg.count > 0 ? cfg.count : 100;
 }
 
-function parseAggregateConfig(config: string, opTypeId: string): AggregateConfigValue {
-  const empty: AggregateConfigValue = { groupBy: [], aggregations: [] };
-  if (opTypeId !== "aggregate" || !config) return empty;
-  try {
-    const parsed = JSON.parse(config) as {
-      groupBy?: AggregateConfigValue["groupBy"];
-      aggregations?: AggregateConfigValue["aggregations"];
-    };
-    return {
-      groupBy: parsed.groupBy ?? [],
-      aggregations: parsed.aggregations ?? [],
-    };
-  } catch {
-    return empty;
-  }
+function aggregateConfigOf(step: Step): AggregateConfigValue {
+  if (step.opType.id !== "aggregate") return { groupBy: [], aggregations: [] };
+  const cfg = step.config as AggregateConfigType;
+  return {
+    groupBy: cfg.groupBy as AggregateConfigValue["groupBy"],
+    aggregations: cfg.aggregations as AggregateConfigValue["aggregations"],
+  };
 }
 
-function parseSortConfig(config: string, opTypeId: string): SortKey[] {
-  if (opTypeId !== "sort" || !config) return [];
-  try {
-    const parsed = JSON.parse(config) as { sortBy?: SortKey[] };
-    return Array.isArray(parsed.sortBy) ? parsed.sortBy : [];
-  } catch {
-    return [];
-  }
+function sortConfigOf(step: Step): SortKey[] {
+  if (step.opType.id !== "sort") return [];
+  const cfg = step.config as SortConfigType;
+  return Array.isArray(cfg.sortBy) ? (cfg.sortBy as SortKey[]) : [];
 }
 
 // ── Step card ────────────────────────────────────────────────────────────────
@@ -318,7 +314,7 @@ interface StepCardProps {
   /** Full schema fields from the analyze endpoint's inputSchema — used by FilterConfig for type-aware value input. */
   analyzeSchema: SchemaField[];
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
-  onConfigChange: (stepId: string, config: string) => void;
+  onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   /** Output row count from the last run, if available. Null hides the chip. */
   rowCount: number | null;
 }
@@ -359,149 +355,98 @@ function StepCard({
     }
   }
 
-  // Derived state: sync selectedFields, renames, casts, and filterConfig when config or opType
-  // changes (during-render pattern).
+  // Derived state: sync local editor state when the persisted config or
+  // opType changes (during-render pattern). CS2c-3a: `step.config` is already
+  // a typed object, so the narrowing helpers replace the per-render JSON
+  // parsing the pre-CS2c-3a editor performed.
   const [prevConfig, setPrevConfig] = useState(step.config);
   const [prevOpTypeId, setPrevOpTypeId] = useState(step.opType.id);
-  const [selectedFields, setSelectedFields] = useState<string[]>(() =>
-    parseSelectedFields(step.config, step.opType.id),
-  );
-  const [renames, setRenames] = useState<Record<string, string>>(() =>
-    parseRenames(step.config, step.opType.id),
-  );
-  const [casts, setCasts] = useState<Record<string, string>>(() =>
-    parseCasts(step.config, step.opType.id),
-  );
-  const [filterConfig, setFilterConfig] = useState<FilterConfigValue>(() =>
-    parseFilterConfig(step.config, step.opType.id),
-  );
+  const [selectedFields, setSelectedFields] = useState<string[]>(() => selectedFieldsOf(step));
+  const [renames, setRenames] = useState<Record<string, string>>(() => renamesOf(step));
+  const [casts, setCasts] = useState<Record<string, string>>(() => castsOf(step));
+  const [filterConfig, setFilterConfig] = useState<FilterConfigValue>(() => filterConfigOf(step));
   const [computeConfig, setComputeConfig] = useState<ComputeConfigValue>(() =>
-    parseComputeConfig(step.config, step.opType.id),
+    computeConfigOf(step),
   );
   const [aggregateConfig, setAggregateConfig] = useState<AggregateConfigValue>(() =>
-    parseAggregateConfig(step.config, step.opType.id),
+    aggregateConfigOf(step),
   );
-  const [limitCount, setLimitCount] = useState<number>(() =>
-    parseLimitConfig(step.config, step.opType.id),
-  );
-  const [sortConfig, setSortConfig] = useState<SortKey[]>(() =>
-    parseSortConfig(step.config, step.opType.id),
-  );
+  const [limitCount, setLimitCount] = useState<number>(() => limitCountOf(step));
+  const [sortConfig, setSortConfig] = useState<SortKey[]>(() => sortConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
-    setSelectedFields(parseSelectedFields(step.config, step.opType.id));
-    setRenames(parseRenames(step.config, step.opType.id));
-    setCasts(parseCasts(step.config, step.opType.id));
-    setFilterConfig(parseFilterConfig(step.config, step.opType.id));
-    setComputeConfig(parseComputeConfig(step.config, step.opType.id));
-    setAggregateConfig(parseAggregateConfig(step.config, step.opType.id));
-    setLimitCount(parseLimitConfig(step.config, step.opType.id));
-    setSortConfig(parseSortConfig(step.config, step.opType.id));
+    setSelectedFields(selectedFieldsOf(step));
+    setRenames(renamesOf(step));
+    setCasts(castsOf(step));
+    setFilterConfig(filterConfigOf(step));
+    setComputeConfig(computeConfigOf(step));
+    setAggregateConfig(aggregateConfigOf(step));
+    setLimitCount(limitCountOf(step));
+    setSortConfig(sortConfigOf(step));
+  }
+
+  /** Shared persistence path — PATCHes the typed config, then notifies the
+   *  parent. Local editor state is updated by the caller (so the UI stays
+   *  responsive regardless of network result). */
+  function persist(newConfig: PipelineStepConfig): void {
+    void updatePipelineStep(step.id, newConfig)
+      .then(() => {
+        onConfigChange(step.id, newConfig);
+      })
+      .catch(() => {
+        // No-op: local state always reflects user intent even if PATCH fails.
+      });
   }
 
   function handleFieldToggle(field: string, checked: boolean) {
     const next = checked ? [...selectedFields, field] : selectedFields.filter((f) => f !== field);
     setSelectedFields(next);
-    const newConfig = JSON.stringify({ fields: next });
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+    persist({ fields: next });
   }
 
   function handleRenameChange(field: string, newName: string) {
     const next = { ...renames };
-    if (newName) {
-      next[field] = newName;
-    } else {
-      delete next[field];
-    }
+    if (newName) next[field] = newName;
+    else delete next[field];
     setRenames(next);
-    const newConfig = JSON.stringify({ renames: next });
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+    persist({ renames: next });
   }
 
   function handleCastChange(field: string, targetType: string) {
     const next = { ...casts };
-    if (targetType) {
-      next[field] = targetType;
-    } else {
-      delete next[field];
-    }
+    if (targetType) next[field] = targetType;
+    else delete next[field];
     setCasts(next);
-    const newConfig = JSON.stringify({ casts: next });
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+    persist({ casts: next });
   }
 
-  function handleFilterChange(newConfig: string) {
-    setFilterConfig(parseFilterConfig(newConfig, "filter"));
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+  function handleFilterChange(newConfig: FilterConfigValue) {
+    setFilterConfig(newConfig);
+    persist({
+      combinator: newConfig.combinator,
+      conditions: newConfig.conditions,
+    });
   }
 
-  function handleComputeChange(newConfig: string) {
-    setComputeConfig(parseComputeConfig(newConfig, "compute"));
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+  function handleComputeChange(newConfig: ComputeConfigValue) {
+    setComputeConfig(newConfig);
+    persist(newConfig);
   }
 
-  function handleAggregateChange(newConfig: string) {
-    setAggregateConfig(parseAggregateConfig(newConfig, "aggregate"));
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+  function handleAggregateChange(newConfig: AggregateConfigValue) {
+    setAggregateConfig(newConfig);
+    persist(newConfig);
   }
 
-  function handleLimitChange(newConfig: string) {
-    setLimitCount(parseLimitConfig(newConfig, "limit"));
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+  function handleLimitChange(newConfig: { count: number }) {
+    setLimitCount(newConfig.count);
+    persist(newConfig);
   }
 
-  function handleSortChange(newConfig: string) {
-    setSortConfig(parseSortConfig(newConfig, "sort"));
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+  function handleSortChange(newConfig: { sortBy: SortKey[] }) {
+    setSortConfig(newConfig.sortBy);
+    persist(newConfig);
   }
 
   return (
@@ -824,7 +769,11 @@ export function PipelineDetailPage() {
   // We key on the SHAPE of steps (id, op, config) — not the array reference —
   // so transient setState calls that don't change content don't trigger
   // re-analyze.
-  const stepsFingerprint = steps.map((s) => `${s.id}:${s.opType.id}:${s.config}`).join("|");
+  // Serialize the typed config for the fingerprint — JSON.stringify here
+  // is purely a comparison-shape helper, not a wire-format serialization.
+  const stepsFingerprint = steps
+    .map((s) => `${s.id}:${s.opType.id}:${JSON.stringify(s.config)}`)
+    .join("|");
   useEffect(() => {
     if (!id || steps.length === 0) return;
     const handle = window.setTimeout(() => {
@@ -890,25 +839,8 @@ export function PipelineDetailPage() {
     const tempStep = makeStep(opType);
     setSteps((prev) => [...prev, tempStep]);
     try {
-      const initialConfig =
-        opType.id === "select"
-          ? '{"fields":[]}'
-          : opType.id === "rename"
-            ? '{"renames":{}}'
-            : opType.id === "cast"
-              ? '{"casts":{}}'
-              : opType.id === "filter"
-                ? '{"combinator":"AND","conditions":[]}'
-                : opType.id === "compute"
-                  ? '{"column":"","expression":"","type":"number"}'
-                  : opType.id === "aggregate"
-                    ? '{"groupBy":[],"aggregations":[]}'
-                    : opType.id === "limit"
-                      ? '{"count":100}'
-                      : opType.id === "sort"
-                        ? '{"sortBy":[]}'
-                        : "{}";
-      const persisted = await createPipelineStep(id, opType.id, initialConfig);
+      const initialConfig = defaultConfigFor(opType.id);
+      const persisted = await createPipelineStep(id, opType.id as PipelineStepKind, initialConfig);
       setSteps((prev) =>
         prev.map((s) => (s.id === tempStep.id ? pipelineStepToStep(persisted) : s)),
       );
@@ -917,7 +849,7 @@ export function PipelineDetailPage() {
     }
   }
 
-  function handleStepConfigChange(stepId: string, config: string) {
+  function handleStepConfigChange(stepId: string, config: PipelineStepConfig) {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
   }
 

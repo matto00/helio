@@ -124,7 +124,7 @@ describe("AggregateConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /add group-by field/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.groupBy).toHaveLength(1);
     expect(parsed.groupBy[0].name).toBe("dept");
   });
@@ -150,7 +150,7 @@ describe("AggregateConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove group-by field 1/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.groupBy).toHaveLength(1);
     expect(parsed.groupBy[0].name).toBe("age");
   });
@@ -171,7 +171,7 @@ describe("AggregateConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /add aggregation/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations).toHaveLength(1);
     expect(parsed.aggregations[0].fn).toBe("sum");
   });
@@ -197,7 +197,7 @@ describe("AggregateConfig", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove aggregation 1/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations).toHaveLength(1);
     expect(parsed.aggregations[0].alias).toBe("cnt");
   });
@@ -279,7 +279,7 @@ describe("AggregateConfig", () => {
     });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations[0].alias).toBe("total_age");
     expect(parsed.aggregations[0].fn).toBe("sum");
     expect(parsed.aggregations[0].field).toBe("age");
@@ -304,7 +304,7 @@ describe("AggregateConfig", () => {
     fireEvent.click(screen.getByRole("option", { name: "avg" }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(onChange.mock.calls[0][0] as string) as AggregateConfigValue;
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations[0].fn).toBe("avg");
   });
 });

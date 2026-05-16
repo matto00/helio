@@ -17,13 +17,13 @@ interface SortConfigProps {
   sortBy: SortKey[];
   /** Column names from the analyze endpoint's inputSchema for field selection. */
   columns: string[];
-  /** Called with the new serialized config JSON string on any change. */
-  onChange: (newConfig: string) => void;
+  /** Called with the typed config object on any change (CS2c-3a). */
+  onChange: (newConfig: { sortBy: SortKey[] }) => void;
 }
 
 export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
   function emit(next: SortKey[]) {
-    onChange(JSON.stringify({ sortBy: next }));
+    onChange({ sortBy: next });
   }
 
   function handleAddKey() {

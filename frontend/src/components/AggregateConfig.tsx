@@ -36,8 +36,8 @@ interface AggregateConfigProps {
   analyzeSchema: SchemaField[];
   /** Column names derived from analyzeSchema — used for the aggregation field dropdown. */
   analyzeColumns: string[];
-  /** Called with the new serialized config JSON string on any change. */
-  onChange: (newConfig: string) => void;
+  /** Called with the typed config object on any change (CS2c-3a). */
+  onChange: (newConfig: AggregateConfigValue) => void;
 }
 
 export function AggregateConfig({
@@ -47,7 +47,7 @@ export function AggregateConfig({
   onChange,
 }: AggregateConfigProps) {
   function emit(next: AggregateConfigValue) {
-    onChange(JSON.stringify(next));
+    onChange(next);
   }
 
   // ── Group-by handlers ──────────────────────────────────────────────────────
