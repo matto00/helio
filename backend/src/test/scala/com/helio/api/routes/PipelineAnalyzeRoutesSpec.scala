@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
-import com.helio.domain.{AuthenticatedUser, PipelineId, UserId}
+import com.helio.domain.{AuthenticatedUser, PipelineId, SelectConfig, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -131,8 +131,8 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false},{"name":"created_at","displayName":"Created","dataType":"string","nullable":true}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      // Insert a select step via the repo
-      await(pipelineStepRepo.insert(PipelineId(pid), "select", """{"fields":["order_id","amount"]}"""))
+      // Insert a select step via the repo (CS2c-3a typed config)
+      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount"))))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -140,7 +140,7 @@ class PipelineAnalyzeRoutesSpec
 
         resp.steps should have size 1
         val step: AnalyzeStepResponse = resp.steps(0)
-        step.op shouldBe "select"
+        step.`type` shouldBe "select"
         step.inputSchema.map(_.name)  should contain allOf ("order_id", "amount", "created_at")
         step.outputSchema.map(_.name) shouldBe Vector("order_id", "amount")
         step.validationError shouldBe None
