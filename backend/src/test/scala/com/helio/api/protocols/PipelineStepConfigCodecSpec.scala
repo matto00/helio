@@ -89,6 +89,52 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("aggregate", """{}""").get shouldBe
         AggregateConfig(Vector.empty, Vector.empty)
     }
+
+    // ── Partial-config tolerance for the remaining 7 kinds ────────────────────
+    //
+    // Regression coverage for the CS2c-3a read-path regression: pre-fix any
+    // persisted row with `config = '{}'` on rename/join/groupby/cast/select/
+    // limit/sort hard-failed in `convertTo[*Config]` → 500 on the entire
+    // listByPipeline result. Each kind now decodes into a default-valued
+    // config; engine-time required-field failures match pre-CS2c-3a behaviour.
+
+    "rename — decode({}) yields empty renames map" in {
+      PipelineStepConfigCodec.decode("rename", "{}").get shouldBe RenameConfig(Map.empty)
+    }
+
+    "join — decode({}) yields empty ids and inner default" in {
+      PipelineStepConfigCodec.decode("join", "{}").get shouldBe JoinConfig("", "", "inner")
+    }
+
+    "groupby — decode({}) yields empty groupBy / empty aggColumn / sum default" in {
+      PipelineStepConfigCodec.decode("groupby", "{}").get shouldBe
+        GroupByConfig(Vector.empty, "", "sum")
+    }
+
+    "cast — decode({}) yields empty casts map" in {
+      PipelineStepConfigCodec.decode("cast", "{}").get shouldBe CastConfig(Map.empty)
+    }
+
+    "select — decode({}) yields empty fields vector" in {
+      PipelineStepConfigCodec.decode("select", "{}").get shouldBe SelectConfig(Vector.empty)
+    }
+
+    "limit — decode({}) yields count=0 (engine treats as no-op)" in {
+      PipelineStepConfigCodec.decode("limit", "{}").get shouldBe LimitConfig(0)
+    }
+
+    "sort — decode({}) yields empty sortBy" in {
+      PipelineStepConfigCodec.decode("sort", "{}").get shouldBe SortConfig(Vector.empty)
+    }
+
+    "every kind tolerates decode({}) without throwing" in {
+      PipelineStepKind.All.foreach { kind =>
+        val result = PipelineStepConfigCodec.decode(kind, "{}")
+        withClue(s"kind=$kind: ") {
+          result.isSuccess shouldBe true
+        }
+      }
+    }
   }
 
   "failure modes" should {

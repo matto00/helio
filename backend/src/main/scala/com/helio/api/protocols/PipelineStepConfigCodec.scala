@@ -13,9 +13,14 @@ import scala.util.Try
  *  with the per-subtype wire payloads. Keeping the codec here avoids
  *  duplicating spray-json wiring in the repository.
  *
- *  Unlike `DataSourceConfigCodec`, this codec has no legacy-tolerance path —
- *  pipeline step config has always been JSON text in `pipeline_steps.config`,
- *  so the codec just needs to round-trip the known shapes per kind. */
+ *  Read-path tolerance: every `decode*` helper pulls fields with
+ *  `obj.fields.get(...)` and falls back to a typed default rather than
+ *  hard-failing on a missing key. This preserves the pre-CS2c-3a read
+ *  behaviour (the engine deferred required-field checks to execute time via
+ *  `cfg.fields.get(...).getOrElse(...)`), so a persisted row with a partial
+ *  config decodes into a default-valued config and `/steps` / `/analyze`
+ *  keep responding. Execute-time failures on default values still surface
+ *  the same way they did before the structural refactor. */
 object PipelineStepConfigCodec {
 
   // ── Per-config formatters (mirror of those in PipelineStepProtocol) ──────
@@ -46,10 +51,7 @@ object PipelineStepConfigCodec {
   // but historical malformed configs may be missing one or the other. Decode
   // with sane defaults to avoid breaking pipelines on read.
   private def decodeFilter(raw: String): FilterConfig = {
-    val obj = JsonParser(raw) match {
-      case o: JsObject => o
-      case _           => JsObject.empty
-    }
+    val obj = asObject(raw)
     val combinator = obj.fields.get("combinator") match {
       case Some(JsString(s)) => s
       case _                 => "AND"
@@ -64,10 +66,7 @@ object PipelineStepConfigCodec {
 
   // Compute config has an optional `type` field that some legacy rows omit.
   private def decodeCompute(raw: String): ComputeConfig = {
-    val obj = JsonParser(raw) match {
-      case o: JsObject => o
-      case _           => JsObject.empty
-    }
+    val obj = asObject(raw)
     val column = obj.fields.get("column") match {
       case Some(JsString(s)) => s
       case _                 => ""
@@ -89,10 +88,7 @@ object PipelineStepConfigCodec {
    *  existing pipelines that persisted partial configs (e.g. created from
    *  the editor mid-keystroke) continue to round-trip. */
   private def decodeAggregate(raw: String): AggregateConfig = {
-    val obj = JsonParser(raw) match {
-      case o: JsObject => o
-      case _           => JsObject.empty
-    }
+    val obj = asObject(raw)
     val groupBy = obj.fields.get("groupBy") match {
       case Some(JsArray(items)) =>
         items.flatMap(it => Try(it.convertTo[AggregateField]).toOption)
@@ -106,21 +102,119 @@ object PipelineStepConfigCodec {
     AggregateConfig(groupBy, aggregations)
   }
 
+  // ── Tolerance for the remaining 7 kinds ─────────────────────────────────────
+  //
+  // Pre-CS2c-3a these configs were read with `cfg.fields.get(...).getOrElse(...)`
+  // at execution time (see `InProcessPipelineEngine` before the split). The
+  // codec extends the same tolerance at the read boundary so a persisted row
+  // with a partial config (legacy data, mid-edit, schema drift) decodes into
+  // a default-valued config instead of 500ing the entire list/analyze
+  // endpoints. Behaviour parity: the engine may still fail at execute time
+  // on required-field defaults (e.g. empty `rightDataSourceId` on a join);
+  // that matches the pre-CS2c-3a `applyX` error surface exactly.
+
+  private def decodeRename(raw: String): RenameConfig = {
+    val obj = asObject(raw)
+    val renames = obj.fields.get("renames") match {
+      case Some(o: JsObject) => Try(o.convertTo[Map[String, String]]).getOrElse(Map.empty)
+      case _                 => Map.empty[String, String]
+    }
+    RenameConfig(renames)
+  }
+
+  private def decodeJoin(raw: String): JoinConfig = {
+    val obj = asObject(raw)
+    val rightDataSourceId = obj.fields.get("rightDataSourceId") match {
+      case Some(JsString(s)) => s
+      case _                 => ""
+    }
+    val joinKey = obj.fields.get("joinKey") match {
+      case Some(JsString(s)) => s
+      case _                 => ""
+    }
+    val joinType = obj.fields.get("joinType") match {
+      case Some(JsString(s)) => s
+      case _                 => "inner"
+    }
+    JoinConfig(rightDataSourceId, joinKey, joinType)
+  }
+
+  private def decodeGroupBy(raw: String): GroupByConfig = {
+    val obj = asObject(raw)
+    val groupBy = obj.fields.get("groupBy") match {
+      case Some(JsArray(items)) =>
+        items.collect { case JsString(s) => s }
+      case _ => Vector.empty[String]
+    }
+    val aggColumn = obj.fields.get("aggColumn") match {
+      case Some(JsString(s)) => s
+      case _                 => ""
+    }
+    val aggFunction = obj.fields.get("aggFunction") match {
+      case Some(JsString(s)) => s
+      case _                 => "sum"
+    }
+    GroupByConfig(groupBy, aggColumn, aggFunction)
+  }
+
+  private def decodeCast(raw: String): CastConfig = {
+    val obj = asObject(raw)
+    val casts = obj.fields.get("casts") match {
+      case Some(o: JsObject) => Try(o.convertTo[Map[String, String]]).getOrElse(Map.empty)
+      case _                 => Map.empty[String, String]
+    }
+    CastConfig(casts)
+  }
+
+  private def decodeSelect(raw: String): SelectConfig = {
+    val obj = asObject(raw)
+    val fields = obj.fields.get("fields") match {
+      case Some(JsArray(items)) =>
+        items.collect { case JsString(s) => s }
+      case _ => Vector.empty[String]
+    }
+    SelectConfig(fields)
+  }
+
+  private def decodeLimit(raw: String): LimitConfig = {
+    val obj = asObject(raw)
+    val count = obj.fields.get("count") match {
+      case Some(JsNumber(n)) => Try(n.toIntExact).getOrElse(0)
+      case _                 => 0
+    }
+    LimitConfig(count)
+  }
+
+  private def decodeSort(raw: String): SortConfig = {
+    val obj = asObject(raw)
+    val sortBy = obj.fields.get("sortBy") match {
+      case Some(JsArray(items)) =>
+        items.flatMap(it => Try(it.convertTo[SortKey]).toOption)
+      case _ => Vector.empty[SortKey]
+    }
+    SortConfig(sortBy)
+  }
+
+  private def asObject(raw: String): JsObject = JsonParser(raw) match {
+    case o: JsObject => o
+    case _           => JsObject.empty
+  }
+
   /** Decode a stored config blob into the typed config for the given kind.
    *  Returns a [[scala.util.Try]] so the repository can fail loudly on a
    *  malformed row (corrupted JSON) while still tolerating the small set of
    *  optional-field shapes the frontend has emitted historically. */
   def decode(kind: String, raw: String): Try[Any] = Try {
     kind match {
-      case PipelineStepKind.Rename    => JsonParser(raw).convertTo[RenameConfig]
+      case PipelineStepKind.Rename    => decodeRename(raw)
       case PipelineStepKind.Filter    => decodeFilter(raw)
-      case PipelineStepKind.Join      => JsonParser(raw).convertTo[JoinConfig]
+      case PipelineStepKind.Join      => decodeJoin(raw)
       case PipelineStepKind.Compute   => decodeCompute(raw)
-      case PipelineStepKind.GroupBy   => JsonParser(raw).convertTo[GroupByConfig]
-      case PipelineStepKind.Cast      => JsonParser(raw).convertTo[CastConfig]
-      case PipelineStepKind.Select    => JsonParser(raw).convertTo[SelectConfig]
-      case PipelineStepKind.Limit     => JsonParser(raw).convertTo[LimitConfig]
-      case PipelineStepKind.Sort      => JsonParser(raw).convertTo[SortConfig]
+      case PipelineStepKind.GroupBy   => decodeGroupBy(raw)
+      case PipelineStepKind.Cast      => decodeCast(raw)
+      case PipelineStepKind.Select    => decodeSelect(raw)
+      case PipelineStepKind.Limit     => decodeLimit(raw)
+      case PipelineStepKind.Sort      => decodeSort(raw)
       case PipelineStepKind.Aggregate => decodeAggregate(raw)
       case other                      => throw new IllegalArgumentException(s"Unknown step op: '$other'")
     }
