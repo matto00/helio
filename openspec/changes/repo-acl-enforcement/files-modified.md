@@ -1,4 +1,4 @@
-# Files modified — cycles 1 + 2 + 3
+# Files modified — cycles 1 + 2 + 3 + 4
 
 ## Cycle 1 — investigation + design (no production code)
 
@@ -197,3 +197,98 @@ unchanged in behavior; only cross-user requests transition from 200/204 to
   cycle's summary (new).
 - `openspec/changes/repo-acl-enforcement/files-modified.md` — this file
   (now spans cycles 1 + 2 + 3).
+
+## Cycle 4 (PR/CS3) — DataType + DataSource ACL enforcement
+
+Closes HEL-256 / HEL-268 / HEL-242 leaks. Collapses the awkward
+`findById(id)` + `findById(id, ownerId)` overload pair on
+`DataTypeRepository`; renames the unscoped `DataSourceRepository.findById`
+to `findByIdInternal`; wires owner-scoped reads throughout
+`DataTypeService`, `DataSourceService`, `SourceService`, and
+`PanelService.resolveSingleBinding`. Cross-user calls now return 404,
+not 403.
+
+### Backend — repository layer
+
+- `backend/src/main/scala/com/helio/infrastructure/DataTypeRepository.scala`
+  — `findById(id)` renamed to `findByIdInternal` (documented privileged
+  callers); `findById(id, ownerId)` renamed to `findByIdOwned(id, user:
+  AuthenticatedUser)`; `isBoundToAnyPanel` replaced by
+  `existsBoundToAnyOwnedPanel(id, user)` (owner-scoped COUNT).
+- `backend/src/main/scala/com/helio/infrastructure/DataSourceRepository.scala`
+  — `findById(id)` renamed to `findByIdInternal` with documented privileged
+  callers; `findByIdOwned` (CS2 seed) stays in place.
+
+### Backend — service layer
+
+- `backend/src/main/scala/com/helio/services/DataTypeService.scala` —
+  `findById`, `listRows`, `validateExpression` now require `user` and call
+  `findByIdOwned`; `update`/`delete` collapse `requireOwnerOnly` + `findById`
+  to a single `findByIdOwned`; `checkSourceLink` uses `findByIdInternal`
+  (documented: error-message rendering, no data leak); `accessChecker`
+  removed from constructor.
+- `backend/src/main/scala/com/helio/services/DataSourceService.scala` —
+  `update`, `delete`, `refresh`, `preview` collapse `requireOwnerOnly` +
+  `findById` to a single `findByIdOwned`; `accessChecker` removed from
+  constructor.
+- `backend/src/main/scala/com/helio/services/SourceService.scala` — `refresh`
+  and `preview` collapse the manual `source.ownerId != user.id` guard +
+  `findById` to `findByIdOwned`.
+- `backend/src/main/scala/com/helio/services/PanelService.scala` —
+  `resolveSingleBinding` switches from `findById(typeId, user.id)` (old
+  2-arg overload) to `findByIdOwned(typeId, user)`.
+- `backend/src/main/scala/com/helio/services/PipelineRunService.scala` —
+  source lookups in `submit`/`previewStep` and `upsertFieldsFromRows` switch
+  to `findByIdInternal` (privileged; documented).
+
+### Backend — routes + domain
+
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — registry
+  resolvers for `data-source` and `data-type` switch to `*Internal` variants
+  (documented privileged callsite); service constructors updated.
+- `backend/src/main/scala/com/helio/api/routes/DataTypeRoutes.scala` —
+  `listRows`, `validateExpression`, and GET route calls now pass `user`.
+- `backend/src/main/scala/com/helio/domain/steps/JoinStep.scala` — switches
+  to `findByIdInternal` (privileged: cross-user join source spinoff per
+  design.md Q1).
+- `backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala` — JoinStep
+  case switches to `findByIdInternal` (privileged: background Spark driver).
+
+### Backend — tests
+
+- `backend/src/test/scala/com/helio/api/routes/DataTypeDataSourceAclSpec.scala`
+  — NEW. 24 tests: cross-user 404 on GET/PATCH/DELETE types; GET/PATCH/
+  DELETE/refresh/preview data-sources; list is owner-scoped; repo-level
+  `findByIdOwned` and `existsBoundToAnyOwnedPanel` assertions; same-user
+  200 paths as regression guards.
+- `backend/src/test/scala/com/helio/infrastructure/DataTypeRepositorySpec.scala`
+  — updated `findById` → `findByIdInternal`; added `findByIdOwned` (owner
+  match, mismatch, unknown) and `existsBoundToAnyOwnedPanel` (false when
+  no panels) tests.
+- `backend/src/test/scala/com/helio/infrastructure/DataSourceRepositorySpec.scala`
+  — updated `findById` → `findByIdInternal`; description cleanup.
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — 4 existing
+  403 assertions updated to 404 (DELETE/preview on data-sources, PATCH/DELETE
+  on types).
+- `backend/src/test/scala/com/helio/api/routes/DataTypeRoutesSpec.scala` —
+  dropped unused `AccessCheckerImpl`/`ResourceTypeRegistry` wiring; service
+  constructor updated.
+- `backend/src/test/scala/com/helio/services/DataTypeServiceSpec.scala` —
+  dropped `accessChecker`; `findById` → `findByIdInternal`.
+- `backend/src/test/scala/com/helio/services/DataSourceServiceSpec.scala` —
+  dropped `accessChecker`.
+- `backend/src/test/scala/com/helio/services/DataSourceServiceRestartPersistenceSpec.scala`
+  — dropped `accessChecker`; `findById` → `findByIdInternal`.
+- `backend/src/test/scala/com/helio/api/routes/PipelineRunRoutesSpec.scala`
+  — `dtRepo.findById` → `findByIdInternal`.
+- `backend/src/test/scala/com/helio/domain/InProcessPipelineEngineSpec.scala`
+  — mock `findById` override → `findByIdInternal`.
+
+### OpenSpec bookkeeping
+
+- `openspec/changes/repo-acl-enforcement/tasks.md` — Cycle 4 (PR/CS3)
+  checkboxes flipped to `[x]`.
+- `openspec/changes/repo-acl-enforcement/executor-report-cs3.md` — CS3
+  executor summary (new).
+- `openspec/changes/repo-acl-enforcement/files-modified.md` — this file
+  (now spans cycles 1–4).

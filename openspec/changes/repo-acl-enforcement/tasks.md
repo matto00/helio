@@ -83,37 +83,37 @@ The biggest user-facing impact: closes the wide-open pipeline surface.
 Closes HEL-256 / HEL-268 leaks. Collapses the awkward `findById(id)` +
 `findById(id, ownerId)` overload pair on `DataTypeRepository`.
 
-- [ ] `DataTypeRepository.findByIdOwned(id, user)` — collapses the existing
+- [x] `DataTypeRepository.findByIdOwned(id, user)` — collapses the existing
       2-arg overload; semantically identical
-- [ ] `DataTypeRepository.findByIdInternal(id)` — keeps the existing
+- [x] `DataTypeRepository.findByIdInternal(id)` — keeps the existing
       no-user variant under a documented name; ONLY callers:
       `ResourceTypeRegistry` resolver + `PipelineRunService.upsertFieldsFromRows`
-- [ ] `DataTypeRepository.existsBoundToAnyOwnedPanel(typeId, user)` —
+- [x] `DataTypeRepository.existsBoundToAnyOwnedPanel(typeId, user)` —
       replaces `isBoundToAnyPanel`, owner-scoped count
-- [ ] `DataTypeService.findById` switches to `findByIdOwned`
-- [ ] `DataTypeService.listRows` switches to `findByIdOwned` (closes
+- [x] `DataTypeService.findById` switches to `findByIdOwned`
+- [x] `DataTypeService.listRows` switches to `findByIdOwned` (closes
       HEL-242 leak)
-- [ ] `DataTypeService.validateExpression` switches to `findByIdOwned`
-- [ ] `DataTypeService.update / delete` — the redundant `requireOwnerOnly`
+- [x] `DataTypeService.validateExpression` switches to `findByIdOwned`
+- [x] `DataTypeService.update / delete` — the redundant `requireOwnerOnly`
       call removed; repo's owner predicate covers it. `None ⇒ NotFound`
       branch preserves the existing error.
-- [ ] `DataTypeService.checkSourceLink` switches to `findByIdInternal`
+- [x] `DataTypeService.checkSourceLink` switches to `findByIdInternal`
       (documented: error-message rendering, no data leak)
-- [ ] `DataSourceRepository.findByIdOwned(id, user)` — new method
-- [ ] `DataSourceRepository.findByIdInternal(id)` — rename of existing
+- [x] `DataSourceRepository.findByIdOwned(id, user)` — new method
+- [x] `DataSourceRepository.findByIdInternal(id)` — rename of existing
       `findById`
-- [ ] `DataSourceService` every public method that previously did
+- [x] `DataSourceService` every public method that previously did
       `requireOwnerOnly` + `dataSourceRepo.findById` collapses to a single
       `dataSourceRepo.findByIdOwned(id, user)` call
-- [ ] `SourceService.refresh / preview` — same collapse
-- [ ] `PanelService.resolveSingleBinding` switches from the 2-arg overload
+- [x] `SourceService.refresh / preview` — same collapse
+- [x] `PanelService.resolveSingleBinding` switches from the 2-arg overload
       to `findByIdOwned`
-- [ ] New tests: cross-user `GET /api/types/:id` returns 404 (was: leaks
+- [x] New tests: cross-user `GET /api/types/:id` returns 404 (was: leaks
       DT); cross-user `GET /api/types/:id/rows`; cross-user
       `validate-expression`; cross-user `GET/PATCH/DELETE
       /api/data-sources/:id`; cross-user `POST /api/data-sources/:id/refresh`;
       cross-user `GET /api/data-sources/:id/preview`
-- [ ] Gates: full suite
+- [x] Gates: full suite
 
 ## Cycle 5 (PR/CS4) — Dashboard + Panel enforcement
 
