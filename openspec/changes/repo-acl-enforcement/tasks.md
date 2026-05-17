@@ -20,25 +20,25 @@ a separate PR; orchestrator confirms before kicking off the next.
 Pure additive. No behavior change. Lays the data-model + repo-resolver
 foundation that CS2 builds on.
 
-- [ ] Flyway `V32__pipelines_owner.sql`: `ALTER TABLE pipelines ADD COLUMN owner_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES users(id);`
-- [ ] `V32` also adds `CREATE INDEX idx_pipelines_owner_id ON pipelines(owner_id);`
-- [ ] Document in V32's comment block: "pre-V32 pipelines are assigned to the
+- [x] Flyway `V32__pipelines_owner.sql`: `ALTER TABLE pipelines ADD COLUMN owner_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES users(id);`
+- [x] `V32` also adds `CREATE INDEX idx_pipelines_owner_id ON pipelines(owner_id);`
+- [x] Document in V32's comment block: "pre-V32 pipelines are assigned to the
       system user; production deployments with per-user pipelines must
       hand-update owner_id before this migration"
-- [ ] Extend `PipelineRepository.PipelineRow` + `PipelineTable` with the
+- [x] Extend `PipelineRepository.PipelineRow` + `PipelineTable` with the
       `owner_id` column
-- [ ] Extend domain `Pipeline` case class with `ownerId: UserId`
-- [ ] Add `PipelineRepository.findByIdInternal(id): Future[Option[Pipeline]]`
+- [x] Extend domain `Pipeline` case class with `ownerId: UserId`
+- [x] Add `PipelineRepository.findByIdInternal(id): Future[Option[Pipeline]]`
       — same SQL as today's `findById`, just renamed to signal its
       no-ACL nature
-- [ ] Update `ResourceTypeRegistry` (in `ApiRoutes.scala`) to register
+- [x] Update `ResourceTypeRegistry` (in `ApiRoutes.scala`) to register
       `ResourceType("pipeline", id => pipelineRepo.findByIdInternal(id).map(_.map(_.ownerId.value)))`
-- [ ] Existing `pipelineRepo.findById` keeps current signature for this PR;
+- [x] Existing `pipelineRepo.findById` keeps current signature for this PR;
       CS2 replaces it
-- [ ] Tests: `PipelineRepositorySpec` — assert default backfill is the system
+- [x] Tests: `PipelineRepositorySpec` — assert default backfill is the system
       user id; assert insert with explicit owner persists correctly; assert
       registry resolver returns the owner
-- [ ] Gates: `sbt test`, `npm run check:openspec`, `lint`, `format:check`
+- [x] Gates: `sbt test`, `npm run check:openspec`, `lint`, `format:check`
 
 ## Cycle 3 (PR/CS2) — Pipeline ACL enforcement
 
