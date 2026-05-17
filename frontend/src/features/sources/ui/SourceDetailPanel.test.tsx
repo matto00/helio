@@ -85,14 +85,32 @@ describe("SourceDetailPanel", () => {
     expect(fetchDataTypesMock).toHaveBeenCalled();
   });
 
-  it("shows an error message when refresh fails", async () => {
-    refreshSourceMock.mockRejectedValue(new Error("Source file is missing on disk"));
+  it("shows the backend's actionable error message when refresh fails with an axios 400", async () => {
+    const axiosError = Object.assign(new Error("Request failed with status code 400"), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { message: "Source file is missing on disk — delete the source and re-upload." },
+      },
+    });
+    refreshSourceMock.mockRejectedValue(axiosError);
     renderWithStore(<SourceDetailPanel source={csvSource} />, {
       dataTypes: { items: [] },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/missing on disk/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/missing on disk.*re-upload/i);
+  });
+
+  it("falls back to a generic message when the error is not an axios error", async () => {
+    refreshSourceMock.mockRejectedValue(new Error("network down"));
+    renderWithStore(<SourceDetailPanel source={csvSource} />, {
+      dataTypes: { items: [] },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/failed to refresh source/i);
   });
 });

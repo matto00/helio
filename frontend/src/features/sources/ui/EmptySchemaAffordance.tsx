@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { useState } from "react";
 
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -25,9 +26,11 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
       await refreshSource(source.id, source.type);
       await dispatch(fetchDataTypes());
     } catch (err: unknown) {
-      const message =
-        err instanceof Error && err.message ? err.message : "Failed to refresh source.";
-      setError(message);
+      const serverMessage =
+        isAxiosError(err) && typeof err.response?.data?.message === "string"
+          ? err.response.data.message
+          : null;
+      setError(serverMessage ?? "Failed to refresh source.");
     } finally {
       setIsRefreshing(false);
     }
