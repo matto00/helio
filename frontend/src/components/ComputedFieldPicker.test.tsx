@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../test/renderWithStore";
+import { makeMetricPanel } from "../test/panelFixtures";
 import { PanelDetailModal } from "./PanelDetailModal";
 import type { ComputedField, DataType } from "../types/models";
 
@@ -34,27 +35,18 @@ const testDataType: DataType = {
   updatedAt: "2026-03-22T00:00:00Z",
 };
 
-const testPanel = {
+const testPanel = makeMetricPanel({
   id: "p1",
   dashboardId: "d1",
   title: "Revenue Panel",
-  type: "metric" as const,
   appearance: { background: "transparent", color: "inherit", transparency: 0 },
   meta: {
     createdBy: "system",
     createdAt: "2026-03-14T00:00:00Z",
     lastUpdated: "2026-03-14T00:00:00Z",
   },
-  typeId: "dt-1",
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
-};
+  config: { dataTypeId: "dt-1" },
+});
 
 function renderModal() {
   HTMLDialogElement.prototype.showModal = jest.fn(function () {

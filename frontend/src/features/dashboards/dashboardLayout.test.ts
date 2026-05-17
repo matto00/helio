@@ -3,32 +3,20 @@ import {
   createFallbackDashboardLayout,
   resolveDashboardLayout,
 } from "./dashboardLayout";
+import { makeMetricPanel } from "../../test/panelFixtures";
 
-const makePanel = (id: string) => ({
-  id,
-  dashboardId: "dashboard-1",
-  title: id,
-  type: "metric" as const,
-  meta: {
-    createdBy: "system",
-    createdAt: "2026-03-14T00:00:00Z",
-    lastUpdated: "2026-03-14T00:00:00Z",
-  },
-  appearance: {
-    background: "transparent",
-    color: "inherit",
-    transparency: 0,
-  },
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
-});
+const makePanel = (id: string) =>
+  makeMetricPanel({
+    id,
+    dashboardId: "dashboard-1",
+    title: id,
+    meta: {
+      createdBy: "system",
+      createdAt: "2026-03-14T00:00:00Z",
+      lastUpdated: "2026-03-14T00:00:00Z",
+    },
+    appearance: { background: "transparent", color: "inherit", transparency: 0 },
+  });
 
 const panels = [makePanel("panel-1"), makePanel("panel-2")];
 

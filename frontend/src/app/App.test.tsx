@@ -22,6 +22,7 @@ import {
 } from "../services/panelService";
 import { OverlayProvider } from "../components/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
+import { makeMetricPanel } from "../test/panelFixtures";
 import { App } from "./App";
 
 jest.mock("../services/dashboardService", () => ({
@@ -279,15 +280,7 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T12:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              typeId: null,
-              fieldMapping: null,
-              refreshInterval: null,
-              content: null,
-              imageUrl: null,
-              imageFit: null,
-              dividerOrientation: null,
-              dividerWeight: null,
-              dividerColor: null,
+              config: { dataTypeId: "", fieldMapping: {} },
             },
           ]
         : [
@@ -302,15 +295,7 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T13:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              typeId: null,
-              fieldMapping: null,
-              refreshInterval: null,
-              content: null,
-              imageUrl: null,
-              imageFit: null,
-              dividerOrientation: null,
-              dividerWeight: null,
-              dividerColor: null,
+              config: { dataTypeId: "", fieldMapping: {} },
             },
           ],
     );
@@ -524,27 +509,17 @@ describe("App", () => {
         layout: defaultDashboardLayout,
       },
     ]);
-    const panelBase = {
+    const panelBase = makeMetricPanel({
       id: "panel-1",
       dashboardId: "dashboard-1",
       title: "Revenue Pulse",
-      type: "metric" as const,
       meta: {
         createdBy: "system",
         createdAt: "2026-03-14T13:00:00Z",
         lastUpdated: "2026-03-14T13:30:00Z",
       },
       appearance: defaultPanelAppearance,
-      typeId: null,
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
-    };
+    });
     fetchPanelsMock.mockResolvedValue([panelBase]);
     updatePanelAppearanceMock.mockResolvedValue({
       ...panelBase,

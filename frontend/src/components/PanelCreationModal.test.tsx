@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../test/renderWithStore";
+import { makeDividerPanel, makeMarkdownPanel, makeMetricPanel } from "../test/panelFixtures";
 import type { Panel } from "../types/models";
 import { PanelCreationModal } from "./PanelCreationModal";
 import type { PanelContentProps } from "./PanelContent";
@@ -9,8 +10,8 @@ import type { PanelContentProps } from "./PanelContent";
 // Mock PanelContent to avoid ECharts canvas requirements in jsdom and to
 // allow asserting which panel type the preview receives.
 jest.mock("./PanelContent", () => ({
-  PanelContent: ({ type }: PanelContentProps) => (
-    <div data-testid="panel-content" data-panel-type={type} />
+  PanelContent: ({ panel }: PanelContentProps) => (
+    <div data-testid="panel-content" data-panel-type={panel.type} />
   ),
 }));
 
@@ -184,23 +185,15 @@ describe("PanelCreationModal", () => {
   });
 
   it("submitting dispatches createPanel with the selected type and title", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-new",
-      dashboardId: "dashboard-1",
-      title: "Revenue Pulse",
-      type: "divider" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      typeId: null,
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
-    });
+    createPanelMock.mockResolvedValue(
+      makeDividerPanel({
+        id: "panel-new",
+        dashboardId: "dashboard-1",
+        title: "Revenue Pulse",
+        meta: defaultMeta,
+        appearance: defaultPanelAppearance,
+      }),
+    );
 
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
@@ -225,23 +218,15 @@ describe("PanelCreationModal", () => {
   });
 
   it("closes modal after successful create", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-new",
-      dashboardId: "dashboard-1",
-      title: "My Panel",
-      type: "markdown" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      typeId: null,
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
-    });
+    createPanelMock.mockResolvedValue(
+      makeMarkdownPanel({
+        id: "panel-new",
+        dashboardId: "dashboard-1",
+        title: "My Panel",
+        meta: defaultMeta,
+        appearance: defaultPanelAppearance,
+      }),
+    );
 
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
@@ -402,24 +387,16 @@ describe("PanelCreationModal — live preview", () => {
 });
 
 // ── Default panel mock returned by successful createPanel calls ───────────────
-const mockPanel = (overrides?: Partial<Panel>): Panel => ({
-  id: "panel-new",
-  dashboardId: "dashboard-1",
-  title: "My Panel",
-  type: "metric" as const,
-  meta: defaultMeta,
-  appearance: defaultPanelAppearance,
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
-  ...overrides,
-});
+// Note: `overrides.type` is ignored by this helper; tests only need a metric
+// stand-in to satisfy the createPanelMock return shape.
+const mockPanel = (overrides?: Partial<Panel>): Panel =>
+  makeMetricPanel({
+    id: overrides?.id ?? "panel-new",
+    dashboardId: overrides?.dashboardId ?? "dashboard-1",
+    title: overrides?.title ?? "My Panel",
+    meta: defaultMeta,
+    appearance: overrides?.appearance ?? defaultPanelAppearance,
+  });
 
 describe("PanelCreationModal — type-specific config fields", () => {
   beforeEach(() => {

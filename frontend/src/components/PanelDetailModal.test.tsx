@@ -7,6 +7,13 @@ import { updatePanelImage as updatePanelImageRequest } from "../services/panelSe
 import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
+import {
+  makeChartPanel,
+  makeDividerPanel,
+  makeImagePanel,
+  makeMarkdownPanel,
+  makeMetricPanel,
+} from "../test/panelFixtures";
 import { PanelDetailModal } from "./PanelDetailModal";
 
 jest.mock("../services/panelService", () => ({
@@ -30,65 +37,37 @@ const updateImageMock = jest.mocked(updatePanelImageRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
-const testPanel = {
+const panelBaseFields = {
   id: "p1",
   dashboardId: "d1",
   title: "Revenue",
-  type: "metric" as const,
-  appearance: {
-    background: "transparent",
-    color: "inherit",
-    transparency: 0,
-  },
+  appearance: { background: "transparent", color: "inherit", transparency: 0 },
   meta: {
     createdBy: "system",
     createdAt: "2026-03-14T00:00:00Z",
     lastUpdated: "2026-03-14T00:00:00Z",
   },
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
 };
 
-const chartTestPanel = {
-  ...testPanel,
-  type: "chart" as const,
-};
-const dividerTestPanel = {
-  ...testPanel,
-  type: "divider" as const,
-  dividerOrientation: "horizontal" as const,
-  dividerWeight: 1,
-  dividerColor: "#cccccc",
-};
-
+const testPanel = makeMetricPanel(panelBaseFields);
+const chartTestPanel = makeChartPanel(panelBaseFields);
+const dividerTestPanel = makeDividerPanel({
+  ...panelBaseFields,
+  config: { orientation: "horizontal", weight: 1, color: "#cccccc" },
+});
 // Divider panel whose color is null (DB default — uses CSS design token at render time)
-const dividerTestPanelNullColor = {
-  ...testPanel,
-  type: "divider" as const,
-  dividerOrientation: "horizontal" as const,
-  dividerWeight: 1,
-  dividerColor: null,
-};
-
-const markdownTestPanel = {
-  ...testPanel,
-  type: "markdown" as const,
-  content: "# Hello",
-};
-
-const imageTestPanel = {
-  ...testPanel,
-  type: "image" as const,
-  imageUrl: "https://example.com/img.png",
-  imageFit: "contain" as const,
-};
+const dividerTestPanelNullColor = makeDividerPanel({
+  ...panelBaseFields,
+  config: { orientation: "horizontal", weight: 1 },
+});
+const markdownTestPanel = makeMarkdownPanel({
+  ...panelBaseFields,
+  config: { content: "# Hello" },
+});
+const imageTestPanel = makeImagePanel({
+  ...panelBaseFields,
+  config: { imageUrl: "https://example.com/img.png", imageFit: "contain" },
+});
 
 const testDataType = {
   id: "dt-1",
@@ -329,13 +308,9 @@ describe("PanelDetailModal", () => {
 
   // Save transitions to view mode (not close)
   it("saves binding and transitions to view mode on Save", async () => {
-    updateBindingMock.mockResolvedValue({
-      ...testPanel,
-      typeId: "dt-1",
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-    });
+    updateBindingMock.mockResolvedValue(
+      makeMetricPanel({ ...panelBaseFields, config: { dataTypeId: "dt-1" } }),
+    );
     const onClose = jest.fn();
     renderModalWithDataType(onClose);
 
@@ -433,13 +408,9 @@ describe("PanelDetailModal", () => {
 
   // 2.3 — Unified save dispatches appearance + data binding in sequence
   it("unified save dispatches appearance and data binding in sequence when both are dirty", async () => {
-    updateBindingMock.mockResolvedValue({
-      ...testPanel,
-      typeId: "dt-1",
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-    });
+    updateBindingMock.mockResolvedValue(
+      makeMetricPanel({ ...panelBaseFields, config: { dataTypeId: "dt-1" } }),
+    );
     const onClose = jest.fn();
     const { store } = renderModalWithDataType(onClose);
 
@@ -775,11 +746,12 @@ describe("PanelDetailModal -- divider panel", () => {
     // When dividerColor is null in the DB, the picker shows #cccccc as a UI fallback.
     // If the user changes another field (e.g. weight) but leaves color at the fallback,
     // null must be passed — not "#cccccc" — so the CSS design-token default stays active.
-    updateDividerMock.mockResolvedValue({
-      ...dividerTestPanelNullColor,
-      dividerWeight: 2,
-      dividerColor: null,
-    });
+    updateDividerMock.mockResolvedValue(
+      makeDividerPanel({
+        ...panelBaseFields,
+        config: { orientation: "horizontal", weight: 2 },
+      }),
+    );
     renderDividerModalNullColor();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
@@ -802,7 +774,12 @@ describe("PanelDetailModal -- divider panel", () => {
   });
 
   it("passes an explicit color through when the user picks a non-fallback value", async () => {
-    updateDividerMock.mockResolvedValue({ ...dividerTestPanel, dividerColor: "#ff0000" });
+    updateDividerMock.mockResolvedValue(
+      makeDividerPanel({
+        ...panelBaseFields,
+        config: { orientation: "horizontal", weight: 1, color: "#ff0000" },
+      }),
+    );
     renderDividerModal();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));

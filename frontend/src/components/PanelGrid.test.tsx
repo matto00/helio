@@ -6,6 +6,7 @@ import { updatePanelTitle as updatePanelTitleRequest } from "../services/panelSe
 import { updatePanelsBatch as updatePanelsBatchRequest } from "../services/panelService";
 import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { renderWithStore } from "../test/renderWithStore";
+import { makeMetricPanel } from "../test/panelFixtures";
 import { PanelGrid } from "./PanelGrid";
 
 jest.mock("react-grid-layout", () => {
@@ -72,27 +73,17 @@ jest.mock("../services/dashboardService", () => ({
 const updatePanelTitleMock = jest.mocked(updatePanelTitleRequest);
 const updatePanelsBatchMock = jest.mocked(updatePanelsBatchRequest);
 
-const testPanel = {
+const testPanel = makeMetricPanel({
   id: "panel-1",
   dashboardId: "d1",
   title: "Revenue",
-  type: "metric" as const,
   meta: {
     createdBy: "system",
     createdAt: "2026-03-14T00:00:00Z",
     lastUpdated: "2026-03-14T00:00:00Z",
   },
   appearance: { background: "transparent", color: "inherit", transparency: 0 },
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
-};
+});
 
 const emptyLayout = { lg: [], md: [], sm: [], xs: [] };
 
@@ -338,8 +329,16 @@ describe("PanelGrid", () => {
       updatedAt: "2026-01-01T00:00:00Z",
     };
 
-    const legacyPanel = { ...testPanel, id: "panel-legacy", typeId: "dt-legacy" };
-    const pipelinePanel = { ...testPanel, id: "panel-pipeline", typeId: "dt-pipeline" };
+    const legacyPanel = makeMetricPanel({
+      ...testPanel,
+      id: "panel-legacy",
+      config: { dataTypeId: "dt-legacy" },
+    });
+    const pipelinePanel = makeMetricPanel({
+      ...testPanel,
+      id: "panel-pipeline",
+      config: { dataTypeId: "dt-pipeline" },
+    });
 
     it("shows the legacy warning banner for a legacy-bound panel", () => {
       renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[legacyPanel]} />, {
