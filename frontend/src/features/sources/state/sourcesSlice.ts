@@ -14,7 +14,7 @@ import type {
   InferredField,
   SqlSourceConfig,
   StaticColumn,
-} from "../../../types/models";
+} from "../types/dataSource";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {

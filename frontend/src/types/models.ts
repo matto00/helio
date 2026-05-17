@@ -60,27 +60,6 @@ export {
   isStaticSource,
 } from "../features/sources/types/dataSource";
 
-export interface InferredField {
-  name: string;
-  displayName: string;
-  dataType: string;
-  nullable: boolean;
-}
-
-export type StaticColumnType = "string" | "integer" | "float" | "boolean";
-
-export interface StaticColumn {
-  name: string;
-  type: StaticColumnType;
-}
-
-export interface StaticSourcePayload {
-  name: string;
-  type: "static";
-  columns: StaticColumn[];
-  rows: unknown[][];
-}
-
 // Panel discriminated union + per-subtype config types live in `./panel.ts`
 // and are re-exported below for backwards-compatibility with imports written
 // against `./models`.

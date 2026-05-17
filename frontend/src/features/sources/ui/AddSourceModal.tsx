@@ -4,7 +4,7 @@ import "./AddSourceModal.css";
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { createStaticSource, createSqlSource, fetchSources } from "../state/sourcesSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import type { InferredField, StaticColumn } from "../../../types/models";
+import type { InferredField, StaticColumn } from "../types/dataSource";
 import {
   createCsvSource,
   createRestSource,

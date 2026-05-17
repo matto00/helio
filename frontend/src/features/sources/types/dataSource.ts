@@ -76,3 +76,27 @@ export const isCsvSource = (s: DataSource): s is CsvSource => s.type === "csv";
 export const isRestSource = (s: DataSource): s is RestSource => s.type === "rest_api";
 export const isSqlSource = (s: DataSource): s is SqlSource => s.type === "sql";
 export const isStaticSource = (s: DataSource): s is StaticSource => s.type === "static";
+
+// ── Source schema + static-source payload types ─────────────────────────────
+// Extracted from `types/models.ts` in CS4 cycle 1.
+
+export interface InferredField {
+  name: string;
+  displayName: string;
+  dataType: string;
+  nullable: boolean;
+}
+
+export type StaticColumnType = "string" | "integer" | "float" | "boolean";
+
+export interface StaticColumn {
+  name: string;
+  type: StaticColumnType;
+}
+
+export interface StaticSourcePayload {
+  name: string;
+  type: "static";
+  columns: StaticColumn[];
+  rows: unknown[][];
+}

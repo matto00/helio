@@ -5,12 +5,12 @@ import type {
   InferredField,
   SqlSourceConfig,
   StaticColumn,
-} from "../../../types/models";
+} from "../types/dataSource";
 import { httpClient } from "../../../services/httpClient";
 
 // Re-export so existing call sites that imported `SqlSourceConfig` from this
 // module (back when the type lived here) keep compiling unchanged.
-export type { SqlSourceConfig } from "../../../types/models";
+export type { SqlSourceConfig } from "../types/dataSource";
 
 interface DataSourcesResponse {
   items: DataSource[];
