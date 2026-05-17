@@ -11,6 +11,7 @@ import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 
 import "./PipelineDetailPage.css";
 import { fetchSources } from "../../sources/state/sourcesSlice";
+import { markDataTypeRowsStale } from "../../panels/state/panelsSlice";
 import {
   analyzePipeline,
   clearRunState,
@@ -85,6 +86,15 @@ export function PipelineDetailPage() {
     onTerminal: (event: RunStatusEventData) => {
       setSseActive(false);
       if (id) void dispatch(fetchPipelineRunHistory(id));
+      // HEL-242 — a successful run rewrote the bound DataType's rows via
+      // `dataTypeRowRepo.overwriteRows`. Invalidate every panel bound to that
+      // DataType so the dashboard view refetches on its next render tick.
+      // Failed runs intentionally skip this: `overwriteRows` is transactional,
+      // so failed runs did not touch persisted rows.
+      const outputDataTypeId = currentPipeline?.outputDataTypeId;
+      if (event.status === "succeeded" && outputDataTypeId) {
+        dispatch(markDataTypeRowsStale(outputDataTypeId));
+      }
     },
   });
 
