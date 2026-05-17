@@ -2,7 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { waitFor } from "@testing-library/react";
 
 import { createDashboard as createDashboardRequest } from "../services/dashboardService";
-import { renderWithStore } from "../test/renderWithStore";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { DashboardList } from "./DashboardList";
 
 jest.mock("../services/dashboardService", () => ({

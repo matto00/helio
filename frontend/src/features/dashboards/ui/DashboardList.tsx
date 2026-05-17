@@ -12,14 +12,14 @@ import {
   importDashboard,
   renameDashboard,
   setSelectedDashboardId,
-} from "../features/dashboards/dashboardsSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import type { DashboardSnapshot } from "../types/models";
-import { ActionsMenu } from "../shared/chrome/ActionsMenu";
-import { InlineError } from "../shared/chrome/InlineError";
-import { StatusMessage } from "../shared/chrome/StatusMessage";
-import { EmptyState } from "../shared/ui/EmptyState";
-import { TextField } from "../shared/ui/TextField";
+} from "../state/dashboardsSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import type { DashboardSnapshot } from "../../../types/models";
+import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
+import { InlineError } from "../../../shared/chrome/InlineError";
+import { StatusMessage } from "../../../shared/chrome/StatusMessage";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import { TextField } from "../../../shared/ui/TextField";
 
 interface DashboardListProps {
   onCollapse?: () => void;

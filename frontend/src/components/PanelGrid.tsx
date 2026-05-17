@@ -15,7 +15,7 @@ import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
-import { resolveDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { resolveDashboardLayout } from "../features/dashboards/state/dashboardLayout";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import {
   accumulatePanelUpdate,

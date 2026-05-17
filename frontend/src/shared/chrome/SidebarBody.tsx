@@ -20,7 +20,7 @@ import {
   setSelectedSourceId,
 } from "../../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
-import { DashboardList } from "../../components/DashboardList";
+import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import { SidebarItemList } from "./SidebarItemList";
 
 interface SidebarBodyProps {

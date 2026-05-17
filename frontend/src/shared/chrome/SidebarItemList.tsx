@@ -5,7 +5,7 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
-import "../../components/DashboardList.css";
+import "../../features/dashboards/ui/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
 import { EmptyState } from "../ui/EmptyState";
 import { TextField } from "../ui/TextField";

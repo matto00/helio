@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import "./PanelList.css";
-import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
 import { updateUserPreferences } from "../features/auth/state/authSlice";
 import { PanelGrid } from "./PanelGrid";
 import { PanelCreationModal } from "./PanelCreationModal";

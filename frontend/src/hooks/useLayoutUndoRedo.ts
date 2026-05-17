@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
+import { setDashboardLayoutLocally } from "../features/dashboards/state/dashboardsSlice";
 import {
   redoLayout,
   selectRedoLayout,

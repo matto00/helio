@@ -11,15 +11,15 @@ import {
   renameDashboard as renameDashboardRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
-} from "../../services/dashboardService";
-import type { RootState } from "../../store/store";
+} from "../services/dashboardService";
+import type { RootState } from "../../../store/store";
 import type {
   Dashboard,
   DashboardAppearance,
   DashboardLayout,
   DashboardSnapshot,
   DuplicateDashboardResponse,
-} from "../../types/models";
+} from "../../../types/models";
 
 interface DashboardsState {
   items: Dashboard[];

@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { panelsReducer } from "../../features/panels/panelsSlice";
 import { authReducer } from "../../features/auth/state/authSlice";
 import { dataTypesReducer } from "../../features/dataTypes/dataTypesSlice";
-import { dashboardsReducer } from "../../features/dashboards/dashboardsSlice";
+import { dashboardsReducer } from "../../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../features/layout/layoutHistorySlice";
 import { sourcesReducer } from "../../features/sources/sourcesSlice";
 import { ThemeProvider } from "../../theme/ThemeProvider";

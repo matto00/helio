@@ -2,18 +2,18 @@ import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { updateDashboardAppearance } from "../features/dashboards/dashboardsSlice";
-import { useAppDispatch } from "../hooks/reduxHooks";
+import { updateDashboardAppearance } from "../state/dashboardsSlice";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import {
   dashboardAppearanceEditorFallback,
   dashboardGridAppearanceEditorFallback,
   getColorInputValue,
-} from "../theme/appearance";
-import type { Dashboard } from "../types/models";
-import "../shared/chrome/Popover.css";
+} from "../../../theme/appearance";
+import type { Dashboard } from "../../../types/models";
+import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
-import { InlineError } from "../shared/chrome/InlineError";
-import { useOverlay } from "../shared/chrome/OverlayProvider";
+import { InlineError } from "../../../shared/chrome/InlineError";
+import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;

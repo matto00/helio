@@ -19,7 +19,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
-import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
+import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SidebarBody } from "../shared/chrome/SidebarBody";
 import { PanelList } from "../components/PanelList";
@@ -35,7 +35,10 @@ import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
 import { LoginPage } from "../features/auth/ui/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
 import { RegisterPage } from "../features/auth/ui/RegisterPage";
-import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
+import {
+  fetchDashboards,
+  setDashboardLayoutLocally,
+} from "../features/dashboards/state/dashboardsSlice";
 import {
   redoLayout,
   selectCanRedo,

@@ -13,7 +13,7 @@ import {
   updatePanelContent,
   updatePanelsBatch,
 } from "./panelsSlice";
-import { importDashboard } from "../dashboards/dashboardsSlice";
+import { importDashboard } from "../dashboards/state/dashboardsSlice";
 import { makeMarkdownPanel, makeMetricPanel } from "../../test/panelFixtures";
 import type { MetricPanel } from "../../types/models";
 

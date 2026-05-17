@@ -1,6 +1,6 @@
 import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
-import type { DashboardLayout, DashboardLayoutItem, Panel } from "../../types/models";
+import type { DashboardLayout, DashboardLayoutItem, Panel } from "../../../types/models";
 
 export const dashboardLayoutBreakpoints = ["lg", "md", "sm", "xs"] as const;
 

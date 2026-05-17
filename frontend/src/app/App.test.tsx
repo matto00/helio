@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
+import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
@@ -15,7 +15,7 @@ import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
-} from "../services/dashboardService";
+} from "../features/dashboards/services/dashboardService";
 import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
@@ -25,7 +25,7 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeMetricPanel } from "../test/panelFixtures";
 import { App } from "./App";
 
-jest.mock("../services/dashboardService", () => ({
+jest.mock("../features/dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
   updateDashboardAppearance: jest.fn(),
   updateDashboardLayout: jest.fn(),

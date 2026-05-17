@@ -6,7 +6,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import { authReducer } from "../features/auth/state/authSlice";
-import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
+import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";

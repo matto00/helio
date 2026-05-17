@@ -5,7 +5,7 @@
 
 import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
-import { dashboardGridCols } from "../features/dashboards/dashboardLayout";
+import { dashboardGridCols } from "../features/dashboards/state/dashboardLayout";
 import type { DashboardLayout, Panel } from "../types/models";
 
 export interface PanelGridConfig {

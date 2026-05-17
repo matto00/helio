@@ -4,7 +4,7 @@ import { Responsive, useContainerWidth } from "react-grid-layout";
 import { createScaledStrategy } from "react-grid-layout/core";
 import { updatePanelTitle as updatePanelTitleRequest } from "../services/panelService";
 import { updatePanelsBatch as updatePanelsBatchRequest } from "../services/panelService";
-import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
+import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
 import { renderWithStore } from "../test/renderWithStore";
 import { makeMetricPanel } from "../test/panelFixtures";
 import { PanelGrid } from "./PanelGrid";
@@ -60,7 +60,7 @@ jest.mock("../services/panelService", () => ({
   duplicatePanel: jest.fn(),
 }));
 
-jest.mock("../services/dashboardService", () => ({
+jest.mock("../features/dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
   createDashboard: jest.fn(),
   updateDashboardAppearance: jest.fn(),

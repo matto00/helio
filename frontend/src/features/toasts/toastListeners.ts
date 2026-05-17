@@ -35,7 +35,7 @@ import {
   deleteDashboard,
   duplicateDashboard,
   importDashboard,
-} from "../dashboards/dashboardsSlice";
+} from "../dashboards/state/dashboardsSlice";
 
 // Panels
 import { createPanel, deletePanel, duplicatePanel, fetchPanels } from "../panels/panelsSlice";

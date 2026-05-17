@@ -3,7 +3,7 @@ import {
   createFallbackDashboardLayout,
   resolveDashboardLayout,
 } from "./dashboardLayout";
-import { makeMetricPanel } from "../../test/panelFixtures";
+import { makeMetricPanel } from "../../../test/panelFixtures";
 
 const makePanel = (id: string) =>
   makeMetricPanel({

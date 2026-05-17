@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
+import { duplicateDashboard, importDashboard } from "../dashboards/state/dashboardsSlice";
 import { markDashboardPanelsStale } from "./panelActions";
 import {
   createPanel,

@@ -8,8 +8,11 @@
 import * as React from "react";
 import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from "react";
 
-import { areDashboardLayoutsEqual } from "../features/dashboards/dashboardLayout";
-import { setLayoutPending, updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { areDashboardLayoutsEqual } from "../features/dashboards/state/dashboardLayout";
+import {
+  setLayoutPending,
+  updateDashboardLayout,
+} from "../features/dashboards/state/dashboardsSlice";
 import {
   buildBatchRequest,
   clearPendingPanelUpdates,
