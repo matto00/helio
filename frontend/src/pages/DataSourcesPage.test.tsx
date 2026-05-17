@@ -1,11 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 
-import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
+import { fetchSources as fetchSourcesRequest } from "../features/sources/services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../features/dataTypes/services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
 import { DataSourcesPage } from "./DataSourcesPage";
 
-jest.mock("../services/dataSourceService", () => ({
+jest.mock("../features/sources/services/dataSourceService", () => ({
   fetchSources: jest.fn(),
   deleteSource: jest.fn(),
   refreshSource: jest.fn(),

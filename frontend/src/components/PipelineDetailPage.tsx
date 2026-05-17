@@ -23,7 +23,7 @@ import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
 import "./PipelineDetailPage.css";
-import { fetchSources } from "../features/sources/sourcesSlice";
+import { fetchSources } from "../features/sources/state/sourcesSlice";
 import {
   analyzePipeline,
   clearRunState,

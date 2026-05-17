@@ -46,7 +46,7 @@ import {
   createStaticSource,
   deleteSource,
   inferSqlSource,
-} from "../sources/sourcesSlice";
+} from "../sources/state/sourcesSlice";
 
 // DataTypes
 import { deleteDataType } from "../dataTypes/state/dataTypesSlice";

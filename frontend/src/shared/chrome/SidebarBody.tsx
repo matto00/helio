@@ -18,7 +18,7 @@ import {
   fetchSources,
   setAddSourceModalOpen,
   setSelectedSourceId,
-} from "../../features/sources/sourcesSlice";
+} from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import { SidebarItemList } from "./SidebarItemList";

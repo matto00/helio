@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createPipeline, fetchPipelines } from "../features/pipelines/pipelinesSlice";
-import { fetchSources } from "../features/sources/sourcesSlice";
+import { fetchSources } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { Modal } from "../shared/ui/Modal";
 import { Select } from "../shared/ui/Select";

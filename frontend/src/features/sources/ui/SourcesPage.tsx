@@ -2,12 +2,12 @@ import { useEffect } from "react";
 
 import "./SourcesPage.css";
 import { faDatabase, faPlus } from "@fortawesome/free-solid-svg-icons";
-import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
-import { fetchSources, setAddSourceModalOpen } from "../features/sources/sourcesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
+import { fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { SourceDetailPanel } from "./SourceDetailPanel";
-import { EmptyState } from "../shared/ui/EmptyState";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();

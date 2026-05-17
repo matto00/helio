@@ -11,7 +11,7 @@ import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice"
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
-import { sourcesReducer } from "../features/sources/sourcesSlice";
+import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/toastsSlice";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";

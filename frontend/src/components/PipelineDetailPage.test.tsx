@@ -4,7 +4,7 @@ import { render } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { ThemeProvider } from "../theme/ThemeProvider";
-import { sourcesReducer } from "../features/sources/sourcesSlice";
+import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";

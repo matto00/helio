@@ -5,10 +5,10 @@ import {
   sourcesReducer,
   updateSource,
 } from "./sourcesSlice";
-import type { DataSource } from "../../types/models";
-import * as dataSourceService from "../../services/dataSourceService";
+import type { DataSource } from "../../../types/models";
+import * as dataSourceService from "../services/dataSourceService";
 
-jest.mock("../../services/dataSourceService", () => ({
+jest.mock("../services/dataSourceService", () => ({
   fetchSources: jest.fn(),
   deleteSource: jest.fn(),
   createStaticSource: jest.fn(),

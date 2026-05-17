@@ -8,7 +8,7 @@ import { authReducer } from "../../features/auth/state/authSlice";
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../features/layout/layoutHistorySlice";
-import { sourcesReducer } from "../../features/sources/sourcesSlice";
+import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { SaveStateIndicator } from "./SaveStateIndicator";
 

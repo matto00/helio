@@ -28,7 +28,7 @@ import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
-import { SourcesPage } from "../components/SourcesPage";
+import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/state/authSlice";

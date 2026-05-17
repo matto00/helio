@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { renderWithStore } from "../test/renderWithStore";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { SqlTab } from "./SqlTab";
 import { inferSqlSource as inferSqlSourceService } from "../services/dataSourceService";
-import type { InferredField } from "../types/models";
+import type { InferredField } from "../../../types/models";
 
 const noop = () => {};
 

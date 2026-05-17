@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 
-import { fetchDataTypes as fetchDataTypesRequest } from "../features/dataTypes/services/dataTypeService";
-import { renderWithStore } from "../test/renderWithStore";
+import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
 
 jest.mock("../services/dataSourceService", () => ({
@@ -15,7 +15,7 @@ jest.mock("../services/dataSourceService", () => ({
   updateSource: jest.fn(),
 }));
 
-jest.mock("../features/dataTypes/services/dataTypeService", () => ({
+jest.mock("../../dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn(),
   updateDataType: jest.fn(),
   deleteDataType: jest.fn(),

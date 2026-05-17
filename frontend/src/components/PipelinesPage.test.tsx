@@ -9,8 +9,8 @@ jest.mock("../services/pipelineService", () => ({
   createPipeline: jest.fn(),
 }));
 
-jest.mock("../features/sources/sourcesSlice", () => ({
-  ...jest.requireActual("../features/sources/sourcesSlice"),
+jest.mock("../features/sources/state/sourcesSlice", () => ({
+  ...jest.requireActual("../features/sources/state/sourcesSlice"),
   fetchSources: jest.fn(() => ({
     type: "sources/fetchSources/pending",
     unwrap: () => Promise.resolve([]),

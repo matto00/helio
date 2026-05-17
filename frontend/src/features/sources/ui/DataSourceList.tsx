@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
 
 import "./DataSourceList.css";
-import { deleteSource, fetchSources, updateSource } from "../features/sources/sourcesSlice";
-import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { deleteSource, fetchSources, updateSource } from "../state/sourcesSlice";
+import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
-import { getDataTypeId } from "../features/panels/panelNarrowing";
-import type { DataSourceKind } from "../types/models";
+import { getDataTypeId } from "../../panels/panelNarrowing";
+import type { DataSourceKind } from "../../../types/models";
 
 interface DataSourceListProps {
   onAddSource?: () => void;

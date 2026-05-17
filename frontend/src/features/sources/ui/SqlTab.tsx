@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-import { TextField, Textarea } from "../shared/ui/index";
-import { useAppDispatch } from "../hooks/reduxHooks";
-import { inferSqlSource } from "../features/sources/sourcesSlice";
-import type { InferredField } from "../types/models";
+import { TextField, Textarea } from "../../../shared/ui/index";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { inferSqlSource } from "../state/sourcesSlice";
+import type { InferredField } from "../../../types/models";
 import type { SqlSourceConfig } from "../services/dataSourceService";
 
 type Dialect = "postgresql" | "mysql";

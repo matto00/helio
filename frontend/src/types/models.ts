@@ -97,8 +97,13 @@ export type {
   SqlSource,
   SqlSourceConfig,
   StaticSource,
-} from "./dataSource";
-export { isCsvSource, isRestSource, isSqlSource, isStaticSource } from "./dataSource";
+} from "../features/sources/types/dataSource";
+export {
+  isCsvSource,
+  isRestSource,
+  isSqlSource,
+  isStaticSource,
+} from "../features/sources/types/dataSource";
 
 export interface InferredField {
   name: string;

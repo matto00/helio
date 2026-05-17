@@ -2,9 +2,9 @@ import { useState } from "react";
 
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
-import { useAppSelector } from "../hooks/reduxHooks";
-import type { DataSource, DataSourceKind } from "../types/models";
-import { PreviewTable } from "./PreviewTable";
+import { useAppSelector } from "../../../hooks/reduxHooks";
+import type { DataSource, DataSourceKind } from "../../../types/models";
+import { PreviewTable } from "../../../components/PreviewTable";
 
 interface SourceDetailPanelProps {
   source: DataSource;

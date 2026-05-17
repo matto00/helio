@@ -1,14 +1,10 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
-import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
-import {
-  createStaticSource,
-  createSqlSource,
-  fetchSources,
-} from "../features/sources/sourcesSlice";
-import { useAppDispatch } from "../hooks/reduxHooks";
-import type { InferredField, StaticColumn } from "../types/models";
+import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
+import { createStaticSource, createSqlSource, fetchSources } from "../state/sourcesSlice";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
+import type { InferredField, StaticColumn } from "../../../types/models";
 import {
   createCsvSource,
   createRestSource,
@@ -18,9 +14,9 @@ import {
 } from "../services/dataSourceService";
 import { StaticSourceForm } from "./StaticSourceForm";
 import { SqlTab } from "./SqlTab";
-import { Modal } from "../shared/ui/Modal";
-import { Select } from "../shared/ui/Select";
-import { TextField } from "../shared/ui/TextField";
+import { Modal } from "../../../shared/ui/Modal";
+import { Select } from "../../../shared/ui/Select";
+import { TextField } from "../../../shared/ui/TextField";
 
 type SourceType = "rest_api" | "csv" | "static" | "sql";
 type Step = "configure" | "preview";
