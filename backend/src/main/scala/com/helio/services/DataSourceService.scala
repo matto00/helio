@@ -216,20 +216,10 @@ final class DataSourceService(
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
     val now     = Instant.now()
     val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
+    val fields = payload.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true))
     dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now).flatMap {
       case None     => Future.failed(new RuntimeException("Source disappeared during update"))
-      case Some(ds) =>
-        dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
-          types.headOption match {
-            case None => Future.successful(Right(ds))
-            case Some(dt) =>
-              val updatedDt = dt.copy(
-                fields    = payload.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true)),
-                updatedAt = now
-              )
-              dataTypeRepo.update(updatedDt).map(_ => Right(ds))
-          }
-        }
+      case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))
     }
   }
 
@@ -240,21 +230,48 @@ final class DataSourceService(
       fileSystem.read(source.config.path).flatMap { bytes =>
         val csv    = new String(bytes, StandardCharsets.UTF_8)
         val schema = SchemaInferenceEngine.fromCsv(csv)
-        dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
-          types.headOption match {
-            case None => Future.successful(Right(source))
-            case Some(dt) =>
-              val now     = Instant.now()
-              val updated = dt.copy(
-                fields    = schema.fields.map(f =>
-                  DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                ).toVector,
-                updatedAt = now
-              )
-              dataTypeRepo.update(updated).map(_ => Right(source))
-          }
-        }
+        val now    = Instant.now()
+        val fields = schema.fields.map(f =>
+          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+        ).toVector
+        upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+      }.recover {
+        case _: java.nio.file.NoSuchFileException =>
+          Left(ServiceError.BadRequest(
+            "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
+          ))
       }
+
+  /** Update the source's auto-inferred DataType in place, or insert a fresh
+   *  one if no DT exists for the source. Inserts preserve the link via
+   *  `sourceId = Some(source.id)`. This is the recovery primitive that lets
+   *  the Sources page "Refresh" affordance heal orphan state introduced by
+   *  pre-Fix-B′ DT deletions (HEL-256). */
+  private def upsertSourceDataType(
+      source: DataSource,
+      fields: Vector[DataField],
+      user: AuthenticatedUser,
+      now: Instant
+  ): Future[DataType] =
+    dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
+      types.headOption match {
+        case Some(dt) =>
+          val updated = dt.copy(fields = fields, updatedAt = now)
+          dataTypeRepo.update(updated).map(_.getOrElse(updated))
+        case None =>
+          val fresh = DataType(
+            id        = DataTypeId(UUID.randomUUID().toString),
+            sourceId  = Some(source.id),
+            name      = source.name,
+            fields    = fields,
+            version   = 1,
+            createdAt = now,
+            updatedAt = now,
+            ownerId   = user.id
+          )
+          dataTypeRepo.insert(fresh)
+      }
+    }
 
   // ── Preview ───────────────────────────────────────────────────────────────
 

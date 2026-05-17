@@ -174,3 +174,23 @@
   color: var(--app-danger, #e53e3e);
   font-size: 0.78rem;
 }
+
+.source-detail-panel__empty-schema {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+}
+
+.source-detail-panel__empty-schema-text {
+  margin: 4px 0 8px;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.source-detail-panel__empty-schema-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
