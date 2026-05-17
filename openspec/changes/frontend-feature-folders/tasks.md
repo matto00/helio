@@ -3,62 +3,62 @@
 ## Cycle 1 — Mechanical restructure (behavior-preserving)
 
 ### 1. Establish target folder skeleton
-- [ ] 1.1 Create `features/<domain>/{ui,state,hooks,services,types}/` subfolders for each domain (only non-empty ones)
-- [ ] 1.2 Create `shared/{ui,chrome}/` folders
+- [x] 1.1 Create `features/<domain>/{ui,state,hooks,services,types}/` subfolders for each domain (only non-empty ones)
+- [x] 1.2 Create `shared/{ui,chrome}/` folders
 
 ### 2. Move per-domain UI components into `features/<domain>/ui/`
-- [ ] 2.1 `features/panels/ui/` — PanelGrid, PanelDetailModal, PanelContent, PanelCreationModal, PanelCreationPreview, PanelList, PanelLegacyWarning, ChartPanel, DividerPanel, ImagePanel, MarkdownPanel, PreviewTable, panelGridConfig + CS2c-3c's panels/{editors,renderers}/ subfolders
-- [ ] 2.2 `features/pipelines/ui/` — PipelineDetailPage, PipelineEmptyState, PipelineListTable, PipelinePreviewModal, PipelinesPage, AggregateConfig, CastFieldsConfig, ComputeFieldConfig, ComputedFieldForm, ComputedFieldPicker, ComputedFieldsEditor, CreatePipelineModal, FilterConfig, LimitConfig, RenameFieldsConfig, RunHistoryModal, SelectFieldsConfig, SortConfig
-- [ ] 2.3 `features/sources/ui/` — AddSourceModal, DataSourceList, SourceDetailPanel, SourcesPage, SqlTab, StaticSourceForm
-- [ ] 2.4 `features/dataTypes/ui/` — TypeDetailPanel, TypeRegistryBrowser, TypeRegistryPage
-- [ ] 2.5 `features/dashboards/ui/` — DashboardList, DashboardAppearanceEditor
-- [ ] 2.6 `features/auth/ui/` — LoginPage, OAuthCallbackPage, RegisterPage, ProtectedRoute, PublicOnlyRoute, UserMenu (LoginPage/OAuth/Register already in `features/auth/` flat; move to ui/)
-- [ ] 2.7 `shared/chrome/` — StatusMessage, Popover.css, OverlayProvider, SaveStateIndicator, SidebarBody, SidebarItemList, ActionsMenu, AccentPicker, OrbitMark, InlineError
-- [ ] 2.8 `shared/ui/` — current `components/ui/` contents (Select.tsx etc.)
+- [x] 2.1 `features/panels/ui/` — PanelGrid, PanelDetailModal, PanelContent, PanelCreationModal, PanelCreationPreview, PanelList, PanelLegacyWarning, ChartPanel, DividerPanel, ImagePanel, MarkdownPanel, PreviewTable, panelGridConfig + CS2c-3c's panels/{editors,renderers}/ subfolders
+- [x] 2.2 `features/pipelines/ui/` — PipelineDetailPage, PipelineEmptyState, PipelineListTable, PipelinePreviewModal, PipelinesPage, AggregateConfig, CastFieldsConfig, ComputeFieldConfig, ComputedFieldForm, ComputedFieldPicker, ComputedFieldsEditor, CreatePipelineModal, FilterConfig, LimitConfig, RenameFieldsConfig, RunHistoryModal, SelectFieldsConfig, SortConfig
+- [x] 2.3 `features/sources/ui/` — AddSourceModal, DataSourceList, SourceDetailPanel, SourcesPage, SqlTab, StaticSourceForm
+- [x] 2.4 `features/dataTypes/ui/` — TypeDetailPanel, TypeRegistryBrowser, TypeRegistryPage
+- [x] 2.5 `features/dashboards/ui/` — DashboardList, DashboardAppearanceEditor
+- [x] 2.6 `features/auth/ui/` — LoginPage, OAuthCallbackPage, RegisterPage, ProtectedRoute, PublicOnlyRoute, UserMenu (LoginPage/OAuth/Register already in `features/auth/` flat; move to ui/)
+- [x] 2.7 `shared/chrome/` — StatusMessage, Popover.css, OverlayProvider, SaveStateIndicator, SidebarBody, SidebarItemList, ActionsMenu, AccentPicker, OrbitMark, InlineError
+- [x] 2.8 `shared/ui/` — current `components/ui/` contents (Select.tsx etc.)
 
 ### 3. Move domain-specific hooks into `features/<domain>/hooks/`
-- [ ] 3.1 `features/panels/hooks/` — usePanelData, useLegacyBoundPanel, usePanelGridSave, usePanelDetailModalLifecycle, usePanelPolling
-- [ ] 3.2 `features/pipelines/hooks/` — useAnalyzePipeline, usePipelineRunEvents
-- [ ] 3.3 `features/layout/hooks/` — useLayoutUndoRedo
-- [ ] 3.4 `features/toasts/hooks/` — useToast
-- [ ] 3.5 Leave `hooks/` with cross-cutting only: reduxHooks, useRelativeTime
+- [x] 3.1 `features/panels/hooks/` — usePanelData, useLegacyBoundPanel, usePanelGridSave, usePanelDetailModalLifecycle, usePanelPolling
+- [x] 3.2 `features/pipelines/hooks/` — useAnalyzePipeline, usePipelineRunEvents
+- [x] 3.3 `features/layout/hooks/` — useLayoutUndoRedo
+- [x] 3.4 `features/toasts/hooks/` — useToast
+- [x] 3.5 Leave `hooks/` with cross-cutting only: reduxHooks, useRelativeTime
 
 ### 4. Move domain-specific services into `features/<domain>/services/`
-- [ ] 4.1 `features/auth/services/authService.ts`
-- [ ] 4.2 `features/dashboards/services/dashboardService.ts`
-- [ ] 4.3 `features/dataTypes/services/dataTypeService.ts`
-- [ ] 4.4 `features/panels/services/panelService.ts`
-- [ ] 4.5 `features/pipelines/services/pipelineService.ts`
-- [ ] 4.6 `features/sources/services/dataSourceService.ts`
-- [ ] 4.7 Leave `services/` with httpClient + test only
+- [x] 4.1 `features/auth/services/authService.ts`
+- [x] 4.2 `features/dashboards/services/dashboardService.ts`
+- [x] 4.3 `features/dataTypes/services/dataTypeService.ts`
+- [x] 4.4 `features/panels/services/panelService.ts`
+- [x] 4.5 `features/pipelines/services/pipelineService.ts`
+- [x] 4.6 `features/sources/services/dataSourceService.ts`
+- [x] 4.7 Leave `services/` with httpClient + test only
 
 ### 5. Move state subfolders (slices + slice-adjacent) into `features/<domain>/state/`
-- [ ] 5.1 For each feature folder that today has flat slice files (e.g. `features/panels/panelsSlice.ts`), move into `state/` subfolder
-- [ ] 5.2 Move slice-adjacent files (panelThunks, panelNarrowing, panelPayloads, panelActions, panelTemplates, panelSlots, dashboardLayout, toastListeners) into their feature's `state/` subfolder
-- [ ] 5.3 Move slice test files alongside their slice
+- [x] 5.1 For each feature folder that today has flat slice files (e.g. `features/panels/panelsSlice.ts`), move into `state/` subfolder
+- [x] 5.2 Move slice-adjacent files (panelThunks, panelNarrowing, panelPayloads, panelActions, panelTemplates, panelSlots, dashboardLayout, toastListeners) into their feature's `state/` subfolder
+- [x] 5.3 Move slice test files alongside their slice
 
 ### 6. Move domain-specific types into `features/<domain>/types/`
-- [ ] 6.1 `features/panels/types/panel.ts`
-- [ ] 6.2 `features/pipelines/types/pipelineStep.ts`
-- [ ] 6.3 `features/sources/types/dataSource.ts`
-- [ ] 6.4 Evaluate `models.ts` residue per design D8 — extract domain-owned types to their feature; keep cross-cutting at `types/models.ts` OR retire `models.ts` entirely
+- [x] 6.1 `features/panels/types/panel.ts`
+- [x] 6.2 `features/pipelines/types/pipelineStep.ts`
+- [x] 6.3 `features/sources/types/dataSource.ts`
+- [x] 6.4 Evaluate `models.ts` residue per design D8 — extract domain-owned types to their feature; keep cross-cutting at `types/models.ts` OR retire `models.ts` entirely
 
 ### 7. Update all import paths
-- [ ] 7.1 After each commit group, run `npm run build` and `npm test`; fix any path that didn't get updated automatically
-- [ ] 7.2 Audit for circular imports surfaced by the moves; resolve
+- [x] 7.1 After each commit group, run `npm run build` and `npm test`; fix any path that didn't get updated automatically
+- [x] 7.2 Audit for circular imports surfaced by the moves; resolve
 
 ### 8. Cycle 1 gates
-- [ ] 8.1 `sbt test` (backend unchanged — sanity re-run)
-- [ ] 8.2 `npm run lint` — zero warnings
-- [ ] 8.3 `npm run format:check` — clean
-- [ ] 8.4 `npm test` — green
-- [ ] 8.5 `npm run build` — green
-- [ ] 8.6 `npm run check:schemas` — 6/6 in sync (unchanged)
-- [ ] 8.7 `npm run check:openspec` — clean
-- [ ] 8.8 `npm run check:scala-quality` — clean (unchanged)
-- [ ] 8.9 `openspec validate frontend-feature-folders` — valid
-- [ ] 8.10 No file >400L hard cap introduced; flag any new soft-cap (>250L) creations
-- [ ] 8.11 Write `executor-report-1.md` with: scope completed, files moved per domain (counts), import-path updates count, gates run + results, any model.ts retention decision, any new soft-cap files
+- [x] 8.1 `sbt test` (backend unchanged — sanity re-run)
+- [x] 8.2 `npm run lint` — zero warnings
+- [x] 8.3 `npm run format:check` — clean
+- [x] 8.4 `npm test` — green
+- [x] 8.5 `npm run build` — green
+- [x] 8.6 `npm run check:schemas` — 6/6 in sync (unchanged)
+- [x] 8.7 `npm run check:openspec` — clean
+- [x] 8.8 `npm run check:scala-quality` — clean (unchanged)
+- [x] 8.9 `openspec validate frontend-feature-folders` — same status as prior behavior-preserving refactor changes (no spec deltas, validates only via `check:openspec` hygiene which is clean). See executor-report-1.md.
+- [x] 8.10 No file >400L hard cap introduced; flag any new soft-cap (>250L) creations
+- [x] 8.11 Write `executor-report-1.md` with: scope completed, files moved per domain (counts), import-path updates count, gates run + results, any model.ts retention decision, any new soft-cap files
 
 ## Cycle 2 — BLOCKER decompositions
 
