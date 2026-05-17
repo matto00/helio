@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AccessCheckerImpl, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
 import com.helio.domain.{AuthenticatedUser, DataTypeId, UserId}
-import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
 import com.helio.services.DataTypeService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -36,6 +36,7 @@ class DataTypeRoutesSpec
   private var db: JdbcBackend.Database             = _
   private var dataTypeRepo: DataTypeRepository     = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
+  private var dataSourceRepo: DataSourceRepository = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -50,6 +51,7 @@ class DataTypeRoutesSpec
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     dataTypeRepo    = new DataTypeRepository(db)(routeEc)
     dataTypeRowRepo = new DataTypeRowRepository(db)(routeEc)
+    dataSourceRepo  = new DataSourceRepository(db)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -71,7 +73,7 @@ class DataTypeRoutesSpec
 
   private def makeRoutes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, makeAccessChecker)
+    val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, makeAccessChecker)
     new DataTypeRoutes(service, dummyUser)(typedSystem).routes
   }
 

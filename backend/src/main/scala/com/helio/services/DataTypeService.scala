@@ -3,7 +3,7 @@ package com.helio.services
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{ComputedFieldPayload, UpdateDataTypeRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
 import spray.json.JsObject
 
 import java.time.Instant
@@ -14,6 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DataTypeService(
     dataTypeRepo:    DataTypeRepository,
     dataTypeRowRepo: DataTypeRowRepository,
+    dataSourceRepo:  DataSourceRepository,
     accessChecker:   AccessChecker
 )(implicit ec: ExecutionContext) {
 
@@ -119,13 +120,35 @@ final class DataTypeService(
       case Right(_)  =>
         dataTypeRepo.findById(id).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
-          case Some(_) =>
-            dataTypeRepo.isBoundToAnyPanel(id).flatMap {
-              case true =>
-                Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
-              case false =>
-                dataTypeRepo.delete(id).map(_ => Right(()))
+          case Some(dt) =>
+            checkSourceLink(dt).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  =>
+                dataTypeRepo.isBoundToAnyPanel(id).flatMap {
+                  case true =>
+                    Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
+                  case false =>
+                    dataTypeRepo.delete(id).map(_ => Right(()))
+                }
             }
+        }
+    }
+
+  /** Reject the delete when the DataType is the auto-inferred schema of a
+   *  still-existing DataSource. Without this guard, the user can delete a
+   *  source's schema row from the Type Registry sidebar and the Sources page
+   *  silently renders no schema for the orphaned source (HEL-256). */
+  private def checkSourceLink(dt: DataType): Future[Either[ServiceError, Unit]] =
+    dt.sourceId match {
+      case None => Future.successful(Right(()))
+      case Some(srcId) =>
+        dataSourceRepo.findById(srcId).map {
+          case None => Right(())
+          case Some(source) =>
+            Left(ServiceError.Conflict(
+              s"Cannot delete this DataType: it is the auto-inferred schema of data source '${source.name}'. " +
+              s"Refresh the source to re-infer its schema, or delete the source first."
+            ))
         }
     }
 }

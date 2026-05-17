@@ -66,7 +66,7 @@ final class ApiRoutes(
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
-  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, accessChecker)
+  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, accessChecker)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
   private val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
