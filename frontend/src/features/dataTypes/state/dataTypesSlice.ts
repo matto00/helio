@@ -5,7 +5,7 @@ import {
   updateDataType as updateDataTypeRequest,
   deleteDataType as deleteDataTypeRequest,
 } from "../services/dataTypeService";
-import type { ComputedField, DataType, DataTypeField } from "../../../types/models";
+import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 
 interface DataTypesState {
   items: DataType[];

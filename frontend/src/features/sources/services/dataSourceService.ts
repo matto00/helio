@@ -1,7 +1,7 @@
+import type { DataType } from "../../dataTypes/types/dataType";
 import type {
   DataSource,
   DataSourceKind,
-  DataType,
   InferredField,
   SqlSourceConfig,
   StaticColumn,

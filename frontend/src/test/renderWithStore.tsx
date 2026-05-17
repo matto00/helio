@@ -16,9 +16,9 @@ import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
+import type { DataType } from "../features/dataTypes/types/dataType";
 import type {
   DataSource,
-  DataType,
   DashboardAppearance,
   DashboardLayout,
   PanelAppearance,

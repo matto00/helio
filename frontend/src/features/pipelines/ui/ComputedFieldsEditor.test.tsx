@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { validateExpression as validateExpressionRequest } from "../../dataTypes/services/dataTypeService";
-import type { ComputedField } from "../../../types/models";
+import type { ComputedField } from "../../dataTypes/types/dataType";
 import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
 
 jest.mock("../../dataTypes/services/dataTypeService", () => ({

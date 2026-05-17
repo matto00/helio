@@ -58,31 +58,6 @@ export interface PanelAppearance {
   chart?: ChartAppearance;
 }
 
-export interface DataTypeField {
-  name: string;
-  displayName: string;
-  dataType: string;
-  nullable: boolean;
-}
-
-export interface ComputedField {
-  name: string;
-  displayName: string;
-  expression: string;
-  dataType: string;
-}
-
-export interface DataType {
-  id: string;
-  name: string;
-  sourceId: string | null;
-  version: number;
-  fields: DataTypeField[];
-  computedFields: ComputedField[];
-  createdAt: string;
-  updatedAt: string;
-}
-
 // DataSource discriminated-union ADT lives in `./dataSource.ts`; re-exported
 // here so existing imports against `./models` keep working.
 export type {

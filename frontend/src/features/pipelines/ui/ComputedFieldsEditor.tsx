@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import "./ComputedFieldsEditor.css";
-import type { ComputedField } from "../../../types/models";
+import type { ComputedField } from "../../dataTypes/types/dataType";
 import { ComputedFieldForm } from "./ComputedFieldForm";
 
 interface ComputedFieldsEditorProps {
