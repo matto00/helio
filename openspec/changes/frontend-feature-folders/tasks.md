@@ -63,14 +63,14 @@
 ## Cycle 2 — BLOCKER decompositions
 
 ### 9. Decompose `features/pipelines/ui/PipelineDetailPage.tsx` (1200L → <400L)
-- [ ] 9.1 Extract `StepCard` → `features/pipelines/ui/StepCard.tsx`
-- [ ] 9.2 Extract `OpDropdown` → `features/pipelines/ui/OpDropdown.tsx`
-- [ ] 9.3 Extract `SourceChip` → `features/pipelines/ui/SourceChip.tsx`
-- [ ] 9.4 Extract `RibbonSegment` → `features/pipelines/ui/RibbonSegment.tsx`
-- [ ] 9.5 Extract narrowing helpers → `features/pipelines/state/stepNarrowing.ts` (state, not ui)
-- [ ] 9.6 Extract op/step types → `features/pipelines/types/step.ts` or merge into existing pipelineStep types
-- [ ] 9.7 Verify `PipelineDetailPage.tsx` <400L after extractions
-- [ ] 9.8 Each extracted file <250L soft cap
+- [x] 9.1 Extract `StepCard` → `features/pipelines/ui/StepCard.tsx`
+- [x] 9.2 Extract `OpDropdown` → `features/pipelines/ui/OpDropdown.tsx`
+- [x] 9.3 Extract `SourceChip` → `features/pipelines/ui/SourceChip.tsx`
+- [x] 9.4 Extract `RibbonSegment` → `features/pipelines/ui/RibbonSegment.tsx`
+- [x] 9.5 Extract narrowing helpers → `features/pipelines/state/stepNarrowing.ts` (state, not ui)
+- [x] 9.6 Extract op/step types → `features/pipelines/types/step.ts` or merge into existing pipelineStep types
+- [x] 9.7 Verify `PipelineDetailPage.tsx` <400L after extractions (389L; drive-by extracted `PipelineDetailFooter`, `PipelineRiverView`, `SourceSelectorBar` to reach cap — see executor-report-2.md)
+- [x] 9.8 Each extracted file <250L soft cap (StepCard at 323L is the lone exception — over 250L soft cap, under 400L hard cap; further per-kind split would mirror CS2c-3c editors and is out of scope here)
 
 ### 10. Decompose `features/sources/ui/AddSourceModal.tsx` (475L → <400L)
 - [ ] 10.1 Read the file's structure; identify natural decomposition lines (likely per-source-type forms or per-step components)
