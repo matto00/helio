@@ -6,6 +6,7 @@ import {
   createPanel,
   fetchPanelPage,
   fetchPanels,
+  markDataTypeRowsStale,
   panelsReducer,
   resetPanelPagination,
   updatePanelAppearance,
@@ -359,6 +360,91 @@ describe("panelsSlice", () => {
 
       expect(afterReset.paginationState["panel-1"]).toBeUndefined();
       expect(afterReset.paginationState["panel-2"]).toBeDefined();
+    });
+  });
+
+  // HEL-242 — markDataTypeRowsStale clears paginationState only for panels
+  // bound to the affected DataType.
+  describe("markDataTypeRowsStale", () => {
+    function seedThreePanels() {
+      // Two metric panels bound to dt-A, one table panel bound to dt-B.
+      const panelA1 = makeMetricPanel({
+        id: "panel-a1",
+        dashboardId: "d1",
+        config: { dataTypeId: "dt-A", fieldMapping: { value: "v" } },
+      });
+      const panelA2 = makeMetricPanel({
+        id: "panel-a2",
+        dashboardId: "d1",
+        config: { dataTypeId: "dt-A", fieldMapping: { value: "v" } },
+      });
+      const panelB = makeMetricPanel({
+        id: "panel-b",
+        dashboardId: "d1",
+        config: { dataTypeId: "dt-B", fieldMapping: { value: "v" } },
+      });
+
+      let state = panelsReducer(
+        undefined,
+        fetchPanels.fulfilled([panelA1, panelA2, panelB], "req", "d1"),
+      );
+      // Seed pagination state for all three panels.
+      for (const id of ["panel-a1", "panel-a2", "panel-b"]) {
+        state = panelsReducer(
+          state,
+          fetchPanelPage.fulfilled(
+            { panelId: id, page: 0, rows: [{ v: 1 }], hasMore: false },
+            "r",
+            {
+              panelId: id,
+              page: 0,
+              pageSize: 50,
+            },
+          ),
+        );
+      }
+      return state;
+    }
+
+    it("clears paginationState entries for every panel bound to the affected DataType", () => {
+      const seeded = seedThreePanels();
+      expect(Object.keys(seeded.paginationState).sort()).toEqual([
+        "panel-a1",
+        "panel-a2",
+        "panel-b",
+      ]);
+
+      const afterStale = panelsReducer(seeded, markDataTypeRowsStale("dt-A"));
+
+      expect(afterStale.paginationState["panel-a1"]).toBeUndefined();
+      expect(afterStale.paginationState["panel-a2"]).toBeUndefined();
+      // Panel bound to dt-B is untouched.
+      expect(afterStale.paginationState["panel-b"]).toBeDefined();
+      expect(afterStale.paginationState["panel-b"].rows).toEqual([{ v: 1 }]);
+    });
+
+    it("is a no-op when no panel is bound to the dispatched DataType id", () => {
+      const seeded = seedThreePanels();
+      const afterStale = panelsReducer(seeded, markDataTypeRowsStale("dt-unrelated"));
+
+      expect(Object.keys(afterStale.paginationState).sort()).toEqual([
+        "panel-a1",
+        "panel-a2",
+        "panel-b",
+      ]);
+      // Row contents preserved on every panel.
+      expect(afterStale.paginationState["panel-a1"].rows).toEqual([{ v: 1 }]);
+    });
+
+    it("ignores panels whose subtype does not carry a DataType binding", () => {
+      // A text panel cannot bind to a DataType; the reducer's `isBoundCapablePanel`
+      // narrowing must skip it without inspecting a missing `config.dataTypeId`.
+      const textPanel = makeMarkdownPanel({ id: "panel-text", dashboardId: "d1" });
+      const seeded = seedThreePanels();
+      const withText = panelsReducer(seeded, fetchPanels.fulfilled([textPanel], "req", "d1"));
+
+      // No throw, no mutation.
+      expect(() => panelsReducer(withText, markDataTypeRowsStale("dt-A"))).not.toThrow();
     });
   });
 

@@ -17,10 +17,10 @@
 
 ## 2. Cycle 2 — fix implementation
 
-- [ ] 2.1 Add `markDataTypeRowsStale` action in `panelActions.ts` (createAction<string>)
-- [ ] 2.2 Add reducer case in `panelsSlice.ts` `extraReducers` builder: iterate `state.items`, narrow via `isBoundCapablePanel`, delete `state.paginationState[panel.id]` for every match
-- [ ] 2.3 Adjust `usePanelData.ts` dedupe guard: bypass the prevKey early-return when `paginationEntry == null` (so a cleared entry triggers a fresh fetch on the next render)
-- [ ] 2.4 Dispatch `markDataTypeRowsStale(outputDataTypeId)` from `PipelineDetailPage.tsx` `onTerminal` when `event.status === "succeeded"` and `currentPipeline?.outputDataTypeId` is non-null
+- [x] 2.1 Add `markDataTypeRowsStale` action in `panelActions.ts` (createAction<string>)
+- [x] 2.2 Add reducer case in `panelsSlice.ts` `extraReducers` builder: iterate `state.items`, narrow via `isBoundCapablePanel`, delete `state.paginationState[panel.id]` for every match
+- [x] 2.3 Adjust `usePanelData.ts` dedupe guard: bypass the prevKey early-return when `paginationEntry == null` (so a cleared entry triggers a fresh fetch on the next render)
+- [x] 2.4 Dispatch `markDataTypeRowsStale(outputDataTypeId)` from `PipelineDetailPage.tsx` `onTerminal` when `event.status === "succeeded"` and `currentPipeline?.outputDataTypeId` is non-null
 
 ## 3. Cycle 2 — regression coverage
 
