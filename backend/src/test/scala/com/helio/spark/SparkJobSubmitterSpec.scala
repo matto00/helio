@@ -264,7 +264,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),
-        updatedAt          = Instant.now()
+        updatedAt          = Instant.now(),
+        ownerId            = UserId("00000000-0000-0000-0000-000000000001")
       )
 
     "the Spark job succeeds" should {

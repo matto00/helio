@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
-import com.helio.domain.PipelineId
+import com.helio.api.{ResourceType, ResourceTypeRegistry}
+import com.helio.domain.{DataSourceId, PipelineId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -126,6 +127,85 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       summary.get.lastRunStatus   shouldBe None
       summary.get.lastRunAt       shouldBe None
       summary.get.lastRunRowCount shouldBe None
+    }
+  }
+
+  // ── HEL-265 CS1: owner_id foundation ─────────────────────────────────────
+  //
+  // These tests cover the additive data-model change introduced by V32.
+  // They do NOT exercise ACL enforcement — that lands in CS2 — only that
+  // owner_id is correctly defaulted, persisted, and surfaced on reads.
+
+  "PipelineRepository owner_id (V32)" should {
+
+    "default newly-inserted rows missing owner_id to the system user" in {
+      val pid = seedPipeline()
+
+      val pipeline = await(pipelineRepo.findByIdInternal(pid))
+      pipeline shouldBe defined
+      pipeline.get.ownerId shouldBe UserId("00000000-0000-0000-0000-000000000001")
+    }
+
+    "persist an explicit owner_id when create() is called with a non-system user" in {
+      import PostgresProfile.api._
+      val customOwner = UUID.randomUUID().toString
+      val dsId        = UUID.randomUUID().toString
+      // Seed the custom user and a data source they own so create() can succeed.
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+                 VALUES ($customOwner::uuid, ${s"user-$customOwner@helio.test"}, now())""",
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $customOwner::uuid, now(), now())"""
+      )))
+
+      val result = await(pipelineRepo.create(
+        name               = "owned-pipeline",
+        sourceDataSourceId = DataSourceId(dsId),
+        outputDataTypeName = "owned-dt",
+        ownerId            = UserId(customOwner)
+      ))
+      result.isRight shouldBe true
+      val summary = result.toOption.get
+
+      val pipeline = await(pipelineRepo.findByIdInternal(PipelineId(summary.id)))
+      pipeline shouldBe defined
+      pipeline.get.ownerId shouldBe UserId(customOwner)
+    }
+
+    "findByIdInternal returns the row regardless of owner" in {
+      // Seed via the raw-SQL helper which uses the system user default; the
+      // *Internal read makes no owner predicate, so the row should come back.
+      val pid = seedPipeline()
+
+      val viaInternal = await(pipelineRepo.findByIdInternal(pid))
+      viaInternal shouldBe defined
+      viaInternal.get.id shouldBe pid
+    }
+
+    "registry resolver returns the pipeline's owner id" in {
+      val pid = seedPipeline()
+
+      val resolver = ResourceType(
+        "pipeline",
+        id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value))
+      )
+      // Construct a registry to also exercise the lookup path the directive uses.
+      val registry = new ResourceTypeRegistry(resolver)
+      val rt       = registry.lookup("pipeline")
+      rt shouldBe defined
+
+      val ownerOpt = await(rt.get.ownerResolver(pid.value))
+      ownerOpt shouldBe Some("00000000-0000-0000-0000-000000000001")
+    }
+
+    "registry resolver returns None for an unknown pipeline id" in {
+      val resolver = ResourceType(
+        "pipeline",
+        id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value))
+      )
+      val ownerOpt = await(resolver.ownerResolver(UUID.randomUUID().toString))
+      ownerOpt shouldBe None
     }
   }
 }

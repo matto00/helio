@@ -257,7 +257,8 @@ final case class Pipeline(
     lastRunStatus: Option[String],
     lastRunAt: Option[Instant],
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    ownerId: UserId
 )
 
 final case class PipelineStepId(value: String) extends AnyVal
