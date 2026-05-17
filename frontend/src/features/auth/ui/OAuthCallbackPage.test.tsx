@@ -3,12 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import * as authService from "../../services/authService";
-import type { AuthResponse, User } from "../../types/models";
-import { authReducer } from "./authSlice";
+import * as authService from "../services/authService";
+import type { AuthResponse, User } from "../../../types/models";
+import { authReducer } from "../state/authSlice";
 import { OAuthCallbackPage } from "./OAuthCallbackPage";
 
-jest.mock("../../services/authService", () => ({
+jest.mock("../services/authService", () => ({
   loginRequest: jest.fn(),
   registerRequest: jest.fn(),
   logoutRequest: jest.fn(),
@@ -16,7 +16,7 @@ jest.mock("../../services/authService", () => ({
   oauthCallbackRequest: jest.fn(),
 }));
 
-jest.mock("../../services/httpClient", () => ({
+jest.mock("../../../services/httpClient", () => ({
   httpClient: { defaults: { headers: { common: {} } } },
   setAuthToken: jest.fn(),
 }));

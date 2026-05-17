@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
-import { authReducer } from "../features/auth/authSlice";
+import { authReducer } from "../features/auth/state/authSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";

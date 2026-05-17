@@ -8,15 +8,15 @@ import {
   oauthCallbackRequest,
   registerRequest,
   updateUserPreferencesRequest,
-} from "../../services/authService";
-import { setAuthToken } from "../../services/httpClient";
-import { applyAccentTokens } from "../../theme/appearance";
+} from "../services/authService";
+import { setAuthToken } from "../../../services/httpClient";
+import { applyAccentTokens } from "../../../theme/appearance";
 import type {
   AuthResponse,
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
-} from "../../types/models";
+} from "../../../types/models";
 
 interface AuthRootState {
   auth: AuthState;

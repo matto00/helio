@@ -5,7 +5,7 @@ import type { PropsWithChildren } from "react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import { authReducer, type AuthState } from "../features/auth/authSlice";
+import { authReducer, type AuthState } from "../state/authSlice";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {

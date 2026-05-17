@@ -5,7 +5,7 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { App } from "./app/App";
 import { OverlayProvider } from "./shared/chrome/OverlayProvider";
-import { updateUserPreferences } from "./features/auth/authSlice";
+import { updateUserPreferences } from "./features/auth/state/authSlice";
 import { setupAuthInterceptor } from "./services/httpClient";
 import { store, type RootState, type AppDispatch } from "./store/store";
 import { ThemeProvider } from "./theme/ThemeProvider";

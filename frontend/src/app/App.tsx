@@ -23,18 +23,18 @@ import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEdit
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SidebarBody } from "../shared/chrome/SidebarBody";
 import { PanelList } from "../components/PanelList";
-import { ProtectedRoute } from "../components/ProtectedRoute";
-import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
+import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
+import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
 import { SourcesPage } from "../components/SourcesPage";
 import { TypeRegistryPage } from "../components/TypeRegistryPage";
-import { UserMenu } from "../components/UserMenu";
-import { logout, rehydrateAuth } from "../features/auth/authSlice";
-import { LoginPage } from "../features/auth/LoginPage";
-import { OAuthCallbackPage } from "../features/auth/OAuthCallbackPage";
-import { RegisterPage } from "../features/auth/RegisterPage";
+import { UserMenu } from "../features/auth/ui/UserMenu";
+import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
+import { LoginPage } from "../features/auth/ui/LoginPage";
+import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
+import { RegisterPage } from "../features/auth/ui/RegisterPage";
 import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
 import {
   redoLayout,

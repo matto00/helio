@@ -55,7 +55,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelAppearance: jest.fn(),
 }));
 
-jest.mock("../services/authService", () => ({
+jest.mock("../features/auth/services/authService", () => ({
   updateUserPreferencesRequest: jest.fn().mockResolvedValue({ accentColor: null, zoomLevels: {} }),
 }));
 

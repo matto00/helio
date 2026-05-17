@@ -3,8 +3,8 @@ import type {
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
-} from "../types/models";
-import { httpClient } from "./httpClient";
+} from "../../../types/models";
+import { httpClient } from "../../../services/httpClient";
 
 interface LoginPayload {
   email: string;

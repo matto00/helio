@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { useAppDispatch } from "../../hooks/reduxHooks";
-import { handleOAuthCallback } from "./authSlice";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { handleOAuthCallback } from "../state/authSlice";
 import "./auth.css";
 
 export function OAuthCallbackPage() {

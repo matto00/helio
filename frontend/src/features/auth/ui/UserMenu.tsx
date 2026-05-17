@@ -2,9 +2,9 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
-import { AccentPicker } from "../shared/chrome/AccentPicker";
-import type { Theme } from "../theme/theme";
-import type { User } from "../types/models";
+import { AccentPicker } from "../../../shared/chrome/AccentPicker";
+import type { Theme } from "../../../theme/theme";
+import type { User } from "../../../types/models";
 import "./UserMenu.css";
 
 /** Render the user's avatar image, falling back to their initial and then to a

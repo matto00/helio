@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
-import { authReducer } from "../features/auth/authSlice";
+import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
@@ -46,7 +46,7 @@ jest.mock("../services/pipelineService", () => ({
   getPipelines: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock("../services/authService", () => ({
+jest.mock("../features/auth/services/authService", () => ({
   getMeRequest: jest.fn().mockResolvedValue({
     id: "test-user",
     email: "test@example.com",

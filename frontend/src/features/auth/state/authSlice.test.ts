@@ -1,9 +1,9 @@
 import { configureStore } from "@reduxjs/toolkit";
 
-import * as authService from "../../services/authService";
-import * as httpClient from "../../services/httpClient";
-import { applyAccentTokens } from "../../theme/appearance";
-import type { AuthResponse, User } from "../../types/models";
+import * as authService from "../services/authService";
+import * as httpClient from "../../../services/httpClient";
+import { applyAccentTokens } from "../../../theme/appearance";
+import type { AuthResponse, User } from "../../../types/models";
 import {
   authReducer,
   clearAuth,
@@ -15,12 +15,12 @@ import {
   updateUserPreferences,
 } from "./authSlice";
 
-jest.mock("../../services/authService");
-jest.mock("../../services/httpClient", () => ({
+jest.mock("../services/authService");
+jest.mock("../../../services/httpClient", () => ({
   httpClient: { defaults: { headers: { common: {} } } },
   setAuthToken: jest.fn(),
 }));
-jest.mock("../../theme/appearance");
+jest.mock("../../../theme/appearance");
 
 const mockedAuthService = jest.mocked(authService);
 const mockedSetAuthToken = jest.mocked(httpClient.setAuthToken);

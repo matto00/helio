@@ -1,10 +1,10 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { TextField } from "../../shared/ui/index";
-import { API_BASE_URL } from "../../config/env";
-import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
-import { login } from "./authSlice";
+import { TextField } from "../../../shared/ui/index";
+import { API_BASE_URL } from "../../../config/env";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { login } from "../state/authSlice";
 import "./auth.css";
 
 export function LoginPage() {
