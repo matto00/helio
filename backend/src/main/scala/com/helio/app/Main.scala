@@ -62,6 +62,11 @@ object Main {
 
       DemoData.seedIfEmpty(dashboardRepo, panelRepo)
 
+      // HEL-256: surface any data_sources rows that lack a linked DataType
+      // (orphans render empty schemas on the Sources page). Defense-in-depth
+      // beside DataTypeService.delete guard and refresh upsert primitive.
+      SourceSchemaHealthCheck.run(db, logger)
+
       val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("PORT")
