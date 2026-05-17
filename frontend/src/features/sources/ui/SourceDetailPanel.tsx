@@ -5,6 +5,7 @@ import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService
 import { useAppSelector } from "../../../hooks/reduxHooks";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
 import { PreviewTable } from "../../panels/ui/PreviewTable";
+import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 
 interface SourceDetailPanelProps {
   source: DataSource;
@@ -105,7 +106,9 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
             </tbody>
           </table>
         </section>
-      ) : null}
+      ) : (
+        <EmptySchemaAffordance source={source} />
+      )}
 
       <section className="source-detail-panel__preview" aria-label="Preview">
         <h4 className="source-detail-panel__section-title">Preview</h4>
