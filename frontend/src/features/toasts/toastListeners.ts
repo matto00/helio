@@ -49,7 +49,7 @@ import {
 } from "../sources/sourcesSlice";
 
 // DataTypes
-import { deleteDataType } from "../dataTypes/dataTypesSlice";
+import { deleteDataType } from "../dataTypes/state/dataTypesSlice";
 
 // Pipelines
 import { createPipeline, deletePipeline, submitPipelineRun } from "../pipelines/pipelinesSlice";

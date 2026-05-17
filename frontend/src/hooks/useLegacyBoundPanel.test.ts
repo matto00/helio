@@ -4,7 +4,7 @@ import type { PropsWithChildren } from "react";
 import { createElement } from "react";
 import { Provider } from "react-redux";
 
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
+import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { makeMetricPanel } from "../test/panelFixtures";
 import type { DataType } from "../types/models";
 import { useLegacyBoundPanel } from "./useLegacyBoundPanel";

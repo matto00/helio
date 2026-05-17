@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
 import {
   createStaticSource,
   createSqlSource,

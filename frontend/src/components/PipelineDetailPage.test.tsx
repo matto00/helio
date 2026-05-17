@@ -9,7 +9,7 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
+import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";

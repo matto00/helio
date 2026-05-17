@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import "./SourcesPage.css";
 import { faDatabase, faPlus } from "@fortawesome/free-solid-svg-icons";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
 import { fetchSources, setAddSourceModalOpen } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";

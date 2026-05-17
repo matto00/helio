@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { authReducer } from "../features/auth/state/authSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
+import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
@@ -38,7 +38,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
 
-jest.mock("../services/dataTypeService", () => ({
+jest.mock("../features/dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn().mockResolvedValue([]),
 }));
 

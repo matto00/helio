@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import "./DataSourceList.css";
 import { deleteSource, fetchSources, updateSource } from "../features/sources/sourcesSlice";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
 import { getDataTypeId } from "../features/panels/panelNarrowing";

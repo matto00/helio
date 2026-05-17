@@ -7,7 +7,7 @@ import {
   deleteDataType,
   fetchDataTypes,
   setSelectedTypeId,
-} from "../../features/dataTypes/dataTypesSlice";
+} from "../../features/dataTypes/state/dataTypesSlice";
 import {
   deletePipeline,
   fetchPipelines,

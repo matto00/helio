@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
 import "./TypeRegistryPage.css";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { fetchDataTypes } from "../state/dataTypesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { TypeRegistryBrowser } from "./TypeRegistryBrowser";
 
 export function TypeRegistryPage() {

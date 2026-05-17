@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Select, TextField } from "../../../shared/ui/index";
-import { fetchDataTypes } from "../../../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../../../features/dataTypes/state/dataTypesSlice";
 import { PANEL_SLOTS } from "../../../features/panels/panelSlots";
 import { updatePanelBinding } from "../../../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";

@@ -5,12 +5,12 @@ import { createElement } from "react";
 import { Provider } from "react-redux";
 
 import { panelsReducer } from "../features/panels/panelsSlice";
-import * as dataTypeService from "../services/dataTypeService";
+import * as dataTypeService from "../features/dataTypes/services/dataTypeService";
 import { makeMetricPanel } from "../test/panelFixtures";
 import type { Panel } from "../types/models";
 import { usePanelData } from "./usePanelData";
 
-jest.mock("../services/dataTypeService");
+jest.mock("../features/dataTypes/services/dataTypeService");
 
 const mockFetchDataTypeRows = dataTypeService.fetchDataTypeRows as jest.MockedFunction<
   typeof dataTypeService.fetchDataTypeRows

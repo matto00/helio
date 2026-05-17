@@ -4,8 +4,8 @@ import {
   fetchDataTypes as fetchDataTypesRequest,
   updateDataType as updateDataTypeRequest,
   deleteDataType as deleteDataTypeRequest,
-} from "../../services/dataTypeService";
-import type { ComputedField, DataType, DataTypeField } from "../../types/models";
+} from "../services/dataTypeService";
+import type { ComputedField, DataType, DataTypeField } from "../../../types/models";
 
 interface DataTypesState {
   items: DataType[];

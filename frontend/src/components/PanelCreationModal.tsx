@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../features/panels/panelsSlice";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
 import { fetchPipelines } from "../features/pipelines/pipelinesSlice";
 import { PANEL_TEMPLATES } from "../features/panels/panelTemplates";
 import type { PanelTemplate } from "../features/panels/panelTemplates";

@@ -1,7 +1,7 @@
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 
 import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
-import { renderWithStore } from "../test/renderWithStore";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { TypeRegistryPage } from "./TypeRegistryPage";
 
 jest.mock("../services/dataTypeService", () => ({

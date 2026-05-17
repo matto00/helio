@@ -12,7 +12,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelBinding: jest.fn().mockResolvedValue({}),
 }));
 
-jest.mock("../services/dataTypeService", () => ({
+jest.mock("../features/dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn(),
   validateExpression: jest.fn().mockResolvedValue({ valid: true }),
 }));

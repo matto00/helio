@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import "../components/SourcesPage.css";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "../components/AddSourceModal";

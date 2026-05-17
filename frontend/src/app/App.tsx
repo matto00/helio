@@ -29,7 +29,7 @@ import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
 import { SourcesPage } from "../components/SourcesPage";
-import { TypeRegistryPage } from "../components/TypeRegistryPage";
+import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
 import { LoginPage } from "../features/auth/ui/LoginPage";

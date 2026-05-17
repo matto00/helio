@@ -21,7 +21,7 @@ import {
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../../services/panelService";
-import { fetchDataTypeRows } from "../../services/dataTypeService";
+import { fetchDataTypeRows } from "../dataTypes/services/dataTypeService";
 import type { RootState } from "../../store/store";
 import type {
   DividerOrientation,

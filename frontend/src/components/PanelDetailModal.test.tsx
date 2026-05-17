@@ -5,7 +5,7 @@ import { updatePanelBinding as updatePanelBindingRequest } from "../services/pan
 import { updatePanelContent as updatePanelContentRequest } from "../services/panelService";
 import { updatePanelImage as updatePanelImageRequest } from "../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
-import { fetchDataTypes as fetchDataTypesRequest } from "../services/dataTypeService";
+import { fetchDataTypes as fetchDataTypesRequest } from "../features/dataTypes/services/dataTypeService";
 import { renderWithStore } from "../test/renderWithStore";
 import {
   makeChartPanel,
@@ -26,7 +26,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelDivider: jest.fn(),
 }));
 
-jest.mock("../services/dataTypeService", () => ({
+jest.mock("../features/dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn(),
 }));
 

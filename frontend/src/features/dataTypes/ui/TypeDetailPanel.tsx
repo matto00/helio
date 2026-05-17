@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import "./TypeDetailPanel.css";
-import { updateDataType } from "../features/dataTypes/dataTypesSlice";
-import { useAppDispatch } from "../hooks/reduxHooks";
+import { updateDataType } from "../state/dataTypesSlice";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypeRows } from "../services/dataTypeService";
-import type { ComputedField, DataType, DataTypeField } from "../types/models";
-import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
-import { PreviewTable } from "./PreviewTable";
-import { Select, TextField } from "../shared/ui/index";
+import type { ComputedField, DataType, DataTypeField } from "../../../types/models";
+import { ComputedFieldsEditor } from "../../../components/ComputedFieldsEditor";
+import { PreviewTable } from "../../../components/PreviewTable";
+import { Select, TextField } from "../../../shared/ui/index";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
