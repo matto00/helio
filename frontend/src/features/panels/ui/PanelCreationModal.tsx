@@ -21,7 +21,7 @@ import type {
   MetricTypeConfig,
   PanelType,
   TypeConfig,
-} from "../../../types/models";
+} from "../types/panel";
 import { PanelCreationPreview } from "./PanelCreationPreview";
 import { Select, TextField } from "../../../shared/ui/index";
 

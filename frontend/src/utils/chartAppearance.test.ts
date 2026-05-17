@@ -1,6 +1,5 @@
 import { appearanceToEChartsOption } from "./chartAppearance";
-import type { ChartAppearance } from "../types/models";
-
+import type { ChartAppearance } from "../features/panels/types/panel";
 const baseChart: ChartAppearance = {
   seriesColors: [],
   legend: { show: true, position: "top" },

@@ -5,7 +5,7 @@ import {
   sourcesReducer,
   updateSource,
 } from "./sourcesSlice";
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../types/dataSource";
 import * as dataSourceService from "../services/dataSourceService";
 
 jest.mock("../services/dataSourceService", () => ({

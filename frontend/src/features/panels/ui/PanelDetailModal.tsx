@@ -23,7 +23,7 @@ import {
   panelAppearanceEditorFallback,
   panelTextEditorFallback,
 } from "../../../theme/appearance";
-import type { ChartAppearance, Panel, PanelAppearance } from "../../../types/models";
+import type { ChartAppearance, Panel, PanelAppearance } from "../types/panel";
 import { PanelContent } from "./PanelContent";
 import { AppearanceEditor } from "./editors/AppearanceEditor";
 import { BindingEditor } from "./editors/BindingEditor";

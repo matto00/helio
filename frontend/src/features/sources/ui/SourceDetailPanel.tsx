@@ -3,7 +3,7 @@ import { useState } from "react";
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
 import { useAppSelector } from "../../../hooks/reduxHooks";
-import type { DataSource, DataSourceKind } from "../../../types/models";
+import type { DataSource, DataSourceKind } from "../types/dataSource";
 import { PreviewTable } from "../../panels/ui/PreviewTable";
 
 interface SourceDetailPanelProps {

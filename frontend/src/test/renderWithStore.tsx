@@ -20,8 +20,9 @@ import type { User } from "../features/auth/types/user";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { DataType } from "../features/dataTypes/types/dataType";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
-import type { DataSource, PanelAppearance, PanelType, ResourceMeta } from "../types/models";
-
+import type { PanelAppearance, PanelType } from "../features/panels/types/panel";
+import type { DataSource } from "../features/sources/types/dataSource";
+import type { ResourceMeta } from "../types/models";
 const defaultMeta: ResourceMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",

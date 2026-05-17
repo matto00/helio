@@ -1,5 +1,5 @@
 import "./PanelContent.css";
-import type { MappedPanelData, Panel, PanelAppearance } from "../../../types/models";
+import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import {
   isChartPanel,
   isDividerPanel,

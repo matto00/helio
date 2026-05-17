@@ -7,7 +7,7 @@ import type {
   TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
-} from "../../../types/models";
+} from "../types/panel";
 import {
   buildCreatePanelBody,
   buildBindingPatch,

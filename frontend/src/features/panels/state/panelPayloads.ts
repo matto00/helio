@@ -19,7 +19,7 @@ import type {
   PanelKind,
   TextPanelConfig,
   TypeConfig,
-} from "../../../types/models";
+} from "../types/panel";
 import { emptyConfigForKind } from "../types/panel";
 
 // ── Create payload ──────────────────────────────────────────────────────────

@@ -1,5 +1,4 @@
-import type { MappedPanelData } from "../../../../types/models";
-
+import type { MappedPanelData } from "../../types/panel";
 interface MetricRendererProps {
   data?: MappedPanelData | null;
 }

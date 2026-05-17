@@ -1,4 +1,4 @@
-import type { DividerPanel } from "../../../../types/models";
+import type { DividerPanel } from "../../types/panel";
 import { DividerPanel as DividerPanelView } from "../DividerPanel";
 
 interface DividerRendererProps {

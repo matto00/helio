@@ -6,7 +6,7 @@ import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTable } from "@fortawesome/free-solid-svg-icons";
 
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../../sources/types/dataSource";
 
 interface SourceChipProps {
   source: DataSource;

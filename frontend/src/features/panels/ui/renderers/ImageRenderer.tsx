@@ -1,4 +1,4 @@
-import type { ImagePanel } from "../../../../types/models";
+import type { ImagePanel } from "../../types/panel";
 import { ImagePanel as ImagePanelView } from "../ImagePanel";
 
 interface ImageRendererProps {

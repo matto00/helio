@@ -1,7 +1,6 @@
 import type { Theme } from "./theme";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
-import type { PanelAppearance } from "../types/models";
-
+import type { PanelAppearance } from "../features/panels/types/panel";
 export const defaultDashboardAppearance: DashboardAppearance = {
   background: "transparent",
   gridBackground: "transparent",

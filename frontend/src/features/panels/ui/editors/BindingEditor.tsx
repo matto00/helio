@@ -6,7 +6,7 @@ import { fetchDataTypes } from "../../../dataTypes/state/dataTypesSlice";
 import { PANEL_SLOTS } from "../../state/panelSlots";
 import { updatePanelBinding } from "../../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
-import type { ChartPanel, MetricPanel, TablePanel } from "../../../../types/models";
+import type { ChartPanel, MetricPanel, TablePanel } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 

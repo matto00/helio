@@ -1,5 +1,5 @@
 import { getDataTypeId } from "../state/panelNarrowing";
-import type { Panel } from "../../../types/models";
+import type { Panel } from "../types/panel";
 import { useAppSelector } from "../../../hooks/reduxHooks";
 
 /**

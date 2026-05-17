@@ -1,4 +1,4 @@
-import type { MarkdownPanel } from "../../../../types/models";
+import type { MarkdownPanel } from "../../types/panel";
 import { MarkdownPanel as MarkdownPanelView } from "../MarkdownPanel";
 
 interface MarkdownRendererProps {

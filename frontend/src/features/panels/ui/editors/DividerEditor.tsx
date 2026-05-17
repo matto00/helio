@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Select, TextField } from "../../../../shared/ui/index";
 import { updatePanelDivider } from "../../state/panelsSlice";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
-import type { DividerOrientation, DividerPanel } from "../../../../types/models";
+import type { DividerOrientation, DividerPanel } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 

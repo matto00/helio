@@ -32,7 +32,7 @@ import type {
   TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
-} from "../../../types/models";
+} from "../types/panel";
 import { getDataTypeId } from "./panelNarrowing";
 
 // Imported as a delayed reference to avoid cyclic-import issues on the

@@ -22,8 +22,7 @@ import type {
   PanelPaginationState,
   PanelUpdateFields,
   UpdatePanelsBatchRequest,
-} from "../../../types/models";
-
+} from "../types/panel";
 interface PanelsState {
   items: Panel[];
   loadedDashboardId: string | null;

@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Select, TextField } from "../../../../shared/ui/index";
 import { updatePanelImage } from "../../state/panelsSlice";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
-import type { ImageFit, ImagePanel } from "../../../../types/models";
+import type { ImageFit, ImagePanel } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 

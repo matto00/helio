@@ -75,7 +75,7 @@ const defaultPipeline: PipelineSummary = {
 };
 
 // Source fixture shape — uses the same discriminated-union as production code.
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../../sources/types/dataSource";
 type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {

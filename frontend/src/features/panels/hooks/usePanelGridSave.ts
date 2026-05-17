@@ -18,7 +18,7 @@ import {
 } from "../state/panelsSlice";
 import { useSaveState } from "../../../context/SaveStateContext";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
-import type { PanelUpdateFields } from "../../../types/models";
+import type { PanelUpdateFields } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
 const AUTO_SAVE_INTERVAL_MS = 30_000;
