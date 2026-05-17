@@ -1,4 +1,4 @@
-# Files Modified — CS3 cycle 1
+# Files Modified — CS3 cycles 1 + 2
 
 This change is a behavior-preserving structural restructure: 198 renames +
 ~14 import-only edits across 212 files. The list below groups by destination
@@ -84,3 +84,38 @@ in the per-commit log).
 ### Removed folders
 
 - `frontend/src/components/` — emptied and removed (was 53 non-test files mixed across all domains + `components/ui/` + `components/panels/{editors,renderers}/`)
+
+## Cycle 2 — BLOCKER decompositions
+
+Two commits decomposed the pre-existing >400L files in their new feature
+homes. All extractions behavior-preserving (cut-paste with import wiring).
+
+### features/pipelines/ (commit `37c24ce`)
+
+- `features/pipelines/ui/PipelineDetailPage.tsx` — slimmed 1200L → 389L
+- `features/pipelines/ui/StepCard.tsx` — new; per-step editor card (323L; over the 250 soft cap, under the 400 hard cap)
+- `features/pipelines/ui/OpDropdown.tsx` — new; op-type picker menu (48L)
+- `features/pipelines/ui/SourceChip.tsx` — new; DataSource toggle chip (80L)
+- `features/pipelines/ui/RibbonSegment.tsx` — new; static SVG decoration (50L)
+- `features/pipelines/ui/PipelineDetailFooter.tsx` — drive-by; bottom action bar (221L)
+- `features/pipelines/ui/PipelineRiverView.tsx` — drive-by; central river canvas (89L)
+- `features/pipelines/ui/SourceSelectorBar.tsx` — drive-by; top sources strip (30L)
+- `features/pipelines/state/stepNarrowing.ts` — new; OP_TYPES catalog, factories, per-kind narrowing helpers (159L)
+- `features/pipelines/types/step.ts` — new; local OpType + Step UI types (26L)
+
+### features/sources/ (commit `a4cc9ca`)
+
+- `features/sources/ui/AddSourceModal.tsx` — slimmed 471L → 303L
+- `features/sources/ui/SourceTypeToggle.tsx` — drive-by; 4-button source-type selector (67L)
+- `features/sources/ui/RestApiForm.tsx` — new; URL + JSON path fields (45L)
+- `features/sources/ui/CsvForm.tsx` — new; CSV file input (27L)
+- `features/sources/ui/InferredFieldsTable.tsx` — drive-by; editable inferred-fields table (74L)
+
+### Deliberately untouched
+
+- `features/panels/ui/PanelCreationModal.tsx` (716L, over 400L hard cap) —
+  CS4 scope; per-subtype decomposition mirrors the CS2c-3c editors+renderers split.
+
+### Files-modified count (cycle 2 only)
+
+15 source files + 2 openspec files (tasks.md, workflow-state.md).
