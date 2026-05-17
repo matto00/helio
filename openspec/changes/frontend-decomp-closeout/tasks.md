@@ -3,35 +3,35 @@
 ## Cycle 1 — `models.ts` decomposition + test rename (mechanical)
 
 ### 1. Decompose `types/models.ts`
-- [ ] 1.1 Move dashboard types (`Dashboard`, `DashboardAppearance`, `DashboardLayout`, `DashboardLayoutItem`, `DashboardSnapshot*`, `DashboardUpdatePayload`, `UpdateDashboardBatchRequest`, `DuplicateDashboardResponse`) → `features/dashboards/types/dashboard.ts`
-- [ ] 1.2 Move panel-adjacent types (`ChartLegend`, `ChartTooltip`, `ChartAxisLabel`, `ChartAxisLabels`, `ChartAppearance`, `PanelAppearance`, `PanelBatchItem`, `UpdatePanelsBatchRequest`, `UpdatePanelsBatchResponse`, `MetricTypeConfig`, `ChartTypeConfig`, `ImageTypeConfig`, `DividerTypeConfig`, `TypeConfig`, `PanelUpdateFields`, `MappedPanelData`, `PanelPaginationState`) → extend `features/panels/types/panel.ts`
-- [ ] 1.3 Move `DataType`, `DataTypeField`, `ComputedField` → `features/dataTypes/types/dataType.ts`
-- [ ] 1.4 Move `Pipeline`, `PipelineSummary`, `RunStatus`, `RunStatusResponse`, `PipelineRunRecord` → extend `features/pipelines/types/` (new file or merge into pipelineStep.ts)
-- [ ] 1.5 Move `InferredField`, `StaticColumnType`, `StaticColumn`, `StaticSourcePayload` → extend `features/sources/types/dataSource.ts`
-- [ ] 1.6 Move `User`, `UserPreferences`, `UserPreferencePayload`, `AuthResponse`, `UpdateUserPreferenceRequest` → `features/auth/types/user.ts`
-- [ ] 1.7 Decide `ResourceMeta` disposition per design D7 (recommendation: keep `types/models.ts` as 1-export survivor)
-- [ ] 1.8 Delete re-export blocks (`export type {…}` from domain modules)
+- [x] 1.1 Move dashboard types (`Dashboard`, `DashboardAppearance`, `DashboardLayout`, `DashboardLayoutItem`, `DashboardSnapshot*`, `DashboardUpdatePayload`, `UpdateDashboardBatchRequest`, `DuplicateDashboardResponse`) → `features/dashboards/types/dashboard.ts`
+- [x] 1.2 Move panel-adjacent types (`ChartLegend`, `ChartTooltip`, `ChartAxisLabel`, `ChartAxisLabels`, `ChartAppearance`, `PanelAppearance`, `PanelBatchItem`, `UpdatePanelsBatchRequest`, `UpdatePanelsBatchResponse`, `MetricTypeConfig`, `ChartTypeConfig`, `ImageTypeConfig`, `DividerTypeConfig`, `TypeConfig`, `PanelUpdateFields`, `MappedPanelData`, `PanelPaginationState`) → extend `features/panels/types/panel.ts`
+- [x] 1.3 Move `DataType`, `DataTypeField`, `ComputedField` → `features/dataTypes/types/dataType.ts`
+- [x] 1.4 Move `Pipeline`, `PipelineSummary`, `RunStatus`, `RunStatusResponse`, `PipelineRunRecord` → extend `features/pipelines/types/pipelineStep.ts`
+- [x] 1.5 Move `InferredField`, `StaticColumnType`, `StaticColumn`, `StaticSourcePayload` → extend `features/sources/types/dataSource.ts`
+- [x] 1.6 Move `User`, `UserPreferences`, `UserPreferencePayload`, `AuthResponse`, `UpdateUserPreferenceRequest` → `features/auth/types/user.ts`
+- [x] 1.7 Decide `ResourceMeta` disposition per design D7 — kept `types/models.ts` as 1-export survivor (recommendation (a))
+- [x] 1.8 Delete re-export blocks (`export type {…}` from domain modules)
 
 ### 2. Update all 85 consumer imports
-- [ ] 2.1 Group consumers by source-domain (auth files, dashboard files, etc.)
-- [ ] 2.2 Update imports per consumer
-- [ ] 2.3 After each domain's updates, run `npm run build` to catch missed imports
+- [x] 2.1 Group consumers by source-domain (auth files, dashboard files, etc.)
+- [x] 2.2 Update imports per consumer
+- [x] 2.3 After each domain's updates, run `npm run build` to catch missed imports
 
 ### 3. Test rename
-- [ ] 3.1 Rename `features/panels/ui/ComputedFieldPicker.test.tsx` → name matching its actual subject (executor judgment; `PanelDetailModal.computedFields.test.tsx` recommended)
+- [x] 3.1 Renamed `features/pipelines/ui/ComputedFieldPicker.test.tsx` → `features/panels/ui/PanelDetailModal.computedFields.test.tsx` (subject + scope name; moved to the SUT's folder)
 
 ### 4. Cycle 1 gates
-- [ ] 4.1 `sbt test` (backend untouched — sanity)
-- [ ] 4.2 `npm run lint` — zero warnings
-- [ ] 4.3 `npm run format:check` — clean
-- [ ] 4.4 `npm test` — 664 tests green (count preserved; rename adjusts file but not count)
-- [ ] 4.5 `npm run build` — green
-- [ ] 4.6 `npm run check:schemas` — 6/6 in sync (unchanged)
-- [ ] 4.7 `npm run check:openspec` — clean
-- [ ] 4.8 `npm run check:scala-quality` — clean
-- [ ] 4.9 Pre-commit hook clean
-- [ ] 4.10 `models.ts` reduced to <100L (or retired per D7)
-- [ ] 4.11 Write `executor-report-1.md` — counts of types moved per domain, consumer-update count, models.ts final state, any circular-import surprises
+- [x] 4.1 `sbt test` (backend untouched — sanity)
+- [x] 4.2 `npm run lint` — zero warnings
+- [x] 4.3 `npm run format:check` — clean
+- [x] 4.4 `npm test` — 664 tests green (count preserved)
+- [x] 4.5 `npm run build` — green
+- [x] 4.6 `npm run check:schemas` — 6/6 in sync (unchanged)
+- [x] 4.7 `npm run check:openspec` — clean
+- [x] 4.8 `npm run check:scala-quality` — clean
+- [x] 4.9 Pre-commit hook clean
+- [x] 4.10 `models.ts` reduced to 19 lines (1 surviving cross-cutting export per D7 recommendation (a))
+- [x] 4.11 Write `executor-report-1.md` — counts of types moved per domain, consumer-update count, models.ts final state, any circular-import surprises
 
 ## Cycle 2 — `PanelCreationModal` decomposition + `StepCard` investigation (creative)
 
