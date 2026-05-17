@@ -11,3 +11,10 @@ import { createAction } from "@reduxjs/toolkit";
  *  reducer handles this action by clearing `loadedDashboardId` so the next
  *  `fetchPanels` call refetches. */
 export const markDashboardPanelsStale = createAction<string>("panels/markDashboardPanelsStale");
+
+/** Mark the cached row pagination stale for every panel bound to the given
+ *  DataType id. The slice's reducer handles this action by deleting matching
+ *  `paginationState[panelId]` entries so `usePanelData`'s next effect tick
+ *  refetches `/api/types/:id/rows`. Dispatched from `PipelineDetailPage` on
+ *  SSE `succeeded` for the pipeline's `outputDataTypeId` (HEL-242). */
+export const markDataTypeRowsStale = createAction<string>("panels/markDataTypeRowsStale");
