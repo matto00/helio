@@ -32,7 +32,7 @@ final class DataTypeRoutes(
         },
         path(DataTypeIdSegment / "rows") { id =>
           get {
-            ServiceResponse.run(dataTypeService.listRows(id)) { rows =>
+            ServiceResponse.run(dataTypeService.listRows(id, user)) { rows =>
               DataTypeRowsResponse(rows = rows, rowCount = rows.size)
             }
           }
@@ -40,7 +40,7 @@ final class DataTypeRoutes(
         path(DataTypeIdSegment / "validate-expression") { id =>
           get {
             parameter("expr") { expr =>
-              ServiceResponse.run(dataTypeService.validateExpression(id, expr)) { result =>
+              ServiceResponse.run(dataTypeService.validateExpression(id, expr, user)) { result =>
                 ValidateExpressionResponse(valid = result.valid, message = result.message)
               }
             }
@@ -49,7 +49,7 @@ final class DataTypeRoutes(
         path(DataTypeIdSegment) { id =>
           concat(
             get {
-              ServiceResponse.run(dataTypeService.findById(id))(DataTypeResponse.fromDomain)
+              ServiceResponse.run(dataTypeService.findById(id, user))(DataTypeResponse.fromDomain)
             },
             patch {
               entity(as[UpdateDataTypeRequest]) { request =>

@@ -55,7 +55,7 @@ final class PipelineRunService(
    *  publication, and result fetch + serialization.
    *
    *  HEL-265 CS2: the pipeline must belong to the caller. The source lookup
-   *  uses [[DataSourceRepository.findById]] (unscoped) because the pipeline
+   *  uses `DataSourceRepository.findByIdInternal` (privileged) because the pipeline
    *  could legitimately reference a join-target source the caller does not
    *  own; the pipeline ACL gated entry. See design.md Q1 §DataSource for the
    *  cross-user-source spinoff note. */
@@ -69,7 +69,9 @@ final class PipelineRunService(
         // pipeline definition. Owner-only enforcement on the source itself
         // would block legitimate cross-user join sources — flagged as
         // spinoff per design.md Q1 §DataSource.
-        dataSourceRepo.findById(pipeline.sourceDataSourceId).flatMap {
+        // Privileged: pipeline ACL (above) is the authoritative gate; source is
+        // part of the pipeline definition. findByIdInternal is correct here.
+        dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
               "DataSource not found: " + pipeline.sourceDataSourceId.value
@@ -96,9 +98,8 @@ final class PipelineRunService(
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) =>
-        // Same privileged source-read justification as `submit` — see comment
-        // above. The pipeline ACL is the authoritative gate.
-        dataSourceRepo.findById(pipeline.sourceDataSourceId).flatMap {
+        // Privileged: pipeline ACL is the authoritative gate. findByIdInternal is correct here.
+        dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
               "DataSource not found: " + pipeline.sourceDataSourceId.value
@@ -320,7 +321,9 @@ final class PipelineRunService(
     val fields = firstRow.keys.toVector.map { name =>
       DataField(name, name, inferFieldType(firstRow.get(name).orNull), nullable = true)
     }
-    dataTypeRepo.findById(dataTypeId).flatMap {
+    // Privileged: this is a background post-run schema sync. The pipeline ACL
+    // was the gate at submission time; no user context is available here.
+    dataTypeRepo.findByIdInternal(dataTypeId).flatMap {
       case None => Future.successful(())
       case Some(existing) =>
         dataTypeRepo.update(existing.copy(fields = fields, updatedAt = Instant.now())).map(_ => ())

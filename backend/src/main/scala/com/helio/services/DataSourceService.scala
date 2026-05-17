@@ -31,8 +31,7 @@ import scala.util.Try
 final class DataSourceService(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo:   DataTypeRepository,
-    fileSystem:     FileSystem,
-    accessChecker:  AccessChecker
+    fileSystem:     FileSystem
 )(implicit ec: ExecutionContext, @annotation.unused mat: Materializer) {
 
   private val staticMaxRows = 500
@@ -136,48 +135,40 @@ final class DataSourceService(
   // ── Update / delete ───────────────────────────────────────────────────────
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    accessChecker.requireOwnerOnly("data-source", sourceId.value, user, "Data source not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_) =>
-        req.name match {
-          case Some(n) if n.trim.isEmpty =>
-            Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
-          case _ =>
-            dataSourceRepo.findById(sourceId).flatMap {
-              case None =>
-                Future.successful(Left(ServiceError.NotFound("Data source not found")))
-              case Some(source) =>
-                val newName = req.name.map(_.trim).getOrElse(source.name)
-                val now     = Instant.now()
-                val updated = source match {
-                  case c: CsvSource    => c.copy(name = newName, updatedAt = now)
-                  case r: RestSource   => r.copy(name = newName, updatedAt = now)
-                  case s: SqlSource    => s.copy(name = newName, updatedAt = now)
-                  case s: StaticSource => s.copy(name = newName, updatedAt = now)
-                }
-                dataSourceRepo.update(updated).map {
-                  case None     => Left(ServiceError.NotFound("Data source not found"))
-                  case Some(ds) => Right(ds)
-                }
+    req.name match {
+      case Some(n) if n.trim.isEmpty =>
+        Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
+      case _ =>
+        dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound("Data source not found")))
+          case Some(source) =>
+            val newName = req.name.map(_.trim).getOrElse(source.name)
+            val now     = Instant.now()
+            val updated = source match {
+              case c: CsvSource    => c.copy(name = newName, updatedAt = now)
+              case r: RestSource   => r.copy(name = newName, updatedAt = now)
+              case s: SqlSource    => s.copy(name = newName, updatedAt = now)
+              case s: StaticSource => s.copy(name = newName, updatedAt = now)
+            }
+            dataSourceRepo.update(updated).map {
+              case None     => Left(ServiceError.NotFound("Data source not found"))
+              case Some(ds) => Right(ds)
             }
         }
     }
 
   def delete(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    accessChecker.requireOwnerOnly("data-source", sourceId.value, user, "Data source not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_) =>
-        dataSourceRepo.findById(sourceId).flatMap {
-          case None =>
-            Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(source) =>
-            val deleteFileF: Future[Unit] = source match {
-              case c: CsvSource =>
-                fileSystem.delete(c.config.path).recover { case _ => () }
-              case _ => Future.successful(())
-            }
-            deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id)).map(_ => Right(()))
+    dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound("Data source not found")))
+      case Some(source) =>
+        val deleteFileF: Future[Unit] = source match {
+          case c: CsvSource =>
+            fileSystem.delete(c.config.path).recover { case _ => () }
+          case _ => Future.successful(())
         }
+        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id)).map(_ => Right(()))
     }
 
   // ── Refresh ───────────────────────────────────────────────────────────────
@@ -193,24 +184,20 @@ final class DataSourceService(
       staticPayload: Option[StaticDataPayload],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, DataSource]] =
-    accessChecker.requireOwnerOnly("data-source", sourceId.value, user, "Data source not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_) =>
-        dataSourceRepo.findById(sourceId).flatMap {
-          case None =>
-            Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(s: StaticSource) =>
-            staticPayload match {
-              case Some(payload) if payload.rows.size > staticMaxRows =>
-                Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
-              case Some(payload) => applyStaticRefresh(s, payload, user)
-              case None          => Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
-            }
-          case Some(c: CsvSource) =>
-            refreshCsv(c, user)
-          case Some(_) =>
-            Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
+    dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound("Data source not found")))
+      case Some(s: StaticSource) =>
+        staticPayload match {
+          case Some(payload) if payload.rows.size > staticMaxRows =>
+            Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
+          case Some(payload) => applyStaticRefresh(s, payload, user)
+          case None          => Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
         }
+      case Some(c: CsvSource) =>
+        refreshCsv(c, user)
+      case Some(_) =>
+        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
@@ -277,19 +264,15 @@ final class DataSourceService(
 
   def preview(sourceId: DataSourceId, limit: Int, user: AuthenticatedUser): Future[Either[ServiceError, CsvPreviewResponse]] = {
     val clampedLimit = math.max(1, math.min(500, limit))
-    accessChecker.requireOwnerOnly("data-source", sourceId.value, user, "Data source not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_) =>
-        dataSourceRepo.findById(sourceId).flatMap {
-          case None =>
-            Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(s: StaticSource) =>
-            previewStatic(s).map(Right(_))
-          case Some(c: CsvSource) =>
-            previewCsv(c, clampedLimit)
-          case Some(_) =>
-            Future.successful(Left(ServiceError.BadRequest("preview is only supported for csv and static sources")))
-        }
+    dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound("Data source not found")))
+      case Some(s: StaticSource) =>
+        previewStatic(s).map(Right(_))
+      case Some(c: CsvSource) =>
+        previewCsv(c, clampedLimit)
+      case Some(_) =>
+        Future.successful(Left(ServiceError.BadRequest("preview is only supported for csv and static sources")))
     }
   }
 

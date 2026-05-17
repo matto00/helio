@@ -2149,7 +2149,7 @@ class ApiRoutesSpec
       }
     }
 
-    "DELETE /api/data-sources/:id returns 403 when caller does not own the source" in {
+    "DELETE /api/data-sources/:id returns 404 when caller does not own the source (HEL-265 CS3)" in {
       cleanDb()
       import com.helio.domain._
       import java.time.Instant
@@ -2164,14 +2164,13 @@ class ApiRoutesSpec
         sourceId = responseAs[DataSourceResponse].id
       }
 
-      // otherUser tries to delete it
+      // otherUser tries to delete it — returns 404, not 403 (existence is not leaked)
       Delete(s"/api/data-sources/$sourceId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
 
-    "GET /api/data-sources/:id/preview returns 403 when caller does not own the source" in {
+    "GET /api/data-sources/:id/preview returns 404 when caller does not own the source (HEL-265 CS3)" in {
       cleanDb()
       var sourceId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
@@ -2182,8 +2181,7 @@ class ApiRoutesSpec
       }
 
       Get(s"/api/data-sources/$sourceId/preview") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
   }
@@ -2226,7 +2224,7 @@ class ApiRoutesSpec
       }
     }
 
-    "PATCH /api/types/:id returns 403 when caller does not own the type" in {
+    "PATCH /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
       cleanDb()
       import com.helio.domain._
       import java.time.Instant
@@ -2243,16 +2241,15 @@ class ApiRoutesSpec
         typeId = responseAs[DataTypesResponse].items.head.id
       }
 
-      // otherUser tries to PATCH it
+      // otherUser tries to PATCH it — returns 404, not 403 (existence is not leaked)
       Patch(s"/api/types/$typeId",
         UpdateDataTypeRequest(name = Some("Hacked"), fields = None)
       ) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
 
-    "DELETE /api/types/:id returns 403 when caller does not own the type" in {
+    "DELETE /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
       cleanDb()
       import com.helio.domain._
       import java.time.Instant
@@ -2269,10 +2266,9 @@ class ApiRoutesSpec
         typeId = responseAs[DataTypesResponse].items.head.id
       }
 
-      // otherUser tries to DELETE it
+      // otherUser tries to DELETE it — returns 404, not 403 (existence is not leaked)
       Delete(s"/api/types/$typeId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
   }

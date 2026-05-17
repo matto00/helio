@@ -172,11 +172,9 @@ final class SourceService(
   // ── Refresh ───────────────────────────────────────────────────────────────
 
   def refresh(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    dataSourceRepo.findById(sourceId).flatMap {
+    dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("DataSource not found")))
-      case Some(source) if source.ownerId != user.id =>
-        Future.successful(Left(ServiceError.Forbidden()))
       case Some(s: SqlSource) =>
         refreshSql(s, user)
       case Some(r: RestSource) =>
@@ -220,11 +218,9 @@ final class SourceService(
   // ── Preview ───────────────────────────────────────────────────────────────
 
   def preview(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    dataSourceRepo.findById(sourceId).flatMap {
+    dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("DataSource not found")))
-      case Some(source) if source.ownerId != user.id =>
-        Future.successful(Left(ServiceError.Forbidden()))
       case Some(s: SqlSource) =>
         previewSql(s, user)
       case Some(r: RestSource) =>

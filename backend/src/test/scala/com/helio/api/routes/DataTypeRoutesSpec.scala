@@ -5,10 +5,9 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{AccessCheckerImpl, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
-import com.helio.domain.{AuthenticatedUser, DataTypeId, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
-import com.helio.api.{ResourceType, ResourceTypeRegistry}
+import com.helio.api.{DataTypeRowsResponse, ErrorResponse, JsonProtocols}
+import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
 import com.helio.services.DataTypeService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -60,20 +59,9 @@ class DataTypeRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  /** Build a real AccessChecker against the same repo wiring the service expects.
-   *  The /rows route doesn't actually exercise ACL so no extra setup is needed. */
-  private def makeAccessChecker: AccessCheckerImpl = {
-    implicit val ec: ExecutionContext = routeEc
-    val permissionRepo = new ResourcePermissionRepository(db)(ec)
-    val registry = new ResourceTypeRegistry(
-      ResourceType("data-type", id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value)))
-    )
-    new AccessCheckerImpl(permissionRepo, registry)
-  }
-
   private def makeRoutes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, makeAccessChecker)
+    val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     new DataTypeRoutes(service, dummyUser)(typedSystem).routes
   }
 

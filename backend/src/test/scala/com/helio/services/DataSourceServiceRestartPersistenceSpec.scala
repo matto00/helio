@@ -4,10 +4,9 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.api.{AccessCheckerImpl, ResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem, ResourcePermissionRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -72,13 +71,8 @@ class DataSourceServiceRestartPersistenceSpec
   private def buildServices(uploadsDir: java.nio.file.Path): (DataSourceService, DataTypeRepository, DataSourceRepository) = {
     val dataSourceRepo = new DataSourceRepository(db)
     val dataTypeRepo   = new DataTypeRepository(db)
-    val permissionRepo = new ResourcePermissionRepository(db)
     val fileSystem     = new LocalFileSystem(uploadsDir)
-    val registry = new ResourceTypeRegistry(
-      ResourceType("data-source", id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value)))
-    )
-    val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val service       = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
+    val service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     (service, dataTypeRepo, dataSourceRepo)
   }
 
@@ -96,7 +90,7 @@ class DataSourceServiceRestartPersistenceSpec
 
       // "Restart": rebuild repositories + service against the same DB.
       val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
-      val sourceAfter = await(dataSourceRepo2.findById(srcId))
+      val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
       sourceAfter should not be empty
 
       val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
@@ -121,7 +115,7 @@ class DataSourceServiceRestartPersistenceSpec
       }
 
       val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
-      await(dataSourceRepo2.findById(srcId)) should not be empty
+      await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
       val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
       dtsAfter should have size 1
       dtsAfter.head.sourceId shouldBe Some(srcId)
@@ -173,7 +167,7 @@ class DataSourceServiceRestartPersistenceSpec
       // "Restart": fresh repos against the same DB.
       val dataSourceRepo2 = new DataSourceRepository(db)
       val dataTypeRepo2   = new DataTypeRepository(db)
-      await(dataSourceRepo2.findById(srcId)) should not be empty
+      await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
       val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
       dtsAfter should have size 1
       dtsAfter.head.sourceId shouldBe Some(srcId)
