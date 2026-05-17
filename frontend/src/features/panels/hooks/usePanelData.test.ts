@@ -4,7 +4,7 @@ import type { PropsWithChildren } from "react";
 import { createElement } from "react";
 import { Provider } from "react-redux";
 
-import { panelsReducer } from "../state/panelsSlice";
+import { markDataTypeRowsStale, panelsReducer } from "../state/panelsSlice";
 import * as dataTypeService from "../../dataTypes/services/dataTypeService";
 import { makeMetricPanel } from "../../../test/panelFixtures";
 import type { Panel } from "../types/panel";
@@ -157,6 +157,69 @@ describe("usePanelData", () => {
     await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual({ value: "1000", label: "North" });
+  });
+
+  // HEL-242 — dispatching markDataTypeRowsStale for a bound panel's DataType
+  // clears its pagination entry and triggers a fresh fetch on the next render
+  // tick (bypassing the prevFetchKey dedupe guard).
+  it("re-fetches after markDataTypeRowsStale is dispatched for the panel's DataType", async () => {
+    mockFetchDataTypeRows
+      .mockResolvedValueOnce({
+        rows: [{ revenue: "1000", region: "North" }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({
+        rows: [{ revenue: "2500", region: "North" }],
+        rowCount: 1,
+      });
+
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
+    });
+    const store = makeStore(panel);
+
+    const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+    // First render fetches and populates rows; the dedupe key is now armed.
+    await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.data).toEqual({ value: "1000", label: "North" }));
+
+    // Dispatch the stale-invalidation for this panel's DataType. The reducer
+    // deletes the entry synchronously; React then runs the hook's effect, which
+    // bypasses the dedupe guard (paginationEntry == null) and dispatches a
+    // fresh fetchPanelPage — by the time act() returns, the entry has been
+    // re-created in the `pending` state with isLoadingMore: true.
+    act(() => {
+      store.dispatch(markDataTypeRowsStale("dt-1"));
+    });
+
+    await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.data).toEqual({ value: "2500", label: "North" }));
+  });
+
+  it("does NOT re-fetch when markDataTypeRowsStale targets a different DataType", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
+      rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
+    });
+
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+    });
+    const store = makeStore(panel);
+
+    renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+    await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      store.dispatch(markDataTypeRowsStale("dt-other"));
+    });
+
+    // Pagination entry untouched; no second fetch dispatched.
+    expect(store.getState().panels.paginationState[panel.id]).toBeDefined();
+    // Give any pending effect a chance to run; the call count must stay 1.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(1);
   });
 
   it("refresh callback is stable across re-renders", () => {

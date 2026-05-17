@@ -48,7 +48,11 @@ export function usePanelData(panel: Panel): PanelDataResult {
       return;
     }
 
-    if (prevFetchKey.current === currentFetchKey) {
+    // HEL-242 — bypass the dedupe early-return when `paginationEntry == null`.
+    // A null entry means either the panel has never been fetched OR a stale-
+    // invalidation action (e.g. `markDataTypeRowsStale` dispatched after a
+    // pipeline-run success) just cleared it; both cases require a fresh fetch.
+    if (prevFetchKey.current === currentFetchKey && paginationEntry != null) {
       return;
     }
     prevFetchKey.current = currentFetchKey;
@@ -61,7 +65,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
       .catch(() => {
         setErrorForKey({ key: keyAtDispatch, message: "Failed to load data." });
       });
-  }, [currentFetchKey, panel.id, panel.type, dispatch, refreshToken]);
+  }, [currentFetchKey, panel.id, panel.type, dispatch, refreshToken, paginationEntry]);
 
   if (!currentFetchKey) {
     return {

@@ -1,7 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import { duplicateDashboard, importDashboard } from "../../dashboards/state/dashboardsSlice";
-import { markDashboardPanelsStale } from "./panelActions";
+import { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";
+import { isBoundCapablePanel } from "./panelNarrowing";
 import {
   createPanel,
   deletePanel,
@@ -81,6 +82,18 @@ const panelsSlice = createSlice({
         if (state.loadedDashboardId !== action.payload) return;
         state.loadedDashboardId = null;
         state.status = "idle";
+      })
+      // HEL-242 — pipeline-run completion dispatches this with the run's
+      // outputDataTypeId so panels bound to that DataType refetch rows on the
+      // next `usePanelData` effect tick (the hook's dedupe guard treats a
+      // cleared `paginationState` entry as "must refetch").
+      .addCase(markDataTypeRowsStale, (state, action) => {
+        const typeId = action.payload;
+        for (const panel of state.items) {
+          if (!isBoundCapablePanel(panel)) continue;
+          if (panel.config.dataTypeId !== typeId) continue;
+          delete state.paginationState[panel.id];
+        }
       })
       .addCase(fetchPanels.pending, (state, action) => {
         state.status = "loading";
@@ -214,7 +227,7 @@ export {
   updatePanelsBatch,
   updatePanelTitle,
 } from "./panelThunks";
-export { markDashboardPanelsStale } from "./panelActions";
+export { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";
 
 export function buildBatchRequest(
   pending: Record<string, PanelUpdateFields>,
