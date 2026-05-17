@@ -1,35 +1,23 @@
 // StepCard — one expandable card per pipeline step on the PipelineDetailPage.
-// Owns the per-step editor surface (delegating to the kind-specific editors),
-// the local "preview data" panel, and the PATCH-on-change persistence path.
+// Owns the per-step editor surface (delegating to the kind-specific editors)
+// and the local "preview data" panel. Per-op editor state + PATCH-on-change
+// persistence live in `useStepCardState`.
 
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-import {
-  aggregateConfigOf,
-  castsOf,
-  computeConfigOf,
-  filterConfigOf,
-  limitCountOf,
-  renamesOf,
-  selectedFieldsOf,
-  sortConfigOf,
-} from "../state/stepNarrowing";
-import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
+import { useStepCardState } from "../hooks/useStepCardState";
+import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./AggregateConfig";
-import type { AggregateConfigValue } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
-import type { ComputeConfigValue } from "./ComputeFieldConfig";
 import { FilterConfig } from "./FilterConfig";
-import type { FilterConfigValue } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
-import type { SortKey } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 
 interface StepCardProps {
@@ -82,99 +70,24 @@ export function StepCard({
     }
   }
 
-  // Derived state: sync local editor state when the persisted config or
-  // opType changes (during-render pattern). CS2c-3a: `step.config` is already
-  // a typed object, so the narrowing helpers replace the per-render JSON
-  // parsing the pre-CS2c-3a editor performed.
-  const [prevConfig, setPrevConfig] = useState(step.config);
-  const [prevOpTypeId, setPrevOpTypeId] = useState(step.opType.id);
-  const [selectedFields, setSelectedFields] = useState<string[]>(() => selectedFieldsOf(step));
-  const [renames, setRenames] = useState<Record<string, string>>(() => renamesOf(step));
-  const [casts, setCasts] = useState<Record<string, string>>(() => castsOf(step));
-  const [filterConfig, setFilterConfig] = useState<FilterConfigValue>(() => filterConfigOf(step));
-  const [computeConfig, setComputeConfig] = useState<ComputeConfigValue>(() =>
-    computeConfigOf(step),
-  );
-  const [aggregateConfig, setAggregateConfig] = useState<AggregateConfigValue>(() =>
-    aggregateConfigOf(step),
-  );
-  const [limitCount, setLimitCount] = useState<number>(() => limitCountOf(step));
-  const [sortConfig, setSortConfig] = useState<SortKey[]>(() => sortConfigOf(step));
-  if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
-    setPrevConfig(step.config);
-    setPrevOpTypeId(step.opType.id);
-    setSelectedFields(selectedFieldsOf(step));
-    setRenames(renamesOf(step));
-    setCasts(castsOf(step));
-    setFilterConfig(filterConfigOf(step));
-    setComputeConfig(computeConfigOf(step));
-    setAggregateConfig(aggregateConfigOf(step));
-    setLimitCount(limitCountOf(step));
-    setSortConfig(sortConfigOf(step));
-  }
-
-  /** Shared persistence path — PATCHes the typed config, then notifies the
-   *  parent. Local editor state is updated by the caller (so the UI stays
-   *  responsive regardless of network result). */
-  function persist(newConfig: PipelineStepConfig): void {
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
-  }
-
-  function handleFieldToggle(field: string, checked: boolean) {
-    const next = checked ? [...selectedFields, field] : selectedFields.filter((f) => f !== field);
-    setSelectedFields(next);
-    persist({ fields: next });
-  }
-
-  function handleRenameChange(field: string, newName: string) {
-    const next = { ...renames };
-    if (newName) next[field] = newName;
-    else delete next[field];
-    setRenames(next);
-    persist({ renames: next });
-  }
-
-  function handleCastChange(field: string, targetType: string) {
-    const next = { ...casts };
-    if (targetType) next[field] = targetType;
-    else delete next[field];
-    setCasts(next);
-    persist({ casts: next });
-  }
-
-  function handleFilterChange(newConfig: FilterConfigValue) {
-    setFilterConfig(newConfig);
-    persist({
-      combinator: newConfig.combinator,
-      conditions: newConfig.conditions,
-    });
-  }
-
-  function handleComputeChange(newConfig: ComputeConfigValue) {
-    setComputeConfig(newConfig);
-    persist(newConfig);
-  }
-
-  function handleAggregateChange(newConfig: AggregateConfigValue) {
-    setAggregateConfig(newConfig);
-    persist(newConfig);
-  }
-
-  function handleLimitChange(newConfig: { count: number }) {
-    setLimitCount(newConfig.count);
-    persist(newConfig);
-  }
-
-  function handleSortChange(newConfig: { sortBy: SortKey[] }) {
-    setSortConfig(newConfig.sortBy);
-    persist(newConfig);
-  }
+  const {
+    selectedFields,
+    renames,
+    casts,
+    filterConfig,
+    computeConfig,
+    aggregateConfig,
+    limitCount,
+    sortConfig,
+    onFieldToggle,
+    onRenameChange,
+    onCastChange,
+    onFilterChange,
+    onComputeChange,
+    onAggregateChange,
+    onLimitChange,
+    onSortChange,
+  } = useStepCardState(step, onConfigChange);
 
   return (
     <div
@@ -209,39 +122,39 @@ export function StepCard({
             <SelectFieldsConfig
               columns={analyzeColumns}
               selectedFields={selectedFields}
-              onToggle={handleFieldToggle}
+              onToggle={onFieldToggle}
             />
           ) : step.opType.id === "rename" ? (
             <RenameFieldsConfig
               columns={analyzeColumns}
               renames={renames}
-              onChange={handleRenameChange}
+              onChange={onRenameChange}
             />
           ) : step.opType.id === "cast" ? (
-            <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={handleCastChange} />
+            <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={onCastChange} />
           ) : step.opType.id === "filter" ? (
             <FilterConfig
               config={filterConfig}
               analyzeSchema={analyzeSchema}
-              onChange={handleFilterChange}
+              onChange={onFilterChange}
             />
           ) : step.opType.id === "compute" ? (
             <ComputeFieldConfig
               config={computeConfig}
               analyzeColumns={analyzeColumns}
-              onChange={handleComputeChange}
+              onChange={onComputeChange}
             />
           ) : step.opType.id === "aggregate" ? (
             <AggregateConfig
               config={aggregateConfig}
               analyzeSchema={analyzeSchema}
               analyzeColumns={analyzeColumns}
-              onChange={handleAggregateChange}
+              onChange={onAggregateChange}
             />
           ) : step.opType.id === "limit" ? (
-            <LimitConfig count={limitCount} onChange={handleLimitChange} />
+            <LimitConfig count={limitCount} onChange={onLimitChange} />
           ) : step.opType.id === "sort" ? (
-            <SortConfig sortBy={sortConfig} columns={analyzeColumns} onChange={handleSortChange} />
+            <SortConfig sortBy={sortConfig} columns={analyzeColumns} onChange={onSortChange} />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">
