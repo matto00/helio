@@ -24,20 +24,32 @@ class PipelineRepository(
     db.run(pipelinesTable.filter(_.id === id.value).exists.result)
 
   def findById(id: PipelineId): Future[Option[Pipeline]] =
+    findByIdInternal(id)
+
+  /** ACL-bypassing read by id. CS1 introduces this alongside the existing
+    * `findById` so subsequent sub-PRs (CS2) can rename `findById` to a
+    * caller-identity-aware variant without affecting the privileged callers
+    * (registry resolver, Spark execution path) that need the unscoped read.
+    *
+    * Today this is just a clearer alias for `findById`; CS2 will diverge the
+    * two signatures. */
+  def findByIdInternal(id: PipelineId): Future[Option[Pipeline]] =
     db.run(pipelinesTable.filter(_.id === id.value).result.headOption).map {
-      _.map(row =>
-        Pipeline(
-          id                 = PipelineId(row.id),
-          name               = row.name,
-          sourceDataSourceId = DataSourceId(row.sourceDataSourceId),
-          outputDataTypeId   = DataTypeId(row.outputDataTypeId),
-          lastRunStatus      = row.lastRunStatus,
-          lastRunAt          = row.lastRunAt,
-          createdAt          = row.createdAt,
-          updatedAt          = row.updatedAt
-        )
-      )
+      _.map(rowToPipeline)
     }
+
+  private def rowToPipeline(row: PipelineRow): Pipeline =
+    Pipeline(
+      id                 = PipelineId(row.id),
+      name               = row.name,
+      sourceDataSourceId = DataSourceId(row.sourceDataSourceId),
+      outputDataTypeId   = DataTypeId(row.outputDataTypeId),
+      lastRunStatus      = row.lastRunStatus,
+      lastRunAt          = row.lastRunAt,
+      createdAt          = row.createdAt,
+      updatedAt          = row.updatedAt,
+      ownerId            = UserId(row.ownerId.toString)
+    )
 
   /** Returns the joined summary for a single pipeline by id, or None if not found. */
   def findSummaryById(id: PipelineId): Future[Option[PipelineSummary]] = {
@@ -108,7 +120,8 @@ class PipelineRepository(
             lastRunAt          = None,
             createdAt          = now,
             updatedAt          = now,
-            lastRunRowCount    = None
+            lastRunRowCount    = None,
+            ownerId            = UUID.fromString(ownerId.value)
           )
           db.run(pipelinesTable += pipelineRow).map { _ =>
             Right(PipelineSummary(
@@ -192,7 +205,8 @@ object PipelineRepository {
       lastRunAt: Option[Instant],
       createdAt: Instant,
       updatedAt: Instant,
-      lastRunRowCount: Option[Long]
+      lastRunRowCount: Option[Long],
+      ownerId: UUID
   )
 
   class PipelineTable(tag: Tag) extends Table[PipelineRow](tag, "pipelines") {
@@ -205,9 +219,10 @@ object PipelineRepository {
     def createdAt          = column[Instant]("created_at")
     def updatedAt          = column[Instant]("updated_at")
     def lastRunRowCount    = column[Option[Long]]("last_run_row_count")
+    def ownerId            = column[UUID]("owner_id")
 
     def * =
-      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount)
+      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId)
         .mapTo[PipelineRow]
   }
 }
