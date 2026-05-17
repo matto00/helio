@@ -51,7 +51,9 @@ final case class JoinStep(
     val rightDsId = config.rightDataSourceId
     val joinKey   = config.joinKey
     val joinType  = config.joinType
-    ctx.dataSourceRepo.findById(DataSourceId(rightDsId)).flatMap {
+    // Privileged: the pipeline ACL is the gate; JoinStep resolves the right-side
+    // source (which may belong to a different user per design.md Q1 spinoff).
+    ctx.dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)).flatMap {
       case None =>
         Future.failed(
           new IllegalArgumentException("DataSource not found for join: " + rightDsId)

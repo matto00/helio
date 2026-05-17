@@ -200,8 +200,10 @@ class SparkJobSubmitter(
       }
 
     case s: JoinStep =>
+      // Privileged: Spark batch driver runs outside request context; pipeline ACL
+      // gated submission. findByIdInternal is correct for the background path.
       val rightDs = Await
-        .result(dataSourceRepo.findById(DataSourceId(s.config.rightDataSourceId)), 30.seconds)
+        .result(dataSourceRepo.findByIdInternal(DataSourceId(s.config.rightDataSourceId)), 30.seconds)
         .getOrElse(throw new IllegalArgumentException(s"DataSource not found for join: ${s.config.rightDataSourceId}"))
       val rightDf = loadDataFrame(rightDs)
       df.join(rightDf, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")

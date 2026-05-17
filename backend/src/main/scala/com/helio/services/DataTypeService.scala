@@ -14,8 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DataTypeService(
     dataTypeRepo:    DataTypeRepository,
     dataTypeRowRepo: DataTypeRowRepository,
-    dataSourceRepo:  DataSourceRepository,
-    accessChecker:   AccessChecker
+    dataSourceRepo:  DataSourceRepository
 )(implicit ec: ExecutionContext) {
 
   // ── Read ──────────────────────────────────────────────────────────────────
@@ -23,14 +22,14 @@ final class DataTypeService(
   def findAll(user: AuthenticatedUser): Future[Vector[DataType]] =
     dataTypeRepo.findAll(user.id)
 
-  def findById(id: DataTypeId): Future[Either[ServiceError, DataType]] =
-    dataTypeRepo.findById(id).map {
+  def findById(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+    dataTypeRepo.findByIdOwned(id, user).map {
       case Some(dt) => Right(dt)
       case None     => Left(ServiceError.NotFound("DataType not found"))
     }
 
-  def listRows(id: DataTypeId): Future[Either[ServiceError, Vector[JsObject]]] =
-    dataTypeRepo.findById(id).flatMap {
+  def listRows(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[JsObject]]] =
+    dataTypeRepo.findByIdOwned(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
       case Some(_) =>
         if (dataTypeRowRepo == null)
@@ -39,8 +38,8 @@ final class DataTypeService(
           dataTypeRowRepo.listRows(id.value).map(rows => Right(rows))
     }
 
-  def validateExpression(id: DataTypeId, expr: String): Future[Either[ServiceError, ExpressionValidationResult]] =
-    dataTypeRepo.findById(id).map {
+  def validateExpression(id: DataTypeId, expr: String, user: AuthenticatedUser): Future[Either[ServiceError, ExpressionValidationResult]] =
+    dataTypeRepo.findByIdOwned(id, user).map {
       case None     => Left(ServiceError.NotFound("DataType not found"))
       case Some(dt) =>
         val fieldNames = dt.fields.map(_.name).toSet
@@ -57,14 +56,9 @@ final class DataTypeService(
       request: UpdateDataTypeRequest,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, DataType]] =
-    accessChecker.requireOwnerOnly("data-type", id.value, user, "DataType not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  =>
-        dataTypeRepo.findById(id).flatMap {
-          case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
-          case Some(existing) =>
-            applyUpdate(existing, request)
-        }
+    dataTypeRepo.findByIdOwned(id, user).flatMap {
+      case None     => Future.successful(Left(ServiceError.NotFound("DataType not found")))
+      case Some(existing) => applyUpdate(existing, request)
     }
 
   private def applyUpdate(existing: DataType, request: UpdateDataTypeRequest): Future[Either[ServiceError, DataType]] = {
@@ -115,21 +109,17 @@ final class DataTypeService(
   }
 
   def delete(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    accessChecker.requireOwnerOnly("data-type", id.value, user, "DataType not found").flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  =>
-        dataTypeRepo.findById(id).flatMap {
-          case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
-          case Some(dt) =>
-            checkSourceLink(dt).flatMap {
-              case Left(err) => Future.successful(Left(err))
-              case Right(_)  =>
-                dataTypeRepo.isBoundToAnyPanel(id).flatMap {
-                  case true =>
-                    Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
-                  case false =>
-                    dataTypeRepo.delete(id).map(_ => Right(()))
-                }
+    dataTypeRepo.findByIdOwned(id, user).flatMap {
+      case None     => Future.successful(Left(ServiceError.NotFound("DataType not found")))
+      case Some(dt) =>
+        checkSourceLink(dt).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  =>
+            dataTypeRepo.existsBoundToAnyOwnedPanel(id, user).flatMap {
+              case true =>
+                Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
+              case false =>
+                dataTypeRepo.delete(id).map(_ => Right(()))
             }
         }
     }
@@ -137,12 +127,16 @@ final class DataTypeService(
   /** Reject the delete when the DataType is the auto-inferred schema of a
    *  still-existing DataSource. Without this guard, the user can delete a
    *  source's schema row from the Type Registry sidebar and the Sources page
-   *  silently renders no schema for the orphaned source (HEL-256). */
+   *  silently renders no schema for the orphaned source (HEL-256).
+   *
+   *  Uses `findByIdInternal` (privileged): this is error-message rendering only —
+   *  the source name is shown to the user who already owns the DataType that
+   *  links to it.  No data is returned about the source's content. */
   private def checkSourceLink(dt: DataType): Future[Either[ServiceError, Unit]] =
     dt.sourceId match {
       case None => Future.successful(Right(()))
       case Some(srcId) =>
-        dataSourceRepo.findById(srcId).map {
+        dataSourceRepo.findByIdInternal(srcId).map {
           case None => Right(())
           case Some(source) =>
             Left(ServiceError.Conflict(

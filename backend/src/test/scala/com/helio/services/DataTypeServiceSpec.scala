@@ -1,8 +1,7 @@
 package com.helio.services
 
-import com.helio.api.{AccessCheckerImpl, ResourceType, ResourceTypeRegistry}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, ResourcePermissionRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -29,7 +28,6 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
   private var dataTypeRepo: DataTypeRepository   = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var permissionRepo: ResourcePermissionRepository = _
   private var service: DataTypeService           = _
 
   private val owner = UserId(UUID.randomUUID().toString)
@@ -47,13 +45,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     dataTypeRepo    = new DataTypeRepository(db)
     dataTypeRowRepo = new DataTypeRowRepository(db)
     dataSourceRepo  = new DataSourceRepository(db)
-    permissionRepo  = new ResourcePermissionRepository(db)
-    val registry = new ResourceTypeRegistry(
-      ResourceType("data-type",   id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))),
-      ResourceType("data-source", id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value)))
-    )
-    val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, accessChecker)
+    service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   }
 
   override def afterAll(): Unit = {
@@ -113,7 +105,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
         case other => fail(s"Expected Conflict, got: $other")
       }
       // The DataType row should still exist after the rejected delete.
-      await(dataTypeRepo.findById(dt.id)) should not be empty
+      await(dataTypeRepo.findByIdInternal(dt.id)) should not be empty
     }
 
     "allow deletion of a pipeline-output DataType (no sourceId link)" in {
@@ -123,7 +115,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       val result = await(service.delete(dt.id, user))
 
       result shouldBe Right(())
-      await(dataTypeRepo.findById(dt.id)) shouldBe empty
+      await(dataTypeRepo.findByIdInternal(dt.id)) shouldBe empty
     }
 
     "allow deletion of a DataType whose source has already been deleted (FK cascade SET NULL)" in {
@@ -133,13 +125,13 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       // Drop the source — the V4 migration's ON DELETE SET NULL clears the
       // FK reference on the DT, so the row stays around with `sourceId = null`.
       await(dataSourceRepo.delete(source.id))
-      val refreshedDt = await(dataTypeRepo.findById(dt.id)).getOrElse(fail("DT should still exist"))
+      val refreshedDt = await(dataTypeRepo.findByIdInternal(dt.id)).getOrElse(fail("DT should still exist"))
       refreshedDt.sourceId shouldBe None
 
       val result = await(service.delete(dt.id, user))
 
       result shouldBe Right(())
-      await(dataTypeRepo.findById(dt.id)) shouldBe empty
+      await(dataTypeRepo.findByIdInternal(dt.id)) shouldBe empty
     }
   }
 }

@@ -86,25 +86,25 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dt = newDataType()
       val inserted = await(dtRepo.insert(dt))
       inserted.version shouldBe 1
-      val found = await(dtRepo.findById(dt.id))
+      val found = await(dtRepo.findByIdInternal(dt.id))
       found shouldBe defined
       found.get.version shouldBe 1
     }
 
-    "findById returns the inserted record" in {
+    "findByIdInternal returns the inserted record" in {
       cleanDb()
       val dt = newDataType()
       await(dtRepo.insert(dt))
-      val found = await(dtRepo.findById(dt.id))
+      val found = await(dtRepo.findByIdInternal(dt.id))
       found shouldBe defined
       found.get.id   shouldBe dt.id
       found.get.name shouldBe dt.name
       found.get.fields shouldBe dt.fields
     }
 
-    "findById returns None for unknown id" in {
+    "findByIdInternal returns None for unknown id" in {
       cleanDb()
-      val result = await(dtRepo.findById(DataTypeId(UUID.randomUUID().toString)))
+      val result = await(dtRepo.findByIdInternal(DataTypeId(UUID.randomUUID().toString)))
       result shouldBe None
     }
 
@@ -170,7 +170,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(dtRepo.insert(dt))
       val deleted = await(dtRepo.delete(dt.id))
       deleted shouldBe true
-      await(dtRepo.findById(dt.id)) shouldBe None
+      await(dtRepo.findByIdInternal(dt.id)) shouldBe None
     }
 
     "delete returns false for unknown id" in {
@@ -179,23 +179,29 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe false
     }
 
-    // ── Ownership enforcement tests (Task 7.2) ─────────────────────────────────
+    // ── Ownership enforcement tests (HEL-265 CS3) ────────────────────────────
 
-    "owner-scoped findById returns Some when owner matches" in {
+    "findByIdOwned returns Some when owner matches" in {
       cleanDb()
       val dt = newDataType(ownerId = owner1)
       await(dtRepo.insert(dt))
-      val found = await(dtRepo.findById(dt.id, owner1))
+      val found = await(dtRepo.findByIdOwned(dt.id, AuthenticatedUser(owner1)))
       found shouldBe defined
       found.get.id shouldBe dt.id
     }
 
-    "owner-scoped findById returns None when owner does not match" in {
+    "findByIdOwned returns None when owner does not match" in {
       cleanDb()
       val dt = newDataType(ownerId = owner1)
       await(dtRepo.insert(dt))
-      val found = await(dtRepo.findById(dt.id, owner2))
+      val found = await(dtRepo.findByIdOwned(dt.id, AuthenticatedUser(owner2)))
       found shouldBe None
+    }
+
+    "findByIdOwned returns None for unknown id" in {
+      cleanDb()
+      val result = await(dtRepo.findByIdOwned(DataTypeId(UUID.randomUUID().toString), AuthenticatedUser(owner1)))
+      result shouldBe None
     }
 
     "deleting a data source orphans its data types (sourceId becomes None)" in {
@@ -212,9 +218,17 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(dsRepo.delete(source.id))
 
       // Data type still exists but sourceId is now None
-      val orphaned = await(dtRepo.findById(dt.id))
+      val orphaned = await(dtRepo.findByIdInternal(dt.id))
       orphaned shouldBe defined
       orphaned.get.sourceId shouldBe None
+    }
+
+    "existsBoundToAnyOwnedPanel returns false when no panels are bound" in {
+      cleanDb()
+      val dt = newDataType(ownerId = owner1)
+      await(dtRepo.insert(dt))
+      val result = await(dtRepo.existsBoundToAnyOwnedPanel(dt.id, AuthenticatedUser(owner1)))
+      result shouldBe false
     }
   }
 }

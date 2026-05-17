@@ -69,8 +69,15 @@ class DataSourceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionConte
       .map(_.map(rowToDomain).toVector)
   }
 
-  /** Unscoped findById — used by AclDirective resolver and internal post-auth route code. */
-  def findById(id: DataSourceId): Future[Option[DataSource]] =
+  /** Privileged unscoped read — no ACL check.
+   *
+   *  Permitted callers:
+   *  - `ResourceTypeRegistry` resolver (resolves owner FOR the ACL check)
+   *  - `PipelineRunService.submit` / `previewStep` (pipeline ACL is the gate)
+   *  - `SparkJobSubmitter.applyStep` (JoinStep, background privileged path)
+   *  - `InProcessPipelineEngine` step execution (ditto)
+   *  - `DataTypeService.checkSourceLink` (error-message rendering only, no data leak) */
+  def findByIdInternal(id: DataSourceId): Future[Option[DataSource]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 

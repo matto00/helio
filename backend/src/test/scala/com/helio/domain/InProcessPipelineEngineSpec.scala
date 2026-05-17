@@ -364,7 +364,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       )
       val rightConfigJson = rightConfig.compactPrint
       val mockRepo = new DataSourceRepository(null)(ec) {
-        override def findById(dsId: DataSourceId): Future[Option[DataSource]] =
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right") Some(rightDs) else None)
         override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
           Future.successful(if (dsId.value == "ds-right") Some(rightConfigJson) else None)
@@ -396,7 +396,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       )
       val rightConfigJson = rightConfig.compactPrint
       val mockRepo = new DataSourceRepository(null)(ec) {
-        override def findById(dsId: DataSourceId): Future[Option[DataSource]] =
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right-left") Some(rightDs) else None)
         override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
           Future.successful(if (dsId.value == "ds-right-left") Some(rightConfigJson) else None)

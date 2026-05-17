@@ -55,15 +55,21 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
       .map(_.map(rowToDomain).toVector)
   }
 
-  /** Unscoped findById — used by AclDirective resolver and internal post-auth route code. */
-  def findById(id: DataTypeId): Future[Option[DataType]] =
+  /** Privileged unscoped read — no ACL check.
+   *
+   *  Permitted callers:
+   *  - `ResourceTypeRegistry` resolver (resolves owner FOR the ACL check)
+   *  - `PipelineRunService.upsertFieldsFromRows` (background privileged path) */
+  def findByIdInternal(id: DataTypeId): Future[Option[DataType]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
-  /** Owner-scoped findById — returns None if the type exists but belongs to a different user.
-   *  Used to null-out cross-user typeId bindings on panel reads. */
-  def findById(id: DataTypeId, ownerId: UserId): Future[Option[DataType]] = {
-    val ownerUuid = UUID.fromString(ownerId.value)
+  /** Owner-scoped findById — collapses the former 2-arg overload.
+   *
+   *  Returns `None` if the type exists but belongs to a different user
+   *  (existence and authorization are indistinguishable at the API surface). */
+  def findByIdOwned(id: DataTypeId, user: AuthenticatedUser): Future[Option[DataType]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
     db.run(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
       .map(_.map(rowToDomain))
   }
@@ -104,9 +110,17 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
   def delete(id: DataTypeId): Future[Boolean] =
     db.run(table.filter(_.id === id.value).delete).map(_ > 0)
 
-  def isBoundToAnyPanel(id: DataTypeId): Future[Boolean] =
-    db.run(sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value}".as[Int].head)
-      .map(_ > 0)
+  /** Owner-scoped panel-binding check. Returns true only when at least one
+   *  panel owned by `user` is bound to this data type. Cross-user bindings
+   *  (another user's panel bound to the same type) are not counted — the
+   *  caller can only see the panels they own. */
+  def existsBoundToAnyOwnedPanel(id: DataTypeId, user: AuthenticatedUser): Future[Boolean] = {
+    val ownerStr = user.id.value
+    db.run(
+      sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value} AND owner_id = $ownerStr::uuid"
+        .as[Int].head
+    ).map(_ > 0)
+  }
 }
 
 object DataTypeRepository {

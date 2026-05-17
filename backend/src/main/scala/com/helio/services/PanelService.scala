@@ -70,7 +70,7 @@ final class PanelService(
     panel.dataTypeId match {
       case None => Future.successful(panel)
       case Some(typeId) =>
-        dataTypeRepo.findById(typeId, user.id).map {
+        dataTypeRepo.findByIdOwned(typeId, user).map {
           case None    => panel.withBindingCleared
           case Some(_) => panel
         }

@@ -4,10 +4,9 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.api.{AccessCheckerImpl, ResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem, ResourcePermissionRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -40,7 +39,6 @@ class DataSourceServiceSpec
   private var db: JdbcBackend.Database           = _
   private var dataTypeRepo: DataTypeRepository   = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var permissionRepo: ResourcePermissionRepository = _
   private var fileSystem: LocalFileSystem        = _
   private var service: DataSourceService         = _
 
@@ -58,14 +56,9 @@ class DataSourceServiceSpec
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     dataTypeRepo   = new DataTypeRepository(db)
     dataSourceRepo = new DataSourceRepository(db)
-    permissionRepo = new ResourcePermissionRepository(db)
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
-    val registry = new ResourceTypeRegistry(
-      ResourceType("data-source", id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value)))
-    )
-    val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    service = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
+    service = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
   }
 
   override def afterAll(): Unit = {

@@ -65,11 +65,11 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
   "DataSourceRepository" should {
 
-    "insert and findById returns the same record" in {
+    "insert and findByIdInternal returns the same record" in {
       cleanDb()
       val source = newSource()
       await(repo.insert(source))
-      val found = await(repo.findById(source.id))
+      val found = await(repo.findByIdInternal(source.id))
       found shouldBe defined
       found.get.id      shouldBe source.id
       found.get.name    shouldBe source.name
@@ -93,13 +93,13 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       forOwner2.map(_.id) should contain only c.id
     }
 
-    "findById returns None for unknown id" in {
+    "findByIdInternal returns None for unknown id" in {
       cleanDb()
-      val result = await(repo.findById(DataSourceId(UUID.randomUUID().toString)))
+      val result = await(repo.findByIdInternal(DataSourceId(UUID.randomUUID().toString)))
       result shouldBe None
     }
 
-    "findById returns None for wrong owner (owner-scoped overload via findAll)" in {
+    "findByIdOwned returns None for wrong owner (owner-scoped; cross-user isolation)" in {
       cleanDb()
       val source = newSource(ownerId = owner1)
       await(repo.insert(source))
@@ -143,7 +143,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       await(repo.insert(source))
       val deleted = await(repo.delete(source.id))
       deleted shouldBe true
-      await(repo.findById(source.id)) shouldBe None
+      await(repo.findByIdInternal(source.id)) shouldBe None
     }
 
     "delete returns false for unknown id" in {
@@ -185,17 +185,17 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       await(repo.insert(sql))
       await(repo.insert(static))
 
-      await(repo.findById(csv.id)).get    shouldBe a [CsvSource]
-      await(repo.findById(rest.id)).get   shouldBe a [RestSource]
-      await(repo.findById(sql.id)).get    shouldBe a [SqlSource]
-      await(repo.findById(static.id)).get shouldBe a [StaticSource]
+      await(repo.findByIdInternal(csv.id)).get    shouldBe a [CsvSource]
+      await(repo.findByIdInternal(rest.id)).get   shouldBe a [RestSource]
+      await(repo.findByIdInternal(sql.id)).get    shouldBe a [SqlSource]
+      await(repo.findByIdInternal(static.id)).get shouldBe a [StaticSource]
 
-      val csvRound = await(repo.findById(csv.id)).get.asInstanceOf[CsvSource]
+      val csvRound = await(repo.findByIdInternal(csv.id)).get.asInstanceOf[CsvSource]
       csvRound.config.path shouldBe "uploads/test.csv"
-      val sqlRound = await(repo.findById(sql.id)).get.asInstanceOf[SqlSource]
+      val sqlRound = await(repo.findByIdInternal(sql.id)).get.asInstanceOf[SqlSource]
       sqlRound.config.query    shouldBe "SELECT 1"
       sqlRound.config.dialect  shouldBe "postgresql"
-      val restRound = await(repo.findById(rest.id)).get.asInstanceOf[RestSource]
+      val restRound = await(repo.findByIdInternal(rest.id)).get.asInstanceOf[RestSource]
       restRound.config.url     shouldBe "https://api.example/test"
       restRound.config.method  shouldBe "POST"
     }

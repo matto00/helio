@@ -289,7 +289,7 @@ class PipelineRunRoutesSpec
       ))
       statusOpt shouldBe Some("succeeded")
       val pipeline = await(pipelineRepo.findById(pid, dummyUser)).get
-      val dt = await(dtRepo.findById(pipeline.outputDataTypeId)).get
+      val dt = await(dtRepo.findByIdInternal(pipeline.outputDataTypeId)).get
       dt.fields.map(_.name) should contain allOf ("name", "score")
     }
 
@@ -457,7 +457,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
       }
-      val dt = await(dtRepo.findById(DataTypeId(dtId))).get
+      val dt = await(dtRepo.findByIdInternal(DataTypeId(dtId))).get
       val fieldMap = dt.fields.map(f => f.name -> f.dataType).toMap
       fieldMap("count") shouldBe "integer"
       fieldMap("rate")  shouldBe "double"

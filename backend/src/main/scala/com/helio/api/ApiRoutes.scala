@@ -47,11 +47,13 @@ final class ApiRoutes(
   private implicit val ec = system.executionContext
   private implicit val mat: Materializer = SystemMaterializer(system).materializer
 
+  // Privileged callsite: resolvers here resolve ownership FOR the ACL check —
+  // they must use *Internal variants (no user context at registry resolution time).
   private val registry = new ResourceTypeRegistry(
     ResourceType("dashboard",   id => dashboardRepo.findById(DashboardId(id)).map(_.map(_.ownerId.value))),
     ResourceType("panel",       id => panelRepo.findById(PanelId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("data-source", id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("data-type",   id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
     ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
   )
 
@@ -65,9 +67,9 @@ final class ApiRoutes(
   private val authService       = new AuthService(userRepo)
   private val dashboardService  = new DashboardService(dashboardRepo)
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, accessChecker)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
-  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, accessChecker)
+  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
   private val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
