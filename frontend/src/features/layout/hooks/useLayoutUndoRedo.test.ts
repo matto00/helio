@@ -6,7 +6,7 @@ import { Provider } from "react-redux";
 
 import { dashboardsReducer, fetchDashboards } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer, pushLayoutSnapshot } from "../state/layoutHistorySlice";
-import type { DashboardLayout } from "../../../types/models";
+import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import { useLayoutUndoRedo } from "./useLayoutUndoRedo";
 
 const defaultMeta = {

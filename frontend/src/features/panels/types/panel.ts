@@ -10,7 +10,44 @@
 // `imageUrl`, `imageFit`, `dividerOrientation`, `dividerWeight`,
 // `dividerColor`) no longer exist at the root.
 
-import type { PanelAppearance, ResourceMeta } from "../../../types/models";
+import type { ResourceMeta } from "../../../types/models";
+
+// ── Panel appearance + chart appearance shapes ──────────────────────────────
+// Extracted from `types/models.ts` in CS4 cycle 1.
+
+export interface ChartLegend {
+  show: boolean;
+  position: "top" | "bottom" | "left" | "right";
+}
+
+export interface ChartTooltip {
+  enabled: boolean;
+}
+
+export interface ChartAxisLabel {
+  show: boolean;
+  label?: string;
+}
+
+export interface ChartAxisLabels {
+  x: ChartAxisLabel;
+  y: ChartAxisLabel;
+}
+
+export interface ChartAppearance {
+  seriesColors: string[];
+  legend: ChartLegend;
+  tooltip: ChartTooltip;
+  axisLabels: ChartAxisLabels;
+  chartType?: "bar" | "line" | "pie" | "scatter";
+}
+
+export interface PanelAppearance {
+  background: string;
+  color: string;
+  transparency: number;
+  chart?: ChartAppearance;
+}
 
 export type PanelKind = "metric" | "chart" | "table" | "text" | "markdown" | "image" | "divider";
 
@@ -187,4 +224,56 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
     case "divider":
       return emptyDividerConfig();
   }
+}
+
+// ── Panel creation initial type-specific config ─────────────────────────────
+// Extracted from `types/models.ts` in CS4 cycle 1.
+//
+// Optional config fields collected in step 3 of the panel creation modal
+// for panel types that benefit from initial configuration.
+
+export type MetricTypeConfig = { type: "metric"; valueLabel?: string; unit?: string };
+export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie" };
+export type ImageTypeConfig = { type: "image"; imageUrl?: string };
+export type DividerTypeConfig = { type: "divider"; dividerOrientation?: DividerOrientation };
+
+export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig | DividerTypeConfig;
+
+// ── Panel update + batch shapes ─────────────────────────────────────────────
+
+export interface PanelUpdateFields {
+  title?: string;
+  appearance?: PanelAppearance;
+  type?: PanelKind;
+}
+
+export type MappedPanelData = Record<string, string>;
+
+/** Batch update entry mirrors `PATCH /api/panels/batch` wire shape:
+ *  `{ id, title?, appearance?, type?, config? }` where `config` (when
+ *  present) carries a typed patch determined by `type`. */
+export interface PanelBatchItem {
+  id: string;
+  title?: string;
+  appearance?: PanelAppearance;
+  type?: string;
+  config?: Record<string, unknown>;
+}
+
+export interface UpdatePanelsBatchRequest {
+  fields: string[];
+  panels: PanelBatchItem[];
+}
+
+export interface UpdatePanelsBatchResponse {
+  panels: Panel[];
+}
+
+// ── Panel query pagination state ────────────────────────────────────────────
+
+export interface PanelPaginationState {
+  currentPage: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  rows: Record<string, unknown>[];
 }

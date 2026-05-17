@@ -18,13 +18,12 @@ import type {
   MetricPanelConfig,
   Panel,
   PanelAppearance,
-  ResourceMeta,
   TablePanel,
   TablePanelConfig,
   TextPanel,
   TextPanelConfig,
-} from "../types/models";
-
+} from "../features/panels/types/panel";
+import type { ResourceMeta } from "../types/models";
 const defaultMeta: ResourceMeta = {
   createdBy: "u1",
   createdAt: "2024-01-01T00:00:00Z",

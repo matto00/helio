@@ -1,9 +1,17 @@
+// PanelCreationModal — shell for the multi-step panel creation flow.
+//
+// Owns the modal lifecycle (showModal, close, dirty guard, focus trap),
+// the step machine (type-select → template-select → optional
+// datatype-select → name-entry), and the create-panel dispatch. The four
+// per-step UIs live in `./creationSteps/` and the four per-subtype
+// creator fields live in `./creators/`; this file composes them and
+// threads the shell-owned state through.
+
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../state/panelsSlice";
@@ -12,69 +20,19 @@ import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
 import { PANEL_TEMPLATES } from "../state/panelTemplates";
 import type { PanelTemplate } from "../state/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { InlineError } from "../../../shared/chrome/InlineError";
 import type {
   ChartTypeConfig,
-  DividerOrientation,
   DividerTypeConfig,
   ImageTypeConfig,
   MetricTypeConfig,
   PanelType,
   TypeConfig,
-} from "../../../types/models";
-import { PanelCreationPreview } from "./PanelCreationPreview";
-import { Select, TextField } from "../../../shared/ui/index";
-
-import {
-  faChartLine,
-  faChartSimple,
-  faFont,
-  faImage,
-  faMinus,
-  faTable as faTableIcon,
-  type IconDefinition,
-} from "@fortawesome/free-solid-svg-icons";
-import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
-
-const PANEL_TYPES: {
-  value: PanelType;
-  label: string;
-  icon: IconDefinition;
-  description: string;
-}[] = [
-  {
-    value: "metric",
-    label: "Metric",
-    icon: faChartSimple,
-    description: "Display a single KPI value or stat",
-  },
-  {
-    value: "chart",
-    label: "Chart",
-    icon: faChartLine,
-    description: "Visualize trends with line, bar, or pie",
-  },
-  { value: "text", label: "Text", icon: faFont, description: "Add freeform text or headings" },
-  {
-    value: "table",
-    label: "Table",
-    icon: faTableIcon,
-    description: "Show structured data in rows and columns",
-  },
-  {
-    value: "markdown",
-    label: "Markdown",
-    icon: faMarkdownBrand,
-    description: "Write formatted content with Markdown",
-  },
-  { value: "image", label: "Image", icon: faImage, description: "Embed an image from a URL" },
-  {
-    value: "divider",
-    label: "Divider",
-    icon: faMinus,
-    description: "Separate sections with a visual line",
-  },
-];
+} from "../types/panel";
+import { hasNonEmptyTypeConfig } from "./creators/creatorTypes";
+import { DataTypeSelectStep } from "./creationSteps/DataTypeSelectStep";
+import { NameEntryStep } from "./creationSteps/NameEntryStep";
+import { TemplateSelectStep } from "./creationSteps/TemplateSelectStep";
+import { TypeSelectStep } from "./creationSteps/TypeSelectStep";
 
 // Selector for all keyboard-focusable elements inside the modal.
 const FOCUSABLE_SELECTORS =
@@ -88,154 +46,6 @@ const DATA_BOUND_TYPES: PanelType[] = ["metric", "chart", "text", "table"];
 function isDataBound(type: PanelType | null): boolean {
   return type !== null && (DATA_BOUND_TYPES as string[]).includes(type);
 }
-
-// ── Type-specific config helpers ─────────────────────────────────────────────
-
-/** Returns true if typeConfig has at least one non-empty value worth submitting. */
-function hasNonEmptyTypeConfig(config: TypeConfig | null): config is TypeConfig {
-  if (!config) return false;
-  switch (config.type) {
-    case "metric":
-      return !!(config.valueLabel || config.unit);
-    case "chart":
-      return !!config.chartType;
-    case "image":
-      return !!config.imageUrl;
-    case "divider":
-      return !!config.dividerOrientation;
-  }
-}
-
-// ── Per-type config field components ─────────────────────────────────────────
-
-/** 2.1 — Value label + unit inputs for metric panels. */
-function MetricConfigFields({
-  config,
-  onChange,
-}: {
-  config: MetricTypeConfig;
-  onChange: (config: MetricTypeConfig) => void;
-}) {
-  return (
-    <>
-      <div className="panel-creation-modal__field">
-        <label className="panel-creation-modal__label" htmlFor="panel-create-value-label">
-          Value label
-        </label>
-        <TextField
-          id="panel-create-value-label"
-          type="text"
-          value={config.valueLabel ?? ""}
-          onChange={(e) => onChange({ ...config, valueLabel: e.target.value || undefined })}
-          placeholder="e.g. Revenue"
-          aria-label="Value label"
-        />
-      </div>
-      <div className="panel-creation-modal__field">
-        <label className="panel-creation-modal__label" htmlFor="panel-create-unit">
-          Unit
-        </label>
-        <TextField
-          id="panel-create-unit"
-          type="text"
-          value={config.unit ?? ""}
-          onChange={(e) => onChange({ ...config, unit: e.target.value || undefined })}
-          placeholder="e.g. $, %, ms"
-          aria-label="Unit"
-        />
-      </div>
-    </>
-  );
-}
-
-/** 2.2 — Chart type selector (line / bar / pie) for chart panels. */
-function ChartTypeField({
-  config,
-  onChange,
-}: {
-  config: ChartTypeConfig;
-  onChange: (config: ChartTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-chart-type">
-        Chart type
-      </label>
-      <Select
-        ariaLabel="Chart type"
-        value={config.chartType ?? ""}
-        onChange={(v) =>
-          onChange({ ...config, chartType: v ? (v as "line" | "bar" | "pie") : undefined })
-        }
-        placeholder="Select chart type"
-        options={[
-          { value: "line", label: "Line" },
-          { value: "bar", label: "Bar" },
-          { value: "pie", label: "Pie" },
-        ]}
-      />
-    </div>
-  );
-}
-
-/** 2.3 — Image URL input for image panels. */
-function ImageConfigField({
-  config,
-  onChange,
-}: {
-  config: ImageTypeConfig;
-  onChange: (config: ImageTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-image-url">
-        Image URL
-      </label>
-      <TextField
-        id="panel-create-image-url"
-        type="url"
-        value={config.imageUrl ?? ""}
-        onChange={(e) => onChange({ ...config, imageUrl: e.target.value || undefined })}
-        placeholder="https://example.com/image.jpg"
-        aria-label="Image URL"
-      />
-    </div>
-  );
-}
-
-/** 2.4 — Orientation selector (horizontal / vertical) for divider panels. */
-function DividerConfigField({
-  config,
-  onChange,
-}: {
-  config: DividerTypeConfig;
-  onChange: (config: DividerTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-orientation">
-        Orientation
-      </label>
-      <Select
-        ariaLabel="Orientation"
-        value={config.dividerOrientation ?? ""}
-        onChange={(v) =>
-          onChange({
-            ...config,
-            dividerOrientation: v ? (v as DividerOrientation) : undefined,
-          })
-        }
-        placeholder="Select orientation"
-        options={[
-          { value: "horizontal", label: "Horizontal" },
-          { value: "vertical", label: "Vertical" },
-        ]}
-      />
-    </div>
-  );
-}
-
-// ── Modal ─────────────────────────────────────────────────────────────────────
 
 interface PanelCreationModalProps {
   onClose: () => void;
@@ -458,6 +268,12 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dividerConfig: DividerTypeConfig =
     typeConfig?.type === "divider" ? typeConfig : { type: "divider" };
 
+  const datatypeStepLoading =
+    pipelines.status === "loading" ||
+    pipelines.status === "idle" ||
+    dataTypes.status === "loading" ||
+    dataTypes.status === "idle";
+
   return (
     <dialog
       ref={dialogRef}
@@ -515,200 +331,51 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           </div>
         )}
 
-        {step === "type-select" && (
-          <div className="panel-creation-modal__type-grid" role="group" aria-label="Panel type">
-            {PANEL_TYPES.map(({ value, label, icon, description }) => (
-              <button
-                key={value}
-                type="button"
-                className="panel-creation-modal__type-card"
-                aria-label={label}
-                onClick={() => handleTypeSelect(value)}
-              >
-                <span className="panel-creation-modal__type-icon" aria-hidden="true">
-                  <FontAwesomeIcon icon={icon} />
-                </span>
-                <span className="panel-creation-modal__type-label">{label}</span>
-                <span className="panel-creation-modal__type-description">{description}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {step === "type-select" && <TypeSelectStep onSelect={handleTypeSelect} />}
 
         {step === "template-select" && (
-          <div className="panel-creation-modal__template-step">
-            <div
-              className="panel-creation-modal__template-grid"
-              role="group"
-              aria-label="Panel template"
-            >
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className="panel-creation-modal__template-card"
-                  aria-label={template.label}
-                  onClick={() => handleTemplateSelect(template)}
-                >
-                  <span className="panel-creation-modal__template-label">{template.label}</span>
-                  <span className="panel-creation-modal__template-description">
-                    {template.description}
-                  </span>
-                </button>
-              ))}
-              <button
-                type="button"
-                className="panel-creation-modal__template-card panel-creation-modal__template-card--blank"
-                aria-label="Start blank"
-                onClick={() => handleTemplateSelect(null)}
-              >
-                <span className="panel-creation-modal__template-label">Start blank</span>
-                <span className="panel-creation-modal__template-description">
-                  Begin with an empty panel
-                </span>
-              </button>
-            </div>
-            <div className="panel-creation-modal__actions">
-              <button
-                type="button"
-                className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
-                onClick={handleBackFromTemplate}
-              >
-                Back
-              </button>
-            </div>
-          </div>
+          <TemplateSelectStep
+            templates={templates}
+            onSelect={handleTemplateSelect}
+            onBack={handleBackFromTemplate}
+          />
         )}
 
         {/* 3.6-3.8 — DataType picker step for data-bound panel types. */}
         {step === "datatype-select" && (
-          <div className="panel-creation-modal__datatype-step">
-            {pipelines.status === "loading" ||
-            pipelines.status === "idle" ||
-            dataTypes.status === "loading" ||
-            dataTypes.status === "idle" ? (
-              // Loading state: show indicator while fetching pipelines or data types.
-              <div className="panel-creation-modal__datatype-loading">
-                <p>Loading data types...</p>
-              </div>
-            ) : registryDataTypes.length === 0 ? (
-              // 3.6 — Empty state: no registry DataTypes available.
-              <div
-                className="panel-creation-modal__datatype-empty"
-                data-testid="datatype-empty-state"
-              >
-                <p>No data types are registered yet.</p>
-                <p>
-                  <Link
-                    to="/pipelines"
-                    className="panel-creation-modal__datatype-empty__link"
-                    data-testid="datatype-empty-pipeline-link"
-                    onClick={handleClose}
-                  >
-                    Go to Pipelines to create one.
-                  </Link>
-                </p>
-              </div>
-            ) : (
-              // 3.7 — DataType list as clickable cards.
-              <div
-                className="panel-creation-modal__datatype-list"
-                role="group"
-                aria-label="Data type"
-              >
-                {registryDataTypes.map((dt) => (
-                  <button
-                    key={dt.id}
-                    type="button"
-                    className={`panel-creation-modal__datatype-card${selectedDataTypeId === dt.id ? " panel-creation-modal__datatype-card--selected" : ""}`}
-                    aria-label={dt.name}
-                    aria-pressed={selectedDataTypeId === dt.id}
-                    onClick={() => setSelectedDataTypeId(dt.id)}
-                  >
-                    <span className="panel-creation-modal__datatype-name">{dt.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="panel-creation-modal__actions">
-              <button
-                type="button"
-                className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
-                onClick={handleBackFromDataType}
-              >
-                Back
-              </button>
-              {/* 3.7 / 3.8 — Next button disabled until a DataType is selected. */}
-              <button
-                type="button"
-                className="panel-creation-modal__btn panel-creation-modal__btn--primary"
-                disabled={selectedDataTypeId === null}
-                onClick={() => setStep("name-entry")}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <DataTypeSelectStep
+            loading={datatypeStepLoading}
+            registryDataTypes={registryDataTypes}
+            selectedDataTypeId={selectedDataTypeId}
+            onSelect={setSelectedDataTypeId}
+            onEmptyStateNavigate={handleClose}
+            onBack={handleBackFromDataType}
+            onNext={() => setStep("name-entry")}
+          />
         )}
 
         {step === "name-entry" && (
-          <div className="panel-creation-modal__name-entry">
-            <form className="panel-creation-modal__form" onSubmit={(e) => void handleCreate(e)}>
-              <div className="panel-creation-modal__field">
-                <label className="panel-creation-modal__label" htmlFor="panel-create-title">
-                  Panel title
-                </label>
-                <TextField
-                  id="panel-create-title"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Revenue Pulse"
-                  aria-label="Panel title"
-                  autoFocus
-                />
-              </div>
-
-              {/* 2.5 — Per-type config fields rendered below the title input. */}
-              {selectedType === "metric" && (
-                <MetricConfigFields config={metricConfig} onChange={(cfg) => setTypeConfig(cfg)} />
-              )}
-              {selectedType === "chart" && (
-                <ChartTypeField config={chartConfig} onChange={(cfg) => setTypeConfig(cfg)} />
-              )}
-              {selectedType === "image" && (
-                <ImageConfigField config={imageConfig} onChange={(cfg) => setTypeConfig(cfg)} />
-              )}
-              {selectedType === "divider" && (
-                <DividerConfigField config={dividerConfig} onChange={(cfg) => setTypeConfig(cfg)} />
-              )}
-
-              <InlineError error={createError} />
-              <div className="panel-creation-modal__actions">
-                <button
-                  type="button"
-                  className="panel-creation-modal__btn panel-creation-modal__btn--secondary"
-                  onClick={handleBackFromName}
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="panel-creation-modal__btn panel-creation-modal__btn--primary"
-                  disabled={
-                    isCreating ||
-                    title.trim().length === 0 ||
-                    // 3.9 — Disabled if data-bound type and no DataType selected.
-                    (isDataBound(selectedType) && selectedDataTypeId === null)
-                  }
-                >
-                  {isCreating ? "Creating..." : "Create panel"}
-                </button>
-              </div>
-            </form>
-            {/* 2.6 — Pass typeConfig to preview so it reflects entered config live. */}
-            <PanelCreationPreview type={selectedType!} title={title} typeConfig={typeConfig} />
-          </div>
+          <NameEntryStep
+            selectedType={selectedType!}
+            title={title}
+            onTitleChange={setTitle}
+            typeConfig={typeConfig}
+            metricConfig={metricConfig}
+            chartConfig={chartConfig}
+            imageConfig={imageConfig}
+            dividerConfig={dividerConfig}
+            onTypeConfigChange={(cfg) => setTypeConfig(cfg)}
+            createError={createError}
+            submitDisabled={
+              isCreating ||
+              title.trim().length === 0 ||
+              // 3.9 — Disabled if data-bound type and no DataType selected.
+              (isDataBound(selectedType) && selectedDataTypeId === null)
+            }
+            isCreating={isCreating}
+            onBack={handleBackFromName}
+            onSubmit={(e) => void handleCreate(e)}
+          />
         )}
       </div>
     </dialog>

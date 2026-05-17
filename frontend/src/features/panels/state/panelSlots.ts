@@ -1,5 +1,4 @@
-import type { PanelType } from "../../../types/models";
-
+import type { PanelType } from "../types/panel";
 export interface PanelSlot {
   key: string;
   label: string;

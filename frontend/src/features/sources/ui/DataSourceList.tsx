@@ -6,7 +6,7 @@ import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
 import { getDataTypeId } from "../../panels/state/panelNarrowing";
-import type { DataSourceKind } from "../../../types/models";
+import type { DataSourceKind } from "../types/dataSource";
 
 interface DataSourceListProps {
   onAddSource?: () => void;

@@ -6,7 +6,7 @@ import { Provider } from "react-redux";
 
 import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
 import { makeMetricPanel } from "../../../test/panelFixtures";
-import type { DataType } from "../../../types/models";
+import type { DataType } from "../../dataTypes/types/dataType";
 import { useLegacyBoundPanel } from "./useLegacyBoundPanel";
 
 // ── helpers ───────────────────────────────────────────────────────────────────

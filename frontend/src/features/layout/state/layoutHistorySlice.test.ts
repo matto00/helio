@@ -1,4 +1,4 @@
-import type { DashboardLayout } from "../../../types/models";
+import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import {
   layoutHistoryReducer,
   pushLayoutSnapshot,

@@ -7,7 +7,7 @@ import type {
   PipelineStepKind,
   PipelineSummary,
   RunStatusResponse,
-} from "../../../types/models";
+} from "../types/pipelineStep";
 import { httpClient } from "../../../services/httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {

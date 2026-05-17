@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import * as authService from "../services/authService";
-import type { AuthResponse, User } from "../../../types/models";
+import type { AuthResponse, User } from "../types/user";
 import { authReducer } from "../state/authSlice";
 import { OAuthCallbackPage } from "./OAuthCallbackPage";
 

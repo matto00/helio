@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeDividerPanel, makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
-import type { Panel } from "../../../types/models";
+import type { Panel } from "../types/panel";
 import { PanelCreationModal } from "./PanelCreationModal";
 import type { PanelContentProps } from "./PanelContent";
 

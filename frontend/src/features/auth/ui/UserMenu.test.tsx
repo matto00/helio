@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { User } from "../../../types/models";
+import type { User } from "../types/user";
 import { UserMenu } from "./UserMenu";
 
 const baseUser: User = {

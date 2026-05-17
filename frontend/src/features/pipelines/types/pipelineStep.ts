@@ -214,3 +214,42 @@ export interface PipelineAnalyzeResponse {
   sourceSchema: SchemaField[];
   steps: AnalyzeStepResult[];
 }
+
+// ── Pipeline + run-status summary types ─────────────────────────────────────
+// Extracted from `types/models.ts` in CS4 cycle 1.
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  outputDataTypeId?: string;
+}
+
+export interface PipelineSummary {
+  id: string;
+  name: string;
+  sourceDataSourceName: string;
+  outputDataTypeName: string;
+  outputDataTypeId?: string;
+  lastRunStatus: "succeeded" | "failed" | null;
+  lastRunAt: string | null;
+  lastRunRowCount: number | null;
+}
+
+export type RunStatus = "queued" | "running" | "succeeded" | "failed";
+
+export interface RunStatusResponse {
+  runId: string;
+  status: RunStatus;
+  rows?: Record<string, unknown>[];
+  error?: string;
+}
+
+export interface PipelineRunRecord {
+  id: string;
+  pipelineId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "dry_run";
+  startedAt: string;
+  completedAt: string | null;
+  rowCount: number | null;
+  errorLog: string | null;
+}

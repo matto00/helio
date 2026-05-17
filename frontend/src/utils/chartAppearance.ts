@@ -1,7 +1,6 @@
 import type { EChartsOption } from "echarts";
 
-import type { ChartAppearance } from "../types/models";
-
+import type { ChartAppearance } from "../features/panels/types/panel";
 export type ChartType = "bar" | "line" | "pie" | "scatter";
 
 export interface AppearanceResult {

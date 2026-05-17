@@ -3,7 +3,7 @@
 // CS3 cycle 2 to keep the parent under the 400L hard cap.
 
 import { SourceChip } from "./SourceChip";
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../../sources/types/dataSource";
 
 interface SourceSelectorBarProps {
   sources: DataSource[];

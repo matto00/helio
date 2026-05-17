@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../state/panelsSlice";
 import { getDataTypeId, getFieldMapping } from "../state/panelNarrowing";
-import type { MappedPanelData, Panel } from "../../../types/models";
+import type { MappedPanelData, Panel } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useEffect } from "react";
 

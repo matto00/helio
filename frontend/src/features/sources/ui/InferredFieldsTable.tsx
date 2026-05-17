@@ -4,7 +4,7 @@
 //
 // Extracted from AddSourceModal.tsx in CS3 cycle 2 (behavior-preserving).
 
-import type { InferredField } from "../../../types/models";
+import type { InferredField } from "../types/dataSource";
 import { Select } from "../../../shared/ui/Select";
 import { TextField } from "../../../shared/ui/TextField";
 

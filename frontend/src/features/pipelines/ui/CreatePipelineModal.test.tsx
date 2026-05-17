@@ -11,7 +11,7 @@ jest.mock("../services/pipelineService", () => ({
 
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
 
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../../sources/types/dataSource";
 
 const testDataSources: DataSource[] = [
   {

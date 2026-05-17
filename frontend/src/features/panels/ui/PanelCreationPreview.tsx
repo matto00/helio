@@ -1,5 +1,5 @@
 import "./PanelCreationModal.css";
-import type { Panel, PanelType, TypeConfig } from "../../../types/models";
+import type { Panel, PanelType, TypeConfig } from "../types/panel";
 import { emptyConfigForKind } from "../types/panel";
 import { PanelContent } from "./PanelContent";
 

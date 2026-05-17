@@ -10,7 +10,7 @@ import {
   updatePipeline,
 } from "./pipelinesSlice";
 import * as pipelineService from "../services/pipelineService";
-import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../../../types/models";
+import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 
 jest.mock("../services/pipelineService", () => ({
   getPipelines: jest.fn(),

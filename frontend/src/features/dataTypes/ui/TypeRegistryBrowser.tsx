@@ -1,7 +1,7 @@
 import "./TypeRegistryBrowser.css";
 import { faLayerGroup } from "@fortawesome/free-solid-svg-icons";
 import { useAppSelector } from "../../../hooks/reduxHooks";
-import type { DataType } from "../../../types/models";
+import type { DataType } from "../types/dataType";
 import { TypeDetailPanel } from "./TypeDetailPanel";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 

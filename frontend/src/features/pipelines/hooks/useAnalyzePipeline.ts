@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { analyzePipeline } from "../state/pipelinesSlice";
-import type { PipelineAnalyzeResponse } from "../../../types/models";
+import type { PipelineAnalyzeResponse } from "../types/pipelineStep";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
 export interface AnalyzePipelineResult {

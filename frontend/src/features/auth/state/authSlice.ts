@@ -16,7 +16,7 @@ import type {
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
-} from "../../../types/models";
+} from "../types/user";
 
 interface AuthRootState {
   auth: AuthState;

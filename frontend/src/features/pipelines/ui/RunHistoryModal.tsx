@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import "./RunHistoryModal.css";
-import type { PipelineRunRecord } from "../../../types/models";
+import type { PipelineRunRecord } from "../types/pipelineStep";
 import { Modal } from "../../../shared/ui/Modal";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {

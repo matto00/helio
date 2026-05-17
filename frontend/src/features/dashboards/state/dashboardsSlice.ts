@@ -19,7 +19,7 @@ import type {
   DashboardLayout,
   DashboardSnapshot,
   DuplicateDashboardResponse,
-} from "../../../types/models";
+} from "../types/dashboard";
 
 interface DashboardsState {
   items: Dashboard[];

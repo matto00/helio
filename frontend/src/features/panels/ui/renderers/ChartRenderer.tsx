@@ -1,4 +1,4 @@
-import type { PanelAppearance } from "../../../../types/models";
+import type { PanelAppearance } from "../../types/panel";
 import { ChartPanel } from "../ChartPanel";
 
 interface ChartRendererProps {

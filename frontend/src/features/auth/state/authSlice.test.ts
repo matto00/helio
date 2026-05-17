@@ -3,7 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import * as authService from "../services/authService";
 import * as httpClient from "../../../services/httpClient";
 import { applyAccentTokens } from "../../../theme/appearance";
-import type { AuthResponse, User } from "../../../types/models";
+import type { AuthResponse, User } from "../types/user";
 import {
   authReducer,
   clearAuth,

@@ -1,4 +1,4 @@
-import type { ComputedField, DataType, DataTypeField } from "../../../types/models";
+import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import { httpClient } from "../../../services/httpClient";
 
 interface DataTypesResponse {

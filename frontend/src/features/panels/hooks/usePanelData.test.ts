@@ -7,7 +7,7 @@ import { Provider } from "react-redux";
 import { panelsReducer } from "../state/panelsSlice";
 import * as dataTypeService from "../../dataTypes/services/dataTypeService";
 import { makeMetricPanel } from "../../../test/panelFixtures";
-import type { Panel } from "../../../types/models";
+import type { Panel } from "../types/panel";
 import { usePanelData } from "./usePanelData";
 
 jest.mock("../../dataTypes/services/dataTypeService");

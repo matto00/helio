@@ -29,7 +29,7 @@ import type {
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
-} from "../../../types/models";
+} from "../types/pipelineStep";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -75,7 +75,7 @@ const defaultPipeline: PipelineSummary = {
 };
 
 // Source fixture shape — uses the same discriminated-union as production code.
-import type { DataSource } from "../../../types/models";
+import type { DataSource } from "../../sources/types/dataSource";
 type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {

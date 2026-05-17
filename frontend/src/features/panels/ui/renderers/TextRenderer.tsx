@@ -1,5 +1,4 @@
-import type { MappedPanelData } from "../../../../types/models";
-
+import type { MappedPanelData } from "../../types/panel";
 interface TextRendererProps {
   /** Bound text data, if the panel was fetched against a DataType. */
   data?: MappedPanelData | null;

@@ -15,8 +15,7 @@ import {
 } from "./panelsSlice";
 import { importDashboard } from "../../dashboards/state/dashboardsSlice";
 import { makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
-import type { MetricPanel } from "../../../types/models";
-
+import type { MetricPanel } from "../types/panel";
 const defaultMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",

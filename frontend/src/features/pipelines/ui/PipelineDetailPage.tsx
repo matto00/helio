@@ -30,7 +30,7 @@ import type {
   PipelineStepConfig,
   PipelineStepKind,
   SchemaField,
-} from "../../../types/models";
+} from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 
 // ── Main page ────────────────────────────────────────────────────────────────

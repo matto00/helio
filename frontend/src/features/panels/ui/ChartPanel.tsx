@@ -1,7 +1,7 @@
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
 
-import type { PanelAppearance } from "../../../types/models";
+import type { PanelAppearance } from "../types/panel";
 import { appearanceToEChartsOption } from "../../../utils/chartAppearance";
 import type { ChartType } from "../../../utils/chartAppearance";
 

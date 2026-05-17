@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import "./ComputedFieldForm.css";
 import { Select, TextField } from "../../../shared/ui/index";
 import { validateExpression } from "../../dataTypes/services/dataTypeService";
-import type { ComputedField } from "../../../types/models";
+import type { ComputedField } from "../../dataTypes/types/dataType";
 
 interface ComputedFieldFormProps {
   /** ID of the DataType (used for server-side expression validation). */
