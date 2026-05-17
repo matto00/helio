@@ -13,7 +13,7 @@ import { panelsReducer } from "../features/panels/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/sourcesSlice";
 import { toastsReducer } from "../features/toasts/toastsSlice";
-import { OverlayProvider } from "../components/OverlayProvider";
+import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type {

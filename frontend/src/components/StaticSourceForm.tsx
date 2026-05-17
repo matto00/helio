@@ -4,7 +4,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { type FormEvent, useState } from "react";
 
 import type { StaticColumn, StaticColumnType } from "../types/models";
-import { Select, TextField } from "./ui";
+import { Select, TextField } from "../shared/ui/index";
 
 const COLUMN_TYPES: StaticColumnType[] = ["string", "integer", "float", "boolean"];
 

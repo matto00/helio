@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { Select, TextField } from "../../ui";
+import { Select, TextField } from "../../../shared/ui/index";
 import type { ChartAppearance } from "../../../types/models";
 
 interface ChartAppearanceEditorProps {

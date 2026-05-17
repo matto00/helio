@@ -12,7 +12,7 @@ import { fetchPipelines } from "../features/pipelines/pipelinesSlice";
 import { PANEL_TEMPLATES } from "../features/panels/panelTemplates";
 import type { PanelTemplate } from "../features/panels/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { InlineError } from "./InlineError";
+import { InlineError } from "../shared/chrome/InlineError";
 import type {
   ChartTypeConfig,
   DividerOrientation,
@@ -23,7 +23,7 @@ import type {
   TypeConfig,
 } from "../types/models";
 import { PanelCreationPreview } from "./PanelCreationPreview";
-import { Select, TextField } from "./ui";
+import { Select, TextField } from "../shared/ui/index";
 
 import {
   faChartLine,

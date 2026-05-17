@@ -7,7 +7,7 @@ import { fetchSources, setAddSourceModalOpen } from "../features/sources/sources
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { SourceDetailPanel } from "./SourceDetailPanel";
-import { EmptyState } from "./ui/EmptyState";
+import { EmptyState } from "../shared/ui/EmptyState";
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();

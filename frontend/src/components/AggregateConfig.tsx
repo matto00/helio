@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/models";
-import { Select, TextField } from "./ui";
+import { Select, TextField } from "../shared/ui/index";
 
 export interface AggregateGroupByField {
   name: string;

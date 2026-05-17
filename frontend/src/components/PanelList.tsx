@@ -7,7 +7,7 @@ import { updateUserPreferences } from "../features/auth/authSlice";
 import { PanelGrid } from "./PanelGrid";
 import { PanelCreationModal } from "./PanelCreationModal";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { StatusMessage } from "./StatusMessage";
+import { StatusMessage } from "../shared/chrome/StatusMessage";
 import { resolveDashboardGridBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 

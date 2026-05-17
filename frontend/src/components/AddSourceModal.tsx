@@ -18,9 +18,9 @@ import {
 } from "../services/dataSourceService";
 import { StaticSourceForm } from "./StaticSourceForm";
 import { SqlTab } from "./SqlTab";
-import { Modal } from "./ui/Modal";
-import { Select } from "./ui/Select";
-import { TextField } from "./ui/TextField";
+import { Modal } from "../shared/ui/Modal";
+import { Select } from "../shared/ui/Select";
+import { TextField } from "../shared/ui/TextField";
 
 type SourceType = "rest_api" | "csv" | "static" | "sql";
 type Step = "configure" | "preview";

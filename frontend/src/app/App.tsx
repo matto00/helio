@@ -20,12 +20,12 @@ import {
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
-import { OrbitMark } from "../components/OrbitMark";
-import { SidebarBody } from "../components/SidebarBody";
+import { OrbitMark } from "../shared/chrome/OrbitMark";
+import { SidebarBody } from "../shared/chrome/SidebarBody";
 import { PanelList } from "../components/PanelList";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
-import { SaveStateIndicator } from "../components/SaveStateIndicator";
+import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { PipelineDetailPage } from "../components/PipelineDetailPage";
 import { PipelinesPage } from "../components/PipelinesPage";
 import { SourcesPage } from "../components/SourcesPage";
@@ -50,7 +50,7 @@ import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
-import { ToastViewport } from "../components/ui/Toast";
+import { ToastViewport } from "../shared/ui/Toast";
 
 function breadcrumbLabel(pathname: string): string {
   if (pathname === "/") return "Dashboards";

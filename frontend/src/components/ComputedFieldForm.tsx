@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import "./ComputedFieldForm.css";
-import { Select, TextField } from "./ui";
+import { Select, TextField } from "../shared/ui/index";
 import { validateExpression } from "../services/dataTypeService";
 import type { ComputedField } from "../types/models";
 

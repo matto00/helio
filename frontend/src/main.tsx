@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { App } from "./app/App";
-import { OverlayProvider } from "./components/OverlayProvider";
+import { OverlayProvider } from "./shared/chrome/OverlayProvider";
 import { updateUserPreferences } from "./features/auth/authSlice";
 import { setupAuthInterceptor } from "./services/httpClient";
 import { store, type RootState, type AppDispatch } from "./store/store";

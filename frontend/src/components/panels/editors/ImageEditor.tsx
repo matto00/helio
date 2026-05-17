@@ -1,10 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-import { Select, TextField } from "../../ui";
+import { Select, TextField } from "../../../shared/ui/index";
 import { updatePanelImage } from "../../../features/panels/panelsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { ImageFit, ImagePanel } from "../../../types/models";
-import { InlineError } from "../../InlineError";
+import { InlineError } from "../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 
 interface ImageEditorProps {

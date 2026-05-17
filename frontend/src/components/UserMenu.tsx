@@ -2,7 +2,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
-import { AccentPicker } from "./AccentPicker";
+import { AccentPicker } from "../shared/chrome/AccentPicker";
 import type { Theme } from "../theme/theme";
 import type { User } from "../types/models";
 import "./UserMenu.css";

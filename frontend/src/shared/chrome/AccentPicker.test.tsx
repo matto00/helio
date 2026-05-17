@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AccentPicker } from "./AccentPicker";
-import { ACCENT_PRESETS } from "../theme/theme";
+import { ACCENT_PRESETS } from "../../theme/theme";
 
 function renderPicker(accentColor = "#f97316") {
   const setAccentColor = jest.fn();

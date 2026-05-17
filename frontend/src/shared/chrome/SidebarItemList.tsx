@@ -5,10 +5,10 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
-import "./DashboardList.css";
+import "../../components/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
-import { EmptyState } from "./ui/EmptyState";
-import { TextField } from "./ui/TextField";
+import { EmptyState } from "../ui/EmptyState";
+import { TextField } from "../ui/TextField";
 
 interface SidebarItem {
   id: string;

@@ -3,13 +3,13 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
-import { panelsReducer } from "../features/panels/panelsSlice";
-import { authReducer } from "../features/auth/authSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
-import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
-import { sourcesReducer } from "../features/sources/sourcesSlice";
-import { ThemeProvider } from "../theme/ThemeProvider";
+import { panelsReducer } from "../../features/panels/panelsSlice";
+import { authReducer } from "../../features/auth/authSlice";
+import { dataTypesReducer } from "../../features/dataTypes/dataTypesSlice";
+import { dashboardsReducer } from "../../features/dashboards/dashboardsSlice";
+import { layoutHistoryReducer } from "../../features/layout/layoutHistorySlice";
+import { sourcesReducer } from "../../features/sources/sourcesSlice";
+import { ThemeProvider } from "../../theme/ThemeProvider";
 import { SaveStateIndicator } from "./SaveStateIndicator";
 
 function makeStore(overrides: {

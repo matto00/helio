@@ -1,5 +1,5 @@
-import { useAppSelector } from "../hooks/reduxHooks";
-import { useRelativeTime } from "../hooks/useRelativeTime";
+import { useAppSelector } from "../../hooks/reduxHooks";
+import { useRelativeTime } from "../../hooks/useRelativeTime";
 import "./SaveStateIndicator.css";
 
 interface SaveStateIndicatorProps {

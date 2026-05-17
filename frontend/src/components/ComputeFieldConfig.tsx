@@ -6,7 +6,7 @@
 
 import type { ChangeEvent } from "react";
 
-import { TextField } from "./ui";
+import { TextField } from "../shared/ui/index";
 
 export interface ComputeConfigValue {
   column: string;

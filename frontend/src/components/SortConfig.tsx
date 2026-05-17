@@ -5,7 +5,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowDownLong, faArrowUpLong, faXmark } from "@fortawesome/free-solid-svg-icons";
 
-import { Select } from "./ui";
+import { Select } from "../shared/ui/index";
 
 export interface SortKey {
   field: string;

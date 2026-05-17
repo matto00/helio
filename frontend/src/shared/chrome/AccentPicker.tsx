@@ -1,4 +1,4 @@
-import { ACCENT_PRESETS } from "../theme/theme";
+import { ACCENT_PRESETS } from "../../theme/theme";
 import "./AccentPicker.css";
 
 interface AccentPickerProps {

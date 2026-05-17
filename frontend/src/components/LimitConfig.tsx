@@ -4,7 +4,7 @@
 
 import type { ChangeEvent } from "react";
 
-import { TextField } from "./ui";
+import { TextField } from "../shared/ui/index";
 
 interface LimitConfigProps {
   /** Current row count limit (parsed from the step config). */

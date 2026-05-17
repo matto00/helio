@@ -7,20 +7,20 @@ import {
   deleteDataType,
   fetchDataTypes,
   setSelectedTypeId,
-} from "../features/dataTypes/dataTypesSlice";
+} from "../../features/dataTypes/dataTypesSlice";
 import {
   deletePipeline,
   fetchPipelines,
   setCreatePipelineModalOpen,
-} from "../features/pipelines/pipelinesSlice";
+} from "../../features/pipelines/pipelinesSlice";
 import {
   deleteSource,
   fetchSources,
   setAddSourceModalOpen,
   setSelectedSourceId,
-} from "../features/sources/sourcesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { DashboardList } from "./DashboardList";
+} from "../../features/sources/sourcesSlice";
+import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
+import { DashboardList } from "../../components/DashboardList";
 import { SidebarItemList } from "./SidebarItemList";
 
 interface SidebarBodyProps {

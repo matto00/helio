@@ -11,7 +11,7 @@ import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/panelsSlice";
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
 import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
-import { OverlayProvider } from "./OverlayProvider";
+import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
   runPipeline,

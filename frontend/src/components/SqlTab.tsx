@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { TextField, Textarea } from "./ui";
+import { TextField, Textarea } from "../shared/ui/index";
 import { useAppDispatch } from "../hooks/reduxHooks";
 import { inferSqlSource } from "../features/sources/sourcesSlice";
 import type { InferredField } from "../types/models";

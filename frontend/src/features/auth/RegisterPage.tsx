@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { TextField } from "../../components/ui";
+import { TextField } from "../../shared/ui/index";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { register } from "./authSlice";
 import "./auth.css";

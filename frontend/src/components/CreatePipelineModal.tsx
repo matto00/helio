@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { createPipeline, fetchPipelines } from "../features/pipelines/pipelinesSlice";
 import { fetchSources } from "../features/sources/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { Modal } from "./ui/Modal";
-import { Select } from "./ui/Select";
-import { TextField } from "./ui/TextField";
+import { Modal } from "../shared/ui/Modal";
+import { Select } from "../shared/ui/Select";
+import { TextField } from "../shared/ui/TextField";
 import "./CreatePipelineModal.css";
 
 interface CreatePipelineModalProps {

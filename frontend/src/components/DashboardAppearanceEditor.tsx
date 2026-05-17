@@ -10,10 +10,10 @@ import {
   getColorInputValue,
 } from "../theme/appearance";
 import type { Dashboard } from "../types/models";
-import "./Popover.css";
+import "../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
-import { InlineError } from "./InlineError";
-import { useOverlay } from "./OverlayProvider";
+import { InlineError } from "../shared/chrome/InlineError";
+import { useOverlay } from "../shared/chrome/OverlayProvider";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;

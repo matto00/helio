@@ -7,7 +7,7 @@ import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/models";
 import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
 import { PreviewTable } from "./PreviewTable";
-import { Select, TextField } from "./ui";
+import { Select, TextField } from "../shared/ui/index";
 
 interface TypeDetailPanelProps {
   dataType: DataType;

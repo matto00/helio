@@ -3,7 +3,7 @@ import { faLayerGroup } from "@fortawesome/free-solid-svg-icons";
 import { useAppSelector } from "../hooks/reduxHooks";
 import type { DataType } from "../types/models";
 import { TypeDetailPanel } from "./TypeDetailPanel";
-import { EmptyState } from "./ui/EmptyState";
+import { EmptyState } from "../shared/ui/EmptyState";
 
 export function TypeRegistryBrowser() {
   const { items, selectedTypeId } = useAppSelector((state) => state.dataTypes);

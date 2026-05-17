@@ -1,10 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-import { Textarea } from "../../ui";
+import { Textarea } from "../../../shared/ui/index";
 import { updatePanelContent } from "../../../features/panels/panelsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { MarkdownPanel } from "../../../types/models";
-import { InlineError } from "../../InlineError";
+import { InlineError } from "../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 
 interface MarkdownEditorProps {

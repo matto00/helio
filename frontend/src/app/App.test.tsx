@@ -20,7 +20,7 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
 } from "../services/panelService";
-import { OverlayProvider } from "../components/OverlayProvider";
+import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeMetricPanel } from "../test/panelFixtures";
 import { App } from "./App";

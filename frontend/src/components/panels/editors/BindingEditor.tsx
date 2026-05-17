@@ -1,13 +1,13 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Select, TextField } from "../../ui";
+import { Select, TextField } from "../../../shared/ui/index";
 import { fetchDataTypes } from "../../../features/dataTypes/dataTypesSlice";
 import { PANEL_SLOTS } from "../../../features/panels/panelSlots";
 import { updatePanelBinding } from "../../../features/panels/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { ChartPanel, MetricPanel, TablePanel } from "../../../types/models";
-import { InlineError } from "../../InlineError";
+import { InlineError } from "../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 
 interface BindingEditorProps {
