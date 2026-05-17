@@ -68,25 +68,29 @@
 
 ## Cycle 2 (revised after cycle-1b — out of scope for this commit)
 
-- [ ] **Fix B′** (PRIMARY): `DataTypeService.delete` rejects 409 when
+- [x] **Fix B′** (PRIMARY): `DataTypeService.delete` rejects 409 when
       DT's `sourceId` points to a still-existing source (thread
       `dataSourceRepo` in via constructor)
-- [ ] **Fix D**: `refreshCsv` and `applyStaticRefresh` re-create the
+- [x] **Fix D**: `refreshCsv` and `applyStaticRefresh` re-create the
       DT row if missing (upsert semantics, preserves `sourceId`)
-- [ ] **Fix A**: `SourceSchemaHealthCheck` boot-time warn for orphaned
+- [x] **Fix A**: `SourceSchemaHealthCheck` boot-time warn for orphaned
       sources (defense-in-depth)
-- [ ] **Fix C′**: `SourceDetailPanel` empty-schema affordance with
+- [x] **Fix C′**: `SourceDetailPanel` empty-schema affordance with
       "Refresh source" recovery; "Delete + re-upload" fallback when
       refresh fails (file missing)
-- [ ] Tests:
-  - [ ] `DataTypeServiceSpec` — delete-of-source-DT returns 409
-  - [ ] `DataSourceServiceSpec` — refresh re-creates missing DT
-  - [ ] `SourceSchemaHealthCheckSpec` — orphan detection
-  - [ ] `SourceDetailPanel.test.tsx` — empty-schema affordance +
+- [x] Tests:
+  - [x] `DataTypeServiceSpec` — delete-of-source-DT returns 409
+  - [x] `DataSourceServiceSpec` — refresh re-creates missing DT +
+        CSV-file-missing BadRequest
+  - [x] `DataSourceServiceRestartPersistenceSpec` — CSV / Static /
+        SQL all survive a service-layer "restart" (ticket AC #2)
+  - [x] `SourceSchemaHealthCheckSpec` — orphan detection
+  - [x] `SourceDetailPanel.test.tsx` — empty-schema affordance +
         refresh recovery
-- [ ] Gates: `npm test`, `npm run lint`, `npm run format:check`,
+- [x] Gates: `npm test`, `npm run lint`, `npm run format:check`,
       `npm run check:schemas`, `npm run check:openspec`,
-      `npm run check:scala-quality`, `cd backend && sbt test`
+      `npm run check:scala-quality`, `cd backend && sbt test`,
+      `npm --prefix frontend run build`
 - [ ] Playwright (optional, recommended): upload → delete-DT-from-
       registry → expect 409 toast → schema still on Sources page
 

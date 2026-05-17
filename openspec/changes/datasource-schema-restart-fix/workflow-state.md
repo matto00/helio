@@ -5,7 +5,7 @@ CHANGE_NAME: datasource-schema-restart-fix
 WORKTREE_PATH: /home/matt/Development/helio/.worktrees/HEL-256
 BRANCH: bug/datasource-schema-restart/HEL-256
 PHASE: Execution
-CYCLE: 1
+CYCLE: 2
 DEV_PORT: 5413
 BACKEND_PORT: 8320
 EXECUTOR_AGENT_ID: —
