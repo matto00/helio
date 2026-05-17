@@ -1,0 +1,67 @@
+# Tasks — Frontend decomposition closeout
+
+## Cycle 1 — `models.ts` decomposition + test rename (mechanical)
+
+### 1. Decompose `types/models.ts`
+- [ ] 1.1 Move dashboard types (`Dashboard`, `DashboardAppearance`, `DashboardLayout`, `DashboardLayoutItem`, `DashboardSnapshot*`, `DashboardUpdatePayload`, `UpdateDashboardBatchRequest`, `DuplicateDashboardResponse`) → `features/dashboards/types/dashboard.ts`
+- [ ] 1.2 Move panel-adjacent types (`ChartLegend`, `ChartTooltip`, `ChartAxisLabel`, `ChartAxisLabels`, `ChartAppearance`, `PanelAppearance`, `PanelBatchItem`, `UpdatePanelsBatchRequest`, `UpdatePanelsBatchResponse`, `MetricTypeConfig`, `ChartTypeConfig`, `ImageTypeConfig`, `DividerTypeConfig`, `TypeConfig`, `PanelUpdateFields`, `MappedPanelData`, `PanelPaginationState`) → extend `features/panels/types/panel.ts`
+- [ ] 1.3 Move `DataType`, `DataTypeField`, `ComputedField` → `features/dataTypes/types/dataType.ts`
+- [ ] 1.4 Move `Pipeline`, `PipelineSummary`, `RunStatus`, `RunStatusResponse`, `PipelineRunRecord` → extend `features/pipelines/types/` (new file or merge into pipelineStep.ts)
+- [ ] 1.5 Move `InferredField`, `StaticColumnType`, `StaticColumn`, `StaticSourcePayload` → extend `features/sources/types/dataSource.ts`
+- [ ] 1.6 Move `User`, `UserPreferences`, `UserPreferencePayload`, `AuthResponse`, `UpdateUserPreferenceRequest` → `features/auth/types/user.ts`
+- [ ] 1.7 Decide `ResourceMeta` disposition per design D7 (recommendation: keep `types/models.ts` as 1-export survivor)
+- [ ] 1.8 Delete re-export blocks (`export type {…}` from domain modules)
+
+### 2. Update all 85 consumer imports
+- [ ] 2.1 Group consumers by source-domain (auth files, dashboard files, etc.)
+- [ ] 2.2 Update imports per consumer
+- [ ] 2.3 After each domain's updates, run `npm run build` to catch missed imports
+
+### 3. Test rename
+- [ ] 3.1 Rename `features/panels/ui/ComputedFieldPicker.test.tsx` → name matching its actual subject (executor judgment; `PanelDetailModal.computedFields.test.tsx` recommended)
+
+### 4. Cycle 1 gates
+- [ ] 4.1 `sbt test` (backend untouched — sanity)
+- [ ] 4.2 `npm run lint` — zero warnings
+- [ ] 4.3 `npm run format:check` — clean
+- [ ] 4.4 `npm test` — 664 tests green (count preserved; rename adjusts file but not count)
+- [ ] 4.5 `npm run build` — green
+- [ ] 4.6 `npm run check:schemas` — 6/6 in sync (unchanged)
+- [ ] 4.7 `npm run check:openspec` — clean
+- [ ] 4.8 `npm run check:scala-quality` — clean
+- [ ] 4.9 Pre-commit hook clean
+- [ ] 4.10 `models.ts` reduced to <100L (or retired per D7)
+- [ ] 4.11 Write `executor-report-1.md` — counts of types moved per domain, consumer-update count, models.ts final state, any circular-import surprises
+
+## Cycle 2 — `PanelCreationModal` decomposition + `StepCard` investigation (creative)
+
+### 5. `PanelCreationModal` per-subtype decomposition
+- [ ] 5.1 Create `features/panels/ui/creators/` folder
+- [ ] 5.2 Extract `MetricConfigFields` → `creators/MetricCreatorFields.tsx`
+- [ ] 5.3 Extract `ChartTypeField` → `creators/ChartCreatorFields.tsx`
+- [ ] 5.4 Extract `ImageConfigField` → `creators/ImageCreatorFields.tsx`
+- [ ] 5.5 Extract `DividerConfigField` → `creators/DividerCreatorFields.tsx`
+- [ ] 5.6 Extract shared props/types → `creators/creatorTypes.ts`
+- [ ] 5.7 Modal shell dispatches to creators (per-subtype dispatch like editors/renderers)
+- [ ] 5.8 Verify `PanelCreationModal.tsx` < 400L
+
+### 6. `StepCard` per-kind split investigation
+- [ ] 6.1 Read `features/pipelines/ui/StepCard.tsx` body; determine if per-kind dispatch is natural (per design D3)
+- [ ] 6.2 IF natural: extract per-kind sub-components into `features/pipelines/ui/stepCards/<Kind>StepCard.tsx`; verify StepCard.tsx <250L
+- [ ] 6.3 IF NOT natural: leave at 323L; document rationale in cycle-2 report
+
+### 7. Cycle 2 gates
+- [ ] 7.1 All cycle-1 gates re-run green
+- [ ] 7.2 File-size BLOCKER check: NO file >400L anywhere in frontend
+- [ ] 7.3 Playwright Phase 3 smoke (evaluator scope) — panel creation flow for all 7 subtypes works; pipeline detail page renders
+- [ ] 7.4 Write `executor-report-2.md` — final line counts, StepCard decision + rationale, any drive-bys invoked
+
+## Out of scope (do NOT touch)
+
+- HEL-242 fix
+- `useLegacyBoundPanel` removal
+- `appearance.chart` → `ChartPanelConfig` migration
+- Behavior changes to any file
+- Backend, schemas
+- Other soft-cap files (toastListeners 394L, PanelDetailModal 390L, App.tsx 348L) unless cycle 2 surfaces a clear reason
+- Path-alias introduction
