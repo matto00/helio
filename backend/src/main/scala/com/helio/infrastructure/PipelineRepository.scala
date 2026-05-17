@@ -20,19 +20,26 @@ class PipelineRepository(
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
 
-  def exists(id: PipelineId): Future[Boolean] =
-    db.run(pipelinesTable.filter(_.id === id.value).exists.result)
+  /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
+  def exists(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    db.run(pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).exists.result)
+  }
 
-  def findById(id: PipelineId): Future[Option[Pipeline]] =
-    findByIdInternal(id)
+  /** Owner-scoped lookup. Returns `None` for rows the caller does not own —
+    * existence and authorization are indistinguishable at the API. */
+  def findById(id: PipelineId, user: AuthenticatedUser): Future[Option[Pipeline]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    db.run(
+      pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption
+    ).map(_.map(rowToPipeline))
+  }
 
-  /** ACL-bypassing read by id. CS1 introduces this alongside the existing
-    * `findById` so subsequent sub-PRs (CS2) can rename `findById` to a
-    * caller-identity-aware variant without affecting the privileged callers
-    * (registry resolver, Spark execution path) that need the unscoped read.
+  /** ACL-bypassing read by id. Reserved for documented privileged callers:
+    * - `ResourceTypeRegistry` resolver (the directive does the comparison)
+    * - `SparkJobSubmitter` (already-authorized background execution path)
     *
-    * Today this is just a clearer alias for `findById`; CS2 will diverge the
-    * two signatures. */
+    * Do not call from a request-bound service method. */
   def findByIdInternal(id: PipelineId): Future[Option[Pipeline]] =
     db.run(pipelinesTable.filter(_.id === id.value).result.headOption).map {
       _.map(rowToPipeline)
@@ -51,10 +58,11 @@ class PipelineRepository(
       ownerId            = UserId(row.ownerId.toString)
     )
 
-  /** Returns the joined summary for a single pipeline by id, or None if not found. */
-  def findSummaryById(id: PipelineId): Future[Option[PipelineSummary]] = {
+  /** Owner-scoped joined summary for a single pipeline. */
+  def findSummaryById(id: PipelineId, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
     val query = for {
-      pipeline   <- pipelinesTable if pipeline.id === id.value
+      pipeline   <- pipelinesTable if pipeline.id === id.value && pipeline.ownerId === ownerUuid
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)
@@ -73,27 +81,32 @@ class PipelineRepository(
     })
   }
 
-  /** Updates the pipeline name and returns the updated summary, or None if not found. */
-  def updateName(id: PipelineId, name: String): Future[Option[PipelineSummary]] = {
-    val now = Instant.now()
+  /** Owner-scoped name update. Returns `None` if the pipeline does not exist
+    * or the caller does not own it. */
+  def updateName(id: PipelineId, name: String, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
+    val now       = Instant.now()
+    val ownerUuid = UUID.fromString(user.id.value)
     db.run(
       pipelinesTable
-        .filter(_.id === id.value)
+        .filter(r => r.id === id.value && r.ownerId === ownerUuid)
         .map(r => (r.name, r.updatedAt))
         .update((name, now))
     ).flatMap {
       case 0 => Future.successful(None)
-      case _ => findSummaryById(id)
+      case _ => findSummaryById(id, user)
     }
   }
 
+  /** Owner-scoped create. Verifies the bound `sourceDataSourceId` belongs to
+    * the caller; returns `Left("Data source not found")` if it does not (404,
+    * not 400 — existence and authorization are indistinguishable). */
   def create(
       name: String,
       sourceDataSourceId: DataSourceId,
       outputDataTypeName: String,
-      ownerId: UserId
+      user: AuthenticatedUser
   ): Future[Either[String, PipelineSummary]] = {
-    dataSourceRepo.findById(sourceDataSourceId).flatMap {
+    dataSourceRepo.findByIdOwned(sourceDataSourceId, user).flatMap {
       case None =>
         Future.successful(Left("Data source not found"))
       case Some(dataSource) =>
@@ -107,7 +120,7 @@ class PipelineRepository(
           version        = 1,
           createdAt      = now,
           updatedAt      = now,
-          ownerId        = ownerId
+          ownerId        = user.id
         )
         dataTypeRepo.insert(newDataType).flatMap { createdDataType =>
           val pipelineId  = UUID.randomUUID().toString
@@ -121,7 +134,7 @@ class PipelineRepository(
             createdAt          = now,
             updatedAt          = now,
             lastRunRowCount    = None,
-            ownerId            = UUID.fromString(ownerId.value)
+            ownerId            = UUID.fromString(user.id.value)
           )
           db.run(pipelinesTable += pipelineRow).map { _ =>
             Right(PipelineSummary(
@@ -139,13 +152,44 @@ class PipelineRepository(
     }
   }
 
-  /** Deletes the pipeline by id. pipeline_steps and pipeline_runs cascade on
-    * delete via FK constraints (V23, V24). Returns true if a row was removed. */
-  def delete(id: PipelineId): Future[Boolean] =
-    db.run(pipelinesTable.filter(_.id === id.value).delete).map(_ > 0)
+  /** Owner-scoped delete. pipeline_steps and pipeline_runs cascade on
+    * delete via FK constraints (V23, V24). Returns `true` only if a row
+    * the caller owned was removed. */
+  def delete(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    db.run(
+      pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).delete
+    ).map(_ > 0)
+  }
 
-  /** Updates the lastRunStatus, lastRunAt, and lastRunRowCount columns for a pipeline after a run completes. */
-  def updateLastRun(id: PipelineId, status: String, at: Instant, rowCount: Option[Long] = None): Future[Unit] =
+  /** Owner-scoped post-run housekeeping. Returns silently if no owned row
+    * matches — keeps the run-lifecycle path resilient when the pipeline is
+    * deleted mid-run. */
+  def updateLastRun(
+      id: PipelineId,
+      status: String,
+      at: Instant,
+      rowCount: Option[Long],
+      user: AuthenticatedUser
+  ): Future[Unit] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    db.run(
+      pipelinesTable
+        .filter(r => r.id === id.value && r.ownerId === ownerUuid)
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, at))
+    ).map(_ => ())
+  }
+
+  /** ACL-bypassing variant of [[updateLastRun]] for the privileged Spark
+    * driver path. The pipeline ACL was already checked at submit time; the
+    * background driver does not carry a request-bound user. */
+  def updateLastRunInternal(
+      id: PipelineId,
+      status: String,
+      at: Instant,
+      rowCount: Option[Long] = None
+  ): Future[Unit] =
     db.run(
       pipelinesTable
         .filter(_.id === id.value)
@@ -153,10 +197,13 @@ class PipelineRepository(
         .update((Some(status), Some(at), rowCount, at))
     ).map(_ => ())
 
-  /** Returns a flat summary projection for all pipelines, joined with source and data type names. */
-  def listSummaries(): Future[Vector[PipelineSummary]] = {
+  /** Owner-scoped list summaries — only returns pipelines owned by the
+    * caller. Replaces the unscoped pre-CS2 listing that leaked every
+    * pipeline to every authenticated user. */
+  def listSummaries(user: AuthenticatedUser): Future[Vector[PipelineSummary]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
     val query = for {
-      pipeline   <- pipelinesTable
+      pipeline   <- pipelinesTable if pipeline.ownerId === ownerUuid
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)

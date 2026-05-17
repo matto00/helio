@@ -23,7 +23,7 @@ class PipelineRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              onSuccess(pipelineService.listSummaries())(summaries => complete(StatusCodes.OK, summaries))
+              onSuccess(pipelineService.listSummaries(user))(summaries => complete(StatusCodes.OK, summaries))
             },
             post {
               entity(as[CreatePipelineRequest]) { req =>
@@ -42,15 +42,15 @@ class PipelineRoutes(
         path(PipelineIdSegment) { pipelineId =>
           concat(
             get {
-              ServiceResponse.run(pipelineService.findSummaryById(pipelineId))(identity)
+              ServiceResponse.run(pipelineService.findSummaryById(pipelineId, user))(identity)
             },
             patch {
               entity(as[UpdatePipelineRequest]) { req =>
-                ServiceResponse.run(pipelineService.updateName(pipelineId, req))(identity)
+                ServiceResponse.run(pipelineService.updateName(pipelineId, req, user))(identity)
               }
             },
             delete {
-              ServiceResponse.runNoContent(pipelineService.delete(pipelineId))
+              ServiceResponse.runNoContent(pipelineService.delete(pipelineId, user))
             }
           )
         }

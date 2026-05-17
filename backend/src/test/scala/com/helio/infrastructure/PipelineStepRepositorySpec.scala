@@ -42,6 +42,8 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
+  private val systemUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+
   /** Seed a data source / data type / pipeline and return the pipeline id —
    *  the same shape the other infrastructure specs use. */
   private def seedPipeline(): PipelineId = {
@@ -84,7 +86,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
     "decode a join row persisted with config='{}' into a default JoinStep (the cycle-1 regression)" in {
       val pid    = seedPipeline()
       val stepId = insertRawStep(pid, "join", "{}", position = 0)
-      val steps  = await(stepRepo.listByPipeline(pid))
+      val steps  = await(stepRepo.listByPipeline(pid, systemUser))
 
       steps should have size 1
       val step = steps.head
@@ -103,7 +105,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
         insertRawStep(pid, kind, "{}", position)
       }
 
-      val steps = await(stepRepo.listByPipeline(pid))
+      val steps = await(stepRepo.listByPipeline(pid, systemUser))
       steps.map(_.kind).toSet shouldBe PipelineStepKind.All
       steps should have size kinds.size.toLong
     }
@@ -113,10 +115,53 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       val joinConfig = JoinConfig("ds-right", "id", "left")
       await(stepRepo.insert(pid, PipelineStepKind.Join, joinConfig))
 
-      val steps = await(stepRepo.listByPipeline(pid))
+      val steps = await(stepRepo.listByPipeline(pid, systemUser))
       steps should have size 1
       val join = steps.head.asInstanceOf[JoinStep]
       join.config shouldBe joinConfig
+    }
+  }
+
+  // ── HEL-265 CS2: cross-user ACL enforcement (JOIN to pipelines.owner_id) ──
+
+  "PipelineStepRepository cross-user ACL (CS2)" should {
+
+    val otherUser = AuthenticatedUser(UserId(UUID.randomUUID().toString))
+
+    "listByPipeline returns empty vector for a non-owner" in {
+      val pid = seedPipeline()
+      await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      await(stepRepo.listByPipeline(pid, systemUser)) should have size 1
+      await(stepRepo.listByPipeline(pid, otherUser)) shouldBe empty
+    }
+
+    "findById returns None for a non-owner" in {
+      val pid  = seedPipeline()
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      await(stepRepo.findById(step.id, systemUser)) shouldBe defined
+      await(stepRepo.findById(step.id, otherUser))  shouldBe None
+    }
+
+    "update returns None and does not mutate for a non-owner" in {
+      val pid  = seedPipeline()
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      val updated = await(stepRepo.update(
+        step.id,
+        config   = Some(RenameConfig(Map("hijack" -> "x"))),
+        position = None,
+        user     = otherUser
+      ))
+      updated shouldBe None
+      // Confirm the persisted config is still the original empty rename.
+      val owned = await(stepRepo.findById(step.id, systemUser)).get
+      owned.asInstanceOf[RenameStep].config.renames shouldBe empty
+    }
+
+    "delete returns false and leaves the row for a non-owner" in {
+      val pid  = seedPipeline()
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      await(stepRepo.delete(step.id, otherUser)) shouldBe false
+      await(stepRepo.findById(step.id, systemUser)) shouldBe defined
     }
   }
 }

@@ -17,24 +17,43 @@ import scala.util.{Failure, Success}
  *  updated_at` — config stored as JSON text) is unchanged. CS2c-3a moves the
  *  typed-ADT dispatch into `rowToDomain` / `domainToRow`: the repo speaks
  *  [[PipelineStep]] sealed-trait values across its public API, and reads /
- *  writes the typed `*Config` via [[PipelineStepConfigCodec]]. */
+ *  writes the typed `*Config` via [[PipelineStepConfigCodec]].
+ *
+ *  HEL-265 CS2: every public method takes the caller identity and JOINs to
+ *  `pipelines.owner_id` so the parent pipeline's ACL gates access. Steps
+ *  inherit ACL from their parent pipeline; there is no separate `owner_id`
+ *  column on `pipeline_steps`. */
 class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import PipelineStepRepository._
 
-  private val stepsTable = TableQuery[PipelineStepTable]
+  private val stepsTable     = TableQuery[PipelineStepTable]
+  private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
 
-  def listByPipeline(pipelineId: PipelineId): Future[Vector[PipelineStep]] =
-    db.run(stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result)
-      .map(_.toVector.map(rowToDomain))
+  /** Owner-scoped list. Returns empty vector when the parent pipeline does not
+    * exist or is owned by someone else. */
+  def listByPipeline(pipelineId: PipelineId, user: AuthenticatedUser): Future[Vector[PipelineStep]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      step     <- stepsTable if step.pipelineId === pipelineId.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
+    db.run(query.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
+  }
 
-  def findById(id: PipelineStepId): Future[Option[PipelineStep]] =
-    db.run(stepsTable.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
+  /** Owner-scoped findById via the parent-pipeline JOIN. */
+  def findById(id: PipelineStepId, user: AuthenticatedUser): Future[Option[PipelineStep]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
+    db.run(query.result.headOption).map(_.map(rowToDomain))
+  }
 
-  /** Insert a new step at the next available position. The repo receives the
-   *  fully-typed `*Config` plus the kind discriminator — assembling the ADT
-   *  subtype is the repo's job because it owns the timestamp + id + position
-   *  fields. */
+  /** Owner-scoped insert. Gated by the caller having proven pipeline ownership
+    * at the service layer; the repo itself only writes — the parent pipeline
+    * FK guards against the pipeline disappearing mid-call. */
   def insert(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
@@ -48,14 +67,19 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
     db.run(action.transactionally)
   }
 
-  /** Partial update. `kind` is the persisted row's discriminator (unchanged
-   *  by PATCH — cross-type PATCH is rejected at the service boundary).
-   *  `config`'s `Any` type is intentional: the service layer hands typed
-   *  configs through and the codec validates them at encode time. */
-  def update(id: PipelineStepId, config: Option[Any], position: Option[Int]): Future[Option[PipelineStep]] = {
-    val now = Instant.now()
+  /** Owner-scoped partial update. Returns `None` if the step does not exist or
+    * the caller does not own the parent pipeline. Cross-type PATCH is rejected
+    * at the service boundary; here `kind` stays whatever the persisted row
+    * carries. */
+  def update(id: PipelineStepId, config: Option[Any], position: Option[Int], user: AuthenticatedUser): Future[Option[PipelineStep]] = {
+    val now       = Instant.now()
+    val ownerUuid = UUID.fromString(user.id.value)
+    val ownedQuery = for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
     val action = for {
-      existing <- stepsTable.filter(_.id === id.value).result.headOption
+      existing <- ownedQuery.result.headOption
       updated  <- existing match {
         case None      => DBIO.successful(None)
         case Some(row) =>
@@ -74,8 +98,21 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
     db.run(action.transactionally)
   }
 
-  def delete(id: PipelineStepId): Future[Boolean] =
-    db.run(stepsTable.filter(_.id === id.value).delete).map(_ > 0)
+  /** Owner-scoped delete via the parent-pipeline JOIN. Returns `true` only if
+    * a step the caller owned was removed. */
+  def delete(id: PipelineStepId, user: AuthenticatedUser): Future[Boolean] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    // Slick translates `.exists` on the joined predicate into a correlated
+    // subquery, keeping the DELETE single-statement.
+    val ownedIds = (for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step.id).result.headOption
+    db.run(ownedIds).flatMap {
+      case None      => Future.successful(false)
+      case Some(sid) => db.run(stepsTable.filter(_.id === sid).delete).map(_ > 0)
+    }
+  }
 
   // ── Row ↔ domain ──────────────────────────────────────────────────────────
 

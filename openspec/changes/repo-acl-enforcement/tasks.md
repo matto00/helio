@@ -44,39 +44,39 @@ foundation that CS2 builds on.
 
 The biggest user-facing impact: closes the wide-open pipeline surface.
 
-- [ ] `PipelineRepository.findById(id, user)` — returns owned-only
-- [ ] `PipelineRepository.listSummaries(user)` — filter by `owner_id`
-- [ ] `PipelineRepository.findSummaryById(id, user)` — owned-only
-- [ ] `PipelineRepository.delete(id, user)` — owned-only
-- [ ] `PipelineRepository.updateName(id, name, user)` — owned-only
-- [ ] `PipelineRepository.updateLastRun(id, ..., user)` — owned-only
-- [ ] `PipelineRepository.create(name, dsId, dtName, user)` — call
+- [x] `PipelineRepository.findById(id, user)` — returns owned-only
+- [x] `PipelineRepository.listSummaries(user)` — filter by `owner_id`
+- [x] `PipelineRepository.findSummaryById(id, user)` — owned-only
+- [x] `PipelineRepository.delete(id, user)` — owned-only
+- [x] `PipelineRepository.updateName(id, name, user)` — owned-only
+- [x] `PipelineRepository.updateLastRun(id, ..., user)` — owned-only
+- [x] `PipelineRepository.create(name, dsId, dtName, user)` — call
       `findByIdOwned(dsId, user)` on the source (new method, owned variant of
       `dataSourceRepo.findById`)
-- [ ] `PipelineRepository.exists(id, user)` — JOIN-based existence check
-- [ ] `PipelineStepRepository.listByPipeline(pid, user)` — JOIN pipelines on
+- [x] `PipelineRepository.exists(id, user)` — JOIN-based existence check
+- [x] `PipelineStepRepository.listByPipeline(pid, user)` — JOIN pipelines on
       pipeline_id, predicate `pipelines.owner_id = user`
-- [ ] `PipelineStepRepository.findById(stepId, user)` — same JOIN
-- [ ] `PipelineStepRepository.update / delete` — same JOIN predicate
-- [ ] `PipelineRunRepository.listByPipeline(pid, user)` — same JOIN
-- [ ] `PipelineRunRepository.insertRun/insertDryRun/updateRunTerminal/...`
+- [x] `PipelineStepRepository.findById(stepId, user)` — same JOIN
+- [x] `PipelineStepRepository.update / delete` — same JOIN predicate
+- [x] `PipelineRunRepository.listByPipeline(pid, user)` — same JOIN
+- [x] `PipelineRunRepository.insertRun/insertDryRun/updateRunTerminal/...`
       take `user` and verify the pipeline is owned before write
-- [ ] `PipelineService` every method takes `user`; remove pipelineRepo helpers
+- [x] `PipelineService` every method takes `user`; remove pipelineRepo helpers
       that don't
-- [ ] `PipelineRunService` every method takes `user`; the privileged
+- [x] `PipelineRunService` every method takes `user`; the privileged
       cross-user source lookup uses `dataSourceRepo.findByIdInternal` and is
       documented in code
-- [ ] `PipelineRoutes`, `PipelineStepRoutes`, `PipelineRunSubmitRoutes`,
+- [x] `PipelineRoutes`, `PipelineStepRoutes`, `PipelineRunSubmitRoutes`,
       `PipelineRunStatusRoutes`, `PipelineRunHistoryRoutes`,
       `PipelineRunStreamRoutes` — each thread `authenticatedUser` through
       every service call
-- [ ] New tests: cross-user `GET /api/pipelines/:id` returns 404; cross-user
+- [x] New tests: cross-user `GET /api/pipelines/:id` returns 404; cross-user
       `POST /api/pipelines/:id/run` returns 404; cross-user `DELETE`,
       `PATCH`, step CRUD, run-history, SSE-stream, status all return 404
-- [ ] New tests: same operations as same user succeed
-- [ ] New tests: pipeline create rejects a sourceDataSourceId the user
+- [x] New tests: same operations as same user succeed
+- [x] New tests: pipeline create rejects a sourceDataSourceId the user
       doesn't own (404, not 400)
-- [ ] Gates: full suite
+- [x] Gates: full suite
 
 ## Cycle 4 (PR/CS3) — DataType + DataSource enforcement
 

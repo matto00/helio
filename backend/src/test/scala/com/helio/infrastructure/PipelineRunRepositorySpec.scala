@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{PipelineId, PipelineRunId}
+import com.helio.domain.{AuthenticatedUser, PipelineId, PipelineRunId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -38,6 +38,8 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
+  private val systemUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+
   private def seedPipeline(): PipelineId = {
     import PostgresProfile.api._
     val ownerId = "00000000-0000-0000-0000-000000000001"
@@ -64,9 +66,9 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid    = seedPipeline()
       val runId  = PipelineRunId(UUID.randomUUID().toString)
       val now    = Instant.now()
-      await(pipelineRunRepo.insertRun(runId, pid, now))
+      await(pipelineRunRepo.insertRun(runId, pid, now, systemUser))
 
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs should have size 1
       runs.head.id        shouldBe runId.value
       runs.head.pipelineId shouldBe pid.value
@@ -80,12 +82,12 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid   = seedPipeline()
       val runId = PipelineRunId(UUID.randomUUID().toString)
       val start = Instant.now()
-      await(pipelineRunRepo.insertRun(runId, pid, start))
+      await(pipelineRunRepo.insertRun(runId, pid, start, systemUser))
 
       val end = Instant.now()
-      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", end, rowCount = Some(42)))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", end, rowCount = Some(42), errorLog = None, systemUser))
 
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs.head.status      shouldBe "succeeded"
       runs.head.completedAt shouldBe defined
       runs.head.rowCount    shouldBe Some(42)
@@ -96,12 +98,12 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid   = seedPipeline()
       val runId = PipelineRunId(UUID.randomUUID().toString)
       val start = Instant.now()
-      await(pipelineRunRepo.insertRun(runId, pid, start))
+      await(pipelineRunRepo.insertRun(runId, pid, start, systemUser))
 
       val end = Instant.now()
-      await(pipelineRunRepo.updateRunTerminal(runId, "failed", end, errorLog = Some("boom")))
+      await(pipelineRunRepo.updateRunTerminal(runId, "failed", end, rowCount = None, errorLog = Some("boom"), systemUser))
 
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs.head.status   shouldBe "failed"
       runs.head.errorLog shouldBe Some("boom")
       runs.head.rowCount shouldBe None
@@ -113,15 +115,15 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
       }
 
-      val before = await(pipelineRunRepo.listByPipeline(pid))
+      val before = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       before should have size 12
 
-      await(pipelineRunRepo.deleteOldRuns(pid, keepN = 10))
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
 
-      val after = await(pipelineRunRepo.listByPipeline(pid))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       after should have size 10
       // The most recent 10 should be kept (highest startedAt); after is ordered DESC
       // The first element should have the latest startedAt (base + 12s)
@@ -134,11 +136,11 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       val ids = (1 to 3).map { i =>
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
         runId.value
       }
 
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs should have size 3
       // Most recent first
       runs.head.startedAt.isAfter(runs(1).startedAt) shouldBe true
@@ -149,7 +151,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "listByPipeline returns empty for a pipeline with no runs" in {
       val pid  = seedPipeline()
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs shouldBe empty
     }
 
@@ -157,9 +159,9 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid    = seedPipeline()
       val runId  = PipelineRunId(UUID.randomUUID().toString)
       val now    = Instant.now()
-      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3))
+      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3, systemUser))
 
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs should have size 1
       runs.head.id          shouldBe runId.value
       runs.head.pipelineId  shouldBe pid.value
@@ -175,16 +177,16 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       // Insert 12 dry-run rows
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i, systemUser))
       }
 
-      val before = await(pipelineRunRepo.listByPipeline(pid))
+      val before = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       before should have size 12
       before.map(_.status).distinct shouldBe Seq("dry_run")
 
-      await(pipelineRunRepo.deleteOldDryRuns(pid, keepN = 10))
+      await(pipelineRunRepo.deleteOldDryRuns(pid, systemUser, keepN = 10))
 
-      val after = await(pipelineRunRepo.listByPipeline(pid))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       after should have size 10
       // Most recent 10 are kept; the first (DESC) should be base + 12s
       after.head.startedAt.getEpochSecond shouldBe base.plusSeconds(12).getEpochSecond
@@ -197,20 +199,69 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       // Insert 5 normal runs and 12 dry-run rows
       for (i <- 1 to 5) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
       }
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser))
       }
 
-      await(pipelineRunRepo.deleteOldDryRuns(pid, keepN = 10))
+      await(pipelineRunRepo.deleteOldDryRuns(pid, systemUser, keepN = 10))
 
-      val after = await(pipelineRunRepo.listByPipeline(pid))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       // 5 normal + 10 dry-run = 15 total
       after should have size 15
       after.count(_.status == "dry_run") shouldBe 10
       after.count(_.status != "dry_run") shouldBe 5
+    }
+
+    // ── HEL-265 CS2: cross-user ACL enforcement (JOIN to pipelines.owner_id) ──
+
+    val otherUser = AuthenticatedUser(UserId(UUID.randomUUID().toString))
+
+    "listByPipeline returns empty vector for a non-owner (CS2)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) should have size 1
+      await(pipelineRunRepo.listByPipeline(pid, otherUser))  shouldBe empty
+    }
+
+    "insertRun is a silent no-op for a non-owner (CS2)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), otherUser))
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) shouldBe empty
+    }
+
+    "insertDryRun is a silent no-op for a non-owner (CS2)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 5, otherUser))
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) shouldBe empty
+    }
+
+    "updateRunTerminal is a silent no-op for a non-owner (CS2)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+      await(pipelineRunRepo.updateRunTerminal(
+        runId, "succeeded", Instant.now(), rowCount = Some(42), errorLog = None, otherUser
+      ))
+      // Owner's view still shows queued — the cross-user write was rejected.
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      runs.head.status shouldBe "queued"
+    }
+
+    "deleteOldRuns is a silent no-op for a non-owner (CS2)" in {
+      val pid = seedPipeline()
+      for (i <- 1 to 12) {
+        val runId = PipelineRunId(UUID.randomUUID().toString)
+        await(pipelineRunRepo.insertRun(runId, pid, Instant.now().plusMillis(i.toLong), systemUser))
+      }
+      await(pipelineRunRepo.deleteOldRuns(pid, otherUser, keepN = 5))
+      // All 12 still present — the cross-user deletion was rejected.
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) should have size 12
     }
 
     "deleteOldRuns does not affect dry-run records" in {
@@ -219,16 +270,16 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       // Insert 12 normal runs and 5 dry-run rows
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong)))
+        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
       }
       for (i <- 1 to 5) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser))
       }
 
-      await(pipelineRunRepo.deleteOldRuns(pid, keepN = 10))
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
 
-      val after = await(pipelineRunRepo.listByPipeline(pid))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       // 10 normal + 5 dry-run = 15 total
       after should have size 15
       after.count(_.status == "dry_run") shouldBe 5

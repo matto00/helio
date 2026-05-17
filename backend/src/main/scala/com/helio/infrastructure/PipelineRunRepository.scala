@@ -1,21 +1,49 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{PipelineId, PipelineRunId}
+import com.helio.domain.{AuthenticatedUser, PipelineId, PipelineRunId}
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Persistence layer for `pipeline_runs`.
+ *
+ *  HEL-265 CS2: all reads and writes are gated by the parent pipeline's
+ *  `owner_id`. Runs inherit ACL from their parent pipeline (no separate
+ *  `owner_id` column). Writes that the caller cannot prove ownership of
+ *  become silent no-ops — keeps the run-lifecycle path resilient to a
+ *  pipeline being deleted mid-run.
+ *
+ *  The privileged Spark driver path uses [[insertRunInternal]] /
+ *  [[insertDryRunInternal]] / [[updateRunTerminalInternal]] /
+ *  [[deleteOldRunsInternal]] / [[deleteOldDryRunsInternal]]; the
+ *  pipeline ACL was checked at submit time and the background driver
+ *  does not carry a request-bound user. */
 class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
   import PipelineRunRepository._
 
-  private val runsTable = TableQuery[PipelineRunTable]
+  private val runsTable      = TableQuery[PipelineRunTable]
+  private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
 
-  /** Insert a new run record in "queued" state. */
-  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant): Future[Unit] = {
+  private def pipelineOwnedAction(pipelineId: PipelineId, user: AuthenticatedUser) = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    pipelinesTable.filter(p => p.id === pipelineId.value && p.ownerId === ownerUuid).exists.result
+  }
+
+  /** Owner-scoped insert. Silent no-op when the caller does not own the
+    * parent pipeline. */
+  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, user: AuthenticatedUser): Future[Unit] =
+    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+      case false => Future.successful(())
+      case true  => insertRunInternal(runId, pipelineId, startedAt)
+    }
+
+  /** ACL-bypassing insertRun for the privileged Spark driver path. */
+  def insertRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant): Future[Unit] = {
     val row = PipelineRunRow(
       id          = runId.value,
       pipelineId  = pipelineId.value,
@@ -28,8 +56,29 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
     db.run(runsTable += row).map(_ => ())
   }
 
-  /** Update a run to a terminal state (succeeded or failed). */
+  /** Owner-scoped terminal update via JOIN to `pipelines.owner_id`. Silent
+    * no-op when the caller does not own the parent pipeline. */
   def updateRunTerminal(
+      runId: PipelineRunId,
+      status: String,
+      completedAt: Instant,
+      rowCount: Option[Int],
+      errorLog: Option[String],
+      user: AuthenticatedUser
+  ): Future[Unit] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val ownedRunQuery = for {
+      run      <- runsTable if run.id === runId.value
+      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+    } yield run.id
+    db.run(ownedRunQuery.result.headOption).flatMap {
+      case None      => Future.successful(())
+      case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog)
+    }
+  }
+
+  /** ACL-bypassing terminal update for the privileged Spark driver path. */
+  def updateRunTerminalInternal(
       runId: PipelineRunId,
       status: String,
       completedAt: Instant,
@@ -43,8 +92,16 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
         .update((status, Some(completedAt), rowCount, errorLog))
     ).map(_ => ())
 
-  /** Insert a completed dry-run record in a single step (no queued → terminal transition). */
-  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int): Future[Unit] = {
+  /** Owner-scoped dry-run insert. Silent no-op when the caller does not own
+    * the parent pipeline. */
+  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser): Future[Unit] =
+    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+      case false => Future.successful(())
+      case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount)
+    }
+
+  /** ACL-bypassing dry-run insert for the privileged Spark driver path. */
+  def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int): Future[Unit] = {
     val row = PipelineRunRow(
       id          = runId.value,
       pipelineId  = pipelineId.value,
@@ -58,11 +115,17 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   }
 
   /**
-   * Delete all but the most recent `keepN` non-dry-run records for a given pipeline.
-   * Called immediately after insertRun to enforce retention.
-   * Dry-run records are managed separately by deleteOldDryRuns.
+   * Owner-scoped retention pass. Silent no-op when the caller does not own
+   * the parent pipeline.
    */
-  def deleteOldRuns(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
+  def deleteOldRuns(pipelineId: PipelineId, user: AuthenticatedUser, keepN: Int = 10): Future[Unit] =
+    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+      case false => Future.successful(())
+      case true  => deleteOldRunsInternal(pipelineId, keepN)
+    }
+
+  /** ACL-bypassing retention pass for the privileged Spark driver path. */
+  def deleteOldRunsInternal(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
     val pid = pipelineId.value
     val keepIds = runsTable
       .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
@@ -78,11 +141,17 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   }
 
   /**
-   * Delete all but the most recent `keepN` dry-run records for a given pipeline.
-   * Called immediately after insertDryRun to enforce dry-run retention independently
-   * of the normal-run cap.
+   * Owner-scoped dry-run retention. Silent no-op when the caller does not
+   * own the parent pipeline.
    */
-  def deleteOldDryRuns(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
+  def deleteOldDryRuns(pipelineId: PipelineId, user: AuthenticatedUser, keepN: Int = 10): Future[Unit] =
+    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+      case false => Future.successful(())
+      case true  => deleteOldDryRunsInternal(pipelineId, keepN)
+    }
+
+  /** ACL-bypassing dry-run retention for the privileged Spark driver path. */
+  def deleteOldDryRunsInternal(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
     val pid = pipelineId.value
     val keepIds = runsTable
       .filter(r => r.pipelineId === pid && r.status === "dry_run")
@@ -97,14 +166,16 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
     db.run(action).map(_ => ())
   }
 
-  /** Return all runs for a pipeline ordered by startedAt DESC. */
-  def listByPipeline(pipelineId: PipelineId): Future[Vector[PipelineRunRow]] =
-    db.run(
-      runsTable
-        .filter(_.pipelineId === pipelineId.value)
-        .sortBy(_.startedAt.desc)
-        .result
-    ).map(_.toVector)
+  /** Owner-scoped list of runs for a pipeline. Empty vector when the caller
+    * does not own the parent pipeline. */
+  def listByPipeline(pipelineId: PipelineId, user: AuthenticatedUser): Future[Vector[PipelineRunRow]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      run      <- runsTable if run.pipelineId === pipelineId.value
+      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+    } yield run
+    db.run(query.sortBy(_.startedAt.desc).result).map(_.toVector)
+  }
 }
 
 object PipelineRunRepository {

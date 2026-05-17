@@ -108,6 +108,35 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       forOwner2.map(_.id) should not contain source.id
     }
 
+    // ── HEL-265 CS2: findByIdOwned seed for cross-source ACL ────────────────
+    //
+    // Introduced to gate `PipelineRepository.create`'s source binding. CS3
+    // broadens adoption across the DataSource / Source service surface.
+
+    "findByIdOwned returns the row for the owner" in {
+      cleanDb()
+      val source = newSource(ownerId = owner1)
+      await(repo.insert(source))
+      val found = await(repo.findByIdOwned(source.id, AuthenticatedUser(owner1)))
+      found shouldBe defined
+      found.get.id shouldBe source.id
+    }
+
+    "findByIdOwned returns None for a non-owner" in {
+      cleanDb()
+      val source = newSource(ownerId = owner1)
+      await(repo.insert(source))
+      await(repo.findByIdOwned(source.id, AuthenticatedUser(owner2))) shouldBe None
+    }
+
+    "findByIdOwned returns None for an unknown id" in {
+      cleanDb()
+      await(repo.findByIdOwned(
+        DataSourceId(UUID.randomUUID().toString),
+        AuthenticatedUser(owner1)
+      )) shouldBe None
+    }
+
     "delete returns true and removes the record" in {
       cleanDb()
       val source = newSource()
