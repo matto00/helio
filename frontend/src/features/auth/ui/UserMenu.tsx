@@ -4,7 +4,7 @@ import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/fre
 
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
 import type { Theme } from "../../../theme/theme";
-import type { User } from "../../../types/models";
+import type { User } from "../types/user";
 import "./UserMenu.css";
 
 /** Render the user's avatar image, falling back to their initial and then to a

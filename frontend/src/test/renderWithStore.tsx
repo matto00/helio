@@ -16,6 +16,7 @@ import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
+import type { User } from "../features/auth/types/user";
 import type { DataType } from "../features/dataTypes/types/dataType";
 import type {
   DataSource,
@@ -25,7 +26,6 @@ import type {
   PanelType,
   PipelineSummary,
   ResourceMeta,
-  User,
 } from "../types/models";
 
 const defaultMeta: ResourceMeta = {

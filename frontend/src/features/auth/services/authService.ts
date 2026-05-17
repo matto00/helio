@@ -3,7 +3,7 @@ import type {
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
-} from "../../../types/models";
+} from "../types/user";
 import { httpClient } from "../../../services/httpClient";
 
 interface LoginPayload {

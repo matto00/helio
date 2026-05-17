@@ -192,20 +192,6 @@ export interface DashboardSnapshot {
   panels: DashboardSnapshotPanelEntry[];
 }
 
-export interface UserPreferences {
-  accentColor: string | null;
-  zoomLevels: Record<string, number>;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  createdAt: string;
-  preferences?: UserPreferences;
-}
-
 export interface PipelineSummary {
   id: string;
   name: string;
@@ -215,12 +201,6 @@ export interface PipelineSummary {
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;
-}
-
-export interface AuthResponse {
-  token: string;
-  expiresAt: string;
-  user: User;
 }
 
 // ── Update API types ─────────────────────────────────────────────────────────
@@ -256,12 +236,6 @@ export interface UpdatePanelsBatchResponse {
   panels: Panel[];
 }
 
-export interface UserPreferencePayload {
-  zoomLevel?: number;
-  accentColor?: string;
-  dashboardId?: string;
-}
-
 export interface Pipeline {
   id: string;
   name: string;
@@ -275,11 +249,6 @@ export interface RunStatusResponse {
   status: RunStatus;
   rows?: Record<string, unknown>[];
   error?: string;
-}
-
-export interface UpdateUserPreferenceRequest {
-  fields: string[];
-  user: UserPreferencePayload;
 }
 
 // ── Panel query pagination types ─────────────────────────────────────────────
