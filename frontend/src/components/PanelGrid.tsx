@@ -3,40 +3,30 @@ import "react-resizable/css/styles.css";
 
 import React, {
   useCallback,
-  useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
-import { Responsive, type ResponsiveGridLayoutProps, useContainerWidth } from "react-grid-layout";
+import { Responsive, useContainerWidth } from "react-grid-layout";
 
 import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
-import {
-  areDashboardLayoutsEqual,
-  dashboardGridCols,
-  resolveDashboardLayout,
-} from "../features/dashboards/dashboardLayout";
-import { setLayoutPending, updateDashboardLayout } from "../features/dashboards/dashboardsSlice";
+import { resolveDashboardLayout } from "../features/dashboards/dashboardLayout";
 import { pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
 import {
   accumulatePanelUpdate,
-  buildBatchRequest,
-  clearPendingPanelUpdates,
   deletePanel,
   duplicatePanel,
   fetchPanelPage,
-  resetPanelSaveState,
-  updatePanelsBatch,
 } from "../features/panels/panelsSlice";
 import { buildPanelSurface, resolvePanelTextColor } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import type { DashboardLayout, Panel } from "../types/models";
+import { getDataTypeId } from "../features/panels/panelNarrowing";
 import { ActionsMenu } from "./ActionsMenu";
 import { InlineError } from "./InlineError";
 import { PanelContent } from "./PanelContent";
@@ -44,87 +34,13 @@ import { useLegacyBoundPanel } from "../hooks/useLegacyBoundPanel";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { usePanelGridSave, type PanelGridSaveHandle } from "../hooks/usePanelGridSave";
 import { PanelDetailModal } from "./PanelDetailModal";
 import { PanelLegacyWarning } from "./PanelLegacyWarning";
-import { useSaveState } from "../context/SaveStateContext";
+import { createLayouts, fromResponsiveLayouts, panelGridConfig } from "./panelGridConfig";
 import "./PanelGrid.css";
 
-interface PanelGridConfig {
-  breakpoints: NonNullable<ResponsiveGridLayoutProps["breakpoints"]>;
-  cols: NonNullable<ResponsiveGridLayoutProps["cols"]>;
-  rowHeight: number;
-  margin: readonly [number, number];
-  containerPadding: readonly [number, number];
-  initialWidth: number;
-  itemHeights: {
-    default: number;
-    min: number;
-  };
-}
-
-const panelGridConfig: PanelGridConfig = {
-  breakpoints: {
-    lg: 1440,
-    md: 1100,
-    sm: 768,
-    xs: 0,
-  },
-  cols: dashboardGridCols,
-  rowHeight: 52,
-  margin: [18, 18],
-  containerPadding: [0, 0],
-  initialWidth: 1280,
-  itemHeights: {
-    default: 5,
-    min: 4,
-  },
-};
-
-function createLayouts(layout: DashboardLayout): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
-  return {
-    lg: layout.lg.map((item) => ({
-      i: item.panelId,
-      x: item.x,
-      y: item.y,
-      w: item.w,
-      h: item.h,
-      minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
-    })),
-    md: layout.md.map((item) => ({
-      i: item.panelId,
-      x: item.x,
-      y: item.y,
-      w: item.w,
-      h: item.h,
-      minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
-    })),
-    sm: layout.sm.map((item) => ({
-      i: item.panelId,
-      x: item.x,
-      y: item.y,
-      w: item.w,
-      h: item.h,
-      minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
-    })),
-    xs: layout.xs.map((item) => ({
-      i: item.panelId,
-      x: item.x,
-      y: item.y,
-      w: item.w,
-      h: item.h,
-      minW: 1,
-      minH: panelGridConfig.itemHeights.min,
-    })),
-  };
-}
-
-export interface PanelGridHandle {
-  /** Immediately flush pending panel updates and reset the auto-save timer. */
-  flushAndReset: () => void;
-}
+export type PanelGridHandle = PanelGridSaveHandle;
 
 interface PanelGridProps {
   dashboardId: string;
@@ -151,35 +67,6 @@ function getPanelCardStyle(panel: Panel, theme: "dark" | "light"): CSSProperties
   return style;
 }
 
-function fromResponsiveLayouts(
-  panels: Panel[],
-  layouts: NonNullable<ResponsiveGridLayoutProps["layouts"]>,
-): DashboardLayout {
-  // Called by RGL's onLayoutChange on every drag tick. Must stay cheap.
-  // RGL already produces a non-overlapping layout (preventCollision:true), so
-  // we just read items out — no need to re-run the full resolveDashboardLayout
-  // (which rebuilds fallback layouts for all 4 breakpoints and is too heavy
-  // for the drag hot path).
-  const panelIds = new Set(panels.map((panel) => panel.id));
-  const toItems = (items: NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] = []) =>
-    items
-      .filter((item) => panelIds.has(item.i))
-      .map((item) => ({
-        panelId: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }));
-
-  return {
-    lg: toItems(layouts.lg),
-    md: toItems(layouts.md),
-    sm: toItems(layouts.sm),
-    xs: toItems(layouts.xs),
-  };
-}
-
 interface PanelCardBodyProps {
   panel: Panel;
 }
@@ -188,7 +75,7 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
-  usePanelPolling(refresh, panel.refreshInterval, panel.typeId);
+  usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
   const isLegacyBound = useLegacyBoundPanel(panel);
 
   const handleLoadMore = useCallback(() => {
@@ -214,21 +101,14 @@ function PanelCardBody({ panel }: PanelCardBodyProps) {
     <>
       {isLegacyBound && <PanelLegacyWarning />}
       <PanelContent
-        type={panel.type}
+        panel={panel}
         appearance={panel.appearance}
         data={data}
         rawRows={rawRows}
         headers={headers}
-        fieldMapping={panel.fieldMapping}
         isLoading={panel.type === "table" ? tableIsLoading : isLoading}
         error={error}
         noData={noData}
-        content={panel.content}
-        imageUrl={panel.imageUrl}
-        imageFit={panel.imageFit}
-        dividerOrientation={panel.dividerOrientation}
-        dividerWeight={panel.dividerWeight}
-        dividerColor={panel.dividerColor}
         paginationRows={paginationEntry?.rows ?? null}
         paginationHasMore={paginationEntry?.hasMore ?? false}
         paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
@@ -273,123 +153,13 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   );
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
-  const latestLayoutRef = useRef(resolvedLayout);
-  const persistedLayoutRef = useRef(resolvedLayout);
-  const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
-  const panelFlushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
-  const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
-  // Keep a ref so the interval callback always reads the latest value without re-registering.
-  const pendingPanelUpdatesRef = useRef(pendingPanelUpdates);
-  useEffect(() => {
-    pendingPanelUpdatesRef.current = pendingPanelUpdates;
+
+  const { latestLayoutRef, markLayoutChanged } = usePanelGridSave({
+    dashboardId,
+    resolvedLayout,
+    forwardedRef: ref,
   });
-
-  useEffect(() => {
-    latestLayoutRef.current = resolvedLayout;
-    persistedLayoutRef.current = resolvedLayout;
-    if (
-      inFlightLayoutRef.current !== null &&
-      areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
-    ) {
-      inFlightLayoutRef.current = null;
-    }
-  }, [resolvedLayout]);
-
-  const persistLayout = useCallback(() => {
-    const nextLayout = latestLayoutRef.current;
-    if (areDashboardLayoutsEqual(nextLayout, persistedLayoutRef.current)) {
-      return;
-    }
-    if (
-      inFlightLayoutRef.current !== null &&
-      areDashboardLayoutsEqual(nextLayout, inFlightLayoutRef.current)
-    ) {
-      return;
-    }
-
-    inFlightLayoutRef.current = nextLayout;
-    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
-      .unwrap()
-      .catch(() => {
-        // Keep local drag UX responsive; retry happens on the next layout change.
-      })
-      .finally(() => {
-        if (
-          inFlightLayoutRef.current !== null &&
-          areDashboardLayoutsEqual(inFlightLayoutRef.current, nextLayout)
-        ) {
-          inFlightLayoutRef.current = null;
-        }
-      });
-  }, [dashboardId, dispatch]);
-
-  /** Flush all pending panel updates immediately. Shared by the interval and "Save now". */
-  const flushPanelUpdates = useCallback(() => {
-    const pending = pendingPanelUpdatesRef.current;
-    if (Object.keys(pending).length === 0) return;
-    void dispatch(updatePanelsBatch(buildBatchRequest(pending)))
-      .unwrap()
-      .then(() => {
-        dispatch(clearPendingPanelUpdates());
-      })
-      .catch(() => {
-        // Network or server error — retain pending updates; next interval tick retries
-      });
-  }, [dispatch]);
-
-  /** Flush both pending panel updates and any pending layout change. */
-  const flushAll = useCallback(() => {
-    flushPanelUpdates();
-    persistLayout();
-  }, [flushPanelUpdates, persistLayout]);
-
-  /** Flush immediately and reset the 30-second auto-save timer. Used by "Save now". */
-  const flushAndReset = useCallback(() => {
-    flushAll();
-    if (panelFlushTimerRef.current !== null) {
-      clearInterval(panelFlushTimerRef.current);
-    }
-    panelFlushTimerRef.current = setInterval(flushAll, 30_000);
-  }, [flushAll]);
-
-  // Start a 30-second auto-save interval on mount; cancel on unmount.
-  useEffect(() => {
-    panelFlushTimerRef.current = setInterval(flushAll, 30_000);
-    return () => {
-      if (panelFlushTimerRef.current !== null) {
-        clearInterval(panelFlushTimerRef.current);
-        panelFlushTimerRef.current = null;
-      }
-    };
-  }, [flushAll]);
-
-  // Reset save state when the user switches to a different dashboard.
-  const isFirstRenderRef = useRef(true);
-  useEffect(() => {
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      return;
-    }
-    flushPanelUpdates();
-    dispatch(resetPanelSaveState());
-    if (panelFlushTimerRef.current !== null) {
-      clearInterval(panelFlushTimerRef.current);
-    }
-    panelFlushTimerRef.current = setInterval(flushPanelUpdates, 30_000);
-  }, [dashboardId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Register the flush+reset function with the context so AppShell can invoke it.
-  const { registerFlush } = useSaveState();
-  useEffect(() => {
-    registerFlush(flushAndReset);
-    return () => registerFlush(null);
-  }, [registerFlush, flushAndReset]);
-
-  /**
-   * Expose an imperative handle so callers with a ref can also trigger flush+reset.
-   */
-  useImperativeHandle(ref, () => ({ flushAndReset }), [flushAndReset]);
 
   function startEditingTitle(panelId: string, currentTitle: string) {
     setConfirmDeletePanelId(null);
@@ -483,11 +253,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
           if (nextLayouts === undefined) {
             return;
           }
-          const next = fromResponsiveLayouts(panels, nextLayouts);
-          latestLayoutRef.current = next;
-          if (!areDashboardLayoutsEqual(next, persistedLayoutRef.current)) {
-            dispatch(setLayoutPending(true));
-          }
+          markLayoutChanged(fromResponsiveLayouts(panels, nextLayouts));
         }}
       >
         {panels.map((panel) => (

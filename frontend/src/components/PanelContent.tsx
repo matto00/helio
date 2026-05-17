@@ -1,196 +1,33 @@
 import "./PanelContent.css";
-import type { MappedPanelData, PanelAppearance, PanelType } from "../types/models";
-import { ChartPanel } from "./ChartPanel";
-import { DividerPanel } from "./DividerPanel";
-import { ImagePanel } from "./ImagePanel";
-import { MarkdownPanel } from "./MarkdownPanel";
-
-interface MetricContentProps {
-  data?: MappedPanelData | null;
-}
-
-function MetricContent({ data }: MetricContentProps) {
-  const trend = data?.trend;
-  const trendDirectionClass = trend
-    ? trend.startsWith("+")
-      ? "panel-content__metric-trend--up"
-      : trend.startsWith("-")
-        ? "panel-content__metric-trend--down"
-        : "panel-content__metric-trend--flat"
-    : null;
-
-  return (
-    <div className="panel-content panel-content--metric">
-      <span className="panel-content__metric-value">{data?.value ?? "--"}</span>
-      <span className="panel-content__metric-label">{data?.label ?? "No data"}</span>
-      {trend && (
-        <span className={`panel-content__metric-trend ${trendDirectionClass}`}>{trend}</span>
-      )}
-    </div>
-  );
-}
-
-interface TextContentProps {
-  data?: MappedPanelData | null;
-}
-
-function TextContent({ data }: TextContentProps) {
-  if (data?.content) {
-    return (
-      <div className="panel-content panel-content--text">
-        <span className="panel-content__text-live">{data.content}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="panel-content panel-content--text" aria-hidden="true">
-      <span className="panel-content__text-line panel-content__text-line--long" />
-      <span className="panel-content__text-line panel-content__text-line--short" />
-    </div>
-  );
-}
-
-interface TableContentProps {
-  data?: MappedPanelData | null;
-  rawRows?: string[][] | null;
-  headers?: string[] | null;
-  /** Rows from the paginated execute endpoint (keyed by column name) */
-  paginationRows?: Record<string, unknown>[] | null;
-  paginationHasMore?: boolean;
-  paginationIsLoadingMore?: boolean;
-  onLoadMore?: () => void;
-}
-
-function TableContent({
-  rawRows,
-  headers,
-  paginationRows,
-  paginationHasMore,
-  paginationIsLoadingMore,
-  onLoadMore,
-}: TableContentProps) {
-  // Task 3.7 — prefer paginated rows when available
-  if (paginationRows && paginationRows.length > 0) {
-    const cols = Object.keys(paginationRows[0]);
-    return (
-      <div className="panel-content panel-content--table">
-        <table className="panel-content__table">
-          <thead>
-            <tr>
-              {cols.map((col) => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginationRows.map((row, ri) => (
-              <tr key={ri}>
-                {cols.map((col) => (
-                  <td key={col}>
-                    {row[col] !== null && row[col] !== undefined ? String(row[col]) : ""}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* Task 3.8 — Load more button */}
-        {paginationHasMore && (
-          <div className="panel-content__load-more">
-            <button
-              className="panel-content__load-more-btn"
-              onClick={onLoadMore}
-              disabled={paginationIsLoadingMore}
-              aria-busy={paginationIsLoadingMore}
-            >
-              {paginationIsLoadingMore ? (
-                <>
-                  <span
-                    className="panel-content__spinner panel-content__spinner--sm"
-                    aria-hidden="true"
-                  />
-                  Loading...
-                </>
-              ) : (
-                "Load more"
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (rawRows && rawRows.length > 0) {
-    const cols = headers ?? rawRows[0].map((_, i) => String(i + 1));
-    return (
-      <div className="panel-content panel-content--table">
-        <table className="panel-content__table">
-          <thead>
-            <tr>
-              {cols.map((col) => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rawRows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-  return (
-    <div className="panel-content panel-content--table">
-      <table className="panel-content__table" aria-hidden="true">
-        <thead>
-          <tr>
-            <th />
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td />
-            <td />
-          </tr>
-          <tr>
-            <td />
-            <td />
-          </tr>
-          <tr>
-            <td />
-            <td />
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
+import type { MappedPanelData, Panel, PanelAppearance } from "../types/models";
+import {
+  isChartPanel,
+  isDividerPanel,
+  isImagePanel,
+  isMarkdownPanel,
+  isMetricPanel,
+  isTablePanel,
+  isTextPanel,
+} from "../features/panels/panelNarrowing";
+import { ChartRenderer } from "./panels/renderers/ChartRenderer";
+import { DividerRenderer } from "./panels/renderers/DividerRenderer";
+import { ImageRenderer } from "./panels/renderers/ImageRenderer";
+import { MarkdownRenderer } from "./panels/renderers/MarkdownRenderer";
+import { MetricRenderer } from "./panels/renderers/MetricRenderer";
+import { TableRenderer } from "./panels/renderers/TableRenderer";
+import { TextRenderer } from "./panels/renderers/TextRenderer";
 
 export interface PanelContentProps {
-  type: PanelType;
+  panel: Panel;
   data?: MappedPanelData | null;
   rawRows?: string[][] | null;
   headers?: string[] | null;
-  fieldMapping?: Record<string, string> | null;
   isLoading?: boolean;
   error?: string | null;
   noData?: boolean;
+  /** Optional appearance override (defaults to `panel.appearance`). */
   appearance?: PanelAppearance;
-  content?: string | null;
-  imageUrl?: string | null;
-  imageFit?: string | null;
-  dividerOrientation?: string | null;
-  dividerWeight?: number | null;
-  dividerColor?: string | null;
-  /** Rows from the paginated execute endpoint for table panels */
+  /** Rows from the paginated execute endpoint for table panels. */
   paginationRows?: Record<string, unknown>[] | null;
   paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
@@ -198,21 +35,14 @@ export interface PanelContentProps {
 }
 
 export function PanelContent({
-  type,
+  panel,
   data,
   rawRows,
   headers,
-  fieldMapping,
   isLoading,
   error,
   noData,
   appearance,
-  content,
-  imageUrl,
-  imageFit,
-  dividerOrientation,
-  dividerWeight,
-  dividerColor,
   paginationRows,
   paginationHasMore,
   paginationIsLoadingMore,
@@ -243,47 +73,35 @@ export function PanelContent({
     );
   }
 
-  switch (type) {
-    case "metric":
-      return <MetricContent data={data} />;
-    case "chart":
-      return (
-        <div className="panel-content panel-content--chart">
-          <ChartPanel
-            appearance={appearance}
-            rawRows={rawRows}
-            headers={headers}
-            fieldMapping={fieldMapping}
-          />
-        </div>
-      );
-    case "text":
-      return <TextContent data={data} />;
-    case "table":
-      return (
-        <TableContent
-          data={data}
-          rawRows={rawRows}
-          headers={headers}
-          paginationRows={paginationRows}
-          paginationHasMore={paginationHasMore}
-          paginationIsLoadingMore={paginationIsLoadingMore}
-          onLoadMore={onLoadMore}
-        />
-      );
-    case "markdown":
-      return <MarkdownPanel content={content ?? null} />;
-    case "image":
-      return <ImagePanel imageUrl={imageUrl ?? null} imageFit={imageFit ?? null} />;
-    case "divider":
-      return (
-        <DividerPanel
-          orientation={dividerOrientation ?? null}
-          weight={dividerWeight ?? null}
-          color={dividerColor ?? null}
-        />
-      );
-    default:
-      return <MetricContent data={data} />;
+  // Dispatcher: narrow on the discriminator and pick the renderer.
+  if (isMetricPanel(panel)) return <MetricRenderer data={data} />;
+  if (isChartPanel(panel)) {
+    return (
+      <ChartRenderer
+        appearance={appearance ?? panel.appearance}
+        rawRows={rawRows}
+        headers={headers}
+        fieldMapping={panel.config.fieldMapping}
+      />
+    );
   }
+  if (isTablePanel(panel)) {
+    return (
+      <TableRenderer
+        rawRows={rawRows}
+        headers={headers}
+        paginationRows={paginationRows}
+        paginationHasMore={paginationHasMore}
+        paginationIsLoadingMore={paginationIsLoadingMore}
+        onLoadMore={onLoadMore}
+      />
+    );
+  }
+  if (isTextPanel(panel)) return <TextRenderer data={data} content={panel.config.content} />;
+  if (isMarkdownPanel(panel)) return <MarkdownRenderer panel={panel} />;
+  if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
+  if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
+
+  // Exhaustiveness fallback — the union is closed so this is unreachable.
+  return <MetricRenderer data={data} />;
 }
