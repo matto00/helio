@@ -17,11 +17,10 @@ import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type { User } from "../features/auth/types/user";
+import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { DataType } from "../features/dataTypes/types/dataType";
 import type {
   DataSource,
-  DashboardAppearance,
-  DashboardLayout,
   PanelAppearance,
   PanelType,
   PipelineSummary,

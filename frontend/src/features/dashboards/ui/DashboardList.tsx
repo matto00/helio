@@ -14,7 +14,7 @@ import {
   setSelectedDashboardId,
 } from "../state/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import type { DashboardSnapshot } from "../../../types/models";
+import type { DashboardSnapshot } from "../types/dashboard";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";

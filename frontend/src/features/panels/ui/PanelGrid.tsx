@@ -25,7 +25,8 @@ import {
 } from "../state/panelsSlice";
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
-import type { DashboardLayout, Panel } from "../../../types/models";
+import type { DashboardLayout } from "../../dashboards/types/dashboard";
+import type { Panel } from "../types/panel";
 import { getDataTypeId } from "../state/panelNarrowing";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";

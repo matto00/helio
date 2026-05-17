@@ -4,7 +4,7 @@ import type {
   DashboardLayout,
   DashboardSnapshot,
   DuplicateDashboardResponse,
-} from "../../../types/models";
+} from "../types/dashboard";
 import { httpClient } from "../../../services/httpClient";
 
 interface DashboardsResponse {

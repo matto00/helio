@@ -9,7 +9,7 @@ import {
   dashboardGridAppearanceEditorFallback,
   getColorInputValue,
 } from "../../../theme/appearance";
-import type { Dashboard } from "../../../types/models";
+import type { Dashboard } from "../types/dashboard";
 import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "../../../shared/chrome/InlineError";

@@ -4,26 +4,6 @@ export interface ResourceMeta {
   lastUpdated: string;
 }
 
-export interface DashboardAppearance {
-  background: string;
-  gridBackground: string;
-}
-
-export interface DashboardLayoutItem {
-  panelId: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface DashboardLayout {
-  lg: DashboardLayoutItem[];
-  md: DashboardLayoutItem[];
-  sm: DashboardLayoutItem[];
-  xs: DashboardLayoutItem[];
-}
-
 export interface ChartLegend {
   show: boolean;
   position: "top" | "bottom" | "left" | "right";
@@ -101,14 +81,6 @@ export interface StaticSourcePayload {
   rows: unknown[][];
 }
 
-export interface Dashboard {
-  id: string;
-  name: string;
-  meta: ResourceMeta;
-  appearance: DashboardAppearance;
-  layout: DashboardLayout;
-}
-
 // Panel discriminated union + per-subtype config types live in `./panel.ts`
 // and are re-exported below for backwards-compatibility with imports written
 // against `./models`.
@@ -155,43 +127,6 @@ export interface PanelUpdateFields {
 
 export type MappedPanelData = Record<string, string>;
 
-export interface DuplicateDashboardResponse {
-  dashboard: Dashboard;
-  panels: Panel[];
-}
-
-/** Snapshot entry mirrors the CS2c-3c wire shape: `type` discriminator +
- *  typed `config`. Specific config fields are determined by `type` and match
- *  the backend per-subtype `*PanelConfig` shapes; the FE keeps `config`
- *  loosely typed because snapshot round-trips don't depend on subtype
- *  narrowing on the frontend. */
-export interface DashboardSnapshotPanelEntry {
-  snapshotId: string;
-  title: string;
-  type: string;
-  appearance: {
-    background?: string;
-    color?: string;
-    transparency?: number;
-  };
-  config?: Record<string, unknown>;
-}
-
-export interface DashboardSnapshotDashboardEntry {
-  name: string;
-  appearance: {
-    background?: string;
-    gridBackground?: string;
-  };
-  layout: DashboardLayout;
-}
-
-export interface DashboardSnapshot {
-  version: number;
-  dashboard: DashboardSnapshotDashboardEntry;
-  panels: DashboardSnapshotPanelEntry[];
-}
-
 export interface PipelineSummary {
   id: string;
   name: string;
@@ -204,17 +139,6 @@ export interface PipelineSummary {
 }
 
 // ── Update API types ─────────────────────────────────────────────────────────
-
-export interface DashboardUpdatePayload {
-  name?: string;
-  appearance?: DashboardAppearance;
-  layout?: DashboardLayout;
-}
-
-export interface UpdateDashboardBatchRequest {
-  fields: string[];
-  dashboard: DashboardUpdatePayload;
-}
 
 /** Batch update entry mirrors `PATCH /api/panels/batch` wire shape:
  *  `{ id, title?, appearance?, type?, config? }` where `config` (when

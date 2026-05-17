@@ -6,7 +6,8 @@
 import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
 import { dashboardGridCols } from "../../dashboards/state/dashboardLayout";
-import type { DashboardLayout, Panel } from "../../../types/models";
+import type { DashboardLayout } from "../../dashboards/types/dashboard";
+import type { Panel } from "../types/panel";
 
 export interface PanelGridConfig {
   breakpoints: NonNullable<ResponsiveGridLayoutProps["breakpoints"]>;
