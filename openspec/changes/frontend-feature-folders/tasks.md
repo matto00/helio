@@ -73,14 +73,14 @@
 - [x] 9.8 Each extracted file <250L soft cap (StepCard at 323L is the lone exception — over 250L soft cap, under 400L hard cap; further per-kind split would mirror CS2c-3c editors and is out of scope here)
 
 ### 10. Decompose `features/sources/ui/AddSourceModal.tsx` (475L → <400L)
-- [ ] 10.1 Read the file's structure; identify natural decomposition lines (likely per-source-type forms or per-step components)
-- [ ] 10.2 Extract per-source-type form bodies into siblings (RestApiForm.tsx, CsvForm.tsx, SqlForm.tsx) — StaticSourceForm already exists separately
-- [ ] 10.3 Verify `AddSourceModal.tsx` <400L after extractions
-- [ ] 10.4 Each extracted file <250L soft cap
+- [x] 10.1 Read the file's structure; identify natural decomposition lines (likely per-source-type forms or per-step components)
+- [x] 10.2 Extract per-source-type form bodies into siblings (RestApiForm.tsx, CsvForm.tsx) — SqlTab + StaticSourceForm already exist; also extracted SourceTypeToggle and InferredFieldsTable as drive-bys to reach <400L
+- [x] 10.3 Verify `AddSourceModal.tsx` <400L after extractions (303L)
+- [x] 10.4 Each extracted file <250L soft cap (all under 100L)
 
 ### 11. `PanelCreationModal.tsx` left untouched (CS4 scope)
-- [ ] 11.1 Verify file is at `features/panels/ui/PanelCreationModal.tsx` after cycle 1 move
-- [ ] 11.2 Document in executor-report-2 that this file remains at 716L (>400L hard cap) deliberately for CS4 per-subtype decomposition
+- [x] 11.1 Verify file is at `features/panels/ui/PanelCreationModal.tsx` after cycle 1 move
+- [x] 11.2 Document in executor-report-2 that this file remains at 716L (>400L hard cap) deliberately for CS4 per-subtype decomposition
 
 ### 12. Cycle 2 gates
 - [ ] 12.1 All cycle-1 gates re-run green

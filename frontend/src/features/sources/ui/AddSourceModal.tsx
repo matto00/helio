@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
@@ -12,19 +12,18 @@ import {
   inferFromJson,
   type SqlSourceConfig,
 } from "../services/dataSourceService";
+import { CsvForm } from "./CsvForm";
+import { InferredFieldsTable } from "./InferredFieldsTable";
+import type { EditableField } from "./InferredFieldsTable";
+import { RestApiForm } from "./RestApiForm";
+import { SourceTypeToggle } from "./SourceTypeToggle";
 import { StaticSourceForm } from "./StaticSourceForm";
 import { SqlTab } from "./SqlTab";
 import { Modal } from "../../../shared/ui/Modal";
-import { Select } from "../../../shared/ui/Select";
 import { TextField } from "../../../shared/ui/TextField";
 
 type SourceType = "rest_api" | "csv" | "static" | "sql";
 type Step = "configure" | "preview";
-
-interface EditableField extends InferredField {
-  displayName: string;
-  dataType: string;
-}
 
 interface AddSourceModalProps {
   onClose: () => void;
@@ -157,11 +156,6 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    setCsvFile(file);
-  }
-
   const title = step === "configure" ? "Add Data Source" : "Preview Schema";
 
   // Footer for the configure step (non-static, non-SQL)
@@ -232,39 +226,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               aria-label="Source name"
             />
           </div>
-          <div className="add-source-modal__field">
-            <span className="add-source-modal__label">Source type</span>
-            <div className="add-source-modal__type-toggle" role="group" aria-label="Source type">
-              <button
-                type="button"
-                className="add-source-modal__type-btn"
-                onClick={() => setSourceType("rest_api")}
-              >
-                REST API
-              </button>
-              <button
-                type="button"
-                className="add-source-modal__type-btn"
-                onClick={() => setSourceType("csv")}
-              >
-                CSV File
-              </button>
-              <button
-                type="button"
-                className="add-source-modal__type-btn add-source-modal__type-btn--active"
-                onClick={() => setSourceType("static")}
-              >
-                Manual
-              </button>
-              <button
-                type="button"
-                className="add-source-modal__type-btn"
-                onClick={() => setSourceType("sql")}
-              >
-                SQL Database
-              </button>
-            </div>
-          </div>
+          <SourceTypeToggle active={sourceType} onChange={setSourceType} />
           <StaticSourceForm
             name={name}
             onSubmit={(columns, rows) => void handleCreateStatic(columns, rows)}
@@ -292,55 +254,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
             />
           </div>
 
-          <div className="add-source-modal__field">
-            <span className="add-source-modal__label">Source type</span>
-            <div className="add-source-modal__type-toggle" role="group" aria-label="Source type">
-              <button
-                type="button"
-                className={
-                  sourceType === "rest_api"
-                    ? "add-source-modal__type-btn add-source-modal__type-btn--active"
-                    : "add-source-modal__type-btn"
-                }
-                onClick={() => setSourceType("rest_api")}
-              >
-                REST API
-              </button>
-              <button
-                type="button"
-                className={
-                  sourceType === "csv"
-                    ? "add-source-modal__type-btn add-source-modal__type-btn--active"
-                    : "add-source-modal__type-btn"
-                }
-                onClick={() => setSourceType("csv")}
-              >
-                CSV File
-              </button>
-              <button
-                type="button"
-                className={
-                  sourceType === "static"
-                    ? "add-source-modal__type-btn add-source-modal__type-btn--active"
-                    : "add-source-modal__type-btn"
-                }
-                onClick={() => setSourceType("static")}
-              >
-                Manual
-              </button>
-              <button
-                type="button"
-                className={
-                  sourceType === "sql"
-                    ? "add-source-modal__type-btn add-source-modal__type-btn--active"
-                    : "add-source-modal__type-btn"
-                }
-                onClick={() => setSourceType("sql")}
-              >
-                SQL Database
-              </button>
-            </div>
-          </div>
+          <SourceTypeToggle active={sourceType} onChange={setSourceType} />
 
           {sourceType === "sql" ? (
             <SqlTab
@@ -349,46 +263,14 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               isSaving={isLoading}
             />
           ) : sourceType === "rest_api" ? (
-            <>
-              <div className="add-source-modal__field">
-                <label className="add-source-modal__label" htmlFor="source-url">
-                  URL
-                </label>
-                <TextField
-                  id="source-url"
-                  type="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://api.example.com/data"
-                  aria-label="URL"
-                />
-              </div>
-              <div className="add-source-modal__field">
-                <label className="add-source-modal__label" htmlFor="source-json-path">
-                  JSON path <span className="add-source-modal__optional">(optional)</span>
-                </label>
-                <TextField
-                  id="source-json-path"
-                  value={jsonPath}
-                  onChange={(e) => setJsonPath(e.target.value)}
-                  placeholder="e.g. data.items"
-                  aria-label="JSON path"
-                />
-              </div>
-            </>
+            <RestApiForm
+              url={url}
+              jsonPath={jsonPath}
+              onUrlChange={setUrl}
+              onJsonPathChange={setJsonPath}
+            />
           ) : (
-            <div className="add-source-modal__field">
-              <label className="add-source-modal__label" htmlFor="source-csv-file">
-                CSV file
-              </label>
-              <input
-                id="source-csv-file"
-                type="file"
-                className="add-source-modal__input"
-                accept=".csv,text/csv"
-                onChange={handleFileChange}
-              />
-            </div>
+            <CsvForm onFileChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
           )}
 
           {error && (
@@ -407,57 +289,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
             Review the inferred fields. You can edit display names and data types before creating.
           </p>
 
-          {fields.length === 0 ? (
-            <p className="add-source-modal__empty">No fields were detected.</p>
-          ) : (
-            <table className="add-source-modal__fields-table" aria-label="Inferred fields">
-              <thead>
-                <tr>
-                  <th>Field name</th>
-                  <th>Display name</th>
-                  <th>Data type</th>
-                  <th>Nullable</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((field, index) => (
-                  <tr key={field.name}>
-                    <td className="add-source-modal__field-name">{field.name}</td>
-                    <td>
-                      <TextField
-                        type="text"
-                        aria-label={`Display name for ${field.name}`}
-                        value={field.displayName}
-                        onChange={(e) => handleFieldChange(index, "displayName", e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <Select
-                        ariaLabel={`Data type for ${field.name}`}
-                        value={field.dataType}
-                        onChange={(v) => handleFieldChange(index, "dataType", v)}
-                        options={[
-                          { value: "string", label: "string" },
-                          { value: "integer", label: "integer" },
-                          { value: "float", label: "float" },
-                          { value: "boolean", label: "boolean" },
-                          { value: "timestamp", label: "timestamp" },
-                        ]}
-                      />
-                    </td>
-                    <td className="add-source-modal__nullable-cell">
-                      <input
-                        type="checkbox"
-                        aria-label={`Nullable for ${field.name}`}
-                        checked={field.nullable}
-                        onChange={(e) => handleFieldChange(index, "nullable", e.target.checked)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <InferredFieldsTable fields={fields} onFieldChange={handleFieldChange} />
 
           {error && (
             <p className="add-source-modal__error" role="alert">
