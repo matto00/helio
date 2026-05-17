@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import { validateExpression as validateExpressionRequest } from "../features/dataTypes/services/dataTypeService";
-import type { ComputedField } from "../types/models";
+import { validateExpression as validateExpressionRequest } from "../../dataTypes/services/dataTypeService";
+import type { ComputedField } from "../../../types/models";
 import { ComputedFieldsEditor } from "./ComputedFieldsEditor";
 
-jest.mock("../features/dataTypes/services/dataTypeService", () => ({
+jest.mock("../../dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn(),
   updateDataType: jest.fn(),
   validateExpression: jest.fn(),

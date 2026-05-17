@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AggregateConfig } from "./AggregateConfig";
 import type { AggregateConfigValue } from "./AggregateConfig";
-import type { SchemaField } from "../types/models";
+import type { SchemaField } from "../../../types/models";
 
 const sampleSchema: SchemaField[] = [
   { name: "dept", type: "string" },

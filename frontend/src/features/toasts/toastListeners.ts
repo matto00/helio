@@ -52,7 +52,11 @@ import {
 import { deleteDataType } from "../dataTypes/state/dataTypesSlice";
 
 // Pipelines
-import { createPipeline, deletePipeline, submitPipelineRun } from "../pipelines/pipelinesSlice";
+import {
+  createPipeline,
+  deletePipeline,
+  submitPipelineRun,
+} from "../pipelines/state/pipelinesSlice";
 
 export function addToastListeners(startListening: AppStartListening) {
   // ── Dashboards ──────────────────────────────────────────────────────────

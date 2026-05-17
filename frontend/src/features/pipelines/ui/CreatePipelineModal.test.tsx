@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import * as pipelineService from "../services/pipelineService";
-import { renderWithStore } from "../test/renderWithStore";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { CreatePipelineModal } from "./CreatePipelineModal";
 
 jest.mock("../services/pipelineService", () => ({
@@ -11,7 +11,7 @@ jest.mock("../services/pipelineService", () => ({
 
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
 
-import type { DataSource } from "../types/models";
+import type { DataSource } from "../../../types/models";
 
 const testDataSources: DataSource[] = [
   {

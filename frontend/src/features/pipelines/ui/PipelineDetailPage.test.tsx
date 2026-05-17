@@ -3,15 +3,15 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
-import { ThemeProvider } from "../theme/ThemeProvider";
-import { sourcesReducer } from "../features/sources/state/sourcesSlice";
-import { authReducer } from "../features/auth/state/authSlice";
-import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
-import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
-import { panelsReducer } from "../features/panels/panelsSlice";
-import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
-import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
-import { OverlayProvider } from "../shared/chrome/OverlayProvider";
+import { ThemeProvider } from "../../../theme/ThemeProvider";
+import { sourcesReducer } from "../../sources/state/sourcesSlice";
+import { authReducer } from "../../auth/state/authSlice";
+import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
+import { layoutHistoryReducer } from "../../layout/layoutHistorySlice";
+import { panelsReducer } from "../../panels/panelsSlice";
+import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
+import { pipelinesReducer } from "../state/pipelinesSlice";
+import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
   runPipeline,
@@ -29,7 +29,7 @@ import type {
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
-} from "../types/models";
+} from "../../../types/models";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -75,7 +75,7 @@ const defaultPipeline: PipelineSummary = {
 };
 
 // Source fixture shape — uses the same discriminated-union as production code.
-import type { DataSource } from "../types/models";
+import type { DataSource } from "../../../types/models";
 type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {

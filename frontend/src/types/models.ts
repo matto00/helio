@@ -369,4 +369,4 @@ export type {
   SortConfig,
   SortKey,
   SortStep,
-} from "./pipelineStep";
+} from "../features/pipelines/types/pipelineStep";

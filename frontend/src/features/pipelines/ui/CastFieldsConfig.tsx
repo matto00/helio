@@ -3,7 +3,7 @@
 // Renders an empty table when columns is empty (source has no schema yet).
 // Selecting "— keep as is —" removes the field from the casts map (passthrough).
 
-import { Select } from "../shared/ui/index";
+import { Select } from "../../../shared/ui/index";
 
 export const CAST_TARGET_TYPES = ["string", "integer", "long", "double", "boolean"] as const;
 

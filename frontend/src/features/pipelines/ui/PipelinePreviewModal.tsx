@@ -1,5 +1,5 @@
-import { Modal } from "../shared/ui/Modal";
-import { PreviewTable } from "./PreviewTable";
+import { Modal } from "../../../shared/ui/Modal";
+import { PreviewTable } from "../../../components/PreviewTable";
 
 interface PipelinePreviewModalProps {
   rows: Record<string, unknown>[] | null;

@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { createPipeline, fetchPipelines } from "../features/pipelines/pipelinesSlice";
-import { fetchSources } from "../features/sources/state/sourcesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { Modal } from "../shared/ui/Modal";
-import { Select } from "../shared/ui/Select";
-import { TextField } from "../shared/ui/TextField";
+import { createPipeline, fetchPipelines } from "../state/pipelinesSlice";
+import { fetchSources } from "../../sources/state/sourcesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { Modal } from "../../../shared/ui/Modal";
+import { Select } from "../../../shared/ui/Select";
+import { TextField } from "../../../shared/ui/TextField";
 import "./CreatePipelineModal.css";
 
 interface CreatePipelineModalProps {

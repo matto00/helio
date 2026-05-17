@@ -10,14 +10,14 @@ import {
   getPipelineSteps,
   updatePipeline as updatePipelineRequest,
   analyzePipeline as analyzePipelineRequest,
-} from "../../services/pipelineService";
+} from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
   RunStatus,
-} from "../../types/models";
+} from "../../../types/models";
 
 interface PipelinesState {
   items: PipelineSummary[];

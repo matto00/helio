@@ -2,7 +2,7 @@
 // Renders one row per column from the per-step inputSchema provided by the analyze endpoint.
 // Renders an empty table when columns is empty (source has no schema yet).
 
-import { TextField } from "../shared/ui/index";
+import { TextField } from "../../../shared/ui/index";
 
 interface RenameFieldsConfigProps {
   /** Column names derived from the step's inputSchema (from the analyze response). */

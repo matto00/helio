@@ -12,7 +12,7 @@ import {
   deletePipeline,
   fetchPipelines,
   setCreatePipelineModalOpen,
-} from "../../features/pipelines/pipelinesSlice";
+} from "../../features/pipelines/state/pipelinesSlice";
 import {
   deleteSource,
   fetchSources,

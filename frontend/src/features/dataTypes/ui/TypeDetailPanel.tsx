@@ -5,7 +5,7 @@ import { updateDataType } from "../state/dataTypesSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../../../types/models";
-import { ComputedFieldsEditor } from "../../../components/ComputedFieldsEditor";
+import { ComputedFieldsEditor } from "../../pipelines/ui/ComputedFieldsEditor";
 import { PreviewTable } from "../../../components/PreviewTable";
 import { Select, TextField } from "../../../shared/ui/index";
 

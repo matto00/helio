@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { FilterConfig } from "./FilterConfig";
 import type { FilterConfigValue } from "./FilterConfig";
-import type { SchemaField } from "../types/models";
+import type { SchemaField } from "../../../types/models";
 
 const sampleSchema: SchemaField[] = [
   { name: "name", type: "string" },

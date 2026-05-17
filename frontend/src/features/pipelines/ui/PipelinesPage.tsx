@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
 import "./PipelinesPage.css";
-import { fetchPipelines, setCreatePipelineModalOpen } from "../features/pipelines/pipelinesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+import { fetchPipelines, setCreatePipelineModalOpen } from "../state/pipelinesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { CreatePipelineModal } from "./CreatePipelineModal";
 import { PipelineEmptyState } from "./PipelineEmptyState";
 import { PipelineListTable } from "./PipelineListTable";

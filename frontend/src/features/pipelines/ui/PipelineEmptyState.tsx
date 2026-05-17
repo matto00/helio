@@ -1,6 +1,6 @@
 import { faCodeBranch, faPlus } from "@fortawesome/free-solid-svg-icons";
 
-import { EmptyState } from "../shared/ui/EmptyState";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 
 interface PipelineEmptyStateProps {
   onCreateClick: () => void;

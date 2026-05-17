@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { getPipelines } from "../services/pipelineService";
-import { renderWithStore } from "../test/renderWithStore";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { PipelinesPage } from "./PipelinesPage";
 
 jest.mock("../services/pipelineService", () => ({
@@ -9,8 +9,8 @@ jest.mock("../services/pipelineService", () => ({
   createPipeline: jest.fn(),
 }));
 
-jest.mock("../features/sources/state/sourcesSlice", () => ({
-  ...jest.requireActual("../features/sources/state/sourcesSlice"),
+jest.mock("../../sources/state/sourcesSlice", () => ({
+  ...jest.requireActual("../../sources/state/sourcesSlice"),
   fetchSources: jest.fn(() => ({
     type: "sources/fetchSources/pending",
     unwrap: () => Promise.resolve([]),

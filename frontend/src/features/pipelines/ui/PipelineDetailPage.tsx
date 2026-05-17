@@ -20,10 +20,10 @@ import {
 import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelinePreviewModal } from "./PipelinePreviewModal";
 
-import { formatRelativeTime } from "../utils/formatRelativeTime";
+import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 
 import "./PipelineDetailPage.css";
-import { fetchSources } from "../features/sources/state/sourcesSlice";
+import { fetchSources } from "../../sources/state/sourcesSlice";
 import {
   analyzePipeline,
   clearRunState,
@@ -32,8 +32,8 @@ import {
   fetchPipelineSteps,
   submitPipelineRun,
   updatePipeline,
-} from "../features/pipelines/pipelinesSlice";
-import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
+} from "../state/pipelinesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "../hooks/usePipelineRunEvents";
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import {
@@ -58,7 +58,7 @@ import type {
   SchemaField,
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
-} from "../types/models";
+} from "../../../types/models";
 import { AggregateConfig } from "./AggregateConfig";
 import type { AggregateConfigValue } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
