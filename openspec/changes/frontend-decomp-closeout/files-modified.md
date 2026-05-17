@@ -1,7 +1,58 @@
-# Files Modified — Cycle 1
+# Files Modified — CS4 (cycles 1 + 2)
 
-Snapshot of files touched in CS4 cycle 1 (mechanical `models.ts`
-decomposition + test rename). All edits behavior-preserving.
+Snapshot of files touched in CS4. Cycle 1 was mechanical (`models.ts`
+decomposition + test rename); cycle 2 was creative (`PanelCreationModal`
+per-subtype + step decomposition; `StepCard` hook extraction). All edits
+behavior-preserving.
+
+## Cycle 2 additions (4 new files in `creators/`, 4 in `creationSteps/`, 1 hook)
+
+### `features/panels/ui/creators/` — per-subtype creator fields
+
+- `creatorTypes.ts` — `CreatorFieldsProps<TConfig>` generic + the
+  `hasNonEmptyTypeConfig` predicate (used by the shell for dirty-state
+  and create-payload inclusion)
+- `MetricCreatorFields.tsx` — value-label + unit inputs
+- `ChartCreatorFields.tsx` — chart-type selector
+- `ImageCreatorFields.tsx` — image-URL input
+- `DividerCreatorFields.tsx` — orientation selector
+
+### `features/panels/ui/creationSteps/` — per-step shell extractions
+
+- `TypeSelectStep.tsx` — panel-type grid (PANEL_TYPES catalogue lives here)
+- `TemplateSelectStep.tsx` — template grid + Back button
+- `DataTypeSelectStep.tsx` — loading / empty / DataType list + Back/Next
+- `NameEntryStep.tsx` — title + per-subtype creator + InlineError + submit
+  row + PanelCreationPreview
+
+### `features/pipelines/hooks/` — StepCard editor state hook
+
+- `useStepCardState.ts` — per-op editor state + during-render sync with
+  `step.config` + PATCH-on-change handlers; previously lived inline at
+  the top of `StepCard.tsx`
+
+## Cycle 2 modifications
+
+- `features/panels/ui/PanelCreationModal.tsx` — 716L → 383L (under 400L
+  hard cap). Removed the four inline per-subtype helper functions and
+  the four inline step bodies; shell now composes the new components,
+  threads shell-owned state through, and keeps the modal lifecycle
+  (dirty guard, focus trap, create dispatch) in one place
+- `features/pipelines/ui/StepCard.tsx` — 323L → 236L (under 250L soft
+  cap). The expanded-body dispatch chain is unchanged; the eight state
+  declarations + the during-render `prev*` sync + the eight handlers
+  moved into `useStepCardState`
+- `openspec/changes/frontend-decomp-closeout/tasks.md` — cycle-2 tasks
+  ticked (group 5, 6, 7); StepCard items 6.1–6.3 updated to reflect the
+  hook-extraction decision instead of per-kind sub-components
+- `openspec/changes/frontend-decomp-closeout/workflow-state.md` —
+  CYCLE: 1 → 2
+- `openspec/changes/frontend-decomp-closeout/executor-report-2.md` —
+  cycle-2 report (new file)
+
+---
+
+# Cycle 1 (carried forward verbatim from cycle-1 handoff)
 
 ## New files (6)
 

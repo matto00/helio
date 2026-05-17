@@ -36,25 +36,25 @@
 ## Cycle 2 — `PanelCreationModal` decomposition + `StepCard` investigation (creative)
 
 ### 5. `PanelCreationModal` per-subtype decomposition
-- [ ] 5.1 Create `features/panels/ui/creators/` folder
-- [ ] 5.2 Extract `MetricConfigFields` → `creators/MetricCreatorFields.tsx`
-- [ ] 5.3 Extract `ChartTypeField` → `creators/ChartCreatorFields.tsx`
-- [ ] 5.4 Extract `ImageConfigField` → `creators/ImageCreatorFields.tsx`
-- [ ] 5.5 Extract `DividerConfigField` → `creators/DividerCreatorFields.tsx`
-- [ ] 5.6 Extract shared props/types → `creators/creatorTypes.ts`
-- [ ] 5.7 Modal shell dispatches to creators (per-subtype dispatch like editors/renderers)
-- [ ] 5.8 Verify `PanelCreationModal.tsx` < 400L
+- [x] 5.1 Create `features/panels/ui/creators/` folder
+- [x] 5.2 Extract `MetricConfigFields` → `creators/MetricCreatorFields.tsx`
+- [x] 5.3 Extract `ChartTypeField` → `creators/ChartCreatorFields.tsx`
+- [x] 5.4 Extract `ImageConfigField` → `creators/ImageCreatorFields.tsx`
+- [x] 5.5 Extract `DividerConfigField` → `creators/DividerCreatorFields.tsx`
+- [x] 5.6 Extract shared props/types → `creators/creatorTypes.ts`
+- [x] 5.7 Modal shell dispatches to creators (per-subtype dispatch like editors/renderers)
+- [x] 5.8 Verify `PanelCreationModal.tsx` < 400L
 
 ### 6. `StepCard` per-kind split investigation
-- [ ] 6.1 Read `features/pipelines/ui/StepCard.tsx` body; determine if per-kind dispatch is natural (per design D3)
-- [ ] 6.2 IF natural: extract per-kind sub-components into `features/pipelines/ui/stepCards/<Kind>StepCard.tsx`; verify StepCard.tsx <250L
-- [ ] 6.3 IF NOT natural: leave at 323L; document rationale in cycle-2 report
+- [x] 6.1 Read `features/pipelines/ui/StepCard.tsx` body; per-kind dispatch found but per-kind wrappers would only be 3–10L shims around already-extracted config components — pure indirection
+- [x] 6.2 Alternative natural decomposition adopted: lifted per-op editor state + PATCH-on-change handlers into `features/pipelines/hooks/useStepCardState.ts` (167L); StepCard.tsx 323L → 236L (under 250L soft cap)
+- [x] 6.3 N/A — natural decomposition succeeded via the state hook (see 6.2)
 
 ### 7. Cycle 2 gates
-- [ ] 7.1 All cycle-1 gates re-run green
-- [ ] 7.2 File-size BLOCKER check: NO file >400L anywhere in frontend
+- [x] 7.1 All cycle-1 gates re-run green
+- [x] 7.2 File-size BLOCKER check: NO file >400L anywhere in frontend
 - [ ] 7.3 Playwright Phase 3 smoke (evaluator scope) — panel creation flow for all 7 subtypes works; pipeline detail page renders
-- [ ] 7.4 Write `executor-report-2.md` — final line counts, StepCard decision + rationale, any drive-bys invoked
+- [x] 7.4 Write `executor-report-2.md` — final line counts, StepCard decision + rationale, any drive-bys invoked
 
 ## Out of scope (do NOT touch)
 
