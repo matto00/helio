@@ -64,8 +64,12 @@ final class PipelineRunRegistry(implicit system: ActorSystem[_]) {
    * completes when a terminal event is published.
    */
   def subscribe(pipelineId: String): Source[RunStatusEvent, NotUsed] = {
+    // `draining` (not `immediately`) so the final terminal RunStatusEvent
+    // ("succeeded"/"failed"/"dry_run") that was just enqueued before the
+    // Success completion signal still reaches the SSE subscriber. With
+    // `immediately`, the stream can close before its buffered messages emit.
     val completionMatcher: PartialFunction[Any, CompletionStrategy] = {
-      case ActorStatus.Success(_) => CompletionStrategy.immediately
+      case ActorStatus.Success(_) => CompletionStrategy.draining
     }
     val failureMatcher: PartialFunction[Any, Throwable] = PartialFunction.empty
     val (ref, source) = Source
