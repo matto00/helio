@@ -5,6 +5,7 @@ import { deleteSource, fetchSources, updateSource } from "../features/sources/so
 import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
+import { getDataTypeId } from "../features/panels/panelNarrowing";
 import type { DataSourceKind } from "../types/models";
 
 interface DataSourceListProps {
@@ -26,7 +27,7 @@ export function DataSourceList({ onAddSource }: DataSourceListProps) {
   function isBoundToPanel(sourceId: string): boolean {
     const relatedType = dataTypes.find((dt) => dt.sourceId === sourceId);
     if (!relatedType) return false;
-    return panels.some((p) => p.typeId === relatedType.id);
+    return panels.some((p) => getDataTypeId(p) === relatedType.id);
   }
 
   async function handleRefresh(sourceId: string, kind: DataSourceKind) {

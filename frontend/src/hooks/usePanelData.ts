@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../features/panels/panelsSlice";
+import { getDataTypeId, getFieldMapping } from "../features/panels/panelNarrowing";
 import type { MappedPanelData, Panel } from "../types/models";
 import { useAppDispatch, useAppSelector } from "./reduxHooks";
 import { useEffect } from "react";
@@ -20,10 +21,14 @@ export function usePanelData(panel: Panel): PanelDataResult {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
 
-  const fieldMappingKey = panel.fieldMapping ? JSON.stringify(panel.fieldMapping) : null;
-  const currentFetchKey = panel.typeId
-    ? panel.id + "|" + panel.typeId + "|" + (fieldMappingKey ?? "")
-    : null;
+  // CS2c-3c — read binding through narrowing helpers so the cache key composes
+  // from the bound-trio subtypes' typed config rather than a flat `panel.typeId`.
+  // HEL-242 root-cause hypothesis points here; preserve current behavior (cache
+  // key shape unchanged: `panelId|typeId|fieldMappingKey`).
+  const typeId = getDataTypeId(panel);
+  const mapping = getFieldMapping(panel);
+  const fieldMappingKey = mapping ? JSON.stringify(mapping) : null;
+  const currentFetchKey = typeId ? panel.id + "|" + typeId + "|" + (fieldMappingKey ?? "") : null;
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -85,7 +90,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
     rawRows = rows.map((row) =>
       Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
     );
-    const fieldMapping = panel.fieldMapping ?? {};
+    const fieldMapping = mapping ?? {};
     const firstRow = rows[0];
     const mapped: MappedPanelData = {};
     for (const [slot, field] of Object.entries(fieldMapping)) {

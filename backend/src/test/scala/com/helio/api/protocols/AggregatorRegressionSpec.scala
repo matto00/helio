@@ -35,16 +35,14 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
 
     "round-trip PanelResponse" in {
       val original = PanelResponse(
-        id           = "p-1",
-        dashboardId  = "dash-1",
-        title        = "Panel A",
-        `type`       = "table",
-        meta         = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
-        appearance   = PanelAppearanceResponse("#fff", "#000", 0.5, None),
-        typeId       = Some("dt-1"),
-        fieldMapping = Some(JsObject("foo" -> JsString("bar"))),
-        ownerId      = "u-1",
-        content      = Some("hello")
+        id          = "p-1",
+        dashboardId = "dash-1",
+        title       = "Panel A",
+        `type`      = "table",
+        meta        = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+        appearance  = PanelAppearanceResponse("#fff", "#000", 0.5, None),
+        ownerId     = "u-1",
+        config      = JsObject("dataTypeId" -> JsString("dt-1"), "fieldMapping" -> JsObject("foo" -> JsString("bar")))
       )
       roundTrip(original) shouldBe original
     }
@@ -136,7 +134,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
 
     "round-trip DashboardSnapshotPayload" in {
       val original = DashboardSnapshotPayload(
-        version   = 1,
+        version   = DashboardSnapshotPayload.CurrentVersion,
         dashboard = DashboardSnapshotDashboardEntry(
           name       = "Imported",
           appearance = DashboardAppearancePayload(Some("#fff"), Some("#000")),
@@ -144,18 +142,11 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         ),
         panels = Vector(
           DashboardSnapshotPanelEntry(
-            snapshotId         = "p-1",
-            title              = "Panel",
-            `type`             = "table",
-            appearance         = PanelAppearancePayload(Some("#fff"), Some("#000"), Some(0.5), None),
-            typeId             = None,
-            fieldMapping       = None,
-            content            = None,
-            imageUrl           = None,
-            imageFit           = None,
-            dividerOrientation = None,
-            dividerWeight      = None,
-            dividerColor       = None
+            snapshotId = "p-1",
+            title      = "Panel",
+            `type`     = "table",
+            appearance = PanelAppearancePayload(Some("#fff"), Some("#000"), Some(0.5), None),
+            config     = JsObject("dataTypeId" -> JsString(""), "fieldMapping" -> JsObject.empty)
           )
         )
       )

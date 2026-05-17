@@ -19,6 +19,11 @@ final case class PanelAppearanceResponse(
     transparency: Double,
     chart: Option[ChartAppearance]
 )
+
+/** CS2c-3c discriminated wire shape: every panel response carries a `type`
+ *  discriminator and a typed `config` payload whose shape is determined by
+ *  the discriminator. Per-subtype flat nullable fields at the response root
+ *  are gone — readers narrow on `type` and read fields from `config`. */
 final case class PanelResponse(
     id: String,
     dashboardId: String,
@@ -26,102 +31,63 @@ final case class PanelResponse(
     `type`: String,
     meta: ResourceMetaResponse,
     appearance: PanelAppearanceResponse,
-    typeId: Option[String],
-    fieldMapping: Option[JsValue],
     ownerId: String,
-    content: Option[String] = None,
-    imageUrl: Option[String] = None,
-    imageFit: Option[String] = None,
-    dividerOrientation: Option[String] = None,
-    dividerWeight: Option[Int] = None,
-    dividerColor: Option[String] = None
+    config: JsValue
 )
 final case class PanelsResponse(items: Vector[PanelResponse])
+
+/** Create request — `{ dashboardId, title?, type, config }`. `config` is a
+ *  typed JSON object whose shape is determined by `type`; the per-subtype
+ *  decoder under `domain/panels` resolves it (tolerant of `{}`). */
 final case class CreatePanelRequest(
     dashboardId: Option[String],
     title: Option[String],
     `type`: Option[String],
-    content: Option[String] = None,
-    dataTypeId: Option[String] = None
+    config: Option[JsValue]
 )
-// typeId / fieldMapping use Option[Option[_]] to distinguish absent from explicit null
+
+/** Update request — `{ title?, appearance?, type?, config? }`. `config`
+ *  (when present) carries a typed patch whose shape matches the request's
+ *  `type` (and at the service layer, the stored panel's type — cross-type
+ *  PATCH is rejected with 400). Within `config`, fields use absent-vs-null
+ *  semantics per the per-subtype `Patch.decode`. */
 final case class UpdatePanelRequest(
     title: Option[String],
     appearance: Option[PanelAppearancePayload],
     `type`: Option[String],
-    typeId: Option[Option[String]],
-    fieldMapping: Option[Option[JsValue]],
-    content: Option[String] = None,
-    imageUrl: Option[String] = None,
-    imageFit: Option[String] = None,
-    dividerOrientation: Option[String] = None,
-    dividerWeight: Option[Int] = None,
-    dividerColor: Option[String] = None
+    config: Option[JsValue]
 )
+
+/** Batch entry mirrors the single-update shape. */
 final case class PanelBatchItem(
     id: String,
     title: Option[String],
     appearance: Option[PanelAppearancePayload],
-    `type`: Option[String]
+    `type`: Option[String],
+    config: Option[JsValue]
 )
 final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector[PanelBatchItem])
 final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
 
 object PanelResponse {
 
-  /** Build a wide-flat wire response from the typed `Panel` ADT.
+  /** Build a discriminated-wire response from the typed `Panel` ADT.
    *
-   *  Cycle 1 of CS2c-3b keeps the wire shape unchanged: nullable per-subtype
-   *  fields at the panel root. This pattern-match is the single integration
-   *  point that CS2c-3c rewrites for the typed `config`-collapse wire shape;
-   *  no other call site enumerates the 7 panel subtypes today. */
-  def fromDomain(panel: Panel): PanelResponse = {
-    val base = PanelResponse(
+   *  CS2c-3c collapses the prior wide-flat shape (8 nullable subtype fields
+   *  at the root) to `type` + typed `config`. Per-subtype `*Config` already
+   *  carries a `RootJsonFormat`; this dispatcher selects it and emits the
+   *  config payload as the `config` field. */
+  def fromDomain(panel: Panel): PanelResponse =
+    PanelResponse(
       id          = panel.id.value,
       dashboardId = panel.dashboardId.value,
       title       = panel.title,
       `type`      = panel.kind,
       meta        = ResourceMetaResponse.fromDomain(panel.meta),
       appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
-      typeId      = None,
-      fieldMapping = None,
-      ownerId     = panel.ownerId.value
+      ownerId     = panel.ownerId.value,
+      config      = PanelConfigCodec.encodeConfig(panel)
     )
-
-    panel match {
-      case mp: MetricPanel =>
-        base.copy(
-          typeId       = if (mp.config.dataTypeId.value.isEmpty) None else Some(mp.config.dataTypeId.value),
-          fieldMapping = if (mp.config.fieldMapping.fields.isEmpty) None else Some(mp.config.fieldMapping)
-        )
-      case cp: ChartPanel =>
-        base.copy(
-          typeId       = if (cp.config.dataTypeId.value.isEmpty) None else Some(cp.config.dataTypeId.value),
-          fieldMapping = if (cp.config.fieldMapping.fields.isEmpty) None else Some(cp.config.fieldMapping)
-        )
-      case tp: TablePanel =>
-        base.copy(
-          typeId       = if (tp.config.dataTypeId.value.isEmpty) None else Some(tp.config.dataTypeId.value),
-          fieldMapping = if (tp.config.fieldMapping.fields.isEmpty) None else Some(tp.config.fieldMapping)
-        )
-      case t: TextPanel =>
-        base.copy(content = if (t.config.content.isEmpty) None else Some(t.config.content))
-      case m: MarkdownPanel =>
-        base.copy(content = if (m.config.content.isEmpty) None else Some(m.config.content))
-      case i: ImagePanel =>
-        base.copy(
-          imageUrl = if (i.config.imageUrl.isEmpty) None else Some(i.config.imageUrl),
-          imageFit = Some(i.config.imageFit)
-        )
-      case d: DividerPanel =>
-        base.copy(
-          dividerOrientation = Some(d.config.orientation),
-          dividerWeight      = d.config.weight,
-          dividerColor       = d.config.color
-        )
-      case _ => base
-    }
-  }
 }
 
 object PanelAppearanceResponse {
@@ -135,7 +101,7 @@ object PanelAppearanceResponse {
 }
 
 /** `PanelProtocol extends ResourceProtocol` because `PanelResponse` carries a
- *  `ResourceMetaResponse` (and thus `panelResponseFormat`'s `jsonFormat15`
+ *  `ResourceMetaResponse` (and thus `panelResponseFormat`'s `jsonFormatN`
  *  macro needs `resourceMetaResponseFormat` in implicit scope at definition
  *  time). This is a passive structural dependency — `ResourceProtocol`
  *  does not depend on anything panel-related. */
@@ -167,11 +133,17 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   // Panel request / response formats
   implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload]   = jsonFormat4(PanelAppearancePayload.apply)
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(PanelAppearanceResponse.apply)
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat15(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat8(PanelResponse.apply)
   implicit val panelsResponseFormat: RootJsonFormat[PanelsResponse]                   = jsonFormat1(PanelsResponse.apply)
-  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest]           = jsonFormat5(CreatePanelRequest.apply)
 
-  // Custom format to distinguish absent fields from explicit null for typeId / fieldMapping
+  /** Create request — typed `config` raw `JsValue` field is resolved by
+   *  the service via [[PanelConfigCodec.decodeCreateConfig]] once `type`
+   *  is validated. The wire is `{ dashboardId?, title?, type?, config? }`. */
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat4(CreatePanelRequest.apply)
+
+  /** Custom format for `UpdatePanelRequest` — `config` is preserved as a
+   *  raw `JsValue` so the service can decode it against the stored panel's
+   *  type with full absent-vs-null semantics. */
   implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] =
     new RootJsonFormat[UpdatePanelRequest] {
       def write(r: UpdatePanelRequest): JsValue = {
@@ -179,20 +151,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
         r.title.foreach(v => fields("title") = JsString(v))
         r.appearance.foreach(v => fields("appearance") = v.toJson)
         r.`type`.foreach(v => fields("type") = JsString(v))
-        r.typeId.foreach {
-          case None    => fields("typeId") = JsNull
-          case Some(s) => fields("typeId") = JsString(s)
-        }
-        r.fieldMapping.foreach {
-          case None    => fields("fieldMapping") = JsNull
-          case Some(v) => fields("fieldMapping") = v
-        }
-        r.content.foreach(v => fields("content") = JsString(v))
-        r.imageUrl.foreach(v => fields("imageUrl") = JsString(v))
-        r.imageFit.foreach(v => fields("imageFit") = JsString(v))
-        r.dividerOrientation.foreach(v => fields("dividerOrientation") = JsString(v))
-        r.dividerWeight.foreach(v => fields("dividerWeight") = JsNumber(v))
-        r.dividerColor.foreach(v => fields("dividerColor") = JsString(v))
+        r.config.foreach(v => fields("config") = v)
         JsObject(fields.toMap)
       }
 
@@ -202,28 +161,38 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
           title      = obj.fields.get("title").map(_.convertTo[String]),
           appearance = obj.fields.get("appearance").map(_.convertTo[PanelAppearancePayload]),
           `type`     = obj.fields.get("type").map(_.convertTo[String]),
-          typeId = obj.fields.get("typeId") match {
-            case None              => None
-            case Some(JsNull)      => Some(None)
-            case Some(JsString(s)) => Some(Some(s))
-            case Some(x)           => deserializationError(s"typeId must be a string or null, got $x")
-          },
-          fieldMapping = obj.fields.get("fieldMapping") match {
-            case None         => None
-            case Some(JsNull) => Some(None)
-            case Some(v)      => Some(Some(v))
-          },
-          content             = obj.fields.get("content").map(_.convertTo[String]),
-          imageUrl            = obj.fields.get("imageUrl").map(_.convertTo[String]),
-          imageFit            = obj.fields.get("imageFit").map(_.convertTo[String]),
-          dividerOrientation  = obj.fields.get("dividerOrientation").map(_.convertTo[String]),
-          dividerWeight       = obj.fields.get("dividerWeight").map(_.convertTo[Int]),
-          dividerColor        = obj.fields.get("dividerColor").map(_.convertTo[String])
+          config     = obj.fields.get("config")
         )
       }
     }
 
-  implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem]                       = jsonFormat4(PanelBatchItem.apply)
+  implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem] =
+    new RootJsonFormat[PanelBatchItem] {
+      def write(item: PanelBatchItem): JsValue = {
+        val fields = scala.collection.mutable.Map.empty[String, JsValue]
+        fields("id") = JsString(item.id)
+        item.title.foreach(v => fields("title") = JsString(v))
+        item.appearance.foreach(v => fields("appearance") = v.toJson)
+        item.`type`.foreach(v => fields("type") = JsString(v))
+        item.config.foreach(v => fields("config") = v)
+        JsObject(fields.toMap)
+      }
+
+      def read(json: JsValue): PanelBatchItem = {
+        val obj = json.asJsObject
+        val id = obj.fields.get("id") match {
+          case Some(JsString(s)) => s
+          case _                 => deserializationError("PanelBatchItem.id is required")
+        }
+        PanelBatchItem(
+          id         = id,
+          title      = obj.fields.get("title").map(_.convertTo[String]),
+          appearance = obj.fields.get("appearance").map(_.convertTo[PanelAppearancePayload]),
+          `type`     = obj.fields.get("type").map(_.convertTo[String]),
+          config     = obj.fields.get("config")
+        )
+      }
+    }
   implicit val updatePanelsBatchRequestFormat: RootJsonFormat[UpdatePanelsBatchRequest]   = jsonFormat2(UpdatePanelsBatchRequest.apply)
   implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse] = jsonFormat1(UpdatePanelsBatchResponse.apply)
 

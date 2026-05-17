@@ -1,3 +1,4 @@
+import { getDataTypeId } from "../features/panels/panelNarrowing";
 import type { Panel } from "../types/models";
 import { useAppSelector } from "./reduxHooks";
 
@@ -10,11 +11,12 @@ import { useAppSelector } from "./reduxHooks";
 export function useLegacyBoundPanel(panel: Panel): boolean {
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
 
-  if (!panel.typeId) {
+  const typeId = getDataTypeId(panel);
+  if (!typeId) {
     return false;
   }
 
-  const dataType = dataTypes.find((dt) => dt.id === panel.typeId);
+  const dataType = dataTypes.find((dt) => dt.id === typeId);
   if (!dataType) {
     return false;
   }

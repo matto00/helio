@@ -14,6 +14,8 @@ import {
   updatePanelsBatch,
 } from "./panelsSlice";
 import { importDashboard } from "../dashboards/dashboardsSlice";
+import { makeMarkdownPanel, makeMetricPanel } from "../../test/panelFixtures";
+import type { MetricPanel } from "../../types/models";
 
 const defaultMeta = {
   createdBy: "system",
@@ -21,29 +23,14 @@ const defaultMeta = {
   lastUpdated: "2026-03-14T00:00:00Z",
 };
 
-const defaultAppearance = {
-  background: "transparent",
-  color: "inherit",
-  transparency: 0,
-};
-
-const basePanel = {
+const basePanel: MetricPanel = makeMetricPanel({
   id: "panel-1",
   dashboardId: "dashboard-1",
   title: "Latency",
-  type: "metric" as const,
   meta: defaultMeta,
-  appearance: defaultAppearance,
-  typeId: null,
-  fieldMapping: null,
-  refreshInterval: null,
-  content: null,
-  imageUrl: null,
-  imageFit: null,
-  dividerOrientation: null,
-  dividerWeight: null,
-  dividerColor: null,
-};
+  appearance: { background: "transparent", color: "inherit", transparency: 0 },
+  ownerId: "system",
+});
 
 describe("panelsSlice", () => {
   it("stores backend panels for the selected dashboard", () => {
@@ -116,11 +103,13 @@ describe("panelsSlice", () => {
       fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
     );
 
-    const importedPanel = {
-      ...basePanel,
+    const importedPanel = makeMetricPanel({
       id: "panel-imported",
       dashboardId: "dashboard-imported",
-    };
+      title: "Latency",
+      meta: defaultMeta,
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+    });
 
     const nextState = panelsReducer(
       initialState,
@@ -137,7 +126,7 @@ describe("panelsSlice", () => {
         },
         "req-import",
         {
-          version: 1,
+          version: 2,
           dashboard: {
             name: "Operations",
             appearance: {},
@@ -160,23 +149,30 @@ describe("panelsSlice", () => {
       fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
     );
 
+    const boundPanel = makeMetricPanel({
+      id: "panel-1",
+      dashboardId: "dashboard-1",
+      title: "Latency",
+      meta: defaultMeta,
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+      refreshInterval: 300,
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "count" } },
+    });
+
     const nextState = panelsReducer(
       initialState,
-      updatePanelBinding.fulfilled(
-        { ...basePanel, typeId: "dt-1", fieldMapping: { value: "count" }, refreshInterval: 300 },
-        "request-id-3",
-        {
-          panelId: "panel-1",
-          typeId: "dt-1",
-          fieldMapping: { value: "count" },
-          refreshInterval: 300,
-        },
-      ),
+      updatePanelBinding.fulfilled(boundPanel, "request-id-3", {
+        panelId: "panel-1",
+        typeId: "dt-1",
+        fieldMapping: { value: "count" },
+        refreshInterval: 300,
+      }),
     );
 
-    expect(nextState.items[0].typeId).toBe("dt-1");
-    expect(nextState.items[0].fieldMapping).toEqual({ value: "count" });
-    expect(nextState.items[0].refreshInterval).toBe(300);
+    const updated = nextState.items[0] as MetricPanel;
+    expect(updated.config.dataTypeId).toBe("dt-1");
+    expect(updated.config.fieldMapping).toEqual({ value: "count" });
+    expect(updated.refreshInterval).toBe(300);
   });
 
   // Task 5.1 — accumulatePanelUpdate merges fields and patches items; clearPendingPanelUpdates resets
@@ -374,7 +370,7 @@ describe("panelsSlice", () => {
     });
 
     it("includes dataTypeId in the service request when provided", async () => {
-      const mockCreatedPanel = { ...basePanel };
+      const mockCreatedPanel = makeMetricPanel({ id: "panel-1", dashboardId: "dashboard-1" });
       jest.spyOn(panelService, "createPanel").mockResolvedValue(mockCreatedPanel);
       // Also mock fetchPanels so the thunk doesn't error after create
       jest.spyOn(panelService, "fetchPanels").mockResolvedValue([mockCreatedPanel]);
@@ -414,7 +410,13 @@ describe("panelsSlice", () => {
   });
 
   it("replaces the updated panel when updatePanelContent fulfills", () => {
-    const markdownPanel = { ...basePanel, type: "markdown" as const, content: null };
+    const markdownPanel = makeMarkdownPanel({
+      id: "panel-1",
+      dashboardId: "dashboard-1",
+      title: "Latency",
+      meta: defaultMeta,
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+    });
     const initialState = panelsReducer(
       undefined,
       fetchPanels.fulfilled([markdownPanel], "request-id", "dashboard-1"),
@@ -423,14 +425,17 @@ describe("panelsSlice", () => {
     const nextState = panelsReducer(
       initialState,
       updatePanelContent.fulfilled(
-        { ...markdownPanel, content: "## Updated content" },
+        { ...markdownPanel, config: { content: "## Updated content" } },
         "request-id-4",
         { panelId: "panel-1", content: "## Updated content" },
       ),
     );
 
-    expect(nextState.items[0].content).toBe("## Updated content");
-    expect(nextState.items[0].type).toBe("markdown");
+    const updated = nextState.items[0];
+    expect(updated.type).toBe("markdown");
+    if (updated.type === "markdown") {
+      expect(updated.config.content).toBe("## Updated content");
+    }
   });
 
   // Task 6.2 — lastSavedAt

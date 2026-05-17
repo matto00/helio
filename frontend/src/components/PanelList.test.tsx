@@ -272,15 +272,7 @@ describe("PanelList", () => {
       type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: "dt-1",
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
+      config: { dataTypeId: "dt-1", fieldMapping: {} },
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -319,15 +311,7 @@ describe("PanelList", () => {
       type: "chart" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: "dt-1",
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
+      config: { dataTypeId: "dt-1", fieldMapping: {} },
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -368,15 +352,7 @@ describe("PanelList", () => {
       type: "table" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: "dt-1",
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
+      config: { dataTypeId: "dt-1", fieldMapping: {} },
     });
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -447,15 +423,7 @@ describe("PanelList", () => {
       type: "metric" as const,
       meta: defaultMeta,
       appearance: defaultPanelAppearance,
-      typeId: null,
-      fieldMapping: null,
-      refreshInterval: null,
-      content: null,
-      imageUrl: null,
-      imageFit: null,
-      dividerOrientation: null,
-      dividerWeight: null,
-      dividerColor: null,
+      config: { dataTypeId: "", fieldMapping: {} },
     });
     fetchPanelsMock.mockResolvedValue([
       {
@@ -465,15 +433,7 @@ describe("PanelList", () => {
         type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
-        typeId: null,
-        fieldMapping: null,
-        refreshInterval: null,
-        content: null,
-        imageUrl: null,
-        imageFit: null,
-        dividerOrientation: null,
-        dividerWeight: null,
-        dividerColor: null,
+        config: { dataTypeId: "", fieldMapping: {} },
       },
       {
         id: "panel-2",
@@ -482,15 +442,7 @@ describe("PanelList", () => {
         type: "metric" as const,
         meta: defaultMeta,
         appearance: defaultPanelAppearance,
-        typeId: null,
-        fieldMapping: null,
-        refreshInterval: null,
-        content: null,
-        imageUrl: null,
-        imageFit: null,
-        dividerOrientation: null,
-        dividerWeight: null,
-        dividerColor: null,
+        config: { dataTypeId: "", fieldMapping: {} },
       },
     ]);
 

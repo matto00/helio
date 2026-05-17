@@ -8,23 +8,17 @@ import type {
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../types/models";
+import {
+  buildCreatePanelBody,
+  buildBindingPatch,
+  buildContentPatch,
+  buildDividerPatch,
+  buildImagePatch,
+} from "../features/panels/panelPayloads";
 import { httpClient } from "./httpClient";
 
 interface PanelsResponse {
   items: Panel[];
-}
-
-interface CreatePanelRequest {
-  dashboardId: string;
-  title: string;
-  type?: PanelType;
-  // Optional type-specific config fields forwarded to the backend on create
-  metricValueLabel?: string;
-  metricUnit?: string;
-  imageUrl?: string;
-  dividerOrientation?: string;
-  appearance?: { chart?: { chartType?: string } };
-  dataTypeId?: string;
 }
 
 interface UpdatePanelAppearanceRequest {
@@ -43,26 +37,18 @@ export async function createPanel(
   typeConfig?: TypeConfig,
   dataTypeId?: string,
 ): Promise<Panel> {
-  const body: CreatePanelRequest = { dashboardId, title };
-  if (type !== undefined) body.type = type;
-  if (dataTypeId !== undefined) body.dataTypeId = dataTypeId;
-  if (typeConfig) {
-    switch (typeConfig.type) {
-      case "metric":
-        if (typeConfig.valueLabel) body.metricValueLabel = typeConfig.valueLabel;
-        if (typeConfig.unit) body.metricUnit = typeConfig.unit;
-        break;
-      case "chart":
-        if (typeConfig.chartType) body.appearance = { chart: { chartType: typeConfig.chartType } };
-        break;
-      case "image":
-        if (typeConfig.imageUrl) body.imageUrl = typeConfig.imageUrl;
-        break;
-      case "divider":
-        if (typeConfig.dividerOrientation) body.dividerOrientation = typeConfig.dividerOrientation;
-        break;
-    }
-  }
+  // CS2c-3c wire shape — `{ dashboardId, title, type, config }`. When the
+  // caller omits `type` we default to "metric" so the body still satisfies
+  // the typed-config wire (legacy callers used to omit `type` and let the
+  // backend default; the typed wire requires us to be explicit).
+  const resolvedType: PanelType = type ?? "metric";
+  const body = buildCreatePanelBody({
+    dashboardId,
+    title,
+    type: resolvedType,
+    typeConfig,
+    dataTypeId,
+  });
   const response = await httpClient.post<Panel>("/api/panels", body);
   return response.data;
 }
@@ -101,22 +87,26 @@ export async function updatePanelsBatch(
   return response.data;
 }
 
+/** PATCH a binding (metric/chart/table). The backend dispatches on the
+ *  stored panel's `type` and applies the typed-config patch — there is no
+ *  cross-type leak because the typed-config decoders are subtype-specific. */
 export async function updatePanelBinding(
   panelId: string,
   typeId: string | null,
   fieldMapping: Record<string, string> | null,
-  refreshInterval: number | null,
+  _refreshInterval: number | null,
 ): Promise<Panel> {
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
-    typeId,
-    fieldMapping,
-    refreshInterval,
-  });
+  // refreshInterval is intentionally dropped at the network boundary — the
+  // backend has no schema or column for it. The slice mirrors it into Redux
+  // state as a frontend-only optimistic update so polling keeps working.
+  const config = buildBindingPatch({ typeId, fieldMapping });
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 
 export async function updatePanelContent(panelId: string, content: string): Promise<Panel> {
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { content });
+  const config = buildContentPatch(content);
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 
@@ -125,10 +115,8 @@ export async function updatePanelImage(
   imageUrl: string,
   imageFit: ImageFit,
 ): Promise<Panel> {
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
-    imageUrl,
-    imageFit,
-  });
+  const config = buildImagePatch({ imageUrl, imageFit });
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 
@@ -138,10 +126,11 @@ export async function updatePanelDivider(
   dividerWeight: number,
   dividerColor: string | null,
 ): Promise<Panel> {
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
-    dividerOrientation,
-    dividerWeight,
-    dividerColor,
+  const config = buildDividerPatch({
+    orientation: dividerOrientation,
+    weight: dividerWeight,
+    color: dividerColor,
   });
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

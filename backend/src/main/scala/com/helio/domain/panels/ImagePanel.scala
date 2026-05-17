@@ -1,5 +1,6 @@
 package com.helio.domain.panels
 
+import com.helio.api.RequestValidation
 import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -29,6 +30,40 @@ object ImagePanelConfig {
       ImagePanelConfig(imageUrl, imageFit)
     case _ => Empty
   }
+
+  def decodeCreate(json: JsValue): ImagePanelConfig = decode(json)
+
+  /** Update patch — `imageFit` is validated against the allow-list at
+   *  decode time to surface 400s before reaching the service. */
+  final case class Patch(imageUrl: Option[String], imageFit: Option[String]) {
+    def isEmpty: Boolean = imageUrl.isEmpty && imageFit.isEmpty
+  }
+
+  object Patch {
+    val Empty: Patch = Patch(None, None)
+
+    def decode(json: JsValue): Patch = json match {
+      case JsObject(fields) =>
+        val url = fields.get("imageUrl") match {
+          case None              => None
+          case Some(JsNull)      => Some("")
+          case Some(JsString(s)) => Some(s)
+          case Some(x)           => deserializationError(s"imageUrl must be a string or null, got $x")
+        }
+        val fit = fields.get("imageFit") match {
+          case None              => None
+          case Some(JsNull)      => Some(DefaultFit)
+          case Some(JsString(s)) =>
+            RequestValidation.validateImageFit(Some(s)) match {
+              case Right(_)  => Some(s)
+              case Left(err) => deserializationError(err)
+            }
+          case Some(x)           => deserializationError(s"imageFit must be a string or null, got $x")
+        }
+        Patch(url, fit)
+      case _ => Empty
+    }
+  }
 }
 
 final case class ImagePanel(
@@ -48,6 +83,13 @@ final case class ImagePanel(
 
   def buildQuery: Option[PanelQuery] = None
   def withBindingCleared: Panel      = this
+
+  def applyPatch(patch: ImagePanelConfig.Patch): ImagePanel = copy(
+    config = ImagePanelConfig(
+      imageUrl = patch.imageUrl.getOrElse(config.imageUrl),
+      imageFit = patch.imageFit.getOrElse(config.imageFit)
+    )
+  )
 }
 
 object ImagePanel {

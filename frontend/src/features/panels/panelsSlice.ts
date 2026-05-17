@@ -1,33 +1,27 @@
-import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import {
-  createPanel as createPanelRequest,
-  deletePanel as deletePanelRequest,
-  duplicatePanel as duplicatePanelRequest,
-  fetchPanels as fetchPanelsRequest,
-  updatePanelAppearance as updatePanelAppearanceRequest,
-  updatePanelBinding as updatePanelBindingRequest,
-  updatePanelContent as updatePanelContentRequest,
-  updatePanelDivider as updatePanelDividerRequest,
-  updatePanelImage as updatePanelImageRequest,
-  updatePanelsBatch as updatePanelsBatchRequest,
-  updatePanelTitle as updatePanelTitleRequest,
-} from "../../services/panelService";
-import { fetchDataTypeRows } from "../../services/dataTypeService";
 import { duplicateDashboard, importDashboard } from "../dashboards/dashboardsSlice";
-import type { RootState } from "../../store/store";
+import { markDashboardPanelsStale } from "./panelActions";
+import {
+  createPanel,
+  deletePanel,
+  duplicatePanel,
+  fetchPanelPage,
+  fetchPanels,
+  updatePanelAppearance,
+  updatePanelBinding,
+  updatePanelContent,
+  updatePanelDivider,
+  updatePanelImage,
+  updatePanelsBatch,
+  updatePanelTitle,
+} from "./panelThunks";
 import type {
-  DividerOrientation,
-  ImageFit,
   Panel,
-  PanelAppearance,
   PanelBatchItem,
   PanelPaginationState,
-  PanelType,
   PanelUpdateFields,
-  TypeConfig,
   UpdatePanelsBatchRequest,
-  UpdatePanelsBatchResponse,
 } from "../../types/models";
 
 interface PanelsState {
@@ -51,233 +45,10 @@ const initialState: PanelsState = {
   paginationState: {},
 };
 
-export const fetchPanels = createAsyncThunk<
-  Panel[],
-  string,
-  { state: RootState; rejectValue: string }
->(
-  "panels/fetchPanels",
-  async (dashboardId, { rejectWithValue }) => {
-    try {
-      return await fetchPanelsRequest(dashboardId);
-    } catch {
-      return rejectWithValue("Failed to load panels.");
-    }
-  },
-  {
-    condition: (dashboardId, { getState }) => {
-      const { panels } = getState();
-      if (panels.status === "loading" && panels.loadedDashboardId === dashboardId) {
-        return false;
-      }
-
-      if (panels.status === "succeeded" && panels.loadedDashboardId === dashboardId) {
-        return false;
-      }
-
-      return true;
-    },
-  },
-);
-
-export const createPanel = createAsyncThunk<
-  Panel,
-  {
-    dashboardId: string;
-    title: string;
-    type?: PanelType;
-    typeConfig?: TypeConfig;
-    dataTypeId?: string;
-  },
-  { state: RootState; rejectValue: string }
->(
-  "panels/createPanel",
-  async ({ dashboardId, title, type, typeConfig, dataTypeId }, { dispatch, rejectWithValue }) => {
-    try {
-      const createdPanel = await createPanelRequest(
-        dashboardId,
-        title,
-        type,
-        typeConfig,
-        dataTypeId,
-      );
-      dispatch(markDashboardPanelsStale(dashboardId));
-      await dispatch(fetchPanels(dashboardId));
-      return createdPanel;
-    } catch {
-      return rejectWithValue("Failed to create panel.");
-    }
-  },
-);
-
-export const updatePanelTitle = createAsyncThunk<
-  Panel,
-  { panelId: string; title: string },
-  { rejectValue: string }
->("panels/updatePanelTitle", async ({ panelId, title }, { rejectWithValue }) => {
-  try {
-    return await updatePanelTitleRequest(panelId, title);
-  } catch {
-    return rejectWithValue("Failed to update panel title.");
-  }
-});
-
-export const deletePanel = createAsyncThunk<
-  string,
-  { panelId: string; dashboardId: string },
-  { rejectValue: string }
->("panels/deletePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
-  try {
-    await deletePanelRequest(panelId);
-    dispatch(markDashboardPanelsStale(dashboardId));
-    return panelId;
-  } catch {
-    return rejectWithValue("Failed to delete panel.");
-  }
-});
-
-export const duplicatePanel = createAsyncThunk<
-  Panel,
-  { panelId: string; dashboardId: string },
-  { state: RootState; rejectValue: string }
->("panels/duplicatePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
-  try {
-    const created = await duplicatePanelRequest(panelId);
-    dispatch(markDashboardPanelsStale(dashboardId));
-    await dispatch(fetchPanels(dashboardId));
-    return created;
-  } catch {
-    return rejectWithValue("Failed to duplicate panel.");
-  }
-});
-
-export const updatePanelAppearance = createAsyncThunk<
-  Panel,
-  { panelId: string; appearance: PanelAppearance },
-  { rejectValue: string }
->("panels/updatePanelAppearance", async ({ panelId, appearance }, { rejectWithValue }) => {
-  try {
-    return await updatePanelAppearanceRequest(panelId, appearance);
-  } catch {
-    return rejectWithValue("Failed to update panel appearance.");
-  }
-});
-
-export const updatePanelBinding = createAsyncThunk<
-  Panel,
-  {
-    panelId: string;
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    refreshInterval: number | null;
-  },
-  { rejectValue: string }
->(
-  "panels/updatePanelBinding",
-  async ({ panelId, typeId, fieldMapping, refreshInterval }, { rejectWithValue }) => {
-    try {
-      return await updatePanelBindingRequest(panelId, typeId, fieldMapping, refreshInterval);
-    } catch {
-      return rejectWithValue("Failed to update panel binding.");
-    }
-  },
-);
-
-export const updatePanelContent = createAsyncThunk<
-  Panel,
-  { panelId: string; content: string },
-  { rejectValue: string }
->("panels/updatePanelContent", async ({ panelId, content }, { rejectWithValue }) => {
-  try {
-    return await updatePanelContentRequest(panelId, content);
-  } catch {
-    return rejectWithValue("Failed to update panel content.");
-  }
-});
-
-export const updatePanelImage = createAsyncThunk<
-  Panel,
-  { panelId: string; imageUrl: string; imageFit: ImageFit },
-  { rejectValue: string }
->("panels/updatePanelImage", async ({ panelId, imageUrl, imageFit }, { rejectWithValue }) => {
-  try {
-    return await updatePanelImageRequest(panelId, imageUrl, imageFit);
-  } catch {
-    return rejectWithValue("Failed to update panel image.");
-  }
-});
-
-export const updatePanelDivider = createAsyncThunk<
-  Panel,
-  {
-    panelId: string;
-    dividerOrientation: DividerOrientation;
-    dividerWeight: number;
-    dividerColor: string | null;
-  },
-  { rejectValue: string }
->(
-  "panels/updatePanelDivider",
-  async ({ panelId, dividerOrientation, dividerWeight, dividerColor }, { rejectWithValue }) => {
-    try {
-      return await updatePanelDividerRequest(
-        panelId,
-        dividerOrientation,
-        dividerWeight,
-        dividerColor,
-      );
-    } catch {
-      return rejectWithValue("Failed to update divider settings.");
-    }
-  },
-);
-
-export const updatePanelsBatch = createAsyncThunk<
-  UpdatePanelsBatchResponse,
-  UpdatePanelsBatchRequest,
-  { rejectValue: string }
->("panels/updatePanelsBatch", async (request, { rejectWithValue }) => {
-  try {
-    return await updatePanelsBatchRequest(request);
-  } catch {
-    return rejectWithValue("Failed to update panels.");
-  }
-});
-
-// Panels read rows from their bound DataType (populated by pipeline runs). The
-// rows endpoint returns the full set; pagination is sliced on the client.
-export const fetchPanelPage = createAsyncThunk<
-  { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
-  { panelId: string; page: number; pageSize: number },
-  { state: RootState; rejectValue: string }
->("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { getState, rejectWithValue }) => {
-  const panel = getState().panels.items.find((p) => p.id === panelId);
-  if (!panel?.typeId) {
-    return rejectWithValue("Panel is not bound to a data type.");
-  }
-  try {
-    const { rows } = await fetchDataTypeRows(panel.typeId);
-    const start = page * pageSize;
-    const slice = rows.slice(start, start + pageSize);
-    const hasMore = start + pageSize < rows.length;
-    return { panelId, page, rows: slice, hasMore };
-  } catch {
-    return rejectWithValue("Failed to load panel data.");
-  }
-});
-
 const panelsSlice = createSlice({
   name: "panels",
   initialState,
   reducers: {
-    markDashboardPanelsStale(state, action) {
-      if (state.loadedDashboardId !== action.payload) {
-        return;
-      }
-
-      state.loadedDashboardId = null;
-      state.status = "idle";
-    },
     accumulatePanelUpdate(
       state,
       action: PayloadAction<{ panelId: string; fields: PanelUpdateFields }>,
@@ -287,8 +58,10 @@ const panelsSlice = createSlice({
         ...state.pendingPanelUpdates[panelId],
         ...fields,
       };
+      // Title / appearance / type are common to every subtype; the spread
+      // narrows correctly at runtime even though TS sees the union shape.
       state.items = state.items.map((panel) =>
-        panel.id === panelId ? { ...panel, ...fields } : panel,
+        panel.id === panelId ? ({ ...panel, ...fields } as Panel) : panel,
       );
     },
     clearPendingPanelUpdates(state) {
@@ -305,6 +78,11 @@ const panelsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(markDashboardPanelsStale, (state, action) => {
+        if (state.loadedDashboardId !== action.payload) return;
+        state.loadedDashboardId = null;
+        state.status = "idle";
+      })
       .addCase(fetchPanels.pending, (state, action) => {
         state.status = "loading";
         state.error = null;
@@ -376,7 +154,6 @@ const panelsSlice = createSlice({
         state.status = "succeeded";
         state.error = null;
       })
-      // Task 3.4 — fetchPanelPage reducers
       .addCase(fetchPanelPage.pending, (state, action) => {
         const { panelId } = action.meta.arg;
         const existing = state.paginationState[panelId];
@@ -413,13 +190,32 @@ const panelsSlice = createSlice({
 });
 
 export const {
-  markDashboardPanelsStale,
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
   resetPanelSaveState,
   resetPanelPagination,
 } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
+
+// Re-export the thunks and the cache-invalidation action so existing
+// consumers can keep importing from `panelsSlice` (the public surface stays
+// stable; the implementation now lives across `panelThunks.ts` and
+// `panelActions.ts`).
+export {
+  createPanel,
+  deletePanel,
+  duplicatePanel,
+  fetchPanelPage,
+  fetchPanels,
+  updatePanelAppearance,
+  updatePanelBinding,
+  updatePanelContent,
+  updatePanelDivider,
+  updatePanelImage,
+  updatePanelsBatch,
+  updatePanelTitle,
+} from "./panelThunks";
+export { markDashboardPanelsStale } from "./panelActions";
 
 export function buildBatchRequest(
   pending: Record<string, PanelUpdateFields>,
@@ -429,7 +225,13 @@ export function buildBatchRequest(
 
   for (const [id, fields] of Object.entries(pending)) {
     Object.keys(fields).forEach((key) => allFields.add(key));
-    panels.push({ id, ...fields });
+    // The accumulator only collects title / appearance / type; config-affecting
+    // edits flow through their own typed thunks.
+    const item: PanelBatchItem = { id };
+    if (fields.title !== undefined) item.title = fields.title;
+    if (fields.appearance !== undefined) item.appearance = fields.appearance;
+    if (fields.type !== undefined) item.type = fields.type;
+    panels.push(item);
   }
 
   return {

@@ -5,39 +5,11 @@ import { createElement } from "react";
 import { Provider } from "react-redux";
 
 import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import type { DataType, Panel } from "../types/models";
+import { makeMetricPanel } from "../test/panelFixtures";
+import type { DataType } from "../types/models";
 import { useLegacyBoundPanel } from "./useLegacyBoundPanel";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-const defaultMeta = {
-  createdBy: "system",
-  createdAt: "2026-01-01T00:00:00Z",
-  lastUpdated: "2026-01-01T00:00:00Z",
-};
-
-const defaultAppearance = { background: "transparent", color: "#ffffff", transparency: 0 };
-
-function makePanel(overrides: Partial<Panel> = {}): Panel {
-  return {
-    id: "p1",
-    dashboardId: "d1",
-    title: "Test Panel",
-    type: "metric",
-    meta: defaultMeta,
-    appearance: defaultAppearance,
-    typeId: null,
-    fieldMapping: null,
-    refreshInterval: null,
-    content: null,
-    imageUrl: null,
-    imageFit: null,
-    dividerOrientation: null,
-    dividerWeight: null,
-    dividerColor: null,
-    ...overrides,
-  } as Panel;
-}
 
 function makeDataType(overrides: Partial<DataType> = {}): DataType {
   return {
@@ -71,9 +43,9 @@ function wrapper(store: ReturnType<typeof makeStore>) {
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 describe("useLegacyBoundPanel", () => {
-  it("returns false for unbound panel (typeId null)", () => {
+  it("returns false for unbound panel (empty dataTypeId)", () => {
     const store = makeStore([makeDataType({ sourceId: "src-1" })]);
-    const panel = makePanel({ typeId: null });
+    const panel = makeMetricPanel({ config: { dataTypeId: "" } });
 
     const { result } = renderHook(() => useLegacyBoundPanel(panel), {
       wrapper: wrapper(store),
@@ -84,7 +56,7 @@ describe("useLegacyBoundPanel", () => {
 
   it("returns true for a legacy DataType (sourceId is set)", () => {
     const store = makeStore([makeDataType({ id: "dt-1", sourceId: "src-1" })]);
-    const panel = makePanel({ typeId: "dt-1" });
+    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
 
     const { result } = renderHook(() => useLegacyBoundPanel(panel), {
       wrapper: wrapper(store),
@@ -95,7 +67,7 @@ describe("useLegacyBoundPanel", () => {
 
   it("returns false for a pipeline DataType (sourceId is null)", () => {
     const store = makeStore([makeDataType({ id: "dt-1", sourceId: null })]);
-    const panel = makePanel({ typeId: "dt-1" });
+    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
 
     const { result } = renderHook(() => useLegacyBoundPanel(panel), {
       wrapper: wrapper(store),
@@ -106,7 +78,7 @@ describe("useLegacyBoundPanel", () => {
 
   it("returns false when dataTypes state is empty", () => {
     const store = makeStore([]);
-    const panel = makePanel({ typeId: "dt-1" });
+    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
 
     const { result } = renderHook(() => useLegacyBoundPanel(panel), {
       wrapper: wrapper(store),
@@ -117,7 +89,7 @@ describe("useLegacyBoundPanel", () => {
 
   it("returns false when typeId does not match any DataType in the store", () => {
     const store = makeStore([makeDataType({ id: "dt-other", sourceId: "src-1" })]);
-    const panel = makePanel({ typeId: "dt-1" });
+    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
 
     const { result } = renderHook(() => useLegacyBoundPanel(panel), {
       wrapper: wrapper(store),

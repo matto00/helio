@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 
 import { panelsReducer } from "../features/panels/panelsSlice";
 import * as dataTypeService from "../services/dataTypeService";
+import { makeMetricPanel } from "../test/panelFixtures";
 import type { Panel } from "../types/models";
 import { usePanelData } from "./usePanelData";
 
@@ -14,34 +15,6 @@ jest.mock("../services/dataTypeService");
 const mockFetchDataTypeRows = dataTypeService.fetchDataTypeRows as jest.MockedFunction<
   typeof dataTypeService.fetchDataTypeRows
 >;
-
-const defaultMeta = {
-  createdBy: "system",
-  createdAt: "2026-01-01T00:00:00Z",
-  lastUpdated: "2026-01-01T00:00:00Z",
-};
-const defaultAppearance = { background: "transparent", color: "#ffffff", transparency: 0 };
-
-function makePanel(overrides: Partial<Panel> = {}): Panel {
-  return {
-    id: "p1",
-    dashboardId: "d1",
-    title: "Test",
-    type: "metric",
-    meta: defaultMeta,
-    appearance: defaultAppearance,
-    typeId: null,
-    fieldMapping: null,
-    refreshInterval: null,
-    content: null,
-    imageUrl: null,
-    imageFit: null,
-    dividerOrientation: null,
-    dividerWeight: null,
-    dividerColor: null,
-    ...overrides,
-  } as Panel;
-}
 
 function makeStore(panel?: Panel) {
   return configureStore({
@@ -75,9 +48,9 @@ describe("usePanelData", () => {
     jest.clearAllMocks();
   });
 
-  it("returns empty result for unbound panel (no typeId)", () => {
+  it("returns empty result for unbound panel (empty dataTypeId)", () => {
     const store = makeStore();
-    const panel = makePanel({ typeId: null });
+    const panel = makeMetricPanel();
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
     expect(result.current.isLoading).toBe(false);
     expect(result.current.data).toBeNull();
@@ -92,7 +65,9 @@ describe("usePanelData", () => {
       rowCount: 1,
     });
 
-    const panel = makePanel({ type: "metric", typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+    });
     const store = makeStore(panel);
 
     renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
@@ -106,10 +81,8 @@ describe("usePanelData", () => {
       rowCount: 1,
     });
 
-    const panel = makePanel({
-      type: "metric",
-      typeId: "dt-1",
-      fieldMapping: { value: "revenue", label: "region" },
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
     });
     const store = makeStore(panel);
 
@@ -127,7 +100,9 @@ describe("usePanelData", () => {
   it("sets noData when DataType has no rows", async () => {
     mockFetchDataTypeRows.mockResolvedValue({ rows: [], rowCount: 0 });
 
-    const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+    });
     const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
@@ -141,7 +116,9 @@ describe("usePanelData", () => {
   it("sets error when fetch fails", async () => {
     mockFetchDataTypeRows.mockRejectedValue(new Error("Network error"));
 
-    const panel = makePanel({ typeId: "dt-1", fieldMapping: { value: "revenue" } });
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+    });
     const store = makeStore(panel);
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
@@ -152,7 +129,7 @@ describe("usePanelData", () => {
 
   it("exposes a refresh callback that is a function", () => {
     const store = makeStore();
-    const panel = makePanel({ typeId: null });
+    const panel = makeMetricPanel();
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
     expect(typeof result.current.refresh).toBe("function");
   });
@@ -163,9 +140,8 @@ describe("usePanelData", () => {
       rowCount: 1,
     });
 
-    const panel = makePanel({
-      typeId: "dt-1",
-      fieldMapping: { value: "revenue", label: "region" },
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
     });
     const store = makeStore(panel);
 
@@ -185,7 +161,7 @@ describe("usePanelData", () => {
 
   it("refresh callback is stable across re-renders", () => {
     const store = makeStore();
-    const panel = makePanel({ typeId: null });
+    const panel = makeMetricPanel();
     const { result, rerender } = renderHook(() => usePanelData(panel), {
       wrapper: wrapper(store),
     });

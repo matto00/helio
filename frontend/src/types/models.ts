@@ -83,81 +83,22 @@ export interface DataType {
   updatedAt: string;
 }
 
-// ── DataSource (discriminated-union ADT, CS2c-2) ─────────────────────────────
-//
-// The backend exposes 4 source kinds, each with its own typed config. The
-// wire shape carries a `type` discriminator and a per-subtype `config`
-// payload (StaticSource has no config field).
-
-export type DataSourceKind = "csv" | "rest_api" | "sql" | "static";
-
-export interface CsvSourceConfig {
-  path: string;
-}
-
-export type RestApiMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-
-export interface RestApiAuth {
-  type: "none" | "bearer" | "api_key";
-  token?: string;
-  name?: string;
-  value?: string;
-  in?: "header" | "query";
-}
-
-export interface RestApiSourceConfig {
-  url: string;
-  method?: RestApiMethod;
-  auth?: RestApiAuth;
-  headers?: Record<string, string>;
-}
-
-export interface SqlSourceConfig {
-  dialect: "postgresql" | "mysql";
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  query: string;
-}
-
-interface DataSourceBase {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CsvSource extends DataSourceBase {
-  type: "csv";
-  config: CsvSourceConfig;
-}
-
-export interface RestSource extends DataSourceBase {
-  type: "rest_api";
-  config: RestApiSourceConfig;
-}
-
-export interface SqlSource extends DataSourceBase {
-  type: "sql";
-  config: SqlSourceConfig;
-}
-
-export interface StaticSource extends DataSourceBase {
-  type: "static";
-}
-
-export type DataSource = CsvSource | RestSource | SqlSource | StaticSource;
-
-// ── Type-narrowing helpers ───────────────────────────────────────────────────
-// Used by 3+ consumers (DataSourceList, SourceDetailPanel, refresh dispatcher)
-// so we lift them out of the call sites.
-
-export const isCsvSource = (s: DataSource): s is CsvSource => s.type === "csv";
-export const isRestSource = (s: DataSource): s is RestSource => s.type === "rest_api";
-export const isSqlSource = (s: DataSource): s is SqlSource => s.type === "sql";
-export const isStaticSource = (s: DataSource): s is StaticSource => s.type === "static";
+// DataSource discriminated-union ADT lives in `./dataSource.ts`; re-exported
+// here so existing imports against `./models` keep working.
+export type {
+  CsvSource,
+  CsvSourceConfig,
+  DataSource,
+  DataSourceKind,
+  RestApiAuth,
+  RestApiMethod,
+  RestApiSourceConfig,
+  RestSource,
+  SqlSource,
+  SqlSourceConfig,
+  StaticSource,
+} from "./dataSource";
+export { isCsvSource, isRestSource, isSqlSource, isStaticSource } from "./dataSource";
 
 export interface InferredField {
   name: string;
@@ -188,11 +129,32 @@ export interface Dashboard {
   layout: DashboardLayout;
 }
 
-export type PanelType = "metric" | "chart" | "text" | "table" | "markdown" | "image" | "divider";
-
-export type ImageFit = "contain" | "cover" | "fill";
-
-export type DividerOrientation = "horizontal" | "vertical";
+// Panel discriminated union + per-subtype config types live in `./panel.ts`
+// and are re-exported below for backwards-compatibility with imports written
+// against `./models`.
+export type {
+  ChartPanel,
+  ChartPanelConfig,
+  DividerOrientation,
+  DividerPanel,
+  DividerPanelConfig,
+  ImageFit,
+  ImagePanel,
+  ImagePanelConfig,
+  MarkdownPanel,
+  MarkdownPanelConfig,
+  MetricPanel,
+  MetricPanelConfig,
+  Panel,
+  PanelConfig,
+  PanelKind,
+  PanelType,
+  TablePanel,
+  TablePanelConfig,
+  TextPanel,
+  TextPanelConfig,
+} from "./panel";
+import type { DividerOrientation, Panel, PanelKind } from "./panel";
 
 // ── Panel creation initial type-specific config ──────────────────────────────
 
@@ -208,25 +170,7 @@ export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig | 
 export interface PanelUpdateFields {
   title?: string;
   appearance?: PanelAppearance;
-  type?: PanelType;
-}
-
-export interface Panel {
-  id: string;
-  dashboardId: string;
-  title: string;
-  type: PanelType;
-  meta: ResourceMeta;
-  appearance: PanelAppearance;
-  typeId: string | null;
-  fieldMapping: Record<string, string> | null;
-  refreshInterval: number | null;
-  content: string | null;
-  imageUrl: string | null;
-  imageFit: ImageFit | null;
-  dividerOrientation: DividerOrientation | null;
-  dividerWeight: number | null;
-  dividerColor: string | null;
+  type?: PanelKind;
 }
 
 export type MappedPanelData = Record<string, string>;
@@ -236,6 +180,11 @@ export interface DuplicateDashboardResponse {
   panels: Panel[];
 }
 
+/** Snapshot entry mirrors the CS2c-3c wire shape: `type` discriminator +
+ *  typed `config`. Specific config fields are determined by `type` and match
+ *  the backend per-subtype `*PanelConfig` shapes; the FE keeps `config`
+ *  loosely typed because snapshot round-trips don't depend on subtype
+ *  narrowing on the frontend. */
 export interface DashboardSnapshotPanelEntry {
   snapshotId: string;
   title: string;
@@ -245,9 +194,7 @@ export interface DashboardSnapshotPanelEntry {
     color?: string;
     transparency?: number;
   };
-  typeId?: string | null;
-  fieldMapping?: Record<string, string> | null;
-  content?: string | null;
+  config?: Record<string, unknown>;
 }
 
 export interface DashboardSnapshotDashboardEntry {
@@ -309,11 +256,15 @@ export interface UpdateDashboardBatchRequest {
   dashboard: DashboardUpdatePayload;
 }
 
+/** Batch update entry mirrors `PATCH /api/panels/batch` wire shape:
+ *  `{ id, title?, appearance?, type?, config? }` where `config` (when
+ *  present) carries a typed patch determined by `type`. */
 export interface PanelBatchItem {
   id: string;
   title?: string;
   appearance?: PanelAppearance;
   type?: string;
+  config?: Record<string, unknown>;
 }
 
 export interface UpdatePanelsBatchRequest {
@@ -370,218 +321,47 @@ export interface PipelineRunRecord {
   errorLog: string | null;
 }
 
-// ── PipelineStep — discriminated union over `type` (CS2c-3a wire shape) ────
-//
-// Each subtype carries its own typed `config` shape — no JSON.parse /
-// JSON.stringify at consumer sites. Use the `type` discriminator to narrow
-// before accessing config fields.
-
-export interface RenameConfig {
-  renames: Record<string, string>;
-}
-export interface FilterCondition {
-  field: string;
-  operator: string;
-  value?: string | null;
-}
-export interface FilterConfig {
-  combinator: string;
-  conditions: FilterCondition[];
-}
-export interface JoinConfig {
-  rightDataSourceId: string;
-  joinKey: string;
-  joinType: string;
-}
-export interface ComputeConfig {
-  column: string;
-  expression: string;
-  type?: string | null;
-}
-export interface GroupByConfig {
-  groupBy: string[];
-  aggColumn: string;
-  aggFunction: string;
-}
-export interface CastConfig {
-  casts: Record<string, string>;
-}
-export interface SelectConfig {
-  fields: string[];
-}
-export interface LimitConfig {
-  count: number;
-}
-export interface SortKey {
-  field: string;
-  direction: string;
-}
-export interface SortConfig {
-  sortBy: SortKey[];
-}
-export interface AggregateField {
-  name: string;
-  type: string;
-}
-export interface Aggregation {
-  alias: string;
-  fn: string;
-  field: string;
-}
-export interface AggregateConfig {
-  groupBy: AggregateField[];
-  aggregations: Aggregation[];
-}
-
-interface BasePipelineStep {
-  id: string;
-  pipelineId: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RenameStep extends BasePipelineStep {
-  type: "rename";
-  config: RenameConfig;
-}
-export interface FilterStep extends BasePipelineStep {
-  type: "filter";
-  config: FilterConfig;
-}
-export interface JoinStep extends BasePipelineStep {
-  type: "join";
-  config: JoinConfig;
-}
-export interface ComputeStep extends BasePipelineStep {
-  type: "compute";
-  config: ComputeConfig;
-}
-export interface GroupByStep extends BasePipelineStep {
-  type: "groupby";
-  config: GroupByConfig;
-}
-export interface CastStep extends BasePipelineStep {
-  type: "cast";
-  config: CastConfig;
-}
-export interface SelectStep extends BasePipelineStep {
-  type: "select";
-  config: SelectConfig;
-}
-export interface LimitStep extends BasePipelineStep {
-  type: "limit";
-  config: LimitConfig;
-}
-export interface SortStep extends BasePipelineStep {
-  type: "sort";
-  config: SortConfig;
-}
-export interface AggregateStep extends BasePipelineStep {
-  type: "aggregate";
-  config: AggregateConfig;
-}
-
-export type PipelineStep =
-  | RenameStep
-  | FilterStep
-  | JoinStep
-  | ComputeStep
-  | GroupByStep
-  | CastStep
-  | SelectStep
-  | LimitStep
-  | SortStep
-  | AggregateStep;
-
-export type PipelineStepConfig =
-  | RenameConfig
-  | FilterConfig
-  | JoinConfig
-  | ComputeConfig
-  | GroupByConfig
-  | CastConfig
-  | SelectConfig
-  | LimitConfig
-  | SortConfig
-  | AggregateConfig;
-
-export type PipelineStepKind = PipelineStep["type"];
-
-// ── Pipeline analyze types ────────────────────────────────────────────────────
-
-export interface SchemaField {
-  name: string;
-  type: string;
-}
-
-interface BaseAnalyzeStep {
-  id: string;
-  position: number;
-  inputSchema: SchemaField[];
-  outputSchema: SchemaField[];
-  validationError?: string;
-}
-
-export interface RenameAnalyzeStep extends BaseAnalyzeStep {
-  type: "rename";
-  config: RenameConfig;
-}
-export interface FilterAnalyzeStep extends BaseAnalyzeStep {
-  type: "filter";
-  config: FilterConfig;
-}
-export interface JoinAnalyzeStep extends BaseAnalyzeStep {
-  type: "join";
-  config: JoinConfig;
-}
-export interface ComputeAnalyzeStep extends BaseAnalyzeStep {
-  type: "compute";
-  config: ComputeConfig;
-}
-export interface GroupByAnalyzeStep extends BaseAnalyzeStep {
-  type: "groupby";
-  config: GroupByConfig;
-}
-export interface CastAnalyzeStep extends BaseAnalyzeStep {
-  type: "cast";
-  config: CastConfig;
-}
-export interface SelectAnalyzeStep extends BaseAnalyzeStep {
-  type: "select";
-  config: SelectConfig;
-}
-export interface LimitAnalyzeStep extends BaseAnalyzeStep {
-  type: "limit";
-  config: LimitConfig;
-}
-export interface SortAnalyzeStep extends BaseAnalyzeStep {
-  type: "sort";
-  config: SortConfig;
-}
-export interface AggregateAnalyzeStep extends BaseAnalyzeStep {
-  type: "aggregate";
-  config: AggregateConfig;
-}
-
-export type AnalyzeStepResult =
-  | RenameAnalyzeStep
-  | FilterAnalyzeStep
-  | JoinAnalyzeStep
-  | ComputeAnalyzeStep
-  | GroupByAnalyzeStep
-  | CastAnalyzeStep
-  | SelectAnalyzeStep
-  | LimitAnalyzeStep
-  | SortAnalyzeStep
-  | AggregateAnalyzeStep;
-
-export interface PipelineAnalyzeResponse {
-  id: string;
-  name: string;
-  sourceDataSourceName: string;
-  outputDataTypeName: string;
-  outputDataTypeId: string;
-  sourceSchema: SchemaField[];
-  steps: AnalyzeStepResult[];
-}
+// PipelineStep + analyze types live in `./pipelineStep.ts`; re-exported here
+// so existing imports against `./models` keep working.
+export type {
+  AggregateAnalyzeStep,
+  AggregateConfig,
+  AggregateField,
+  AggregateStep,
+  Aggregation,
+  AnalyzeStepResult,
+  CastAnalyzeStep,
+  CastConfig,
+  CastStep,
+  ComputeAnalyzeStep,
+  ComputeConfig,
+  ComputeStep,
+  FilterAnalyzeStep,
+  FilterCondition,
+  FilterConfig,
+  FilterStep,
+  GroupByAnalyzeStep,
+  GroupByConfig,
+  GroupByStep,
+  JoinAnalyzeStep,
+  JoinConfig,
+  JoinStep,
+  LimitAnalyzeStep,
+  LimitConfig,
+  LimitStep,
+  PipelineAnalyzeResponse,
+  PipelineStep,
+  PipelineStepConfig,
+  PipelineStepKind,
+  RenameAnalyzeStep,
+  RenameConfig,
+  RenameStep,
+  SchemaField,
+  SelectAnalyzeStep,
+  SelectConfig,
+  SelectStep,
+  SortAnalyzeStep,
+  SortConfig,
+  SortKey,
+  SortStep,
+} from "./pipelineStep";

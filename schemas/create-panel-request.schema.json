@@ -2,27 +2,47 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/create-panel-request.schema.json",
   "title": "CreatePanelRequest",
+  "description": "Discriminated create-panel payload — `type` selects the shape of `config`. `config` is optional; an empty/absent value falls back to the subtype's defaults (codec read-path tolerance rule).",
   "type": "object",
   "required": ["dashboardId"],
   "properties": {
-    "dashboardId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "title": {
-      "type": "string",
-      "maxLength": 160
-    },
+    "dashboardId": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "maxLength": 160 },
     "type": {
       "type": "string",
       "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
     },
-    "content": {
-      "type": ["string", "null"]
-    },
-    "dataTypeId": {
-      "type": "string"
-    }
+    "config": { "type": "object" }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "metric" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/MetricConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "chart" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/ChartConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "table" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/TableConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "text" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/TextConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "markdown" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/MarkdownConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "image" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/ImageConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "divider" } }, "required": ["type"] },
+      "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/DividerConfig" } } }
+    }
+  ]
 }

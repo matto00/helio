@@ -43,19 +43,21 @@ final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: 
 
 // ── Snapshot API types ───────────────────────────────────────────────────────
 
+/** Snapshot panel entry (CS2c-3c discriminated wire shape).
+ *
+ *  Carries the panel's `type` discriminator and a typed `config` payload
+ *  whose shape is determined by `type` (mirroring [[PanelResponse]]).
+ *  Per-subtype flat fields at the entry root are gone — the importer
+ *  reconstructs the typed config via [[PanelConfigCodec.decodeCreateConfig]].
+ *
+ *  CS2c-3c also closes the pre-existing Image / Divider data-loss bug —
+ *  those subtypes' config fields now survive export → import round-trips. */
 final case class DashboardSnapshotPanelEntry(
     snapshotId: String,
     title: String,
     `type`: String,
     appearance: PanelAppearancePayload,
-    typeId: Option[String],
-    fieldMapping: Option[JsValue],
-    content: Option[String],
-    imageUrl: Option[String] = None,
-    imageFit: Option[String] = None,
-    dividerOrientation: Option[String] = None,
-    dividerWeight: Option[Int] = None,
-    dividerColor: Option[String] = None
+    config: JsValue
 )
 final case class DashboardSnapshotDashboardEntry(
     name: String,
@@ -131,14 +133,14 @@ object DashboardLayoutResponse {
 }
 
 object DashboardSnapshotPanelEntry {
-  /** Build a wide-flat snapshot entry from the typed `Panel` ADT.
+  /** Build a discriminated-wire snapshot entry from the typed `Panel` ADT.
    *
-   *  Cycle 1 of CS2c-3b keeps the snapshot wire shape unchanged: nullable
-   *  per-subtype fields at the entry root. This pattern-match is the single
-   *  integration point that CS2c-3c rewrites for the typed `config`-collapse
-   *  snapshot shape. */
-  def fromDomain(panel: Panel): DashboardSnapshotPanelEntry = {
-    val base = DashboardSnapshotPanelEntry(
+   *  CS2c-3c collapses the prior wide-flat shape to `type` + typed `config`,
+   *  delegating the per-subtype payload to [[PanelConfigCodec.encodeConfig]].
+   *  Image and Divider config fields now round-trip (closing the pre-existing
+   *  data-loss bug — the prior flat shape omitted them from the snapshot). */
+  def fromDomain(panel: Panel): DashboardSnapshotPanelEntry =
+    DashboardSnapshotPanelEntry(
       snapshotId = panel.id.value,
       title      = panel.title,
       `type`     = panel.kind,
@@ -148,45 +150,16 @@ object DashboardSnapshotPanelEntry {
         transparency = Some(panel.appearance.transparency),
         chart        = panel.appearance.chart
       ),
-      typeId       = None,
-      fieldMapping = None,
-      content      = None
+      config = PanelConfigCodec.encodeConfig(panel)
     )
+}
 
-    panel match {
-      case mp: MetricPanel =>
-        base.copy(
-          typeId       = if (mp.config.dataTypeId.value.isEmpty) None else Some(mp.config.dataTypeId.value),
-          fieldMapping = if (mp.config.fieldMapping.fields.isEmpty) None else Some(mp.config.fieldMapping)
-        )
-      case cp: ChartPanel =>
-        base.copy(
-          typeId       = if (cp.config.dataTypeId.value.isEmpty) None else Some(cp.config.dataTypeId.value),
-          fieldMapping = if (cp.config.fieldMapping.fields.isEmpty) None else Some(cp.config.fieldMapping)
-        )
-      case tp: TablePanel =>
-        base.copy(
-          typeId       = if (tp.config.dataTypeId.value.isEmpty) None else Some(tp.config.dataTypeId.value),
-          fieldMapping = if (tp.config.fieldMapping.fields.isEmpty) None else Some(tp.config.fieldMapping)
-        )
-      case t: TextPanel =>
-        base.copy(content = if (t.config.content.isEmpty) None else Some(t.config.content))
-      case m: MarkdownPanel =>
-        base.copy(content = if (m.config.content.isEmpty) None else Some(m.config.content))
-      case i: ImagePanel =>
-        base.copy(
-          imageUrl = if (i.config.imageUrl.isEmpty) None else Some(i.config.imageUrl),
-          imageFit = Some(i.config.imageFit)
-        )
-      case d: DividerPanel =>
-        base.copy(
-          dividerOrientation = Some(d.config.orientation),
-          dividerWeight      = d.config.weight,
-          dividerColor       = d.config.color
-        )
-      case _ => base
-    }
-  }
+object DashboardSnapshotPayload {
+
+  /** CS2c-3c snapshot wire version. Bumped from `1` because the panel-entry
+   *  wire shape collapsed to `type` + typed `config`. Importer rejects any
+   *  other version with HTTP 400 per design.md D3. */
+  val CurrentVersion: Int = 2
 }
 
 /** `DashboardProtocol extends PanelProtocol` is the single inter-trait
@@ -216,7 +189,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 
   // Snapshot formats
-  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat12(DashboardSnapshotPanelEntry.apply)
+  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat5(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 }
