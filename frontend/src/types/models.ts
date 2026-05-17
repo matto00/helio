@@ -106,17 +106,6 @@ export interface PanelUpdateFields {
 
 export type MappedPanelData = Record<string, string>;
 
-export interface PipelineSummary {
-  id: string;
-  name: string;
-  sourceDataSourceName: string;
-  outputDataTypeName: string;
-  outputDataTypeId?: string;
-  lastRunStatus: "succeeded" | "failed" | null;
-  lastRunAt: string | null;
-  lastRunRowCount: number | null;
-}
-
 // ── Update API types ─────────────────────────────────────────────────────────
 
 /** Batch update entry mirrors `PATCH /api/panels/batch` wire shape:
@@ -139,21 +128,6 @@ export interface UpdatePanelsBatchResponse {
   panels: Panel[];
 }
 
-export interface Pipeline {
-  id: string;
-  name: string;
-  outputDataTypeId?: string;
-}
-
-export type RunStatus = "queued" | "running" | "succeeded" | "failed";
-
-export interface RunStatusResponse {
-  runId: string;
-  status: RunStatus;
-  rows?: Record<string, unknown>[];
-  error?: string;
-}
-
 // ── Panel query pagination types ─────────────────────────────────────────────
 
 export interface PanelPaginationState {
@@ -161,16 +135,6 @@ export interface PanelPaginationState {
   hasMore: boolean;
   isLoadingMore: boolean;
   rows: Record<string, unknown>[];
-}
-
-export interface PipelineRunRecord {
-  id: string;
-  pipelineId: string;
-  status: "queued" | "running" | "succeeded" | "failed" | "dry_run";
-  startedAt: string;
-  completedAt: string | null;
-  rowCount: number | null;
-  errorLog: string | null;
 }
 
 // PipelineStep + analyze types live in `./pipelineStep.ts`; re-exported here

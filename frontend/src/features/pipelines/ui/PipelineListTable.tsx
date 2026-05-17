@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
-import type { PipelineSummary } from "../../../types/models";
+import type { PipelineSummary } from "../types/pipelineStep";
 
 interface Props {
   pipelines: PipelineSummary[];

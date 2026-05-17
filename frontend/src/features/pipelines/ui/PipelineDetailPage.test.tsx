@@ -29,7 +29,7 @@ import type {
   PipelineRunRecord,
   PipelineStep,
   PipelineSummary,
-} from "../../../types/models";
+} from "../types/pipelineStep";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),

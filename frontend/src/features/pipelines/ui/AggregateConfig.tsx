@@ -8,7 +8,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
-import type { SchemaField } from "../../../types/models";
+import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
 
 export interface AggregateGroupByField {

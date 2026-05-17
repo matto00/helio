@@ -4,7 +4,7 @@
 // Value input is hidden for unary operators (is null / is not null).
 // Value input type adapts to field type: "number" for numeric types, "text" otherwise.
 
-import type { SchemaField } from "../../../types/models";
+import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
 
 export interface FilterCondition {

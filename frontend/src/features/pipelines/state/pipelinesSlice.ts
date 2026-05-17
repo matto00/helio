@@ -17,7 +17,7 @@ import type {
   PipelineStep,
   PipelineSummary,
   RunStatus,
-} from "../../../types/models";
+} from "../types/pipelineStep";
 
 interface PipelinesState {
   items: PipelineSummary[];
