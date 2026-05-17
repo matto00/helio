@@ -1,5 +1,15 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChartLine,
+  faChartSimple,
+  faFont,
+  faImage,
+  faMinus,
+  faTable as faTableIcon,
+  faXmark,
+  type IconDefinition,
+} from "@fortawesome/free-solid-svg-icons";
+import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
 
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -15,7 +25,6 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type {
   ChartTypeConfig,
-  DividerOrientation,
   DividerTypeConfig,
   ImageTypeConfig,
   MetricTypeConfig,
@@ -23,18 +32,12 @@ import type {
   TypeConfig,
 } from "../types/panel";
 import { PanelCreationPreview } from "./PanelCreationPreview";
-import { Select, TextField } from "../../../shared/ui/index";
-
-import {
-  faChartLine,
-  faChartSimple,
-  faFont,
-  faImage,
-  faMinus,
-  faTable as faTableIcon,
-  type IconDefinition,
-} from "@fortawesome/free-solid-svg-icons";
-import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
+import { TextField } from "../../../shared/ui/index";
+import { ChartCreatorFields } from "./creators/ChartCreatorFields";
+import { DividerCreatorFields } from "./creators/DividerCreatorFields";
+import { ImageCreatorFields } from "./creators/ImageCreatorFields";
+import { MetricCreatorFields } from "./creators/MetricCreatorFields";
+import { hasNonEmptyTypeConfig } from "./creators/creatorTypes";
 
 const PANEL_TYPES: {
   value: PanelType;
@@ -88,154 +91,6 @@ const DATA_BOUND_TYPES: PanelType[] = ["metric", "chart", "text", "table"];
 function isDataBound(type: PanelType | null): boolean {
   return type !== null && (DATA_BOUND_TYPES as string[]).includes(type);
 }
-
-// ── Type-specific config helpers ─────────────────────────────────────────────
-
-/** Returns true if typeConfig has at least one non-empty value worth submitting. */
-function hasNonEmptyTypeConfig(config: TypeConfig | null): config is TypeConfig {
-  if (!config) return false;
-  switch (config.type) {
-    case "metric":
-      return !!(config.valueLabel || config.unit);
-    case "chart":
-      return !!config.chartType;
-    case "image":
-      return !!config.imageUrl;
-    case "divider":
-      return !!config.dividerOrientation;
-  }
-}
-
-// ── Per-type config field components ─────────────────────────────────────────
-
-/** 2.1 — Value label + unit inputs for metric panels. */
-function MetricConfigFields({
-  config,
-  onChange,
-}: {
-  config: MetricTypeConfig;
-  onChange: (config: MetricTypeConfig) => void;
-}) {
-  return (
-    <>
-      <div className="panel-creation-modal__field">
-        <label className="panel-creation-modal__label" htmlFor="panel-create-value-label">
-          Value label
-        </label>
-        <TextField
-          id="panel-create-value-label"
-          type="text"
-          value={config.valueLabel ?? ""}
-          onChange={(e) => onChange({ ...config, valueLabel: e.target.value || undefined })}
-          placeholder="e.g. Revenue"
-          aria-label="Value label"
-        />
-      </div>
-      <div className="panel-creation-modal__field">
-        <label className="panel-creation-modal__label" htmlFor="panel-create-unit">
-          Unit
-        </label>
-        <TextField
-          id="panel-create-unit"
-          type="text"
-          value={config.unit ?? ""}
-          onChange={(e) => onChange({ ...config, unit: e.target.value || undefined })}
-          placeholder="e.g. $, %, ms"
-          aria-label="Unit"
-        />
-      </div>
-    </>
-  );
-}
-
-/** 2.2 — Chart type selector (line / bar / pie) for chart panels. */
-function ChartTypeField({
-  config,
-  onChange,
-}: {
-  config: ChartTypeConfig;
-  onChange: (config: ChartTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-chart-type">
-        Chart type
-      </label>
-      <Select
-        ariaLabel="Chart type"
-        value={config.chartType ?? ""}
-        onChange={(v) =>
-          onChange({ ...config, chartType: v ? (v as "line" | "bar" | "pie") : undefined })
-        }
-        placeholder="Select chart type"
-        options={[
-          { value: "line", label: "Line" },
-          { value: "bar", label: "Bar" },
-          { value: "pie", label: "Pie" },
-        ]}
-      />
-    </div>
-  );
-}
-
-/** 2.3 — Image URL input for image panels. */
-function ImageConfigField({
-  config,
-  onChange,
-}: {
-  config: ImageTypeConfig;
-  onChange: (config: ImageTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-image-url">
-        Image URL
-      </label>
-      <TextField
-        id="panel-create-image-url"
-        type="url"
-        value={config.imageUrl ?? ""}
-        onChange={(e) => onChange({ ...config, imageUrl: e.target.value || undefined })}
-        placeholder="https://example.com/image.jpg"
-        aria-label="Image URL"
-      />
-    </div>
-  );
-}
-
-/** 2.4 — Orientation selector (horizontal / vertical) for divider panels. */
-function DividerConfigField({
-  config,
-  onChange,
-}: {
-  config: DividerTypeConfig;
-  onChange: (config: DividerTypeConfig) => void;
-}) {
-  return (
-    <div className="panel-creation-modal__field">
-      <label className="panel-creation-modal__label" htmlFor="panel-create-orientation">
-        Orientation
-      </label>
-      <Select
-        ariaLabel="Orientation"
-        value={config.dividerOrientation ?? ""}
-        onChange={(v) =>
-          onChange({
-            ...config,
-            dividerOrientation: v ? (v as DividerOrientation) : undefined,
-          })
-        }
-        placeholder="Select orientation"
-        options={[
-          { value: "horizontal", label: "Horizontal" },
-          { value: "vertical", label: "Vertical" },
-        ]}
-      />
-    </div>
-  );
-}
-
-// ── Modal ─────────────────────────────────────────────────────────────────────
 
 interface PanelCreationModalProps {
   onClose: () => void;
@@ -671,16 +526,19 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
               {/* 2.5 — Per-type config fields rendered below the title input. */}
               {selectedType === "metric" && (
-                <MetricConfigFields config={metricConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+                <MetricCreatorFields config={metricConfig} onChange={(cfg) => setTypeConfig(cfg)} />
               )}
               {selectedType === "chart" && (
-                <ChartTypeField config={chartConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+                <ChartCreatorFields config={chartConfig} onChange={(cfg) => setTypeConfig(cfg)} />
               )}
               {selectedType === "image" && (
-                <ImageConfigField config={imageConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+                <ImageCreatorFields config={imageConfig} onChange={(cfg) => setTypeConfig(cfg)} />
               )}
               {selectedType === "divider" && (
-                <DividerConfigField config={dividerConfig} onChange={(cfg) => setTypeConfig(cfg)} />
+                <DividerCreatorFields
+                  config={dividerConfig}
+                  onChange={(cfg) => setTypeConfig(cfg)}
+                />
               )}
 
               <InlineError error={createError} />
