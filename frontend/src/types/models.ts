@@ -158,8 +158,8 @@ export type {
   TablePanelConfig,
   TextPanel,
   TextPanelConfig,
-} from "./panel";
-import type { DividerOrientation, Panel, PanelKind } from "./panel";
+} from "../features/panels/types/panel";
+import type { DividerOrientation, Panel, PanelKind } from "../features/panels/types/panel";
 
 // ── Panel creation initial type-specific config ──────────────────────────────
 

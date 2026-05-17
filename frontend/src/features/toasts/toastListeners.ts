@@ -38,7 +38,7 @@ import {
 } from "../dashboards/state/dashboardsSlice";
 
 // Panels
-import { createPanel, deletePanel, duplicatePanel, fetchPanels } from "../panels/panelsSlice";
+import { createPanel, deletePanel, duplicatePanel, fetchPanels } from "../panels/state/panelsSlice";
 
 // Sources
 import {

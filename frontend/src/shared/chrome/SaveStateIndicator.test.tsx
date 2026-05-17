@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
-import { panelsReducer } from "../../features/panels/panelsSlice";
+import { panelsReducer } from "../../features/panels/state/panelsSlice";
 import { authReducer } from "../../features/auth/state/authSlice";
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../../features/dashboards/state/dashboardsSlice";

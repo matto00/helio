@@ -2,10 +2,10 @@ import { fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
-import { PanelDetailModal } from "../../../components/PanelDetailModal";
+import { PanelDetailModal } from "../../panels/ui/PanelDetailModal";
 import type { ComputedField, DataType } from "../../../types/models";
 
-jest.mock("../../../services/panelService", () => ({
+jest.mock("../../panels/services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn().mockResolvedValue({}),

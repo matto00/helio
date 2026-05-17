@@ -8,7 +8,7 @@ import { sourcesReducer } from "../../sources/state/sourcesSlice";
 import { authReducer } from "../../auth/state/authSlice";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../layout/layoutHistorySlice";
-import { panelsReducer } from "../../panels/panelsSlice";
+import { panelsReducer } from "../../panels/state/panelsSlice";
 import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
 import { pipelinesReducer } from "../state/pipelinesSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";

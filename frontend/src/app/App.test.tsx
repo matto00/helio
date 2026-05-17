@@ -7,7 +7,7 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
-import { panelsReducer } from "../features/panels/panelsSlice";
+import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/toastsSlice";
@@ -19,7 +19,7 @@ import {
 import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
-} from "../services/panelService";
+} from "../features/panels/services/panelService";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeMetricPanel } from "../test/panelFixtures";
@@ -31,7 +31,7 @@ jest.mock("../features/dashboards/services/dashboardService", () => ({
   updateDashboardLayout: jest.fn(),
 }));
 
-jest.mock("../services/panelService", () => ({
+jest.mock("../features/panels/services/panelService", () => ({
   fetchPanels: jest.fn(),
   updatePanelAppearance: jest.fn(),
   updatePanelBinding: jest.fn(),

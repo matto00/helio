@@ -22,7 +22,7 @@ import "./App.css";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SidebarBody } from "../shared/chrome/SidebarBody";
-import { PanelList } from "../components/PanelList";
+import { PanelList } from "../features/panels/ui/PanelList";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
@@ -47,7 +47,7 @@ import {
   selectUndoLayout,
   undoLayout,
 } from "../features/layout/layoutHistorySlice";
-import { fetchPanels } from "../features/panels/panelsSlice";
+import { fetchPanels } from "../features/panels/state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";

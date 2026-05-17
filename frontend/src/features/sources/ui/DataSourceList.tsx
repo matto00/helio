@@ -5,7 +5,7 @@ import { deleteSource, fetchSources, updateSource } from "../state/sourcesSlice"
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
-import { getDataTypeId } from "../../panels/panelNarrowing";
+import { getDataTypeId } from "../../panels/state/panelNarrowing";
 import type { DataSourceKind } from "../../../types/models";
 
 interface DataSourceListProps {
