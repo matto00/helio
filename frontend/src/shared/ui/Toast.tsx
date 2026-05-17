@@ -9,11 +9,11 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
-import { dismissToast } from "../../features/toasts/toastsSlice";
+import { dismissToast } from "../../features/toasts/state/toastsSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import "./toast.css";
 
-import type { Toast as ToastData } from "../../features/toasts/toastsSlice";
+import type { Toast as ToastData } from "../../features/toasts/state/toastsSlice";
 
 const DEFAULT_DURATION = 4000;
 

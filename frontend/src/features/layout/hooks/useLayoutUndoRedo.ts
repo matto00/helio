@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 
-import { setDashboardLayoutLocally } from "../features/dashboards/state/dashboardsSlice";
+import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
 import {
   redoLayout,
   selectRedoLayout,
   selectUndoLayout,
   undoLayout,
-} from "../features/layout/layoutHistorySlice";
-import { useAppDispatch, useAppSelector } from "./reduxHooks";
+} from "../state/layoutHistorySlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
 function isEditableFocused(): boolean {
   const el = document.activeElement;

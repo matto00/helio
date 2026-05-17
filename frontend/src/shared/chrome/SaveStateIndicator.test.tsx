@@ -7,7 +7,7 @@ import { panelsReducer } from "../../features/panels/state/panelsSlice";
 import { authReducer } from "../../features/auth/state/authSlice";
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../../features/dashboards/state/dashboardsSlice";
-import { layoutHistoryReducer } from "../../features/layout/layoutHistorySlice";
+import { layoutHistoryReducer } from "../../features/layout/state/layoutHistorySlice";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { SaveStateIndicator } from "./SaveStateIndicator";

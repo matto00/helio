@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import type { RootState } from "../../store/store";
-import type { DashboardLayout } from "../../types/models";
+import type { RootState } from "../../../store/store";
+import type { DashboardLayout } from "../../../types/models";
 
 const MAX_HISTORY_DEPTH = 50;
 

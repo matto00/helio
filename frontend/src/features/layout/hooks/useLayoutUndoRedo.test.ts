@@ -4,9 +4,9 @@ import type { PropsWithChildren } from "react";
 import { createElement } from "react";
 import { Provider } from "react-redux";
 
-import { dashboardsReducer, fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
-import { layoutHistoryReducer, pushLayoutSnapshot } from "../features/layout/layoutHistorySlice";
-import type { DashboardLayout } from "../types/models";
+import { dashboardsReducer, fetchDashboards } from "../../dashboards/state/dashboardsSlice";
+import { layoutHistoryReducer, pushLayoutSnapshot } from "../state/layoutHistorySlice";
+import type { DashboardLayout } from "../../../types/models";
 import { useLayoutUndoRedo } from "./useLayoutUndoRedo";
 
 const defaultMeta = {

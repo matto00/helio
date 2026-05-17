@@ -26,7 +26,7 @@
  *     fetchPipelines, fetchPipeline, fetchPipelineSteps, fetchPipelineRunHistory
  */
 
-import type { AppStartListening } from "../../store/listenerMiddleware";
+import type { AppStartListening } from "../../../store/listenerMiddleware";
 import { pushToast } from "./toastsSlice";
 
 // Dashboards
@@ -35,10 +35,15 @@ import {
   deleteDashboard,
   duplicateDashboard,
   importDashboard,
-} from "../dashboards/state/dashboardsSlice";
+} from "../../dashboards/state/dashboardsSlice";
 
 // Panels
-import { createPanel, deletePanel, duplicatePanel, fetchPanels } from "../panels/state/panelsSlice";
+import {
+  createPanel,
+  deletePanel,
+  duplicatePanel,
+  fetchPanels,
+} from "../../panels/state/panelsSlice";
 
 // Sources
 import {
@@ -46,17 +51,17 @@ import {
   createStaticSource,
   deleteSource,
   inferSqlSource,
-} from "../sources/state/sourcesSlice";
+} from "../../sources/state/sourcesSlice";
 
 // DataTypes
-import { deleteDataType } from "../dataTypes/state/dataTypesSlice";
+import { deleteDataType } from "../../dataTypes/state/dataTypesSlice";
 
 // Pipelines
 import {
   createPipeline,
   deletePipeline,
   submitPipelineRun,
-} from "../pipelines/state/pipelinesSlice";
+} from "../../pipelines/state/pipelinesSlice";
 
 export function addToastListeners(startListening: AppStartListening) {
   // ── Dashboards ──────────────────────────────────────────────────────────

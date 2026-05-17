@@ -46,10 +46,10 @@ import {
   selectRedoLayout,
   selectUndoLayout,
   undoLayout,
-} from "../features/layout/layoutHistorySlice";
+} from "../features/layout/state/layoutHistorySlice";
 import { fetchPanels } from "../features/panels/state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
+import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";

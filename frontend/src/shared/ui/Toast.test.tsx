@@ -3,7 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import type { PropsWithChildren } from "react";
 import { Provider } from "react-redux";
 
-import { pushToast, toastsReducer } from "../../features/toasts/toastsSlice";
+import { pushToast, toastsReducer } from "../../features/toasts/state/toastsSlice";
 import { ToastViewport } from "./Toast";
 
 // Minimal store for toast tests — avoids full app store complexity.

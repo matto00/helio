@@ -3,13 +3,13 @@ import { configureStore } from "@reduxjs/toolkit";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
-import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
+import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
-import { toastsReducer } from "../features/toasts/toastsSlice";
+import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
-import { addToastListeners } from "../features/toasts/toastListeners";
+import { addToastListeners } from "../features/toasts/state/toastListeners";
 
 // Register all toast listeners before the store is finalised.
 addToastListeners(startAppListening);
