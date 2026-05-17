@@ -10,7 +10,7 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
-import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, RestApiConnector}
+import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
 import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
@@ -51,7 +51,8 @@ final class ApiRoutes(
     ResourceType("dashboard",   id => dashboardRepo.findById(DashboardId(id)).map(_.map(_.ownerId.value))),
     ResourceType("panel",       id => panelRepo.findById(PanelId(id)).map(_.map(_.ownerId.value))),
     ResourceType("data-source", id => dataSourceRepo.findById(DataSourceId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("data-type",   id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value)))
+    ResourceType("data-type",   id => dataTypeRepo.findById(DataTypeId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
   )
 
   private val authDirectives = new AuthDirectives(userSessionRepo)
