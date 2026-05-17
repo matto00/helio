@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-import "../components/SourcesPage.css";
-import { fetchDataTypes } from "../features/dataTypes/dataTypesSlice";
-import { fetchSources } from "../features/sources/sourcesSlice";
+import "../features/sources/ui/SourcesPage.css";
+import { fetchDataTypes } from "../features/dataTypes/state/dataTypesSlice";
+import { fetchSources } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { AddSourceModal } from "../components/AddSourceModal";
-import { DataSourceList } from "../components/DataSourceList";
+import { AddSourceModal } from "../features/sources/ui/AddSourceModal";
+import { DataSourceList } from "../features/sources/ui/DataSourceList";
 
 export function DataSourcesPage() {
   const dispatch = useAppDispatch();

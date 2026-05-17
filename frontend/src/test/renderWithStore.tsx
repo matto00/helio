@@ -4,16 +4,16 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
-import { defaultDashboardLayout } from "../features/dashboards/dashboardLayout";
-import { authReducer } from "../features/auth/authSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
-import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
-import { panelsReducer } from "../features/panels/panelsSlice";
-import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
-import { sourcesReducer } from "../features/sources/sourcesSlice";
-import { toastsReducer } from "../features/toasts/toastsSlice";
-import { OverlayProvider } from "../components/OverlayProvider";
+import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
+import { authReducer } from "../features/auth/state/authSlice";
+import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
+import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
+import { panelsReducer } from "../features/panels/state/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { toastsReducer } from "../features/toasts/state/toastsSlice";
+import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type {

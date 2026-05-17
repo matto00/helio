@@ -1,0 +1,106 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { User } from "../../../types/models";
+import { UserMenu } from "./UserMenu";
+
+const baseUser: User = {
+  id: "user-1",
+  email: "test@example.com",
+  displayName: "Test User",
+  avatarUrl: null,
+  createdAt: "2026-01-01T00:00:00Z",
+};
+
+function renderMenu(overrides: Partial<User> = {}) {
+  const user: User = { ...baseUser, ...overrides };
+  const toggleTheme = jest.fn();
+  const onLogout = jest.fn();
+  const setAccentColor = jest.fn();
+  const utils = render(
+    <UserMenu
+      currentUser={user}
+      theme="dark"
+      toggleTheme={toggleTheme}
+      accentColor="#f97316"
+      setAccentColor={setAccentColor}
+      onLogout={onLogout}
+    />,
+  );
+  return { ...utils, toggleTheme, onLogout, setAccentColor };
+}
+
+describe("UserMenu", () => {
+  it("trigger click opens popover", () => {
+    renderMenu();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("Escape key closes popover and returns focus to trigger", () => {
+    renderMenu();
+    const trigger = screen.getByRole("button", { name: "User menu" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("click-outside closes popover", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("renders avatar image when avatarUrl is non-null", () => {
+    renderMenu({ avatarUrl: "https://example.com/avatar.png" });
+    // Alt is empty (presentational) so the avatar doesn't show literal text
+    // when the URL is broken — verify the img by class + src instead.
+    const img = document.querySelector("img.user-menu__avatar") as HTMLImageElement | null;
+    expect(img).not.toBeNull();
+    expect(img?.src).toBe("https://example.com/avatar.png");
+  });
+
+  it("renders initials fallback when avatarUrl is null", () => {
+    renderMenu({ avatarUrl: null, displayName: "Test User" });
+    // The initials span is aria-hidden, so query by class
+    const trigger = screen.getByRole("button", { name: "User menu" });
+    const initials = trigger.querySelector(".user-menu__initials");
+    expect(initials).toBeInTheDocument();
+    expect(initials?.textContent).toBe("T");
+  });
+
+  it("shows display name in popover when displayName is set", () => {
+    renderMenu({ displayName: "Test User" });
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByText("Test User")).toBeInTheDocument();
+  });
+
+  it("shows email as display name fallback when displayName is null", () => {
+    renderMenu({ displayName: null });
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByText("test@example.com")).toBeInTheDocument();
+  });
+
+  it("calls toggleTheme when theme toggle is clicked inside popover", () => {
+    const { toggleTheme } = renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Switch to light theme" }));
+    expect(toggleTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onLogout when sign-out is clicked inside popover", () => {
+    const { onLogout } = renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders accent color picker inside popover", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByText("Accent color")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Accent color presets" })).toBeInTheDocument();
+  });
+});

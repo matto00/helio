@@ -3,50 +3,50 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
-import { authReducer } from "../features/auth/authSlice";
-import { dataTypesReducer } from "../features/dataTypes/dataTypesSlice";
-import { dashboardsReducer } from "../features/dashboards/dashboardsSlice";
-import { layoutHistoryReducer } from "../features/layout/layoutHistorySlice";
-import { panelsReducer } from "../features/panels/panelsSlice";
-import { pipelinesReducer } from "../features/pipelines/pipelinesSlice";
-import { sourcesReducer } from "../features/sources/sourcesSlice";
-import { toastsReducer } from "../features/toasts/toastsSlice";
+import { authReducer } from "../features/auth/state/authSlice";
+import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
+import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
+import { panelsReducer } from "../features/panels/state/panelsSlice";
+import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
-} from "../services/dashboardService";
+} from "../features/dashboards/services/dashboardService";
 import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
-} from "../services/panelService";
-import { OverlayProvider } from "../components/OverlayProvider";
+} from "../features/panels/services/panelService";
+import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeMetricPanel } from "../test/panelFixtures";
 import { App } from "./App";
 
-jest.mock("../services/dashboardService", () => ({
+jest.mock("../features/dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
   updateDashboardAppearance: jest.fn(),
   updateDashboardLayout: jest.fn(),
 }));
 
-jest.mock("../services/panelService", () => ({
+jest.mock("../features/panels/services/panelService", () => ({
   fetchPanels: jest.fn(),
   updatePanelAppearance: jest.fn(),
   updatePanelBinding: jest.fn(),
   updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
 
-jest.mock("../services/dataTypeService", () => ({
+jest.mock("../features/dataTypes/services/dataTypeService", () => ({
   fetchDataTypes: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock("../services/pipelineService", () => ({
+jest.mock("../features/pipelines/services/pipelineService", () => ({
   getPipelines: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock("../services/authService", () => ({
+jest.mock("../features/auth/services/authService", () => ({
   getMeRequest: jest.fn().mockResolvedValue({
     id: "test-user",
     email: "test@example.com",

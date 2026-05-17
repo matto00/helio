@@ -19,23 +19,26 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
-import { DashboardAppearanceEditor } from "../components/DashboardAppearanceEditor";
-import { OrbitMark } from "../components/OrbitMark";
-import { SidebarBody } from "../components/SidebarBody";
-import { PanelList } from "../components/PanelList";
-import { ProtectedRoute } from "../components/ProtectedRoute";
-import { PublicOnlyRoute } from "../components/PublicOnlyRoute";
-import { SaveStateIndicator } from "../components/SaveStateIndicator";
-import { PipelineDetailPage } from "../components/PipelineDetailPage";
-import { PipelinesPage } from "../components/PipelinesPage";
-import { SourcesPage } from "../components/SourcesPage";
-import { TypeRegistryPage } from "../components/TypeRegistryPage";
-import { UserMenu } from "../components/UserMenu";
-import { logout, rehydrateAuth } from "../features/auth/authSlice";
-import { LoginPage } from "../features/auth/LoginPage";
-import { OAuthCallbackPage } from "../features/auth/OAuthCallbackPage";
-import { RegisterPage } from "../features/auth/RegisterPage";
-import { fetchDashboards, setDashboardLayoutLocally } from "../features/dashboards/dashboardsSlice";
+import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
+import { OrbitMark } from "../shared/chrome/OrbitMark";
+import { SidebarBody } from "../shared/chrome/SidebarBody";
+import { PanelList } from "../features/panels/ui/PanelList";
+import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
+import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
+import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
+import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage";
+import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
+import { SourcesPage } from "../features/sources/ui/SourcesPage";
+import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
+import { UserMenu } from "../features/auth/ui/UserMenu";
+import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
+import { LoginPage } from "../features/auth/ui/LoginPage";
+import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
+import { RegisterPage } from "../features/auth/ui/RegisterPage";
+import {
+  fetchDashboards,
+  setDashboardLayoutLocally,
+} from "../features/dashboards/state/dashboardsSlice";
 import {
   redoLayout,
   selectCanRedo,
@@ -43,14 +46,14 @@ import {
   selectRedoLayout,
   selectUndoLayout,
   undoLayout,
-} from "../features/layout/layoutHistorySlice";
-import { fetchPanels } from "../features/panels/panelsSlice";
+} from "../features/layout/state/layoutHistorySlice";
+import { fetchPanels } from "../features/panels/state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
-import { useLayoutUndoRedo } from "../hooks/useLayoutUndoRedo";
+import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
 import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
-import { ToastViewport } from "../components/ui/Toast";
+import { ToastViewport } from "../shared/ui/Toast";
 
 function breadcrumbLabel(pathname: string): string {
   if (pathname === "/") return "Dashboards";

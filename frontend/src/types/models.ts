@@ -97,8 +97,13 @@ export type {
   SqlSource,
   SqlSourceConfig,
   StaticSource,
-} from "./dataSource";
-export { isCsvSource, isRestSource, isSqlSource, isStaticSource } from "./dataSource";
+} from "../features/sources/types/dataSource";
+export {
+  isCsvSource,
+  isRestSource,
+  isSqlSource,
+  isStaticSource,
+} from "../features/sources/types/dataSource";
 
 export interface InferredField {
   name: string;
@@ -153,8 +158,8 @@ export type {
   TablePanelConfig,
   TextPanel,
   TextPanelConfig,
-} from "./panel";
-import type { DividerOrientation, Panel, PanelKind } from "./panel";
+} from "../features/panels/types/panel";
+import type { DividerOrientation, Panel, PanelKind } from "../features/panels/types/panel";
 
 // ── Panel creation initial type-specific config ──────────────────────────────
 
@@ -364,4 +369,4 @@ export type {
   SortConfig,
   SortKey,
   SortStep,
-} from "./pipelineStep";
+} from "../features/pipelines/types/pipelineStep";
