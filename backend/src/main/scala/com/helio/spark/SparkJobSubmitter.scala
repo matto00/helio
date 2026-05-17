@@ -65,9 +65,14 @@ class SparkJobSubmitter(
     val startedAt = Instant.now()
     cache.put(runIdStr, RunStatus.Queued)
 
+    // HEL-265 CS2: the background Spark driver runs outside the request-bound
+    // user context. The pipeline ACL was already checked at submit time by
+    // `PipelineRunService.submit` (owner-scoped `pipelineRepo.findById`);
+    // these post-execution writes use the explicit `*Internal` variants the
+    // repos expose for this exact privileged-driver use case.
     if (pipelineRunRepo != null) {
-      pipelineRunRepo.insertRun(runId, pipeline.id, startedAt)
-      pipelineRunRepo.deleteOldRuns(pipeline.id)
+      pipelineRunRepo.insertRunInternal(runId, pipeline.id, startedAt)
+      pipelineRunRepo.deleteOldRunsInternal(pipeline.id)
     }
 
     Future {
@@ -79,18 +84,18 @@ class SparkJobSubmitter(
           val rows     = collectRows(resultDf)
           val now      = Instant.now()
           cache.update(runIdStr, RunStatus.Succeeded, rows = Some(rows))
-          pipelineRepo.updateLastRun(pipeline.id, RunStatus.Succeeded, now)
+          pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Succeeded, now)
           if (pipelineRunRepo != null) {
-            pipelineRunRepo.updateRunTerminal(runId, RunStatus.Succeeded, now, rowCount = Some(rows.size))
+            pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Succeeded, now, rowCount = Some(rows.size))
           }
         } catch {
           case ex: Throwable =>
             val now      = Instant.now()
             val errorMsg = Option(ex.getMessage).getOrElse(ex.getClass.getName)
             cache.update(runIdStr, RunStatus.Failed, error = Some(errorMsg))
-            pipelineRepo.updateLastRun(pipeline.id, RunStatus.Failed, now)
+            pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Failed, now)
             if (pipelineRunRepo != null) {
-              pipelineRunRepo.updateRunTerminal(runId, RunStatus.Failed, now, errorLog = Some(errorMsg))
+              pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Failed, now, errorLog = Some(errorMsg))
             }
         }
       }

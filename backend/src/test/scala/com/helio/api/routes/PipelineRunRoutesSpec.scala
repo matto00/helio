@@ -127,23 +127,26 @@ class PipelineRunRoutesSpec
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
 
+  private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+
   /** Compose the 4 CS2c-3a run route files into a single route for testing. */
   private def makeRoutes(
       cache: PipelineRunCache,
       runRepo: PipelineRunRepository = null,
       dtRepo: DataTypeRepository = null,
       rowRepo: DataTypeRowRepository = null,
-      registry: PipelineRunRegistry = null
+      registry: PipelineRunRegistry = null,
+      user: AuthenticatedUser = dummyUser
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem
     )
     concat(
-      new PipelineRunSubmitRoutes(service).routes,
-      new PipelineRunStatusRoutes(service).routes,
-      new PipelineRunHistoryRoutes(service).routes,
-      new PipelineRunStreamRoutes(service).routes
+      new PipelineRunSubmitRoutes(service, user).routes,
+      new PipelineRunStatusRoutes(service, user).routes,
+      new PipelineRunHistoryRoutes(service, user).routes,
+      new PipelineRunStreamRoutes(service, user).routes
     )
   }
 
@@ -234,8 +237,8 @@ class PipelineRunRoutesSpec
       val dsId  = seedDs("static")
       val pid   = seedPipeline(dsId)
       val runId = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertRun(runId, pid, Instant.now()))
-      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(5)))
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(5), errorLog = None, dummyUser))
 
       Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
@@ -285,7 +288,7 @@ class PipelineRunRoutesSpec
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("succeeded")
-      val pipeline = await(pipelineRepo.findById(pid)).get
+      val pipeline = await(pipelineRepo.findById(pid, dummyUser)).get
       val dt = await(dtRepo.findById(pipeline.outputDataTypeId)).get
       dt.fields.map(_.name) should contain allOf ("name", "score")
     }
@@ -355,7 +358,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs should have size 1
       runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "succeeded"
@@ -372,7 +375,7 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs should have size 1
       runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "failed"
@@ -389,7 +392,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val runs = await(pipelineRunRepo.listByPipeline(pid))
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs should have size 1
       runs.head.pipelineId  shouldBe pid.value
       runs.head.status      shouldBe "dry_run"

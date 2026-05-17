@@ -281,10 +281,10 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           await(submitterWithRepo.submit(pip, ds, Seq.empty, cache))
           // Give the Spark future a moment to run
           Thread.sleep(3000)
-          val found = await(pipelineRepoForSubmit.findById(PipelineId(pid)))
+          val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Succeeded)
           // Verify run record was persisted
-          val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid)))
+          val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))))
           runs should have size 1
           runs.head.status   shouldBe RunStatus.Succeeded
           runs.head.rowCount shouldBe Some(1)
@@ -315,10 +315,10 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           val cache = new PipelineRunCache()
           await(submitterWithRepo.submit(pip, ds, Seq(badStep), cache))
           Thread.sleep(3000)
-          val found = await(pipelineRepoForSubmit.findById(PipelineId(pid)))
+          val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Failed)
           // Verify run record was persisted with error
-          val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid)))
+          val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))))
           runs should have size 1
           runs.head.status   shouldBe RunStatus.Failed
           runs.head.errorLog shouldBe defined

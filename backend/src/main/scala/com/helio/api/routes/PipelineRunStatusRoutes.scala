@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.{IdParsing, RunStatusResponse}
+import com.helio.domain.AuthenticatedUser
 import com.helio.services.PipelineRunService
 
 import scala.concurrent.ExecutionContext
@@ -14,7 +15,7 @@ import scala.concurrent.ExecutionContext
  *  - `GET /api/pipelines/:id/runs/:runId` — cached run status / result
  *  - `GET /api/pipelines/:id/steps/:stepId/preview` — single-step preview tray
  */
-final class PipelineRunStatusRoutes(runService: PipelineRunService)(implicit ec: ExecutionContext)
+final class PipelineRunStatusRoutes(runService: PipelineRunService, user: AuthenticatedUser)(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
   import IdParsing.PipelineIdSegment
@@ -40,7 +41,7 @@ final class PipelineRunStatusRoutes(runService: PipelineRunService)(implicit ec:
         },
         path("steps" / Segment / "preview") { stepId =>
           get {
-            ServiceResponse.run(runService.previewStep(pipelineId, stepId))(identity)
+            ServiceResponse.run(runService.previewStep(pipelineId, stepId, user))(identity)
           }
         }
       )

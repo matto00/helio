@@ -5,6 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.domain.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.api.protocols.{
   CastStepResponse,
@@ -79,10 +80,12 @@ class PipelineStepRoutesSpec
     pid
   }
 
+  private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+
   private def routes: Route = {
     implicit val ec: ExecutionContext = typedSystem.executionContext
     val service = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
-    new PipelineStepRoutes(service).routes
+    new PipelineStepRoutes(service, dummyUser).routes
   }
 
   // ── Request body helpers (CS2c-3a discriminated-union shape) ─────────────

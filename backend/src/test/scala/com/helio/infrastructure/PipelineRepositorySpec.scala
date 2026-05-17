@@ -1,7 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
-import com.helio.domain.{DataSourceId, PipelineId, UserId}
+import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -41,6 +41,8 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
+  private val systemUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+
   /** Seed a data source and pipeline, returning the pipeline id. */
   private def seedPipeline(): PipelineId = {
     import PostgresProfile.api._
@@ -67,9 +69,9 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "set lastRunStatus to succeeded and lastRunAt to the given instant" in {
       val pid = seedPipeline()
       val at  = Instant.now().truncatedTo(temporal.ChronoUnit.MILLIS)
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser))
 
-      val found = await(pipelineRepo.findById(pid))
+      val found = await(pipelineRepo.findById(pid, systemUser))
       found shouldBe defined
       found.get.lastRunStatus shouldBe Some("succeeded")
       found.get.lastRunAt     shouldBe defined
@@ -78,18 +80,18 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "set lastRunStatus to failed" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "failed", at))
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser))
 
-      val found = await(pipelineRepo.findById(pid))
+      val found = await(pipelineRepo.findById(pid, systemUser))
       found.get.lastRunStatus shouldBe Some("failed")
     }
 
     "reflect updated status in listSummaries" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser))
 
-      val summaries = await(pipelineRepo.listSummaries())
+      val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunStatus shouldBe Some("succeeded")
@@ -99,9 +101,9 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "persist lastRunRowCount when provided and reflect it in listSummaries" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L)))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L), systemUser))
 
-      val summaries = await(pipelineRepo.listSummaries())
+      val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunRowCount shouldBe Some(1234L)
@@ -110,9 +112,9 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "leave lastRunRowCount as None when no rowCount is provided" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None))
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser))
 
-      val summaries = await(pipelineRepo.listSummaries())
+      val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunRowCount shouldBe None
@@ -121,7 +123,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "return lastRunRowCount = None for a pipeline that has never been run" in {
       val pid = seedPipeline()
 
-      val summaries = await(pipelineRepo.listSummaries())
+      val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
       summary shouldBe defined
       summary.get.lastRunStatus   shouldBe None
@@ -163,7 +165,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
         name               = "owned-pipeline",
         sourceDataSourceId = DataSourceId(dsId),
         outputDataTypeName = "owned-dt",
-        ownerId            = UserId(customOwner)
+        user               = AuthenticatedUser(UserId(customOwner))
       ))
       result.isRight shouldBe true
       val summary = result.toOption.get
@@ -206,6 +208,95 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       )
       val ownerOpt = await(resolver.ownerResolver(UUID.randomUUID().toString))
       ownerOpt shouldBe None
+    }
+  }
+
+  // ── HEL-265 CS2: cross-user ACL enforcement ──────────────────────────────
+  //
+  // Seeds a pipeline owned by `systemUser` and asserts that a different
+  // authenticated user gets `None` / no-op back from every owner-scoped
+  // method on the repo. The privileged `findByIdInternal` variant is the
+  // documented escape hatch and still sees the row.
+
+  "PipelineRepository cross-user ACL (CS2)" should {
+
+    val otherUser = AuthenticatedUser(UserId(UUID.randomUUID().toString))
+
+    "findById returns None for a non-owner" in {
+      val pid = seedPipeline()
+      await(pipelineRepo.findById(pid, otherUser)) shouldBe None
+      await(pipelineRepo.findById(pid, systemUser)) shouldBe defined
+    }
+
+    "findSummaryById returns None for a non-owner" in {
+      val pid = seedPipeline()
+      await(pipelineRepo.findSummaryById(pid, otherUser)) shouldBe None
+      await(pipelineRepo.findSummaryById(pid, systemUser)) shouldBe defined
+    }
+
+    "exists returns false for a non-owner" in {
+      val pid = seedPipeline()
+      await(pipelineRepo.exists(pid, otherUser)) shouldBe false
+      await(pipelineRepo.exists(pid, systemUser)) shouldBe true
+    }
+
+    "listSummaries does not include another user's pipelines" in {
+      val pid = seedPipeline()
+      val summariesOther = await(pipelineRepo.listSummaries(otherUser))
+      summariesOther.exists(_.id == pid.value) shouldBe false
+      val summariesOwner = await(pipelineRepo.listSummaries(systemUser))
+      summariesOwner.exists(_.id == pid.value) shouldBe true
+    }
+
+    "updateName returns None and does not mutate for a non-owner" in {
+      val pid    = seedPipeline()
+      val before = await(pipelineRepo.findById(pid, systemUser)).get.name
+      await(pipelineRepo.updateName(pid, "hijacked", otherUser)) shouldBe None
+      val after  = await(pipelineRepo.findById(pid, systemUser)).get.name
+      after shouldBe before
+    }
+
+    "delete returns false and does not remove the row for a non-owner" in {
+      val pid = seedPipeline()
+      await(pipelineRepo.delete(pid, otherUser)) shouldBe false
+      await(pipelineRepo.findById(pid, systemUser)) shouldBe defined
+    }
+
+    "updateLastRun is a silent no-op for a non-owner" in {
+      val pid = seedPipeline()
+      val at  = Instant.now()
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(99L), otherUser))
+      val found = await(pipelineRepo.findByIdInternal(pid)).get
+      found.lastRunStatus shouldBe None
+    }
+
+    "findByIdInternal still sees the row regardless of caller (privileged escape hatch)" in {
+      val pid = seedPipeline()
+      await(pipelineRepo.findByIdInternal(pid)) shouldBe defined
+    }
+
+    "create rejects a source data source the caller does not own" in {
+      import PostgresProfile.api._
+      val ownerA  = UUID.randomUUID().toString
+      val ownerB  = UUID.randomUUID().toString
+      val dsId    = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+                 VALUES ($ownerA::uuid, ${s"a-$ownerA@helio.test"}, now())""",
+        sqlu"""INSERT INTO users (id, email, created_at)
+                 VALUES ($ownerB::uuid, ${s"b-$ownerB@helio.test"}, now())""",
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds-owned-by-a', 'static',
+                         '{"columns":[],"rows":[]}', $ownerA::uuid, now(), now())"""
+      )))
+      val result = await(pipelineRepo.create(
+        name               = "hijack-attempt",
+        sourceDataSourceId = DataSourceId(dsId),
+        outputDataTypeName = "dt",
+        user               = AuthenticatedUser(UserId(ownerB))
+      ))
+      result shouldBe Left("Data source not found")
     }
   }
 }

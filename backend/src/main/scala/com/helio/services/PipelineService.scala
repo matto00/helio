@@ -61,11 +61,11 @@ final class PipelineService(
 
   // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 
-  def listSummaries(): Future[Vector[PipelineSummaryResponse]] =
-    pipelineRepo.listSummaries().map(_.map(toSummaryResponse))
+  def listSummaries(user: AuthenticatedUser): Future[Vector[PipelineSummaryResponse]] =
+    pipelineRepo.listSummaries(user).map(_.map(toSummaryResponse))
 
-  def findSummaryById(pipelineId: PipelineId): Future[Either[ServiceError, PipelineSummaryResponse]] =
-    pipelineRepo.findSummaryById(pipelineId).map {
+  def findSummaryById(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =
+    pipelineRepo.findSummaryById(pipelineId, user).map {
       case Some(summary) => Right(toSummaryResponse(summary))
       case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
@@ -78,24 +78,24 @@ final class PipelineService(
     else if (req.outputDataTypeName.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("outputDataTypeName is required")))
     else
-      pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user.id).map {
+      pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user).map {
         case Right(summary)                       => Right(toSummaryResponse(summary))
         case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
         case Left(msg)                              => Left(ServiceError.BadRequest(msg))
       }
   }
 
-  def updateName(pipelineId: PipelineId, req: UpdatePipelineRequest): Future[Either[ServiceError, PipelineSummaryResponse]] =
+  def updateName(pipelineId: PipelineId, req: UpdatePipelineRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
     else
-      pipelineRepo.updateName(pipelineId, req.name.trim).map {
+      pipelineRepo.updateName(pipelineId, req.name.trim, user).map {
         case Some(summary) => Right(toSummaryResponse(summary))
         case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
       }
 
-  def delete(pipelineId: PipelineId): Future[Either[ServiceError, Unit]] =
-    pipelineRepo.delete(pipelineId).map {
+  def delete(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    pipelineRepo.delete(pipelineId, user).map {
       case true  => Right(())
       case false => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
@@ -103,9 +103,9 @@ final class PipelineService(
   // ── Analyze ───────────────────────────────────────────────────────────────
 
   def analyze(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeResponse]] = {
-    val summaryF  = pipelineRepo.findSummaryById(pipelineId)
-    val pipelineF = pipelineRepo.findById(pipelineId)
-    val stepsF    = pipelineStepRepo.listByPipeline(pipelineId)
+    val summaryF  = pipelineRepo.findSummaryById(pipelineId, user)
+    val pipelineF = pipelineRepo.findById(pipelineId, user)
+    val stepsF    = pipelineStepRepo.listByPipeline(pipelineId, user)
 
     val combined = for {
       summary  <- summaryF
@@ -182,14 +182,14 @@ final class PipelineService(
 
   // ── Pipeline step CRUD ────────────────────────────────────────────────────
 
-  def listSteps(pipelineId: PipelineId): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
-    pipelineRepo.exists(pipelineId).flatMap {
+  def listSteps(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
+    pipelineRepo.exists(pipelineId, user).flatMap {
       case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case true  =>
-        pipelineStepRepo.listByPipeline(pipelineId).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+        pipelineStepRepo.listByPipeline(pipelineId, user).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
     }
 
-  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] = {
+  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
     if (!PipelineStepKind.All.contains(req.`type`))
       Future.successful(Left(ServiceError.BadRequest(
         s"Invalid step type '${req.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
@@ -201,7 +201,7 @@ final class PipelineService(
             s"Invalid '${req.`type`}' config: ${ex.getMessage}"
           )))
         case Success(typedConfig) =>
-          pipelineRepo.exists(pipelineId).flatMap {
+          pipelineRepo.exists(pipelineId, user).flatMap {
             case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
             case true  =>
               pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig)
@@ -211,12 +211,12 @@ final class PipelineService(
       }
   }
 
-  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest): Future[Either[ServiceError, PipelineStepResponse]] = {
+  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
     // Cross-type PATCH lock: matches CS2c-2 DataSource policy. If a `type`
     // discriminator is supplied and disagrees with the persisted row's kind,
     // we reject with 400. The UI never offers cross-type conversion; this
     // keeps the ADT honest against accidental client misuse.
-    pipelineStepRepo.findById(stepId).flatMap {
+    pipelineStepRepo.findById(stepId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
       case Some(existing) =>
@@ -229,7 +229,7 @@ final class PipelineService(
           case _ =>
             req.config match {
               case None =>
-                pipelineStepRepo.update(stepId, config = None, position = req.position)
+                pipelineStepRepo.update(stepId, config = None, position = req.position, user)
                   .map {
                     case Some(step) => Right(PipelineStepResponse.fromDomain(step))
                     case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
@@ -242,7 +242,7 @@ final class PipelineService(
                       s"Invalid '${existing.kind}' config: ${ex.getMessage}"
                     )))
                   case Success(typedConfig) =>
-                    pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position)
+                    pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position, user)
                       .map {
                         case Some(step) => Right(PipelineStepResponse.fromDomain(step))
                         case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
@@ -254,8 +254,8 @@ final class PipelineService(
     }
   }
 
-  def deleteStep(stepId: PipelineStepId): Future[Either[ServiceError, Unit]] =
-    pipelineStepRepo.delete(stepId).map {
+  def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    pipelineStepRepo.delete(stepId, user).map {
       case true  => Right(())
       case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
     }

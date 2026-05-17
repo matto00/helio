@@ -5,13 +5,14 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
+import com.helio.domain.AuthenticatedUser
 import com.helio.services.PipelineRunService
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 /** GET `/api/pipelines/:id/run-events` — SSE stream of run status events. */
-final class PipelineRunStreamRoutes(runService: PipelineRunService)(implicit ec: ExecutionContext)
+final class PipelineRunStreamRoutes(runService: PipelineRunService, user: AuthenticatedUser)(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
   private val sseContentType: ContentType =
@@ -21,7 +22,7 @@ final class PipelineRunStreamRoutes(runService: PipelineRunService)(implicit ec:
     pathPrefix("pipelines" / PipelineIdSegment / "run-events") { pipelineId =>
       pathEndOrSingleSlash {
         get {
-          onComplete(runService.pipelineExists(pipelineId)) {
+          onComplete(runService.pipelineExists(pipelineId, user)) {
             case Failure(ex) =>
               complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
             case Success(false) =>

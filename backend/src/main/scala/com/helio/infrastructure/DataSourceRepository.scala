@@ -74,6 +74,20 @@ class DataSourceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionConte
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
+  /** HEL-265 CS2 seed: owner-scoped read. Introduced here so
+    * `PipelineRepository.create` can verify the caller owns the source they
+    * bind the new pipeline to. CS3 will broaden adoption across the
+    * DataSourceService / SourceService surface and rename the unscoped
+    * `findById` to `findByIdInternal`.
+    *
+    * Returns `None` for rows the caller does not own (existence and
+    * authorization are indistinguishable at the API). */
+  def findByIdOwned(id: DataSourceId, user: AuthenticatedUser): Future[Option[DataSource]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    db.run(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
+      .map(_.map(rowToDomain))
+  }
+
   def insert(source: DataSource): Future[DataSource] =
     db.run(table += domainToRow(source))
       .map(_ => source)

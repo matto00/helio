@@ -157,11 +157,11 @@ final class ApiRoutes(
                 new SourceRoutes(sourceService, authenticatedUser).routes,
                 new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
                 new PipelineRoutes(pipelineService, authenticatedUser).routes,
-                new PipelineStepRoutes(pipelineService).routes,
-                new PipelineRunSubmitRoutes(pipelineRunService).routes,
-                new PipelineRunStatusRoutes(pipelineRunService).routes,
-                new PipelineRunHistoryRoutes(pipelineRunService).routes,
-                new PipelineRunStreamRoutes(pipelineRunService).routes
+                new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
+                new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
+                new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
+                new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
+                new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes
               )
             }
           )

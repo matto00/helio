@@ -3,6 +3,7 @@ package com.helio.services
 import com.helio.api.protocols.{PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.{
+  AuthenticatedUser,
   DataField,
   DataSource,
   DataTypeId,
@@ -51,12 +52,23 @@ final class PipelineRunService(
 
   /** Submit a run (or dry-run) and return its result. Owns pre-execution
    *  (insert run record + prune old runs), source-type dispatch, SSE event
-   *  publication, and result fetch + serialization. */
-  def submit(pipelineId: PipelineId, isDry: Boolean): Future[Either[ServiceError, RunResultResponse]] =
-    pipelineRepo.findById(pipelineId).flatMap {
+   *  publication, and result fetch + serialization.
+   *
+   *  HEL-265 CS2: the pipeline must belong to the caller. The source lookup
+   *  uses [[DataSourceRepository.findById]] (unscoped) because the pipeline
+   *  could legitimately reference a join-target source the caller does not
+   *  own; the pipeline ACL gated entry. See design.md Q1 §DataSource for the
+   *  cross-user-source spinoff note. */
+  def submit(pipelineId: PipelineId, isDry: Boolean, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+    pipelineRepo.findById(pipelineId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) =>
+        // Privileged read: the pipeline ACL above already authorized the
+        // caller against this pipeline; the source binding is part of the
+        // pipeline definition. Owner-only enforcement on the source itself
+        // would block legitimate cross-user join sources — flagged as
+        // spinoff per design.md Q1 §DataSource.
         dataSourceRepo.findById(pipeline.sourceDataSourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
@@ -71,19 +83,21 @@ final class PipelineRunService(
                 )))
               case _ =>
                 pipelineStepRepo
-                  .listByPipeline(pipelineId)
-                  .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry))
+                  .listByPipeline(pipelineId, user)
+                  .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user))
             }
         }
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
    *  rows for the inline preview tray. */
-  def previewStep(pipelineId: PipelineId, stepId: String): Future[Either[ServiceError, RunResultResponse]] =
-    pipelineRepo.findById(pipelineId).flatMap {
+  def previewStep(pipelineId: PipelineId, stepId: String, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+    pipelineRepo.findById(pipelineId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) =>
+        // Same privileged source-read justification as `submit` — see comment
+        // above. The pipeline ACL is the authoritative gate.
         dataSourceRepo.findById(pipeline.sourceDataSourceId).flatMap {
           case None =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
@@ -97,7 +111,7 @@ final class PipelineRunService(
                     dataSource.kind + ". Only static and csv are currently supported."
                 )))
               case _ =>
-                pipelineStepRepo.listByPipeline(pipelineId).flatMap { allSteps =>
+                pipelineStepRepo.listByPipeline(pipelineId, user).flatMap { allSteps =>
                   val sortedSteps = allSteps.sortBy(_.position)
                   sortedSteps.indexWhere(_.id.value == stepId) match {
                     case -1 =>
@@ -138,15 +152,16 @@ final class PipelineRunService(
       CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, rowCount)
     }
 
-  /** Persisted run history for a pipeline. */
-  def history(pipelineId: PipelineId): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =
+  /** Persisted run history for a pipeline. Owner-scoped: cross-user calls
+    * receive 404, never the underlying rows. */
+  def history(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =
     if (pipelineRunRepo == null) Future.successful(Right(Vector.empty))
     else
-      pipelineRepo.findById(pipelineId).flatMap {
+      pipelineRepo.findById(pipelineId, user).flatMap {
         case None =>
           Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
         case Some(_) =>
-          pipelineRunRepo.listByPipeline(pipelineId).map { rows =>
+          pipelineRunRepo.listByPipeline(pipelineId, user).map { rows =>
             Right(rows.map { r =>
               PipelineRunRecord(
                 id          = r.id,
@@ -165,9 +180,9 @@ final class PipelineRunService(
    *  `text/event-stream` HTTP response. */
   def eventRegistry: PipelineRunRegistry = registry
 
-  /** Guard the SSE stream against a missing pipeline. */
-  def pipelineExists(pipelineId: PipelineId): Future[Boolean] =
-    pipelineRepo.findById(pipelineId).map(_.isDefined)
+  /** Owner-scoped existence check used by the SSE stream guard. */
+  def pipelineExists(pipelineId: PipelineId, user: AuthenticatedUser): Future[Boolean] =
+    pipelineRepo.findById(pipelineId, user).map(_.isDefined)
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -181,7 +196,8 @@ final class PipelineRunService(
       pipeline:   Pipeline,
       dataSource: DataSource,
       steps:      Vector[PipelineStep],
-      isDry:      Boolean
+      isDry:      Boolean,
+      user:       AuthenticatedUser
   ): Future[Either[ServiceError, RunResultResponse]] = {
     val pipelineId = pipeline.id
     val runId      = PipelineRunId(UUID.randomUUID().toString)
@@ -193,8 +209,8 @@ final class PipelineRunService(
     val preExec: Future[Unit] =
       if (!isDry && pipelineRunRepo != null)
         pipelineRunRepo
-          .insertRun(runId, pipelineId, startAt)
-          .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, keepN = 10))
+          .insertRun(runId, pipelineId, startAt, user)
+          .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10))
           .recoverWith { case _ => Future.successful(()) }
       else Future.successful(())
 
@@ -217,10 +233,10 @@ final class PipelineRunService(
           if (!isDry) {
             val updateRun =
               if (pipelineRunRepo != null)
-                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), errorLog = Some(errMsg))
+                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user)
               else Future.successful(())
             updateRun.flatMap { _ =>
-              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None)
+              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user)
             }.map(_ => ())
           } else Future.successful(())
         failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
@@ -231,8 +247,8 @@ final class PipelineRunService(
         }.toVector
         val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
         val followUp: Future[Unit] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size)
-          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows)
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user)
+          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user)
         followUp.map(_ => Right(response))
     }
   }
@@ -242,13 +258,14 @@ final class PipelineRunService(
       runId:      PipelineRunId,
       startAt:    Instant,
       pidStr:     String,
-      rowCount:   Int
+      rowCount:   Int,
+      user:       AuthenticatedUser
   ): Future[Unit] = {
     publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount)))
     if (pipelineRunRepo != null)
       pipelineRunRepo
-        .insertDryRun(runId, pipelineId, startAt, rowCount)
-        .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId))
+        .insertDryRun(runId, pipelineId, startAt, rowCount, user)
+        .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
         .recoverWith { case _ => Future.successful(()) }
         .map(_ => ())
     else Future.successful(())
@@ -260,7 +277,8 @@ final class PipelineRunService(
       runId:            PipelineRunId,
       pidStr:           String,
       resultRows:       Seq[Map[String, Any]],
-      jsRows:           Vector[JsObject]
+      jsRows:           Vector[JsObject],
+      user:             AuthenticatedUser
   ): Future[Unit] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
@@ -270,10 +288,10 @@ final class PipelineRunService(
     val rowsUpsert =
       if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
       else Future.successful(())
-    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong)).map(_ => ())
+    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
     val updateRun =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size)).map(_ => ())
+        pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user).map(_ => ())
       else Future.successful(())
     for {
       _ <- schemaUpsert
