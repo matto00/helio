@@ -35,17 +35,24 @@ import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
 
+// OP_TYPES drives the picker dropdown — join is intentionally excluded until
+// full join semantics ship (re-expose when HEL-278 is resolved and the
+// backend implementation is complete).
 export const OP_TYPES: OpType[] = [
   { id: "select", label: "Select fields", icon: faSquareCheck },
   { id: "rename", label: "Rename column", icon: faPencil },
   { id: "filter", label: "Filter rows", icon: faFilter },
-  { id: "join", label: "Join tables", icon: faLink },
   { id: "compute", label: "Compute column", icon: faCalculator },
   { id: "aggregate", label: "Group & aggregate", icon: faChartColumn },
   { id: "cast", label: "Cast type", icon: faRightLeft },
   { id: "limit", label: "Limit rows", icon: faArrowUp },
   { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
 ];
+
+// Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
+// so pipelineStepToStep can resolve existing backend-loaded join steps without
+// falling back to the wrong op type.
+const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: faLink };
 
 /** Empty / default config per kind. Matches the seed shapes used in the
  *  `handleAddStep` flow — kept as a single source of truth so seeding new
@@ -90,7 +97,10 @@ export function makeStep(opType: OpType): Step {
 }
 
 export function pipelineStepToStep(ps: PipelineStep): Step {
-  const opType = OP_TYPES.find((op) => op.id === ps.type) ?? OP_TYPES[0];
+  // Join is excluded from the picker (OP_TYPES) but must still resolve
+  // correctly when a backend-loaded step has type "join".
+  const opType =
+    ps.type === "join" ? JOIN_OP_TYPE : (OP_TYPES.find((op) => op.id === ps.type) ?? OP_TYPES[0]);
   return {
     id: ps.id,
     opType,
