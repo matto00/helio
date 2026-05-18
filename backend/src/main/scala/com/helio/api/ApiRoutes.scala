@@ -50,8 +50,8 @@ final class ApiRoutes(
   // Privileged callsite: resolvers here resolve ownership FOR the ACL check —
   // they must use *Internal variants (no user context at registry resolution time).
   private val registry = new ResourceTypeRegistry(
-    ResourceType("dashboard",   id => dashboardRepo.findById(DashboardId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("panel",       id => panelRepo.findById(PanelId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
+    ResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
     ResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
     ResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
     ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
@@ -65,7 +65,7 @@ final class ApiRoutes(
   // Services
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
   private val authService       = new AuthService(userRepo)
-  private val dashboardService  = new DashboardService(dashboardRepo)
+  private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)

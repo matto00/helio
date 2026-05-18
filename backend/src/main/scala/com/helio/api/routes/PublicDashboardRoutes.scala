@@ -35,7 +35,7 @@ final class PublicDashboardRoutes(
             userOpt,
             "Dashboard not found"
           ) { _ =>
-            val panelsF = panelRepo.findByDashboardId(DashboardId(dashboardId))
+            val panelsF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt)
               .flatMap(panels => panelService.resolveBindingsForRead(panels, userOpt))
             onSuccess(panelsF) { panels =>
               complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))

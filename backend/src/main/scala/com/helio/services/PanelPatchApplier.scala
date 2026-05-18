@@ -56,7 +56,9 @@ private[services] final class PanelPatchApplier(panelRepo: PanelRepository)(impl
         }
       }
 
-    panelRepo.findById(panelId).flatMap {
+    // Privileged internal read: ACL was already checked by PanelService.update
+    // via authorizeEditorOnDashboard before delegating here.
+    panelRepo.findByIdInternal(panelId).flatMap {
       case None => Future.successful(None)
       case Some(existing) =>
         if (!spec.hasAnyField) Future.successful(Some(existing))

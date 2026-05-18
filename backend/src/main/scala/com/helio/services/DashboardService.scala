@@ -23,12 +23,21 @@ import scala.concurrent.{ExecutionContext, Future}
  *  uses `ServiceResponse.run` to map errors to status codes; the service itself
  *  is Pekko-HTTP-free.
  *
- *  ACL is enforced inline (`Dashboard.ownerId != user.id` → `Forbidden`) to
- *  match the pre-CS2b route behaviour byte-for-byte. The injected
- *  `AccessChecker` is reserved for endpoints that need sharing-aware checks
- *  (CS2c expands this surface). */
+ *  ACL strategy (CS4):
+ *
+ *  `delete` / `duplicate` — owner-only. Steps:
+ *    1. `findById(sharing-aware)` → None = 404 (no existence leak for no-grant users)
+ *    2. ownerId != user.id (grantee visible but not owner) → 403
+ *    3. owner → proceed
+ *
+ *  `update` / `exportSnapshot` — sharing-aware with viewer guard. Steps:
+ *    1. `findById(sharing-aware)` → None = 404
+ *    2. owner → proceed
+ *    3. grantee → check role via `accessChecker.requireAccess` → Viewer = 403
+ */
 final class DashboardService(
-    dashboardRepo: DashboardRepository
+    dashboardRepo: DashboardRepository,
+    accessChecker: AccessChecker
 )(implicit ec: ExecutionContext) {
 
   import DashboardService._
@@ -51,8 +60,12 @@ final class DashboardService(
     dashboardRepo.insert(dashboard)
   }
 
+  /** Owner-only delete.
+   *  - No access (no grant) → 404 (no existence leak)
+   *  - Grantee visible but not owner → 403
+   *  - Owner → 204 */
   def delete(dashboardId: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    dashboardRepo.findById(dashboardId).flatMap {
+    dashboardRepo.findById(dashboardId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
       case Some(d) if d.ownerId != user.id =>
@@ -64,11 +77,15 @@ final class DashboardService(
         }
     }
 
+  /** Owner-only duplicate.
+   *  - No access → 404
+   *  - Grantee → 403
+   *  - Owner → 201 */
   def duplicate(
       dashboardId: DashboardId,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] =
-    dashboardRepo.findById(dashboardId).flatMap {
+    dashboardRepo.findById(dashboardId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
       case Some(d) if d.ownerId != user.id =>
@@ -80,9 +97,10 @@ final class DashboardService(
         }
     }
 
-  /** Shared PATCH body used by both `/dashboards/:id` and `/dashboards/:id/update`.
-   *  Validates, authorizes, then fans out name/appearance/layout updates against
-   *  the repository. Composition order mirrors the pre-CS2b route handler exactly. */
+  /** Sharing-aware PATCH. Owner and editor grantees may update.
+   *  - No access → 404
+   *  - Owner → proceed
+   *  - Grantee: role check via `accessChecker.requireAccess` → Viewer = 403, Editor = proceed */
   def update(
       dashboardId: DashboardId,
       request: UpdateDashboardRequest,
@@ -92,13 +110,18 @@ final class DashboardService(
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
       case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-        dashboardRepo.findById(dashboardId).flatMap {
+        dashboardRepo.findById(dashboardId, Some(user)).flatMap {
           case None =>
             Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
-          case Some(existing) if existing.ownerId != user.id =>
-            Future.successful(Left(ServiceError.Forbidden()))
-          case Some(existing) =>
+          case Some(existing) if existing.ownerId == user.id =>
             applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
+          case Some(existing) =>
+            // Non-owner grantee: check role before allowing mutation.
+            accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
+              case Left(err)                        => Future.successful(Left(err))
+              case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
+              case Right(_)                         => applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
+            }
         }
     }
 
@@ -144,19 +167,32 @@ final class DashboardService(
 
   // ── Snapshot export / import ──────────────────────────────────────────────
 
+  /** Sharing-aware export. Owner and editor grantees may export.
+   *  - No access → 404
+   *  - Owner → proceed
+   *  - Grantee: role check → Viewer = 403, Editor = proceed */
   def exportSnapshot(
       dashboardId: DashboardId,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, DashboardSnapshotPayload]] =
-    dashboardRepo.findById(dashboardId).flatMap {
+    dashboardRepo.findById(dashboardId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
-      case Some(d) if d.ownerId != user.id =>
-        Future.successful(Left(ServiceError.Forbidden()))
-      case Some(_) =>
+      case Some(d) if d.ownerId == user.id =>
         dashboardRepo.exportSnapshot(dashboardId).map {
           case None        => Left(ServiceError.NotFound("Dashboard not found"))
           case Some(value) => Right(value)
+        }
+      case Some(_) =>
+        // Non-owner grantee: check role.
+        accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
+          case Left(err)                    => Future.successful(Left(err))
+          case Right(ResourceAccess.Viewer) => Future.successful(Left(ServiceError.Forbidden()))
+          case Right(_) =>
+            dashboardRepo.exportSnapshot(dashboardId).map {
+              case None        => Left(ServiceError.NotFound("Dashboard not found"))
+              case Some(value) => Right(value)
+            }
         }
     }
 

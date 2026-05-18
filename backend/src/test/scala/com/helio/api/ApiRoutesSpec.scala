@@ -256,7 +256,7 @@ class ApiRoutesSpec
       }
 
       // Re-query via repository directly to confirm DB persistence
-      val found = await(dashboardRepo.findById(DashboardId(dashboardId)))
+      val found = await(dashboardRepo.findByIdInternal(DashboardId(dashboardId)))
       found.isDefined shouldBe true
       found.get.name shouldBe "Persistent"
     }
@@ -516,7 +516,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.NoContent
       }
 
-      val found = await(panelRepo.findById(PanelId(panelId)))
+      val found = await(panelRepo.findByIdInternal(PanelId(panelId)))
       found shouldBe None
     }
 
@@ -2014,28 +2014,26 @@ class ApiRoutesSpec
       }
     }
 
-    "PATCH /api/dashboards/:id returns 403 when caller does not own the dashboard" in {
+    "PATCH /api/dashboards/:id returns 404 when caller has no grant on the dashboard (HEL-265 CS4)" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
-      // Insert a dashboard owned by another user
+      // Insert a dashboard owned by another user (testUser has no grant)
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-2', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
 
       Patch("/api/dashboards/other-dash-2", UpdateDashboardRequest(name = Some("Hacked"), appearance = None, layout = None)) ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
 
-    "DELETE /api/dashboards/:id returns 403 when caller does not own the dashboard" in {
+    "DELETE /api/dashboards/:id returns 404 when caller has no grant on the dashboard (HEL-265 CS4)" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-3', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
 
       Delete("/api/dashboards/other-dash-3") ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
       }
     }
 
@@ -2095,7 +2093,7 @@ class ApiRoutesSpec
         dupId = responseAs[PanelResponse].id
       }
 
-      val dupPanel = await(panelRepo.findById(PanelId(dupId)))
+      val dupPanel = await(panelRepo.findByIdInternal(PanelId(dupId)))
       dupPanel.isDefined shouldBe true
       dupPanel.get.ownerId shouldBe UserId(testUserId)
     }
@@ -2371,16 +2369,16 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts PATCH on dashboard" in {
+    "return 404 when non-owner (no grant) attempts PATCH on dashboard (HEL-265 CS4)" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Owner Dash"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         dashboardId = responseAs[DashboardResponse].id
       }
+      // otherUser has no grant → 404 (no existence leak)
       Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("Hacked"), None, None)) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
       }
     }
 
@@ -2396,16 +2394,16 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts DELETE on dashboard" in {
+    "return 404 when non-owner (no grant) attempts DELETE on dashboard (HEL-265 CS4)" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Protected Dash"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         dashboardId = responseAs[DashboardResponse].id
       }
+      // otherUser has no grant → 404 (no existence leak)
       Delete(s"/api/dashboards/$dashboardId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
       }
     }
 
@@ -2422,29 +2420,29 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts duplicate on dashboard" in {
+    "return 404 when non-owner (no grant) attempts duplicate on dashboard (HEL-265 CS4)" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Dup Dash"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         dashboardId = responseAs[DashboardResponse].id
       }
+      // otherUser has no grant → 404 (no existence leak)
       Post(s"/api/dashboards/$dashboardId/duplicate") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
       }
     }
 
-    "return 403 when non-owner attempts export on dashboard" in {
+    "return 404 when non-owner (no grant) attempts export on dashboard (HEL-265 CS4)" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Export Dash"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         dashboardId = responseAs[DashboardResponse].id
       }
+      // otherUser has no grant → 404 (no existence leak)
       Get(s"/api/dashboards/$dashboardId/export") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
       }
     }
   }
