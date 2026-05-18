@@ -1,0 +1,1 @@
+- `frontend/src/features/dashboards/ui/DashboardList.css` — removed `min-height: 36px` from `.dashboard-list__create-submit` and `.dashboard-list__import-label`; replaced with `padding: 6px 14px` and `font-size: 0.82rem` to match the `.ui-modal-btn` standard scale
