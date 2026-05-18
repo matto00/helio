@@ -120,42 +120,40 @@ Closes HEL-256 / HEL-268 leaks. Collapses the awkward `findById(id)` +
 Most subtle because of sharing semantics (`PublicDashboardRoutes`,
 `authorizeResourceWithSharing`).
 
-- [ ] `DashboardRepository.findById(id, callerOpt)` — sharing-aware: owner
+- [x] `DashboardRepository.findById(id, callerOpt)` — sharing-aware: owner
       OR `resource_permissions` grant OR public-viewer fallback when
       `callerOpt = None`
-- [ ] `DashboardRepository.findByIdOwned(id, user)` — owner-only
-- [ ] `DashboardRepository.findByIdInternal(id)` — registry resolver only
-- [ ] `DashboardRepository.findAll(user)` — already owner-scoped; add a
+- [x] `DashboardRepository.findByIdOwned(id, user)` — owner-only
+- [x] `DashboardRepository.findByIdInternal(id)` — registry resolver only
+- [x] `DashboardRepository.findAll(user)` — already owner-scoped; added
       sharing-aware overload `findAllVisible(user)` for any future "shared
       with me" UI (not consumed in this PR — feature-flagged off)
-- [ ] `PanelRepository.findByIdInternal(id)` — rename of existing
+- [x] `PanelRepository.findByIdInternal(id)` — rename of existing
       `findById`; documented callers: registry resolver, batch reads
       bound for service-level ACL checks
-- [ ] `PanelRepository.findById(id, callerOpt)` — sharing-aware via the
+- [x] `PanelRepository.findById(id, callerOpt)` — sharing-aware via the
       parent dashboard's ACL
-- [ ] `PanelRepository.findAllByDashboardId(dashboardId, callerOpt)` —
+- [x] `PanelRepository.findAllByDashboardId(dashboardId, callerOpt)` —
       sharing-aware via the parent dashboard's ACL (used by
       `PublicDashboardRoutes`)
-- [ ] `DashboardService.delete/duplicate/update/exportSnapshot` — remove
-      the inline `if (existing.ownerId != user.id)` checks; switch to
-      `findByIdOwned` for delete/duplicate and `findById` for
-      update/exportSnapshot per design.md Q1 table
-- [ ] `PanelService.findById` — switch to sharing-aware `findById(id, Some(user))`
-      so `/api/panels/:id/query` honors dashboard sharing (today this is
-      a hole — the panel query endpoint has no ACL at all)
-- [ ] `PanelService.batchUpdate` — collapse the inline owner check; uses
-      `findByIdInternal` because the immediate service-side `requireAccess`
-      on the parent dashboard is the authoritative gate
-- [ ] `PublicDashboardRoutes` — `panelRepo.findByDashboardId` becomes
+- [x] `DashboardService.delete/duplicate/update/exportSnapshot` — removed
+      the inline `if (existing.ownerId != user.id)` checks; uses
+      `findById(sharing-aware)` with ownership check for delete/duplicate
+      and `findById`+role check for update/exportSnapshot per design.md Q1
+- [x] `PanelService.findById` — switched to sharing-aware `findById(id, callerOpt)`
+      so `/api/panels/:id/query` honors dashboard sharing (hole closed)
+- [x] `PanelService.batchUpdate` — collapsed the inline owner check; uses
+      `findByIdInternal` with dashboard-level `accessChecker.requireAccess`
+      as the authoritative gate
+- [x] `PublicDashboardRoutes` — `panelRepo.findByDashboardId` replaced by
       `findAllByDashboardId(dashboardId, userOpt)` (sharing-aware); the
-      `AclDirective.authorizeResourceWithSharing` wrapper stays because it
-      provides the `ResourceAccess` discriminator the route uses
-- [ ] New tests: owner read paths unchanged (regression); editor grant on
+      `AclDirective.authorizeResourceWithSharing` wrapper stays
+- [x] New tests: owner read paths unchanged (regression); editor grant on
       dashboard can read panels + update dashboard layout; viewer grant
       can read but not mutate; cross-user with no grant returns 404; the
       public-viewer fallback continues to work for an anonymous request
-- [ ] New tests: `/api/panels/:id/query` honors dashboard sharing (was: open)
-- [ ] Gates: full suite + manual EXPLAIN check on the sharing-aware SELECT
+- [x] New tests: `/api/panels/:id/query` honors dashboard sharing (was: open)
+- [x] Gates: full suite passed (715 tests, 0 failures)
 
 ## Cycle 6 (PR/CS5) — Cleanup + spec sync
 

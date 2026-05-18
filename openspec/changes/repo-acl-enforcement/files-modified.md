@@ -292,3 +292,70 @@ not 403.
   executor summary (new).
 - `openspec/changes/repo-acl-enforcement/files-modified.md` — this file
   (now spans cycles 1–4).
+
+## Cycle 5 (PR/CS4) — Dashboard + Panel ACL enforcement
+
+Closes the sharing-aware surface: `DashboardRepository` and `PanelRepository`
+gain scoped read methods; `DashboardService` and `PanelService` remove inline
+owner checks; the `/api/panels/:id/query` ACL hole is closed.
+
+### Backend — repository layer
+
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala`
+  — `findById(id)` renamed to `findByIdInternal` (registry resolver); new
+  `findById(id, callerOpt)` sharing-aware; new `findByIdOwned(id, user)`
+  owner-only; new `findAllVisible(user)` sharing-aware list (feature-flagged
+  off — not wired to any UI route).
+- `backend/src/main/scala/com/helio/infrastructure/PanelRepository.scala`
+  — `findById(id)` renamed to `findByIdInternal` (documented callers:
+  registry resolver, `PanelPatchApplier`, `PanelService.batchUpdate`); new
+  `findById(id, callerOpt)` sharing-aware via parent dashboard JOIN; new
+  `findAllByDashboardId(dashboardId, callerOpt)` replaces old unscoped
+  `findByDashboardId`.
+
+### Backend — service layer
+
+- `backend/src/main/scala/com/helio/services/DashboardService.scala` —
+  injected `AccessChecker`; `delete`/`duplicate` use `findById(sharing-aware)`
+  + ownership check (no-grant = 404, grantee-not-owner = 403); `update`/
+  `exportSnapshot` use `findById(sharing-aware)` + grantee role check
+  (viewer = 403); inline `ownerId != user.id` checks removed.
+- `backend/src/main/scala/com/helio/services/PanelService.scala` — `findById`
+  now delegates to `panelRepo.findById(id, callerOpt)` (closing `/query` ACL
+  hole); `batchUpdate` uses `findByIdInternal` with dashboard-level
+  `accessChecker.requireAccess` as the authoritative gate (removes inline
+  owner check).
+- `backend/src/main/scala/com/helio/services/PanelPatchApplier.scala` —
+  internal `findById` → `findByIdInternal` with documenting comment.
+
+### Backend — routes
+
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — registry resolvers
+  for `dashboard` and `panel` now use `findByIdInternal`; `DashboardService`
+  constructor receives `accessChecker`.
+- `backend/src/main/scala/com/helio/api/ResourceTypeRegistry.scala` — code
+  comment example updated to use `findByIdInternal`.
+- `backend/src/main/scala/com/helio/api/routes/PanelRoutes.scala` — `/query`
+  handler calls `panelService.findById(panelId, Some(user))`.
+- `backend/src/main/scala/com/helio/api/routes/PublicDashboardRoutes.scala` —
+  `panelRepo.findByDashboardId` → `panelRepo.findAllByDashboardId(dashboardId, userOpt)`.
+
+### Backend — tests
+
+- `backend/src/test/scala/com/helio/api/routes/DashboardPanelAclSpec.scala`
+  — NEW. Repository-level and HTTP-level sharing matrix: 30+ tests covering
+  owner regression, editor grant, viewer grant (read OK / mutate 403),
+  cross-user no-grant (404 at service layer), public-viewer fallback (200
+  for anon), `/query` hole now closed.
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — 4 cross-user
+  dashboard assertions updated from 403 → 404 (PATCH/DELETE/duplicate/export
+  by no-grant caller); 3 direct repo calls updated to `findByIdInternal`.
+
+### OpenSpec bookkeeping
+
+- `openspec/changes/repo-acl-enforcement/tasks.md` — Cycle 5 (PR/CS4)
+  checkboxes flipped to `[x]`.
+- `openspec/changes/repo-acl-enforcement/executor-report-cs4.md` — CS4
+  executor summary (new).
+- `openspec/changes/repo-acl-enforcement/files-modified.md` — this file
+  (now spans cycles 1–5).
