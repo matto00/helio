@@ -192,11 +192,12 @@
 }
 
 .dashboard-list__create-submit {
-  min-height: 36px;
+  padding: 6px 14px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
+  font-size: 0.82rem;
   font-weight: 600;
   transition:
     border-color var(--app-transition),
@@ -466,12 +467,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
+  padding: 6px 14px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition:
