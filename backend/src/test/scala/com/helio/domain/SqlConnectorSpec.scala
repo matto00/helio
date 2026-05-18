@@ -2,6 +2,7 @@ package com.helio.domain
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import spray.json._
 
 class SqlConnectorSpec extends AnyWordSpec with Matchers {
 
@@ -99,6 +100,36 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers {
     "use default port for mysql when 3306 is specified" in {
       val url = SqlConnector.buildJdbcUrl(config("mysql", "localhost", 3306))
       url should startWith("jdbc:mysql://localhost:3306/testdb")
+    }
+  }
+
+  // ── Schema inference from JDBC rows (HEL-261 regression) ──────────────────
+
+  /** `SqlConnector.inferSchema` is a pure function: it converts a
+   *  `Seq[Map[String, JsValue]]` (exactly what `execute` returns) to an
+   *  `InferredSchema`. These tests confirm field names come from the map
+   *  keys (i.e. JDBC column labels) — no fabrication. */
+  "SqlConnector.inferSchema" should {
+
+    "derive field names exclusively from the column keys in the row maps" in {
+      val rows = Seq(
+        Map("order_id" -> JsNumber(1), "amount" -> JsNumber(BigDecimal("9.99"))),
+        Map("order_id" -> JsNumber(2), "amount" -> JsNumber(BigDecimal("14.50")))
+      )
+      val schema = SqlConnector.inferSchema(rows)
+      schema.fields.map(_.name) should contain theSameElementsAs Seq("order_id", "amount")
+    }
+
+    "produce exactly as many fields as there are distinct columns — no extras" in {
+      val rows = Seq(
+        Map("col_a" -> JsString("x"), "col_b" -> JsBoolean(true), "col_c" -> JsNumber(42))
+      )
+      val schema = SqlConnector.inferSchema(rows)
+      schema.fields should have size 3
+    }
+
+    "return empty schema for an empty row set" in {
+      SqlConnector.inferSchema(Seq.empty).fields shouldBe empty
     }
   }
 }
