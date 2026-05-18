@@ -160,12 +160,17 @@ HEL-271-ish ticket); document the trade-off here so future-us knows why.
   we have parameterized queries everywhere, so the risk is theoretical, but
   RLS would close it).
 - It's the right "future-final" layer once the foundation lets us reset session
-  state cleanly. Suggest opening a deferred ticket once HEL-265 is shipped.
+  state cleanly.
+
+**Q2 status (post-CS5):** The RLS layer is now tracked under epic **HEL-272**
+(PostgreSQL RLS — belt + suspenders defense in depth), with sub-tickets
+HEL-273 through HEL-277 covering: HikariCP session-var infrastructure (HEL-273),
+RLS policy for dashboards (HEL-274), panels (HEL-275), pipelines (HEL-276), and
+DataType + DataSource (HEL-277). All filed under the Helio v1.3.1 project.
 
 **Hybrid (both)** is technically possible — app-layer JOIN today, RLS layered
 on top later as belt + suspenders — and is the recommended end state. This
-ticket ships the belt; the suspenders come later when we have a story for the
-HikariCP per-connection state.
+ticket ships the belt; the suspenders come later (HEL-272).
 
 ## Q3 — Sub-PR split strategy
 

@@ -28,16 +28,17 @@ by a different user than the requester.
 - **THEN** the response is `404 Not Found`
 
 ### Requirement: DELETE /api/data-sources/:id enforces ownership
-`DELETE /api/data-sources/:id` SHALL return `403 Forbidden` when the source exists but is owned by a
-different user. It SHALL return `404 Not Found` when the source does not exist.
+`DELETE /api/data-sources/:id` SHALL return `404 Not Found` when the source does not exist or belongs
+to a different user (existence-not-leaked semantics: a cross-user caller cannot distinguish "does not
+exist" from "exists but you cannot access it").
 
 #### Scenario: Owner can delete their source
 - **WHEN** the owner calls `DELETE /api/data-sources/:id`
 - **THEN** the source is deleted and the response is `204 No Content`
 
-#### Scenario: Non-owner cannot delete another user's source
+#### Scenario: Non-owner receives 404 for another user's source
 - **WHEN** a non-owner calls `DELETE /api/data-sources/:id` for a source owned by another user
-- **THEN** the response is `403 Forbidden`
+- **THEN** the response is `404 Not Found`
 
 ### Requirement: POST /api/data-sources sets owner_id from the authenticated user
 When a data source is created via `POST /api/data-sources`, the `owner_id` SHALL be set to the
@@ -51,13 +52,14 @@ authenticated user's ID.
 
 ### Requirement: /api/data-sources/:id/preview and /refresh enforce ownership
 `GET /api/data-sources/:id/preview` and `POST /api/data-sources/:id/refresh` SHALL enforce ownership
-in the same manner as `DELETE` — `403 Forbidden` for a source owned by another user, `404` if not found.
+using existence-not-leaked semantics — `404 Not Found` for a source that does not exist or belongs to
+another user.
 
 #### Scenario: Owner can preview their source
 - **WHEN** the owner calls `GET /api/data-sources/:id/preview`
 - **THEN** the response is `200 OK` with preview data
 
-#### Scenario: Non-owner is denied preview
+#### Scenario: Non-owner receives 404 for another user's source preview
 - **WHEN** a non-owner calls `GET /api/data-sources/:id/preview`
-- **THEN** the response is `403 Forbidden`
+- **THEN** the response is `404 Not Found`
 

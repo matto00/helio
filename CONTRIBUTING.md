@@ -47,6 +47,18 @@ Before starting work on anything non-trivial, open an issue or comment on an exi
 - Wrap path-extracted IDs into value-class types (`DashboardId`, `PanelId`, etc.) at the **route boundary** via `PathMatcher1[T]` segments; repositories and services accept value-class IDs only — never raw `String`
 - Per-domain JSON formatters live under `com.helio.api.protocols`; the aggregator `JsonProtocols` only mixes them in. Don't add new formatters to the aggregator directly
 
+#### ACL triad for repository reads
+
+Every repository that exposes a per-id read MUST choose one of three flavors explicitly:
+
+| Method                    | SQL shape                                                           | When to use                                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `findById(id, callerOpt)` | `WHERE id = ? AND (owner_id = ? OR EXISTS(resource_permissions …))` | Routes that honor sharing grants (dashboard + panel reads)                                                                                                                      |
+| `findByIdOwned(id, user)` | `WHERE id = ? AND owner_id = ?`                                     | Mutation paths (delete, update, refresh) and any route where shared access is semantically wrong                                                                                |
+| `findByIdInternal(id)`    | `WHERE id = ?` — no ACL                                             | Privileged internal callers only: `ResourceTypeRegistry` owner-resolvers, background pipeline steps. Every callsite MUST have a comment explaining why it is safe to bypass ACL |
+
+**Existence-not-leaked semantics**: `findByIdOwned` (and `findById` for no-grant callers) returns `None` for a cross-user ID. Services map `None → 404 Not Found`, never `403 Forbidden`. This hides resource existence from unauthorized callers. The 403 status is reserved for cases where the resource is visible (the caller has a sharing grant) but the requested operation is not permitted for their role (e.g., a viewer-grant user attempting a mutation).
+
 ### API Contracts
 
 - Define request/response shapes in `schemas/` (JSON Schema 2020-12)
