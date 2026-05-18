@@ -26,26 +26,29 @@ Enforces per-user ownership on all DataType endpoints: list returns only the cal
 - **THEN** the response is `404 Not Found`
 
 ### Requirement: PATCH /api/types/:id enforces ownership
-`PATCH /api/types/:id` SHALL return `403 Forbidden` when the type exists but belongs to another user.
+`PATCH /api/types/:id` SHALL return `404 Not Found` when the type does not exist or belongs to another
+user (existence-not-leaked semantics: a cross-user caller cannot distinguish "does not exist" from
+"exists but you cannot access it").
 
 #### Scenario: Owner can patch their type
 - **WHEN** the owner calls `PATCH /api/types/:id`
 - **THEN** the update is applied and the updated type is returned
 
-#### Scenario: Non-owner cannot patch another user's type
+#### Scenario: Non-owner receives 404 for another user's type
 - **WHEN** a non-owner calls `PATCH /api/types/:id`
-- **THEN** the response is `403 Forbidden`
+- **THEN** the response is `404 Not Found`
 
 ### Requirement: DELETE /api/types/:id enforces ownership
-`DELETE /api/types/:id` SHALL return `403 Forbidden` when the type exists but is owned by another user.
+`DELETE /api/types/:id` SHALL return `404 Not Found` when the type does not exist or belongs to another
+user (existence-not-leaked semantics).
 
 #### Scenario: Owner can delete their unbound type
 - **WHEN** the owner calls `DELETE /api/types/:id` for a type not bound to any panel
 - **THEN** the type is deleted and the response is `204 No Content`
 
-#### Scenario: Non-owner cannot delete another user's type
+#### Scenario: Non-owner receives 404 for another user's type
 - **WHEN** a non-owner calls `DELETE /api/types/:id`
-- **THEN** the response is `403 Forbidden`
+- **THEN** the response is `404 Not Found`
 
 ### Requirement: POST /api/data-sources sets owner_id on the created DataType
 When a `DataType` is created as part of `POST /api/data-sources`, the `owner_id` SHALL be set to the

@@ -157,34 +157,34 @@ Most subtle because of sharing semantics (`PublicDashboardRoutes`,
 
 ## Cycle 6 (PR/CS5) — Cleanup + spec sync
 
-- [ ] Grep for any remaining unscoped `*Repo.findById(` callers in
+- [x] Grep for any remaining unscoped `*Repo.findById(` callers in
       `services/` or `api/`; convert to the appropriate `*Owned` or
       `*Internal` variant or document why
-- [ ] Audit `AccessChecker.requireOwnerOnly` callers; remove ones the repo
+- [x] Audit `AccessChecker.requireOwnerOnly` callers; remove ones the repo
       enforcement made redundant
-- [ ] Update OpenAPI `openspec/specs/` for any 403 → 404 status-code shifts
-- [ ] Performance smoke: EXPLAIN ANALYZE on dashboard list, type list,
+- [x] Update OpenAPI `openspec/specs/` for any 403 → 404 status-code shifts
+- [x] Performance smoke: EXPLAIN ANALYZE on dashboard list, type list,
       pipeline list against a seeded dev DB with ~100 resources / user
-- [ ] Surface spinoff tickets:
+- [x] Surface spinoff tickets:
       - Cross-user `JoinStep` rightDataSourceId (pipeline can reference
         another user's source for join — out of scope for this ticket)
       - Pipeline sharing (analogous to dashboard sharing) — currently
         every pipeline read is owner-only
       - PostgreSQL RLS layer as belt-+-suspenders defense in depth
-- [ ] Update `README` / `CONTRIBUTING.md` if any contributor-facing pattern
+- [x] Update `README` / `CONTRIBUTING.md` if any contributor-facing pattern
       changed
-- [ ] Run `openspec archive repo-acl-enforcement`
-- [ ] Gates: full suite, archive cleanup
+- [x] Run `openspec archive repo-acl-enforcement`
+- [x] Gates: full suite, archive cleanup
 
 ## Acceptance criteria (ticket-level)
 
-1. [ ] Every ACL'd repo's public reads accept caller identity and enforce ACL in SQL
-2. [ ] No service method still has `if (resource.ownerId != user.id) Forbidden` against an ACL'd repo
-3. [ ] `dataTypeRepo.findById(id)` (unscoped overload) deleted or renamed to `*Internal` with documented callers
-4. [ ] For every repo: a regression test asserts "wrong user gets None"
-5. [ ] Cross-user `GET /api/types/:id` (was HEL-268) closes — route-level test
-6. [ ] Dashboard / panel sharing continues to work — HEL-36 semantics preserved
-7. [ ] No behavior changes for owners reading their own resources
-8. [ ] All gates pass (sbt test, lint, format, jest, build, scala-quality, openspec validate)
-9. [ ] Performance: EXPLAIN check confirms the new JOIN/EXISTS doesn't blow up
-10. [ ] Pipeline tables gain `owner_id` (V32) and all pipeline endpoints enforce ownership
+1. [x] Every ACL'd repo's public reads accept caller identity and enforce ACL in SQL
+2. [x] No service method still has `if (resource.ownerId != user.id) Forbidden` against an ACL'd repo
+3. [x] `dataTypeRepo.findById(id)` (unscoped overload) deleted or renamed to `*Internal` with documented callers
+4. [x] For every repo: a regression test asserts "wrong user gets None"
+5. [x] Cross-user `GET /api/types/:id` (was HEL-268) closes — route-level test
+6. [x] Dashboard / panel sharing continues to work — HEL-36 semantics preserved
+7. [x] No behavior changes for owners reading their own resources
+8. [x] All gates pass (sbt test, lint, format, jest, build, scala-quality, openspec validate)
+9. [x] Performance: EXPLAIN check confirms the new JOIN/EXISTS doesn't blow up
+10. [x] Pipeline tables gain `owner_id` (V32) and all pipeline endpoints enforce ownership

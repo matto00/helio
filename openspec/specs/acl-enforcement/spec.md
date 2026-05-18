@@ -66,23 +66,36 @@ If the registry does not contain the requested resource type key, `AclDirective`
 - **THEN** the directive completes with `500 Internal Server Error`
 
 ### Requirement: PATCH and DELETE dashboard routes require ACL
-`PATCH /api/dashboards/:id` and `DELETE /api/dashboards/:id` SHALL require the authenticated user to own the
-dashboard. Requests from non-owners SHALL be rejected with `403`.
+`PATCH /api/dashboards/:id` and `DELETE /api/dashboards/:id` SHALL enforce ownership with
+existence-not-leaked semantics.
+
+- A user with no access grant receives `404 Not Found` (resource existence is not revealed).
+- A user with a `viewer` grant (visible but not owner) receives `403 Forbidden`.
+- A user with an `editor` grant may use `PATCH` but not `DELETE`.
+- The owner may use both.
 
 #### Scenario: Owner can patch their dashboard
 - **WHEN** the owner sends `PATCH /api/dashboards/:id`
 - **THEN** the patch is applied and the updated dashboard is returned
 
-#### Scenario: Non-owner cannot patch dashboard
-- **WHEN** a user who does not own the dashboard sends `PATCH /api/dashboards/:id`
+#### Scenario: No-grant user receives 404 on PATCH
+- **WHEN** a user with no grant sends `PATCH /api/dashboards/:id`
+- **THEN** the server responds with `404 Not Found`
+
+#### Scenario: Viewer-grant user receives 403 on PATCH
+- **WHEN** a user with a viewer grant sends `PATCH /api/dashboards/:id`
 - **THEN** the server responds with `403 Forbidden`
 
 #### Scenario: Owner can delete their dashboard
 - **WHEN** the owner sends `DELETE /api/dashboards/:id`
 - **THEN** the dashboard is deleted and `204 No Content` is returned
 
-#### Scenario: Non-owner cannot delete dashboard
-- **WHEN** a user who does not own the dashboard sends `DELETE /api/dashboards/:id`
+#### Scenario: No-grant user receives 404 on DELETE
+- **WHEN** a user with no grant sends `DELETE /api/dashboards/:id`
+- **THEN** the server responds with `404 Not Found`
+
+#### Scenario: Grantee receives 403 on DELETE
+- **WHEN** a user with a viewer or editor grant sends `DELETE /api/dashboards/:id`
 - **THEN** the server responds with `403 Forbidden`
 
 ### Requirement: PATCH and DELETE panel routes require ACL
@@ -107,30 +120,49 @@ Requests from non-owners SHALL be rejected with `403`.
 
 ### Requirement: Sensitive GET routes for dashboards require ACL
 The system SHALL enforce ownership ACL on `GET /api/dashboards/:id/panels`,
-`GET /api/dashboards/:id/export`, and `POST /api/dashboards/:id/duplicate`. Non-owners MUST receive `403`.
+`GET /api/dashboards/:id/export`, and `POST /api/dashboards/:id/duplicate`.
+
+`GET /api/dashboards/:id/panels` uses the sharing-aware directive:
+- Users with no grant receive `403 Forbidden` (directive confirms resource exists then checks grant).
+- Owner and grantees (editor/viewer) receive the panel list.
+- Unauthenticated requests on non-public dashboards receive `404 Not Found`.
+
+`GET /api/dashboards/:id/export` and `POST /api/dashboards/:id/duplicate` use
+existence-not-leaked semantics via the sharing-aware service read:
+- Users with no grant receive `404 Not Found`.
+- Users with a `viewer` grant receive `403 Forbidden` (visible but not authorized for that operation).
+- Owner and editor grantees may proceed.
 
 #### Scenario: Owner can list panels for their dashboard
 - **WHEN** the owner sends `GET /api/dashboards/:id/panels`
 - **THEN** the panels are returned
 
-#### Scenario: Non-owner cannot list panels of another dashboard
-- **WHEN** a non-owner sends `GET /api/dashboards/:id/panels`
+#### Scenario: No-grant authenticated user receives 403 on panel list
+- **WHEN** an authenticated user with no grant sends `GET /api/dashboards/:id/panels`
 - **THEN** the server responds with `403 Forbidden`
 
 #### Scenario: Owner can export their dashboard
 - **WHEN** the owner sends `GET /api/dashboards/:id/export`
 - **THEN** the export snapshot is returned
 
-#### Scenario: Non-owner cannot export another user's dashboard
-- **WHEN** a non-owner sends `GET /api/dashboards/:id/export`
+#### Scenario: No-grant user receives 404 on export
+- **WHEN** a user with no grant sends `GET /api/dashboards/:id/export`
+- **THEN** the server responds with `404 Not Found`
+
+#### Scenario: Viewer-grant user receives 403 on export
+- **WHEN** a user with a viewer grant sends `GET /api/dashboards/:id/export`
 - **THEN** the server responds with `403 Forbidden`
 
 #### Scenario: Owner can duplicate their dashboard
 - **WHEN** the owner sends `POST /api/dashboards/:id/duplicate`
 - **THEN** the duplicate is created and returned
 
-#### Scenario: Non-owner cannot duplicate another user's dashboard
-- **WHEN** a non-owner sends `POST /api/dashboards/:id/duplicate`
+#### Scenario: No-grant user receives 404 on duplicate
+- **WHEN** a user with no grant sends `POST /api/dashboards/:id/duplicate`
+- **THEN** the server responds with `404 Not Found`
+
+#### Scenario: Grantee receives 403 on duplicate
+- **WHEN** a user with any grant sends `POST /api/dashboards/:id/duplicate`
 - **THEN** the server responds with `403 Forbidden`
 
 ### Requirement: Panel duplicate route requires ACL
@@ -166,18 +198,18 @@ The `authorizeResource` directive resolver registry SHALL include resolvers for 
 `AclDirective` class itself.
 
 #### Scenario: DataSource resolver returns owner id
-- **WHEN** `DataSourceRepository.findById` returns `Some(source)` and `authorizeResource` is called
+- **WHEN** `DataSourceRepository.findByIdInternal` returns `Some(source)` and `authorizeResource` is called
 - **THEN** the resolver returns `Some(source.ownerId.value)`
 
 #### Scenario: DataType resolver returns owner id
-- **WHEN** `DataTypeRepository.findById` returns `Some(dt)` and `authorizeResource` is called
+- **WHEN** `DataTypeRepository.findByIdInternal` returns `Some(dt)` and `authorizeResource` is called
 - **THEN** the resolver returns `Some(dt.ownerId.value)`
 
-#### Scenario: Non-owner is denied DataSource access with 403
-- **WHEN** a user calls a per-id data-source route for a source they do not own
-- **THEN** the response is `403 Forbidden` with body `{"error": "Forbidden"}`
+#### Scenario: Non-owner is denied DataSource access with 404
+- **WHEN** a user calls a per-id data-source route (`PATCH`, `DELETE`, preview, refresh) for a source they do not own
+- **THEN** the response is `404 Not Found` (existence-not-leaked semantics; no `403`)
 
-#### Scenario: Non-owner is denied DataType access with 403
+#### Scenario: Non-owner is denied DataType access with 404
 - **WHEN** a user calls `PATCH /api/types/:id` or `DELETE /api/types/:id` for a type they do not own
-- **THEN** the response is `403 Forbidden` with body `{"error": "Forbidden"}`
+- **THEN** the response is `404 Not Found` (existence-not-leaked semantics; no `403`)
 
