@@ -58,7 +58,7 @@ final class PanelRoutes(
         },
         path(PanelIdSegment / "query") { panelId =>
           get {
-            onSuccess(panelService.findById(panelId)) {
+            onSuccess(panelService.findById(panelId, Some(user))) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
               case Some(panel) =>

@@ -30,9 +30,15 @@ final case class ResolvedPanelPatch(
 /** Business logic for `/api/panels`. Absorbs the prior `PanelPatchService` so
  *  the patch resolver + step-by-step applier live with the rest of panel CRUD.
  *
- *  Resource-level ACL is delegated to [[AccessChecker]] using the parent
- *  dashboard's permissions (panels inherit access from their dashboard).
- *  `findById` performs no ACL check — same as pre-CS2b. */
+ *  ACL strategy (CS4):
+ *  - `findById` uses `panelRepo.findById(id, Some(user))` — sharing-aware via
+ *    the parent dashboard. This closes the `/api/panels/:id/query` hole where
+ *    any authenticated user could query any panel regardless of dashboard ACL.
+ *  - `batchUpdate` uses `panelRepo.findByIdInternal` — the parent dashboard
+ *    ACL (via `accessChecker.requireAccess`) is the authoritative gate there;
+ *    per-panel owner checks are collapsed.
+ *  - `delete` / `duplicate` / `update` delegate to the dashboard-level ACL
+ *    via `authorizeEditorOnDashboard`. */
 final class PanelService(
     panelRepo:     PanelRepository,
     dataTypeRepo:  DataTypeRepository,
@@ -43,8 +49,11 @@ final class PanelService(
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  def findById(panelId: PanelId): Future[Option[Panel]] =
-    panelRepo.findById(panelId)
+  /** Sharing-aware read. Returns the panel only when the caller has access
+   *  to the parent dashboard (owner, grantee, or public viewer when
+   *  `callerOpt = None`). Closes the `/api/panels/:id/query` ACL hole. */
+  def findById(panelId: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
+    panelRepo.findById(panelId, callerOpt)
 
   /** Resolve cross-user typeId bindings for a list of panels. If a panel's
    *  typeId belongs to a different user, it is cleared (treated as unbound).
@@ -113,7 +122,7 @@ final class PanelService(
   // ── Delete / duplicate ────────────────────────────────────────────────────
 
   def delete(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    panelRepo.findById(panelId).flatMap {
+    panelRepo.findByIdInternal(panelId).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(panel) =>
@@ -128,7 +137,7 @@ final class PanelService(
     }
 
   def duplicate(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Panel]] =
-    panelRepo.findById(panelId).flatMap {
+    panelRepo.findByIdInternal(panelId).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(panel) =>
@@ -144,6 +153,10 @@ final class PanelService(
 
   // ── Batch update ──────────────────────────────────────────────────────────
 
+  /** Batch update panels. ACL is enforced via `accessChecker.requireAccess`
+   *  on the parent dashboard — the authoritative gate. Per-panel owner checks
+   *  are replaced by the dashboard-level check; `findByIdInternal` is used
+   *  because the dashboard ACL is already the security boundary here. */
   def batchUpdate(
       items: Vector[PanelBatchItem],
       user: AuthenticatedUser
@@ -151,24 +164,34 @@ final class PanelService(
     if (items.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("panels must not be empty")))
     else
-      Future.traverse(items)(item => panelRepo.findById(PanelId(item.id))).flatMap { panelOpts =>
+      Future.traverse(items)(item => panelRepo.findByIdInternal(PanelId(item.id))).flatMap { panelOpts =>
         items.zip(panelOpts).collectFirst { case (item, None) => item.id } match {
           case Some(id) =>
             Future.successful(Left(ServiceError.NotFound(s"Panel '$id' not found")))
           case None =>
             val panels = panelOpts.flatten
-            panels.find(_.ownerId != user.id) match {
-              case Some(_) =>
-                Future.successful(Left(ServiceError.Forbidden()))
-              case None =>
-                PanelService.validateBatchTypeMatch(items.zip(panels)) match {
-                  case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-                  case Right(_) =>
-                    val now = Instant.now()
-                    panelRepo.batchUpdate(items, now)
-                      .map(updated => Right(updated))
-                      .recover { case ex => Left(ServiceError.BadRequest(ex.getMessage)) }
-                }
+            // Verify all panels share the same dashboard (required for batch
+            // dashboard-ACL check) and that the caller has editor access.
+            val dashboardIds = panels.map(_.dashboardId).distinct
+            if (dashboardIds.size != 1) {
+              Future.successful(Left(ServiceError.BadRequest("all panels in a batch must belong to the same dashboard")))
+            } else {
+              val dashboardId = dashboardIds.head
+              accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
+                case Left(err) =>
+                  Future.successful(Left(err))
+                case Right(ResourceAccess.Viewer) =>
+                  Future.successful(Left(ServiceError.Forbidden()))
+                case Right(_) =>
+                  PanelService.validateBatchTypeMatch(items.zip(panels)) match {
+                    case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+                    case Right(_) =>
+                      val now = Instant.now()
+                      panelRepo.batchUpdate(items, now)
+                        .map(updated => Right(updated))
+                        .recover { case ex => Left(ServiceError.BadRequest(ex.getMessage)) }
+                  }
+              }
             }
         }
       }
@@ -181,7 +204,7 @@ final class PanelService(
       request: UpdatePanelRequest,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Panel]] =
-    panelRepo.findById(panelId).flatMap {
+    panelRepo.findByIdInternal(panelId).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(existing) =>
@@ -209,9 +232,9 @@ final class PanelService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
     accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
-      case Left(err)                          => Left(err)
-      case Right(ResourceAccess.Viewer)       => Left(ServiceError.Forbidden())
-      case Right(ResourceAccess.Owner) | Right(ResourceAccess.Editor) => Right(())
+      case Left(err)                                                       => Left(err)
+      case Right(ResourceAccess.Viewer)                                    => Left(ServiceError.Forbidden())
+      case Right(ResourceAccess.Owner) | Right(ResourceAccess.Editor)     => Right(())
     }
 
 }

@@ -16,7 +16,9 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
 
   import PanelRepository._
 
-  private val table = TableQuery[PanelTable]
+  private val table     = TableQuery[PanelTable]
+  private val dashTable = TableQuery[DashboardRepository.DashboardTable]
+  private val permTable = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
   private def rowToDomain(row: PanelRow): Panel =
     PanelRowMapper.rowToDomain(row)
@@ -24,13 +26,114 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
   private def domainToRow(p: Panel): PanelRow =
     PanelRowMapper.domainToRow(p)
 
-  def findByDashboardId(dashboardId: DashboardId): Future[Vector[Panel]] =
-    db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
-      .map(_.map(rowToDomain).toVector)
+  /** Sharing-aware list. Returns panels for the dashboard only when the caller
+   *  has access (owner, grantee, or anonymous with a public-viewer grant).
+   *  Used by `PublicDashboardRoutes` — replaces the old unscoped
+   *  `findByDashboardId`. */
+  def findAllByDashboardId(dashboardId: DashboardId, callerOpt: Option[AuthenticatedUser]): Future[Vector[Panel]] =
+    dashTable.filter(_.id === dashboardId.value).result.headOption pipe { q =>
+      db.run(q).flatMap {
+        case None => Future.successful(Vector.empty)
+        case Some(dashRow) =>
+          val ownerId = dashRow.ownerId.toString
+          callerOpt match {
+            case Some(caller) if caller.id.value == ownerId =>
+              db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
+                .map(_.map(rowToDomain).toVector)
 
-  def findById(id: PanelId): Future[Option[Panel]] =
+            case Some(caller) =>
+              db.run(
+                permTable
+                  .filter(p =>
+                    p.resourceType === "dashboard" &&
+                    p.resourceId   === dashboardId.value &&
+                    p.granteeId    === UUID.fromString(caller.id.value)
+                  )
+                  .exists
+                  .result
+              ).flatMap { hasGrant =>
+                if (hasGrant)
+                  db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
+                    .map(_.map(rowToDomain).toVector)
+                else
+                  Future.successful(Vector.empty)
+              }
+
+            case None =>
+              // Public-viewer fallback: anonymous caller.
+              db.run(
+                permTable
+                  .filter(p =>
+                    p.resourceType === "dashboard" &&
+                    p.resourceId   === dashboardId.value &&
+                    p.granteeId.isEmpty &&
+                    p.role         === "viewer"
+                  )
+                  .exists
+                  .result
+              ).flatMap { hasPublic =>
+                if (hasPublic)
+                  db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
+                    .map(_.map(rowToDomain).toVector)
+                else
+                  Future.successful(Vector.empty)
+              }
+          }
+      }
+    }
+
+  /** No-ACL read. Documented callers:
+   *  - `ResourceTypeRegistry` owner-resolver (privileged; resolves ownership for ACL check)
+   *  - `PanelService.batchUpdate` (parent dashboard ACL is the authoritative gate there)
+   *  Do NOT call from routes or services that own the ACL decision. */
+  def findByIdInternal(id: PanelId): Future[Option[Panel]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
+
+  /** Sharing-aware read. Returns Some when the caller is the panel's parent
+   *  dashboard's owner, has an explicit grant on that dashboard, or (when
+   *  `callerOpt = None`) a public-viewer grant exists on the dashboard.
+   *  Returns None otherwise — no existence leak. */
+  def findById(id: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
+    db.run(table.filter(_.id === id.value).result.headOption).flatMap {
+      case None => Future.successful(None)
+      case Some(panelRow) =>
+        val dashId = panelRow.dashboardId
+        db.run(dashTable.filter(_.id === dashId).result.headOption).flatMap {
+          case None => Future.successful(None)  // orphaned panel — treat as not found
+          case Some(dashRow) =>
+            val ownerId = dashRow.ownerId.toString
+            callerOpt match {
+              case Some(caller) if caller.id.value == ownerId =>
+                Future.successful(Some(rowToDomain(panelRow)))
+
+              case Some(caller) =>
+                db.run(
+                  permTable
+                    .filter(p =>
+                      p.resourceType === "dashboard" &&
+                      p.resourceId   === dashId      &&
+                      p.granteeId    === UUID.fromString(caller.id.value)
+                    )
+                    .exists
+                    .result
+                ).map(hasGrant => if (hasGrant) Some(rowToDomain(panelRow)) else None)
+
+              case None =>
+                db.run(
+                  permTable
+                    .filter(p =>
+                      p.resourceType === "dashboard" &&
+                      p.resourceId   === dashId      &&
+                      p.granteeId.isEmpty            &&
+                      p.role         === "viewer"
+                    )
+                    .exists
+                    .result
+                ).map(hasPublic => if (hasPublic) Some(rowToDomain(panelRow)) else None)
+            }
+        }
+    }
 
   def insert(panel: Panel): Future[Panel] =
     db.run(table += domainToRow(panel))
@@ -119,7 +222,8 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
   /** Batch update: applies title / appearance / typed-config patches to many
    *  panels in one transaction. Cross-type lock is enforced at the service
    *  layer; this method assumes each item's `type` (if any) matches the
-   *  stored row's `type` column. */
+   *  stored row's `type` column. Parent dashboard ACL is the authoritative
+   *  gate — this method performs no ACL check. */
   def batchUpdate(items: Vector[PanelBatchItem], now: Instant): Future[Vector[Panel]] = {
     if (items.isEmpty) return Future.successful(Vector.empty)
 
@@ -173,6 +277,11 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
         .transactionally
 
     db.run(action).map(_.map(rowToDomain).toVector)
+  }
+
+  // Helper to pipe a value into a function (avoids temp variable noise).
+  private implicit class PipeOps[A](a: A) {
+    def pipe[B](f: A => B): B = f(a)
   }
 }
 

@@ -18,6 +18,8 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
 
   private val table = TableQuery[DashboardTable]
 
+  private val permTable = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
+
   private def panelRowToDomain(row: PanelRepository.PanelRow): Panel =
     PanelRowMapper.rowToDomain(row)
 
@@ -47,9 +49,79 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
     db.run(table.filter(_.ownerId === UUID.fromString(ownerId.value)).sortBy(_.lastUpdated.desc).result)
       .map(_.map(rowToDomain).toVector)
 
-  def findById(id: DashboardId): Future[Option[Dashboard]] =
+  /** Sharing-aware read. Returns Some if:
+   *  - `callerOpt` is Some and the caller is the owner,
+   *  - `callerOpt` is Some and the caller has an editor/viewer grant, or
+   *  - `callerOpt` is None and a public-viewer grant exists (anonymous path).
+   *  Returns None for all other cases (no existence leak). */
+  def findById(id: DashboardId, callerOpt: Option[AuthenticatedUser]): Future[Option[Dashboard]] =
+    db.run(table.filter(_.id === id.value).result.headOption).flatMap {
+      case None => Future.successful(None)
+      case Some(row) =>
+        val ownerId = row.ownerId.toString
+        callerOpt match {
+          case Some(caller) if caller.id.value == ownerId =>
+            Future.successful(Some(rowToDomain(row)))
+
+          case Some(caller) =>
+            db.run(
+              permTable
+                .filter(p =>
+                  p.resourceType === "dashboard" &&
+                  p.resourceId   === id.value    &&
+                  p.granteeId    === UUID.fromString(caller.id.value)
+                )
+                .exists
+                .result
+            ).map(hasGrant => if (hasGrant) Some(rowToDomain(row)) else None)
+
+          case None =>
+            // Public-viewer fallback: anonymous request — return only if public grant exists.
+            db.run(
+              permTable
+                .filter(p =>
+                  p.resourceType === "dashboard" &&
+                  p.resourceId   === id.value    &&
+                  p.granteeId.isEmpty            &&
+                  p.role         === "viewer"
+                )
+                .exists
+                .result
+            ).map(hasPublic => if (hasPublic) Some(rowToDomain(row)) else None)
+        }
+    }
+
+  /** Owner-only read. Used for delete / duplicate where only the owner is
+   *  authorised regardless of any sharing grants (design.md Q1 table). */
+  def findByIdOwned(id: DashboardId, user: AuthenticatedUser): Future[Option[Dashboard]] =
+    db.run(
+      table
+        .filter(d => d.id === id.value && d.ownerId === UUID.fromString(user.id.value))
+        .result
+        .headOption
+    ).map(_.map(rowToDomain))
+
+  /** No-ACL read for the ResourceTypeRegistry owner-resolver and other
+   *  privileged internal callers only. Do not use from routes or services. */
+  def findByIdInternal(id: DashboardId): Future[Option[Dashboard]] =
     db.run(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
+
+  /** Sharing-aware list. Returns dashboards owned by the user OR where the
+   *  user has an explicit grant.
+   *
+   *  NOT wired to any UI route in this PR — feature-flagged off.
+   *  Exists for future "shared with me" list support. */
+  def findAllVisible(user: AuthenticatedUser): Future[Vector[Dashboard]] = {
+    val userId = UUID.fromString(user.id.value)
+    val owned = table.filter(_.ownerId === userId)
+    val granted = for {
+      perm <- permTable if perm.resourceType === "dashboard" && perm.granteeId === userId
+      dash <- table if dash.id === perm.resourceId
+    } yield dash
+    db.run((owned union granted).sortBy(_.lastUpdated.desc).result)
+      .map(_.map(rowToDomain).toVector)
+  }
 
   def insert(dashboard: Dashboard): Future[Dashboard] =
     db.run(table += domainToRow(dashboard))

@@ -12,8 +12,8 @@ package com.helio.api
  *  Example:
  *  {{{
  *  val registry = ResourceTypeRegistry(
- *    ResourceType("dashboard", id => dashboardRepo.findById(DashboardId(id)).map(_.map(_.ownerId.value))),
- *    ResourceType("report",    id => reportRepo.findById(ReportId(id)).map(_.map(_.ownerId.value)))
+ *    ResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
+ *    ResourceType("report",    id => reportRepo.findByIdInternal(ReportId(id)).map(_.map(_.ownerId.value)))
  *  )
  *  }}}
  */
