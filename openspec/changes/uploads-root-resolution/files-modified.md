@@ -1,8 +1,0 @@
-- `backend/src/main/scala/com/helio/infrastructure/LocalFileSystem.scala` — rewritten `fromEnv` to read `HELIO_UPLOADS_ROOT` → `HELIO_UPLOADS_DIR` → `~/.helio/uploads`; added startup validation + legacy warn
-- `backend/src/test/scala/com/helio/infrastructure/LocalFileSystemSpec.scala` — 5 new `fromEnv` unit tests covering all resolution branches
-- `CLAUDE.md` — added `HELIO_UPLOADS_ROOT` and `HELIO_UPLOADS_DIR` rows to env-var table
-- `openspec/changes/uploads-root-resolution/proposal.md` — problem + fix description
-- `openspec/changes/uploads-root-resolution/design.md` — resolution algorithm, legacy detection, validation spec
-- `openspec/changes/uploads-root-resolution/tasks.md` — task list (all [x])
-- `openspec/changes/uploads-root-resolution/ticket.md` — ticket title + acceptance criteria
-- `openspec/changes/uploads-root-resolution/workflow-state.md` — executor metadata

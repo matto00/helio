@@ -1,5 +1,0 @@
-- `frontend/src/features/pipelines/state/stepNarrowing.ts` — removed `join` from `OP_TYPES` picker array; added `JOIN_OP_TYPE` internal constant and updated `pipelineStepToStep` to resolve existing join steps correctly
-- `openspec/changes/hide-join-step/proposal.md` — change proposal
-- `openspec/changes/hide-join-step/tasks.md` — task list
-- `openspec/changes/hide-join-step/workflow-state.md` — workflow state
-- `openspec/changes/hide-join-step/files-modified.md` — this file
