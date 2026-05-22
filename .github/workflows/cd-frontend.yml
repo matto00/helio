@@ -3,9 +3,6 @@ name: CD Frontend
 on:
   push:
     branches: ["release/**"]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/cd-frontend.yml"
 
 permissions:
   contents: read

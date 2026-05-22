@@ -3,11 +3,6 @@ name: CD Backend
 on:
   push:
     branches: ["release/**"]
-    paths:
-      - "backend/**"
-      - "Dockerfile"
-      - ".dockerignore"
-      - ".github/workflows/cd-backend.yml"
 
 permissions:
   contents: read
