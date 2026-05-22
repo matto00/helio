@@ -34,4 +34,23 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
   CMD wget -qO- http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-XX:InitialRAMPercentage=50.0", "-Dconfig.resource=application.conf", "-jar", "helio-backend.jar"]
+# JPMS --add-opens flags mirror backend/build.sbt — required for Spark 3.5.x on Java 17+
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-XX:InitialRAMPercentage=50.0", \
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED", \
+  "--add-opens=java.base/java.lang=ALL-UNNAMED", \
+  "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED", \
+  "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED", \
+  "--add-opens=java.base/java.io=ALL-UNNAMED", \
+  "--add-opens=java.base/java.net=ALL-UNNAMED", \
+  "--add-opens=java.base/java.nio=ALL-UNNAMED", \
+  "--add-opens=java.base/java.util=ALL-UNNAMED", \
+  "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED", \
+  "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED", \
+  "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED", \
+  "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED", \
+  "--add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED", \
+  "-Dconfig.resource=application.conf", \
+  "-jar", "helio-backend.jar"]
