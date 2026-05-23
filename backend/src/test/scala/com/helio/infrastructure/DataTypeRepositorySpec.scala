@@ -230,5 +230,35 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(dtRepo.existsBoundToAnyOwnedPanel(dt.id, AuthenticatedUser(owner1)))
       result shouldBe false
     }
+
+    "findByIdsOwned returns only types owned by the given user" in {
+      cleanDb()
+      val dt1 = newDataType(name = "Type1", ownerId = owner1)
+      val dt2 = newDataType(name = "Type2", ownerId = owner1)
+      val dt3 = newDataType(name = "Type3", ownerId = owner2)
+      await(dtRepo.insert(dt1))
+      await(dtRepo.insert(dt2))
+      await(dtRepo.insert(dt3))
+      val result = await(dtRepo.findByIdsOwned(Seq(dt1.id, dt2.id, dt3.id), AuthenticatedUser(owner1)))
+      result.keySet shouldBe Set(dt1.id, dt2.id)
+      result(dt1.id).name shouldBe "Type1"
+      result(dt2.id).name shouldBe "Type2"
+      result.get(dt3.id) shouldBe None
+    }
+
+    "findByIdsOwned excludes all types when caller owns none" in {
+      cleanDb()
+      val dt = newDataType(name = "OtherType", ownerId = owner2)
+      await(dtRepo.insert(dt))
+      val result = await(dtRepo.findByIdsOwned(Seq(dt.id), AuthenticatedUser(owner1)))
+      result shouldBe Map.empty
+    }
+
+    "findByIdsOwned short-circuits with empty map for empty input" in {
+      cleanDb()
+      val result = await(dtRepo.findByIdsOwned(Seq.empty, AuthenticatedUser(owner1)))
+      result shouldBe Map.empty
+    }
+
   }
 }

@@ -74,6 +74,20 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
       .map(_.map(rowToDomain))
   }
 
+  /** Batch owner-scoped lookup -- fetches all types in ids owned by user
+   *  in a single WHERE id IN (...) AND owner_id = ? query.
+   *
+   *  Returns a Map[DataTypeId, DataType] for O(1) per-panel resolution.
+   *  Short-circuits immediately with an empty Map when ids is empty. */
+  def findByIdsOwned(ids: Seq[DataTypeId], user: AuthenticatedUser): Future[Map[DataTypeId, DataType]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val idSet     = ids.map(_.value).toSet
+      val ownerUuid = UUID.fromString(user.id.value)
+      db.run(table.filter(r => (r.id inSet idSet) && r.ownerId === ownerUuid).result)
+        .map(_.map(rowToDomain).map(dt => dt.id -> dt).toMap)
+    }
+
   def insert(dt: DataType): Future[DataType] = {
     val row = domainToRow(dt).copy(version = 1)
     db.run(table += row).map(_ => rowToDomain(row))
