@@ -96,11 +96,13 @@ lazy val root = (project in file("."))
       "org.apache.pekko" %% "pekko-testkit" % "1.1.3" % Test,
       "org.apache.pekko" %% "pekko-http-testkit" % "1.1.0" % Test,
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.mockito" % "mockito-core" % "5.12.0" % Test,
       "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
       "org.apache.pekko" %% "pekko-http-cors" % "1.1.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
       "com.mysql" % "mysql-connector-j" % "8.3.0",
       "com.google.cloud.sql" % "postgres-socket-factory" % "1.21.0",
+      "com.google.cloud" % "google-cloud-storage" % "2.40.1",
       // Spark -- compile scope (driver runs in this JVM); exclude Akka/Pekko and logging conflicts
       "org.apache.spark" %% "spark-core" % "3.5.5"
         exclude("org.apache.pekko", "*")
