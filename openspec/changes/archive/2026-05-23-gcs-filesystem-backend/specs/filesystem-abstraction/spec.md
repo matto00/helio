@@ -38,7 +38,7 @@ The base directory SHALL be created on construction if it does not exist. The re
 - **WHEN** neither `HELIO_UPLOADS_ROOT` nor `HELIO_UPLOADS_DIR` is set
 - **THEN** `LocalFileSystem` uses `~/.helio/uploads` as the base directory
 
-### Requirement: LocalFileSystem is wired into Main when HELIO_UPLOADS_BACKEND is local or unset
+### Requirement: LocalFileSystem is wired into Main
 The application entry point SHALL construct a `LocalFileSystem` via `LocalFileSystem.fromEnv()` when `HELIO_UPLOADS_BACKEND` is `local` or not set, and inject it as the `FileSystem` dependency. When `HELIO_UPLOADS_BACKEND=gcs`, `GcsFileSystem.fromEnv()` is used instead.
 
 #### Scenario: Application starts with LocalFileSystem when backend unset

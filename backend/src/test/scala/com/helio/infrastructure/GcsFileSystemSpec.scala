@@ -3,14 +3,14 @@ package com.helio.infrastructure
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.{Map => JMap}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 class GcsFileSystemSpec extends AnyWordSpec {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private def await[A](f: scala.concurrent.Future[A]): A =
+  private def await[A](f: Future[A]): A =
     Await.result(f, 5.seconds)
 
   "GcsFileSystem.fromEnv" should {

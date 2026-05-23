@@ -1,5 +1,8 @@
-## ADDED Requirements
+# filesystem-abstraction Specification
 
+## Purpose
+Defines the `FileSystem` trait and its implementations (`LocalFileSystem`, `GcsFileSystem`) that abstract file storage operations in the backend. Enables swapping storage backends (local disk, GCS, etc.) without changing call sites.
+## Requirements
 ### Requirement: FileSystem trait defines async storage operations
 The backend SHALL expose a `FileSystem` trait in `com.helio.infrastructure` with the following methods, all returning `Future`:
 - `write(path: String, bytes: Array[Byte]): Future[Unit]`
@@ -13,7 +16,12 @@ The backend SHALL expose a `FileSystem` trait in `com.helio.infrastructure` with
 - **THEN** the compiler enforces all five method signatures
 
 ### Requirement: LocalFileSystem stores files under a configurable base directory
-The `LocalFileSystem` implementation SHALL store all files relative to a base directory resolved from the `HELIO_UPLOADS_DIR` environment variable, defaulting to `./data/uploads` if the variable is not set. The base directory SHALL be created on construction if it does not exist.
+The `LocalFileSystem` implementation SHALL store all files relative to a base directory resolved in the following order:
+1. `HELIO_UPLOADS_ROOT` environment variable (primary)
+2. `HELIO_UPLOADS_DIR` environment variable (backward-compat alias)
+3. `~/.helio/uploads` (home-rooted default)
+
+The base directory SHALL be created on construction if it does not exist. The resolved path SHALL be absolute; a non-absolute result SHALL throw `IllegalStateException`. The directory SHALL be validated as writable at startup; an unwritable directory SHALL throw `IllegalStateException`.
 
 #### Scenario: Write then read round-trips correctly
 - **WHEN** `write("foo/bar.csv", bytes)` is called
@@ -33,13 +41,26 @@ The `LocalFileSystem` implementation SHALL store all files relative to a base di
 - **WHEN** files `"uploads/a.csv"` and `"uploads/b.csv"` have been written and `list("uploads/")` is called
 - **THEN** both relative paths are returned
 
-#### Scenario: Base directory is configurable via environment variable
-- **WHEN** `HELIO_UPLOADS_DIR` is set to a custom path
+#### Scenario: Base directory is configurable via HELIO_UPLOADS_ROOT
+- **WHEN** `HELIO_UPLOADS_ROOT` is set to a custom absolute path
 - **THEN** `LocalFileSystem` stores all files under that path
 
-### Requirement: LocalFileSystem is wired into Main
-The application entry point SHALL construct a `LocalFileSystem` and hold it for injection into future connectors. No call site outside `Main` SHALL hardcode a local file path.
+#### Scenario: HELIO_UPLOADS_DIR used when HELIO_UPLOADS_ROOT is absent
+- **WHEN** `HELIO_UPLOADS_ROOT` is not set and `HELIO_UPLOADS_DIR` is set to a custom path
+- **THEN** `LocalFileSystem` stores all files under the `HELIO_UPLOADS_DIR` path
 
-#### Scenario: Application starts with LocalFileSystem available
-- **WHEN** the backend starts
-- **THEN** a `LocalFileSystem` instance is constructed using `HELIO_UPLOADS_DIR` and is accessible for dependency injection
+#### Scenario: Defaults to home-rooted path when no env var is set
+- **WHEN** neither `HELIO_UPLOADS_ROOT` nor `HELIO_UPLOADS_DIR` is set
+- **THEN** `LocalFileSystem` uses `~/.helio/uploads` as the base directory
+
+### Requirement: LocalFileSystem is wired into Main
+The application entry point SHALL construct a `LocalFileSystem` via `LocalFileSystem.fromEnv()` when `HELIO_UPLOADS_BACKEND` is `local` or not set, and inject it as the `FileSystem` dependency. When `HELIO_UPLOADS_BACKEND=gcs`, `GcsFileSystem.fromEnv()` is used instead.
+
+#### Scenario: Application starts with LocalFileSystem when backend unset
+- **WHEN** `HELIO_UPLOADS_BACKEND` is not set
+- **THEN** a `LocalFileSystem` instance is constructed using `HELIO_UPLOADS_ROOT` resolution and is injected as `FileSystem`
+
+#### Scenario: Application starts with GcsFileSystem when backend=gcs
+- **WHEN** `HELIO_UPLOADS_BACKEND=gcs` and `HELIO_UPLOADS_BUCKET` are set
+- **THEN** a `GcsFileSystem` instance is constructed and injected as `FileSystem`
+
