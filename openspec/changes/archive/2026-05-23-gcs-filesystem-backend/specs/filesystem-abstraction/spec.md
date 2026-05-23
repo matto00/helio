@@ -1,19 +1,4 @@
-# filesystem-abstraction Specification
-
-## Purpose
-Defines the `FileSystem` trait and its implementations (`LocalFileSystem`, `GcsFileSystem`) that abstract file storage operations in the backend. Enables swapping storage backends (local disk, GCS, etc.) without changing call sites.
-## Requirements
-### Requirement: FileSystem trait defines async storage operations
-The backend SHALL expose a `FileSystem` trait in `com.helio.infrastructure` with the following methods, all returning `Future`:
-- `write(path: String, bytes: Array[Byte]): Future[Unit]`
-- `read(path: String): Future[Array[Byte]]`
-- `delete(path: String): Future[Unit]`
-- `exists(path: String): Future[Boolean]`
-- `list(prefix: String): Future[Seq[String]]`
-
-#### Scenario: Trait is defined with correct signatures
-- **WHEN** a developer creates a new `FileSystem` implementation
-- **THEN** the compiler enforces all five method signatures
+## MODIFIED Requirements
 
 ### Requirement: LocalFileSystem stores files under a configurable base directory
 The `LocalFileSystem` implementation SHALL store all files relative to a base directory resolved in the following order:
@@ -63,4 +48,3 @@ The application entry point SHALL construct a `LocalFileSystem` via `LocalFileSy
 #### Scenario: Application starts with GcsFileSystem when backend=gcs
 - **WHEN** `HELIO_UPLOADS_BACKEND=gcs` and `HELIO_UPLOADS_BUCKET` are set
 - **THEN** a `GcsFileSystem` instance is constructed and injected as `FileSystem`
-

@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, GcsFileSystem, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -52,7 +52,15 @@ object Main {
       val pipelineStepRepo   = new PipelineStepRepository(db)
       val pipelineRunRepo    = new PipelineRunRepository(db)
       val dataTypeRowRepo    = new DataTypeRowRepository(db)
-      val fileSystem         = LocalFileSystem.fromEnv()
+
+      val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
+        case None | Some("local") => LocalFileSystem.fromEnv()
+        case Some("gcs") => GcsFileSystem.fromEnv()
+        case Some(unknown) =>
+          logger.error("Unknown HELIO_UPLOADS_BACKEND value: {}. Supported values: local, gcs", unknown)
+          system.terminate()
+          throw new IllegalStateException(s"Unknown HELIO_UPLOADS_BACKEND value: $unknown")
+      }
 
       val sparkMasterUrl    = config.getString("spark.masterUrl")
       val pipelineRunCache  = new PipelineRunCache()
