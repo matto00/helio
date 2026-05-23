@@ -33,15 +33,17 @@ The backend loads a `.env` file for environment variables (e.g. `DATABASE_URL`).
 
 #### Production environment variables
 
-| Variable             | Required   | Description                                                                                                                                                                 |
-| -------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Yes        | JDBC URL for PostgreSQL (e.g. `jdbc:postgresql://host:5432/helio`)                                                                                                          |
-| `DB_USER`            | Yes (prod) | Database username — passed to both Flyway and Slick/HikariCP                                                                                                                |
-| `DB_PASSWORD`        | Yes (prod) | Database password — passed to both Flyway and Slick/HikariCP                                                                                                                |
-| `SPARK_MASTER_URL`   | No         | Spark master URL (default: `spark://localhost:7077`); required in prod once HEL-202 ships                                                                                   |
-| `AKKA_LICENSE_KEY`   | Yes (prod) | Akka commercial license key                                                                                                                                                 |
-| `HELIO_UPLOADS_ROOT` | No         | Absolute path for the uploads root (default: `~/.helio/uploads`). Set this when running multiple backend instances (worktrees) to share a single upload store. See HEL-269. |
-| `HELIO_UPLOADS_DIR`  | No         | Legacy alias for `HELIO_UPLOADS_ROOT` (checked if `HELIO_UPLOADS_ROOT` is unset). Prefer `HELIO_UPLOADS_ROOT` for new setups.                                               |
+| Variable                | Required    | Description                                                                                                                                                                                                               |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Yes         | JDBC URL for PostgreSQL (e.g. `jdbc:postgresql://host:5432/helio`)                                                                                                                                                        |
+| `DB_USER`               | Yes (prod)  | Database username — passed to both Flyway and Slick/HikariCP                                                                                                                                                              |
+| `DB_PASSWORD`           | Yes (prod)  | Database password — passed to both Flyway and Slick/HikariCP                                                                                                                                                              |
+| `SPARK_MASTER_URL`      | No          | Spark master URL (default: `spark://localhost:7077`); required in prod once HEL-202 ships                                                                                                                                 |
+| `AKKA_LICENSE_KEY`      | Yes (prod)  | Akka commercial license key                                                                                                                                                                                               |
+| `HELIO_UPLOADS_BACKEND` | No          | File storage backend (values: `local`, `gcs`; default: `local`). Set to `gcs` for Cloud Run production; local dev defaults to `local`.                                                                                    |
+| `HELIO_UPLOADS_BUCKET`  | Conditional | GCS bucket name for uploads (required when `HELIO_UPLOADS_BACKEND=gcs`). Example: `helio-uploads-prod`.                                                                                                                   |
+| `HELIO_UPLOADS_ROOT`    | No          | Absolute path for the uploads root (default: `~/.helio/uploads`). Used only when `HELIO_UPLOADS_BACKEND=local`. Set this when running multiple backend instances (worktrees) to share a single upload store. See HEL-269. |
+| `HELIO_UPLOADS_DIR`     | No          | Legacy alias for `HELIO_UPLOADS_ROOT` (checked if `HELIO_UPLOADS_ROOT` is unset). Prefer `HELIO_UPLOADS_ROOT` for new setups.                                                                                             |
 
 For local development, `DATABASE_URL` can embed credentials and `DB_USER` / `DB_PASSWORD` may be omitted (they default to empty string, which PostgreSQL accepts for trust/md5 auth via URL).
 
