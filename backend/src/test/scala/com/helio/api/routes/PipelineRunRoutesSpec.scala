@@ -301,7 +301,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -330,7 +330,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("rest_api")
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty)))
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
@@ -342,8 +342,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
-      await(stepRepo.insert(pid, "limit", LimitConfig(1)))
+      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      await(stepRepo.insert(pid, "limit", LimitConfig(1), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -373,7 +373,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -471,7 +471,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]

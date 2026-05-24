@@ -133,7 +133,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
       // Insert a select step via the repo (CS2c-3a typed config)
-      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount"))))
+      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK

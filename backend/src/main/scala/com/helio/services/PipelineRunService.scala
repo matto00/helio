@@ -323,10 +323,12 @@ final class PipelineRunService(
     }
     // Privileged: this is a background post-run schema sync. The pipeline ACL
     // was the gate at submission time; no user context is available here.
+    // Uses updateInternal (withSystemContext) to bypass the V35 RLS policy on
+    // data_types — correct because this path runs without a request-bound user.
     dataTypeRepo.findByIdInternal(dataTypeId).flatMap {
       case None => Future.successful(())
       case Some(existing) =>
-        dataTypeRepo.update(existing.copy(fields = fields, updatedAt = Instant.now())).map(_ => ())
+        dataTypeRepo.updateInternal(existing.copy(fields = fields, updatedAt = Instant.now())).map(_ => ())
     }
   }
 

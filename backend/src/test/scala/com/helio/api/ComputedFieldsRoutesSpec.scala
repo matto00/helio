@@ -147,7 +147,7 @@ class ComputedFieldsRoutesSpec
       updatedAt = now,
       ownerId   = UserId(testUserId)
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, testUser))
   }
 
   // ── Task 3.2 tests ──────────────────────────────────────────────────────────

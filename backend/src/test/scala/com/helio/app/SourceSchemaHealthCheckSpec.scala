@@ -28,6 +28,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
   private var dataTypeRepo: DataTypeRepository      = _
 
   private val owner = UserId(UUID.randomUUID().toString)
+  private lazy val user = AuthenticatedUser(owner)
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -64,7 +65,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       updatedAt = now,
       config    = CsvSourceConfig(s"csv/${name}.csv")
     )
-    await(dataSourceRepo.insert(source))
+    await(dataSourceRepo.insert(source, user))
     source
   }
 
@@ -80,7 +81,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       updatedAt = now,
       ownerId   = owner
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, user))
     dt
   }
 
@@ -125,7 +126,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
         updatedAt = now,
         ownerId   = owner
       )
-      await(dataTypeRepo.insert(pipeDt))
+      await(dataTypeRepo.insert(pipeDt, user))
 
       val orphans = await(SourceSchemaHealthCheck.findOrphans(ctx))
       orphans shouldBe empty

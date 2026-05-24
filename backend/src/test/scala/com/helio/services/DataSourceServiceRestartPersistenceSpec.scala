@@ -149,7 +149,7 @@ class DataSourceServiceRestartPersistenceSpec
           query    = "SELECT 1 AS x, 2.0 AS y"
         )
       )
-      await(dataSourceRepo1.insert(sqlSource))
+      await(dataSourceRepo1.insert(sqlSource, user))
       val dt = DataType(
         id        = DataTypeId(UUID.randomUUID().toString),
         sourceId  = Some(srcId),
@@ -163,7 +163,7 @@ class DataSourceServiceRestartPersistenceSpec
         updatedAt = now,
         ownerId   = owner
       )
-      await(dataTypeRepo1.insert(dt))
+      await(dataTypeRepo1.insert(dt, user))
 
       // "Restart": fresh repos against the same DB.
       val ctx2            = new DbContext(db, db)

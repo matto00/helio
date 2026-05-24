@@ -50,16 +50,17 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
   }
 
-  /** Insert a new step into the pipeline.
+  /** Insert a new step into the pipeline in user context.
     *
     * Gated by the caller having proven pipeline ownership at the service layer;
     * the repo itself only writes — the parent pipeline FK guards against the
     * pipeline disappearing mid-call.
     *
-    * Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS on
-    * pipeline_steps. Service-layer ACL check (owner-only) is the current gate.
-    * Tracked: HEL-275. */
-  def insert(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
+    * The V35 RLS policy on `pipeline_steps` uses an EXISTS subquery to
+    * `pipelines.owner_id`. Running inside `withUserContext` means the policy
+    * evaluates correctly: the new step is only insertable if the parent pipeline
+    * is owned by the caller. */
+  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
@@ -69,7 +70,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, now, now)
       _        <- stepsTable += row
     } yield rowToDomain(row)
-    ctx.withSystemContext(action.transactionally)
+    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
   /** Owner-scoped partial update. Returns `None` if the step does not exist or
@@ -104,21 +105,22 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** Owner-scoped delete via the parent-pipeline JOIN. Returns `true` only if
-    * a step the caller owned was removed. */
+    * a step the caller owned was removed.
+    *
+    * Both the ownership check and the DELETE run inside a single
+    * `withUserContext` transaction so the V35 RLS policy on `pipeline_steps`
+    * (EXISTS subquery to `pipelines.owner_id`) is active throughout. */
   def delete(id: PipelineStepId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    // Slick translates `.exists` on the joined predicate into a correlated
-    // subquery, keeping the DELETE single-statement.
-    val ownedIds = (for {
+    val ownedQuery = for {
       step     <- stepsTable if step.id === id.value
       pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
-    } yield step.id).result.headOption
-    ctx.withUserContext(user.id.value)(ownedIds).flatMap {
-      case None      => Future.successful(false)
-      // Placeholder until HEL-275/276: ownership was already verified by the
-      // `withUserContext` JOIN above; this delete is safe to run system-context.
-      case Some(sid) => ctx.withSystemContext(stepsTable.filter(_.id === sid).delete).map(_ > 0)
+    } yield step.id
+    val action = ownedQuery.result.headOption.flatMap {
+      case None      => DBIO.successful(false)
+      case Some(sid) => stepsTable.filter(_.id === sid).delete.map(_ > 0)
     }
+    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
   // ── Row ↔ domain ──────────────────────────────────────────────────────────

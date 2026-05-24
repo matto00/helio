@@ -63,8 +63,8 @@ final class DataSourceService(
       // update so the engine + Spark submitter (which consume the raw blob)
       // continue to work without further changes.
       val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
-      dataSourceRepo.insert(source).flatMap { _ =>
-        dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now).flatMap {
+      dataSourceRepo.insert(source, user).flatMap { _ =>
+        dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
           case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
           case Some(ds) =>
             val dataType = DataType(
@@ -77,7 +77,7 @@ final class DataSourceService(
               updatedAt = now,
               ownerId   = user.id
             )
-            dataTypeRepo.insert(dataType).map(_ => Right(ds))
+            dataTypeRepo.insert(dataType, user).map(_ => Right(ds))
         }
       }
     }
@@ -108,7 +108,7 @@ final class DataSourceService(
           config    = CsvSourceConfig(filePath)
         )
         fileSystem.write(filePath, bytes).flatMap { _ =>
-          dataSourceRepo.insert(source).flatMap { ds =>
+          dataSourceRepo.insert(source, user).flatMap { ds =>
             val dt = DataType(
               id        = DataTypeId(UUID.randomUUID().toString),
               sourceId  = Some(ds.id),
@@ -127,7 +127,7 @@ final class DataSourceService(
               updatedAt = now,
               ownerId   = user.id
             )
-            dataTypeRepo.insert(dt).map(_ => Right(ds))
+            dataTypeRepo.insert(dt, user).map(_ => Right(ds))
           }
         }
     }
@@ -151,7 +151,7 @@ final class DataSourceService(
               case s: SqlSource    => s.copy(name = newName, updatedAt = now)
               case s: StaticSource => s.copy(name = newName, updatedAt = now)
             }
-            dataSourceRepo.update(updated).map {
+            dataSourceRepo.update(updated, user).map {
               case None     => Left(ServiceError.NotFound("Data source not found"))
               case Some(ds) => Right(ds)
             }
@@ -168,7 +168,7 @@ final class DataSourceService(
             fileSystem.delete(c.config.path).recover { case _ => () }
           case _ => Future.successful(())
         }
-        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id)).map(_ => Right(()))
+        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map(_ => Right(()))
     }
 
   // ── Refresh ───────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ final class DataSourceService(
     val now     = Instant.now()
     val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
     val fields = payload.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true))
-    dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now).flatMap {
+    dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now, user).flatMap {
       case None     => Future.failed(new RuntimeException("Source disappeared during update"))
       case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))
     }
@@ -244,7 +244,7 @@ final class DataSourceService(
       types.headOption match {
         case Some(dt) =>
           val updated = dt.copy(fields = fields, updatedAt = now)
-          dataTypeRepo.update(updated).map(_.getOrElse(updated))
+          dataTypeRepo.update(updated, user).map(_.getOrElse(updated))
         case None =>
           val fresh = DataType(
             id        = DataTypeId(UUID.randomUUID().toString),
@@ -256,7 +256,7 @@ final class DataSourceService(
             updatedAt = now,
             ownerId   = user.id
           )
-          dataTypeRepo.insert(fresh)
+          dataTypeRepo.insert(fresh, user)
       }
     }
 

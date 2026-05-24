@@ -123,7 +123,7 @@ class PipelineRepository(
           updatedAt      = now,
           ownerId        = user.id
         )
-        dataTypeRepo.insert(newDataType).flatMap { createdDataType =>
+        dataTypeRepo.insert(newDataType, user).flatMap { createdDataType =>
           val pipelineId  = UUID.randomUUID().toString
           val pipelineRow = PipelineRow(
             id                 = pipelineId,
