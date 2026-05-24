@@ -1,0 +1,5 @@
+- `frontend/src/theme/theme.css` — added `--dot-grid-opacity` CSS custom property to dark (0.14) and light (0.08) theme sections with explanatory comments
+- `frontend/src/app/App.css` — updated `.app-shell::before` dot-grid gradient from `var(--app-bg-accent)` to CSS Relative Color Syntax `rgb(from var(--app-accent) r g b / var(--dot-grid-opacity, 0.1))`; added inline comment confirming z-index ordering and `pointer-events: none`
+- `frontend/src/theme/appearance.ts` — added documentation comments to tint strength (0.22/0.24), grid alpha (0.94/0.97), and panel alpha formula constants; no value changes
+- `frontend/src/theme/appearance.test.ts` — added two new concrete assertions: `buildPanelSurface` alpha floor/ceiling (0.9 at transparency=0, 0.18 at transparency=1), and `resolveDashboardGridBackground` locked rgba values for a known hex (`#16233a`)
+- `openspec/changes/bg-tint-opacity-blend/tasks.md` — marked all 8 tasks complete
