@@ -8,7 +8,9 @@ The system SHALL maintain a `resource_permissions` table with columns `resource_
 `resource_id` UUID, `grantee_id` UUID nullable (foreign key to users, NULL means public), and
 `role` VARCHAR CHECK (`role IN ('viewer', 'editor')`). A partial unique index SHALL prevent
 duplicate public grants per resource; a regular unique index SHALL prevent duplicate grants
-for the same grantee per resource.
+for the same grantee per resource. The table SHALL have FORCE ROW LEVEL SECURITY enabled with
+policies enforcing that only the resource owner (determined by joining to `dashboards.owner_id`)
+and the named grantee can read their respective grant rows.
 
 #### Scenario: Grant row inserted
 - **WHEN** an owner calls `POST /api/dashboards/:id/permissions` with a valid grantee and role
@@ -29,6 +31,11 @@ for the same grantee per resource.
 - **WHEN** an owner calls `POST /api/dashboards/:id/permissions` with body `{"role": "viewer"}` and no granteeId
 - **THEN** a row is inserted with `grantee_id = NULL` and `role = 'viewer'`
 - **THEN** the response is `201 Created`
+
+#### Scenario: Grant rows do not leak to unrelated users
+- **WHEN** an unrelated authenticated user (neither owner nor grantee) queries resource_permissions
+  at the DB layer
+- **THEN** zero rows are returned (RLS policy enforces isolation)
 
 ### Requirement: Permission management endpoints are owner-only
 The permission management endpoints SHALL be restricted to the dashboard owner. Specifically,
