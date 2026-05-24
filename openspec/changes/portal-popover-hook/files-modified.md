@@ -1,0 +1,8 @@
+- `frontend/src/hooks/usePortalPopover.ts` — new hook: trigger ref, isOpen/panelPos state, handleOpen(computePos), close, document-level Escape handler
+- `frontend/src/features/auth/ui/UserMenu.tsx` — adopt hook; render popover via createPortal to document.body with position:fixed; add scrim; add Escape focus-restore listener
+- `frontend/src/features/auth/ui/UserMenu.css` — remove `position: absolute / top / right` from `.user-menu__popover`; remove `.user-menu { position: relative }` (no longer needed)
+- `frontend/src/shared/chrome/ActionsMenu.tsx` — adopt hook (behavior-preserving); drop useOverlay/useRef/useState; delegate trigger ref and position state to hook
+- `frontend/src/features/dashboards/ui/DashboardAppearanceEditor.tsx` — adopt hook (behavior-preserving); drop useOverlay/useRef for trigger+panelPos; delegate to hook
+- `frontend/src/shared/ui/Select.tsx` — adopt hook for isOpen/triggerRef/panelPos; keep focusedIndex and dialog-aware portalTarget logic; reposition effect uses handleOpen
+- `frontend/src/features/auth/ui/UserMenu.test.tsx` — add portal-assertion test; update click-outside test to use scrim click (replaces mousedown-on-body)
+- `openspec/changes/portal-popover-hook/tasks.md` — mark all 12 tasks complete
