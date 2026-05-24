@@ -20,6 +20,26 @@ export const ACCENT_PRESETS: AccentPreset[] = [
   { label: "Yellow", hex: "#eab308" },
 ];
 
+export interface DashboardAppearancePreset {
+  label: string;
+  background: string;
+  gridBackground: string;
+}
+
+// Hand-tuned background + grid-background pairs. Values are raw picker hexes that
+// feed into the 22 % / 28 % tint blend in `appearance.ts` — the visible result
+// will be subtler than the raw colors shown here.
+export const DASHBOARD_APPEARANCE_PRESETS: DashboardAppearancePreset[] = [
+  { label: "Twilight", background: "#1a2035", gridBackground: "#1c2e4a" },
+  { label: "Forest", background: "#0d2115", gridBackground: "#132a1e" },
+  { label: "Plum", background: "#1e1035", gridBackground: "#261540" },
+  { label: "Ember", background: "#2a1005", gridBackground: "#331508" },
+  { label: "Storm", background: "#141824", gridBackground: "#1a2030" },
+  { label: "Teal", background: "#061e20", gridBackground: "#0a2a2e" },
+  { label: "Rose", background: "#250e15", gridBackground: "#301220" },
+  { label: "Gold", background: "#1e1804", gridBackground: "#2a2208" },
+];
+
 export function isTheme(value: string | null): value is Theme {
   return value === "dark" || value === "light";
 }
