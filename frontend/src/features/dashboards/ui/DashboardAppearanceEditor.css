@@ -81,3 +81,71 @@
   opacity: 0.7;
   cursor: wait;
 }
+
+/* ── Preset strip ──────────────────────────────────────────────────────────── */
+
+.dashboard-appearance-editor__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.appearance-preset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.appearance-preset:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.appearance-preset:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.appearance-preset--selected {
+  border-color: var(--app-accent);
+  background: var(--app-accent-surface);
+  color: var(--app-text);
+}
+
+.appearance-preset__swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  flex-shrink: 0;
+}
+
+.appearance-preset__label {
+  line-height: 1;
+}
+
+/* ── Contrast warning ──────────────────────────────────────────────────────── */
+
+.dashboard-appearance-editor__contrast-warning {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid rgb(250 204 21 / 0.35);
+  border-radius: var(--app-radius-md);
+  background: rgb(250 204 21 / 0.08);
+  color: #ca8a04;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}

@@ -4,11 +4,16 @@ import { createPortal } from "react-dom";
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
+import { useTheme } from "../../../theme/ThemeProvider";
 import {
   dashboardAppearanceEditorFallback,
   dashboardGridAppearanceEditorFallback,
+  getDashboardBgContrastRatio,
   getColorInputValue,
+  resolveDashboardBackground,
+  resolveDashboardGridBackground,
 } from "../../../theme/appearance";
+import { DASHBOARD_APPEARANCE_PRESETS, type DashboardAppearancePreset } from "../../../theme/theme";
 import type { Dashboard } from "../types/dashboard";
 import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
@@ -18,8 +23,11 @@ interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
 }
 
+const WCAG_AA_THRESHOLD = 4.5;
+
 export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEditorProps) {
   const dispatch = useAppDispatch();
+  const { theme } = useTheme();
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const [background, setBackground] = useState(dashboardAppearanceEditorFallback);
   const [gridBackground, setGridBackground] = useState(dashboardGridAppearanceEditorFallback);
@@ -48,6 +56,25 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
   }
 
   const dashboardId = dashboard.id;
+  const appearance = { background, gridBackground };
+
+  // Live-preview swatches: show the resolved (blended) color for the current theme.
+  // Falls back to the raw hex when the result is undefined (transparent).
+  const resolvedBgPreview = resolveDashboardBackground(theme, appearance) ?? background;
+  const resolvedGridBgPreview = resolveDashboardGridBackground(theme, appearance) ?? gridBackground;
+
+  const contrastRatio = getDashboardBgContrastRatio(theme, appearance);
+  const showContrastWarning = contrastRatio !== null && contrastRatio < WCAG_AA_THRESHOLD;
+
+  const selectedPresetLabel =
+    DASHBOARD_APPEARANCE_PRESETS.find(
+      (p) => p.background === background && p.gridBackground === gridBackground,
+    )?.label ?? null;
+
+  function applyPreset(preset: DashboardAppearancePreset) {
+    setBackground(preset.background);
+    setGridBackground(preset.gridBackground);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,10 +85,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
       await dispatch(
         updateDashboardAppearance({
           dashboardId,
-          appearance: {
-            background,
-            gridBackground,
-          },
+          appearance,
         }),
       ).unwrap();
       close();
@@ -98,13 +122,41 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                 <div className="dashboard-appearance-editor__swatches" aria-hidden="true">
                   <span
                     className="dashboard-appearance-editor__swatch"
-                    style={{ backgroundColor: background }}
+                    style={{ backgroundColor: resolvedBgPreview }}
                   />
                   <span
                     className="dashboard-appearance-editor__swatch"
-                    style={{ backgroundColor: gridBackground }}
+                    style={{ backgroundColor: resolvedGridBgPreview }}
                   />
                 </div>
+              </div>
+              <div
+                className="dashboard-appearance-editor__presets"
+                role="group"
+                aria-label="Dashboard appearance presets"
+              >
+                {DASHBOARD_APPEARANCE_PRESETS.map((preset) => {
+                  const isSelected = selectedPresetLabel === preset.label;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className={`appearance-preset${isSelected ? " appearance-preset--selected" : ""}`}
+                      aria-label={preset.label}
+                      aria-pressed={isSelected}
+                      onClick={() => applyPreset(preset)}
+                    >
+                      <span
+                        className="appearance-preset__swatch"
+                        aria-hidden="true"
+                        style={{
+                          background: `linear-gradient(to right, ${preset.background} 50%, ${preset.gridBackground} 50%)`,
+                        }}
+                      />
+                      <span className="appearance-preset__label">{preset.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               <label className="dashboard-appearance-editor__field">
                 <span>Window background</span>
@@ -124,6 +176,11 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                   aria-label="Dashboard grid background color"
                 />
               </label>
+              {showContrastWarning && (
+                <p className="dashboard-appearance-editor__contrast-warning" role="alert">
+                  Low contrast: text may be hard to read on this background.
+                </p>
+              )}
               <button
                 type="submit"
                 className="dashboard-appearance-editor__save"

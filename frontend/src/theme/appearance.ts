@@ -210,6 +210,33 @@ export function resolvePanelTextColor(
   return themeAppearancePalette[theme].defaultText;
 }
 
+/**
+ * Returns the WCAG contrast ratio between the resolved dashboard background
+ * and the theme's default text color. Returns `null` when `appearance.background`
+ * is "transparent" (the theme's own background is used, which is always legible).
+ */
+export function getDashboardBgContrastRatio(
+  theme: Theme,
+  appearance: DashboardAppearance,
+): number | null {
+  if (appearance.background === "transparent") {
+    return null;
+  }
+
+  const resolvedBg = resolveTintedSurface(
+    themeAppearancePalette[theme].appBackground,
+    appearance.background,
+    0.22,
+  );
+  const textColor = parseHexColor(themeAppearancePalette[theme].defaultText);
+
+  if (textColor === null) {
+    return null;
+  }
+
+  return getContrastRatio(resolvedBg, textColor);
+}
+
 export function buildAccentTokens(hex: string): Record<string, string> {
   const rgb = parseHexColor(hex);
   if (rgb === null) {
