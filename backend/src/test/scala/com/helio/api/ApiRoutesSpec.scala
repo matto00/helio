@@ -43,7 +43,7 @@ class ApiRoutesSpec
   private var realSessionRepo: SlickUserSessionRepository   = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
 
     Flyway
       .configure()

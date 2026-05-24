@@ -23,7 +23,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
   private var dsRepo: DataSourceRepository         = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
 
     Flyway
       .configure()
