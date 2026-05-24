@@ -15,8 +15,10 @@ import scala.concurrent.{ExecutionContext, Future}
  *  nonsensical. The ACL decision is enforced in the service / directive layer;
  *  this repo is the raw data source.
  *
- *  The `resource_permissions` table itself has no RLS policy in the current
- *  release — its `BYPASSRLS`-free reads are placeholders until HEL-276.
+ *  The `resource_permissions` table has FORCE RLS enabled (V36). All methods
+ *  here use `withSystemContext` (helio_privileged BYPASSRLS), which correctly
+ *  bypasses those policies. Direct app-pool queries on this table are
+ *  fail-closed by the V36 SELECT policy (owner OR named grantee only).
  */
 class ResourcePermissionRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 

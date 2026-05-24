@@ -141,8 +141,9 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
       .map(_ => panel)
 
-  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
-   *  (owner-only title edit) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged update: uses withSystemContext because PanelService has confirmed
+   *  ownership before calling this. The V36 RLS UPDATE policy (dashboard ACL)
+   *  would also permit this, but withSystemContext avoids the extra predicate. */
   def updateTitle(id: PanelId, title: String, lastUpdated: Instant): Future[Option[Panel]] =
     ctx.withSystemContext(
       table
@@ -152,13 +153,15 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
-  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
-   *  (owner-only delete) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged delete: uses withSystemContext because PanelService has confirmed
+   *  ownership before calling this. The V36 RLS DELETE policy (owner's dashboard
+   *  only) would enforce the same rule on the app pool. */
   def delete(id: PanelId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
-  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
-   *  (owner-only duplicate) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged duplicate: uses withSystemContext because PanelService has confirmed
+   *  ownership before calling this. New row is inserted with the calling user's
+   *  ownerId so V36 RLS policies apply to it correctly after insertion. */
   def duplicate(id: PanelId, ownerId: UserId): Future[Option[Panel]] = {
     val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
 
@@ -200,8 +203,9 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
-  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
-   *  (owner-only appearance edit) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged appearance update: uses withSystemContext because PanelService
+   *  has confirmed ownership before calling this. The V36 RLS UPDATE policy
+   *  (dashboard ACL) would also permit this on the app pool. */
   def updateAppearance(id: PanelId, appearance: PanelAppearance, lastUpdated: Instant): Future[Option[Panel]] =
     ctx.withSystemContext(
       table
@@ -218,8 +222,9 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
    *  Used by `PanelPatchApplier` after `PanelConfigCodec.applyConfigPatch`
    *  produces an updated typed Panel from a wire-shape patch.
    *
-   *  Placeholder until HEL-275/276 enable RLS on panels. ACL check
-   *  (owner-only config edit) is enforced in the service layer. Tracked: HEL-275. */
+   *  Privileged update: uses withSystemContext because PanelService has confirmed
+   *  ownership before calling this. The V36 RLS UPDATE policy (dashboard ACL)
+   *  would also permit this on the app pool. */
   def replace(panel: Panel, lastUpdated: Instant): Future[Option[Panel]] = {
     val row = domainToRow(panel)
     val updated = row.copy(lastUpdated = lastUpdated)
