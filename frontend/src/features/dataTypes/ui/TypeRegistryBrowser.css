@@ -100,11 +100,16 @@
 
 .type-registry-browser__delete-btn {
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--app-text-muted);
-  padding: 4px 6px;
+  padding: 0;
   border-radius: var(--app-radius-sm);
   font-size: 0.75rem;
   transition: color var(--app-transition);

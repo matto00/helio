@@ -55,6 +55,11 @@ export function usePanelGridSave({
     resolvedLayout,
   ) as React.MutableRefObject<DashboardLayout>;
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
+  // Tracks whether we've already dispatched setLayoutPending(true) for the
+  // current pending cycle, so a drag (which fires onLayoutChange every tick)
+  // dispatches once on the false→true transition instead of every frame.
+  // Reset when the layout syncs back to persisted (see resolvedLayout effect).
+  const layoutPendingDispatchedRef = useRef(false);
   const panelFlushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
   // Keep a ref so the interval callback always reads the latest value
@@ -67,6 +72,9 @@ export function usePanelGridSave({
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
     persistedLayoutRef.current = resolvedLayout;
+    // Layout is now in sync with what's persisted, so the pending cycle is
+    // over — allow the next real change to re-dispatch setLayoutPending(true).
+    layoutPendingDispatchedRef.current = false;
     if (
       inFlightLayoutRef.current !== null &&
       areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
@@ -171,7 +179,11 @@ export function usePanelGridSave({
   const markLayoutChanged = useCallback(
     (next: DashboardLayout) => {
       latestLayoutRef.current = next;
-      if (!areDashboardLayoutsEqual(next, persistedLayoutRef.current)) {
+      if (
+        !areDashboardLayoutsEqual(next, persistedLayoutRef.current) &&
+        !layoutPendingDispatchedRef.current
+      ) {
+        layoutPendingDispatchedRef.current = true;
         dispatch(setLayoutPending(true));
       }
     },

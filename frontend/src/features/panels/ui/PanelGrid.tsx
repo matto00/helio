@@ -3,10 +3,10 @@ import "react-resizable/css/styles.css";
 
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
 } from "react";
 import { Responsive, useContainerWidth } from "react-grid-layout";
@@ -17,27 +17,14 @@ const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
 import { resolveDashboardLayout } from "../../dashboards/state/dashboardLayout";
 import { pushLayoutSnapshot } from "../../layout/state/layoutHistorySlice";
-import {
-  accumulatePanelUpdate,
-  deletePanel,
-  duplicatePanel,
-  fetchPanelPage,
-} from "../state/panelsSlice";
-import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
+import { accumulatePanelUpdate } from "../state/panelsSlice";
 import { useTheme } from "../../../theme/ThemeProvider";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
-import { getDataTypeId } from "../state/panelNarrowing";
-import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
-import { InlineError } from "../../../shared/chrome/InlineError";
-import { PanelContent } from "./PanelContent";
-import { useLegacyBoundPanel } from "../hooks/useLegacyBoundPanel";
-import { usePanelData } from "../hooks/usePanelData";
-import { usePanelPolling } from "../hooks/usePanelPolling";
-import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelGridSave, type PanelGridSaveHandle } from "../hooks/usePanelGridSave";
 import { PanelDetailModal } from "./PanelDetailModal";
-import { PanelLegacyWarning } from "./PanelLegacyWarning";
+import { PanelCard } from "./PanelCard";
 import { createLayouts, fromResponsiveLayouts, panelGridConfig } from "./panelGridConfig";
 import "./PanelGrid.css";
 
@@ -50,87 +37,25 @@ interface PanelGridProps {
   zoomLevel?: number;
 }
 
-function getPanelCardStyle(panel: Panel, theme: "dark" | "light"): CSSProperties {
-  const style = {} as CSSProperties & Record<string, string>;
-  const panelSurface = buildPanelSurface(
-    theme,
-    panel.appearance.background,
-    panel.appearance.transparency,
-  );
-  style["--panel-surface-override"] = panelSurface;
-  style["--panel-text-override"] = resolvePanelTextColor(
-    theme,
-    panel.appearance.background,
-    panel.appearance.transparency,
-    panel.appearance.color,
-  );
-
-  return style;
-}
-
-interface PanelCardBodyProps {
-  panel: Panel;
-}
-
-function PanelCardBody({ panel }: PanelCardBodyProps) {
-  const dispatch = useAppDispatch();
-  const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
-  const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
-  usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
-  const isLegacyBound = useLegacyBoundPanel(panel);
-
-  const handleLoadMore = useCallback(() => {
-    if (paginationEntry && !paginationEntry.isLoadingMore) {
-      void dispatch(
-        fetchPanelPage({
-          panelId: panel.id,
-          page: paginationEntry.currentPage + 1,
-          pageSize: 50,
-        }),
-      );
-    }
-  }, [dispatch, panel.id, paginationEntry]);
-
-  // For table panels, determine loading from pagination state (initial load)
-  const tableIsLoading =
-    panel.type === "table" &&
-    paginationEntry != null &&
-    paginationEntry.isLoadingMore &&
-    paginationEntry.rows.length === 0;
-
-  return (
-    <>
-      {isLegacyBound && <PanelLegacyWarning />}
-      <PanelContent
-        panel={panel}
-        appearance={panel.appearance}
-        data={data}
-        rawRows={rawRows}
-        headers={headers}
-        isLoading={panel.type === "table" ? tableIsLoading : isLoading}
-        error={error}
-        noData={noData}
-        paginationRows={paginationEntry?.rows ?? null}
-        paginationHasMore={paginationEntry?.hasMore ?? false}
-        paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
-        onLoadMore={handleLoadMore}
-      />
-    </>
-  );
-}
-
 export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(function PanelGrid(
   { dashboardId, layout, panels, zoomLevel = 1.0 },
   ref,
 ) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  const [isDragging, setIsDragging] = useState(false);
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
   const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
   const titleCancelledRef = useRef(false);
+  // Ref so that commitTitleEdit can read the latest editingTitle without
+  // being recreated on every keystroke (keeps onTitleKeyDown stable).
+  const editingTitleRef = useRef(editingTitle);
+  useEffect(() => {
+    editingTitleRef.current = editingTitle;
+  });
   const mousedownPos = useRef<{ x: number; y: number } | null>(null);
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
@@ -162,51 +87,130 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
     forwardedRef: ref,
   });
 
-  function startEditingTitle(panelId: string, currentTitle: string) {
+  // ─── Stable title-editing callbacks ───────────────────────────────────────
+
+  const cancelEditingTitle = useCallback(() => {
+    titleCancelledRef.current = true;
+    setEditingTitleId(null);
+    setEditingTitleError(null);
+  }, []);
+
+  const commitTitleEdit = useCallback(
+    (panelId: string) => {
+      if (titleCancelledRef.current) return;
+      const trimmed = editingTitleRef.current.trim();
+      if (trimmed.length === 0) {
+        setEditingTitleError("Title must not be blank.");
+        return;
+      }
+      setEditingTitleId(null);
+      setEditingTitleError(null);
+      dispatch(accumulatePanelUpdate({ panelId, fields: { title: trimmed } }));
+    },
+    [dispatch],
+  );
+
+  const handleStartEdit = useCallback((panelId: string, currentTitle: string) => {
     setConfirmDeletePanelId(null);
     setDetailPanelId(null);
     setEditingTitleId(panelId);
     setEditingTitle(currentTitle);
     setEditingTitleError(null);
     titleCancelledRef.current = false;
-  }
+  }, []);
 
-  function cancelEditingTitle() {
-    titleCancelledRef.current = true;
-    setEditingTitleId(null);
+  const handleTitleChange = useCallback((value: string) => {
+    setEditingTitle(value);
     setEditingTitleError(null);
-  }
+  }, []);
 
-  function commitTitleEdit(panelId: string) {
-    if (titleCancelledRef.current) return;
-    const trimmed = editingTitle.trim();
-    if (trimmed.length === 0) {
-      setEditingTitleError("Title must not be blank.");
-      return;
-    }
-    setEditingTitleId(null);
-    setEditingTitleError(null);
-    dispatch(accumulatePanelUpdate({ panelId, fields: { title: trimmed } }));
-  }
+  const handleTitleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>, panelId: string) => {
+      if (event.key === "Enter") {
+        commitTitleEdit(panelId);
+      } else if (event.key === "Escape") {
+        cancelEditingTitle();
+      }
+    },
+    [commitTitleEdit, cancelEditingTitle],
+  );
 
-  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>, panelId: string) {
-    if (event.key === "Enter") {
+  const handleTitleBlur = useCallback(
+    (panelId: string) => {
       commitTitleEdit(panelId);
-    } else if (event.key === "Escape") {
-      cancelEditingTitle();
-    }
-  }
+    },
+    [commitTitleEdit],
+  );
 
-  function handlePanelCardMouseDown(e: React.MouseEvent<HTMLElement>) {
+  // ─── Stable card interaction callbacks ────────────────────────────────────
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
     mousedownPos.current = { x: e.clientX, y: e.clientY };
-  }
+  }, []);
 
-  function handlePanelCardClick(panelId: string, e: React.MouseEvent<HTMLElement>) {
+  const handleCardClick = useCallback((panelId: string, e: React.MouseEvent<HTMLElement>) => {
     const pos = mousedownPos.current;
     if (pos !== null && Math.abs(e.clientX - pos.x) + Math.abs(e.clientY - pos.y) > 5) return;
     if ((e.target as Element).closest("button, input, a, .react-resizable-handle")) return;
     setDetailPanelId(panelId);
-  }
+  }, []);
+
+  const handleRequestDelete = useCallback((panelId: string) => {
+    setConfirmDeletePanelId(panelId);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirmDeletePanelId(null);
+  }, []);
+
+  const handleDetail = useCallback((panelId: string) => {
+    setDetailPanelId(panelId);
+  }, []);
+
+  // ─── 2.7 Stable drag callbacks ────────────────────────────────────────────
+
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true);
+    preInteractionLayoutRef.current = latestLayoutRef.current;
+  }, [latestLayoutRef]);
+
+  const handleDragStop = useCallback(() => {
+    setIsDragging(false);
+    if (preInteractionLayoutRef.current !== null) {
+      dispatch(
+        pushLayoutSnapshot({
+          dashboardId,
+          layout: preInteractionLayoutRef.current,
+        }),
+      );
+      preInteractionLayoutRef.current = null;
+    }
+  }, [dashboardId, dispatch]);
+
+  const handleResizeStart = useCallback(() => {
+    preInteractionLayoutRef.current = latestLayoutRef.current;
+  }, [latestLayoutRef]);
+
+  const handleResizeStop = useCallback(() => {
+    if (preInteractionLayoutRef.current !== null) {
+      dispatch(
+        pushLayoutSnapshot({
+          dashboardId,
+          layout: preInteractionLayoutRef.current,
+        }),
+      );
+      preInteractionLayoutRef.current = null;
+    }
+  }, [dashboardId, dispatch]);
+
+  type LayoutChangeHandler = NonNullable<React.ComponentProps<typeof Responsive>["onLayoutChange"]>;
+  const handleLayoutChange = useCallback<LayoutChangeHandler>(
+    (_, nextLayouts) => {
+      if (nextLayouts === undefined) return;
+      markLayoutChanged(fromResponsiveLayouts(panels, nextLayouts));
+    },
+    [markLayoutChanged, panels],
+  );
 
   return (
     <div ref={containerRef} className="panel-grid-shell">
@@ -222,136 +226,39 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactorPreventCollision}
         positionStrategy={scaledPositionStrategy}
-        onDragStart={() => {
-          preInteractionLayoutRef.current = latestLayoutRef.current;
-        }}
-        onResizeStart={() => {
-          preInteractionLayoutRef.current = latestLayoutRef.current;
-        }}
-        onDragStop={() => {
-          if (preInteractionLayoutRef.current !== null) {
-            dispatch(
-              pushLayoutSnapshot({
-                dashboardId,
-                layout: preInteractionLayoutRef.current,
-              }),
-            );
-            preInteractionLayoutRef.current = null;
-          }
-        }}
-        onResizeStop={() => {
-          if (preInteractionLayoutRef.current !== null) {
-            dispatch(
-              pushLayoutSnapshot({
-                dashboardId,
-                layout: preInteractionLayoutRef.current,
-              }),
-            );
-            preInteractionLayoutRef.current = null;
-          }
-        }}
-        onLayoutChange={(_, nextLayouts) => {
-          if (nextLayouts === undefined) {
-            return;
-          }
-          markLayoutChanged(fromResponsiveLayouts(panels, nextLayouts));
-        }}
+        onDragStart={handleDragStart}
+        onResizeStart={handleResizeStart}
+        onDragStop={handleDragStop}
+        onResizeStop={handleResizeStop}
+        onLayoutChange={handleLayoutChange}
       >
-        {panels.map((panel) => (
-          <div key={panel.id}>
-            <article
-              className="panel-grid-card"
-              style={getPanelCardStyle(panel, theme)}
-              onMouseDown={handlePanelCardMouseDown}
-              onClick={(e) => handlePanelCardClick(panel.id, e)}
-            >
-              <div className="panel-grid-card__top">
-                <div className="panel-grid-card__title-area">
-                  {editingTitleId === panel.id ? (
-                    <>
-                      <input
-                        className="panel-grid-card__title-input"
-                        type="text"
-                        value={editingTitle}
-                        autoFocus
-                        aria-label="Panel title"
-                        onChange={(e) => {
-                          setEditingTitle(e.target.value);
-                          setEditingTitleError(null);
-                        }}
-                        onKeyDown={(e) => handleTitleKeyDown(e, panel.id)}
-                        onBlur={() => commitTitleEdit(panel.id)}
-                      />
-                      <InlineError error={editingTitleError} />
-                    </>
-                  ) : (
-                    <h3 className="panel-grid-card__title">{panel.title}</h3>
-                  )}
-                </div>
-                <div className="panel-grid-card__actions">
-                  {confirmDeletePanelId === panel.id ? (
-                    <>
-                      <button
-                        type="button"
-                        className="panel-grid-card__delete-confirm-btn"
-                        onClick={() => {
-                          void dispatch(deletePanel({ panelId: panel.id, dashboardId }));
-                          setConfirmDeletePanelId(null);
-                        }}
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        className="panel-grid-card__delete-cancel-btn"
-                        onClick={() => setConfirmDeletePanelId(null)}
-                      >
-                        ×
-                      </button>
-                    </>
-                  ) : editingTitleId === panel.id ? null : (
-                    <ActionsMenu
-                      label={`${panel.title} panel actions`}
-                      items={[
-                        {
-                          label: "Rename",
-                          onClick: () => startEditingTitle(panel.id, panel.title),
-                        },
-                        {
-                          label: "Customize",
-                          onClick: () => setDetailPanelId(panel.id),
-                        },
-                        {
-                          label: "Duplicate",
-                          onClick: () =>
-                            void dispatch(duplicatePanel({ panelId: panel.id, dashboardId })),
-                        },
-                        {
-                          label: "Delete",
-                          onClick: () => setConfirmDeletePanelId(panel.id),
-                          danger: true,
-                        },
-                      ]}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    className="panel-grid-card__handle"
-                    aria-label={`Move ${panel.title} panel`}
-                  >
-                    <span />
-                    <span />
-                  </button>
-                </div>
-              </div>
-              <PanelCardBody panel={panel} />
-              <div className="panel-grid-card__footer">
-                <span className="panel-grid-card__type-badge">{panel.type}</span>
-                <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
-              </div>
-            </article>
-          </div>
-        ))}
+        {panels.map((panel) => {
+          const isEditingTitle = editingTitleId === panel.id;
+          const isConfirmingDelete = confirmDeletePanelId === panel.id;
+          return (
+            <div key={panel.id}>
+              <PanelCard
+                panel={panel}
+                theme={theme}
+                isDragging={isDragging}
+                dashboardId={dashboardId}
+                isEditingTitle={isEditingTitle}
+                editingTitle={isEditingTitle ? editingTitle : ""}
+                editingTitleError={isEditingTitle ? editingTitleError : null}
+                isConfirmingDelete={isConfirmingDelete}
+                onMouseDown={handleMouseDown}
+                onCardClick={handleCardClick}
+                onStartEdit={handleStartEdit}
+                onTitleChange={handleTitleChange}
+                onTitleKeyDown={handleTitleKeyDown}
+                onTitleBlur={handleTitleBlur}
+                onRequestDelete={handleRequestDelete}
+                onCancelDelete={handleCancelDelete}
+                onDetail={handleDetail}
+              />
+            </div>
+          );
+        })}
       </Responsive>
       {detailPanelId !== null ? (
         <PanelDetailModal

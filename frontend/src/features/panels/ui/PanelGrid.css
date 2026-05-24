@@ -67,8 +67,8 @@
 }
 
 .panel-grid-card__actions .actions-menu__trigger {
-  width: 38px;
-  height: 38px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
 }
 
@@ -87,13 +87,13 @@
 }
 
 .panel-grid-card__handle {
-  width: 38px;
-  height: 38px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   border: 1px solid var(--app-border-subtle);
   border-radius: 999px;
   background: var(--app-surface-soft);

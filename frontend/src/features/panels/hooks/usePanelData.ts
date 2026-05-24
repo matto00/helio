@@ -1,10 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../state/panelsSlice";
 import { getDataTypeId, getFieldMapping } from "../state/panelNarrowing";
 import type { MappedPanelData, Panel } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { useEffect } from "react";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -67,6 +66,46 @@ export function usePanelData(panel: Panel): PanelDataResult {
       });
   }, [currentFetchKey, panel.id, panel.type, dispatch, refreshToken, paginationEntry]);
 
+  // Derive rows unconditionally so the useMemo hooks below (1.1–1.3) are always called.
+  // Wrapped in useMemo so the ?? [] fallback doesn't produce a new empty-array
+  // reference on every render (which would defeat the downstream memos).
+  // paginationEntry is from useAppSelector: Immer returns the same reference
+  // when nothing changed, so this memo hits reliably during drag.
+  const rows = useMemo(() => paginationEntry?.rows ?? [], [paginationEntry]);
+
+  // 1.1 — Memoize headers keyed on the rows array reference.  Redux only returns a new
+  // array when rows actually change, so this memo hits reliably across re-renders.
+  const headers = useMemo(
+    () => (rows.length > 0 ? Object.keys(rows[0]).map(String) : null),
+    [rows],
+  );
+
+  // 1.2 — Memoize rawRows keyed on the rows array reference.
+  const rawRows = useMemo(
+    () =>
+      rows.length > 0
+        ? rows.map((row) =>
+            Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
+          )
+        : null,
+    [rows],
+  );
+
+  // 1.3 — Memoize data (field-mapped first-row object) keyed on rows + fieldMappingKey.
+  // fieldMappingKey is a stable JSON string; parsing it inside the memo avoids a
+  // dependency on the mapping object reference (which may be recreated each render).
+  const data = useMemo<MappedPanelData | null>(() => {
+    if (rows.length === 0 || !fieldMappingKey) return null;
+    const fieldMapping = JSON.parse(fieldMappingKey) as Record<string, string>;
+    const firstRow = rows[0];
+    const mapped: MappedPanelData = {};
+    for (const [slot, field] of Object.entries(fieldMapping)) {
+      const value = firstRow[field];
+      mapped[slot] = value !== undefined && value !== null ? String(value) : "";
+    }
+    return mapped;
+  }, [rows, fieldMappingKey]);
+
   if (!currentFetchKey) {
     return {
       data: null,
@@ -80,29 +119,9 @@ export function usePanelData(panel: Panel): PanelDataResult {
   }
 
   const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
-  const rows = paginationEntry?.rows ?? [];
   const isLoading = paginationEntry?.isLoadingMore === true && rows.length === 0;
   const noData =
     paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
-
-  let data: MappedPanelData | null = null;
-  let rawRows: string[][] | null = null;
-  let headers: string[] | null = null;
-
-  if (rows.length > 0) {
-    headers = Object.keys(rows[0]).map(String);
-    rawRows = rows.map((row) =>
-      Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
-    );
-    const fieldMapping = mapping ?? {};
-    const firstRow = rows[0];
-    const mapped: MappedPanelData = {};
-    for (const [slot, field] of Object.entries(fieldMapping)) {
-      const value = firstRow[field];
-      mapped[slot] = value !== undefined && value !== null ? String(value) : "";
-    }
-    data = mapped;
-  }
 
   return { data, rawRows, headers, isLoading, error, noData, refresh };
 }
