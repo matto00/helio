@@ -129,6 +129,10 @@ export function resolveDashboardBackground(
     return undefined;
   }
 
+  // Tint strength 0.22 — 22% of the user-chosen color blended into the theme's
+  // app-background base. Keeps strong override colors muted enough to stay within
+  // the "glass" aesthetic while still being clearly visible. Evaluated across
+  // dark/light × dark-bg/light-bg combinations; value is intentionally conservative.
   const resolved = resolveTintedSurface(
     themeAppearancePalette[theme].appBackground,
     appearance.background,
@@ -152,15 +156,24 @@ export function resolveDashboardGridBackground(
     0.28,
   );
 
+  // Alpha values: 0.94 (dark) / 0.97 (light). Chosen to keep the grid surface
+  // subtly distinguishable from the full-bleed shell background in both themes
+  // without making the grid area look like an opaque inset box. Delta from 1.0
+  // is intentionally small (±0.03–0.06) to stay in the "glass" range.
   return toRgbString(resolved, theme === "dark" ? 0.94 : 0.97);
 }
 
 export function buildPanelSurface(theme: Theme, background: string, transparency: number): string {
+  // Panel tint strength 0.24 — slightly stronger than the dashboard (0.22) so
+  // panel color overrides read more distinctly on top of the blended shell backdrop.
   const resolved = resolveTintedSurface(
     themeAppearancePalette[theme].panelSurface,
     background,
     0.24,
   );
+  // Alpha formula: 0.9 at transparency=0 (solid glass floor) → 0.18 at transparency=1.0
+  // (near-invisible). The 0.72 slope is intentional: 0.9 - 1.0 * 0.72 = 0.18 exactly.
+  // The 0.9 floor preserves the glass-panel aesthetic even when transparency=0.
   const alpha = 0.9 - clampTransparency(transparency) * 0.72;
 
   return toRgbString(resolved, alpha);

@@ -10,12 +10,20 @@
   transition: background-color var(--app-transition);
 }
 
-/* Dot-grid overlay — sits above the background override so it's always visible */
+/* Dot-grid overlay — sits above the background override so it's always visible.
+   Uses --dot-grid-opacity (tuned per theme in theme.css) applied directly to
+   --app-accent via CSS relative color syntax. This decouples dot intensity from
+   the --app-bg-accent token so it can be tuned without touching the accent system.
+   z-index 5 is intentionally above .app-command-bar (z-2) and .app-sidebar (z-4);
+   pointer-events: none prevents any functional interference with those elements. */
 .app-shell::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(var(--app-bg-accent) 1px, transparent 1px);
+  background-image: radial-gradient(
+    rgb(from var(--app-accent) r g b / var(--dot-grid-opacity, 0.1)) 1px,
+    transparent 1px
+  );
   background-size: 28px 28px;
   pointer-events: none;
   z-index: 5;

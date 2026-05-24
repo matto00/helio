@@ -53,6 +53,9 @@
   --app-bg: #060a0e;
   --app-bg-accent: rgba(249, 115, 22, 0.06);
   --app-bg-secondary: rgba(249, 115, 22, 0.03);
+  /* Dot-grid intensity — tuned higher than the 6% baked into --app-bg-accent so dots
+     stay visible on dark background overrides. Adjust without touching the accent system. */
+  --dot-grid-opacity: 0.14;
   --app-surface: rgba(15, 22, 32, 0.9);
   --app-surface-strong: rgba(10, 16, 24, 0.95);
   --app-surface-soft: rgba(20, 28, 40, 0.85);
@@ -72,6 +75,9 @@
   --app-bg: #fdfbf7;
   --app-bg-accent: rgba(249, 115, 22, 0.06);
   --app-bg-secondary: rgba(249, 115, 22, 0.03);
+  /* Dot-grid intensity — lower than dark theme; lighter backgrounds already provide
+     adequate contrast so the dots don't need to be as strong. */
+  --dot-grid-opacity: 0.08;
   --app-surface: rgba(255, 255, 255, 0.9);
   --app-surface-strong: rgba(255, 255, 255, 0.96);
   --app-surface-soft: rgba(245, 242, 237, 0.9);
