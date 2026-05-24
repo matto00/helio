@@ -65,10 +65,21 @@ final class PanelService(
       panels: Vector[Panel],
       userOpt: Option[AuthenticatedUser]
   ): Future[Vector[Panel]] = userOpt match {
-    case Some(user) =>
-      Future.traverse(panels)(p => resolveSingleBinding(p, user))
     case None =>
       Future.successful(panels.map(_.withBindingCleared))
+    case Some(user) =>
+      val typedIds = panels.flatMap(_.dataTypeId).distinct
+      if (typedIds.isEmpty)
+        Future.successful(panels)
+      else
+        dataTypeRepo.findByIdsOwned(typedIds, user).map { ownedMap =>
+          panels.map { panel =>
+            panel.dataTypeId match {
+              case None         => panel
+              case Some(typeId) => if (ownedMap.contains(typeId)) panel else panel.withBindingCleared
+            }
+          }
+        }
   }
 
   /** Public method used by routes that already have a Panel + a user. */
