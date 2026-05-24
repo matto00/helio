@@ -2,7 +2,6 @@ package com.helio.infrastructure
 
 import com.helio.api.protocols.DataTypeProtocol
 import com.helio.domain._
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -10,7 +9,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
+class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     extends DataTypeProtocol {
 
   import DataTypeRepository._
@@ -45,14 +44,16 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
 
   def findAll(ownerId: UserId): Future[Vector[DataType]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
-    db.run(table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result)
-      .map(_.map(rowToDomain).toVector)
+    ctx.withUserContext(ownerId.value)(
+      table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
+    ).map(_.map(rowToDomain).toVector)
   }
 
   def findBySourceId(id: DataSourceId, ownerId: UserId): Future[Vector[DataType]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
-    db.run(table.filter(r => r.sourceId === id.value && r.ownerId === ownerUuid).result)
-      .map(_.map(rowToDomain).toVector)
+    ctx.withUserContext(ownerId.value)(
+      table.filter(r => r.sourceId === id.value && r.ownerId === ownerUuid).result
+    ).map(_.map(rowToDomain).toVector)
   }
 
   /** Privileged unscoped read — no ACL check.
@@ -61,7 +62,7 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
    *  - `ResourceTypeRegistry` resolver (resolves owner FOR the ACL check)
    *  - `PipelineRunService.upsertFieldsFromRows` (background privileged path) */
   def findByIdInternal(id: DataTypeId): Future[Option[DataType]] =
-    db.run(table.filter(_.id === id.value).result.headOption)
+    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
   /** Owner-scoped findById — collapses the former 2-arg overload.
@@ -70,8 +71,9 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
    *  (existence and authorization are indistinguishable at the API surface). */
   def findByIdOwned(id: DataTypeId, user: AuthenticatedUser): Future[Option[DataType]] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
-      .map(_.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(
+      table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption
+    ).map(_.map(rowToDomain))
   }
 
   /** Batch owner-scoped lookup -- fetches all types in ids owned by user
@@ -84,13 +86,14 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
     else {
       val idSet     = ids.map(_.value).toSet
       val ownerUuid = UUID.fromString(user.id.value)
-      db.run(table.filter(r => (r.id inSet idSet) && r.ownerId === ownerUuid).result)
-        .map(_.map(rowToDomain).map(dt => dt.id -> dt).toMap)
+      ctx.withUserContext(user.id.value)(
+        table.filter(r => (r.id inSet idSet) && r.ownerId === ownerUuid).result
+      ).map(_.map(rowToDomain).map(dt => dt.id -> dt).toMap)
     }
 
   def insert(dt: DataType): Future[DataType] = {
     val row = domainToRow(dt).copy(version = 1)
-    db.run(table += row).map(_ => rowToDomain(row))
+    ctx.withSystemContext(table += row).map(_ => rowToDomain(row))
   }
 
   def update(dt: DataType): Future[Option[DataType]] = {
@@ -118,11 +121,11 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
       }
       .transactionally
 
-    db.run(action)
+    ctx.withSystemContext(action)
   }
 
   def delete(id: DataTypeId): Future[Boolean] =
-    db.run(table.filter(_.id === id.value).delete).map(_ > 0)
+    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
   /** Owner-scoped panel-binding check. Returns true only when at least one
    *  panel owned by `user` is bound to this data type. Cross-user bindings
@@ -130,7 +133,7 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
    *  caller can only see the panels they own. */
   def existsBoundToAnyOwnedPanel(id: DataTypeId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerStr = user.id.value
-    db.run(
+    ctx.withUserContext(user.id.value)(
       sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value} AND owner_id = $ownerStr::uuid"
         .as[Int].head
     ).map(_ > 0)

@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, DashboardId, PanelId, RestApiConfig, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -57,15 +57,16 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    dashboardRepo      = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo          = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo     = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
+    val ctx            = new DbContext(db)(typedSystem.executionContext)
+    dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
+    panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
+    dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
-    permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
-    pipelineStepRepo   = new PipelineStepRepository(db)(typedSystem.executionContext)
+    permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 

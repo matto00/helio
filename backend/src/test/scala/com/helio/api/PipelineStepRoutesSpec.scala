@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
 import com.helio.api.protocols.{
   CastStepResponse,
   FilterStepResponse,
@@ -51,10 +51,11 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
-    dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
-    stepRepo     = new PipelineStepRepository(db)(typedSystem.executionContext)
-    pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    val ctx        = new DbContext(db)(typedSystem.executionContext)
+    dataTypeRepo   = new DataTypeRepository(ctx)(typedSystem.executionContext)
+    dataSourceRepo = new DataSourceRepository(ctx)(typedSystem.executionContext)
+    stepRepo     = new PipelineStepRepository(ctx)(typedSystem.executionContext)
+    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {

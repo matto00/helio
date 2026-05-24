@@ -1,6 +1,5 @@
 package com.helio.infrastructure
 
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -12,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * Overwrite semantics: every successful non-dry run atomically replaces the
  * entire snapshot for a given DataType via a transactional DELETE + bulk INSERT.
  */
-class DataTypeRowRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class DataTypeRowRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /**
    * Atomically replace the snapshot for `dataTypeId` with `rows`.
@@ -29,7 +28,7 @@ class DataTypeRowRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       sqlu"INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ($dataTypeId, $idx, $jsonStr::jsonb)"
     }
     val allActions = deleteAction +: insertActions
-    db.run(DBIO.seq(allActions: _*).transactionally)
+    ctx.withSystemContext(DBIO.seq(allActions: _*).transactionally)
   }
 
   /**
@@ -37,7 +36,7 @@ class DataTypeRowRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
    * Returns an empty Vector if no snapshot has been written yet.
    */
   def listRows(dataTypeId: String): Future[Vector[JsObject]] =
-    db.run(
+    ctx.withSystemContext(
       sql"SELECT data::text FROM data_type_rows WHERE data_type_id = $dataTypeId ORDER BY row_index ASC"
         .as[String]
     ).map(_.map(_.parseJson.asJsObject).toVector)

@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -56,8 +56,9 @@ class SchemaInferenceRegressionSpec
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo   = new DataTypeRepository(db)
-    dataSourceRepo = new DataSourceRepository(db)
+    val ctx        = new DbContext(db)
+    dataTypeRepo   = new DataTypeRepository(ctx)
+    dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-schema-inference-regression")
     fileSystem     = new LocalFileSystem(tmpDir)
     service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)

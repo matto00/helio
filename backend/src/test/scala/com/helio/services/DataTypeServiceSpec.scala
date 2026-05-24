@@ -1,7 +1,7 @@
 package com.helio.services
 
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -42,9 +42,10 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       .load()
       .migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo    = new DataTypeRepository(db)
-    dataTypeRowRepo = new DataTypeRowRepository(db)
-    dataSourceRepo  = new DataSourceRepository(db)
+    val ctx         = new DbContext(db)
+    dataTypeRepo    = new DataTypeRepository(ctx)
+    dataTypeRowRepo = new DataTypeRowRepository(ctx)
+    dataSourceRepo  = new DataSourceRepository(ctx)
     service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   }
 

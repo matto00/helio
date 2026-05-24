@@ -59,6 +59,17 @@ Every repository that exposes a per-id read MUST choose one of three flavors exp
 
 **Existence-not-leaked semantics**: `findByIdOwned` (and `findById` for no-grant callers) returns `None` for a cross-user ID. Services map `None → 404 Not Found`, never `403 Forbidden`. This hides resource existence from unauthorized callers. The 403 status is reserved for cases where the resource is visible (the caller has a sharing grant) but the requested operation is not permitted for their role (e.g., a viewer-grant user attempting a mutation).
 
+#### Database transactions & RLS context
+
+All database access goes through `DbContext` — **never call `db.run(...)` directly in a repository**. `DbContext` wraps every action in an explicit transaction and sets the `app.current_user_id` Postgres session variable before running the action:
+
+- `ctx.withUserContext(userId)(action)` — sets the variable to the caller's user id. Use for user-visible reads and writes where RLS policies should apply.
+- `ctx.withSystemContext(action)` — sets the variable to `"system"`. Use for internal/privileged actions that must bypass user-scoped RLS, background jobs, and any call site where no `AuthenticatedUser` is available.
+
+**Why `SET LOCAL` (not `SET SESSION`)**: `set_config('app.current_user_id', value, true)` is transaction-scoped. When HikariCP recycles a connection back to the pool the variable is automatically cleared, preventing user-id leakage across requests.
+
+**Nested transactions are safe**: Slick's `.transactionally` on an action that is already inside a `withUserContext`/`withSystemContext` call becomes a Postgres savepoint; the outer transaction — and its `SET LOCAL` — remain in effect.
+
 ### API Contracts
 
 - Define request/response shapes in `schemas/` (JSON Schema 2020-12)

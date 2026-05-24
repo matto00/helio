@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataTypeRowsResponse, ErrorResponse, JsonProtocols}
 import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
 import com.helio.services.DataTypeService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -48,9 +48,10 @@ class DataTypeRoutesSpec
       .load()
       .migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo    = new DataTypeRepository(db)(routeEc)
-    dataTypeRowRepo = new DataTypeRowRepository(db)(routeEc)
-    dataSourceRepo  = new DataSourceRepository(db)(routeEc)
+    val ctx         = new DbContext(db)(routeEc)
+    dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
+    dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
+    dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {

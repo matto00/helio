@@ -7,6 +7,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
+import com.helio.infrastructure.DbContext
 
 import java.time.Instant
 import java.util.UUID
@@ -33,8 +34,9 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       .migrate()
 
     db     = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dtRepo = new DataTypeRepository(db)
-    dsRepo = new DataSourceRepository(db)
+    val ctx = new DbContext(db)
+    dtRepo = new DataTypeRepository(ctx)
+    dsRepo = new DataSourceRepository(ctx)
   }
 
   override def afterAll(): Unit = {

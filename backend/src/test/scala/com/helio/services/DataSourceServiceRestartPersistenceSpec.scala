@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -69,8 +69,9 @@ class DataSourceServiceRestartPersistenceSpec
    *  independent service objects with their own repository instances —
    *  exactly the situation the JVM has after restart. */
   private def buildServices(uploadsDir: java.nio.file.Path): (DataSourceService, DataTypeRepository, DataSourceRepository) = {
-    val dataSourceRepo = new DataSourceRepository(db)
-    val dataTypeRepo   = new DataTypeRepository(db)
+    val ctx            = new DbContext(db)
+    val dataSourceRepo = new DataSourceRepository(ctx)
+    val dataTypeRepo   = new DataTypeRepository(ctx)
     val fileSystem     = new LocalFileSystem(uploadsDir)
     val service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     (service, dataTypeRepo, dataSourceRepo)
@@ -129,7 +130,7 @@ class DataSourceServiceRestartPersistenceSpec
       // round-trip directly through the repositories, which is what
       // SourceService.createSqlSource ultimately writes.
       val (_, _, dataSourceRepo1) = buildServices(Files.createTempDirectory("helio-restart-sql"))
-      val dataTypeRepo1           = new DataTypeRepository(db)
+      val dataTypeRepo1           = new DataTypeRepository(new DbContext(db))
       val now                     = java.time.Instant.now()
       val srcId                   = DataSourceId(UUID.randomUUID().toString)
       val sqlSource = SqlSource(
@@ -165,8 +166,9 @@ class DataSourceServiceRestartPersistenceSpec
       await(dataTypeRepo1.insert(dt))
 
       // "Restart": fresh repos against the same DB.
-      val dataSourceRepo2 = new DataSourceRepository(db)
-      val dataTypeRepo2   = new DataTypeRepository(db)
+      val ctx2            = new DbContext(db)
+      val dataSourceRepo2 = new DataSourceRepository(ctx2)
+      val dataTypeRepo2   = new DataTypeRepository(ctx2)
       await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
       val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
       dtsAfter should have size 1

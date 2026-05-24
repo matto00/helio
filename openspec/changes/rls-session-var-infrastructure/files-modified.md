@@ -1,0 +1,36 @@
+- `CONTRIBUTING.md` — added "Database transactions & RLS context" section explaining `withUserContext`/`withSystemContext` contract, `SET LOCAL` rationale, and the ban on raw `db.run` in repositories
+- `backend/src/main/scala/com/helio/infrastructure/DbContext.scala` — **new** wrapper class; provides `withUserContext(userId)(action)` and `withSystemContext(action)` that prepend `set_config('app.current_user_id', …, true)` (transaction-scoped) before every action
+- `backend/src/main/scala/com/helio/app/Main.scala` — instantiate one `DbContext(db)` after `Database.init` and thread it through all repository constructors; update `SourceSchemaHealthCheck.run` call
+- `backend/src/main/scala/com/helio/app/SourceSchemaHealthCheck.scala` — replace `db: JdbcBackend.Database` parameter with `ctx: DbContext`; use `ctx.withSystemContext` for orphan detection query
+- `backend/src/main/scala/com/helio/infrastructure/DashboardRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with `ctx.withUserContext` (owner-scoped reads/writes) or `ctx.withSystemContext` (internal reads, count, duplicate)
+- `backend/src/main/scala/com/helio/infrastructure/PanelRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/DataTypeRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/DataSourceRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/PipelineStepRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/DataTypeRowRepository.scala` — constructor changed to `ctx: DbContext`; `db.run` calls replaced with `ctx.withSystemContext`
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRunRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with appropriate context calls
+- `backend/src/main/scala/com/helio/infrastructure/ResourcePermissionRepository.scala` — constructor changed to `ctx: DbContext`; all `db.run` calls replaced with `ctx.withSystemContext`
+- `backend/src/test/scala/com/helio/infrastructure/DbContextSpec.scala` — **new** EmbeddedPostgres integration test verifying the connection-leak regression (task 2.1), rollback variant (task 2.2), and `withSystemContext` sentinel (task 2.3)
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — create `DbContext` from `db` and pass to all repository constructors
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/DataSourceRoutesSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/PipelineStepRoutesSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/routes/DashboardPanelAclSpec.scala` — same constructor migration; `ctx` promoted to class-level `var` for use in `mkPipelineRepo`/`mkPipelineStepRepo`
+- `backend/src/test/scala/com/helio/api/routes/DataTypeDataSourceAclSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/routes/DataTypeRoutesSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/routes/PipelineAclSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/routes/PipelineAnalyzeRoutesSpec.scala` — same constructor migration
+- `backend/src/test/scala/com/helio/api/routes/PipelineRunRoutesSpec.scala` — same constructor migration; `ctx` promoted to class-level `var` for inline repo instantiations
+- `backend/src/test/scala/com/helio/app/SourceSchemaHealthCheckSpec.scala` — create `DbContext` from `db`; update `findOrphans(ctx)` and `run(ctx, logger)` call sites
+- `backend/src/test/scala/com/helio/infrastructure/DataSourceRepositorySpec.scala` — pass `new DbContext(db)` to repository constructor
+- `backend/src/test/scala/com/helio/infrastructure/DataTypeRepositorySpec.scala` — same
+- `backend/src/test/scala/com/helio/infrastructure/DataTypeRowRepositorySpec.scala` — same
+- `backend/src/test/scala/com/helio/infrastructure/PipelineRepositorySpec.scala` — same
+- `backend/src/test/scala/com/helio/infrastructure/PipelineRunRepositorySpec.scala` — same
+- `backend/src/test/scala/com/helio/infrastructure/PipelineStepRepositorySpec.scala` — same
+- `backend/src/test/scala/com/helio/services/DataSourceServiceRestartPersistenceSpec.scala` — create `DbContext` inside `buildServices` and all restart-scenario inline repos
+- `backend/src/test/scala/com/helio/services/DataSourceServiceSpec.scala` — create `DbContext` from `db`; pass to repository constructors
+- `backend/src/test/scala/com/helio/services/DataTypeServiceSpec.scala` — same
+- `backend/src/test/scala/com/helio/services/SchemaInferenceRegressionSpec.scala` — same
+- `backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala` — create `DbContext` inside `startDb()`; pass to repository constructors

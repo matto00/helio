@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2Bearer
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import scala.concurrent.Future
 import spray.json._
@@ -52,10 +52,11 @@ class DataSourceRoutesSpec
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
 
-    val ec = typedSystem.executionContext
-    dataSourceRepo  = new DataSourceRepository(db)(ec)
-    dataTypeRepo    = new DataTypeRepository(db)(ec)
-    permissionRepo  = new ResourcePermissionRepository(db)(ec)
+    val ec  = typedSystem.executionContext
+    val ctx = new DbContext(db)(ec)
+    dataSourceRepo  = new DataSourceRepository(ctx)(ec)
+    dataTypeRepo    = new DataTypeRepository(ctx)(ec)
+    permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
 
     val tmpDir = Files.createTempDirectory("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
@@ -96,13 +97,14 @@ class DataSourceRoutesSpec
 
   private def routesWith(c: RestApiConnector): Route = {
     import com.helio.infrastructure.{DashboardRepository, PanelRepository}
-    val ec = typedSystem.executionContext
-    val dashboardRepo      = new DashboardRepository(db)(ec)
-    val panelRepo          = new PanelRepository(db)(ec)
+    val ec             = typedSystem.executionContext
+    val ctx            = new DbContext(db)(ec)
+    val dashboardRepo      = new DashboardRepository(ctx)(ec)
+    val panelRepo          = new PanelRepository(ctx)(ec)
     val userRepo           = new UserRepository(db)(ec)
     val userPreferenceRepo = new UserPreferenceRepository(db)(ec)
-    val pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(ec)
-    val pipelineStepRepo   = new PipelineStepRepository(db)(ec)
+    val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(ec)
+    val pipelineStepRepo   = new PipelineStepRepository(ctx)(ec)
     mapRequest { req =>
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))

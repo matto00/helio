@@ -3,7 +3,6 @@ package com.helio.infrastructure
 import com.helio.api.protocols.{PanelBatchItem, PanelProtocol}
 import com.helio.domain._
 import com.helio.domain.panels._
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -11,7 +10,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
+class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     extends PanelProtocol {
 
   import PanelRepository._
@@ -32,17 +31,18 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
    *  `findByDashboardId`. */
   def findAllByDashboardId(dashboardId: DashboardId, callerOpt: Option[AuthenticatedUser]): Future[Vector[Panel]] =
     dashTable.filter(_.id === dashboardId.value).result.headOption pipe { q =>
-      db.run(q).flatMap {
+      ctx.withSystemContext(q).flatMap {
         case None => Future.successful(Vector.empty)
         case Some(dashRow) =>
           val ownerId = dashRow.ownerId.toString
           callerOpt match {
             case Some(caller) if caller.id.value == ownerId =>
-              db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
-                .map(_.map(rowToDomain).toVector)
+              ctx.withUserContext(caller.id.value)(
+                table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
+              ).map(_.map(rowToDomain).toVector)
 
             case Some(caller) =>
-              db.run(
+              ctx.withUserContext(caller.id.value)(
                 permTable
                   .filter(p =>
                     p.resourceType === "dashboard" &&
@@ -53,15 +53,16 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
                   .result
               ).flatMap { hasGrant =>
                 if (hasGrant)
-                  db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
-                    .map(_.map(rowToDomain).toVector)
+                  ctx.withUserContext(caller.id.value)(
+                    table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
+                  ).map(_.map(rowToDomain).toVector)
                 else
                   Future.successful(Vector.empty)
               }
 
             case None =>
               // Public-viewer fallback: anonymous caller.
-              db.run(
+              ctx.withSystemContext(
                 permTable
                   .filter(p =>
                     p.resourceType === "dashboard" &&
@@ -73,8 +74,9 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
                   .result
               ).flatMap { hasPublic =>
                 if (hasPublic)
-                  db.run(table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result)
-                    .map(_.map(rowToDomain).toVector)
+                  ctx.withSystemContext(
+                    table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
+                  ).map(_.map(rowToDomain).toVector)
                 else
                   Future.successful(Vector.empty)
               }
@@ -87,7 +89,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
    *  - `PanelService.batchUpdate` (parent dashboard ACL is the authoritative gate there)
    *  Do NOT call from routes or services that own the ACL decision. */
   def findByIdInternal(id: PanelId): Future[Option[Panel]] =
-    db.run(table.filter(_.id === id.value).result.headOption)
+    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
   /** Sharing-aware read. Returns Some when the caller is the panel's parent
@@ -95,11 +97,11 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
    *  `callerOpt = None`) a public-viewer grant exists on the dashboard.
    *  Returns None otherwise — no existence leak. */
   def findById(id: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
-    db.run(table.filter(_.id === id.value).result.headOption).flatMap {
+    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).flatMap {
       case None => Future.successful(None)
       case Some(panelRow) =>
         val dashId = panelRow.dashboardId
-        db.run(dashTable.filter(_.id === dashId).result.headOption).flatMap {
+        ctx.withSystemContext(dashTable.filter(_.id === dashId).result.headOption).flatMap {
           case None => Future.successful(None)  // orphaned panel — treat as not found
           case Some(dashRow) =>
             val ownerId = dashRow.ownerId.toString
@@ -108,7 +110,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
                 Future.successful(Some(rowToDomain(panelRow)))
 
               case Some(caller) =>
-                db.run(
+                ctx.withUserContext(caller.id.value)(
                   permTable
                     .filter(p =>
                       p.resourceType === "dashboard" &&
@@ -120,7 +122,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
                 ).map(hasGrant => if (hasGrant) Some(rowToDomain(panelRow)) else None)
 
               case None =>
-                db.run(
+                ctx.withSystemContext(
                   permTable
                     .filter(p =>
                       p.resourceType === "dashboard" &&
@@ -136,11 +138,11 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
     }
 
   def insert(panel: Panel): Future[Panel] =
-    db.run(table += domainToRow(panel))
+    ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
       .map(_ => panel)
 
   def updateTitle(id: PanelId, title: String, lastUpdated: Instant): Future[Option[Panel]] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(_.id === id.value)
         .map(r => (r.title, r.lastUpdated))
@@ -149,7 +151,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
     ).map(_.map(rowToDomain))
 
   def delete(id: PanelId): Future[Boolean] =
-    db.run(table.filter(_.id === id.value).delete).map(_ > 0)
+    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
   def duplicate(id: PanelId, ownerId: UserId): Future[Option[Panel]] = {
     val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
@@ -189,11 +191,11 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
           }
     }.transactionally
 
-    db.run(action)
+    ctx.withSystemContext(action)
   }
 
   def updateAppearance(id: PanelId, appearance: PanelAppearance, lastUpdated: Instant): Future[Option[Panel]] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(_.id === id.value)
         .map(r => (r.appearance, r.lastUpdated))
@@ -210,7 +212,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
   def replace(panel: Panel, lastUpdated: Instant): Future[Option[Panel]] = {
     val row = domainToRow(panel)
     val updated = row.copy(lastUpdated = lastUpdated)
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(_.id === panel.id.value)
         .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
@@ -276,7 +278,7 @@ class PanelRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id inSet panelIds.toSet).result)
         .transactionally
 
-    db.run(action).map(_.map(rowToDomain).toVector)
+    ctx.withSystemContext(action).map(_.map(rowToDomain).toVector)
   }
 
   // Helper to pipe a value into a function (avoids temp variable noise).
