@@ -40,7 +40,7 @@ class DataTypeRoutesSpec
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
     Flyway
       .configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
