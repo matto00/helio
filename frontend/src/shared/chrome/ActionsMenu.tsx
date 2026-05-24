@@ -1,8 +1,7 @@
-import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./ActionsMenu.css";
 import "./Popover.css";
-import { useOverlay } from "./OverlayProvider";
+import { usePortalPopover } from "../../hooks/usePortalPopover";
 
 export interface ActionsMenuItem {
   label: string;
@@ -17,20 +16,14 @@ interface ActionsMenuProps {
 }
 
 export function ActionsMenu({ label, items }: ActionsMenuProps) {
-  const { isActive: isOpen, open, close } = useOverlay();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
+  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
 
-  function handleOpen() {
+  function handleToggle() {
     if (isOpen) {
       close();
       return;
     }
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPanelPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
-    }
-    open();
+    handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
   }
 
   function handleItemClick(item: ActionsMenuItem) {
@@ -73,7 +66,7 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
         ref={triggerRef}
         type="button"
         className="popover__trigger actions-menu__trigger"
-        onClick={handleOpen}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={label}

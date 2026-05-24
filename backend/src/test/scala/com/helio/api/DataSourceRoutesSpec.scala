@@ -41,7 +41,7 @@ class DataSourceRoutesSpec
   private var fileSystem: LocalFileSystem                   = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
 
     Flyway
       .configure()

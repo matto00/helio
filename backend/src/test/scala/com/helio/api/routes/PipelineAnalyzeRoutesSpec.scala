@@ -40,7 +40,7 @@ class PipelineAnalyzeRoutesSpec
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
@@ -93,7 +93,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     new PipelineRoutes(service, dummyUser).routes
   }
 

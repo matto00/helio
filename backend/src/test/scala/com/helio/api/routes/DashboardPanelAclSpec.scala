@@ -83,7 +83,7 @@ class DashboardPanelAclSpec
   }
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

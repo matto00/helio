@@ -1,10 +1,13 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
+import { usePortalPopover } from "../../../hooks/usePortalPopover";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
 import type { Theme } from "../../../theme/theme";
 import type { User } from "../types/user";
+import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
 
 /** Render the user's avatar image, falling back to their initial and then to a
@@ -54,90 +57,111 @@ export function UserMenu({
   setAccentColor,
   onLogout,
 }: UserMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const firstItemRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    function handleMouseDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, [isOpen]);
-
+  // Move focus into the menu when it opens.
   useEffect(() => {
     if (isOpen) {
       firstItemRef.current?.focus();
     }
   }, [isOpen]);
 
-  function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      setIsOpen(false);
-      triggerRef.current?.focus();
+  // Restore focus to the trigger on Escape. The hook's document-level listener
+  // closes the panel; this companion effect restores focus to the trigger so
+  // keyboard navigation continues from the right element.
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        triggerRef.current?.focus();
+      }
     }
-  }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, triggerRef]);
 
   const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
 
+  function handleToggle() {
+    if (isOpen) {
+      close();
+    } else {
+      handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
+    }
+  }
+
+  const panel =
+    isOpen && panelPos
+      ? createPortal(
+          <>
+            <button type="button" className="popover__scrim" onClick={close} />
+            <div
+              className="user-menu__popover"
+              role="menu"
+              style={{
+                position: "fixed",
+                top: panelPos.top,
+                right: panelPos.right,
+                left: "auto",
+              }}
+            >
+              <div className="user-menu__header">
+                <span className="user-menu__display-name">
+                  {currentUser.displayName ?? currentUser.email}
+                </span>
+                {currentUser.displayName !== null && (
+                  <span className="user-menu__email">{currentUser.email}</span>
+                )}
+              </div>
+              <div className="user-menu__divider" />
+              <button
+                ref={firstItemRef}
+                type="button"
+                role="menuitem"
+                className="user-menu__item user-menu__item--theme"
+                onClick={toggleTheme}
+                aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              >
+                <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
+              <div className="user-menu__divider" />
+              <div className="user-menu__section">
+                <span className="user-menu__section-label">Accent color</span>
+                <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
+              </div>
+              <div className="user-menu__divider" />
+              <button
+                type="button"
+                role="menuitem"
+                className="user-menu__item user-menu__item--signout"
+                onClick={onLogout}
+                aria-label="Sign out"
+              >
+                <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                Sign out
+              </button>
+            </div>
+          </>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div className="user-menu" ref={containerRef} onKeyDown={handleKeyDown}>
+    <div className="user-menu">
       <button
         ref={triggerRef}
         type="button"
         className="user-menu__trigger"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="User menu"
       >
         <AvatarOrFallback avatarUrl={currentUser.avatarUrl} initial={initial} />
       </button>
-      {isOpen && (
-        <div className="user-menu__popover" role="menu">
-          <div className="user-menu__header">
-            <span className="user-menu__display-name">
-              {currentUser.displayName ?? currentUser.email}
-            </span>
-            {currentUser.displayName !== null && (
-              <span className="user-menu__email">{currentUser.email}</span>
-            )}
-          </div>
-          <div className="user-menu__divider" />
-          <button
-            ref={firstItemRef}
-            type="button"
-            role="menuitem"
-            className="user-menu__item user-menu__item--theme"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </button>
-          <div className="user-menu__divider" />
-          <div className="user-menu__section">
-            <span className="user-menu__section-label">Accent color</span>
-            <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
-          </div>
-          <div className="user-menu__divider" />
-          <button
-            type="button"
-            role="menuitem"
-            className="user-menu__item user-menu__item--signout"
-            onClick={onLogout}
-            aria-label="Sign out"
-          >
-            <FontAwesomeIcon icon={faArrowRightFromBracket} />
-            Sign out
-          </button>
-        </div>
-      )}
+      {panel}
     </div>
   );
 }

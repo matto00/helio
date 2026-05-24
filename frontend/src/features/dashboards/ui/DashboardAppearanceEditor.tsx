@@ -1,9 +1,9 @@
-import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { usePortalPopover } from "../../../hooks/usePortalPopover";
 import {
   dashboardAppearanceEditorFallback,
   dashboardGridAppearanceEditorFallback,
@@ -13,7 +13,6 @@ import type { Dashboard } from "../types/dashboard";
 import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
@@ -21,9 +20,7 @@ interface DashboardAppearanceEditorProps {
 
 export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEditorProps) {
   const dispatch = useAppDispatch();
-  const { isActive: isOpen, open, close } = useOverlay();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
+  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const [background, setBackground] = useState(dashboardAppearanceEditorFallback);
   const [gridBackground, setGridBackground] = useState(dashboardGridAppearanceEditorFallback);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,16 +72,12 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
     }
   }
 
-  function handleOpen() {
+  function handleToggle() {
     if (isOpen) {
       close();
       return;
     }
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPanelPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
-    }
-    open();
+    handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
   }
 
   const panel =
@@ -151,7 +144,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
         ref={triggerRef}
         type="button"
         className="popover__trigger dashboard-appearance-editor__trigger"
-        onClick={handleOpen}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-label="Customize dashboard appearance"
       >

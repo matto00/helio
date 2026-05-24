@@ -71,7 +71,7 @@ class PipelineAclSpec
   private val userB   = AuthenticatedUser(UserId(userBId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
@@ -147,7 +147,7 @@ class PipelineAclSpec
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val cache         = new PipelineRunCache()
-    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
+    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
     val runSvc        = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
       dataTypeRowRepo, cache, null, fileSystem

@@ -36,6 +36,17 @@ describe("UserMenu", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
+  it("popover panel renders as a portal to document.body (not inside .user-menu)", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    const menu = screen.getByRole("menu");
+    const userMenuContainer = document.querySelector(".user-menu");
+    // Panel is a direct child of document.body (portal), not nested inside
+    // the .user-menu trigger container.
+    expect(userMenuContainer).not.toContainElement(menu as HTMLElement);
+    expect(document.body).toContainElement(menu as HTMLElement);
+  });
+
   it("Escape key closes popover and returns focus to trigger", () => {
     renderMenu();
     const trigger = screen.getByRole("button", { name: "User menu" });
@@ -45,11 +56,13 @@ describe("UserMenu", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("click-outside closes popover", () => {
+  it("click on scrim closes popover", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
-    fireEvent.mouseDown(document.body);
+    const scrim = document.querySelector(".popover__scrim");
+    expect(scrim).toBeInTheDocument();
+    fireEvent.click(scrim!);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 

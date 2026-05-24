@@ -327,6 +327,13 @@ object DashboardRepository {
       ts      => ts.toInstant
     )
 
+  /** Maps Scala String ↔ PostgreSQL JSONB. The PostgreSQL JDBC driver accepts
+   *  setString / getString for JSONB columns, so the conversion is identity at
+   *  the Scala level; the type exists to mark JSONB-backed columns explicitly
+   *  in table definitions. */
+  implicit val jsonbStringType: BaseColumnType[String] =
+    MappedColumnType.base[String, String](s => s, s => s)
+
   case class DashboardRow(
       id: String,
       name: String,
@@ -344,8 +351,8 @@ object DashboardRepository {
     def createdBy   = column[String]("created_by")
     def createdAt   = column[Instant]("created_at")
     def lastUpdated = column[Instant]("last_updated")
-    def appearance  = column[String]("appearance")
-    def layout      = column[String]("layout")
+    def appearance  = column[String]("appearance")(jsonbStringType)
+    def layout      = column[String]("layout")(jsonbStringType)
     def ownerId     = column[UUID]("owner_id")
 
     def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId).mapTo[DashboardRow]

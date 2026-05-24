@@ -42,16 +42,17 @@ class PipelineStepRoutesSpec
   private var stepRepo: PipelineStepRepository   = _
   private var pipelineRepo: PipelineRepository   = _
   private var dataTypeRepo: DataTypeRepository   = _
+  private var dataSourceRepo: DataSourceRepository = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.start()
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
-    val dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
+    dataTypeRepo   = new DataTypeRepository(db)(typedSystem.executionContext)
+    dataSourceRepo = new DataSourceRepository(db)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(db)(typedSystem.executionContext)
     pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
   }
@@ -84,7 +85,7 @@ class PipelineStepRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = typedSystem.executionContext
-    val service = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
     new PipelineStepRoutes(service, dummyUser).routes
   }
 
@@ -97,6 +98,25 @@ class PipelineStepRoutesSpec
   private def castReq(): JsObject = JsObject("type" -> JsString("cast"), "config" -> JsObject("casts" -> JsObject()))
   private def selectReq(fields: Vector[String] = Vector.empty): JsObject =
     JsObject("type" -> JsString("select"), "config" -> JsObject("fields" -> JsArray(fields.map(JsString(_)))))
+  private def joinReq(rightDsId: String): JsObject = JsObject(
+    "type" -> JsString("join"),
+    "config" -> JsObject(
+      "rightDataSourceId" -> JsString(rightDsId),
+      "joinKey"           -> JsString("id"),
+      "joinType"          -> JsString("inner")
+    )
+  )
+
+  // -- HEL-278 fixtures: seed a data source owned by ownerId, return its id --
+  private def seedDataSource(ownerId: String): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES (${dsId}, 'join-right', 'rest_api', '{}', ${ownerId}::uuid, now(), now())"""
+    ))
+    dsId
+  }
 
   "PipelineStepRoutes" should {
 
@@ -233,7 +253,30 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // CS2c-3a — aggregate was previously absent from PipelineService.AllowedOps
+    // HEL-278: cross-user JoinStep right-source must return 404
+    "POST with join type and cross-user right-source returns 404" in {
+      cleanSteps(); val pid = seedPipeline()
+      // Seed a data source owned by a different user (user 2)
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      Post(s"/pipelines/${pid}/steps", joinReq(otherUserDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-278: owner JoinStep with own source must return 201
+    "POST with join type and own right-source returns 201" in {
+      cleanSteps(); val pid = seedPipeline()
+      // Seed a data source owned by the request user (user 1)
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      Post(s"/pipelines/${pid}/steps", joinReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "join"
+      }
+    }
+
+    // CS2c-3a -- aggregate was previously absent from PipelineService.AllowedOps
     "POST with type 'aggregate' is accepted (regression: AllowedOps drift)" in {
       cleanSteps(); val pid = seedPipeline()
       val body = JsObject(

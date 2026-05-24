@@ -74,6 +74,20 @@ class DataTypeRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext
       .map(_.map(rowToDomain))
   }
 
+  /** Batch owner-scoped lookup -- fetches all types in ids owned by user
+   *  in a single WHERE id IN (...) AND owner_id = ? query.
+   *
+   *  Returns a Map[DataTypeId, DataType] for O(1) per-panel resolution.
+   *  Short-circuits immediately with an empty Map when ids is empty. */
+  def findByIdsOwned(ids: Seq[DataTypeId], user: AuthenticatedUser): Future[Map[DataTypeId, DataType]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val idSet     = ids.map(_.value).toSet
+      val ownerUuid = UUID.fromString(user.id.value)
+      db.run(table.filter(r => (r.id inSet idSet) && r.ownerId === ownerUuid).result)
+        .map(_.map(rowToDomain).map(dt => dt.id -> dt).toMap)
+    }
+
   def insert(dt: DataType): Future[DataType] = {
     val row = domainToRow(dt).copy(version = 1)
     db.run(table += row).map(_ => rowToDomain(row))
@@ -130,6 +144,13 @@ object DataTypeRepository {
       ts      => ts.toInstant
     )
 
+  /** Maps Scala String ↔ PostgreSQL JSONB. The PostgreSQL JDBC driver accepts
+   *  setString / getString for JSONB columns, so the conversion is identity at
+   *  the Scala level; the type exists to mark JSONB-backed columns explicitly
+   *  in table definitions. */
+  implicit val jsonbStringType: BaseColumnType[String] =
+    MappedColumnType.base[String, String](s => s, s => s)
+
   case class DataTypeRow(
       id: String,
       sourceId: Option[String],
@@ -146,8 +167,8 @@ object DataTypeRepository {
     def id             = column[String]("id", O.PrimaryKey)
     def sourceId       = column[Option[String]]("source_id")
     def name           = column[String]("name")
-    def fields         = column[String]("fields")
-    def computedFields = column[String]("computed_fields")
+    def fields         = column[String]("fields")(jsonbStringType)
+    def computedFields = column[String]("computed_fields")(jsonbStringType)
     def version        = column[Int]("version")
     def createdAt      = column[Instant]("created_at")
     def updatedAt      = column[Instant]("updated_at")

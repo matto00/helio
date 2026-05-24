@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
+import { usePortalPopover } from "../../hooks/usePortalPopover";
 import "./inputs.css";
 
 export interface SelectOption {
@@ -35,14 +36,8 @@ export function Select({
   ariaLabel,
   className,
 }: SelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [panelPos, setPanelPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
   const [portalTarget, setPortalTarget] = useState<Element | null>(null);
 
   const selected = options.find((o) => o.value === value) ?? null;
@@ -51,19 +46,17 @@ export function Select({
   function openPanel() {
     if (disabled) return;
     if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPanelPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
       // Portal into the nearest open <dialog> if present so the listbox renders
       // in the dialog's top layer (otherwise it falls behind the modal backdrop).
       setPortalTarget(triggerRef.current.closest("dialog[open]") ?? document.body);
     }
+    handleOpen((rect) => ({ top: rect.bottom + 4, left: rect.left, width: rect.width }));
     const selectedIndex = options.findIndex((o) => o.value === value);
     setFocusedIndex(selectedIndex >= 0 ? selectedIndex : (enabledIndices[0] ?? -1));
-    setIsOpen(true);
   }
 
   function closePanel() {
-    setIsOpen(false);
+    close();
     setFocusedIndex(-1);
   }
 
@@ -111,10 +104,7 @@ export function Select({
   useEffect(() => {
     if (!isOpen) return;
     function reposition() {
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        setPanelPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-      }
+      handleOpen((rect) => ({ top: rect.bottom + 4, left: rect.left, width: rect.width }));
     }
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
@@ -122,7 +112,7 @@ export function Select({
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [isOpen]);
+  }, [isOpen, handleOpen]);
 
   const triggerClasses = ["ui-select__trigger", className ?? null].filter(Boolean).join(" ");
 
@@ -166,8 +156,8 @@ export function Select({
               role="listbox"
               style={{
                 top: `${panelPos.top}px`,
-                left: `${panelPos.left}px`,
-                minWidth: `${panelPos.width}px`,
+                left: `${panelPos.left ?? 0}px`,
+                minWidth: `${panelPos.width ?? 0}px`,
               }}
             >
               {options.map((option, index) => {
