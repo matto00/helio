@@ -83,7 +83,11 @@
 }
 
 .panel-list__zoom-widget {
-  position: absolute;
+  /* Fixed (not absolute): the panel list grows with its content and the page
+   * scrolls, so an absolutely-positioned widget would anchor to the bottom of
+   * all panels and scroll out of view on tall dashboards. Fixed keeps it
+   * pinned to the viewport's bottom-right corner so zoom is always reachable. */
+  position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 10;
