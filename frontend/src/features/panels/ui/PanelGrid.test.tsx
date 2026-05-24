@@ -303,6 +303,42 @@ describe("PanelGrid", () => {
   });
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // ─── HEL-284: drag freeze — PanelCardBody hidden during drag ─────────────────
+  // When `onDragStart` fires, PanelGrid sets `isDragging = true`.  PanelCard
+  // forwards this as `frozen={true}` to PanelCardBody, which short-circuits and
+  // returns null so expensive chart/table repaints are suppressed.  On
+  // `onDragStop` the frozen flag clears and the body is restored.
+  //
+  // The test drives `onDragStart` / `onDragStop` directly on the props captured
+  // by the MockResponsive spy rather than via pointer events (which jsdom cannot
+  // simulate with real coordinates).
+  describe("drag freeze — panel body hidden during drag", () => {
+    it("hides panel body when drag starts and restores it on drag stop", () => {
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      // Before drag: PanelCardBody renders; the noData mock surfaces "No data available"
+      expect(screen.getByText("No data available")).toBeInTheDocument();
+
+      // Extract callbacks from the last Responsive render pass
+      const responsiveProps = MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1][0];
+
+      // Simulate drag start — isDragging becomes true → PanelCardBody frozen
+      act(() => {
+        (responsiveProps.onDragStart as unknown as () => void)?.();
+      });
+      expect(screen.queryByText("No data available")).not.toBeInTheDocument();
+
+      // Simulate drag stop — isDragging becomes false → PanelCardBody unfreezes
+      act(() => {
+        (responsiveProps.onDragStop as unknown as () => void)?.();
+      });
+      expect(screen.getByText("No data available")).toBeInTheDocument();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // ─── Legacy binding warning banner ──────────────────────────────────────────
   // Task 2.2: banner renders when panel.typeId resolves to a DataType with
   // sourceId set (legacy-bound), and is absent for pipeline-bound / unbound panels.

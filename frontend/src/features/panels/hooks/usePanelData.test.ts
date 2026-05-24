@@ -233,4 +233,78 @@ describe("usePanelData", () => {
     rerender();
     expect(result.current.refresh).toBe(firstRefresh);
   });
+
+  // ─── HEL-284: reference stability for memoized derivations ───────────────────
+  // When the underlying rows array reference is unchanged (Redux returned the same
+  // slice), usePanelData must return the same `headers`, `rawRows`, and `data`
+  // references so that memoized children (React.memo'd PanelCardBody) bail out.
+
+  it("headers reference is stable across re-renders when rows are unchanged", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
+      rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
+    });
+
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
+    });
+    const store = makeStore(panel);
+
+    const { result, rerender } = renderHook(() => usePanelData(panel), {
+      wrapper: wrapper(store),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.headers).not.toBeNull();
+
+    const headersRef = result.current.headers;
+    rerender();
+    expect(result.current.headers).toBe(headersRef);
+  });
+
+  it("rawRows reference is stable across re-renders when rows are unchanged", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
+      rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
+    });
+
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
+    });
+    const store = makeStore(panel);
+
+    const { result, rerender } = renderHook(() => usePanelData(panel), {
+      wrapper: wrapper(store),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.rawRows).not.toBeNull();
+
+    const rawRowsRef = result.current.rawRows;
+    rerender();
+    expect(result.current.rawRows).toBe(rawRowsRef);
+  });
+
+  it("data reference is stable across re-renders when rows and fieldMapping are unchanged", async () => {
+    mockFetchDataTypeRows.mockResolvedValue({
+      rows: [{ revenue: "1000", region: "North" }],
+      rowCount: 1,
+    });
+
+    const panel = makeMetricPanel({
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
+    });
+    const store = makeStore(panel);
+
+    const { result, rerender } = renderHook(() => usePanelData(panel), {
+      wrapper: wrapper(store),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).not.toBeNull();
+
+    const dataRef = result.current.data;
+    rerender();
+    expect(result.current.data).toBe(dataRef);
+  });
 });
