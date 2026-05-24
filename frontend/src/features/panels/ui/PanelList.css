@@ -1,4 +1,5 @@
 .panel-list {
+  position: relative;
   min-height: 100%;
   padding: 26px;
   border: none;
@@ -21,7 +22,7 @@
 .panel-list__header-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 
@@ -81,7 +82,11 @@
   gap: 8px;
 }
 
-.panel-list__zoom-controls {
+.panel-list__zoom-widget {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 4px;

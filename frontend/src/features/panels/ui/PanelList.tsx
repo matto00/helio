@@ -118,38 +118,6 @@ export function PanelList() {
     >
       <header className="panel-list__header">
         <div className="panel-list__header-actions">
-          {selectedDashboardId ? (
-            <div className="panel-list__zoom-controls">
-              <button
-                type="button"
-                className="panel-list__zoom-button"
-                aria-label="Zoom out"
-                onClick={() => handleZoomChange(-0.1)}
-                disabled={zoomLevel <= 0.5}
-              >
-                −
-              </button>
-              <span className="panel-list__zoom-level">{Math.round(zoomLevel * 100)}%</span>
-              <button
-                type="button"
-                className="panel-list__zoom-button"
-                aria-label="Zoom in"
-                onClick={() => handleZoomChange(0.1)}
-                disabled={zoomLevel >= 2.0}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                className="panel-list__zoom-reset"
-                aria-label="Reset zoom"
-                onClick={handleZoomReset}
-                disabled={zoomLevel === 1.0}
-              >
-                Reset
-              </button>
-            </div>
-          ) : null}
           <div className="panel-list__panel-actions">
             <span className="panel-list__count">
               {items.length} panel{items.length === 1 ? "" : "s"}
@@ -166,6 +134,38 @@ export function PanelList() {
           </div>
         </div>
       </header>
+      {selectedDashboardId ? (
+        <div role="group" aria-label="Zoom controls" className="panel-list__zoom-widget">
+          <button
+            type="button"
+            className="panel-list__zoom-button"
+            aria-label="Zoom out"
+            onClick={() => handleZoomChange(-0.1)}
+            disabled={zoomLevel <= 0.5}
+          >
+            −
+          </button>
+          <span className="panel-list__zoom-level">{Math.round(zoomLevel * 100)}%</span>
+          <button
+            type="button"
+            className="panel-list__zoom-button"
+            aria-label="Zoom in"
+            onClick={() => handleZoomChange(0.1)}
+            disabled={zoomLevel >= 2.0}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="panel-list__zoom-reset"
+            aria-label="Reset zoom"
+            onClick={handleZoomReset}
+            disabled={zoomLevel === 1.0}
+          >
+            Reset
+          </button>
+        </div>
+      ) : null}
       {isModalOpen ? <PanelCreationModal onClose={() => setIsModalOpen(false)} /> : null}
       <StatusMessage
         status={status}
