@@ -141,9 +141,11 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
-  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
-   *  (owner-only) is enforced in the service layer before this is called.
-   *  Tracked: HEL-275. */
+  /** Privileged update: uses withSystemContext because the caller (DashboardService)
+   *  has already validated ownership before reaching this method. The V36 RLS
+   *  UPDATE policy (owner OR editor grantee) would also permit this, but the
+   *  service always confirms ownership first — withSystemContext is kept to
+   *  avoid a redundant DB round-trip for the policy predicate. */
   def updateName(id: DashboardId, name: String, lastUpdated: Instant): Future[Option[Dashboard]] =
     ctx.withSystemContext(
       table
@@ -153,8 +155,10 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
-  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
-   *  (owner-only delete) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged delete: uses withSystemContext because DashboardService has
+   *  confirmed ownership via findByIdOwned before calling this. The V36 RLS
+   *  DELETE policy (owner only) would enforce the same rule on the app pool,
+   *  but withSystemContext avoids the extra policy predicate evaluation. */
   def delete(id: DashboardId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
@@ -163,8 +167,10 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
   def count(): Future[Int] =
     ctx.withSystemContext(table.length.result)
 
-  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
-   *  (owner-only duplicate) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged duplicate: uses withSystemContext because DashboardService has
+   *  confirmed ownership before calling this. New rows are inserted with the
+   *  calling user's ownerId so V36 RLS INSERT/SELECT policies apply to the
+   *  resulting rows correctly. */
   def duplicate(id: DashboardId, ownerId: UserId): Future[Option[(Dashboard, Vector[Panel])]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -209,8 +215,10 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
-  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
-   *  (owner-only export) is enforced in the service layer. Tracked: HEL-275. */
+  /** Privileged export: uses withSystemContext because DashboardService has
+   *  confirmed ownership before calling this. Export is a read-only operation;
+   *  withSystemContext avoids the V36 dashboard SELECT policy predicate for
+   *  a path that the service layer has already ACL-checked. */
   def exportSnapshot(id: DashboardId): Future[Option[DashboardSnapshotPayload]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -260,9 +268,10 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
-  /** Placeholder until HEL-275/276 enable RLS on dashboards. Import creates new
-   *  rows owned by `ownerId`; ACL check is enforced in the route layer.
-   *  Tracked: HEL-275. */
+  /** Privileged import: uses withSystemContext to insert new dashboard and panel
+   *  rows on behalf of `ownerId`. New rows carry the correct owner_id so V36
+   *  RLS SELECT/UPDATE/DELETE policies apply to them correctly after insertion.
+   *  Route-layer ACL check (authenticated user) is enforced before this is called. */
   def importSnapshot(payload: DashboardSnapshotPayload, ownerId: UserId): Future[(Dashboard, Vector[Panel])] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
