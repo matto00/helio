@@ -147,7 +147,7 @@ class PipelineAclSpec
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val cache         = new PipelineRunCache()
-    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataTypeRepo)
+    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
     val runSvc        = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
       dataTypeRowRepo, cache, null, fileSystem

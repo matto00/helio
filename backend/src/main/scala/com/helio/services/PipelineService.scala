@@ -41,7 +41,7 @@ import com.helio.domain.{
   SelectConfig,
   SortConfig
 }
-import com.helio.infrastructure.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 
@@ -56,6 +56,7 @@ import scala.util.{Failure, Success}
 final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
+    dataSourceRepo:   DataSourceRepository,
     dataTypeRepo:     DataTypeRepository
 )(implicit ec: ExecutionContext) {
 
@@ -201,12 +202,26 @@ final class PipelineService(
             s"Invalid '${req.`type`}' config: ${ex.getMessage}"
           )))
         case Success(typedConfig) =>
-          pipelineRepo.exists(pipelineId, user).flatMap {
-            case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-            case true  =>
-              pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig)
-                .map(step => Right(PipelineStepResponse.fromDomain(step)))
-                .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+          // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
+          // Existence-not-leaked semantics: 404 for missing or not-owned source.
+          val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+            case jc: JoinConfig =>
+              dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
+                case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
+                case Some(_) => Right(())
+              }
+            case _ => Future.successful(Right(()))
+          }
+          joinCheckF.flatMap {
+            case Left(err) => Future.successful(Left(err))
+            case Right(_)  =>
+              pipelineRepo.exists(pipelineId, user).flatMap {
+                case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+                case true  =>
+                  pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig)
+                    .map(step => Right(PipelineStepResponse.fromDomain(step)))
+                    .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+              }
           }
       }
   }
@@ -242,12 +257,26 @@ final class PipelineService(
                       s"Invalid '${existing.kind}' config: ${ex.getMessage}"
                     )))
                   case Success(typedConfig) =>
-                    pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position, user)
-                      .map {
-                        case Some(step) => Right(PipelineStepResponse.fromDomain(step))
-                        case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
-                      }
-                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                    // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
+                    // Existence-not-leaked semantics: 404 for missing or not-owned source.
+                    val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+                      case jc: JoinConfig =>
+                        dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
+                          case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
+                          case Some(_) => Right(())
+                        }
+                      case _ => Future.successful(Right(()))
+                    }
+                    joinCheckF.flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(_)  =>
+                        pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position, user)
+                          .map {
+                            case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                            case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                          }
+                          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                    }
                 }
             }
         }
