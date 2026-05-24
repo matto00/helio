@@ -26,9 +26,13 @@ object Main {
       implicit val ec = context.executionContext
       val logger = system.log
 
-      val config = ConfigFactory.load()
-      val db     = Database.init(config)
-      val ctx    = new DbContext(db)
+      val config      = ConfigFactory.load()
+      // HEL-274: two pools — app (non-privileged) and privileged (BYPASSRLS).
+      // initApp runs Flyway migrations; initPrivileged opens the pool only.
+      // DbContext routes withUserContext → app pool, withSystemContext → privileged pool.
+      val db          = Database.initApp(config)
+      val privilegedDb = Database.initPrivileged(config)
+      val ctx         = new DbContext(db, privilegedDb)
 
       def requireEnv(name: String): String =
         sys.env.get(name).filter(_.nonEmpty).getOrElse {

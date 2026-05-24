@@ -141,6 +141,8 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
       .map(_ => panel)
 
+  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
+   *  (owner-only title edit) is enforced in the service layer. Tracked: HEL-275. */
   def updateTitle(id: PanelId, title: String, lastUpdated: Instant): Future[Option[Panel]] =
     ctx.withSystemContext(
       table
@@ -150,9 +152,13 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
+  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
+   *  (owner-only delete) is enforced in the service layer. Tracked: HEL-275. */
   def delete(id: PanelId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
+  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
+   *  (owner-only duplicate) is enforced in the service layer. Tracked: HEL-275. */
   def duplicate(id: PanelId, ownerId: UserId): Future[Option[Panel]] = {
     val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
 
@@ -194,6 +200,8 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
+  /** Placeholder until HEL-275/276 enable RLS on panels. ACL check
+   *  (owner-only appearance edit) is enforced in the service layer. Tracked: HEL-275. */
   def updateAppearance(id: PanelId, appearance: PanelAppearance, lastUpdated: Instant): Future[Option[Panel]] =
     ctx.withSystemContext(
       table
@@ -208,7 +216,10 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
    *  columns (title, appearance, type) untouched except for `lastUpdated`.
    *
    *  Used by `PanelPatchApplier` after `PanelConfigCodec.applyConfigPatch`
-   *  produces an updated typed Panel from a wire-shape patch. */
+   *  produces an updated typed Panel from a wire-shape patch.
+   *
+   *  Placeholder until HEL-275/276 enable RLS on panels. ACL check
+   *  (owner-only config edit) is enforced in the service layer. Tracked: HEL-275. */
   def replace(panel: Panel, lastUpdated: Instant): Future[Option[Panel]] = {
     val row = domainToRow(panel)
     val updated = row.copy(lastUpdated = lastUpdated)

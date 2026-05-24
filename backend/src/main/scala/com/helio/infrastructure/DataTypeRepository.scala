@@ -91,11 +91,15 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       ).map(_.map(rowToDomain).map(dt => dt.id -> dt).toMap)
     }
 
+  /** Placeholder until HEL-275/276 enable RLS on data_types. ACL check
+   *  (owner-bound insert) is enforced in the service layer. Tracked: HEL-275. */
   def insert(dt: DataType): Future[DataType] = {
     val row = domainToRow(dt).copy(version = 1)
     ctx.withSystemContext(table += row).map(_ => rowToDomain(row))
   }
 
+  /** Placeholder until HEL-275/276 enable RLS on data_types. ACL check
+   *  (owner-only update) is enforced in the service layer. Tracked: HEL-275. */
   def update(dt: DataType): Future[Option[DataType]] = {
     val action = table
       .filter(_.id === dt.id.value)
@@ -124,6 +128,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
+  /** Placeholder until HEL-275/276 enable RLS on data_types. ACL check
+   *  (owner-only delete) is enforced in the service layer. Tracked: HEL-275. */
   def delete(id: DataTypeId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 

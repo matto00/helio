@@ -73,7 +73,7 @@ class ComputedFieldsRoutesSpec
       .load()
       .migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx            = new DbContext(db)(typedSystem.executionContext)
+    val ctx            = new DbContext(db, db)(typedSystem.executionContext)
     dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
     panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)

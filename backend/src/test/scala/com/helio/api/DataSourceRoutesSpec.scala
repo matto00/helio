@@ -53,7 +53,7 @@ class DataSourceRoutesSpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
 
     val ec  = typedSystem.executionContext
-    val ctx = new DbContext(db)(ec)
+    val ctx = new DbContext(db, db)(ec)
     dataSourceRepo  = new DataSourceRepository(ctx)(ec)
     dataTypeRepo    = new DataTypeRepository(ctx)(ec)
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
@@ -98,7 +98,7 @@ class DataSourceRoutesSpec
   private def routesWith(c: RestApiConnector): Route = {
     import com.helio.infrastructure.{DashboardRepository, PanelRepository}
     val ec             = typedSystem.executionContext
-    val ctx            = new DbContext(db)(ec)
+    val ctx            = new DbContext(db, db)(ec)
     val dashboardRepo      = new DashboardRepository(ctx)(ec)
     val panelRepo          = new PanelRepository(ctx)(ec)
     val userRepo           = new UserRepository(db)(ec)

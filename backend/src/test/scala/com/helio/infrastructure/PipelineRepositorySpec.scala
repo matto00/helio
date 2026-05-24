@@ -31,7 +31,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       .load()
       .migrate()
     db           = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx = new DbContext(db)
+    val ctx = new DbContext(db, db)
     val dataTypeRepo  = new DataTypeRepository(ctx)
     val dataSourceRepo = new DataSourceRepository(ctx)
     pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)

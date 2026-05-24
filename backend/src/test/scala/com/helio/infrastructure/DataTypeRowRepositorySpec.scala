@@ -28,7 +28,7 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       .load()
       .migrate()
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    repo = new DataTypeRowRepository(new DbContext(db))
+    repo = new DataTypeRowRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {

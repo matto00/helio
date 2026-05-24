@@ -32,7 +32,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       .migrate()
 
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    repo = new DataSourceRepository(new DbContext(db))
+    repo = new DataSourceRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {

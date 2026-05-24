@@ -7,6 +7,17 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Repository for `resource_permissions` — the sharing-grant table.
+ *
+ *  All methods use `withSystemContext` because grant lookups are inherently
+ *  cross-user: a caller checks whether ANOTHER user (or anonymous) has a
+ *  grant on a resource. Scoping by the caller's own user-id would be
+ *  nonsensical. The ACL decision is enforced in the service / directive layer;
+ *  this repo is the raw data source.
+ *
+ *  The `resource_permissions` table itself has no RLS policy in the current
+ *  release — its `BYPASSRLS`-free reads are placeholders until HEL-276.
+ */
 class ResourcePermissionRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import ResourcePermissionRepository._

@@ -42,7 +42,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       .load()
       .migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx         = new DbContext(db)
+    val ctx         = new DbContext(db, db)
     dataTypeRepo    = new DataTypeRepository(ctx)
     dataTypeRowRepo = new DataTypeRowRepository(ctx)
     dataSourceRepo  = new DataSourceRepository(ctx)
