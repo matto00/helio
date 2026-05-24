@@ -30,16 +30,19 @@ panel content does not spill outside the dashboard panel column.
 - **THEN** panel grid content that extends past the panel column boundary is not visible
 
 ### Requirement: Zoom controls appear when a dashboard is selected
-The header SHALL show Zoom In, Zoom Out, and Reset Zoom buttons along with a
-current-level percentage label when a dashboard is selected.
+The dashboard panel area SHALL show Zoom In, Zoom Out, and Reset Zoom buttons along with a
+current-level percentage label when a dashboard is selected. These controls SHALL be rendered
+inside the floating zoom widget (`.panel-list__zoom-widget`) at the bottom-right of the panel
+area — NOT in the header.
 
 #### Scenario: Dashboard selected
 - **WHEN** a dashboard is selected
-- **THEN** zoom in (+), zoom out (−), and reset buttons are rendered in the header
+- **THEN** zoom in (+), zoom out (−), and reset buttons are rendered in the floating bottom-right
+  zoom widget
 
 #### Scenario: No dashboard selected
 - **WHEN** no dashboard is selected
-- **THEN** zoom controls are not rendered
+- **THEN** the zoom widget is not rendered and zoom controls are not visible
 
 ### Requirement: Zoom level range is 0.5 to 2.0
 The zoom level SHALL be clamped to the range [0.5, 2.0] in 0.1-unit increments.

@@ -1,2 +1,0 @@
-- `frontend/src/features/panels/ui/PanelList.tsx` — moved zoom controls from header to floating bottom-right widget; simplified header to count + add only
-- `frontend/src/features/panels/ui/PanelList.css` — added `position: relative` to `.panel-list`; replaced `.panel-list__zoom-controls` with `.panel-list__zoom-widget` (absolute positioned); updated `.panel-list__header-actions` to `flex-end`
