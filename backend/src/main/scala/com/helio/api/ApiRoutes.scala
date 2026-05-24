@@ -70,7 +70,7 @@ final class ApiRoutes(
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
   private val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem

@@ -93,7 +93,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     new PipelineRoutes(service, dummyUser).routes
   }
 
