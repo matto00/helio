@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: UserMenu popover is viewport-aware and never clips
 The UserMenu popover SHALL render via `createPortal` to `document.body` with `position: fixed`
