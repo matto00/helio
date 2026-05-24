@@ -54,6 +54,8 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private val owner1 = UserId(UUID.randomUUID().toString)
   private val owner2 = UserId(UUID.randomUUID().toString)
+  private val user1  = AuthenticatedUser(owner1)
+  private val user2  = AuthenticatedUser(owner2)
 
   private def newSource(ownerId: UserId = owner1): DataSource = {
     val now = Instant.now()
@@ -86,7 +88,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "insert sets version to 1 regardless of input" in {
       cleanDb()
       val dt = newDataType()
-      val inserted = await(dtRepo.insert(dt))
+      val inserted = await(dtRepo.insert(dt, user1))
       inserted.version shouldBe 1
       val found = await(dtRepo.findByIdInternal(dt.id))
       found shouldBe defined
@@ -96,7 +98,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "findByIdInternal returns the inserted record" in {
       cleanDb()
       val dt = newDataType()
-      await(dtRepo.insert(dt))
+      await(dtRepo.insert(dt, user1))
       val found = await(dtRepo.findByIdInternal(dt.id))
       found shouldBe defined
       found.get.id   shouldBe dt.id
@@ -115,9 +117,9 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val a = newDataType(name = "TypeA", ownerId = owner1)
       val b = newDataType(name = "TypeB", ownerId = owner1)
       val c = newDataType(name = "TypeC", ownerId = owner2)
-      await(dtRepo.insert(a))
-      await(dtRepo.insert(b))
-      await(dtRepo.insert(c))
+      await(dtRepo.insert(a, user1))
+      await(dtRepo.insert(b, user1))
+      await(dtRepo.insert(c, user2))
       val forOwner1 = await(dtRepo.findAll(owner1))
       forOwner1.map(_.id) should contain allOf (a.id, b.id)
       forOwner1.map(_.id) should not contain c.id
@@ -128,15 +130,15 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "findBySourceId returns only types for that source owned by the given user" in {
       cleanDb()
       val source = newSource()
-      await(dsRepo.insert(source))
+      await(dsRepo.insert(source, user1))
       val dt1 = newDataType(sourceId = Some(source.id), name = "Type1", ownerId = owner1)
       val dt2 = newDataType(sourceId = Some(source.id), name = "Type2", ownerId = owner1)
       val dt3 = newDataType(sourceId = None,            name = "Type3", ownerId = owner1)
       val dt4 = newDataType(sourceId = Some(source.id), name = "Type4", ownerId = owner2)
-      await(dtRepo.insert(dt1))
-      await(dtRepo.insert(dt2))
-      await(dtRepo.insert(dt3))
-      await(dtRepo.insert(dt4))
+      await(dtRepo.insert(dt1, user1))
+      await(dtRepo.insert(dt2, user1))
+      await(dtRepo.insert(dt3, user1))
+      await(dtRepo.insert(dt4, user2))
       val found = await(dtRepo.findBySourceId(source.id, owner1))
       found.map(_.id) should contain allOf (dt1.id, dt2.id)
       found.map(_.id) should not contain dt3.id
@@ -146,15 +148,15 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "update increments version by 1" in {
       cleanDb()
       val dt       = newDataType()
-      val inserted = await(dtRepo.insert(dt))
+      val inserted = await(dtRepo.insert(dt, user1))
       inserted.version shouldBe 1
 
-      val updated = await(dtRepo.update(inserted.copy(name = "Updated")))
+      val updated = await(dtRepo.update(inserted.copy(name = "Updated"), user1))
       updated shouldBe defined
       updated.get.version shouldBe 2
       updated.get.name    shouldBe "Updated"
 
-      val updated2 = await(dtRepo.update(updated.get.copy(name = "Updated Again")))
+      val updated2 = await(dtRepo.update(updated.get.copy(name = "Updated Again"), user1))
       updated2 shouldBe defined
       updated2.get.version shouldBe 3
     }
@@ -162,22 +164,22 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "update returns None for unknown id" in {
       cleanDb()
       val phantom = newDataType()
-      val result  = await(dtRepo.update(phantom))
+      val result  = await(dtRepo.update(phantom, user1))
       result shouldBe None
     }
 
     "delete returns true and removes record" in {
       cleanDb()
       val dt = newDataType()
-      await(dtRepo.insert(dt))
-      val deleted = await(dtRepo.delete(dt.id))
+      await(dtRepo.insert(dt, user1))
+      val deleted = await(dtRepo.delete(dt.id, user1))
       deleted shouldBe true
       await(dtRepo.findByIdInternal(dt.id)) shouldBe None
     }
 
     "delete returns false for unknown id" in {
       cleanDb()
-      val result = await(dtRepo.delete(DataTypeId(UUID.randomUUID().toString)))
+      val result = await(dtRepo.delete(DataTypeId(UUID.randomUUID().toString), user1))
       result shouldBe false
     }
 
@@ -186,8 +188,8 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "findByIdOwned returns Some when owner matches" in {
       cleanDb()
       val dt = newDataType(ownerId = owner1)
-      await(dtRepo.insert(dt))
-      val found = await(dtRepo.findByIdOwned(dt.id, AuthenticatedUser(owner1)))
+      await(dtRepo.insert(dt, user1))
+      val found = await(dtRepo.findByIdOwned(dt.id, user1))
       found shouldBe defined
       found.get.id shouldBe dt.id
     }
@@ -195,29 +197,29 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "findByIdOwned returns None when owner does not match" in {
       cleanDb()
       val dt = newDataType(ownerId = owner1)
-      await(dtRepo.insert(dt))
-      val found = await(dtRepo.findByIdOwned(dt.id, AuthenticatedUser(owner2)))
+      await(dtRepo.insert(dt, user1))
+      val found = await(dtRepo.findByIdOwned(dt.id, user2))
       found shouldBe None
     }
 
     "findByIdOwned returns None for unknown id" in {
       cleanDb()
-      val result = await(dtRepo.findByIdOwned(DataTypeId(UUID.randomUUID().toString), AuthenticatedUser(owner1)))
+      val result = await(dtRepo.findByIdOwned(DataTypeId(UUID.randomUUID().toString), user1))
       result shouldBe None
     }
 
     "deleting a data source orphans its data types (sourceId becomes None)" in {
       cleanDb()
       val source = newSource()
-      await(dsRepo.insert(source))
+      await(dsRepo.insert(source, user1))
       val dt = newDataType(sourceId = Some(source.id))
-      await(dtRepo.insert(dt))
+      await(dtRepo.insert(dt, user1))
 
       // Verify linked before deletion
       await(dtRepo.findBySourceId(source.id, owner1)).map(_.id) should contain (dt.id)
 
       // Delete the source — ON DELETE SET NULL
-      await(dsRepo.delete(source.id))
+      await(dsRepo.delete(source.id, user1))
 
       // Data type still exists but sourceId is now None
       val orphaned = await(dtRepo.findByIdInternal(dt.id))
@@ -228,8 +230,8 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "existsBoundToAnyOwnedPanel returns false when no panels are bound" in {
       cleanDb()
       val dt = newDataType(ownerId = owner1)
-      await(dtRepo.insert(dt))
-      val result = await(dtRepo.existsBoundToAnyOwnedPanel(dt.id, AuthenticatedUser(owner1)))
+      await(dtRepo.insert(dt, user1))
+      val result = await(dtRepo.existsBoundToAnyOwnedPanel(dt.id, user1))
       result shouldBe false
     }
 
@@ -238,10 +240,10 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dt1 = newDataType(name = "Type1", ownerId = owner1)
       val dt2 = newDataType(name = "Type2", ownerId = owner1)
       val dt3 = newDataType(name = "Type3", ownerId = owner2)
-      await(dtRepo.insert(dt1))
-      await(dtRepo.insert(dt2))
-      await(dtRepo.insert(dt3))
-      val result = await(dtRepo.findByIdsOwned(Seq(dt1.id, dt2.id, dt3.id), AuthenticatedUser(owner1)))
+      await(dtRepo.insert(dt1, user1))
+      await(dtRepo.insert(dt2, user1))
+      await(dtRepo.insert(dt3, user2))
+      val result = await(dtRepo.findByIdsOwned(Seq(dt1.id, dt2.id, dt3.id), user1))
       result.keySet shouldBe Set(dt1.id, dt2.id)
       result(dt1.id).name shouldBe "Type1"
       result(dt2.id).name shouldBe "Type2"
@@ -251,14 +253,14 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "findByIdsOwned excludes all types when caller owns none" in {
       cleanDb()
       val dt = newDataType(name = "OtherType", ownerId = owner2)
-      await(dtRepo.insert(dt))
-      val result = await(dtRepo.findByIdsOwned(Seq(dt.id), AuthenticatedUser(owner1)))
+      await(dtRepo.insert(dt, user2))
+      val result = await(dtRepo.findByIdsOwned(Seq(dt.id), user1))
       result shouldBe Map.empty
     }
 
     "findByIdsOwned short-circuits with empty map for empty input" in {
       cleanDb()
-      val result = await(dtRepo.findByIdsOwned(Seq.empty, AuthenticatedUser(owner1)))
+      val result = await(dtRepo.findByIdsOwned(Seq.empty, user1))
       result shouldBe Map.empty
     }
 

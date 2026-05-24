@@ -50,7 +50,7 @@ final class SourceService(
           updatedAt = now,
           config    = sqlConfig
         )
-        dataSourceRepo.insert(source).flatMap { inserted =>
+        dataSourceRepo.insert(source, user).flatMap { inserted =>
           SqlConnector.execute(sqlConfig, maxRows = 100).flatMap {
             case Left(err) =>
               Future.successful(Right(CreateSourceResponse(
@@ -73,7 +73,7 @@ final class SourceService(
                 updatedAt = now,
                 ownerId   = user.id
               )
-              dataTypeRepo.insert(dt).map { createdDt =>
+              dataTypeRepo.insert(dt, user).map { createdDt =>
                 Right(CreateSourceResponse(
                   source     = DataSourceResponse.fromDomain(inserted),
                   dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
@@ -102,7 +102,7 @@ final class SourceService(
             updatedAt = now,
             config    = restConfig
           )
-          dataSourceRepo.insert(source).flatMap { inserted =>
+          dataSourceRepo.insert(source, user).flatMap { inserted =>
             connector.fetch(restConfig).flatMap {
               case Left(err) =>
                 Future.successful(Right(CreateSourceResponse(
@@ -132,7 +132,7 @@ final class SourceService(
                   updatedAt = now,
                   ownerId   = user.id
                 )
-                dataTypeRepo.insert(dt).map { createdDt =>
+                dataTypeRepo.insert(dt, user).map { createdDt =>
                   Right(CreateSourceResponse(
                     source     = DataSourceResponse.fromDomain(inserted),
                     dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
@@ -266,7 +266,7 @@ final class SourceService(
             version   = if (bumpVersion) dt.version + 1 else dt.version,
             updatedAt = now
           )
-          dataTypeRepo.update(updated)
+          dataTypeRepo.update(updated, user)
         case None =>
           val dt = DataType(
             id        = DataTypeId(UUID.randomUUID().toString),
@@ -278,7 +278,7 @@ final class SourceService(
             updatedAt = now,
             ownerId   = user.id
           )
-          dataTypeRepo.insert(dt).map(Some(_))
+          dataTypeRepo.insert(dt, user).map(Some(_))
       }
     }
 

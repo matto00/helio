@@ -102,7 +102,7 @@ class DataSourceServiceSpec
       // Simulate the orphan scenario: delete the DT row directly (bypassing
       // the Fix-B′ guard at the service layer).
       val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id)))
+      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
       await(dataTypeRepo.findBySourceId(src.id, owner)) shouldBe empty
 
       val result = await(service.refresh(src.id, None, user))
@@ -150,7 +150,7 @@ class DataSourceServiceSpec
       }
       // Orphan: delete the linked DT.
       val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id)))
+      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
 
       val refreshPayload = StaticDataPayload(
         columns = Vector(StaticColumnPayload("id", "integer"), StaticColumnPayload("label", "string")),

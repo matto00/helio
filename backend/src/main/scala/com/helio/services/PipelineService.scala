@@ -218,7 +218,7 @@ final class PipelineService(
               pipelineRepo.exists(pipelineId, user).flatMap {
                 case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
                 case true  =>
-                  pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig)
+                  pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig, user)
                     .map(step => Right(PipelineStepResponse.fromDomain(step)))
                     .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
               }

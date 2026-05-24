@@ -70,7 +70,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       updatedAt = now,
       config    = CsvSourceConfig("csv/test.csv")
     )
-    await(dataSourceRepo.insert(source))
+    await(dataSourceRepo.insert(source, user))
     source
   }
 
@@ -86,7 +86,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       updatedAt = now,
       ownerId   = owner
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, user))
     dt
   }
 
@@ -125,7 +125,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       val dt     = insertDataType(Some(source.id), name = "WillBeOrphaned")
       // Drop the source — the V4 migration's ON DELETE SET NULL clears the
       // FK reference on the DT, so the row stays around with `sourceId = null`.
-      await(dataSourceRepo.delete(source.id))
+      await(dataSourceRepo.delete(source.id, user))
       val refreshedDt = await(dataTypeRepo.findByIdInternal(dt.id)).getOrElse(fail("DT should still exist"))
       refreshedDt.sourceId shouldBe None
 

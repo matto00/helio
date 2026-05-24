@@ -96,23 +96,23 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(rowToDomain))
   }
 
-  /** Insert a new data source row.
+  /** Insert a new data source row in user context.
    *
-   *  Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS on
-   *  this table. When RLS is active the caller's user ID must be passed so the
-   *  policy can confirm the row's `owner_id` matches. Tracked: HEL-275. */
-  def insert(source: DataSource): Future[DataSource] =
-    ctx.withSystemContext(table += domainToRow(source))
+   *  The V35 RLS policy on `data_sources` evaluates `owner_id` against
+   *  `app.current_user_id`, which `withUserContext` sets via SET LOCAL.
+   *  The row's `owner_id` must equal `user.id` — callers are responsible for
+   *  building the `DataSource` with the correct `ownerId` before calling this. */
+  def insert(source: DataSource, user: AuthenticatedUser): Future[DataSource] =
+    ctx.withUserContext(user.id.value)(table += domainToRow(source))
       .map(_ => source)
 
-  /** Update name + config + updatedAt. The `source_type` column is immutable
-   *  (the discriminator is part of identity); subtype changes go through a
-   *  delete-then-insert flow. The config JSON re-derives per subtype.
+  /** Update name + config + updatedAt in user context.
    *
-   *  Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS on
-   *  this table. When RLS is active the caller must be bound to the transaction
-   *  so the policy can verify ownership. Tracked: HEL-275. */
-  def update(source: DataSource): Future[Option[DataSource]] = {
+   *  The `source_type` column is immutable (discriminator is part of identity);
+   *  subtype changes go through a delete-then-insert flow. The V35 RLS USING
+   *  clause on `data_sources` restricts this update to rows owned by the caller,
+   *  adding a DB-layer backstop to the app-layer ACL enforced before this call. */
+  def update(source: DataSource, user: AuthenticatedUser): Future[Option[DataSource]] = {
     val configJson = source match {
       case c: CsvSource    => DataSourceConfigCodec.encodeCsv(c.config)
       case r: RestSource   => DataSourceConfigCodec.encodeRest(r.config)
@@ -125,41 +125,41 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       .update((source.name, configJson, source.updatedAt))
       .andThen(table.filter(_.id === source.id.value).result.headOption)
       .map(_.map(rowToDomain))
-    ctx.withSystemContext(action)
+    ctx.withUserContext(user.id.value)(action)
   }
 
-  /** Update only the static-source config payload + updatedAt. The config
-   *  payload is provided as a raw `{columns, rows}` `JsObject` so the
-   *  StaticSource ADT can stay flat (no per-row payload field).
+  /** Update only the static-source config payload + updatedAt in user context.
    *
-   *  Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS.
-   *  Tracked: HEL-275. */
-  def updateStaticPayload(id: DataSourceId, name: String, payload: JsObject, updatedAt: Instant): Future[Option[DataSource]] = {
+   *  The payload is a raw `{columns, rows}` `JsObject` so the StaticSource ADT
+   *  stays flat. The V35 RLS policy restricts this write to rows owned by the
+   *  caller — the ownership check happens at the DB layer as well as in the
+   *  service layer before this call. */
+  def updateStaticPayload(id: DataSourceId, name: String, payload: JsObject, updatedAt: Instant, user: AuthenticatedUser): Future[Option[DataSource]] = {
     val action = table
       .filter(_.id === id.value)
       .map(r => (r.name, r.config, r.updatedAt))
       .update((name, payload.compactPrint, updatedAt))
       .andThen(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
-    ctx.withSystemContext(action)
+    ctx.withUserContext(user.id.value)(action)
   }
 
-  /** Read the raw stored `config` JSON for a StaticSource (or any source) —
-   *  used by the in-process engine / Spark submitter, which still consume the
-   *  `{columns, rows}` blob directly rather than reifying a typed payload.
+  /** Read the raw stored `config` JSON for a StaticSource (or any source).
    *
-   *  Privileged: callers are either background engine paths (pipeline ACL is
-   *  the gate at submission) or system paths with no user context. Correct. */
+   *  Privileged: callers are background engine paths (pipeline ACL is the gate
+   *  at submission) or system paths without a user context. Bypasses RLS via
+   *  the privileged pool, which is correct for these callers. */
   def readRawConfig(id: DataSourceId): Future[Option[String]] =
     ctx.withSystemContext(table.filter(_.id === id.value).map(_.config).result.headOption)
 
-  /** Delete a data source row.
+  /** Delete a data source row in user context.
    *
-   *  Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS on
-   *  this table. ACL check (owner-only) is enforced in the route/service layer
-   *  before this is called. Tracked: HEL-275. */
-  def delete(id: DataSourceId): Future[Boolean] =
-    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
+   *  The V35 RLS USING clause restricts this DELETE to rows owned by the caller
+   *  (`app.current_user_id` == `owner_id`), adding a DB-layer backstop.
+   *  The app-layer ACL check (`findByIdOwned`) is still performed by callers
+   *  before this method is invoked. */
+  def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
+    ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
 }
 
 object DataSourceRepository {
