@@ -33,7 +33,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       .load()
       .migrate()
     db       = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    stepRepo = new PipelineStepRepository(new DbContext(db))
+    stepRepo = new PipelineStepRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {

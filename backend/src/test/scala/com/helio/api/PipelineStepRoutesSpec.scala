@@ -51,7 +51,7 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx        = new DbContext(db)(typedSystem.executionContext)
+    val ctx        = new DbContext(db, db)(typedSystem.executionContext)
     dataTypeRepo   = new DataTypeRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo = new DataSourceRepository(ctx)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(ctx)(typedSystem.executionContext)

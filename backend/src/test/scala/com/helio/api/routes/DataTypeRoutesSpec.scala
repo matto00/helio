@@ -48,7 +48,7 @@ class DataTypeRoutesSpec
       .load()
       .migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx         = new DbContext(db)(routeEc)
+    val ctx         = new DbContext(db, db)(routeEc)
     dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
     dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
     dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)

@@ -141,6 +141,9 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
+  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
+   *  (owner-only) is enforced in the service layer before this is called.
+   *  Tracked: HEL-275. */
   def updateName(id: DashboardId, name: String, lastUpdated: Instant): Future[Option[Dashboard]] =
     ctx.withSystemContext(
       table
@@ -150,12 +153,18 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
+  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
+   *  (owner-only delete) is enforced in the service layer. Tracked: HEL-275. */
   def delete(id: DashboardId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
+  /** Boot-time empty check for DemoData seeding — no user context available.
+   *  Correctly privileged: this is a system-startup path. */
   def count(): Future[Int] =
     ctx.withSystemContext(table.length.result)
 
+  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
+   *  (owner-only duplicate) is enforced in the service layer. Tracked: HEL-275. */
   def duplicate(id: DashboardId, ownerId: UserId): Future[Option[(Dashboard, Vector[Panel])]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -200,6 +209,8 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
+  /** Placeholder until HEL-275/276 enable RLS on dashboards. ACL check
+   *  (owner-only export) is enforced in the service layer. Tracked: HEL-275. */
   def exportSnapshot(id: DashboardId): Future[Option[DashboardSnapshotPayload]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -249,6 +260,9 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     ctx.withSystemContext(action)
   }
 
+  /** Placeholder until HEL-275/276 enable RLS on dashboards. Import creates new
+   *  rows owned by `ownerId`; ACL check is enforced in the route layer.
+   *  Tracked: HEL-275. */
   def importSnapshot(payload: DashboardSnapshotPayload, ownerId: UserId): Future[(Dashboard, Vector[Panel])] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 

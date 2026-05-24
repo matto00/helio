@@ -226,7 +226,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         .load()
         .migrate()
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-      val ctx                  = new DbContext(db)
+      val ctx                  = new DbContext(db, db)
       val dtRepo               = new DataTypeRepository(ctx)
       dsRepoForSubmit          = new DataSourceRepository(ctx)
       pipelineRepoForSubmit    = new PipelineRepository(ctx, dtRepo, dsRepoForSubmit)

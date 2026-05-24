@@ -69,7 +69,7 @@ class DataSourceServiceRestartPersistenceSpec
    *  independent service objects with their own repository instances —
    *  exactly the situation the JVM has after restart. */
   private def buildServices(uploadsDir: java.nio.file.Path): (DataSourceService, DataTypeRepository, DataSourceRepository) = {
-    val ctx            = new DbContext(db)
+    val ctx            = new DbContext(db, db)
     val dataSourceRepo = new DataSourceRepository(ctx)
     val dataTypeRepo   = new DataTypeRepository(ctx)
     val fileSystem     = new LocalFileSystem(uploadsDir)
@@ -130,7 +130,7 @@ class DataSourceServiceRestartPersistenceSpec
       // round-trip directly through the repositories, which is what
       // SourceService.createSqlSource ultimately writes.
       val (_, _, dataSourceRepo1) = buildServices(Files.createTempDirectory("helio-restart-sql"))
-      val dataTypeRepo1           = new DataTypeRepository(new DbContext(db))
+      val dataTypeRepo1           = new DataTypeRepository(new DbContext(db, db))
       val now                     = java.time.Instant.now()
       val srcId                   = DataSourceId(UUID.randomUUID().toString)
       val sqlSource = SqlSource(
@@ -166,7 +166,7 @@ class DataSourceServiceRestartPersistenceSpec
       await(dataTypeRepo1.insert(dt))
 
       // "Restart": fresh repos against the same DB.
-      val ctx2            = new DbContext(db)
+      val ctx2            = new DbContext(db, db)
       val dataSourceRepo2 = new DataSourceRepository(ctx2)
       val dataTypeRepo2   = new DataTypeRepository(ctx2)
       await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty

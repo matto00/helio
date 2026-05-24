@@ -90,7 +90,7 @@ class DashboardPanelAclSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    ctx            = new DbContext(db)(routeEc)
+    ctx            = new DbContext(db, db)(routeEc)
     dashboardRepo  = new DashboardRepository(ctx)(routeEc)
     panelRepo      = new PanelRepository(ctx)(routeEc)
     dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)

@@ -54,7 +54,7 @@ class DataSourceServiceSpec
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx        = new DbContext(db)
+    val ctx        = new DbContext(db, db)
     dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")

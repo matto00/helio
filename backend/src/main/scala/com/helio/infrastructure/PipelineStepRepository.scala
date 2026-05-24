@@ -50,9 +50,15 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
   }
 
-  /** Owner-scoped insert. Gated by the caller having proven pipeline ownership
-    * at the service layer; the repo itself only writes — the parent pipeline
-    * FK guards against the pipeline disappearing mid-call. */
+  /** Insert a new step into the pipeline.
+    *
+    * Gated by the caller having proven pipeline ownership at the service layer;
+    * the repo itself only writes — the parent pipeline FK guards against the
+    * pipeline disappearing mid-call.
+    *
+    * Uses `withSystemContext` as a placeholder until HEL-275/276 enable RLS on
+    * pipeline_steps. Service-layer ACL check (owner-only) is the current gate.
+    * Tracked: HEL-275. */
   def insert(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
@@ -109,6 +115,8 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield step.id).result.headOption
     ctx.withUserContext(user.id.value)(ownedIds).flatMap {
       case None      => Future.successful(false)
+      // Placeholder until HEL-275/276: ownership was already verified by the
+      // `withUserContext` JOIN above; this delete is safe to run system-context.
       case Some(sid) => ctx.withSystemContext(stepsTable.filter(_.id === sid).delete).map(_ > 0)
     }
   }

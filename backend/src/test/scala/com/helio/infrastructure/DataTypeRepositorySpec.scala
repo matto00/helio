@@ -34,7 +34,7 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       .migrate()
 
     db     = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx = new DbContext(db)
+    val ctx = new DbContext(db, db)
     dtRepo = new DataTypeRepository(ctx)
     dsRepo = new DataSourceRepository(ctx)
   }

@@ -38,7 +38,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    ctx            = new DbContext(db)
+    ctx            = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
     dataTypeRepo   = new DataTypeRepository(ctx)
   }
