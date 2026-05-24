@@ -211,7 +211,7 @@
   gap: 9px;
   padding: 5px 10px;
   border-radius: var(--app-radius-md);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--app-text-muted);
   text-decoration: none;
