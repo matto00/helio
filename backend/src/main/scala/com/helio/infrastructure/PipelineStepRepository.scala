@@ -2,7 +2,6 @@ package com.helio.infrastructure
 
 import com.helio.api.protocols.PipelineStepConfigCodec
 import com.helio.domain._
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -23,7 +22,7 @@ import scala.util.{Failure, Success}
  *  `pipelines.owner_id` so the parent pipeline's ACL gates access. Steps
  *  inherit ACL from their parent pipeline; there is no separate `owner_id`
  *  column on `pipeline_steps`. */
-class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import PipelineStepRepository._
 
@@ -38,7 +37,7 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
       step     <- stepsTable if step.pipelineId === pipelineId.value
       pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
     } yield step
-    db.run(query.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(query.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
   }
 
   /** Owner-scoped findById via the parent-pipeline JOIN. */
@@ -48,13 +47,20 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
       step     <- stepsTable if step.id === id.value
       pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
     } yield step
-    db.run(query.result.headOption).map(_.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
   }
 
-  /** Owner-scoped insert. Gated by the caller having proven pipeline ownership
-    * at the service layer; the repo itself only writes — the parent pipeline
-    * FK guards against the pipeline disappearing mid-call. */
-  def insert(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
+  /** Insert a new step into the pipeline in user context.
+    *
+    * Gated by the caller having proven pipeline ownership at the service layer;
+    * the repo itself only writes — the parent pipeline FK guards against the
+    * pipeline disappearing mid-call.
+    *
+    * The V35 RLS policy on `pipeline_steps` uses an EXISTS subquery to
+    * `pipelines.owner_id`. Running inside `withUserContext` means the policy
+    * evaluates correctly: the new step is only insertable if the parent pipeline
+    * is owned by the caller. */
+  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
@@ -64,7 +70,7 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
       row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, now, now)
       _        <- stepsTable += row
     } yield rowToDomain(row)
-    db.run(action.transactionally)
+    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
   /** Owner-scoped partial update. Returns `None` if the step does not exist or
@@ -95,23 +101,26 @@ class PipelineStepRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCon
           stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
       }
     } yield updated
-    db.run(action.transactionally)
+    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
   /** Owner-scoped delete via the parent-pipeline JOIN. Returns `true` only if
-    * a step the caller owned was removed. */
+    * a step the caller owned was removed.
+    *
+    * Both the ownership check and the DELETE run inside a single
+    * `withUserContext` transaction so the V35 RLS policy on `pipeline_steps`
+    * (EXISTS subquery to `pipelines.owner_id`) is active throughout. */
   def delete(id: PipelineStepId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    // Slick translates `.exists` on the joined predicate into a correlated
-    // subquery, keeping the DELETE single-statement.
-    val ownedIds = (for {
+    val ownedQuery = for {
       step     <- stepsTable if step.id === id.value
       pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
-    } yield step.id).result.headOption
-    db.run(ownedIds).flatMap {
-      case None      => Future.successful(false)
-      case Some(sid) => db.run(stepsTable.filter(_.id === sid).delete).map(_ > 0)
+    } yield step.id
+    val action = ownedQuery.result.headOption.flatMap {
+      case None      => DBIO.successful(false)
+      case Some(sid) => stepsTable.filter(_.id === sid).delete.map(_ > 0)
     }
+    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
   // ── Row ↔ domain ──────────────────────────────────────────────────────────

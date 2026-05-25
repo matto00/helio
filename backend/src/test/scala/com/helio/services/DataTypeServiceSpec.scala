@@ -1,7 +1,7 @@
 package com.helio.services
 
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -42,9 +42,10 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       .load()
       .migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo    = new DataTypeRepository(db)
-    dataTypeRowRepo = new DataTypeRowRepository(db)
-    dataSourceRepo  = new DataSourceRepository(db)
+    val ctx         = new DbContext(db, db)
+    dataTypeRepo    = new DataTypeRepository(ctx)
+    dataTypeRowRepo = new DataTypeRowRepository(ctx)
+    dataSourceRepo  = new DataSourceRepository(ctx)
     service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   }
 
@@ -69,7 +70,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       updatedAt = now,
       config    = CsvSourceConfig("csv/test.csv")
     )
-    await(dataSourceRepo.insert(source))
+    await(dataSourceRepo.insert(source, user))
     source
   }
 
@@ -85,7 +86,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       updatedAt = now,
       ownerId   = owner
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, user))
     dt
   }
 
@@ -124,7 +125,7 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       val dt     = insertDataType(Some(source.id), name = "WillBeOrphaned")
       // Drop the source — the V4 migration's ON DELETE SET NULL clears the
       // FK reference on the DT, so the row stays around with `sourceId = null`.
-      await(dataSourceRepo.delete(source.id))
+      await(dataSourceRepo.delete(source.id, user))
       val refreshedDt = await(dataTypeRepo.findByIdInternal(dt.id)).getOrElse(fail("DT should still exist"))
       refreshedDt.sourceId shouldBe None
 

@@ -13,6 +13,7 @@ import com.helio.infrastructure.{
   DataSourceRepository,
   DataTypeRepository,
   DataTypeRowRepository,
+  DbContext,
   LocalFileSystem,
   PipelineRepository,
   PipelineRunRepository,
@@ -77,12 +78,13 @@ class PipelineAclSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo    = new DataTypeRepository(db)(routeEc)
-    dataSourceRepo  = new DataSourceRepository(db)(routeEc)
-    stepRepo        = new PipelineStepRepository(db)(routeEc)
-    pipelineRepo    = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
-    pipelineRunRepo = new PipelineRunRepository(db)(routeEc)
-    dataTypeRowRepo = new DataTypeRowRepository(db)(routeEc)
+    val ctx         = new DbContext(db, db)(routeEc)
+    dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
+    dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
+    stepRepo        = new PipelineStepRepository(ctx)(routeEc)
+    pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRunRepo = new PipelineRunRepository(ctx)(routeEc)
+    dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
     seedUsers()
   }
 

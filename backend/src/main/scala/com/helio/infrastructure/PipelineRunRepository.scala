@@ -1,7 +1,6 @@
 package com.helio.infrastructure
 
 import com.helio.domain.{AuthenticatedUser, PipelineId, PipelineRunId}
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -22,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  [[deleteOldRunsInternal]] / [[deleteOldDryRunsInternal]]; the
  *  pipeline ACL was checked at submit time and the background driver
  *  does not carry a request-bound user. */
-class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
+class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import PipelineRunRepository._
 
@@ -37,7 +36,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   /** Owner-scoped insert. Silent no-op when the caller does not own the
     * parent pipeline. */
   def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, user: AuthenticatedUser): Future[Unit] =
-    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+    ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
       case true  => insertRunInternal(runId, pipelineId, startedAt)
     }
@@ -53,7 +52,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       rowCount    = None,
       errorLog    = None
     )
-    db.run(runsTable += row).map(_ => ())
+    ctx.withSystemContext(runsTable += row).map(_ => ())
   }
 
   /** Owner-scoped terminal update via JOIN to `pipelines.owner_id`. Silent
@@ -71,7 +70,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       run      <- runsTable if run.id === runId.value
       pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
     } yield run.id
-    db.run(ownedRunQuery.result.headOption).flatMap {
+    ctx.withUserContext(user.id.value)(ownedRunQuery.result.headOption).flatMap {
       case None      => Future.successful(())
       case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog)
     }
@@ -85,7 +84,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       rowCount: Option[Int] = None,
       errorLog: Option[String] = None
   ): Future[Unit] =
-    db.run(
+    ctx.withSystemContext(
       runsTable
         .filter(_.id === runId.value)
         .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog))
@@ -95,7 +94,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
   /** Owner-scoped dry-run insert. Silent no-op when the caller does not own
     * the parent pipeline. */
   def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser): Future[Unit] =
-    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+    ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
       case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount)
     }
@@ -111,7 +110,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       rowCount    = Some(rowCount),
       errorLog    = None
     )
-    db.run(runsTable += row).map(_ => ())
+    ctx.withSystemContext(runsTable += row).map(_ => ())
   }
 
   /**
@@ -119,7 +118,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
    * the parent pipeline.
    */
   def deleteOldRuns(pipelineId: PipelineId, user: AuthenticatedUser, keepN: Int = 10): Future[Unit] =
-    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+    ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
       case true  => deleteOldRunsInternal(pipelineId, keepN)
     }
@@ -137,7 +136,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       .filter(r => r.pipelineId === pid && r.status =!= "dry_run" && !r.id.in(keepIds))
       .delete
 
-    db.run(action).map(_ => ())
+    ctx.withSystemContext(action).map(_ => ())
   }
 
   /**
@@ -145,7 +144,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
    * own the parent pipeline.
    */
   def deleteOldDryRuns(pipelineId: PipelineId, user: AuthenticatedUser, keepN: Int = 10): Future[Unit] =
-    db.run(pipelineOwnedAction(pipelineId, user)).flatMap {
+    ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
       case true  => deleteOldDryRunsInternal(pipelineId, keepN)
     }
@@ -163,7 +162,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       .filter(r => r.pipelineId === pid && r.status === "dry_run" && !r.id.in(keepIds))
       .delete
 
-    db.run(action).map(_ => ())
+    ctx.withSystemContext(action).map(_ => ())
   }
 
   /** Owner-scoped list of runs for a pipeline. Empty vector when the caller
@@ -174,7 +173,7 @@ class PipelineRunRepository(db: JdbcBackend.Database)(implicit ec: ExecutionCont
       run      <- runsTable if run.pipelineId === pipelineId.value
       pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
     } yield run
-    db.run(query.sortBy(_.startedAt.desc).result).map(_.toVector)
+    ctx.withUserContext(user.id.value)(query.sortBy(_.startedAt.desc).result).map(_.toVector)
   }
 }
 

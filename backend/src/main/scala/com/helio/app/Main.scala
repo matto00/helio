@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.ApiRoutes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, GcsFileSystem, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -26,8 +26,13 @@ object Main {
       implicit val ec = context.executionContext
       val logger = system.log
 
-      val config = ConfigFactory.load()
-      val db     = Database.init(config)
+      val config      = ConfigFactory.load()
+      // HEL-274: two pools — app (non-privileged) and privileged (BYPASSRLS).
+      // initApp runs Flyway migrations; initPrivileged opens the pool only.
+      // DbContext routes withUserContext → app pool, withSystemContext → privileged pool.
+      val db          = Database.initApp(config)
+      val privilegedDb = Database.initPrivileged(config)
+      val ctx         = new DbContext(db, privilegedDb)
 
       def requireEnv(name: String): String =
         sys.env.get(name).filter(_.nonEmpty).getOrElse {
@@ -40,18 +45,18 @@ object Main {
       val googleClientSecret = requireEnv("GOOGLE_CLIENT_SECRET")
       val googleRedirectUri  = requireEnv("GOOGLE_REDIRECT_URI")
 
-      val dashboardRepo      = new DashboardRepository(db)
-      val panelRepo          = new PanelRepository(db)
-      val dataSourceRepo     = new DataSourceRepository(db)
-      val dataTypeRepo       = new DataTypeRepository(db)
+      val dashboardRepo      = new DashboardRepository(ctx)
+      val panelRepo          = new PanelRepository(ctx)
+      val dataSourceRepo     = new DataSourceRepository(ctx)
+      val dataTypeRepo       = new DataTypeRepository(ctx)
       val userRepo           = new UserRepository(db)
       val userSessionRepo    = new SlickUserSessionRepository(db)
       val userPreferenceRepo = new UserPreferenceRepository(db)
-      val permissionRepo     = new ResourcePermissionRepository(db)
-      val pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)
-      val pipelineStepRepo   = new PipelineStepRepository(db)
-      val pipelineRunRepo    = new PipelineRunRepository(db)
-      val dataTypeRowRepo    = new DataTypeRowRepository(db)
+      val permissionRepo     = new ResourcePermissionRepository(ctx)
+      val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+      val pipelineStepRepo   = new PipelineStepRepository(ctx)
+      val pipelineRunRepo    = new PipelineRunRepository(ctx)
+      val dataTypeRowRepo    = new DataTypeRowRepository(ctx)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()
@@ -73,7 +78,7 @@ object Main {
       // HEL-256: surface any data_sources rows that lack a linked DataType
       // (orphans render empty schemas on the Sources page). Defense-in-depth
       // beside DataTypeService.delete guard and refresh upsert primitive.
-      SourceSchemaHealthCheck.run(db, logger)
+      SourceSchemaHealthCheck.run(ctx, logger)
 
       val connector = new RestApiConnector()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")

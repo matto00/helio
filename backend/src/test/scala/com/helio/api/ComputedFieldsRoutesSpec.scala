@@ -13,6 +13,7 @@ import com.helio.infrastructure.{
   DashboardRepository,
   DataSourceRepository,
   DataTypeRepository,
+  DbContext,
   FileSystem,
   PanelRepository,
   PipelineRepository,
@@ -72,15 +73,16 @@ class ComputedFieldsRoutesSpec
       .load()
       .migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dashboardRepo      = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo          = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo     = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
+    val ctx            = new DbContext(db, db)(typedSystem.executionContext)
+    dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
+    panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
+    dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
-    permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
-    pipelineStepRepo   = new PipelineStepRepository(db)(typedSystem.executionContext)
+    permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -145,7 +147,7 @@ class ComputedFieldsRoutesSpec
       updatedAt = now,
       ownerId   = UserId(testUserId)
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, testUser))
   }
 
   // ── Task 3.2 tests ──────────────────────────────────────────────────────────

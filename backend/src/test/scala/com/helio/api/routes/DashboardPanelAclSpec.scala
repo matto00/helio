@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -56,6 +56,7 @@ class DashboardPanelAclSpec
 
   private var embeddedPostgres: EmbeddedPostgres           = _
   private var db: JdbcBackend.Database                     = _
+  private var ctx: DbContext                               = _
   private var dashboardRepo: DashboardRepository           = _
   private var panelRepo: PanelRepository                   = _
   private var dataTypeRepo: DataTypeRepository             = _
@@ -89,11 +90,12 @@ class DashboardPanelAclSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dashboardRepo  = new DashboardRepository(db)(routeEc)
-    panelRepo      = new PanelRepository(db)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(db)(routeEc)
-    dataSourceRepo = new DataSourceRepository(db)(routeEc)
-    permissionRepo = new ResourcePermissionRepository(db)(routeEc)
+    ctx            = new DbContext(db, db)(routeEc)
+    dashboardRepo  = new DashboardRepository(ctx)(routeEc)
+    panelRepo      = new PanelRepository(ctx)(routeEc)
+    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
+    dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
+    permissionRepo = new ResourcePermissionRepository(ctx)(routeEc)
     userRepo       = new UserRepository(db)(routeEc)
     userPrefRepo   = new UserPreferenceRepository(db)(routeEc)
     seedUsers()
@@ -181,8 +183,8 @@ class DashboardPanelAclSpec
   // ── Route fixtures ─────────────────────────────────────────────────────────
 
   private def mkPipelineRepo =
-    new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
-  private def mkPipelineStepRepo = new PipelineStepRepository(db)(routeEc)
+    new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+  private def mkPipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
 
   private def stubFileSystem = {
     val tmpDir = Files.createTempDirectory("helio-acl-spec")

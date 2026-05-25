@@ -59,6 +59,48 @@ Every repository that exposes a per-id read MUST choose one of three flavors exp
 
 **Existence-not-leaked semantics**: `findByIdOwned` (and `findById` for no-grant callers) returns `None` for a cross-user ID. Services map `None → 404 Not Found`, never `403 Forbidden`. This hides resource existence from unauthorized callers. The 403 status is reserved for cases where the resource is visible (the caller has a sharing grant) but the requested operation is not permitted for their role (e.g., a viewer-grant user attempting a mutation).
 
+#### Database transactions & RLS context
+
+All database access goes through `DbContext` — **never call `db.run(...)` directly in a repository**. `DbContext` wraps every action in an explicit transaction and sets the `app.current_user_id` Postgres session variable before running the action:
+
+- `ctx.withUserContext(userId)(action)` — sets the variable to the caller's user id. Use for user-visible reads and writes where RLS policies should apply.
+- `ctx.withSystemContext(action)` — sets the variable to `"system"`. Use for internal/privileged actions that must bypass user-scoped RLS, background jobs, and any call site where no `AuthenticatedUser` is available.
+
+**Why `SET LOCAL` (not `SET SESSION`)**: `set_config('app.current_user_id', value, true)` is transaction-scoped. When HikariCP recycles a connection back to the pool the variable is automatically cleared, preventing user-id leakage across requests.
+
+**Nested transactions are safe**: Slick's `.transactionally` on an action that is already inside a `withUserContext`/`withSystemContext` call becomes a Postgres savepoint; the outer transaction — and its `SET LOCAL` — remain in effect.
+
+#### Role split: helio_app vs helio_privileged (HEL-272)
+
+`DbContext` manages two physically separate HikariCP connection pools:
+
+| Pool            | PostgreSQL role                | RLS behavior                              | Used by             |
+| --------------- | ------------------------------ | ----------------------------------------- | ------------------- |
+| App pool        | `DB_USER` (non-BYPASSRLS)      | RLS policies are evaluated on every query | `withUserContext`   |
+| Privileged pool | `helio_privileged` (BYPASSRLS) | RLS policies are skipped entirely         | `withSystemContext` |
+
+`helio_privileged` is created by Flyway migration V34 with `BYPASSRLS` and
+granted to `DB_USER` so that `SET ROLE helio_privileged` works from the
+app's login credentials. **Never call `db.run` on the privileged pool directly**
+— always go through `withSystemContext`.
+
+**FORCE ROW LEVEL SECURITY**: All nine ACL'd tables use `FORCE ROW LEVEL
+SECURITY` (V35 + V36), which means the table owner cannot bypass policies
+on the app pool. The only way to bypass is to hold the `helio_privileged` role
+(which requires `BYPASSRLS`). This prevents the common RLS footgun where the
+table owner silently sees all rows even on the non-privileged connection.
+
+**Adding a new ACL'd table**: Any new table that holds user-owned data must:
+
+1. Add `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` in its
+   migration.
+2. Add policies covering at minimum SELECT and INSERT (and UPDATE/DELETE if
+   applicable).
+3. Add the table name to the `rlsTables` allowlist in `RlsPolicyGuardSpec` —
+   the guard spec will fail CI if this step is missed.
+4. Add `idx_<table>_owner_id` if the policy predicate references `owner_id`
+   directly (see V37 for the pattern).
+
 ### API Contracts
 
 - Define request/response shapes in `schemas/` (JSON Schema 2020-12)

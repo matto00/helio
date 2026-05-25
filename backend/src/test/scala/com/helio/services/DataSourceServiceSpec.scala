@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, LocalFileSystem}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -54,8 +54,9 @@ class DataSourceServiceSpec
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo   = new DataTypeRepository(db)
-    dataSourceRepo = new DataSourceRepository(db)
+    val ctx        = new DbContext(db, db)
+    dataTypeRepo   = new DataTypeRepository(ctx)
+    dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
     service = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
@@ -101,7 +102,7 @@ class DataSourceServiceSpec
       // Simulate the orphan scenario: delete the DT row directly (bypassing
       // the Fix-B′ guard at the service layer).
       val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id)))
+      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
       await(dataTypeRepo.findBySourceId(src.id, owner)) shouldBe empty
 
       val result = await(service.refresh(src.id, None, user))
@@ -149,7 +150,7 @@ class DataSourceServiceSpec
       }
       // Orphan: delete the linked DT.
       val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id)))
+      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
 
       val refreshPayload = StaticDataPayload(
         columns = Vector(StaticColumnPayload("id", "integer"), StaticColumnPayload("label", "string")),

@@ -33,7 +33,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       .load()
       .migrate()
     db       = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    stepRepo = new PipelineStepRepository(db)
+    stepRepo = new PipelineStepRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {
@@ -113,7 +113,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
     "preserve full typed configs round-tripping through insert + listByPipeline" in {
       val pid = seedPipeline()
       val joinConfig = JoinConfig("ds-right", "id", "left")
-      await(stepRepo.insert(pid, PipelineStepKind.Join, joinConfig))
+      await(stepRepo.insert(pid, PipelineStepKind.Join, joinConfig, systemUser))
 
       val steps = await(stepRepo.listByPipeline(pid, systemUser))
       steps should have size 1
@@ -130,21 +130,21 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
 
     "listByPipeline returns empty vector for a non-owner" in {
       val pid = seedPipeline()
-      await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
       await(stepRepo.listByPipeline(pid, systemUser)) should have size 1
       await(stepRepo.listByPipeline(pid, otherUser)) shouldBe empty
     }
 
     "findById returns None for a non-owner" in {
       val pid  = seedPipeline()
-      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
       await(stepRepo.findById(step.id, systemUser)) shouldBe defined
       await(stepRepo.findById(step.id, otherUser))  shouldBe None
     }
 
     "update returns None and does not mutate for a non-owner" in {
       val pid  = seedPipeline()
-      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
       val updated = await(stepRepo.update(
         step.id,
         config   = Some(RenameConfig(Map("hijack" -> "x"))),
@@ -159,7 +159,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
 
     "delete returns false and leaves the row for a non-owner" in {
       val pid  = seedPipeline()
-      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty)))
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
       await(stepRepo.delete(step.id, otherUser)) shouldBe false
       await(stepRepo.findById(step.id, systemUser)) shouldBe defined
     }

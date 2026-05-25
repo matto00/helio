@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.domain.{AuthenticatedUser, PipelineId, SelectConfig, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -46,10 +46,11 @@ class PipelineAnalyzeRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo     = new DataTypeRepository(db)(routeEc)
-    dataSourceRepo   = new DataSourceRepository(db)(routeEc)
-    pipelineRepo     = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
-    pipelineStepRepo = new PipelineStepRepository(db)(routeEc)
+    val ctx          = new DbContext(db, db)(routeEc)
+    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
+    dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -132,7 +133,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
       // Insert a select step via the repo (CS2c-3a typed config)
-      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount"))))
+      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK

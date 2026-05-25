@@ -11,7 +11,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext)
+class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
     extends DashboardProtocol with PanelProtocol {
 
   import DashboardRepository._
@@ -46,8 +46,9 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
     )
 
   def findAll(ownerId: UserId): Future[Vector[Dashboard]] =
-    db.run(table.filter(_.ownerId === UUID.fromString(ownerId.value)).sortBy(_.lastUpdated.desc).result)
-      .map(_.map(rowToDomain).toVector)
+    ctx.withUserContext(ownerId.value)(
+      table.filter(_.ownerId === UUID.fromString(ownerId.value)).sortBy(_.lastUpdated.desc).result
+    ).map(_.map(rowToDomain).toVector)
 
   /** Sharing-aware read. Returns Some if:
    *  - `callerOpt` is Some and the caller is the owner,
@@ -55,7 +56,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
    *  - `callerOpt` is None and a public-viewer grant exists (anonymous path).
    *  Returns None for all other cases (no existence leak). */
   def findById(id: DashboardId, callerOpt: Option[AuthenticatedUser]): Future[Option[Dashboard]] =
-    db.run(table.filter(_.id === id.value).result.headOption).flatMap {
+    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).flatMap {
       case None => Future.successful(None)
       case Some(row) =>
         val ownerId = row.ownerId.toString
@@ -64,7 +65,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
             Future.successful(Some(rowToDomain(row)))
 
           case Some(caller) =>
-            db.run(
+            ctx.withUserContext(caller.id.value)(
               permTable
                 .filter(p =>
                   p.resourceType === "dashboard" &&
@@ -77,7 +78,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
 
           case None =>
             // Public-viewer fallback: anonymous request — return only if public grant exists.
-            db.run(
+            ctx.withSystemContext(
               permTable
                 .filter(p =>
                   p.resourceType === "dashboard" &&
@@ -94,7 +95,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
   /** Owner-only read. Used for delete / duplicate where only the owner is
    *  authorised regardless of any sharing grants (design.md Q1 table). */
   def findByIdOwned(id: DashboardId, user: AuthenticatedUser): Future[Option[Dashboard]] =
-    db.run(
+    ctx.withUserContext(user.id.value)(
       table
         .filter(d => d.id === id.value && d.ownerId === UUID.fromString(user.id.value))
         .result
@@ -104,7 +105,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
   /** No-ACL read for the ResourceTypeRegistry owner-resolver and other
    *  privileged internal callers only. Do not use from routes or services. */
   def findByIdInternal(id: DashboardId): Future[Option[Dashboard]] =
-    db.run(table.filter(_.id === id.value).result.headOption)
+    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
   /** Sharing-aware list. Returns dashboards owned by the user OR where the
@@ -119,16 +120,16 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
       perm <- permTable if perm.resourceType === "dashboard" && perm.granteeId === userId
       dash <- table if dash.id === perm.resourceId
     } yield dash
-    db.run((owned union granted).sortBy(_.lastUpdated.desc).result)
+    ctx.withUserContext(user.id.value)((owned union granted).sortBy(_.lastUpdated.desc).result)
       .map(_.map(rowToDomain).toVector)
   }
 
   def insert(dashboard: Dashboard): Future[Dashboard] =
-    db.run(table += domainToRow(dashboard))
+    ctx.withUserContext(dashboard.ownerId.value)(table += domainToRow(dashboard))
       .map(_ => dashboard)
 
   def update(dashboard: Dashboard): Future[Option[Dashboard]] =
-    db.run(
+    ctx.withUserContext(dashboard.ownerId.value)(
       table
         .filter(_.id === dashboard.id.value)
         .map(r => (r.name, r.lastUpdated, r.appearance, r.layout))
@@ -140,8 +141,13 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
+  /** Privileged update: uses withSystemContext because the caller (DashboardService)
+   *  has already validated ownership before reaching this method. The V36 RLS
+   *  UPDATE policy (owner OR editor grantee) would also permit this, but the
+   *  service always confirms ownership first — withSystemContext is kept to
+   *  avoid a redundant DB round-trip for the policy predicate. */
   def updateName(id: DashboardId, name: String, lastUpdated: Instant): Future[Option[Dashboard]] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(_.id === id.value)
         .map(r => (r.name, r.lastUpdated))
@@ -149,12 +155,22 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
+  /** Privileged delete: uses withSystemContext because DashboardService has
+   *  confirmed ownership via findByIdOwned before calling this. The V36 RLS
+   *  DELETE policy (owner only) would enforce the same rule on the app pool,
+   *  but withSystemContext avoids the extra policy predicate evaluation. */
   def delete(id: DashboardId): Future[Boolean] =
-    db.run(table.filter(_.id === id.value).delete).map(_ > 0)
+    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
 
+  /** Boot-time empty check for DemoData seeding — no user context available.
+   *  Correctly privileged: this is a system-startup path. */
   def count(): Future[Int] =
-    db.run(table.length.result)
+    ctx.withSystemContext(table.length.result)
 
+  /** Privileged duplicate: uses withSystemContext because DashboardService has
+   *  confirmed ownership before calling this. New rows are inserted with the
+   *  calling user's ownerId so V36 RLS INSERT/SELECT policies apply to the
+   *  resulting rows correctly. */
   def duplicate(id: DashboardId, ownerId: UserId): Future[Option[(Dashboard, Vector[Panel])]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -196,9 +212,13 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
         }
     }.transactionally
 
-    db.run(action)
+    ctx.withSystemContext(action)
   }
 
+  /** Privileged export: uses withSystemContext because DashboardService has
+   *  confirmed ownership before calling this. Export is a read-only operation;
+   *  withSystemContext avoids the V36 dashboard SELECT policy predicate for
+   *  a path that the service layer has already ACL-checked. */
   def exportSnapshot(id: DashboardId): Future[Option[DashboardSnapshotPayload]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -245,9 +265,13 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
         }
     }
 
-    db.run(action)
+    ctx.withSystemContext(action)
   }
 
+  /** Privileged import: uses withSystemContext to insert new dashboard and panel
+   *  rows on behalf of `ownerId`. New rows carry the correct owner_id so V36
+   *  RLS SELECT/UPDATE/DELETE policies apply to them correctly after insertion.
+   *  Route-layer ACL check (authenticated user) is enforced before this is called. */
   def importSnapshot(payload: DashboardSnapshotPayload, ownerId: UserId): Future[(Dashboard, Vector[Panel])] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
 
@@ -316,7 +340,7 @@ class DashboardRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContex
         .map(_ => (newDash, newPanels))
     ).transactionally
 
-    db.run(action)
+    ctx.withSystemContext(action)
   }
 }
 

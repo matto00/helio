@@ -1,7 +1,6 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
@@ -9,7 +8,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class PipelineRepository(
-    db: JdbcBackend.Database,
+    ctx: DbContext,
     dataTypeRepo: DataTypeRepository,
     dataSourceRepo: DataSourceRepository
 )(implicit ec: ExecutionContext) {
@@ -23,14 +22,16 @@ class PipelineRepository(
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
   def exists(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).exists.result)
+    ctx.withUserContext(user.id.value)(
+      pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).exists.result
+    )
   }
 
   /** Owner-scoped lookup. Returns `None` for rows the caller does not own —
     * existence and authorization are indistinguishable at the API. */
   def findById(id: PipelineId, user: AuthenticatedUser): Future[Option[Pipeline]] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(
+    ctx.withUserContext(user.id.value)(
       pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption
     ).map(_.map(rowToPipeline))
   }
@@ -41,9 +42,9 @@ class PipelineRepository(
     *
     * Do not call from a request-bound service method. */
   def findByIdInternal(id: PipelineId): Future[Option[Pipeline]] =
-    db.run(pipelinesTable.filter(_.id === id.value).result.headOption).map {
-      _.map(rowToPipeline)
-    }
+    ctx.withSystemContext(
+      pipelinesTable.filter(_.id === id.value).result.headOption
+    ).map(_.map(rowToPipeline))
 
   private def rowToPipeline(row: PipelineRow): Pipeline =
     Pipeline(
@@ -67,7 +68,7 @@ class PipelineRepository(
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)
 
-    db.run(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
+    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,
@@ -86,7 +87,7 @@ class PipelineRepository(
   def updateName(id: PipelineId, name: String, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
     val now       = Instant.now()
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(
+    ctx.withUserContext(user.id.value)(
       pipelinesTable
         .filter(r => r.id === id.value && r.ownerId === ownerUuid)
         .map(r => (r.name, r.updatedAt))
@@ -122,7 +123,7 @@ class PipelineRepository(
           updatedAt      = now,
           ownerId        = user.id
         )
-        dataTypeRepo.insert(newDataType).flatMap { createdDataType =>
+        dataTypeRepo.insert(newDataType, user).flatMap { createdDataType =>
           val pipelineId  = UUID.randomUUID().toString
           val pipelineRow = PipelineRow(
             id                 = pipelineId,
@@ -136,7 +137,7 @@ class PipelineRepository(
             lastRunRowCount    = None,
             ownerId            = UUID.fromString(user.id.value)
           )
-          db.run(pipelinesTable += pipelineRow).map { _ =>
+          ctx.withUserContext(user.id.value)(pipelinesTable += pipelineRow).map { _ =>
             Right(PipelineSummary(
               id                   = pipelineId,
               name                 = name,
@@ -157,7 +158,7 @@ class PipelineRepository(
     * the caller owned was removed. */
   def delete(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(
+    ctx.withUserContext(user.id.value)(
       pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).delete
     ).map(_ > 0)
   }
@@ -173,7 +174,7 @@ class PipelineRepository(
       user: AuthenticatedUser
   ): Future[Unit] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    db.run(
+    ctx.withUserContext(user.id.value)(
       pipelinesTable
         .filter(r => r.id === id.value && r.ownerId === ownerUuid)
         .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
@@ -190,7 +191,7 @@ class PipelineRepository(
       at: Instant,
       rowCount: Option[Long] = None
   ): Future[Unit] =
-    db.run(
+    ctx.withSystemContext(
       pipelinesTable
         .filter(_.id === id.value)
         .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
@@ -208,7 +209,7 @@ class PipelineRepository(
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)
 
-    db.run(query.result).map(_.map { case (p, srcName, dtName) =>
+    ctx.withUserContext(user.id.value)(query.result).map(_.map { case (p, srcName, dtName) =>
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,

@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataSourcesResponse, JsonProtocols}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem}
 import com.helio.services.{DataSourceService, DataTypeService, PanelService, SourceService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -60,9 +60,10 @@ class DataTypeDataSourceAclSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataTypeRepo    = new DataTypeRepository(db)(routeEc)
-    dataTypeRowRepo = new DataTypeRowRepository(db)(routeEc)
-    dataSourceRepo  = new DataSourceRepository(db)(routeEc)
+    val ctx         = new DbContext(db, db)(routeEc)
+    dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
+    dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
+    dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
     seedUsers()
   }
 

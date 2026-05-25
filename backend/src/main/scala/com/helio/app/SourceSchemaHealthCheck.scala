@@ -1,7 +1,7 @@
 package com.helio.app
 
+import com.helio.infrastructure.DbContext
 import org.slf4j.Logger
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +28,7 @@ object SourceSchemaHealthCheck {
   /** Query for sources without a linked DataType. Owner-agnostic — the boot
    *  context isn't user-scoped. Result is small (typically zero rows in a
    *  healthy DB), so a single round-trip is fine. */
-  def findOrphans(db: JdbcBackend.Database)(implicit ec: ExecutionContext): Future[Vector[OrphanSource]] = {
+  def findOrphans(ctx: DbContext)(implicit ec: ExecutionContext): Future[Vector[OrphanSource]] = {
     val query =
       sql"""
         SELECT ds.id, ds.name, ds.owner_id::text, ds.source_type
@@ -38,14 +38,14 @@ object SourceSchemaHealthCheck {
         WHERE dt.id IS NULL
         ORDER BY ds.created_at
       """.as[(String, String, Option[String], String)]
-    db.run(query).map(_.map { case (id, name, owner, kind) =>
+    ctx.withSystemContext(query).map(_.map { case (id, name, owner, kind) =>
       OrphanSource(id, name, owner, kind)
     }.toVector)
   }
 
   /** Run the check and emit one WARN per orphan with an actionable suggestion. */
-  def run(db: JdbcBackend.Database, logger: Logger)(implicit ec: ExecutionContext): Future[Vector[OrphanSource]] =
-    findOrphans(db).map { orphans =>
+  def run(ctx: DbContext, logger: Logger)(implicit ec: ExecutionContext): Future[Vector[OrphanSource]] =
+    findOrphans(ctx).map { orphans =>
       if (orphans.isEmpty) {
         logger.info("SourceSchemaHealthCheck: all data sources have a linked DataType.")
       } else {

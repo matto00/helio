@@ -1,7 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineRunRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineRunRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -226,10 +226,11 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         .load()
         .migrate()
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-      val dtRepo = new DataTypeRepository(db)
-      dsRepoForSubmit          = new DataSourceRepository(db)
-      pipelineRepoForSubmit    = new PipelineRepository(db, dtRepo, dsRepoForSubmit)
-      pipelineRunRepoForSubmit = new PipelineRunRepository(db)
+      val ctx                  = new DbContext(db, db)
+      val dtRepo               = new DataTypeRepository(ctx)
+      dsRepoForSubmit          = new DataSourceRepository(ctx)
+      pipelineRepoForSubmit    = new PipelineRepository(ctx, dtRepo, dsRepoForSubmit)
+      pipelineRunRepoForSubmit = new PipelineRunRepository(ctx)
     }
 
     def stopDb(): Unit = { db.close(); embeddedPostgres.close() }

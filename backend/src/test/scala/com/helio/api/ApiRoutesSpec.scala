@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, DashboardId, PanelId, RestApiConfig, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -57,15 +57,16 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    dashboardRepo      = new DashboardRepository(db)(typedSystem.executionContext)
-    panelRepo          = new PanelRepository(db)(typedSystem.executionContext)
-    dataSourceRepo     = new DataSourceRepository(db)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(db)(typedSystem.executionContext)
+    val ctx            = new DbContext(db, db)(typedSystem.executionContext)
+    dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
+    panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
+    dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
+    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
-    permissionRepo     = new ResourcePermissionRepository(db)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
-    pipelineStepRepo   = new PipelineStepRepository(db)(typedSystem.executionContext)
+    permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
   }
 
@@ -791,7 +792,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Patch(
         s"/api/types/${dt.id.value}",
@@ -834,7 +835,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
         status shouldBe StatusCodes.NoContent
@@ -878,7 +879,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Patch(
         s"/api/panels/$panelId",
@@ -914,7 +915,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Patch(
         s"/api/types/${dt.id.value}",
@@ -952,7 +953,7 @@ class ApiRoutesSpec
         updatedAt      = Instant.now(),
         ownerId        = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -978,7 +979,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Patch(
         s"/api/types/${dt.id.value}",
@@ -1010,7 +1011,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       val longExpr = "x + " * 200 // > 500 chars
 
@@ -1047,7 +1048,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+*+quantity") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -1073,7 +1074,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+**") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -1099,7 +1100,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=nonexistent+*+2") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -1154,7 +1155,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       val mapping = """{"value":"col1"}""".parseJson.asJsObject
       Patch(
@@ -1195,7 +1196,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       // bind
       Patch(
@@ -1277,7 +1278,7 @@ class ApiRoutesSpec
         updatedAt = now,
         config    = RestApiConfig(url = "http://example.com", method = "GET")
       )
-      await(dataSourceRepo.insert(source))
+      await(dataSourceRepo.insert(source, testUser))
 
       val dt = DataType(
         id        = DataTypeId(UUID.randomUUID().toString),
@@ -1289,7 +1290,7 @@ class ApiRoutesSpec
         updatedAt = now,
         ownerId   = UserId(testUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       val newJson = """[{"new_col":"x"}]""".parseJson
       Post(s"/api/sources/${source.id.value}/refresh") ~> routes(stubConnector(Right(newJson))) ~> check {
@@ -1323,7 +1324,7 @@ class ApiRoutesSpec
         updatedAt = now,
         config    = RestApiConfig(url = "http://example.com", method = "GET")
       )
-      await(dataSourceRepo.insert(source))
+      await(dataSourceRepo.insert(source, testUser))
 
       val bigArray = JsArray((1 to 15).map(i => JsObject("n" -> JsNumber(i))).toVector)
       Get(s"/api/sources/${source.id.value}/preview") ~> routes(stubConnector(Right(bigArray))) ~> check {
@@ -2137,7 +2138,7 @@ class ApiRoutesSpec
         ownerId   = UserId(otherUserId),
         createdAt = now,
         updatedAt = now
-      )))
+      ), otherUser))
 
       Get("/api/data-sources") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -2212,7 +2213,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(otherUserId)
       )
-      await(dataTypeRepo.insert(dt))
+      await(dataTypeRepo.insert(dt, testUser))
 
       Get("/api/types") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -2302,7 +2303,7 @@ class ApiRoutesSpec
         updatedAt = Instant.now(),
         ownerId   = UserId(otherUserId)
       )
-      await(dataTypeRepo.insert(foreignType))
+      await(dataTypeRepo.insert(foreignType, otherUser))
 
       // Bind the foreign type to the panel directly via the DB (bypassing auth)
       import slick.jdbc.PostgresProfile.api._

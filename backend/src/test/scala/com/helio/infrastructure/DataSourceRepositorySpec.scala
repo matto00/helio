@@ -32,7 +32,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       .migrate()
 
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    repo = new DataSourceRepository(db)
+    repo = new DataSourceRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {
@@ -50,6 +50,8 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private val owner1 = UserId(UUID.randomUUID().toString)
   private val owner2 = UserId(UUID.randomUUID().toString)
+  private val user1  = AuthenticatedUser(owner1)
+  private val user2  = AuthenticatedUser(owner2)
 
   private def newSource(name: String = "Test Source", ownerId: UserId = owner1): DataSource = {
     val now = Instant.now()
@@ -68,7 +70,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "insert and findByIdInternal returns the same record" in {
       cleanDb()
       val source = newSource()
-      await(repo.insert(source))
+      await(repo.insert(source, user1))
       val found = await(repo.findByIdInternal(source.id))
       found shouldBe defined
       found.get.id      shouldBe source.id
@@ -83,9 +85,9 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val a = newSource("Source A", owner1)
       val b = newSource("Source B", owner1)
       val c = newSource("Source C", owner2)
-      await(repo.insert(a))
-      await(repo.insert(b))
-      await(repo.insert(c))
+      await(repo.insert(a, user1))
+      await(repo.insert(b, user1))
+      await(repo.insert(c, user2))
       val forOwner1 = await(repo.findAll(owner1))
       forOwner1.map(_.id) should contain allOf (a.id, b.id)
       forOwner1.map(_.id) should not contain c.id
@@ -102,7 +104,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findByIdOwned returns None for wrong owner (owner-scoped; cross-user isolation)" in {
       cleanDb()
       val source = newSource(ownerId = owner1)
-      await(repo.insert(source))
+      await(repo.insert(source, user1))
       // owner2 cannot see owner1's source via findAll
       val forOwner2 = await(repo.findAll(owner2))
       forOwner2.map(_.id) should not contain source.id
@@ -116,8 +118,8 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findByIdOwned returns the row for the owner" in {
       cleanDb()
       val source = newSource(ownerId = owner1)
-      await(repo.insert(source))
-      val found = await(repo.findByIdOwned(source.id, AuthenticatedUser(owner1)))
+      await(repo.insert(source, user1))
+      val found = await(repo.findByIdOwned(source.id, user1))
       found shouldBe defined
       found.get.id shouldBe source.id
     }
@@ -125,39 +127,39 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findByIdOwned returns None for a non-owner" in {
       cleanDb()
       val source = newSource(ownerId = owner1)
-      await(repo.insert(source))
-      await(repo.findByIdOwned(source.id, AuthenticatedUser(owner2))) shouldBe None
+      await(repo.insert(source, user1))
+      await(repo.findByIdOwned(source.id, user2)) shouldBe None
     }
 
     "findByIdOwned returns None for an unknown id" in {
       cleanDb()
       await(repo.findByIdOwned(
         DataSourceId(UUID.randomUUID().toString),
-        AuthenticatedUser(owner1)
+        user1
       )) shouldBe None
     }
 
     "delete returns true and removes the record" in {
       cleanDb()
       val source = newSource()
-      await(repo.insert(source))
-      val deleted = await(repo.delete(source.id))
+      await(repo.insert(source, user1))
+      val deleted = await(repo.delete(source.id, user1))
       deleted shouldBe true
       await(repo.findByIdInternal(source.id)) shouldBe None
     }
 
     "delete returns false for unknown id" in {
       cleanDb()
-      val result = await(repo.delete(DataSourceId(UUID.randomUUID().toString)))
+      val result = await(repo.delete(DataSourceId(UUID.randomUUID().toString), user1))
       result shouldBe false
     }
 
     "update returns the updated entity" in {
       cleanDb()
       val source = newSource("Original")
-      await(repo.insert(source))
+      await(repo.insert(source, user1))
       val updated = source.asInstanceOf[RestSource].copy(name = "Renamed", updatedAt = Instant.now())
-      val result  = await(repo.update(updated))
+      val result  = await(repo.update(updated, user1))
       result shouldBe defined
       result.get.name shouldBe "Renamed"
     }
@@ -165,7 +167,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "update returns None for unknown id" in {
       cleanDb()
       val source = newSource().asInstanceOf[RestSource].copy(id = DataSourceId(UUID.randomUUID().toString))
-      val result = await(repo.update(source))
+      val result = await(repo.update(source, user1))
       result shouldBe None
     }
 
@@ -180,10 +182,10 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
                                 SqlSourceConfig("postgresql", "host", 5432, "db", "u", "p", "SELECT 1"))
       val static   = StaticSource(DataSourceId(UUID.randomUUID().toString), "static-src", owner1, now, now)
 
-      await(repo.insert(csv))
-      await(repo.insert(rest))
-      await(repo.insert(sql))
-      await(repo.insert(static))
+      await(repo.insert(csv, user1))
+      await(repo.insert(rest, user1))
+      await(repo.insert(sql, user1))
+      await(repo.insert(static, user1))
 
       await(repo.findByIdInternal(csv.id)).get    shouldBe a [CsvSource]
       await(repo.findByIdInternal(rest.id)).get   shouldBe a [RestSource]

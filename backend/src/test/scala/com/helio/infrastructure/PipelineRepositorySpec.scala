@@ -2,6 +2,7 @@ package com.helio.infrastructure
 
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
 import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineId, UserId}
+import com.helio.infrastructure.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -30,9 +31,10 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       .load()
       .migrate()
     db           = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val dataTypeRepo  = new DataTypeRepository(db)
-    val dataSourceRepo = new DataSourceRepository(db)
-    pipelineRepo = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)
+    val ctx = new DbContext(db, db)
+    val dataTypeRepo  = new DataTypeRepository(ctx)
+    val dataSourceRepo = new DataSourceRepository(ctx)
+    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
   }
 
   override def afterAll(): Unit = {

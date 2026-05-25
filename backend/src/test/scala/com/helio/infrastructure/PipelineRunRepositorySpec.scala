@@ -29,7 +29,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    pipelineRunRepo = new PipelineRunRepository(db)
+    pipelineRunRepo = new PipelineRunRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {

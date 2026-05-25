@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.services.PipelineRunService
 import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -42,6 +42,7 @@ class PipelineRunRoutesSpec
 
   private var embeddedPostgres: EmbeddedPostgres        = _
   private var db: JdbcBackend.Database                  = _
+  private var ctx: DbContext                            = _
   private var pipelineRepo: PipelineRepository          = _
   private var stepRepo: PipelineStepRepository          = _
   private var dataSourceRepo: DataSourceRepository      = _
@@ -54,13 +55,14 @@ class PipelineRunRoutesSpec
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
       .load().migrate()
-    db           = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val dataTypeRepo = new DataTypeRepository(db)(routeEc)
-    dataSourceRepo   = new DataSourceRepository(db)(routeEc)
-    stepRepo         = new PipelineStepRepository(db)(routeEc)
-    pipelineRepo     = new PipelineRepository(db, dataTypeRepo, dataSourceRepo)(routeEc)
-    pipelineRunRepo  = new PipelineRunRepository(db)(routeEc)
-    dataTypeRowRepo  = new DataTypeRowRepository(db)(routeEc)
+    db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    ctx              = new DbContext(db, db)(routeEc)
+    val dataTypeRepo = new DataTypeRepository(ctx)(routeEc)
+    dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
+    stepRepo         = new PipelineStepRepository(ctx)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
+    dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -276,7 +278,7 @@ class PipelineRunRoutesSpec
     "POST /pipelines/:id/run updates last_run_status to succeeded and writes Type Registry fields" in {
       import PostgresProfile.api._
       val cache  = new PipelineRunCache()
-      val dtRepo = new DataTypeRepository(db)(routeEc)
+      val dtRepo = new DataTypeRepository(ctx)(routeEc)
       val dsId   = seedDsWithData()
       val pid    = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
@@ -299,7 +301,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -328,7 +330,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDs("rest_api")
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty)))
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
@@ -340,8 +342,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score"))))
-      await(stepRepo.insert(pid, "limit", LimitConfig(1)))
+      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      await(stepRepo.insert(pid, "limit", LimitConfig(1), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -371,7 +373,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -402,7 +404,7 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run (non-dry) stores rows in data_type_rows after success" in {
       val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithData()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
@@ -432,7 +434,7 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run (non-dry, second run) overwrites previous snapshot" in {
       val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithData()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
 
@@ -449,7 +451,7 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run infers integer type for whole-number column and double for fractional" in {
       val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(db)(routeEc)
+      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithMixedTypes()
       val (pid, dtId)        = seedPipelineWithDtId(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
@@ -469,7 +471,7 @@ class PipelineRunRoutesSpec
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner")))
+        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]

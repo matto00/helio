@@ -1,14 +1,26 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
-import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class ResourcePermissionRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
+/** Repository for `resource_permissions` — the sharing-grant table.
+ *
+ *  All methods use `withSystemContext` because grant lookups are inherently
+ *  cross-user: a caller checks whether ANOTHER user (or anonymous) has a
+ *  grant on a resource. Scoping by the caller's own user-id would be
+ *  nonsensical. The ACL decision is enforced in the service / directive layer;
+ *  this repo is the raw data source.
+ *
+ *  The `resource_permissions` table has FORCE RLS enabled (V36). All methods
+ *  here use `withSystemContext` (helio_privileged BYPASSRLS), which correctly
+ *  bypasses those policies. Direct app-pool queries on this table are
+ *  fail-closed by the V36 SELECT policy (owner OR named grantee only).
+ */
+class ResourcePermissionRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import ResourcePermissionRepository._
 
@@ -33,25 +45,25 @@ class ResourcePermissionRepository(db: JdbcBackend.Database)(implicit ec: Execut
     )
 
   def insert(permission: ResourcePermission): Future[ResourcePermission] =
-    db.run(table += domainToRow(permission))
+    ctx.withSystemContext(table += domainToRow(permission))
       .map(_ => permission)
 
   def delete(resourceType: String, resourceId: String, granteeId: UserId): Future[Boolean] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(r => r.resourceType === resourceType && r.resourceId === resourceId && r.granteeId === UUID.fromString(granteeId.value))
         .delete
     ).map(_ > 0)
 
   def findByResource(resourceType: String, resourceId: String): Future[Vector[ResourcePermission]] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(r => r.resourceType === resourceType && r.resourceId === resourceId)
         .result
     ).map(_.map(rowToDomain).toVector)
 
   def findGrant(resourceType: String, resourceId: String, granteeId: UserId): Future[Option[ResourcePermission]] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(r =>
           r.resourceType === resourceType &&
@@ -63,7 +75,7 @@ class ResourcePermissionRepository(db: JdbcBackend.Database)(implicit ec: Execut
     ).map(_.map(rowToDomain))
 
   def hasPublicViewerGrant(resourceType: String, resourceId: String): Future[Boolean] =
-    db.run(
+    ctx.withSystemContext(
       table
         .filter(r =>
           r.resourceType === resourceType &&

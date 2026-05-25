@@ -58,10 +58,10 @@ final class DataTypeService(
   ): Future[Either[ServiceError, DataType]] =
     dataTypeRepo.findByIdOwned(id, user).flatMap {
       case None     => Future.successful(Left(ServiceError.NotFound("DataType not found")))
-      case Some(existing) => applyUpdate(existing, request)
+      case Some(existing) => applyUpdate(existing, request, user)
     }
 
-  private def applyUpdate(existing: DataType, request: UpdateDataTypeRequest): Future[Either[ServiceError, DataType]] = {
+  private def applyUpdate(existing: DataType, request: UpdateDataTypeRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] = {
     val incomingComputedFields: Vector[ComputedFieldPayload] =
       request.computedFields.getOrElse(Vector.empty)
 
@@ -100,7 +100,7 @@ final class DataTypeService(
               computedFields = updatedComputedFields,
               updatedAt      = now
             )
-            dataTypeRepo.update(updated).map {
+            dataTypeRepo.update(updated, user).map {
               case Some(dt) => Right(dt)
               case None     => Left(ServiceError.NotFound("DataType not found"))
             }
@@ -119,7 +119,7 @@ final class DataTypeService(
               case true =>
                 Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
               case false =>
-                dataTypeRepo.delete(id).map(_ => Right(()))
+                dataTypeRepo.delete(id, user).map(_ => Right(()))
             }
         }
     }

@@ -1,7 +1,7 @@
 package com.helio.app
 
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -21,12 +21,14 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
   private implicit val ec: ExecutionContext = ExecutionContext.global
   private val logger = LoggerFactory.getLogger(classOf[SourceSchemaHealthCheckSpec])
 
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository   = _
+  private var embeddedPostgres: EmbeddedPostgres    = _
+  private var db: JdbcBackend.Database              = _
+  private var ctx: DbContext                        = _
+  private var dataSourceRepo: DataSourceRepository  = _
+  private var dataTypeRepo: DataTypeRepository      = _
 
   private val owner = UserId(UUID.randomUUID().toString)
+  private lazy val user = AuthenticatedUser(owner)
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -37,8 +39,9 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    dataSourceRepo = new DataSourceRepository(db)
-    dataTypeRepo   = new DataTypeRepository(db)
+    ctx            = new DbContext(db, db)
+    dataSourceRepo = new DataSourceRepository(ctx)
+    dataTypeRepo   = new DataTypeRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -62,7 +65,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       updatedAt = now,
       config    = CsvSourceConfig(s"csv/${name}.csv")
     )
-    await(dataSourceRepo.insert(source))
+    await(dataSourceRepo.insert(source, user))
     source
   }
 
@@ -78,7 +81,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       updatedAt = now,
       ownerId   = owner
     )
-    await(dataTypeRepo.insert(dt))
+    await(dataTypeRepo.insert(dt, user))
     dt
   }
 
@@ -89,7 +92,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       val s = insertSource("healthy")
       val _ = insertLinkedDataType(s)
 
-      val orphans = await(SourceSchemaHealthCheck.findOrphans(db))
+      val orphans = await(SourceSchemaHealthCheck.findOrphans(ctx))
       orphans shouldBe empty
     }
 
@@ -100,7 +103,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       val healthy = insertSource("healthy")
       val _       = insertLinkedDataType(healthy)
 
-      val orphans = await(SourceSchemaHealthCheck.findOrphans(db))
+      val orphans = await(SourceSchemaHealthCheck.findOrphans(ctx))
       orphans.map(_.id).toSet shouldBe Set(orphan1.id.value, orphan2.id.value)
       orphans.map(_.kind).toSet shouldBe Set(DataSourceKind.Csv)
       orphans.foreach(_.ownerId shouldBe Some(owner.value))
@@ -123,9 +126,9 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
         updatedAt = now,
         ownerId   = owner
       )
-      await(dataTypeRepo.insert(pipeDt))
+      await(dataTypeRepo.insert(pipeDt, user))
 
-      val orphans = await(SourceSchemaHealthCheck.findOrphans(db))
+      val orphans = await(SourceSchemaHealthCheck.findOrphans(ctx))
       orphans shouldBe empty
     }
   }
@@ -135,7 +138,7 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
     "complete with the orphan vector and not throw" in {
       cleanDb()
       val _ = insertSource("orphan-run")
-      val orphans = await(SourceSchemaHealthCheck.run(db, logger))
+      val orphans = await(SourceSchemaHealthCheck.run(ctx, logger))
       orphans should have size 1
     }
   }
