@@ -168,6 +168,16 @@ HEL-273 through HEL-277 covering: HikariCP session-var infrastructure (HEL-273),
 RLS policy for dashboards (HEL-274), panels (HEL-275), pipelines (HEL-276), and
 DataType + DataSource (HEL-277). All filed under the Helio v1.3.1 project.
 
+**Q2 RESOLVED (HEL-272 — shipped 2026-05-24):** FORCE ROW LEVEL SECURITY is
+now enabled on all nine ACL'd tables (V34–V37). The `helio_app` pool runs as a
+non-BYPASSRLS role (`helio_app_test` in tests, `DB_USER` in production) and has
+RLS policies evaluated on every query. The `helio_privileged` pool (BYPASSRLS)
+is reserved for `withSystemContext` callers. `RlsPolicyGuardSpec` provides an
+automated regression guard asserting FORCE RLS + policies on every expected
+table. See HEL-273 (DbContext), HEL-274 (helio_privileged role), HEL-275 (V35
+owner-only tables), HEL-276 (V36 sharing-aware tables), HEL-277 (V37
+performance indexes + guard spec) for the full implementation.
+
 **Hybrid (both)** is technically possible — app-layer JOIN today, RLS layered
 on top later as belt + suspenders — and is the recommended end state. This
 ticket ships the belt; the suspenders come later (HEL-272).
