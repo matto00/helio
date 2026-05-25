@@ -64,3 +64,33 @@ caller.
 - **THEN** each callsite has a comment stating the pipeline/boot ACL gate that
   makes bypass safe for that caller
 
+### Requirement: withSystemContext bypasses RLS on all owner-only tables
+The `withSystemContext` pool SHALL bypass RLS policies on the six owner-only tables added by HEL-275
+(`pipelines`, `pipeline_steps`, `pipeline_runs`, `data_sources`, `data_types`, `data_type_rows`),
+returning all rows regardless of `app.current_user_id`.
+
+#### Scenario: Privileged pool reads across all owners on a FORCE RLS table
+- **WHEN** `withSystemContext` queries a table with `FORCE ROW LEVEL SECURITY` enabled
+- **THEN** all rows are returned because `helio_privileged` carries BYPASSRLS, which takes
+  precedence over FORCE ROW LEVEL SECURITY
+
+#### Scenario: Flyway V35 migration runs successfully with BYPASSRLS privilege
+- **WHEN** Flyway applies V35 (ALTER TABLE ... ENABLE ROW LEVEL SECURITY, CREATE POLICY)
+- **THEN** the migration completes without error because the Flyway login role has
+  `helio_privileged` granted (from V34) and therefore has sufficient privilege to create policies
+  on tables it owns
+
+### Requirement: Flyway migration smoke confirms expected role and policy state
+After all Flyway migrations are applied from a fresh database, the resulting Postgres state SHALL
+be verifiable in an automated test. Specifically: `helio_privileged` role with `BYPASSRLS`,
+all ACL'd tables with `FORCE ROW LEVEL SECURITY`, and at least one policy per table.
+
+#### Scenario: Fresh-DB Flyway migration produces the expected role state
+- **WHEN** Flyway applies all migrations to a completely empty Postgres database
+- **THEN** the `helio_privileged` role exists with `BYPASSRLS = true` and `NOLOGIN = true`
+
+#### Scenario: Fresh-DB Flyway migration produces RLS-enabled tables
+- **WHEN** Flyway applies all migrations to a completely empty Postgres database
+- **THEN** every ACL'd table in the allowlist has both `relrowsecurity` and `relforcerowsecurity`
+  set to true in `pg_class`
+
