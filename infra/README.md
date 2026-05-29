@@ -1,14 +1,13 @@
 # Helio — Production Deployment
 
 Helio's backend is distributed as a Docker image. The frontend is bundled into
-the same image and served as static files via the Akka HTTP server.
+the same image and served as static files via the Pekko HTTP server.
 
 ## Environment variables
 
 | Variable           | Required | Description                                                      |
 | ------------------ | -------- | ---------------------------------------------------------------- |
 | `DATABASE_URL`     | Yes      | JDBC connection string, e.g. `jdbc:postgresql://host:5432/helio` |
-| `AKKA_LICENSE_KEY` | Yes      | Akka commercial license key (required by Akka HTTP)              |
 
 See `.env.example` at the repo root for the full list of optional env vars.
 
@@ -37,7 +36,7 @@ gcloud run deploy helio \
   --platform managed \
   --region <REGION> \
   --port 8080 \
-  --set-env-vars "DATABASE_URL=jdbc:postgresql://<HOST>:5432/helio,AKKA_LICENSE_KEY=<KEY>" \
+  --set-env-vars "DATABASE_URL=jdbc:postgresql://<HOST>:5432/helio" \
   --allow-unauthenticated
 ```
 

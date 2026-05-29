@@ -41,7 +41,7 @@ object SqlConnector {
   // ── Query execution ───────────────────────────────────────────────────────
 
   /** Executes the query and returns rows as a sequence of column-name → JsValue maps.
-   *  Uses `scala.concurrent.blocking` to avoid starving the Akka dispatcher.
+   *  Uses `scala.concurrent.blocking` to avoid starving the Pekko dispatcher.
    *  Query timeout is set to 30 seconds; row count is capped at `maxRows`. */
   def execute(config: SqlSourceConfig, maxRows: Int)(implicit ec: ExecutionContext)
       : Future[Either[String, Seq[Map[String, JsValue]]]] =

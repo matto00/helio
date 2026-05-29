@@ -5,7 +5,7 @@ Apply these rules to all agent-assisted changes in this repository.
 ## Project Context
 
 - Frontend: React + TypeScript + Redux
-- Backend: Scala + Akka
+- Backend: Scala + Pekko
 - API contract source of truth: JSON Schema
 - Tests: Jest (frontend), ScalaTest (backend)
 
@@ -34,7 +34,7 @@ Apply these rules to all agent-assisted changes in this repository.
 
 ## Backend Rules
 
-- Keep Akka protocols explicit and boundaries clear.
+- Keep Pekko protocols explicit and boundaries clear.
 - Avoid blocking operations in actor execution paths.
 - Separate domain logic from infrastructure integrations.
 - Prefer reusable service abstractions over inline one-off integrations.
