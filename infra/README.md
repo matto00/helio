@@ -5,9 +5,9 @@ the same image and served as static files via the Pekko HTTP server.
 
 ## Environment variables
 
-| Variable           | Required | Description                                                      |
-| ------------------ | -------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`     | Yes      | JDBC connection string, e.g. `jdbc:postgresql://host:5432/helio` |
+| Variable       | Required | Description                                                      |
+| -------------- | -------- | ---------------------------------------------------------------- |
+| `DATABASE_URL` | Yes      | JDBC connection string, e.g. `jdbc:postgresql://host:5432/helio` |
 
 See `.env.example` at the repo root for the full list of optional env vars.
 
