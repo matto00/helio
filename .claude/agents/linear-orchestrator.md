@@ -44,12 +44,14 @@ From the slash command:
 
 ## Signal Types
 
-| Signal       | From      | Action                                                          |
-| ------------ | --------- | --------------------------------------------------------------- |
-| `ESCALATION` | Planning  | Present to human, collect answer, continue with `HUMAN_ANSWER`  |
-| `BLOCKER`    | Evaluator | Surface to human, wait for direction — do not loop to Executor  |
-| PASS         | Evaluator | Proceed to Phase 3 (do NOT read the report file)                |
-| FAIL         | Evaluator | Read report, SendMessage executor with `EVALUATION_REPORT_PATH` |
+| Signal       | From              | Action                                                                                                        |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ESCALATION` | Planning          | Present to human, collect answer, continue with `HUMAN_ANSWER`                                                |
+| `BLOCKER`    | Evaluator/Skeptic | Surface to human, wait for direction — do not loop                                                            |
+| PASS         | Evaluator         | Run the **final gate (Skeptic)** — do NOT deliver yet                                                         |
+| FAIL         | Evaluator         | Read report, SendMessage executor with `EVALUATION_REPORT_PATH`                                               |
+| CONFIRM      | Skeptic           | Gate cleared — proceed (design→execution, or final→delivery)                                                  |
+| REFUTE       | Skeptic           | Read report; revise artifacts (design) or SendMessage executor with change requests (final); bounded 2 rounds |
 
 ---
 
@@ -73,7 +75,11 @@ EXECUTOR_AGENT_ID: <id-or-name>
 EVALUATOR_AGENT_ID: <id-or-name>
 LAST_EVAL_VERDICT: PASS | FAIL | BLOCKER | —
 LAST_EVAL_REPORT: <path or —>
+SKEPTIC_CYCLE: <n>
+LAST_SKEPTIC_VERDICT: CONFIRM | REFUTE | BLOCKER | —
 ```
+
+(The Skeptic is spawned fresh each invocation — no persistent agent ID to track.)
 
 On startup, if this file exists for the requested ticket, read it and resume
 from the recorded phase. Overwrite with current state after every transition.
@@ -88,8 +94,20 @@ from the recorded phase. Overwrite with current state after every transition.
 2. Derive branch name: `[feature|task|bug]/[3-5-word-description]/[ticket-id]`
    - `feature/` — net-new behavior; `task/` — tests/tooling/infra;
      `bug/` — regressions
-3. Create worktree: `git worktree add .claude/worktrees/<branch> -b <branch>`
-4. Write initial `workflow-state.md` (PHASE: Planning).
+3. Create the worktree by **calling the canonical script** (do not hand-roll
+   `git worktree` / `.env` copy / port math — the script is the source of truth):
+
+   ```bash
+   scripts/orchestrator/setup-worktree.sh "$TICKET_ID" "<branch>"
+   ```
+
+   Parse its `READY` lines for `worktree=`, `dev_port=`, `backend_port=` and
+   store them as `WORKTREE_PATH`, `DEV_PORT`, `BACKEND_PORT`. **These are now the
+   authoritative ports** — do not recompute them later.
+
+4. **Gate before advancing:** `scripts/orchestrator/assert-phase.sh setup "$WORKTREE_PATH"`.
+   If it prints `FAIL`, do not proceed — re-run setup or escalate.
+5. Write initial `workflow-state.md` (PHASE: Planning).
 
 ---
 
@@ -150,6 +168,16 @@ Execute directly (no subagent):
    external dependencies, major architectural changes, breaking API changes,
    or scope significantly beyond the ticket. Self-approve everything else.
 
+8. **Design-soundness gate (Skeptic).** Spawn the Skeptic **fresh** (cold —
+   always a new `Agent` call, never SendMessage):
+
+   > `Agent` with `subagent_type: linear-skeptic`. Prompt:
+   > GATE=`design`, WORKTREE_PATH=`<path>`, CHANGE_NAME=`<name>`, TICKET_ID=`<id>`.
+   - **CONFIRM** → proceed.
+   - **REFUTE** → read the report, revise the OpenSpec artifacts to address each
+     required revision, then re-run the design gate (fresh spawn). Budget: **2
+     REFUTE rounds**; if still REFUTE, present to human as an `ESCALATION`.
+
 Update `workflow-state.md` (PHASE: Execution, CYCLE: 1).
 
 ---
@@ -162,17 +190,10 @@ Track cycle count (persisted in workflow-state.md). Maximum **3 cycles**.
 
 Record each agent's name/ID so you can SendMessage-resume in cycles 2+.
 
-Before spawning the evaluator, derive stable `DEV_PORT` and `BACKEND_PORT` from
-the ticket ID so that parallel orchestrator sessions never collide:
-
-```bash
-# e.g. HEL-55 → frontend 5228, backend 8135
-TICKET_NUM=$(echo "$TICKET_ID" | sed 's/^[A-Z]*-//')
-DEV_PORT=$((5173 + TICKET_NUM))
-BACKEND_PORT=$((8080 + TICKET_NUM))
-```
-
-Store both in `workflow-state.md` so they survive compaction.
+`DEV_PORT` and `BACKEND_PORT` were derived from `setup-worktree.sh`'s `READY`
+output during Setup and stored in `workflow-state.md`. Read them from there; do
+not recompute. (If the file was lost, re-run `setup-worktree.sh` — it is
+idempotent and re-emits the same `READY` ports.)
 
 1. `Agent` call with `subagent_type: linear-executor`. Prompt:
 
@@ -204,9 +225,8 @@ from `workflow-state.md` if the session was compacted).
 
 The evaluator returns only `Overall: PASS | FAIL | BLOCKER` and a report path.
 
-- **PASS** → proceed to Phase 3. **Do NOT read the report file** — a PASS
-  report contains at most non-blocking suggestions, which can be surfaced at
-  the end from the file directly.
+- **PASS** → **do not deliver yet — run the final gate (Skeptic) below.** Do
+  NOT read the evaluator report (a PASS report holds only non-blocking notes).
 - **BLOCKER** → read the report (it contains the diagnosis), surface to
   human, wait for direction.
 - **FAIL, cycle < 3** → read the report so you can pass
@@ -215,6 +235,27 @@ The evaluator returns only `Overall: PASS | FAIL | BLOCKER` and a report path.
   to human, ask how to proceed, do not proceed without direction.
 
 Update `workflow-state.md` on every cycle transition.
+
+### Final gate (Skeptic)
+
+On evaluator **PASS**, spawn the Skeptic **fresh** (cold — always a new `Agent`
+call, never SendMessage; a cold reviewer can't inherit the loop's blind spots):
+
+> `Agent` with `subagent_type: linear-skeptic`. Prompt:
+> GATE=`final`, WORKTREE_PATH=`<path>`, CHANGE_NAME=`<name>`, TICKET_ID=`<id>`,
+> DEV_PORT=`<port>`, BACKEND_PORT=`<port>`, N=`<skeptic_cycle>`.
+
+- **CONFIRM** → proceed to Phase 3 (Delivery).
+- **REFUTE** → read the Skeptic report; **SendMessage the executor** with its
+  Change Requests (pass the Skeptic report path as `EVALUATION_REPORT_PATH`).
+  After the executor returns, **re-run the Skeptic fresh** — no evaluator
+  re-check is needed in this sub-loop, because the Skeptic's final gate re-runs
+  the verification gates itself. Increment `SKEPTIC_CYCLE`. Budget: **2 Skeptic
+  REFUTE rounds**; if still REFUTE, surface the report to the human and ask how
+  to proceed.
+- **BLOCKER** → environmental; surface to human, wait for direction.
+
+Track `SKEPTIC_CYCLE` and `LAST_SKEPTIC_VERDICT` in `workflow-state.md`.
 
 ---
 
@@ -260,6 +301,10 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 git push -u origin <branch-name>
 ```
 
+Then gate: `scripts/orchestrator/assert-phase.sh delivery "$WORKTREE_PATH" "<branch-name>"`
+(confirms the branch is on origin and the worktree is clean). Do not create the
+PR until this passes.
+
 ### 4. Create the PR
 
 `gh pr create` targeting `main`:
@@ -286,19 +331,18 @@ Update `workflow-state.md` (PHASE: Cleanup).
 
 After human confirms merge:
 
-1. Stop any dev servers started by the evaluator for this ticket:
+1. Stop the dev servers and remove the worktree by **calling the canonical
+   script** (reads `DEV_PORT`/`BACKEND_PORT`/`WORKTREE_PATH` from
+   `workflow-state.md` if not in memory):
 
    ```bash
-   # Kill frontend (Vite) and backend (sbt/JVM) bound to the ticket's ports
-   fuser -k ${DEV_PORT}/tcp 2>/dev/null || true
-   fuser -k ${BACKEND_PORT}/tcp 2>/dev/null || true
+   scripts/orchestrator/cleanup.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
    ```
 
-   Read `DEV_PORT` and `BACKEND_PORT` from `workflow-state.md` if not in memory.
+   Then gate: `scripts/orchestrator/assert-phase.sh cleanup "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"`.
 
 2. Set Linear ticket to **Done** (`mcp__linear__save_issue`).
 3. Post closing comment with what was shipped and the merged PR link.
-4. `git worktree remove .claude/worktrees/<branch> --force`
 
 ### Hygiene check
 
@@ -313,12 +357,58 @@ Report findings as "Hygiene note: [issue]". Do not fix automatically.
 
 ---
 
+## Escalation & Circuit Breakers
+
+This section is the single source of truth for **what resolves in-loop vs. what
+reaches the human.** It is what makes it safe to run many orchestrators
+unattended: every loop is bounded, and every bound has a defined escalation —
+nothing thrashes forever, nothing fails silently.
+
+### Resolves in-loop (no human)
+
+- Self-approvable planning decisions (Phase 1 step 7 — anything not listed below).
+- Evaluator `FAIL` while `CYCLE < 3` → SendMessage executor.
+- Skeptic `REFUTE` (design or final) while that gate's round `< 2` → revise /
+  SendMessage executor.
+- A bug whose root cause the executor confirms within its 2-attempt budget
+  (`systematic-debugging.md`).
+
+### Always reaches the human
+
+- **Planning ESCALATION:** new external dependency, major architectural change,
+  breaking API change, or scope significantly beyond the ticket.
+- **Budget exhausted:** evaluator `FAIL` at `CYCLE = 3`; Skeptic `REFUTE` at
+  round 2 (design or final). Surface the report + ask how to proceed.
+- **BLOCKER (environmental):** dev server won't start, `.env`/creds missing,
+  infra/tooling failure. Never retried as a code change.
+- **Executor circuit breaker:** a bug still unfixed after 2 root-cause attempts.
+- **Contradiction:** a change request that is impossible or contradicts the spec
+  (executor flags and stops).
+
+### Circuit breakers (bounded counters — all persisted in `workflow-state.md`)
+
+| Loop                         | Counter               | Bound     | On exhaustion                            |
+| ---------------------------- | --------------------- | --------- | ---------------------------------------- |
+| Execution ↔ Evaluation       | `CYCLE`               | 3         | escalate (evaluator emits Critical Path) |
+| Skeptic final gate           | `SKEPTIC_CYCLE`       | 2         | escalate with Skeptic report             |
+| Skeptic design gate          | (design round)        | 2         | escalate as `ESCALATION`                 |
+| Executor debug (per symptom) | (in executor)         | 2         | executor escalates the symptom           |
+| Server start                 | (health-wait timeout) | 1 attempt | `BLOCKER` → human                        |
+
+When any counter is exhausted, **stop and present to the human** — do not
+silently proceed, retry past the bound, or downgrade the verdict.
+
 ## Guardrails
 
 - Never implement code or modify source files directly
 - Track cycle count in `workflow-state.md` — survive compaction
-- Do not proceed to delivery without explicit evaluator PASS
-- Cycles 2+ must use SendMessage (warm resume), never fresh Agent spawns
+- Do not proceed to delivery without **both** an evaluator PASS **and** a Skeptic
+  `CONFIRM` on the final gate
+- Cycles 2+ must use SendMessage (warm resume) for the executor and evaluator,
+  never fresh Agent spawns — **but the Skeptic is always spawned fresh (cold)**,
+  every invocation, at both the design and final gates
+- A Skeptic `REFUTE` at the final gate re-enters the execution loop (executor
+  fixes → evaluator re-checks → Skeptic re-runs), bounded to 2 Skeptic rounds
 - Do not read PASS evaluation reports — only FAIL/BLOCKER/final-presentation
 - Strip `.context` from openspec JSON with `jq 'del(.context)'` — the repeated
   context block is in your system context and `openspec/config.yaml` already
