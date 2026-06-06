@@ -4,8 +4,10 @@
       "command": "npx",
       "args": [
         "@playwright/mcp",
-        "--browser", "chromium",
-        "--executable-path", "/usr/local/bin/chromium",
+        "--browser",
+        "chromium",
+        "--executable-path",
+        "/usr/local/bin/chromium",
         "--headless"
       ]
     }

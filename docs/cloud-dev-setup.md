@@ -6,6 +6,7 @@ inside an ephemeral container (e.g. Claude Code on the web, GitHub Codespaces, C
 ## What's pre-installed
 
 The container image includes:
+
 - Java 21 (OpenJDK)
 - PostgreSQL 16 (installed but **not started**)
 - Node.js / npm
@@ -77,9 +78,10 @@ Verify with:
 curl http://localhost:8080/health   # → {"status":"ok"}
 ```
 
-### 5. Start the frontend
+### 5. Install Node dependencies and start the frontend
 
 ```bash
+npm install                        # root-level deps (Husky, ESLint, Prettier, Jest)
 cd frontend && npm install && npm run dev
 ```
 
@@ -143,11 +145,11 @@ or re-run step 3 — the `.env` file and DB data persist within the session.
 
 ## Known issues / notes
 
-| Issue | Root cause | Fix |
-|---|---|---|
-| `sbt: command not found` | sbt not bundled in image | Run install step above |
-| `DemoData timeout` on startup | `helio.db.privileged` stanza lacked `user`/`password`; HikariCP connected anonymously and stalled | Fixed in `application.conf` (commit `853353f`) |
-| Flyway V34 `permission denied to create role` | DB user lacked `CREATEROLE` | Grant `SUPERUSER` to `helio` (step 2 above) |
-| `gh` CLI unavailable | Cloud environment restriction | Use `mcp__github__*` tools instead |
-| `chromium-browser` is a snap stub | Ubuntu 24.04 ships a snap-only package | Install from Chromium snapshot archive (step 7 above) |
-| Playwright CDN blocked | Network policy blocks `playwright.azureedge.net` | Use Chromium snapshot archive (step 7 above) |
+| Issue                                         | Root cause                                                                                        | Fix                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `sbt: command not found`                      | sbt not bundled in image                                                                          | Run install step above                                |
+| `DemoData timeout` on startup                 | `helio.db.privileged` stanza lacked `user`/`password`; HikariCP connected anonymously and stalled | Fixed in `application.conf` (commit `853353f`)        |
+| Flyway V34 `permission denied to create role` | DB user lacked `CREATEROLE`                                                                       | Grant `SUPERUSER` to `helio` (step 2 above)           |
+| `gh` CLI unavailable                          | Cloud environment restriction                                                                     | Use `mcp__github__*` tools instead                    |
+| `chromium-browser` is a snap stub             | Ubuntu 24.04 ships a snap-only package                                                            | Install from Chromium snapshot archive (step 7 above) |
+| Playwright CDN blocked                        | Network policy blocks `playwright.azureedge.net`                                                  | Use Chromium snapshot archive (step 7 above)          |
