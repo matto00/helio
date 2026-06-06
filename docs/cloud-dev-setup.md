@@ -108,8 +108,25 @@ Both return `{ token, user, expiresAt }`. The token can be passed as
 
 Or navigate to `http://localhost:5173/register` in a browser to use the UI form.
 
-> **Note:** Playwright MCP is not enabled by default in cloud sessions. If you need
-> browser-driven UI verification, enable it in your session's MCP settings.
+### 7. Install Playwright (browser-driven UI verification)
+
+The Playwright MCP server is pre-configured in `.claude/settings.json` but needs
+Chromium installed. The apt `chromium-browser` package on Ubuntu 24.04 is a snap
+stub and the Playwright download CDN is blocked in this environment, so install
+from the Chromium snapshot archive instead:
+
+```bash
+LAST=$(curl -s https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/LAST_CHANGE)
+curl -L "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/${LAST}/chrome-linux.zip" \
+  -o /tmp/chrome-linux.zip
+unzip -q /tmp/chrome-linux.zip -d /opt/
+ln -sf /opt/chrome-linux/chrome /usr/local/bin/chromium
+chromium --version   # → Chromium 151.x.x.x
+```
+
+After installing, **restart the Claude Code session** so the MCP server is picked
+up. The `mcp__playwright__*` tools will then be available for browser navigation,
+snapshots, clicks, and form fills.
 
 ## Session resumption
 
@@ -132,4 +149,5 @@ or re-run step 3 — the `.env` file and DB data persist within the session.
 | `DemoData timeout` on startup | `helio.db.privileged` stanza lacked `user`/`password`; HikariCP connected anonymously and stalled | Fixed in `application.conf` (commit `853353f`) |
 | Flyway V34 `permission denied to create role` | DB user lacked `CREATEROLE` | Grant `SUPERUSER` to `helio` (step 2 above) |
 | `gh` CLI unavailable | Cloud environment restriction | Use `mcp__github__*` tools instead |
-| No local browser | Headless container | UI verification via Playwright MCP if configured in session |
+| `chromium-browser` is a snap stub | Ubuntu 24.04 ships a snap-only package | Install from Chromium snapshot archive (step 7 above) |
+| Playwright CDN blocked | Network policy blocks `playwright.azureedge.net` | Use Chromium snapshot archive (step 7 above) |
