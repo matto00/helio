@@ -81,8 +81,8 @@ curl http://localhost:8080/health   # → {"status":"ok"}
 ### 5. Install Node dependencies and start the frontend
 
 ```bash
-npm install                        # root-level deps (Husky, ESLint, Prettier, Jest)
-npm link                           # makes the openspec CLI available in PATH
+npm install                               # root-level deps (Husky, ESLint, Prettier, Jest)
+npm install -g @fission-ai/openspec       # makes the openspec CLI available in PATH
 cd frontend && npm install && npm run dev
 ```
 
