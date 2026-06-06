@@ -5,7 +5,7 @@ description: >-
   Invoked only by the linear-ticket-delivery orchestrator after the
   executor completes a cycle. Reviews spec/code/UI, writes a structured
   evaluation report, and supports SendMessage-resume across cycles.
-model: haiku
+model: sonnet
 color: purple
 tools:
   - Read
@@ -104,13 +104,20 @@ or note the issue for each:
 ## Phase 2: Code Review
 
 Read `WORKTREE_PATH/CONTRIBUTING.md` first — it is the authoritative
-standard for code quality in this repo. Then review modified code via
-diff + targeted full-file reads. Check:
+standard for code quality in this repo. **If the diff touches `frontend/`, also
+read `WORKTREE_PATH/DESIGN.md`** — the canonical design language. Then review
+modified code via diff + targeted full-file reads. Check:
 
 - [ ] **CONTRIBUTING.md compliance** — especially the _Imports & Qualifiers_
       rule (no inline fully-qualified names where an `import` would do)
       and the file-size soft budgets (~250 lines per source file,
       ~80 for aggregators)
+- [ ] **DESIGN.md [mechanical] rules** (frontend only) — these are deterministic
+      and greppable, so enforce them strictly: no hardcoded hex/rgb where an
+      `--app-*` token applies; margin/padding/gap use `--space-*`; `font-size`
+      uses `--text-*`; radius/shadow use `--app-radius-*`/`--app-shadow-*`; no new
+      bespoke button/empty-state when a shared component exists. Cite the rule +
+      `file:line` for each violation
 - [ ] **DRY** — no unnecessary duplication; existing utilities reused
 - [ ] **Readable** — clear naming, no magic values, logic self-evident
 - [ ] **Modular** — small composable units, proper separation of concerns
@@ -145,70 +152,27 @@ files changed, the frontend likely isn't wired to the new behavior yet
 
 ### Dev server setup
 
-**Step 1 — ensure `.env` is present in the worktree:**
-
-The orchestrator's worktree setup copies `.env` from the main repo, so it is
-usually already present. The check below is a safety net — do not block on it
-or report an error if the copy is skipped:
+Start both servers with the **canonical script** (do not hand-roll the
+`.env` copy, the CORS flag, or the health-waits — the script owns all of that,
+including reusing a server already healthy on the port):
 
 ```bash
-if [ ! -f "$WORKTREE_PATH/backend/.env" ]; then
-  cp /home/matt/Development/helio/backend/.env "$WORKTREE_PATH/backend/.env"
-fi
+scripts/orchestrator/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
 ```
 
-**Step 2 — ensure the backend is running on `BACKEND_PORT`:**
-
-The Vite dev server proxies `/api` and `/health` to `localhost:$BACKEND_PORT`. Without a
-live backend, all API calls (including login) will fail and Phase 3 cannot
-proceed.
-
-> **CORS requirement:** The backend reads `CORS_ALLOWED_ORIGINS` at startup
-> and defaults to `http://localhost:5173`. When `DEV_PORT` differs from 5173,
-> the backend **must** be started with `CORS_ALLOWED_ORIGINS=http://localhost:${DEV_PORT}`.
-> Omitting it causes the browser to reject every API response as cross-origin —
-> login fails and Phase 3 cannot proceed. The startup command below already
-> includes this; do not remove it.
+On success it prints `READY backend=...` and `READY frontend=...`. Then gate
+before reviewing:
 
 ```bash
-BACKEND_PORT=${BACKEND_PORT:-8080}
-
-# Check if a backend is already healthy on this port
-if curl -sf http://localhost:${BACKEND_PORT}/health > /dev/null 2>&1; then
-  echo "Backend already running on ${BACKEND_PORT} — reusing it"
-else
-  # Start the worktree's backend on the assigned port, with CORS whitelisting the frontend origin
-  cd "$WORKTREE_PATH/backend" && PORT=$BACKEND_PORT CORS_ALLOWED_ORIGINS=http://localhost:${DEV_PORT:-5173} sbt run &
-  # Wait up to 5 minutes for it to become healthy
-  timeout 300 bash -c "until curl -sf http://localhost:${BACKEND_PORT}/health > /dev/null 2>&1; do sleep 5; done" \
-    || echo "BACKEND_TIMEOUT"
-fi
+scripts/orchestrator/assert-phase.sh servers "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
 ```
 
-If the backend fails to start or times out:
+Use `http://localhost:${DEV_PORT}` as the Playwright base URL for all navigation.
 
-1. Include the startup log excerpt in the report
-2. Tag as `BLOCKER` — environmental, requires human intervention
-
-**Step 3 — start the frontend dev server:**
-
-Use `DEV_PORT` (default 5173) so that parallel orchestrator sessions do not
-collide on the same port:
-
-```bash
-cd "$WORKTREE_PATH/frontend" && PORT=${DEV_PORT:-5173} BACKEND_PORT=${BACKEND_PORT:-8080} npm run dev &
-# Wait for Vite to be ready
-timeout 60 bash -c "until curl -sf http://localhost:${DEV_PORT:-5173} > /dev/null 2>&1; do sleep 2; done"
-```
-
-Use `http://localhost:${DEV_PORT:-5173}` as the Playwright base URL for all
-navigation calls in this session.
-
-If the frontend startup fails:
-
-1. Diagnose — port conflict, missing deps, build error
-2. Include diagnosis in report
-3. Tag as `BLOCKER` — environmental, requires human intervention
+If the script prints `FAIL` (backend/frontend never became healthy): include the
+referenced log excerpt in the report and tag as `BLOCKER` — environmental,
+requires human intervention. Do not attempt to debug the dev environment as a
+code change request.
 
 ### Review pattern — prefer targeted checks over full snapshots
 
@@ -225,15 +189,21 @@ If the frontend startup fails:
 
 ### Checks
 
+Scope: **objective, observable checks only.** Subjective visual-design judgment
+("does this _look_ like it belongs in Helio") is **out of scope for you** — that
+is the Skeptic gate's job. Stick to what is verifiable:
+
 - [ ] Happy path works end-to-end
 - [ ] Unhappy paths (error states, empty states, failed API calls) handled
       gracefully — no blank screens, no unhandled exceptions
-- [ ] Loading states present and correct
+- [ ] Loading states present (a `Spinner`/skeleton during pending, never a flash
+      of empty content); empty states use `EmptyState`; errors are visible (no
+      swallowed fetch failures) — per `DESIGN.md` §6
 - [ ] No console errors during any tested flow
-- [ ] Visual consistency with existing patterns (spacing, typography, style)
 - [ ] Feature works from all relevant entry points
-- [ ] Interactive elements have ARIA labels / keyboard support
-- [ ] Supported breakpoints render correctly (resize viewport)
+- [ ] Interactive elements have accessible names (ARIA/text) and keyboard support
+- [ ] Supported breakpoints render without layout breakage (resize to the RGL
+      set: 1440 / 1100 / 768 / below-768)
 
 ---
 
@@ -304,6 +274,12 @@ Recommendation for human: ...
 ## Guardrails
 
 - **Never modify code** — read only (evaluation report is the one file you write)
+- **Design scope:** enforce `DESIGN.md` **[mechanical]** rules strictly (they're
+  greppable); leave **[judgment]** visual-design calls to the Skeptic gate — do
+  not pass/fail on subjective "looks off" impressions
+- **Verdict requires fresh evidence** (`verification-before-completion.md`):
+  independently re-run the gates rather than trusting the executor's report; a
+  PASS means you saw the passing output yourself
 - Change requests must be **specific and actionable** — not "improve
   readability" but "rename `x` to `layoutBeforeInteraction` in
   `PanelGrid.tsx:167`"
