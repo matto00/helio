@@ -15,7 +15,7 @@ const archiveDir = join(changesDir, "archive");
 
 const errors = [];
 
-// 1. Active change status — skipped if openspec is not installed (cloud/CI environments)
+// 1. Active change status
 let listJson;
 try {
   const out = execFileSync("openspec", ["list", "--json"], {
@@ -24,13 +24,8 @@ try {
   });
   listJson = JSON.parse(out);
 } catch (e) {
-  if (e.code === "ENOENT") {
-    console.log("openspec not found — skipping active-change check (install locally to enable)");
-    listJson = { changes: [] };
-  } else {
-    console.error("Failed to run `openspec list --json`:", e.message);
-    process.exit(2);
-  }
+  console.error("Failed to run `openspec list --json`:", e.message);
+  process.exit(2);
 }
 
 for (const change of listJson.changes ?? []) {

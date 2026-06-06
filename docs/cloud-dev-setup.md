@@ -82,6 +82,7 @@ curl http://localhost:8080/health   # → {"status":"ok"}
 
 ```bash
 npm install                        # root-level deps (Husky, ESLint, Prettier, Jest)
+npm link                           # makes the openspec CLI available in PATH
 cd frontend && npm install && npm run dev
 ```
 
