@@ -80,10 +80,36 @@ curl http://localhost:8080/health   # → {"status":"ok"}
 ### 5. Start the frontend
 
 ```bash
-npm run dev   # from repo root or frontend/
+cd frontend && npm install && npm run dev
 ```
 
 Vite proxies `/api` and `/health` to `localhost:8080`.
+
+### 6. Verify the auth flow
+
+Google OAuth requires real credentials. Use the email/password flow instead — the
+`/register` page and `POST /api/auth/register` endpoint are fully functional with
+no extra setup:
+
+```bash
+# Register
+curl -s -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword","displayName":"Your Name"}'
+
+# Login
+curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword"}'
+```
+
+Both return `{ token, user, expiresAt }`. The token can be passed as
+`Authorization: Bearer <token>` to any authenticated endpoint.
+
+Or navigate to `http://localhost:5173/register` in a browser to use the UI form.
+
+> **Note:** Playwright MCP is not enabled by default in cloud sessions. If you need
+> browser-driven UI verification, enable it in your session's MCP settings.
 
 ## Session resumption
 
