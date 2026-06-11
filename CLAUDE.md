@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Running in a cloud/containerized session?** See [`docs/cloud-dev-setup.md`](docs/cloud-dev-setup.md) for the one-time environment bootstrap (PostgreSQL, sbt, `.env`).
+
 ## Commands
 
 ### Frontend (run from `frontend/` or root)
@@ -115,6 +117,17 @@ Available commands in `.claude/commands/`:
 - `/opsx-archive` — Archive a completed OpenSpec change (with optional spec sync)
 
 **When to use `/linear-ticket-delivery`**: Any time the user references a Linear ticket (e.g. `HEL-5`) or asks to work on a Helio issue end-to-end. This workflow is mandatory for ticket-driven work.
+
+## Canonical Standards & Iron Laws
+
+The ticket-delivery agents are **bound to read** these canonical documents at the point of use — the mechanism that keeps autonomous work diligent and self-correcting:
+
+- `CONTRIBUTING.md` — code-quality standard (binding for all code).
+- `DESIGN.md` — design-language standard for the frontend (tokens, spacing/type scales, shared components, UI state patterns). Binding for all `frontend/` work.
+- `.claude/laws/` — portable, evidence-gated "Iron Laws" (`systematic-debugging`: no fix without a probe-confirmed root cause; `verification-before-completion`: no completion claim without fresh evidence). See `.claude/laws/README.md` for the mechanism and superpowers attribution.
+- `scripts/orchestrator/` — canonical procedure scripts (worktree setup, dev-server startup, phase assertions, cleanup) the orchestrator/evaluator/skeptic call instead of recalling steps from prose.
+
+Design and architecture notes for this system live in `notes/orchestration-iron-laws-handoff.md`.
 
 ## Development Rules
 

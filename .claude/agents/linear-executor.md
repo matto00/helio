@@ -32,8 +32,9 @@ From the orchestrator:
 - `CHANGE_NAME`: OpenSpec change name (e.g. `add-panel-duplicate`)
 - `WORKTREE_PATH`: absolute path to the git worktree
 - `TICKET_ID`: Linear issue identifier
-- `EVALUATION_REPORT_PATH`: (optional) path to the evaluator's report —
-  present on re-runs, omit on first run
+- `EVALUATION_REPORT_PATH`: (optional) path to a reviewer's report — the
+  evaluator's, or the **Skeptic's** (final-gate change requests). Present on
+  re-runs, omit on first run. Address its change requests the same way either way
 
 All file edits, commands, and commits happen inside `WORKTREE_PATH`.
 
@@ -55,6 +56,15 @@ Read in this order:
 
 1. `WORKTREE_PATH/CONTRIBUTING.md` — the repo's coding standards. **Binding for all your edits.** Pay particular attention to the _Imports & Qualifiers_ section (never inline a fully-qualified name when an `import` would do) and the _General_ file-size soft budgets (~250 lines per source file, ~80 for aggregators). The _AI Collaborators_ section spells out what is expected of you specifically
 2. `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/ticket.md` — the ticket title, description, and acceptance criteria
+3. `WORKTREE_PATH/.claude/laws/systematic-debugging.md` and
+   `WORKTREE_PATH/.claude/laws/verification-before-completion.md` — the **Iron
+   Laws**, binding for all your work. Re-read the relevant one at the moment you
+   need it (when a gate fails / you debug, and before any completion claim)
+4. **If the change touches `frontend/`:** `WORKTREE_PATH/DESIGN.md` — the canonical
+   design language, **binding for all UI work**. Honor its tokens (`--app-*`,
+   `--space-*`, `--text-*`) and reuse the shared components rather than
+   reinventing. Do not introduce hardcoded colors/spacing/font-sizes where a
+   token exists
 
 Do **not** read proposal/design/tasks/specs here — step 3's
 `openspec instructions apply` returns those via `contextFiles` and reading
@@ -138,7 +148,15 @@ npm run lint
 npm run format:check
 ```
 
-Fix any failure before proceeding. Never skip a failing gate.
+Fix any failure before proceeding. Never skip a failing gate. When a gate fails
+or you hit a bug, follow `systematic-debugging.md`: **no fix without a
+probe-confirmed root cause** — name the failing layer, run a minimal probe that
+confirms the cause, then fix the cause (not the symptom). After 2 failed attempts
+on the same symptom, stop and escalate per that doc's circuit breaker.
+
+Per `verification-before-completion.md`: do not report a gate as passing until you
+have run it fresh and read its output. Gate results in your return must be
+**pasted command output with exit codes**, not prose summaries.
 
 ### 8. Commit
 
@@ -167,6 +185,11 @@ Summary:
 ## Guardrails
 
 - All work inside `WORKTREE_PATH` — never commit to `main` directly
+- **The Iron Laws in `.claude/laws/` are binding** — re-read the relevant law at
+  the point of use (even on SendMessage-resume; they're cheap and your warm state
+  may have drifted): `systematic-debugging.md` before any bug fix,
+  `verification-before-completion.md` before any completion claim. `DESIGN.md` is
+  binding for all `frontend/` work
 - Never skip a failing verification gate
 - Flag impossible change requests rather than guessing
 - `--no-verify` requires all gates to have passed first
