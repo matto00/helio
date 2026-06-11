@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Running in a cloud/containerized session?** See [`docs/cloud-dev-setup.md`](docs/cloud-dev-setup.md) for the one-time environment bootstrap (PostgreSQL, sbt, `.env`).
+
 ## Commands
 
 ### Frontend (run from `frontend/` or root)
