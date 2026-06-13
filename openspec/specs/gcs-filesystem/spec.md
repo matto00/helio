@@ -6,6 +6,10 @@ TBD - created by archiving change gcs-filesystem-backend. Update Purpose after a
 ### Requirement: GcsFileSystem implements FileSystem using GCS Java SDK
 The backend SHALL provide a `GcsFileSystem` class in `com.helio.infrastructure` that implements the `FileSystem` trait, storing and retrieving files as objects in a GCS bucket. All operations SHALL be async (`Future`-wrapped) and SHALL use the `com.google.cloud:google-cloud-storage` Java SDK with Application Default Credentials.
 
+The `list` method SHALL use the GCS SDK's page-based API (`Storage.list` returns a `Page<Blob>`). For the first call (`cursor = None`), `storage.list(bucketName, BlobListOption.prefix(prefix), BlobListOption.pageSize(pageSize))` SHALL be used. For subsequent calls (`cursor = Some(token)`), `BlobListOption.pageToken(token)` SHALL be added to the options, AND `BlobListOption.pageSize(pageSize)` SHALL also be included. The `nextCursor` SHALL be `Option(page.getNextPageToken).filter(_.nonEmpty)`.
+
+The implementation SHALL NOT call `iterateAll()` on any `Page<Blob>` instance.
+
 #### Scenario: Write stores object in GCS bucket
 - **WHEN** `write("datasources/abc/data.csv", bytes)` is called on a `GcsFileSystem`
 - **THEN** the bytes are stored as GCS object `datasources/abc/data.csv` in the configured bucket
@@ -34,9 +38,21 @@ The backend SHALL provide a `GcsFileSystem` class in `com.helio.infrastructure` 
 - **WHEN** `delete` is called for an object that does not exist
 - **THEN** the `Future` completes successfully without error
 
-#### Scenario: List returns object names matching a prefix
-- **WHEN** objects `"datasources/abc/data.csv"` and `"datasources/abc/schema.json"` exist and `list("datasources/abc/")` is called
-- **THEN** both relative object names are returned
+#### Scenario: List single page returns object names and no cursor
+- **WHEN** two objects match the prefix and `list("datasources/abc/", pageSize = 100)` is called
+- **THEN** both names are returned and `nextCursor` is `None`
+
+#### Scenario: List with more objects than pageSize returns cursor
+- **WHEN** the GCS page has a non-empty next-page token
+- **THEN** `nextCursor` is `Some(token)` where `token` matches the SDK's `getNextPageToken`
+
+#### Scenario: List with cursor fetches next page
+- **WHEN** `list(prefix, cursor = Some(token), pageSize = N)` is called
+- **THEN** `BlobListOption.pageToken(token)` and `BlobListOption.pageSize(N)` are passed to `Storage.list`
+
+#### Scenario: List returns empty page for unmatched prefix
+- **WHEN** no objects match the given prefix
+- **THEN** `names` is empty and `nextCursor` is `None`
 
 ### Requirement: GcsFileSystem.fromEnv selects bucket from HELIO_UPLOADS_BUCKET
 `GcsFileSystem` SHALL expose a companion method `fromEnv()` that reads `HELIO_UPLOADS_BUCKET` from the environment. If the variable is absent or empty, the method SHALL throw `IllegalStateException` with a descriptive message and log an error.

@@ -9,11 +9,13 @@ The backend SHALL expose a `FileSystem` trait in `com.helio.infrastructure` with
 - `read(path: String): Future[Array[Byte]]`
 - `delete(path: String): Future[Unit]`
 - `exists(path: String): Future[Boolean]`
-- `list(prefix: String): Future[Seq[String]]`
+- `list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]`
+
+where `ListPage` is a case class defined in `com.helio.infrastructure` with fields `names: Seq[String]` and `nextCursor: Option[String]`.
 
 #### Scenario: Trait is defined with correct signatures
 - **WHEN** a developer creates a new `FileSystem` implementation
-- **THEN** the compiler enforces all five method signatures
+- **THEN** the compiler enforces all five method signatures including the paginated `list` overload
 
 ### Requirement: LocalFileSystem stores files under a configurable base directory
 The `LocalFileSystem` implementation SHALL store all files relative to a base directory resolved in the following order:
