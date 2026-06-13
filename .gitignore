@@ -17,6 +17,7 @@ coverage/
 *.log
 backend/.env
 backend/data/
+infra/.env.deploy
 frontend/.env.production
 frontend/.env.local
 frontend/.agents/
