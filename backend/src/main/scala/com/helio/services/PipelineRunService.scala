@@ -54,47 +54,55 @@ final class PipelineRunService(
    *  (insert run record + prune old runs), source-type dispatch, SSE event
    *  publication, and result fetch + serialization.
    *
-   *  HEL-265 CS2: the pipeline must belong to the caller. The source lookup
-   *  uses `DataSourceRepository.findByIdInternal` (privileged) because the pipeline
-   *  could legitimately reference a join-target source the caller does not
-   *  own; the pipeline ACL gated entry. See design.md Q1 §DataSource for the
-   *  cross-user-source spinoff note. */
+   *  HEL-279: sharing-aware. Owner and editor grantees can submit runs;
+   *  viewer grantees receive 403 (resource visible, mutation blocked).
+   *  The source lookup uses `DataSourceRepository.findByIdInternal` (privileged)
+   *  because the pipeline could legitimately reference a join-target source the
+   *  caller does not own; the pipeline ACL gated entry. */
   def submit(pipelineId: PipelineId, isDry: Boolean, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
-    pipelineRepo.findById(pipelineId, user).flatMap {
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
+      case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
+        // Grantee — only editor grantees may trigger runs; viewers get 403.
+        pipelineRepo.findGrantRole(pipelineId, user).flatMap {
+          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user)
+          case _              => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
+        }
       case Some(pipeline) =>
-        // Privileged read: the pipeline ACL above already authorized the
-        // caller against this pipeline; the source binding is part of the
-        // pipeline definition. Owner-only enforcement on the source itself
-        // would block legitimate cross-user join sources — flagged as
-        // spinoff per design.md Q1 §DataSource.
-        // Privileged: pipeline ACL (above) is the authoritative gate; source is
-        // part of the pipeline definition. findByIdInternal is correct here.
-        dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
-          case None =>
+        // Owner path — always permitted.
+        runPipeline(pipeline, pipelineId, isDry, user)
+    }
+
+  private def runPipeline(pipeline: Pipeline, pipelineId: PipelineId, isDry: Boolean, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+    // Privileged: pipeline ACL is the authoritative gate; source is part of the
+    // pipeline definition. findByIdInternal is correct here.
+    dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.UnprocessableEntity(
+          "DataSource not found: " + pipeline.sourceDataSourceId.value
+        )))
+      case Some(dataSource) =>
+        dataSource match {
+          case _: RestSource | _: SqlSource =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
-              "DataSource not found: " + pipeline.sourceDataSourceId.value
+              "Unsupported source type for Spark job submission: " +
+                dataSource.kind + ". Only static and csv are currently supported."
             )))
-          case Some(dataSource) =>
-            dataSource match {
-              case _: RestSource | _: SqlSource =>
-                Future.successful(Left(ServiceError.UnprocessableEntity(
-                  "Unsupported source type for Spark job submission: " +
-                    dataSource.kind + ". Only static and csv are currently supported."
-                )))
-              case _ =>
-                pipelineStepRepo
-                  .listByPipeline(pipelineId, user)
-                  .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user))
-            }
+          case _ =>
+            // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
+            // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
+            pipelineStepRepo
+              .listByPipelineInternal(pipelineId)
+              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user))
         }
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
-   *  rows for the inline preview tray. */
+   *  rows for the inline preview tray.
+   *  HEL-279: sharing-aware — owner and grantees can preview. */
   def previewStep(pipelineId: PipelineId, stepId: String, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
-    pipelineRepo.findById(pipelineId, user).flatMap {
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) =>
@@ -112,7 +120,8 @@ final class PipelineRunService(
                     dataSource.kind + ". Only static and csv are currently supported."
                 )))
               case _ =>
-                pipelineStepRepo.listByPipeline(pipelineId, user).flatMap { allSteps =>
+                // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list.
+                pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
                   val sortedSteps = allSteps.sortBy(_.position)
                   sortedSteps.indexWhere(_.id.value == stepId) match {
                     case -1 =>
@@ -153,16 +162,18 @@ final class PipelineRunService(
       CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, rowCount)
     }
 
-  /** Persisted run history for a pipeline. Owner-scoped: cross-user calls
-    * receive 404, never the underlying rows. */
+  /** Persisted run history for a pipeline.
+   *  HEL-279: sharing-aware — owner, editor, and viewer grantees can read history. */
   def history(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =
     if (pipelineRunRepo == null) Future.successful(Right(Vector.empty))
     else
-      pipelineRepo.findById(pipelineId, user).flatMap {
+      pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
         case None =>
           Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
         case Some(_) =>
-          pipelineRunRepo.listByPipeline(pipelineId, user).map { rows =>
+          // Safe: access confirmed by findByIdShared. Use system context to bypass the
+          // V35 pipeline_runs RLS owner-JOIN so grantees can read run records.
+          pipelineRunRepo.listByPipelineInternal(pipelineId).map { rows =>
             Right(rows.map { r =>
               PipelineRunRecord(
                 id          = r.id,
@@ -184,6 +195,12 @@ final class PipelineRunService(
   /** Owner-scoped existence check used by the SSE stream guard. */
   def pipelineExists(pipelineId: PipelineId, user: AuthenticatedUser): Future[Boolean] =
     pipelineRepo.findById(pipelineId, user).map(_.isDefined)
+
+  /** Sharing-aware existence check. Returns true for owner AND grantees (editor/viewer).
+   *  Used by SSE, run-history, and run-submit routes so viewer grantees can subscribe
+   *  and see history. No public-viewer (anonymous) path for pipelines. */
+  def pipelineExistsShared(pipelineId: PipelineId, user: AuthenticatedUser): Future[Boolean] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).map(_.isDefined)
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 

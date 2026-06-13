@@ -1,0 +1,22 @@
+- `backend/src/main/resources/db/migration/V39__pipeline_sharing_grants.sql` — Flyway migration: `helio_can_access_pipeline` SECURITY DEFINER function; replaces V35's all-commands `pipelines_owner` policy with per-command policies (sharing-aware SELECT, owner-only INSERT/UPDATE/DELETE); adds pipeline-owner SELECT/INSERT/UPDATE/DELETE policies on `resource_permissions`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wires `PipelinePermissionService` + `PipelinePermissionRoutes` into the route composition
+- `backend/src/main/scala/com/helio/api/protocols/PipelineProtocol.scala` — adds `ownerId: Option[String] = None` field to `PipelineSummaryResponse`, bumps `jsonFormat8` → `jsonFormat9`
+- `backend/src/main/scala/com/helio/api/routes/PipelinePermissionRoutes.scala` — new file: GET/POST/DELETE `/api/pipelines/:id/permissions` routes backed by `PipelinePermissionService`
+- `backend/src/main/scala/com/helio/api/routes/PipelineRunStreamRoutes.scala` — switches `pipelineExists` → `pipelineExistsShared` so viewer grantees can subscribe to SSE
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRepository.scala` — adds `findByIdShared`, `findByIdOwned`, `findGrantRole`, `findSummaryByIdShared`; adds `ownerId` field to `PipelineSummary` DTO
+- `backend/src/main/scala/com/helio/infrastructure/PipelineRunRepository.scala` — adds `listByPipelineInternal` (BYPASSRLS, for grantee run-history access)
+- `backend/src/main/scala/com/helio/infrastructure/PipelineStepRepository.scala` — adds `listByPipelineInternal`, `findByIdInternal`, `insertInternal`, `updateInternal`, `deleteInternal` (all use `withSystemContext`, called after ACL confirmed at pipeline level)
+- `backend/src/main/scala/com/helio/services/PipelinePermissionService.scala` — new file: owner-only grant management service for pipelines (no public-viewer path)
+- `backend/src/main/scala/com/helio/services/PipelineRunService.scala` — adds `pipelineExistsShared`; updates `submit`/`previewStep`/`history` to use sharing-aware repo methods; editor-or-owner guard on `submit`
+- `backend/src/main/scala/com/helio/services/PipelineService.scala` — rewrites all methods to use sharing-aware repo variants; owner-only for `delete`/`updateName`; editor-or-owner for step mutations; viewer-accessible for read paths
+- `backend/src/test/scala/com/helio/infrastructure/PipelineRepositorySpec.scala` — adds HEL-279 regression test: `findByIdShared` returns None for non-grantee callers
+- `backend/src/test/scala/com/helio/infrastructure/PipelineSharingAclSpec.scala` — new file: RLS integration tests covering owner/editor/viewer/no-grant matrix for `pipelines` and `resource_permissions` pipeline policies
+- `frontend/src/features/pipelines/services/pipelineService.ts` — adds `listPipelinePermissions`, `grantPipelinePermission`, `revokePipelinePermission`
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — adds `GrantRole` type, `PermissionGrant` interface, `ownerId` field to `PipelineSummary`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — adds share bar + share button styles
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — adds share dialog state, `isOwner` derived check, Share button (owner-only), `<PipelineShareDialog>` rendering
+- `frontend/src/features/pipelines/ui/PipelineListTable.tsx` — adds optional `currentUserId` + `onShare` props; renders owner-only Share button per row
+- `frontend/src/features/pipelines/ui/PipelineShareDialog.css` — new file: dialog styles using design tokens
+- `frontend/src/features/pipelines/ui/PipelineShareDialog.tsx` — new file: modal for listing/adding/revoking pipeline grants
+- `frontend/src/features/pipelines/ui/PipelinesPage.css` — adds row share button styles
+- `frontend/src/features/pipelines/ui/PipelinesPage.tsx` — integrates `PipelineShareDialog` and passes `currentUserId`/`onShare` to `PipelineListTable`

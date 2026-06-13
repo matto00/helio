@@ -28,7 +28,8 @@ final case class PipelineSummaryResponse(
     outputDataTypeId: String,
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
-    lastRunRowCount: Option[Long]
+    lastRunRowCount: Option[Long],
+    ownerId: Option[String] = None
 )
 
 // ── Pipeline analyze API types ───────────────────────────────────────────────
@@ -156,7 +157,7 @@ trait PipelineProtocol
   // CRUD formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat8(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
 
   // ── Analyze formats (per-subtype, dispatched on `type`) ──────────────────
   private val renameAnalyzeFormat: RootJsonFormat[RenameAnalyzeStepResponse]       = jsonFormat6(RenameAnalyzeStepResponse.apply)

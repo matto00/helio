@@ -123,6 +123,76 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
+  // ── Internal (ACL-bypassing) variants for post-access-check callers ───────
+  //
+  // These methods drop the owner-JOIN predicate and run under withSystemContext
+  // (helio_privileged BYPASSRLS). They are called ONLY after PipelineService has
+  // confirmed that the caller holds a sharing grant via findByIdShared. An editor
+  // grantee is not the pipeline owner, so the owner-JOIN in the non-internal
+  // variants would silently return no rows.
+  //
+  // Every callsite MUST have a comment explaining why ACL bypass is safe.
+
+  /** ACL-bypassing list. Safe to call only after the caller's pipeline access
+    * has been confirmed by PipelineService via findByIdShared. */
+  def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[PipelineStep]] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+    ).map(_.toVector.map(rowToDomain))
+
+  /** ACL-bypassing step lookup. Safe to call only after pipeline access
+    * has been confirmed by PipelineService via findByIdShared. */
+  def findByIdInternal(id: PipelineStepId): Future[Option[PipelineStep]] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.id === id.value).result.headOption
+    ).map(_.map(rowToDomain))
+
+  /** ACL-bypassing insert. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def insertInternal(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val action = for {
+      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+      position  = maxPos.map(_ + 1).getOrElse(0)
+      id        = UUID.randomUUID().toString
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, now, now)
+      _        <- stepsTable += row
+    } yield rowToDomain(row)
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing update. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def updateInternal(id: PipelineStepId, config: Option[Any], position: Option[Int]): Future[Option[PipelineStep]] = {
+    val now = Instant.now()
+    val action = for {
+      existing <- stepsTable.filter(_.id === id.value).result.headOption
+      updated  <- existing match {
+        case None      => DBIO.successful(None)
+        case Some(row) =>
+          val newConfig = config match {
+            case Some(cfg) => encodeConfig(row.op, cfg)
+            case None      => row.config
+          }
+          val newRow = row.copy(
+            config    = newConfig,
+            position  = position.getOrElse(row.position),
+            updatedAt = now
+          )
+          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
+      }
+    } yield updated
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing delete. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def deleteInternal(id: PipelineStepId): Future[Boolean] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.id === id.value).delete
+    ).map(_ > 0)
+
   // ── Row ↔ domain ──────────────────────────────────────────────────────────
 
   private def rowToDomain(row: PipelineStepRow): PipelineStep = {
