@@ -42,11 +42,17 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       ownerId        = if (dt.ownerId.value.isEmpty) None else Some(UUID.fromString(dt.ownerId.value))
     )
 
-  def findAll(ownerId: UserId): Future[Vector[DataType]] = {
+  def findAll(ownerId: UserId, page: Page): Future[PagedResult[DataType]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
+    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
-      table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
-    ).map(_.map(rowToDomain).toVector)
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
   }
 
   def findBySourceId(id: DataSourceId, ownerId: UserId): Future[Vector[DataType]] = {

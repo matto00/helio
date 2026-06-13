@@ -120,11 +120,11 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(dtRepo.insert(a, user1))
       await(dtRepo.insert(b, user1))
       await(dtRepo.insert(c, user2))
-      val forOwner1 = await(dtRepo.findAll(owner1))
-      forOwner1.map(_.id) should contain allOf (a.id, b.id)
-      forOwner1.map(_.id) should not contain c.id
-      val forOwner2 = await(dtRepo.findAll(owner2))
-      forOwner2.map(_.id) should contain only c.id
+      val forOwner1 = await(dtRepo.findAll(owner1, Page.Default))
+      forOwner1.items.map(_.id) should contain allOf (a.id, b.id)
+      forOwner1.items.map(_.id) should not contain c.id
+      val forOwner2 = await(dtRepo.findAll(owner2, Page.Default))
+      forOwner2.items.map(_.id) should contain only c.id
     }
 
     "findBySourceId returns only types for that source owned by the given user" in {

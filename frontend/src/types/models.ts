@@ -17,3 +17,16 @@ export interface ResourceMeta {
   createdAt: string;
   lastUpdated: string;
 }
+
+/** Paginated list envelope returned by all four GET-list endpoints.
+ *
+ *  Mirrors the backend `PagedResult[A]` wire shape. The `items` array holds
+ *  the current page; `total` is the full row count so callers can decide
+ *  whether to request another page. `offset` and `limit` echo the request
+ *  params so consumers don't need to remember them. */
+export interface PagedResult<T> {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
+}

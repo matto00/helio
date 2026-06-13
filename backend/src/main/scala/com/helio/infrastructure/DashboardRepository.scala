@@ -2,7 +2,7 @@ package com.helio.infrastructure
 
 import com.helio.api.protocols.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardProtocol, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, PanelProtocol}
 import com.helio.domain._
-import com.helio.domain.panels._
+import com.helio.domain.panels._ // Panel subtypes used in duplicate/importSnapshot
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -45,10 +45,18 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       ownerId     = UUID.fromString(d.ownerId.value)
     )
 
-  def findAll(ownerId: UserId): Future[Vector[Dashboard]] =
+  def findAll(ownerId: UserId, page: Page): Future[PagedResult[Dashboard]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.lastUpdated.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
-      table.filter(_.ownerId === UUID.fromString(ownerId.value)).sortBy(_.lastUpdated.desc).result
-    ).map(_.map(rowToDomain).toVector)
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
+  }
 
   /** Sharing-aware read. Returns Some if:
    *  - `callerOpt` is Some and the caller is the owner,

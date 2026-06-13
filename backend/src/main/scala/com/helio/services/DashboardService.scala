@@ -44,8 +44,8 @@ final class DashboardService(
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
-  def findAll(user: AuthenticatedUser): Future[Vector[Dashboard]] =
-    dashboardRepo.findAll(user.id)
+  def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
+    dashboardRepo.findAll(user.id, page)
 
   def create(request: CreateDashboardInput, user: AuthenticatedUser): Future[Dashboard] = {
     val now = Instant.now()

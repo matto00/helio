@@ -38,8 +38,8 @@ final class DataSourceService(
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  def findAll(user: AuthenticatedUser): Future[Vector[DataSource]] =
-    dataSourceRepo.findAll(user.id)
+  def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[DataSource]] =
+    dataSourceRepo.findAll(user.id, page)
 
   // ── Create (Static) ───────────────────────────────────────────────────────
 
