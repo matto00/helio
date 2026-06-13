@@ -45,13 +45,20 @@ class GcsFileSystem(bucketName: String, storage: Storage)(implicit ec: Execution
     }
   }
 
-  def list(prefix: String): Future[Seq[String]] = Future {
+  def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] = Future {
     blocking {
-      val blobs = storage.list(
-        bucketName,
-        Storage.BlobListOption.prefix(prefix)
+      val baseOptions = Seq(
+        Storage.BlobListOption.prefix(prefix),
+        Storage.BlobListOption.pageSize(pageSize.toLong)
       )
-      blobs.iterateAll().asScala.map(_.getName).toSeq
+      val options = cursor match {
+        case Some(token) => baseOptions :+ Storage.BlobListOption.pageToken(token)
+        case None        => baseOptions
+      }
+      val page = storage.list(bucketName, options: _*)
+      val names = page.getValues.asScala.map(_.getName).toSeq
+      val nextCursor = Option(page.getNextPageToken).filter(_.nonEmpty)
+      ListPage(names, nextCursor)
     }
   }
 }

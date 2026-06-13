@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.NoSuchFileException
-import java.util.{Arrays => JArrays, Map => JMap}
+import java.util.{Arrays => JArrays, Collections => JCollections, Map => JMap}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -118,29 +118,83 @@ class GcsFileSystemSpec extends AnyWordSpec with Matchers {
 
   "GcsFileSystem.list" should {
 
-    "return every blob name produced by the prefix iterator" in {
+    "return single-page results when nextPageToken is null" in {
       val storage = mock(classOf[Storage])
-      val page = mock(classOf[Page[Blob]])
-      val blob1 = mock(classOf[Blob])
-      val blob2 = mock(classOf[Blob])
+      val page    = mock(classOf[Page[Blob]])
+      val blob1   = mock(classOf[Blob])
+      val blob2   = mock(classOf[Blob])
       when(blob1.getName).thenReturn("users/1/a.csv")
       when(blob2.getName).thenReturn("users/1/b.csv")
-      when(page.iterateAll()).thenReturn(JArrays.asList(blob1, blob2))
-      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption])))
+      when(page.getValues).thenReturn(JArrays.asList(blob1, blob2))
+      when(page.getNextPageToken).thenReturn(null)
+      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption])))
         .thenReturn(page)
 
-      val names = await(newFs(storage).list("users/1/"))
-      names should contain theSameElementsAs Seq("users/1/a.csv", "users/1/b.csv")
+      val result = await(newFs(storage).list("users/1/"))
+      result.names should contain theSameElementsAs Seq("users/1/a.csv", "users/1/b.csv")
+      result.nextCursor shouldBe None
     }
 
-    "return empty when no objects match the prefix" in {
+    "return nextCursor on first page and None on last page (multi-page)" in {
       val storage = mock(classOf[Storage])
-      val page = mock(classOf[Page[Blob]])
-      when(page.iterateAll()).thenReturn(JArrays.asList[Blob]())
-      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption])))
+      val page1   = mock(classOf[Page[Blob]])
+      val page2   = mock(classOf[Page[Blob]])
+      val blob1   = mock(classOf[Blob])
+      val blob2   = mock(classOf[Blob])
+      when(blob1.getName).thenReturn("users/1/a.csv")
+      when(blob2.getName).thenReturn("users/1/b.csv")
+      when(page1.getValues).thenReturn(JArrays.asList(blob1))
+      when(page1.getNextPageToken).thenReturn("page2token")
+      when(page2.getValues).thenReturn(JArrays.asList(blob2))
+      when(page2.getNextPageToken).thenReturn(null)
+
+      // First call: no cursor → two options (prefix + pageSize)
+      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption])))
+        .thenReturn(page1)
+
+      val result1 = await(newFs(storage).list("users/1/", pageSize = 1))
+      result1.names shouldBe Seq("users/1/a.csv")
+      result1.nextCursor shouldBe Some("page2token")
+
+      // Second call: with cursor → three options (prefix + pageSize + pageToken)
+      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption])))
+        .thenReturn(page2)
+
+      val result2 = await(newFs(storage).list("users/1/", cursor = Some("page2token"), pageSize = 1))
+      result2.names shouldBe Seq("users/1/b.csv")
+      result2.nextCursor shouldBe None
+    }
+
+    "return empty names and no cursor when no objects match the prefix" in {
+      val storage = mock(classOf[Storage])
+      val page    = mock(classOf[Page[Blob]])
+      when(page.getValues).thenReturn(JCollections.emptyList[Blob]())
+      when(page.getNextPageToken).thenReturn(null)
+      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption])))
         .thenReturn(page)
 
-      await(newFs(storage).list("nope/")) shouldBe empty
+      val result = await(newFs(storage).list("nope/"))
+      result.names shouldBe empty
+      result.nextCursor shouldBe None
+    }
+
+    "pass BlobListOption.pageToken to Storage.list when cursor is provided" in {
+      val storage = mock(classOf[Storage])
+      val page    = mock(classOf[Page[Blob]])
+      when(page.getValues).thenReturn(JCollections.emptyList[Blob]())
+      when(page.getNextPageToken).thenReturn(null)
+      when(storage.list(meq(BucketName), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption]), any(classOf[Storage.BlobListOption])))
+        .thenReturn(page)
+
+      await(newFs(storage).list("users/1/", cursor = Some("mytoken")))
+
+      // Verify three options were passed: prefix, pageSize, pageToken
+      verify(storage).list(
+        meq(BucketName),
+        any(classOf[Storage.BlobListOption]),
+        any(classOf[Storage.BlobListOption]),
+        any(classOf[Storage.BlobListOption])
+      )
     }
   }
 

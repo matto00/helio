@@ -15,6 +15,7 @@ import com.helio.infrastructure.{
   DataTypeRepository,
   DbContext,
   FileSystem,
+  ListPage,
   PanelRepository,
   PipelineRepository,
   PipelineStepRepository,
@@ -109,11 +110,11 @@ class ComputedFieldsRoutesSpec
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
-    def write(path: String, bytes: Array[Byte]): Future[Unit]  = Future.successful(())
-    def read(path: String): Future[Array[Byte]]                = Future.successful(Array.empty)
-    def delete(path: String): Future[Unit]                     = Future.successful(())
-    def exists(path: String): Future[Boolean]                  = Future.successful(false)
-    def list(prefix: String): Future[Seq[String]]              = Future.successful(Seq.empty)
+    def write(path: String, bytes: Array[Byte]): Future[Unit]                                         = Future.successful(())
+    def read(path: String): Future[Array[Byte]]                                                       = Future.successful(Array.empty)
+    def delete(path: String): Future[Unit]                                                            = Future.successful(())
+    def exists(path: String): Future[Boolean]                                                         = Future.successful(false)
+    def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]  = Future.successful(ListPage(Seq.empty, None))
   }
 
   private def stubConnector(resp: Either[String, JsValue]): RestApiConnector =

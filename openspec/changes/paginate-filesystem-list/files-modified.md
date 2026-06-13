@@ -1,0 +1,7 @@
+- `backend/src/main/scala/com/helio/infrastructure/FileSystem.scala` — added `ListPage` case class; updated `list` signature to `(prefix, cursor, pageSize): Future[ListPage]`
+- `backend/src/main/scala/com/helio/infrastructure/GcsFileSystem.scala` — replaced `iterateAll()` with page-based `getValues`/`getNextPageToken`; passes `BlobListOption.pageSize` and optionally `BlobListOption.pageToken` to `Storage.list`
+- `backend/src/main/scala/com/helio/infrastructure/LocalFileSystem.scala` — updated `list` to sorted walk with integer-offset cursor; file-path edge case preserved
+- `backend/src/test/scala/com/helio/infrastructure/GcsFileSystemSpec.scala` — updated existing list tests to mock `getValues`/`getNextPageToken`; added multi-page, empty-prefix, and cursor-passthrough tests
+- `backend/src/test/scala/com/helio/infrastructure/LocalFileSystemSpec.scala` — updated existing list tests to unpack `ListPage`; added multi-page, empty-prefix, and file-as-prefix edge case tests
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — updated `stubFileSystem` stub to implement new `list` signature with `ListPage` return
+- `backend/src/test/scala/com/helio/api/ComputedFieldsRoutesSpec.scala` — updated `stubFileSystem` stub to implement new `list` signature with `ListPage` return
