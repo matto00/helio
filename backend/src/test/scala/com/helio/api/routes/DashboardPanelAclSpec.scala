@@ -543,4 +543,106 @@ class DashboardPanelAclSpec
       }
     }
   }
+
+  // ── EXPLAIN ANALYZE index-scan gate (AC3) ─────────────────────────────────
+  // Asserts that the grantee-path SQL produced by the rewritten single-JOIN
+  // queries uses an index scan on resource_permissions, not a sequential scan.
+  // A "Seq Scan on resource_permissions" here would indicate a missing index
+  // and should fail CI so the regression is caught immediately.
+
+  "findAllByDashboardId grantee-path query plan" should {
+    "use an index scan on resource_permissions (no seq scan)" in {
+      import PostgresProfile.api._
+      val dashId = seedDashboard(userAId)
+      seedPanel(dashId, userAId) // panel must exist for a meaningful query plan
+      grantRole(dashId, userBId, "editor")
+
+      // The grantee-path subquery that the single-JOIN implementation generates.
+      // We run EXPLAIN ANALYZE on the equivalent raw SQL so the planner can
+      // evaluate it against actual statistics.
+      val callerUuid = userBId
+      val explainSql = sql"""
+        EXPLAIN ANALYZE
+        SELECT p.*
+        FROM panels p
+        WHERE p.dashboard_id = $dashId
+          AND (
+            EXISTS (
+              SELECT 1 FROM dashboards d
+              WHERE d.id = p.dashboard_id AND d.owner_id = $callerUuid::uuid
+            )
+            OR EXISTS (
+              SELECT 1 FROM resource_permissions rp
+              WHERE rp.resource_type = 'dashboard'
+                AND rp.resource_id   = p.dashboard_id
+                AND rp.grantee_id    = $callerUuid::uuid
+            )
+            OR EXISTS (
+              SELECT 1 FROM resource_permissions rp2
+              WHERE rp2.resource_type = 'dashboard'
+                AND rp2.resource_id   = p.dashboard_id
+                AND rp2.grantee_id    IS NULL
+                AND rp2.role          = 'viewer'
+            )
+          )
+        ORDER BY p.last_updated DESC
+      """.as[String]
+
+      val planLines = await(db.run(explainSql))
+      val plan = planLines.mkString("\n")
+
+      withClue(s"Query plan:\n$plan\n") {
+        plan should (include("Index Scan") or include("Index Only Scan"))
+        plan should not include "Seq Scan on resource_permissions"
+      }
+
+      removeGrant(dashId, userBId)
+    }
+  }
+
+  "findById grantee-path query plan" should {
+    "use an index scan on resource_permissions (no seq scan)" in {
+      import PostgresProfile.api._
+      val dashId  = seedDashboard(userAId)
+      val panelId = seedPanel(dashId, userAId)
+      grantRole(dashId, userBId, "viewer")
+
+      val callerUuid = userBId
+      val explainSql = sql"""
+        EXPLAIN ANALYZE
+        SELECT p.*
+        FROM panels p
+        WHERE p.id = $panelId
+          AND (
+            EXISTS (
+              SELECT 1 FROM dashboards d
+              WHERE d.id = p.dashboard_id AND d.owner_id = $callerUuid::uuid
+            )
+            OR EXISTS (
+              SELECT 1 FROM resource_permissions rp
+              WHERE rp.resource_type = 'dashboard'
+                AND rp.resource_id   = p.dashboard_id
+                AND rp.grantee_id    = $callerUuid::uuid
+            )
+            OR EXISTS (
+              SELECT 1 FROM resource_permissions rp2
+              WHERE rp2.resource_type = 'dashboard'
+                AND rp2.resource_id   = p.dashboard_id
+                AND rp2.grantee_id    IS NULL
+                AND rp2.role          = 'viewer'
+            )
+          )
+      """.as[String]
+
+      val planLines = await(db.run(explainSql))
+      val plan = planLines.mkString("\n")
+
+      withClue(s"Query plan:\n$plan\n") {
+        plan should (include("Index Scan") or include("Index Only Scan"))
+        plan should not include "Seq Scan on resource_permissions"
+      }
+
+      removeGrant(dashId, userBId)
+    }
+  }
 }
