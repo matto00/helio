@@ -1,7 +1,7 @@
 # backend-file-size-compliance Specification
 
 ## Purpose
-TBD - created by archiving change split-service-repo-files. Update Purpose after archive.
+Defines file-size budget limits for backend service and repository files, ensuring no single file grows past the 300L (service) / 250L (repository) soft budget or the 400L hard BLOCKER threshold.
 ## Requirements
 ### Requirement: Repository and service files SHALL not exceed file-size budgets
 Service files SHALL be ≤300L. Non-service backend files (repositories) SHALL be ≤250L.
