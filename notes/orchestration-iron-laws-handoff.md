@@ -1,10 +1,11 @@
 # Handoff — Autonomous "Iron Laws" for the Orchestration Flow
 
-> **Status:** ✅ v1 COMPLETE (2026-05-29). All seven steps done — docs, agent
-> wiring, scripts, Skeptic, escalation taxonomy, attribution. Not yet
-> runtime-tested (see "v1 COMPLETE" section below). Possible v2 follow-ups listed.
+> **Status:** ✅ v1 COMPLETE (2026-05-29, merged PR #179) + ✅ v1.1 (2026-06-13).
+> First real run (HEL-267, merged PR #181) validated the topology; three mechanism
+> signals fixed (design budget 2→3 + reviser discipline, `SendMessage` resume
+> fallback, archive `TBD`-Purpose fill) — see "v1.1 — fixes from first real run".
 > **Goal:** Elevate the Linear ticket-delivery orchestration so it's diligent, structured, and self-correcting enough that Matt can stay _out of the loop_ until a genuine high-level decision is needed — eventually running a fleet of orchestrators, each delivering full projects.
-> **Last session:** 2026-05-29.
+> **Last session:** 2026-06-13.
 
 ## DESIGN.md accuracy — verified (2026-05-29)
 
@@ -315,9 +316,39 @@ than model tier (the more durable rationale). **Nothing runtime-tested yet** —
 theory is sound and Matt has battle-tested both the base orchestrator flow and
 superpowers separately; first real ticket run validates the integrated topology.
 
+## v1.1 — fixes from first real run (HEL-267, 2026-06-13)
+
+First end-to-end run (bug ticket HEL-267, merged via PR #181) validated the
+topology: design Skeptic REFUTE×3 → bounded escalation → human-approved fix →
+execution → evaluation PASS → final Skeptic CONFIRM → cleanup. Three mechanism
+signals surfaced and were fixed:
+
+1. **Design-gate budget 2→3, plus reviser discipline.** The gate burned all its
+   rounds on one stuck change request the orchestrator kept failing to resolve.
+   Bumped the design budget to 3 (design iteration is cheap), made the reviser
+   treat each numbered required revision as a checklist, and added an
+   escalate-early rule: if the _same_ change request survives a round it was
+   believed fixed, escalate that item immediately rather than burning rounds.
+   (Final-gate budget stays 2 — final REFUTEs are expensive, costing exec cycles.)
+2. **`SendMessage` resume fallback.** `SendMessage` was not enabled in the
+   harness context driving this run, so the orchestrator couldn't be warm-resumed
+   for the escalation answer or for cleanup. Documented the fallback in both the
+   orchestrator and the `/linear-ticket-delivery` command: re-spawn fresh with a
+   `RESUME — do not start over` prompt pointing at `workflow-state.md`. Works
+   because all loop state is persisted; it resumes rather than restarts.
+3. **Archive leaves `TBD` Purpose stubs.** `openspec archive` writes a
+   `TBD - created by archiving change ...` placeholder into every synced spec
+   (57 such stubs already on main — pervasive, not HEL-267-specific). Added a
+   Phase-3 step that fills the just-synced spec's Purpose from the proposal
+   before committing. Did **not** add a blocking `check:openspec` rule (would
+   fail on all 57) or mass-backfill — that's an optional separate cleanup.
+
 ### Possible v2 / follow-ups
 
-- Run a real ticket end-to-end; fix whatever the scripts/gates get wrong in situ.
+- Optional: backfill the 57 pre-existing `TBD - created by archiving` Purpose
+  stubs under `openspec/specs/`, then add a `check:openspec` rule to block new ones.
+- Run more real tickets end-to-end (esp. a frontend one to exercise the Skeptic's
+  UI judgment against DESIGN.md); fix whatever the scripts/gates get wrong in situ.
 - Promote DESIGN.md [mechanical] rules into actual ESLint/stylelint rules once
   Matt curates the open decisions (intent colors, weight tokens, breakpoints,
   overlay token, Button component, focus-ring offset).

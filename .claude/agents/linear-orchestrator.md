@@ -44,14 +44,14 @@ From the slash command:
 
 ## Signal Types
 
-| Signal       | From              | Action                                                                                                        |
-| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------- |
-| `ESCALATION` | Planning          | Present to human, collect answer, continue with `HUMAN_ANSWER`                                                |
-| `BLOCKER`    | Evaluator/Skeptic | Surface to human, wait for direction — do not loop                                                            |
-| PASS         | Evaluator         | Run the **final gate (Skeptic)** — do NOT deliver yet                                                         |
-| FAIL         | Evaluator         | Read report, SendMessage executor with `EVALUATION_REPORT_PATH`                                               |
-| CONFIRM      | Skeptic           | Gate cleared — proceed (design→execution, or final→delivery)                                                  |
-| REFUTE       | Skeptic           | Read report; revise artifacts (design) or SendMessage executor with change requests (final); bounded 2 rounds |
+| Signal       | From              | Action                                                                                                                          |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ESCALATION` | Planning          | Present to human, collect answer, continue with `HUMAN_ANSWER`                                                                  |
+| `BLOCKER`    | Evaluator/Skeptic | Surface to human, wait for direction — do not loop                                                                              |
+| PASS         | Evaluator         | Run the **final gate (Skeptic)** — do NOT deliver yet                                                                           |
+| FAIL         | Evaluator         | Read report, SendMessage executor with `EVALUATION_REPORT_PATH`                                                                 |
+| CONFIRM      | Skeptic           | Gate cleared — proceed (design→execution, or final→delivery)                                                                    |
+| REFUTE       | Skeptic           | Read report; revise artifacts (design, bounded 3 rounds) or SendMessage executor with change requests (final, bounded 2 rounds) |
 
 ---
 
@@ -174,9 +174,15 @@ Execute directly (no subagent):
    > `Agent` with `subagent_type: linear-skeptic`. Prompt:
    > GATE=`design`, WORKTREE_PATH=`<path>`, CHANGE_NAME=`<name>`, TICKET_ID=`<id>`.
    - **CONFIRM** → proceed.
-   - **REFUTE** → read the report, revise the OpenSpec artifacts to address each
-     required revision, then re-run the design gate (fresh spawn). Budget: **2
-     REFUTE rounds**; if still REFUTE, present to human as an `ESCALATION`.
+   - **REFUTE** → read the report and treat each numbered required revision as a
+     **checklist**: revise the OpenSpec artifacts so every item is addressed,
+     then re-run the design gate (fresh spawn). Budget: **3 REFUTE rounds**
+     (design iteration is cheap — no code, no execution — and catching a design
+     flaw here is far cheaper than in an execution cycle). **If the _same_ change
+     request survives a round you believed you fixed, do not burn further rounds
+     on it** — present that specific item to the human as an `ESCALATION`
+     immediately (a request you couldn't resolve won't resolve by retrying the
+     same way). If still REFUTE at round 3, present to human as an `ESCALATION`.
 
 Update `workflow-state.md` (PHASE: Execution, CYCLE: 1).
 
@@ -211,6 +217,14 @@ Record agent IDs in `workflow-state.md`.
 
 Re-use the same `DEV_PORT` and `BACKEND_PORT` derived in cycle 1 (read them
 from `workflow-state.md` if the session was compacted).
+
+> **If `SendMessage` is unavailable in this harness** (some contexts don't
+> enable it), fall back to a **fresh `Agent` spawn whose prompt begins
+> `RESUME — do not start over`**, pointing the agent at its `workflow-state.md`
+> and prior report files to recover context before acting. This is warm-resume's
+> functional equivalent because all loop state is persisted; it is **not** a
+> restart — never re-run completed cycles. The Skeptic is unaffected (always
+> cold/fresh by design).
 
 1. **SendMessage** to the `linear-executor` agent:
 
@@ -285,6 +299,19 @@ Flags: `--yes` skips prompts; `--skip-specs` only for infra/doc-only changes.
 
 The `rm` removes the executor's handoff file before archiving — leaving it
 in `archive/` trips the `check:openspec` pre-commit hook.
+
+**Fill the synced spec Purpose.** `openspec archive` writes a placeholder
+Purpose (`TBD - created by archiving change ...`) into every capability spec it
+creates or updates under `openspec/specs/`. Before committing, find them and
+replace each with a one-line Purpose derived from the proposal:
+
+```bash
+grep -rl "TBD - created by archiving change <CHANGE_NAME>" openspec/specs/
+```
+
+For each match, edit the `## Purpose` body to a single sentence describing what
+the capability does (drawn from `proposal.md`). Leave specs for _other_ changes
+untouched. This keeps newly-archived specs free of `TBD` stubs.
 
 Commit the archive:
 
@@ -368,8 +395,10 @@ nothing thrashes forever, nothing fails silently.
 
 - Self-approvable planning decisions (Phase 1 step 7 — anything not listed below).
 - Evaluator `FAIL` while `CYCLE < 3` → SendMessage executor.
-- Skeptic `REFUTE` (design or final) while that gate's round `< 2` → revise /
-  SendMessage executor.
+- Skeptic design-gate `REFUTE` while round `< 3` → revise artifacts (each
+  numbered revision as a checklist) and re-run the gate fresh.
+- Skeptic final-gate `REFUTE` while round `< 2` → SendMessage executor with the
+  change requests.
 - A bug whose root cause the executor confirms within its 2-attempt budget
   (`systematic-debugging.md`).
 
@@ -377,8 +406,10 @@ nothing thrashes forever, nothing fails silently.
 
 - **Planning ESCALATION:** new external dependency, major architectural change,
   breaking API change, or scope significantly beyond the ticket.
-- **Budget exhausted:** evaluator `FAIL` at `CYCLE = 3`; Skeptic `REFUTE` at
-  round 2 (design or final). Surface the report + ask how to proceed.
+- **Budget exhausted:** evaluator `FAIL` at `CYCLE = 3`; Skeptic design-gate
+  `REFUTE` at round 3, or final-gate `REFUTE` at round 2; or the **same** design
+  change request surviving a round it was believed fixed. Surface the report +
+  ask how to proceed.
 - **BLOCKER (environmental):** dev server won't start, `.env`/creds missing,
   infra/tooling failure. Never retried as a code change.
 - **Executor circuit breaker:** a bug still unfixed after 2 root-cause attempts.
@@ -387,13 +418,13 @@ nothing thrashes forever, nothing fails silently.
 
 ### Circuit breakers (bounded counters — all persisted in `workflow-state.md`)
 
-| Loop                         | Counter               | Bound     | On exhaustion                            |
-| ---------------------------- | --------------------- | --------- | ---------------------------------------- |
-| Execution ↔ Evaluation       | `CYCLE`               | 3         | escalate (evaluator emits Critical Path) |
-| Skeptic final gate           | `SKEPTIC_CYCLE`       | 2         | escalate with Skeptic report             |
-| Skeptic design gate          | (design round)        | 2         | escalate as `ESCALATION`                 |
-| Executor debug (per symptom) | (in executor)         | 2         | executor escalates the symptom           |
-| Server start                 | (health-wait timeout) | 1 attempt | `BLOCKER` → human                        |
+| Loop                         | Counter               | Bound     | On exhaustion                                                          |
+| ---------------------------- | --------------------- | --------- | ---------------------------------------------------------------------- |
+| Execution ↔ Evaluation       | `CYCLE`               | 3         | escalate (evaluator emits Critical Path)                               |
+| Skeptic final gate           | `SKEPTIC_CYCLE`       | 2         | escalate with Skeptic report                                           |
+| Skeptic design gate          | (design round)        | 3         | escalate as `ESCALATION` (or sooner if the same item survives a round) |
+| Executor debug (per symptom) | (in executor)         | 2         | executor escalates the symptom                                         |
+| Server start                 | (health-wait timeout) | 1 attempt | `BLOCKER` → human                                                      |
 
 When any counter is exhausted, **stop and present to the human** — do not
 silently proceed, retry past the bound, or downgrade the verdict.
@@ -406,7 +437,10 @@ silently proceed, retry past the bound, or downgrade the verdict.
   `CONFIRM` on the final gate
 - Cycles 2+ must use SendMessage (warm resume) for the executor and evaluator,
   never fresh Agent spawns — **but the Skeptic is always spawned fresh (cold)**,
-  every invocation, at both the design and final gates
+  every invocation, at both the design and final gates. If `SendMessage` is not
+  available in the harness, use the **`RESUME — do not start over`** fresh-spawn
+  fallback (see Cycles 2 and 3) — warm state lives in `workflow-state.md`, so a
+  resume prompt recovers it without restarting completed work
 - A Skeptic `REFUTE` at the final gate re-enters the execution loop (executor
   fixes → evaluator re-checks → Skeptic re-runs), bounded to 2 Skeptic rounds
 - Do not read PASS evaluation reports — only FAIL/BLOCKER/final-presentation

@@ -307,4 +307,164 @@ describe("AggregateConfig", () => {
     const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations[0].fn).toBe("avg");
   });
+
+  // ── 3.1  Per-function inline hints ────────────────────────────────────────
+
+  it("shows sum hint text below fn dropdown when fn=sum", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "total", fn: "sum", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Sums numeric values; ignores nulls")).toBeInTheDocument();
+  });
+
+  it("shows avg hint text below fn dropdown when fn=avg", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "avg_age", fn: "avg", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Averages numeric values; ignores nulls")).toBeInTheDocument();
+  });
+
+  it("shows min hint text below fn dropdown when fn=min", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "mn", fn: "min", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("Minimum numeric value; ignores nulls and non-numeric"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows max hint text below fn dropdown when fn=max", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "mx", fn: "max", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("Maximum numeric value; ignores nulls and non-numeric"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows count hint text below fn dropdown when fn=count", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "n", fn: "count", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Counts non-null values in the field")).toBeInTheDocument();
+  });
+
+  // ── 3.2  No alias error before blur ───────────────────────────────────────
+
+  it("does not show alias error before the alias input has been blurred", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "", fn: "sum", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("Output name required")).not.toBeInTheDocument();
+  });
+
+  // ── 3.3  Alias error shown after blur on empty alias ─────────────────────
+
+  it("shows 'Output name required' after blurring an empty alias input", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "", fn: "sum", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+
+    fireEvent.blur(screen.getByRole("textbox", { name: /alias for aggregation 1/i }));
+
+    expect(screen.getByText("Output name required")).toBeInTheDocument();
+  });
+
+  // ── 3.4  No alias error when alias is non-empty after blur ────────────────
+
+  it("does not show alias error after blur when alias is non-empty", () => {
+    const config: AggregateConfigValue = {
+      groupBy: [],
+      aggregations: [{ alias: "total", fn: "sum", field: "age" }],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+
+    fireEvent.blur(screen.getByRole("textbox", { name: /alias for aggregation 1/i }));
+
+    expect(screen.queryByText("Output name required")).not.toBeInTheDocument();
+  });
+
+  // ── 3.5  Relationship description text ────────────────────────────────────
+
+  it("shows group-by relationship description text", () => {
+    render(
+      <AggregateConfig
+        config={emptyConfig}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText(/Group-by fields define the partition keys/i)).toBeInTheDocument();
+  });
 });
