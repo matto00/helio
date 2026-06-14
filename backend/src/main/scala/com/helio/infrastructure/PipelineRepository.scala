@@ -182,6 +182,33 @@ class PipelineRepository(
     ).map(_ => ())
   }
 
+  /** System-context lookup: returns the most recent `last_run_at` across all
+    * pipelines whose `output_data_type_id` matches `id` AND whose
+    * `last_run_status` is `'succeeded'`. Returns `None` when no pipeline
+    * matches, or when no pipeline has ever completed a successful run.
+    *
+    * Uses `withSystemContext` (privileged bypass) because the caller — the
+    * panel response assembler — only has a `DataTypeId`, not the pipeline
+    * owner; the ACL gate is enforced at the panel layer (caller can only
+    * reach panels they are allowed to see). Follows the same pattern as
+    * `findByIdInternal`. */
+  def findLastRunAtByOutputDataTypeId(id: DataTypeId): Future[Option[Instant]] = {
+    // Filter to pipelines writing to this DataType with a successful last run.
+    // lastRunAt is Option[Instant] in the table; we only select rows where it
+    // is definitely set by filtering on lastRunStatus = 'succeeded', then take
+    // the MAX via Slick's aggregate on the non-optional instant column equivalent.
+    // We select the most-recent last_run_at and return it as Option[Instant]
+    // (None = no matching succeeded pipeline found).
+    ctx.withSystemContext(
+      pipelinesTable
+        .filter(r => r.outputDataTypeId === id.value && r.lastRunStatus === "succeeded")
+        .map(_.lastRunAt)
+        .result
+    ).map { rows =>
+      rows.flatten.maxOption
+    }
+  }
+
   /** ACL-bypassing variant of [[updateLastRun]] for the privileged Spark
     * driver path. The pipeline ACL was already checked at submit time; the
     * background driver does not carry a request-bound user. */

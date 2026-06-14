@@ -408,4 +408,49 @@ describe("PanelGrid", () => {
     });
   });
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // ── HEL-234: dataAsOf freshness indicator ───────────────────────────────────
+  describe("dataAsOf freshness indicator", () => {
+    it("renders 'Data as of ...' below the title when dataAsOf is set", () => {
+      const panelWithFreshness = makeMetricPanel({
+        id: "panel-fresh",
+        dashboardId: "d1",
+        title: "Fresh Panel",
+        dataAsOf: "2026-01-01T00:00:00Z",
+      });
+
+      renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[panelWithFreshness]} />,
+        { panels: { items: [panelWithFreshness] } },
+      );
+
+      expect(screen.getByText(/Data as of/i)).toBeInTheDocument();
+    });
+
+    it("does not render the freshness indicator when dataAsOf is null", () => {
+      const panelNoFreshness = makeMetricPanel({
+        id: "panel-nofresh",
+        dashboardId: "d1",
+        title: "Stale Panel",
+        dataAsOf: null,
+      });
+
+      renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[panelNoFreshness]} />,
+        { panels: { items: [panelNoFreshness] } },
+      );
+
+      expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
+    });
+
+    it("does not render the freshness indicator when dataAsOf is absent (default null)", () => {
+      // testPanel uses makeMetricPanel with no dataAsOf — defaults to null
+      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
+        panels: { items: [testPanel] },
+      });
+
+      expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 });

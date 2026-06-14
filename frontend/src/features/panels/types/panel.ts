@@ -122,6 +122,10 @@ interface PanelBase {
   ownerId?: string;
   /** Frontend-only polling interval; not persisted by the backend. */
   refreshInterval?: number | null;
+  /** HEL-234: ISO-8601 timestamp of the most recent successful pipeline run
+   *  that writes to this panel's bound DataType. Null/absent when unbound or
+   *  when no pipeline has ever run successfully. */
+  dataAsOf?: string | null;
 }
 
 export interface MetricPanel extends PanelBase {

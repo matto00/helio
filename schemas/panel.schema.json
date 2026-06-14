@@ -16,7 +16,11 @@
     "meta": { "$ref": "https://helio.local/schemas/resource-meta.schema.json" },
     "appearance": { "$ref": "https://helio.local/schemas/panel-appearance.schema.json" },
     "ownerId": { "type": "string", "minLength": 1 },
-    "config": { "type": "object" }
+    "config": { "type": "object" },
+    "dataAsOf": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp of the most recent pipeline run that wrote to this panel's bound DataType; null when unbound or never run."
+    }
   },
   "additionalProperties": false,
   "$comment": "Per-subtype config shapes live in $defs and are selected via the top-level oneOf below. dataSourceId is not a valid field — panels bind to DataTypes (config.dataTypeId), not DataSources directly.",

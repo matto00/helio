@@ -54,7 +54,7 @@ final class DashboardRoutes(
             ServiceResponse.run(dashboardService.duplicate(dashboardId, user)) { case (dashboard, panels) =>
               StatusCodes.Created -> DuplicateDashboardResponse(
                 dashboard = DashboardResponse.fromDomain(dashboard),
-                panels    = panels.map(PanelResponse.fromDomain)
+                panels    = panels.map(p => PanelResponse.fromDomain(p))
               )
             }
           }

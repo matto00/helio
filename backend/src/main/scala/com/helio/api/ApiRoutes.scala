@@ -91,7 +91,7 @@ final class ApiRoutes(
           concat(
             pathPrefix("auth") { concat(auth.routes, oauth.routes) },
             authDirectives.optionalAuthenticate { userOpt =>
-              new PublicDashboardRoutes(panelRepo, panelService, aclDirective, userOpt).routes
+              new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes
             },
             authDirectives.authenticate { authenticatedUser =>
               concat(

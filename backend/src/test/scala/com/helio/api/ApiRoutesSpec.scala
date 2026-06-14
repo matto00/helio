@@ -2993,6 +2993,84 @@ class ApiRoutesSpec
         config.contains("color")       shouldBe false
       }
     }
+
+    // ── HEL-234: dataAsOf in GET /api/dashboards/:id/panels ────────────────
+
+    "return dataAsOf ISO string for a bound panel whose pipeline has run" in {
+      import slick.jdbc.PostgresProfile.api._
+      import java.time.Instant
+      import java.util.UUID
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Freshness Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      // Seed a data type and pipeline for the panel binding.
+      // owner_id must reference the test user seeded by cleanDb().
+      val dtId  = UUID.randomUUID().toString
+      val dsId  = UUID.randomUUID().toString
+      val pidId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_types
+                 (id, name, fields, version, owner_id, created_at, updated_at)
+                 VALUES ($dtId, 'mytype', '[]', 1, $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, last_run_status, last_run_at, owner_id, created_at, updated_at)
+                 VALUES ($pidId, 'pipe', $dsId, $dtId, 'succeeded', now(), $testUserId::uuid, now(), now())"""
+      )))
+
+      // Create a metric panel bound to the data type
+      val metricConfig = JsObject("dataTypeId" -> JsString(dtId), "fieldMapping" -> JsObject())
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("metric"), Some(metricConfig))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels   = responseAs[PanelsResponse].items
+        val panel    = panels.find(_.id == panelId).get
+        panel.dataAsOf shouldBe defined
+        // Value is a non-empty ISO string
+        panel.dataAsOf.get should not be empty
+        // Parses as an Instant
+        noException should be thrownBy Instant.parse(panel.dataAsOf.get)
+      }
+    }
+
+    "return dataAsOf null for an unbound panel" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Unbound Panel Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      // text panel — no dataTypeId binding
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Text Panel"), Some("text"), None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.dataAsOf shouldBe None
+      }
+    }
   }
 
   // ── Pagination route tests (HEL-133, tasks 7.5-7.7) ───────────────────────
