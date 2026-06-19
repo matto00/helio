@@ -30,6 +30,13 @@ When the orchestrator returns:
   re-spawn. The orchestrator keeps state in
   `openspec/changes/<CHANGE_NAME>/workflow-state.md` and can resume from any
   phase.
+- **Fallback when `SendMessage` is unavailable** (some harness contexts don't
+  enable it): re-spawn `linear-orchestrator` with a prompt that begins
+  `TICKET_ID=<id>. RESUME — do not start over`, and tell it which phase was
+  reached (e.g. "PR #N is merged; run only Phase 4 cleanup") and to read
+  `openspec/changes/<CHANGE_NAME>/workflow-state.md` first to recover state.
+  Because all state is persisted there, this resumes rather than restarts —
+  never let a re-spawn re-implement or re-deliver completed work.
 
 Do not implement, plan, or evaluate yourself — that is the orchestrator's
 job. Your role here is the seam between the user and the orchestrator agent.

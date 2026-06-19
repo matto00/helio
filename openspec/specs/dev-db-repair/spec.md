@@ -1,7 +1,7 @@
 # dev-db-repair Specification
 
 ## Purpose
-TBD - created by archiving change fix-dev-seed-data-drift. Update Purpose after archive.
+Provide an idempotent SQL repair script and documentation for correcting dev-database drift introduced by ACL ownership changes (NULL-owner rows, wrong-owner DataTypes, empty join-step config, SystemUser-owned pipelines), so the seeded ProfitAgg pipeline runs without a 422 and panels can bind to its output.
 ## Requirements
 ### Requirement: Dev DB repair script exists and is idempotent
 The repository SHALL include `backend/scripts/repair-dev-db.sql` — a SQL script that corrects four categories of drift in an existing dev installation: NULL-owner DataType rows, wrong-owner ProfitAgg output DataType, empty ProfitAgg join step config, and wrong-owner ProfitAgg pipeline row. All operations SHALL be guarded so the script is safe to run on a DB that is already in the correct state.

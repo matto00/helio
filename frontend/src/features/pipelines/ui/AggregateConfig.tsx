@@ -5,11 +5,13 @@
 // Follows the same props-driven pattern as FilterConfig / ComputeFieldConfig:
 // the parent (StepCard) owns state and calls onChange with serialized config JSON.
 
+import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
 
 export interface AggregateGroupByField {
   name: string;
@@ -29,6 +31,14 @@ export interface AggregateConfigValue {
 
 export const AGG_FNS = ["sum", "avg", "min", "max", "count"] as const;
 
+export const FN_HINTS: Record<(typeof AGG_FNS)[number], string> = {
+  sum: "Sums numeric values; ignores nulls",
+  avg: "Averages numeric values; ignores nulls",
+  min: "Minimum numeric value; ignores nulls and non-numeric",
+  max: "Maximum numeric value; ignores nulls and non-numeric",
+  count: "Counts non-null values in the field",
+};
+
 interface AggregateConfigProps {
   /** Parsed config object from the step's persisted config. */
   config: AggregateConfigValue;
@@ -46,6 +56,8 @@ export function AggregateConfig({
   analyzeColumns,
   onChange,
 }: AggregateConfigProps) {
+  const [blurredAliasRows, setBlurredAliasRows] = useState<Set<number>>(new Set());
+
   function emit(next: AggregateConfigValue) {
     onChange(next);
   }
@@ -99,6 +111,9 @@ export function AggregateConfig({
       {/* ── Group-by section ── */}
       <div className="pipeline-detail-page__aggregate-section">
         <span className="pipeline-detail-page__aggregate-section-label">Group by</span>
+        <p className="pipeline-detail-page__aggregate-section-description">
+          Group-by fields define the partition keys. Each unique combination becomes one output row.
+        </p>
 
         <div className="pipeline-detail-page__aggregate-groupby-rows">
           {config.groupBy.map((g, index) => (
@@ -138,6 +153,8 @@ export function AggregateConfig({
         <div className="pipeline-detail-page__aggregate-agg-rows">
           {config.aggregations.map((agg, index) => {
             const fieldMissing = agg.field !== "" && !analyzeFieldNames.has(agg.field);
+            const aliasBlurred = blurredAliasRows.has(index);
+            const showAliasError = aliasBlurred && agg.alias === "";
             return (
               <div key={index} className="pipeline-detail-page__aggregate-agg-row">
                 {/* Alias input */}
@@ -148,7 +165,9 @@ export function AggregateConfig({
                   onChange={(e) =>
                     handleAggregationChange(index, { ...agg, alias: e.target.value })
                   }
+                  onBlur={() => setBlurredAliasRows((prev) => new Set(prev).add(index))}
                 />
+                {showAliasError && <InlineError error="Output name required" />}
 
                 {/* Function dropdown */}
                 <Select
@@ -157,6 +176,9 @@ export function AggregateConfig({
                   options={AGG_FNS.map((fn) => ({ value: fn, label: fn }))}
                   onChange={(next) => handleAggregationChange(index, { ...agg, fn: next })}
                 />
+                <span className="pipeline-detail-page__aggregate-fn-hint">
+                  {FN_HINTS[agg.fn as (typeof AGG_FNS)[number]]}
+                </span>
 
                 {/* Field dropdown */}
                 <Select

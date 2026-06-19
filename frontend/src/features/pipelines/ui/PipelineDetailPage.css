@@ -1201,3 +1201,15 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ── Step config: Aggregate rows ────────────────────────────────────────── */
+.pipeline-detail-page__aggregate-section-description {
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.pipeline-detail-page__aggregate-fn-hint {
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
