@@ -1,7 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.api.{ResourceType, ResourceTypeRegistry}
-import com.helio.domain.{AuthenticatedUser, DataSourceId, PipelineId, UserId}
+import com.helio.domain.{AuthenticatedUser, DataSourceId, DataTypeId, PipelineId, UserId}
 import com.helio.infrastructure.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -299,6 +299,98 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
         user               = AuthenticatedUser(UserId(ownerB))
       ))
       result shouldBe Left("Data source not found")
+    }
+  }
+
+  // ── HEL-234: findLastRunAtByOutputDataTypeId ──────────────────────────────
+
+  "PipelineRepository.findLastRunAtByOutputDataTypeId" should {
+
+    /** Seeds a pipeline and returns its id and output_data_type_id. */
+    def seedPipelineWithDt(): (PipelineId, String) = {
+      import PostgresProfile.api._
+      val ownerId = "00000000-0000-0000-0000-000000000001"
+      val dsId    = UUID.randomUUID().toString
+      val dtId    = UUID.randomUUID().toString
+      val pid     = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_types
+                 (id, name, fields, version, owner_id, created_at, updated_at)
+                 VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
+                 VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+      )))
+      (PipelineId(pid), dtId)
+    }
+
+    "return the most recent successful last_run_at for a matching pipeline" in {
+      val (pid, dtId) = seedPipelineWithDt()
+      val at          = Instant.now().truncatedTo(temporal.ChronoUnit.MILLIS)
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser))
+
+      val result = await(pipelineRepo.findLastRunAtByOutputDataTypeId(DataTypeId(dtId)))
+      result shouldBe defined
+      result.get.truncatedTo(temporal.ChronoUnit.MILLIS) shouldBe at
+    }
+
+    "return None when the pipeline exists but has never run successfully" in {
+      val (_, dtId) = seedPipelineWithDt()
+
+      val result = await(pipelineRepo.findLastRunAtByOutputDataTypeId(DataTypeId(dtId)))
+      result shouldBe None
+    }
+
+    "return None when the pipeline's only run failed" in {
+      val (pid, dtId) = seedPipelineWithDt()
+      val at          = Instant.now()
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser))
+
+      val result = await(pipelineRepo.findLastRunAtByOutputDataTypeId(DataTypeId(dtId)))
+      result shouldBe None
+    }
+
+    "return None for an unknown DataTypeId" in {
+      val result = await(pipelineRepo.findLastRunAtByOutputDataTypeId(DataTypeId(UUID.randomUUID().toString)))
+      result shouldBe None
+    }
+
+    "return the most recent succeeded run when multiple pipelines share an output DataType" in {
+      import PostgresProfile.api._
+      val ownerId = "00000000-0000-0000-0000-000000000001"
+      val dsId1   = UUID.randomUUID().toString
+      val dsId2   = UUID.randomUUID().toString
+      val dtId    = UUID.randomUUID().toString
+      val pid1    = UUID.randomUUID().toString
+      val pid2    = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId1, 'ds1', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId2, 'ds2', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_types
+                 (id, name, fields, version, owner_id, created_at, updated_at)
+                 VALUES ($dtId, 'shared-dt', '[]', 1, $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
+                 VALUES ($pid1, 'pipe1', $dsId1, $dtId, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
+                 VALUES ($pid2, 'pipe2', $dsId2, $dtId, now(), now())"""
+      )))
+      val earlier = Instant.now().minusSeconds(3600).truncatedTo(temporal.ChronoUnit.MILLIS)
+      val later   = Instant.now().truncatedTo(temporal.ChronoUnit.MILLIS)
+      await(pipelineRepo.updateLastRun(PipelineId(pid1), "succeeded", earlier, rowCount = None, systemUser))
+      await(pipelineRepo.updateLastRun(PipelineId(pid2), "succeeded", later,   rowCount = None, systemUser))
+
+      val result = await(pipelineRepo.findLastRunAtByOutputDataTypeId(DataTypeId(dtId)))
+      result shouldBe defined
+      result.get.truncatedTo(temporal.ChronoUnit.MILLIS) shouldBe later
     }
   }
 }

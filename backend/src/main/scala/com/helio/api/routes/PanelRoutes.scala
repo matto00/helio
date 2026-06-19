@@ -30,7 +30,7 @@ final class PanelRoutes(
           post {
             entity(as[UpdatePanelsBatchRequest]) { request =>
               ServiceResponse.run(panelService.batchUpdate(request.panels, user)) { updated =>
-                UpdatePanelsBatchResponse(updated.map(PanelResponse.fromDomain))
+                UpdatePanelsBatchResponse(updated.map(p => PanelResponse.fromDomain(p)))
               }
             }
           }
@@ -51,7 +51,7 @@ final class PanelRoutes(
             },
             patch {
               entity(as[UpdatePanelRequest]) { request =>
-                ServiceResponse.run(panelService.update(panelId, request, user))(PanelResponse.fromDomain)
+                ServiceResponse.run(panelService.update(panelId, request, user))(p => PanelResponse.fromDomain(p))
               }
             }
           )

@@ -5,10 +5,10 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.domain._
-import com.helio.infrastructure.PanelRepository
+import com.helio.infrastructure.{PanelRepository, PipelineRepository}
 import com.helio.services.PanelService
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Public (unauthenticated-friendly) read access to a dashboard's panels.
  *  Sharing-aware ACL is enforced via `AclDirective.authorizeResourceWithSharing`;
@@ -18,6 +18,7 @@ import scala.concurrent.ExecutionContextExecutor
 final class PublicDashboardRoutes(
     panelRepo: PanelRepository,
     panelService: PanelService,
+    pipelineRepo: PipelineRepository,
     aclDirective: AclDirective,
     userOpt: Option[AuthenticatedUser]
 )(implicit system: ActorSystem[_])
@@ -43,8 +44,20 @@ final class PublicDashboardRoutes(
               ) { _ =>
                 val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page)
                   .flatMap { paged =>
-                    panelService.resolveBindingsForRead(paged.items, userOpt)
-                      .map(resolved => PagedResult(resolved.map(PanelResponse.fromDomain), paged.total, paged.offset, paged.limit))
+                    panelService.resolveBindingsForRead(paged.items, userOpt).flatMap { panels =>
+                      // HEL-234: look up dataAsOf for each bound panel concurrently.
+                      // Panels with no DataType binding skip the repo call (dataAsOf = None).
+                      Future.sequence(panels.map { panel =>
+                        panel.dataTypeId match {
+                          case Some(dtId) =>
+                            pipelineRepo
+                              .findLastRunAtByOutputDataTypeId(dtId)
+                              .map(instantOpt => PanelResponse.fromDomain(panel, instantOpt.map(_.toString)))
+                          case None =>
+                            Future.successful(PanelResponse.fromDomain(panel))
+                        }
+                      }).map(responses => PagedResult(responses, paged.total, paged.offset, paged.limit))
+                    }
                   }
                 onSuccess(resultF) { result =>
                   complete(result)
