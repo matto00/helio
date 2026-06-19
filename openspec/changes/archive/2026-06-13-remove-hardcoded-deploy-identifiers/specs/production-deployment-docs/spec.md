@@ -1,28 +1,4 @@
-# production-deployment-docs Specification
-
-## Purpose
-README documentation for deploying the backend to Cloud Run: required env vars, Docker image build, automatic Flyway migrations, and log access via Cloud Logging.
-## Requirements
-### Requirement: README documents production environment variables
-README.md SHALL include a list of all required environment variables consumed by the backend at runtime, each with a brief description.
-
-#### Scenario: Operator reads env var list
-- **WHEN** an operator reads the "Running in production" section of README.md
-- **THEN** they SHALL find DATABASE_URL and AKKA_LICENSE_KEY listed with descriptions
-
-### Requirement: README documents Docker image build
-README.md SHALL include the command to build the Docker image from the repository root.
-
-#### Scenario: Operator builds Docker image
-- **WHEN** an operator follows the Docker build instructions in README.md
-- **THEN** they SHALL be able to build a runnable image with a single command
-
-### Requirement: README documents database migrations
-README.md SHALL explain that Flyway migrations run automatically on server startup and no separate migration command is required.
-
-#### Scenario: Operator deploys without manual migration step
-- **WHEN** an operator starts the Docker container
-- **THEN** migrations SHALL run automatically and the README SHALL reflect this behavior
+## MODIFIED Requirements
 
 ### Requirement: README documents Cloud Run deployment
 README.md SHALL include documentation for running `infra/deploy-backend.sh`, including:
@@ -39,12 +15,7 @@ README.md SHALL include documentation for running `infra/deploy-backend.sh`, inc
 - **WHEN** an operator reads the Cloud Run deployment section of infra/README.md
 - **THEN** they SHALL find the list of Secret Manager secrets required before running `deploy-backend.sh`
 
-### Requirement: README documents log locations
-README.md SHALL document where application logs are accessible when running on Cloud Run.
-
-#### Scenario: Operator accesses logs
-- **WHEN** an operator needs to view logs for a running Cloud Run service
-- **THEN** the README SHALL direct them to Cloud Logging (Google Cloud console) or gcloud CLI
+## ADDED Requirements
 
 ### Requirement: deploy-backend.sh contains no hardcoded environment-specific identifiers
 `infra/deploy-backend.sh` SHALL NOT contain any hardcoded environment-specific identifier values (OAuth Client IDs, redirect URIs, CORS origins, or other values that vary per deployment target).
@@ -70,4 +41,3 @@ README.md SHALL document where application logs are accessible when running on C
 #### Scenario: Gitignore covers .env.deploy
 - **WHEN** `git check-ignore -q infra/.env.deploy` is executed
 - **THEN** the exit code SHALL be 0
-
