@@ -21,8 +21,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       id             = DataTypeId(row.id),
       sourceId       = row.sourceId.map(DataSourceId(_)),
       name           = row.name,
-      fields         = row.fields.parseJson.convertTo[Vector[DataField]],
-      computedFields = row.computedFields.parseJson.convertTo[Vector[ComputedField]],
+      fields         = row.fields,
+      computedFields = row.computedFields,
       version        = row.version,
       createdAt      = row.createdAt,
       updatedAt      = row.updatedAt,
@@ -34,8 +34,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       id             = dt.id.value,
       sourceId       = dt.sourceId.map(_.value),
       name           = dt.name,
-      fields         = dt.fields.toJson.compactPrint,
-      computedFields = dt.computedFields.toJson.compactPrint,
+      fields         = dt.fields,
+      computedFields = dt.computedFields,
       version        = dt.version,
       createdAt      = dt.createdAt,
       updatedAt      = dt.updatedAt,
@@ -120,8 +120,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
             .update((
               dt.sourceId.map(_.value),
               dt.name,
-              dt.fields.toJson.compactPrint,
-              dt.computedFields.toJson.compactPrint,
+              dt.fields,
+              dt.computedFields,
               newVersion,
               dt.updatedAt
             ))
@@ -153,8 +153,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
             .update((
               dt.sourceId.map(_.value),
               dt.name,
-              dt.fields.toJson.compactPrint,
-              dt.computedFields.toJson.compactPrint,
+              dt.fields,
+              dt.computedFields,
               newVersion,
               dt.updatedAt
             ))
@@ -193,19 +193,28 @@ object DataTypeRepository {
       ts      => ts.toInstant
     )
 
-  /** Maps Scala String ↔ PostgreSQL JSONB. The PostgreSQL JDBC driver accepts
-   *  setString / getString for JSONB columns, so the conversion is identity at
-   *  the Scala level; the type exists to mark JSONB-backed columns explicitly
-   *  in table definitions. */
-  implicit val jsonbStringType: BaseColumnType[String] =
-    MappedColumnType.base[String, String](s => s, s => s)
+  // Bring DataField / ComputedField Spray JSON formatters into scope.
+  private val proto = new DataTypeProtocol {}
+  import proto._
+
+  implicit val dataFieldsColumnType: BaseColumnType[Vector[DataField]] =
+    MappedColumnType.base[Vector[DataField], String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[Vector[DataField]]
+    )
+
+  implicit val computedFieldsColumnType: BaseColumnType[Vector[ComputedField]] =
+    MappedColumnType.base[Vector[ComputedField], String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[Vector[ComputedField]]
+    )
 
   case class DataTypeRow(
       id: String,
       sourceId: Option[String],
       name: String,
-      fields: String,
-      computedFields: String,
+      fields: Vector[DataField],
+      computedFields: Vector[ComputedField],
       version: Int,
       createdAt: Instant,
       updatedAt: Instant,
@@ -216,8 +225,8 @@ object DataTypeRepository {
     def id             = column[String]("id", O.PrimaryKey)
     def sourceId       = column[Option[String]]("source_id")
     def name           = column[String]("name")
-    def fields         = column[String]("fields")(jsonbStringType)
-    def computedFields = column[String]("computed_fields")(jsonbStringType)
+    def fields         = column[Vector[DataField]]("fields")
+    def computedFields = column[Vector[ComputedField]]("computed_fields")
     def version        = column[Int]("version")
     def createdAt      = column[Instant]("created_at")
     def updatedAt      = column[Instant]("updated_at")

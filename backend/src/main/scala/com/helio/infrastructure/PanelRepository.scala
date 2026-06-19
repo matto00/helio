@@ -211,7 +211,7 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       table
         .filter(_.id === id.value)
         .map(r => (r.appearance, r.lastUpdated))
-        .update((appearance.toJson.compactPrint, lastUpdated))
+        .update((appearance, lastUpdated))
         .andThen(table.filter(_.id === id.value).result.headOption)
     ).map(_.map(rowToDomain))
 
@@ -258,14 +258,14 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
           }
 
           item.appearance.foreach { ap =>
-            val current = row.appearance.parseJson.convertTo[PanelAppearance]
+            val current = row.appearance
             val merged = PanelAppearance(
               background   = ap.background.getOrElse(current.background),
               color        = ap.color.getOrElse(current.color),
               transparency = ap.transparency.getOrElse(current.transparency),
               chart        = ap.chart.orElse(current.chart)
             )
-            updates += table.filter(_.id === item.id).map(r => (r.appearance, r.lastUpdated)).update((merged.toJson.compactPrint, now)).map(_ => ())
+            updates += table.filter(_.id === item.id).map(r => (r.appearance, r.lastUpdated)).update((merged, now)).map(_ => ())
           }
 
           // CS2c-3c: typed-config patch path. Builds a fresh Panel from the
@@ -310,12 +310,20 @@ object PanelRepository {
       ts      => ts.toInstant
     )
 
-  /** Maps Scala String ↔ PostgreSQL JSONB. The PostgreSQL JDBC driver accepts
-   *  setString / getString for JSONB columns, so the conversion is identity at
-   *  the Scala level; the type exists to mark JSONB-backed columns explicitly
-   *  in table definitions. */
+  /** Maps Scala String ↔ PostgreSQL JSONB. Used for Option[String] JSONB columns
+   *  (e.g. field_mapping) where the column type stays String. */
   implicit val jsonbStringType: BaseColumnType[String] =
     MappedColumnType.base[String, String](s => s, s => s)
+
+  // Bring PanelAppearance Spray JSON formatter into scope.
+  private val proto = new PanelProtocol {}
+  import proto._
+
+  implicit val panelAppearanceColumnType: BaseColumnType[PanelAppearance] =
+    MappedColumnType.base[PanelAppearance, String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[PanelAppearance]
+    )
 
   case class PanelRow(
       id: String,
@@ -324,7 +332,7 @@ object PanelRepository {
       createdBy: String,
       createdAt: Instant,
       lastUpdated: Instant,
-      appearance: String,
+      appearance: PanelAppearance,
       panelType: String,
       typeId: Option[String],
       fieldMapping: Option[String],
@@ -344,10 +352,10 @@ object PanelRepository {
     def createdBy    = column[String]("created_by")
     def createdAt    = column[Instant]("created_at")
     def lastUpdated  = column[Instant]("last_updated")
-    def appearance   = column[String]("appearance")(jsonbStringType)
+    def appearance   = column[PanelAppearance]("appearance")
     def panelType    = column[String]("type")
     def typeId       = column[Option[String]]("type_id")
-    def fieldMapping = column[Option[String]]("field_mapping", O.SqlType("jsonb"))
+    def fieldMapping = column[Option[String]]("field_mapping")
     def ownerId      = column[UUID]("owner_id")
     def content      = column[Option[String]]("content")
     def imageUrl            = column[Option[String]]("image_url")

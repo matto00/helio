@@ -28,8 +28,8 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       id         = DashboardId(row.id),
       name       = row.name,
       meta       = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
-      appearance = row.appearance.parseJson.convertTo[DashboardAppearance],
-      layout     = row.layout.parseJson.convertTo[DashboardLayout],
+      appearance = row.appearance,
+      layout     = row.layout,
       ownerId    = UserId(row.ownerId.toString)
     )
 
@@ -40,8 +40,8 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       createdBy   = d.meta.createdBy,
       createdAt   = d.meta.createdAt,
       lastUpdated = d.meta.lastUpdated,
-      appearance  = d.appearance.toJson.compactPrint,
-      layout      = d.layout.toJson.compactPrint,
+      appearance  = d.appearance,
+      layout      = d.layout,
       ownerId     = UUID.fromString(d.ownerId.value)
     )
 
@@ -136,8 +136,8 @@ class DashboardRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .update((
           dashboard.name,
           dashboard.meta.lastUpdated,
-          dashboard.appearance.toJson.compactPrint,
-          dashboard.layout.toJson.compactPrint
+          dashboard.appearance,
+          dashboard.layout
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
@@ -351,12 +351,21 @@ object DashboardRepository {
       ts      => ts.toInstant
     )
 
-  /** Maps Scala String ↔ PostgreSQL JSONB. The PostgreSQL JDBC driver accepts
-   *  setString / getString for JSONB columns, so the conversion is identity at
-   *  the Scala level; the type exists to mark JSONB-backed columns explicitly
-   *  in table definitions. */
-  implicit val jsonbStringType: BaseColumnType[String] =
-    MappedColumnType.base[String, String](s => s, s => s)
+  // Bring DashboardAppearance / DashboardLayout Spray JSON formatters into scope.
+  private val proto = new DashboardProtocol {}
+  import proto._
+
+  implicit val dashboardAppearanceColumnType: BaseColumnType[DashboardAppearance] =
+    MappedColumnType.base[DashboardAppearance, String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[DashboardAppearance]
+    )
+
+  implicit val dashboardLayoutColumnType: BaseColumnType[DashboardLayout] =
+    MappedColumnType.base[DashboardLayout, String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[DashboardLayout]
+    )
 
   case class DashboardRow(
       id: String,
@@ -364,8 +373,8 @@ object DashboardRepository {
       createdBy: String,
       createdAt: Instant,
       lastUpdated: Instant,
-      appearance: String,
-      layout: String,
+      appearance: DashboardAppearance,
+      layout: DashboardLayout,
       ownerId: UUID
   )
 
@@ -375,8 +384,8 @@ object DashboardRepository {
     def createdBy   = column[String]("created_by")
     def createdAt   = column[Instant]("created_at")
     def lastUpdated = column[Instant]("last_updated")
-    def appearance  = column[String]("appearance")(jsonbStringType)
-    def layout      = column[String]("layout")(jsonbStringType)
+    def appearance  = column[DashboardAppearance]("appearance")
+    def layout      = column[DashboardLayout]("layout")
     def ownerId     = column[UUID]("owner_id")
 
     def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId).mapTo[DashboardRow]
