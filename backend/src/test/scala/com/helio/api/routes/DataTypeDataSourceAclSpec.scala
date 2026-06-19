@@ -6,7 +6,8 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{DataSourcesResponse, JsonProtocols}
+import com.helio.api.{DataSourceResponse, JsonProtocols}
+import com.helio.domain.PagedResult
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem}
 import com.helio.services.{DataSourceService, DataTypeService, PanelService, SourceService}
@@ -227,7 +228,7 @@ class DataTypeDataSourceAclSpec
 
       Get("/data-sources") ~> dataSourceRoutesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
-        val ids = responseAs[DataSourcesResponse].items.map(_.id)
+        val ids = responseAs[PagedResult[DataSourceResponse]].items.map(_.id)
         ids should contain(dsIdA.value)
         ids should not contain dsIdB.value
       }

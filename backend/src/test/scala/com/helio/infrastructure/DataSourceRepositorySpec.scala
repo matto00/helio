@@ -88,11 +88,11 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       await(repo.insert(a, user1))
       await(repo.insert(b, user1))
       await(repo.insert(c, user2))
-      val forOwner1 = await(repo.findAll(owner1))
-      forOwner1.map(_.id) should contain allOf (a.id, b.id)
-      forOwner1.map(_.id) should not contain c.id
-      val forOwner2 = await(repo.findAll(owner2))
-      forOwner2.map(_.id) should contain only c.id
+      val forOwner1 = await(repo.findAll(owner1, Page.Default))
+      forOwner1.items.map(_.id) should contain allOf (a.id, b.id)
+      forOwner1.items.map(_.id) should not contain c.id
+      val forOwner2 = await(repo.findAll(owner2, Page.Default))
+      forOwner2.items.map(_.id) should contain only c.id
     }
 
     "findByIdInternal returns None for unknown id" in {
@@ -106,8 +106,8 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val source = newSource(ownerId = owner1)
       await(repo.insert(source, user1))
       // owner2 cannot see owner1's source via findAll
-      val forOwner2 = await(repo.findAll(owner2))
-      forOwner2.map(_.id) should not contain source.id
+      val forOwner2 = await(repo.findAll(owner2, Page.Default))
+      forOwner2.items.map(_.id) should not contain source.id
     }
 
     // ── HEL-265 CS2: findByIdOwned seed for cross-source ACL ────────────────

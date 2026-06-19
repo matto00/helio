@@ -6,15 +6,12 @@ import type {
   SqlSourceConfig,
   StaticColumn,
 } from "../types/dataSource";
+import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
 
 // Re-export so existing call sites that imported `SqlSourceConfig` from this
 // module (back when the type lived here) keep compiling unchanged.
 export type { SqlSourceConfig } from "../types/dataSource";
-
-interface DataSourcesResponse {
-  items: DataSource[];
-}
 
 interface CreateSourceResponse {
   source: DataSource;
@@ -44,7 +41,7 @@ interface InferredSchemaResponse {
 }
 
 export async function fetchSources(): Promise<DataSource[]> {
-  const response = await httpClient.get<DataSourcesResponse>("/api/data-sources");
+  const response = await httpClient.get<PagedResult<DataSource>>("/api/data-sources");
   return response.data.items;
 }
 

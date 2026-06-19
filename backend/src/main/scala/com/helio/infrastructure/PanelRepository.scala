@@ -25,21 +25,33 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
   private def domainToRow(p: Panel): PanelRow =
     PanelRowMapper.domainToRow(p)
 
-  /** Sharing-aware list. Returns panels for the dashboard only when the caller
-   *  has access (owner, grantee, or anonymous with a public-viewer grant).
-   *  Used by `PublicDashboardRoutes` — replaces the old unscoped
-   *  `findByDashboardId`. */
-  def findAllByDashboardId(dashboardId: DashboardId, callerOpt: Option[AuthenticatedUser]): Future[Vector[Panel]] =
+  /** Sharing-aware paginated list. Returns panels for the dashboard only when
+   *  the caller has access (owner, grantee, or anonymous with a public-viewer
+   *  grant). Count and slice queries are composed in a single DBIO action per
+   *  branch so both run in the same RLS session.
+   *  Used by `PublicDashboardRoutes`. */
+  def findAllByDashboardId(
+      dashboardId: DashboardId,
+      callerOpt: Option[AuthenticatedUser],
+      page: Page
+  ): Future[PagedResult[Panel]] = {
+    val baseQuery = table.filter(_.dashboardId === dashboardId.value)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.lastUpdated.desc).drop(page.offset).take(page.limit).result
+
     dashTable.filter(_.id === dashboardId.value).result.headOption pipe { q =>
       ctx.withSystemContext(q).flatMap {
-        case None => Future.successful(Vector.empty)
+        case None => Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
         case Some(dashRow) =>
           val ownerId = dashRow.ownerId.toString
           callerOpt match {
             case Some(caller) if caller.id.value == ownerId =>
               ctx.withUserContext(caller.id.value)(
-                table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
-              ).map(_.map(rowToDomain).toVector)
+                for {
+                  total <- countAction
+                  rows  <- sliceAction
+                } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+              )
 
             case Some(caller) =>
               ctx.withUserContext(caller.id.value)(
@@ -54,10 +66,13 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
               ).flatMap { hasGrant =>
                 if (hasGrant)
                   ctx.withUserContext(caller.id.value)(
-                    table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
-                  ).map(_.map(rowToDomain).toVector)
+                    for {
+                      total <- countAction
+                      rows  <- sliceAction
+                    } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+                  )
                 else
-                  Future.successful(Vector.empty)
+                  Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
               }
 
             case None =>
@@ -75,14 +90,18 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
               ).flatMap { hasPublic =>
                 if (hasPublic)
                   ctx.withSystemContext(
-                    table.filter(_.dashboardId === dashboardId.value).sortBy(_.lastUpdated.desc).result
-                  ).map(_.map(rowToDomain).toVector)
+                    for {
+                      total <- countAction
+                      rows  <- sliceAction
+                    } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+                  )
                 else
-                  Future.successful(Vector.empty)
+                  Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
               }
           }
       }
     }
+  }
 
   /** No-ACL read. Documented callers:
    *  - `ResourceTypeRegistry` owner-resolver (privileged; resolves ownership for ACL check)

@@ -1,6 +1,7 @@
 package com.helio.api.routes
 
 import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.domain._
@@ -29,16 +30,26 @@ final class PublicDashboardRoutes(
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
       pathEndOrSingleSlash {
         get {
-          aclDirective.authorizeResourceWithSharing(
-            "dashboard",
-            dashboardId,
-            userOpt,
-            "Dashboard not found"
-          ) { _ =>
-            val panelsF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt)
-              .flatMap(panels => panelService.resolveBindingsForRead(panels, userOpt))
-            onSuccess(panelsF) { panels =>
-              complete(PanelsResponse(items = panels.map(PanelResponse.fromDomain)))
+          parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+            if (offsetRaw < 0)
+              complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
+            else {
+              val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found"
+              ) { _ =>
+                val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page)
+                  .flatMap { paged =>
+                    panelService.resolveBindingsForRead(paged.items, userOpt)
+                      .map(resolved => PagedResult(resolved.map(PanelResponse.fromDomain), paged.total, paged.offset, paged.limit))
+                  }
+                onSuccess(resultF) { result =>
+                  complete(result)
+                }
+              }
             }
           }
         }

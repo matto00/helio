@@ -29,8 +29,15 @@ final class DashboardRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              onSuccess(dashboardService.findAll(user)) { dashboards =>
-                complete(DashboardsResponse(items = dashboards.map(DashboardResponse.fromDomain)))
+              parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+                if (offsetRaw < 0)
+                  complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
+                else {
+                  val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
+                  onSuccess(dashboardService.findAll(user, page)) { result =>
+                    complete(PagedResult(result.items.map(DashboardResponse.fromDomain), result.total, result.offset, result.limit))
+                  }
+                }
               }
             },
             post {

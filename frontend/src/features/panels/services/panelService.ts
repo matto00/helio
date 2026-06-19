@@ -8,6 +8,7 @@ import type {
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../types/panel";
+import type { PagedResult } from "../../../types/models";
 import {
   buildCreatePanelBody,
   buildBindingPatch,
@@ -17,16 +18,14 @@ import {
 } from "../state/panelPayloads";
 import { httpClient } from "../../../services/httpClient";
 
-interface PanelsResponse {
-  items: Panel[];
-}
-
 interface UpdatePanelAppearanceRequest {
   appearance: PanelAppearance;
 }
 
 export async function fetchPanels(dashboardId: string): Promise<Panel[]> {
-  const response = await httpClient.get<PanelsResponse>(`/api/dashboards/${dashboardId}/panels`);
+  const response = await httpClient.get<PagedResult<Panel>>(
+    `/api/dashboards/${dashboardId}/panels`,
+  );
   return response.data.items;
 }
 

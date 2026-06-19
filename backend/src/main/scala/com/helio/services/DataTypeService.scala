@@ -19,8 +19,8 @@ final class DataTypeService(
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  def findAll(user: AuthenticatedUser): Future[Vector[DataType]] =
-    dataTypeRepo.findAll(user.id)
+  def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[DataType]] =
+    dataTypeRepo.findAll(user.id, page)
 
   def findById(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
     dataTypeRepo.findByIdOwned(id, user).map {

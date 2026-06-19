@@ -320,25 +320,25 @@ class DashboardPanelAclSpec
     "return panels for the owner" in {
       val dashId  = seedDashboard(userAId)
       seedPanel(dashId, userAId)
-      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userA))) should not be empty
+      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userA), Page.Default)).items should not be empty
     }
     "return empty for cross-user caller with no grant" in {
       val dashId  = seedDashboard(userAId)
       seedPanel(dashId, userAId)
-      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userB))) shouldBe empty
+      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userB), Page.Default)).items shouldBe empty
     }
     "return panels for a grantee" in {
       val dashId  = seedDashboard(userAId)
       seedPanel(dashId, userAId)
       grantRole(dashId, userBId, "viewer")
-      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userB))) should not be empty
+      await(panelRepo.findAllByDashboardId(DashboardId(dashId), Some(userB), Page.Default)).items should not be empty
       removeGrant(dashId, userBId)
     }
     "return panels for anonymous caller when public grant exists" in {
       val dashId  = seedDashboard(userAId)
       seedPanel(dashId, userAId)
       grantPublicViewer(dashId)
-      await(panelRepo.findAllByDashboardId(DashboardId(dashId), None)) should not be empty
+      await(panelRepo.findAllByDashboardId(DashboardId(dashId), None, Page.Default)).items should not be empty
       removePublicGrant(dashId)
     }
   }

@@ -5,11 +5,8 @@ import type {
   DashboardSnapshot,
   DuplicateDashboardResponse,
 } from "../types/dashboard";
+import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
-
-interface DashboardsResponse {
-  items: Dashboard[];
-}
 
 interface CreateDashboardRequest {
   name: string;
@@ -20,7 +17,7 @@ interface UpdateDashboardAppearanceRequest {
 }
 
 export async function fetchDashboards(): Promise<Dashboard[]> {
-  const response = await httpClient.get<DashboardsResponse>("/api/dashboards");
+  const response = await httpClient.get<PagedResult<Dashboard>>("/api/dashboards");
   return response.data.items;
 }
 

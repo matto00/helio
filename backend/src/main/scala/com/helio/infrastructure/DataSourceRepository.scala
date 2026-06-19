@@ -62,11 +62,17 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     )
   }
 
-  def findAll(ownerId: UserId): Future[Vector[DataSource]] = {
+  def findAll(ownerId: UserId, page: Page): Future[PagedResult[DataSource]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
+    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
-      table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
-    ).map(_.map(rowToDomain).toVector)
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
   }
 
   /** Privileged unscoped read — no ACL check.
