@@ -1,0 +1,144 @@
+/* ── PipelineShareDialog ─────────────────────────────────────────────────── */
+
+.pipeline-share-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Section ─────────────────────────────────────────────────────────────── */
+
+.pipeline-share-dialog__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pipeline-share-dialog__section-title {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* ── Grant list ──────────────────────────────────────────────────────────── */
+
+.pipeline-share-dialog__grant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pipeline-share-dialog__grant-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--app-bg-secondary);
+  border-radius: var(--app-radius-md);
+}
+
+.pipeline-share-dialog__grantee {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  word-break: break-all;
+}
+
+.pipeline-share-dialog__role {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  text-transform: capitalize;
+}
+
+.pipeline-share-dialog__revoke-btn {
+  font-size: var(--text-xs);
+  color: var(--app-error);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--app-radius-sm);
+}
+
+.pipeline-share-dialog__revoke-btn:hover {
+  background: var(--app-bg-accent);
+}
+
+/* ── Empty / loading / error ─────────────────────────────────────────────── */
+
+.pipeline-share-dialog__empty,
+.pipeline-share-dialog__loading {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+  margin: 0;
+}
+
+.pipeline-share-dialog__error {
+  font-size: var(--text-sm);
+  color: var(--app-error);
+  margin: 0;
+}
+
+/* ── Add grantee form ────────────────────────────────────────────────────── */
+
+.pipeline-share-dialog__add-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pipeline-share-dialog__input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--app-bg);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  color: var(--app-text);
+}
+
+.pipeline-share-dialog__input:focus {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+}
+
+.pipeline-share-dialog__add-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--app-accent);
+  color: var(--app-surface);
+  border: none;
+  border-radius: var(--app-radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pipeline-share-dialog__add-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.pipeline-share-dialog__add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Footer close button ─────────────────────────────────────────────────── */
+
+.pipeline-share-dialog__close-btn {
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  background: var(--app-bg-secondary);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.pipeline-share-dialog__close-btn:hover {
+  background: var(--app-bg-accent);
+}

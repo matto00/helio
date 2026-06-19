@@ -233,6 +233,7 @@ export interface PipelineSummary {
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;
+  ownerId?: string | null;
 }
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
@@ -252,4 +253,14 @@ export interface PipelineRunRecord {
   completedAt: string | null;
   rowCount: number | null;
   errorLog: string | null;
+}
+
+// ── Pipeline sharing types ────────────────────────────────────────────────────
+
+export type GrantRole = "viewer" | "editor";
+
+export interface PermissionGrant {
+  granteeId: string | null;
+  role: GrantRole;
+  createdAt: string;
 }

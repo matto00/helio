@@ -18,6 +18,7 @@ class PipelineRepository(
   private val pipelinesTable   = TableQuery[PipelineTable]
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
+  private val permTable        = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
   def exists(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
@@ -46,6 +47,67 @@ class PipelineRepository(
       pipelinesTable.filter(_.id === id.value).result.headOption
     ).map(_.map(rowToPipeline))
 
+  /** Sharing-aware read. Returns Some if:
+   *  - `callerOpt` is Some and the caller is the owner, or
+   *  - `callerOpt` is Some and the caller has an editor/viewer grant.
+   *  Returns None for all other cases (no existence leak).
+   *  No public-viewer (anonymous) path for pipelines. */
+  def findByIdShared(id: PipelineId, callerOpt: Option[AuthenticatedUser]): Future[Option[Pipeline]] =
+    ctx.withSystemContext(pipelinesTable.filter(_.id === id.value).result.headOption).flatMap {
+      case None => Future.successful(None)
+      case Some(row) =>
+        val ownerId = row.ownerId.toString
+        callerOpt match {
+          case Some(caller) if caller.id.value == ownerId =>
+            Future.successful(Some(rowToPipeline(row)))
+
+          case Some(caller) =>
+            ctx.withUserContext(caller.id.value)(
+              permTable
+                .filter(p =>
+                  p.resourceType === "pipeline" &&
+                  p.resourceId   === id.value   &&
+                  p.granteeId    === UUID.fromString(caller.id.value)
+                )
+                .exists
+                .result
+            ).map(hasGrant => if (hasGrant) Some(rowToPipeline(row)) else None)
+
+          case None =>
+            // No public-viewer path for pipelines.
+            Future.successful(None)
+        }
+    }
+
+  /** Owner-only read. Used for delete / rename where only the pipeline owner
+   *  is authorised regardless of any sharing grants.
+   *  Returns None for cross-user callers (no existence leak). */
+  def findByIdOwned(id: PipelineId, user: AuthenticatedUser): Future[Option[Pipeline]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    ctx.withUserContext(user.id.value)(
+      pipelinesTable
+        .filter(r => r.id === id.value && r.ownerId === ownerUuid)
+        .result
+        .headOption
+    ).map(_.map(rowToPipeline))
+  }
+
+  /** Returns the grant role string ("editor" or "viewer") for the caller on
+   *  this pipeline, or None if no grant exists.
+   *  Used by PipelineService to distinguish editor from viewer for mutation gating. */
+  def findGrantRole(id: PipelineId, user: AuthenticatedUser): Future[Option[String]] =
+    ctx.withSystemContext(
+      permTable
+        .filter(p =>
+          p.resourceType === "pipeline" &&
+          p.resourceId   === id.value   &&
+          p.granteeId    === UUID.fromString(user.id.value)
+        )
+        .map(_.role)
+        .result
+        .headOption
+    )
+
   private def rowToPipeline(row: PipelineRow): Pipeline =
     Pipeline(
       id                 = PipelineId(row.id),
@@ -58,6 +120,31 @@ class PipelineRepository(
       updatedAt          = row.updatedAt,
       ownerId            = UserId(row.ownerId.toString)
     )
+
+  /** Sharing-aware joined summary. Returns Some for owner or grantee callers. */
+  def findSummaryByIdShared(id: PipelineId, callerOpt: Option[AuthenticatedUser]): Future[Option[PipelineSummary]] =
+    findByIdShared(id, callerOpt).flatMap {
+      case None => Future.successful(None)
+      case Some(_) =>
+        val query = for {
+          pipeline   <- pipelinesTable if pipeline.id === id.value
+          dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
+          dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
+        } yield (pipeline, dataSource.name, dataType.name)
+        ctx.withSystemContext(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
+          PipelineSummary(
+            id                   = p.id,
+            name                 = p.name,
+            sourceDataSourceName = srcName,
+            outputDataTypeName   = dtName,
+            outputDataTypeId     = p.outputDataTypeId,
+            lastRunStatus        = p.lastRunStatus,
+            lastRunAt            = p.lastRunAt.map(_.toString),
+            lastRunRowCount      = p.lastRunRowCount,
+            ownerId              = p.ownerId.toString
+          )
+        })
+    }
 
   /** Owner-scoped joined summary for a single pipeline. */
   def findSummaryById(id: PipelineId, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
@@ -77,7 +164,8 @@ class PipelineRepository(
         outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
-        lastRunRowCount      = p.lastRunRowCount
+        lastRunRowCount      = p.lastRunRowCount,
+        ownerId              = p.ownerId.toString
       )
     })
   }
@@ -146,7 +234,8 @@ class PipelineRepository(
               outputDataTypeId     = createdDataType.id.value,
               lastRunStatus        = None,
               lastRunAt            = None,
-              lastRunRowCount      = None
+              lastRunRowCount      = None,
+              ownerId              = user.id.value
             ))
           }
         }
@@ -245,7 +334,8 @@ class PipelineRepository(
         outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
-        lastRunRowCount      = p.lastRunRowCount
+        lastRunRowCount      = p.lastRunRowCount,
+        ownerId              = p.ownerId.toString
       )
     }.toVector)
   }
@@ -268,7 +358,8 @@ object PipelineRepository {
       outputDataTypeId: String,
       lastRunStatus: Option[String],
       lastRunAt: Option[String],
-      lastRunRowCount: Option[Long]
+      lastRunRowCount: Option[Long],
+      ownerId: String = ""
   )
 
   case class PipelineRow(

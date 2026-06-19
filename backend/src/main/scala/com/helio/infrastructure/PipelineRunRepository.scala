@@ -175,6 +175,17 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield run
     ctx.withUserContext(user.id.value)(query.sortBy(_.startedAt.desc).result).map(_.toVector)
   }
+
+  /** ACL-bypassing list of runs. Safe to call only after the caller's pipeline
+    * access has been confirmed via PipelineRepository.findByIdShared. Used by
+    * PipelineRunService.history to support viewer/editor grantees. */
+  def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[PipelineRunRow]] =
+    ctx.withSystemContext(
+      runsTable
+        .filter(_.pipelineId === pipelineId.value)
+        .sortBy(_.startedAt.desc)
+        .result
+    ).map(_.toVector)
 }
 
 object PipelineRunRepository {

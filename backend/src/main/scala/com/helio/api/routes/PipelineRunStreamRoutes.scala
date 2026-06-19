@@ -22,7 +22,8 @@ final class PipelineRunStreamRoutes(runService: PipelineRunService, user: Authen
     pathPrefix("pipelines" / PipelineIdSegment / "run-events") { pipelineId =>
       pathEndOrSingleSlash {
         get {
-          onComplete(runService.pipelineExists(pipelineId, user)) {
+          // HEL-279: sharing-aware — owner, editor, and viewer grantees can subscribe.
+          onComplete(runService.pipelineExistsShared(pipelineId, user)) {
             case Failure(ex) =>
               complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
             case Success(false) =>

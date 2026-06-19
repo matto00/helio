@@ -52,7 +52,17 @@ import scala.util.{Failure, Success}
  *
  *  Run lifecycle lives in [[PipelineRunService]] (split out in CS2c-3a). The
  *  allow-list of step kinds is sourced from [[PipelineStepKind.All]] —
- *  the sealed-trait subclasses are the single source of truth. */
+ *  the sealed-trait subclasses are the single source of truth.
+ *
+ *  HEL-279: sharing-aware ACL threading.
+ *  - Read paths (findSummaryById, listSteps, analyze) use findByIdShared —
+ *    owner and grantees (editor + viewer) can read.
+ *  - Owner-only mutation paths (delete, updateName) use findByIdOwned —
+ *    grantees and cross-user callers receive 404 (no existence leak).
+ *  - Step mutations (addStep, updateStep, deleteStep) require Editor or Owner;
+ *    viewer grantees receive 403. Internal step repo methods (no owner-JOIN) are
+ *    used after access is confirmed so editor grantees are not blocked by the
+ *    V35 pipeline_steps RLS policy. */
 final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
@@ -65,8 +75,9 @@ final class PipelineService(
   def listSummaries(user: AuthenticatedUser): Future[Vector[PipelineSummaryResponse]] =
     pipelineRepo.listSummaries(user).map(_.map(toSummaryResponse))
 
+  /** Sharing-aware read. Owner, editor, and viewer grantees can read. */
   def findSummaryById(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =
-    pipelineRepo.findSummaryById(pipelineId, user).map {
+    pipelineRepo.findSummaryByIdShared(pipelineId, Some(user)).map {
       case Some(summary) => Right(toSummaryResponse(summary))
       case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
@@ -86,64 +97,75 @@ final class PipelineService(
       }
   }
 
+  /** Owner-only rename. Grantees (editor or viewer) receive 403 because
+   *  findByIdOwned returns None for non-owners, surfaced as NotFound (no existence leak). */
   def updateName(pipelineId: PipelineId, req: UpdatePipelineRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
     else
-      pipelineRepo.updateName(pipelineId, req.name.trim, user).map {
-        case Some(summary) => Right(toSummaryResponse(summary))
-        case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
+      pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
+        case None =>
+          Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+        case Some(_) =>
+          pipelineRepo.updateName(pipelineId, req.name.trim, user).map {
+            case Some(summary) => Right(toSummaryResponse(summary))
+            case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
+          }
       }
 
+  /** Owner-only delete. Grantees (editor or viewer) receive 403 because
+   *  findByIdOwned returns None for non-owners, surfaced as NotFound (no existence leak). */
   def delete(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    pipelineRepo.delete(pipelineId, user).map {
-      case true  => Right(())
-      case false => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
+    pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(_) =>
+        pipelineRepo.delete(pipelineId, user).map {
+          case true  => Right(())
+          case false => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
+        }
     }
 
   // ── Analyze ───────────────────────────────────────────────────────────────
 
+  /** Sharing-aware analyze. Owner, editor, and viewer can analyze. */
   def analyze(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeResponse]] = {
-    val summaryF  = pipelineRepo.findSummaryById(pipelineId, user)
-    val pipelineF = pipelineRepo.findById(pipelineId, user)
-    val stepsF    = pipelineStepRepo.listByPipeline(pipelineId, user)
+    val summaryF  = pipelineRepo.findSummaryByIdShared(pipelineId, Some(user))
+    val pipelineF = pipelineRepo.findByIdShared(pipelineId, Some(user))
 
     val combined = for {
       summary  <- summaryF
       pipeline <- pipelineF
-      steps    <- stepsF
-    } yield (summary, pipeline, steps)
+    } yield (summary, pipeline)
 
     combined.flatMap {
-      case (Some(summary), Some(pipeline), steps) =>
-        dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).map { sourceDataTypes =>
-          val sourceSchema: Vector[SchemaField] =
-            sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
+      case (Some(summary), Some(pipeline)) =>
+        // Safe: access confirmed by findByIdShared above.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { steps =>
+          dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).map { sourceDataTypes =>
+            val sourceSchema: Vector[SchemaField] =
+              sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
 
-          // Re-encode the typed config to a JSON string for the (still
-          // stringly-typed) PipelineAnalyzeService inference engine. The
-          // analyze layer is a downstream consumer that we deliberately keep
-          // untouched in CS2c-3a — its operators read raw JSON fields, so
-          // round-tripping through the codec preserves behavior.
-          val stepInputs = steps.map(s =>
-            PipelineAnalyzeService.PipelineStepInput(
-              id       = s.id.value,
-              position = s.position,
-              op       = s.kind,
-              config   = PipelineStepConfigCodec.encode(s)
+            val stepInputs = steps.map(s =>
+              PipelineAnalyzeService.PipelineStepInput(
+                id       = s.id.value,
+                position = s.position,
+                op       = s.kind,
+                config   = PipelineStepConfigCodec.encode(s)
+              )
             )
-          )
-          val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
+            val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
 
-          Right(PipelineAnalyzeResponse(
-            id                   = summary.id,
-            name                 = summary.name,
-            sourceDataSourceName = summary.sourceDataSourceName,
-            outputDataTypeName   = summary.outputDataTypeName,
-            outputDataTypeId     = summary.outputDataTypeId,
-            sourceSchema         = sourceSchema.map(toFieldResponse),
-            steps                = analyzed.map(toAnalyzeStepResponse)
-          ))
+            Right(PipelineAnalyzeResponse(
+              id                   = summary.id,
+              name                 = summary.name,
+              sourceDataSourceName = summary.sourceDataSourceName,
+              outputDataTypeName   = summary.outputDataTypeName,
+              outputDataTypeId     = summary.outputDataTypeId,
+              sourceSchema         = sourceSchema.map(toFieldResponse),
+              steps                = analyzed.map(toAnalyzeStepResponse)
+            ))
+          }
         }
       case _ =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
@@ -172,8 +194,6 @@ final class PipelineService(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
         )
       case Failure(ex) =>
-        // Surface the error in the step's validationError; preserve the input
-        // schema as the output schema (matches the analyze fallback contract).
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: failed to decode persisted config for analyze step ${s.id}: ${ex.getMessage}",
           ex
@@ -183,13 +203,19 @@ final class PipelineService(
 
   // ── Pipeline step CRUD ────────────────────────────────────────────────────
 
+  /** Sharing-aware step list. Owner, editor, and viewer can list steps. */
   def listSteps(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
-    pipelineRepo.exists(pipelineId, user).flatMap {
-      case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-      case true  =>
-        pipelineStepRepo.listByPipeline(pipelineId, user).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(_) =>
+        // Safe: access confirmed by findByIdShared above. Use internal variant
+        // so editor/viewer grantees are not blocked by the V35 pipeline_steps
+        // RLS owner-JOIN policy.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
     }
 
+  /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
   def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
     if (!PipelineStepKind.All.contains(req.`type`))
       Future.successful(Left(ServiceError.BadRequest(
@@ -203,7 +229,6 @@ final class PipelineService(
           )))
         case Success(typedConfig) =>
           // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
-          // Existence-not-leaked semantics: 404 for missing or not-owned source.
           val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
             case jc: JoinConfig =>
               dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
@@ -215,10 +240,23 @@ final class PipelineService(
           joinCheckF.flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(_)  =>
-              pipelineRepo.exists(pipelineId, user).flatMap {
-                case false => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-                case true  =>
-                  pipelineStepRepo.insert(pipelineId, req.`type`, typedConfig, user)
+              pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+                case None =>
+                  Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+                case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
+                  // Grantee path — findByIdShared returned Some, so caller has viewer or editor access.
+                  // Distinguish editor from viewer via requireEditorAccess before allowing mutation.
+                  requireEditorAccess(pipelineId, user).flatMap {
+                    case Left(err) => Future.successful(Left(err))
+                    case Right(_) =>
+                      // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
+                      pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
+                        .map(step => Right(PipelineStepResponse.fromDomain(step)))
+                        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                  }
+                case Some(_) =>
+                  // Owner path — use internal insert (same as before, owner already confirmed)
+                  pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
                     .map(step => Right(PipelineStepResponse.fromDomain(step)))
                     .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
               }
@@ -226,56 +264,71 @@ final class PipelineService(
       }
   }
 
+  /** Step update — requires Editor or Owner. Viewer grantees get 403. */
   def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
-    // Cross-type PATCH lock: matches CS2c-2 DataSource policy. If a `type`
-    // discriminator is supplied and disagrees with the persisted row's kind,
-    // we reject with 400. The UI never offers cross-type conversion; this
-    // keeps the ADT honest against accidental client misuse.
-    pipelineStepRepo.findById(stepId, user).flatMap {
+    // Use internal findById (no owner-JOIN) since we only want to verify the step exists
+    // and the type matches. The ACL check happens at the pipeline level below.
+    pipelineStepRepo.findByIdInternal(stepId).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
       case Some(existing) =>
-        req.`type` match {
-          case Some(t) if t != existing.kind =>
-            Future.successful(Left(ServiceError.BadRequest(
-              s"Cannot change step type from '${existing.kind}' to '$t'. " +
-                "Delete the step and create a new one instead."
-            )))
-          case _ =>
-            req.config match {
-              case None =>
-                pipelineStepRepo.update(stepId, config = None, position = req.position, user)
-                  .map {
-                    case Some(step) => Right(PipelineStepResponse.fromDomain(step))
-                    case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
-                  }
-                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-              case Some(cfgJson) =>
-                PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
-                  case Failure(ex) =>
+        // Verify the caller has pipeline access (at least viewer) by finding the parent pipeline.
+        pipelineRepo.findByIdShared(PipelineId(existing.pipelineId.value), Some(user)).flatMap {
+          case None =>
+            // Caller can't see the pipeline — step doesn't exist from their perspective.
+            Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+          case Some(pipeline) =>
+            // Check for editor/owner — viewers get 403.
+            val editorCheckF: Future[Either[ServiceError, Unit]] =
+              if (pipeline.ownerId.value == user.id.value) Future.successful(Right(()))
+              else requireEditorAccess(pipeline.id, user)
+
+            editorCheckF.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  =>
+                req.`type` match {
+                  case Some(t) if t != existing.kind =>
                     Future.successful(Left(ServiceError.BadRequest(
-                      s"Invalid '${existing.kind}' config: ${ex.getMessage}"
+                      s"Cannot change step type from '${existing.kind}' to '$t'. " +
+                        "Delete the step and create a new one instead."
                     )))
-                  case Success(typedConfig) =>
-                    // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
-                    // Existence-not-leaked semantics: 404 for missing or not-owned source.
-                    val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-                      case jc: JoinConfig =>
-                        dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
-                          case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
-                          case Some(_) => Right(())
-                        }
-                      case _ => Future.successful(Right(()))
-                    }
-                    joinCheckF.flatMap {
-                      case Left(err) => Future.successful(Left(err))
-                      case Right(_)  =>
-                        pipelineStepRepo.update(stepId, config = Some(typedConfig), position = req.position, user)
+                  case _ =>
+                    req.config match {
+                      case None =>
+                        // Safe: editor/owner access confirmed. Use internal update.
+                        pipelineStepRepo.updateInternal(stepId, config = None, position = req.position)
                           .map {
                             case Some(step) => Right(PipelineStepResponse.fromDomain(step))
                             case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                           }
                           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                      case Some(cfgJson) =>
+                        PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
+                          case Failure(ex) =>
+                            Future.successful(Left(ServiceError.BadRequest(
+                              s"Invalid '${existing.kind}' config: ${ex.getMessage}"
+                            )))
+                          case Success(typedConfig) =>
+                            val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+                              case jc: JoinConfig =>
+                                dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
+                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
+                                  case Some(_) => Right(())
+                                }
+                              case _ => Future.successful(Right(()))
+                            }
+                            joinCheckF.flatMap {
+                              case Left(err) => Future.successful(Left(err))
+                              case Right(_)  =>
+                                // Safe: editor/owner access confirmed. Use internal update.
+                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position)
+                                  .map {
+                                    case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                                    case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                                  }
+                                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                            }
+                        }
                     }
                 }
             }
@@ -283,13 +336,47 @@ final class PipelineService(
     }
   }
 
+  /** Step delete — requires Editor or Owner. Viewer grantees get 403. */
   def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    pipelineStepRepo.delete(stepId, user).map {
-      case true  => Right(())
-      case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+    pipelineStepRepo.findByIdInternal(stepId).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+      case Some(existing) =>
+        pipelineRepo.findByIdShared(PipelineId(existing.pipelineId.value), Some(user)).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+          case Some(pipeline) =>
+            val editorCheckF: Future[Either[ServiceError, Unit]] =
+              if (pipeline.ownerId.value == user.id.value) Future.successful(Right(()))
+              else requireEditorAccess(pipeline.id, user)
+
+            editorCheckF.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  =>
+                // Safe: editor/owner access confirmed. Use internal delete.
+                pipelineStepRepo.deleteInternal(stepId).map {
+                  case true  => Right(())
+                  case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                }
+            }
+        }
     }
 
   // ── Internal helpers ──────────────────────────────────────────────────────
+
+  /** Verifies that the caller has editor (not just viewer) access to the pipeline.
+   *  Called only when the caller is NOT the owner (i.e. they have a grant).
+   *  Returns Right(()) for editor grantees; Left(Forbidden) for viewer grantees. */
+  private def requireEditorAccess(
+      pipelineId: PipelineId,
+      user:       AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    // We know caller != owner and findByIdShared returned Some, so they have a grant.
+    // Query the grant role to distinguish editor from viewer.
+    pipelineRepo.findGrantRole(pipelineId, user).map {
+      case Some("editor") => Right(())
+      case _              => Left(ServiceError.Forbidden("Forbidden"))
+    }
 
   private def toSummaryResponse(s: PipelineSummary): PipelineSummaryResponse =
     PipelineSummaryResponse(
@@ -300,7 +387,8 @@ final class PipelineService(
       outputDataTypeId     = s.outputDataTypeId,
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
-      lastRunRowCount      = s.lastRunRowCount
+      lastRunRowCount      = s.lastRunRowCount,
+      ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None
     )
 
   private def toFieldResponse(sf: SchemaField): SchemaFieldResponse =

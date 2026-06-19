@@ -277,6 +277,21 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(pipelineRepo.findByIdInternal(pid)) shouldBe defined
     }
 
+    // ── HEL-279 regression: sharing-aware read does not leak existence ────────
+
+    "findByIdShared returns None for a caller with no grant (cross-user 404 preserved)" in {
+      val pid = seedPipeline()
+
+      // otherUser has no grant on the pipeline seeded by systemUser.
+      // findByIdShared must return None (not Some) — no existence leak.
+      val result = await(pipelineRepo.findByIdShared(pid, Some(otherUser)))
+      result shouldBe None
+
+      // Owner can still see it.
+      val ownerResult = await(pipelineRepo.findByIdShared(pid, Some(systemUser)))
+      ownerResult shouldBe defined
+    }
+
     "create rejects a source data source the caller does not own" in {
       import PostgresProfile.api._
       val ownerA  = UUID.randomUUID().toString
