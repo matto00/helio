@@ -27,80 +27,67 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
 
   /** Sharing-aware paginated list. Returns panels for the dashboard only when
    *  the caller has access (owner, grantee, or anonymous with a public-viewer
-   *  grant). Count and slice queries are composed in a single DBIO action per
-   *  branch so both run in the same RLS session.
-   *  Used by `PublicDashboardRoutes`. */
+   *  grant). Used by `PublicDashboardRoutes`.
+   *
+   *  The access check is collapsed into the data query as embedded WHERE
+   *  predicates (a single JOIN) rather than the 2–3 sequential EXISTS
+   *  round-trips the old implementation required, and the count + slice run in
+   *  one withSystemContext session so the page total stays consistent with the
+   *  returned slice.
+   *
+   *  Uses withSystemContext because the ACL predicate is embedded in the WHERE
+   *  clause rather than relying on `app.current_user_id` RLS; the privileged
+   *  pool correctly evaluates the explicit ownership/grant conditions. */
   def findAllByDashboardId(
       dashboardId: DashboardId,
       callerOpt: Option[AuthenticatedUser],
       page: Page
   ): Future[PagedResult[Panel]] = {
-    val baseQuery = table.filter(_.dashboardId === dashboardId.value)
-    val countAction = baseQuery.length.result
-    val sliceAction = baseQuery.sortBy(_.lastUpdated.desc).drop(page.offset).take(page.limit).result
+    // Build the owner/grantee branches of the access predicate up front.
+    // LiteralColumn(false) is used for branches that can never match when
+    // callerOpt is None (owner check and grantee check both require a caller id).
+    val (ownerPred, granteePred): (Rep[Boolean], Rep[Boolean]) = callerOpt match {
+      case Some(caller) =>
+        val callerUuid = UUID.fromString(caller.id.value)
+        val ownerCheck: Rep[Boolean] =
+          dashTable.filter(d => d.id === dashboardId.value && d.ownerId === callerUuid).exists
+        val granteeCheck: Rep[Boolean] =
+          permTable.filter(p =>
+            p.resourceType === "dashboard" &&
+            p.resourceId   === dashboardId.value &&
+            p.granteeId    === callerUuid
+          ).exists
+        (ownerCheck, granteeCheck)
 
-    dashTable.filter(_.id === dashboardId.value).result.headOption pipe { q =>
-      ctx.withSystemContext(q).flatMap {
-        case None => Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
-        case Some(dashRow) =>
-          val ownerId = dashRow.ownerId.toString
-          callerOpt match {
-            case Some(caller) if caller.id.value == ownerId =>
-              ctx.withUserContext(caller.id.value)(
-                for {
-                  total <- countAction
-                  rows  <- sliceAction
-                } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
-              )
-
-            case Some(caller) =>
-              ctx.withUserContext(caller.id.value)(
-                permTable
-                  .filter(p =>
-                    p.resourceType === "dashboard" &&
-                    p.resourceId   === dashboardId.value &&
-                    p.granteeId    === UUID.fromString(caller.id.value)
-                  )
-                  .exists
-                  .result
-              ).flatMap { hasGrant =>
-                if (hasGrant)
-                  ctx.withUserContext(caller.id.value)(
-                    for {
-                      total <- countAction
-                      rows  <- sliceAction
-                    } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
-                  )
-                else
-                  Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
-              }
-
-            case None =>
-              // Public-viewer fallback: anonymous caller.
-              ctx.withSystemContext(
-                permTable
-                  .filter(p =>
-                    p.resourceType === "dashboard" &&
-                    p.resourceId   === dashboardId.value &&
-                    p.granteeId.isEmpty &&
-                    p.role         === "viewer"
-                  )
-                  .exists
-                  .result
-              ).flatMap { hasPublic =>
-                if (hasPublic)
-                  ctx.withSystemContext(
-                    for {
-                      total <- countAction
-                      rows  <- sliceAction
-                    } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
-                  )
-                else
-                  Future.successful(PagedResult(Vector.empty[Panel], 0, page.offset, page.limit))
-              }
-          }
-      }
+      case None =>
+        // Anonymous caller: owner and grantee branches can never match.
+        (LiteralColumn(false): Rep[Boolean], LiteralColumn(false): Rep[Boolean])
     }
+
+    // Public-viewer branch: always evaluated (EXISTS subquery for NULL grantee_id).
+    val publicPred: Rep[Boolean] =
+      permTable.filter(p =>
+        p.resourceType === "dashboard" &&
+        p.resourceId   === dashboardId.value &&
+        p.granteeId.isEmpty &&
+        p.role         === "viewer"
+      ).exists
+
+    val accessFiltered =
+      table
+        .filter(_.dashboardId === dashboardId.value)
+        .filter(_ => ownerPred || granteePred || publicPred)
+
+    val countAction = accessFiltered.length.result
+    val sliceAction =
+      accessFiltered.sortBy(_.lastUpdated.desc).drop(page.offset).take(page.limit).result
+
+    ctx.withSystemContext(
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
   }
 
   /** No-ACL read. Documented callers:
@@ -114,47 +101,56 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
   /** Sharing-aware read. Returns Some when the caller is the panel's parent
    *  dashboard's owner, has an explicit grant on that dashboard, or (when
    *  `callerOpt = None`) a public-viewer grant exists on the dashboard.
-   *  Returns None otherwise — no existence leak. */
-  def findById(id: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
-    ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).flatMap {
-      case None => Future.successful(None)
-      case Some(panelRow) =>
-        val dashId = panelRow.dashboardId
-        ctx.withSystemContext(dashTable.filter(_.id === dashId).result.headOption).flatMap {
-          case None => Future.successful(None)  // orphaned panel — treat as not found
-          case Some(dashRow) =>
-            val ownerId = dashRow.ownerId.toString
-            callerOpt match {
-              case Some(caller) if caller.id.value == ownerId =>
-                Future.successful(Some(rowToDomain(panelRow)))
+   *  Returns None otherwise — no existence leak.
+   *
+   *  Collapsed to a single JOIN query (one db.run for all paths) to eliminate
+   *  the 2–3 sequential round-trips the old implementation required.
+   *
+   *  Uses withSystemContext because the ACL predicate is embedded in the WHERE
+   *  clause rather than relying on `app.current_user_id` RLS; the privileged
+   *  pool correctly evaluates the explicit ownership/grant conditions. */
+  def findById(id: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] = {
+    val (ownerPred, granteePred): (Rep[Boolean], Rep[Boolean]) = callerOpt match {
+      case Some(caller) =>
+        val callerUuid = UUID.fromString(caller.id.value)
+        // Join panels → dashboards to check ownership
+        val ownerCheck: Rep[Boolean] =
+          (for {
+            panel <- table if panel.id === id.value
+            dash  <- dashTable if dash.id === panel.dashboardId && dash.ownerId === callerUuid
+          } yield dash).exists
+        val granteeCheck: Rep[Boolean] =
+          (for {
+            panel <- table if panel.id === id.value
+            perm  <- permTable if
+              perm.resourceType === "dashboard" &&
+              perm.resourceId   === panel.dashboardId &&
+              perm.granteeId    === callerUuid
+          } yield perm).exists
+        (ownerCheck, granteeCheck)
 
-              case Some(caller) =>
-                ctx.withUserContext(caller.id.value)(
-                  permTable
-                    .filter(p =>
-                      p.resourceType === "dashboard" &&
-                      p.resourceId   === dashId      &&
-                      p.granteeId    === UUID.fromString(caller.id.value)
-                    )
-                    .exists
-                    .result
-                ).map(hasGrant => if (hasGrant) Some(rowToDomain(panelRow)) else None)
-
-              case None =>
-                ctx.withSystemContext(
-                  permTable
-                    .filter(p =>
-                      p.resourceType === "dashboard" &&
-                      p.resourceId   === dashId      &&
-                      p.granteeId.isEmpty            &&
-                      p.role         === "viewer"
-                    )
-                    .exists
-                    .result
-                ).map(hasPublic => if (hasPublic) Some(rowToDomain(panelRow)) else None)
-            }
-        }
+      case None =>
+        // Anonymous caller: owner and grantee branches can never match.
+        (LiteralColumn(false): Rep[Boolean], LiteralColumn(false): Rep[Boolean])
     }
+
+    val publicPred: Rep[Boolean] =
+      (for {
+        panel <- table if panel.id === id.value
+        perm  <- permTable if
+          perm.resourceType === "dashboard" &&
+          perm.resourceId   === panel.dashboardId &&
+          perm.granteeId.isEmpty &&
+          perm.role         === "viewer"
+      } yield perm).exists
+
+    val query =
+      table
+        .filter(_.id === id.value)
+        .filter(_ => ownerPred || granteePred || publicPred)
+
+    ctx.withSystemContext(query.result.headOption).map(_.map(rowToDomain))
+  }
 
   def insert(panel: Panel): Future[Panel] =
     ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
@@ -314,11 +310,6 @@ class PanelRepository(ctx: DbContext)(implicit ec: ExecutionContext)
         .transactionally
 
     ctx.withSystemContext(action).map(_.map(rowToDomain).toVector)
-  }
-
-  // Helper to pipe a value into a function (avoids temp variable noise).
-  private implicit class PipeOps[A](a: A) {
-    def pipe[B](f: A => B): B = f(a)
   }
 }
 
