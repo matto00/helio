@@ -38,22 +38,33 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
     }
   }
 
-  def list(prefix: String): Future[Seq[String]] = Future {
+  def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] = Future {
     blocking {
       val root = resolve(prefix)
       if (!Files.exists(root)) {
-        Seq.empty
+        ListPage(Seq.empty, None)
       } else if (Files.isDirectory(root)) {
-        Files
+        val offset = cursor.map(_.toInt).getOrElse(0)
+        val allNames = Files
           .walk(root)
           .filter(p => !Files.isDirectory(p))
           .iterator()
           .asScala
           .map(p => baseDir.relativize(p).toString)
           .toSeq
+          .sorted
+        val page = allNames.slice(offset, offset + pageSize)
+        val nextCursor =
+          if (offset + pageSize < allNames.size) Some((offset + pageSize).toString)
+          else None
+        ListPage(page, nextCursor)
       } else {
         // prefix points to a file directly
-        Seq(baseDir.relativize(root).toString)
+        if (cursor.isDefined) {
+          ListPage(Seq.empty, None)
+        } else {
+          ListPage(Seq(baseDir.relativize(root).toString), None)
+        }
       }
     }
   }

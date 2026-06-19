@@ -1,8 +1,5 @@
-# gcs-filesystem Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change gcs-filesystem-backend. Update Purpose after archive.
-## Requirements
 ### Requirement: GcsFileSystem implements FileSystem using GCS Java SDK
 The backend SHALL provide a `GcsFileSystem` class in `com.helio.infrastructure` that implements the `FileSystem` trait, storing and retrieving files as objects in a GCS bucket. All operations SHALL be async (`Future`-wrapped) and SHALL use the `com.google.cloud:google-cloud-storage` Java SDK with Application Default Credentials.
 
@@ -53,30 +50,3 @@ The implementation SHALL NOT call `iterateAll()` on any `Page<Blob>` instance.
 #### Scenario: List returns empty page for unmatched prefix
 - **WHEN** no objects match the given prefix
 - **THEN** `names` is empty and `nextCursor` is `None`
-
-### Requirement: GcsFileSystem.fromEnv selects bucket from HELIO_UPLOADS_BUCKET
-`GcsFileSystem` SHALL expose a companion method `fromEnv()` that reads `HELIO_UPLOADS_BUCKET` from the environment. If the variable is absent or empty, the method SHALL throw `IllegalStateException` with a descriptive message and log an error.
-
-#### Scenario: Bucket env var present
-- **WHEN** `HELIO_UPLOADS_BUCKET=helio-uploads-prod` is set and `GcsFileSystem.fromEnv()` is called
-- **THEN** a `GcsFileSystem` configured for `helio-uploads-prod` is returned
-
-#### Scenario: Bucket env var absent
-- **WHEN** `HELIO_UPLOADS_BUCKET` is not set and `GcsFileSystem.fromEnv()` is called
-- **THEN** an `IllegalStateException` is thrown with a message indicating the missing variable
-
-### Requirement: GcsFileSystem selected by HELIO_UPLOADS_BACKEND=gcs at startup
-`Main.scala` SHALL read `HELIO_UPLOADS_BACKEND` at startup and construct `GcsFileSystem.fromEnv()` when the value is `gcs`. When the value is `local` or unset, `LocalFileSystem.fromEnv()` SHALL be constructed instead. The selected instance SHALL be injected into `ApiRoutes` as the `FileSystem` dependency.
-
-#### Scenario: Cloud Run production config selects GCS
-- **WHEN** `HELIO_UPLOADS_BACKEND=gcs` and `HELIO_UPLOADS_BUCKET=helio-uploads-prod` are set at startup
-- **THEN** file writes and reads are routed through `GcsFileSystem`
-
-#### Scenario: Local dev without backend env var uses LocalFileSystem
-- **WHEN** `HELIO_UPLOADS_BACKEND` is not set
-- **THEN** file writes and reads are routed through `LocalFileSystem`
-
-#### Scenario: Unknown backend value fails fast
-- **WHEN** `HELIO_UPLOADS_BACKEND=s3` (unsupported value) is set
-- **THEN** the application exits at startup with an error message identifying the unsupported backend value
-

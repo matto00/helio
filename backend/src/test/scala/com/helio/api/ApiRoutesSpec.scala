@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, DashboardId, PanelId, RestApiConfig, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -86,11 +86,11 @@ class ApiRoutesSpec
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
-    def write(path: String, bytes: Array[Byte]): Future[Unit]  = Future.successful(())
-    def read(path: String): Future[Array[Byte]]                = Future.successful(Array.empty)
-    def delete(path: String): Future[Unit]                     = Future.successful(())
-    def exists(path: String): Future[Boolean]                  = Future.successful(false)
-    def list(prefix: String): Future[Seq[String]]              = Future.successful(Seq.empty)
+    def write(path: String, bytes: Array[Byte]): Future[Unit]                                         = Future.successful(())
+    def read(path: String): Future[Array[Byte]]                                                       = Future.successful(Array.empty)
+    def delete(path: String): Future[Unit]                                                            = Future.successful(())
+    def exists(path: String): Future[Boolean]                                                         = Future.successful(false)
+    def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]  = Future.successful(ListPage(Seq.empty, None))
   }
 
   private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
