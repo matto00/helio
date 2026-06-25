@@ -44,6 +44,8 @@ interface PanelBaseOverrides {
   appearance?: PanelAppearance;
   ownerId?: string;
   refreshInterval?: number | null;
+  /** HEL-234: ISO-8601 freshness timestamp; absent/null when panel is unbound. */
+  dataAsOf?: string | null;
 }
 
 function applyBase<T extends Panel>(
@@ -59,6 +61,7 @@ function applyBase<T extends Panel>(
     appearance: overrides.appearance ?? defaultAppearance,
     ownerId: overrides.ownerId ?? "u1",
     refreshInterval: overrides.refreshInterval ?? null,
+    dataAsOf: overrides.dataAsOf ?? null,
     type,
     config,
   } as T;

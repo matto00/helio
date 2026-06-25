@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
+import com.helio.domain.{AuthenticatedUser, PagedResult, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
@@ -142,7 +142,7 @@ class DataSourceRoutesSpec
         // DataType should be registered
         Get("/api/types") ~> routes() ~> check {
           status shouldBe StatusCodes.OK
-          val types = responseAs[DataTypesResponse]
+          val types = responseAs[PagedResult[DataTypeResponse]]
           types.items should have length 1
           types.items.head.name          shouldBe "Sales Data"
           types.items.head.sourceId      shouldBe Some(body.id)
@@ -304,7 +304,7 @@ class DataSourceRoutesSpec
       }
 
       Get("/api/data-sources") ~> routes() ~> check {
-        responseAs[DataSourcesResponse].items shouldBe empty
+        responseAs[PagedResult[DataSourceResponse]].items shouldBe empty
       }
     }
 
@@ -378,7 +378,7 @@ class DataSourceRoutesSpec
         status shouldBe StatusCodes.Created
         responseAs[DataSourceResponse].name shouldBe "Overridden"
         Get("/api/types") ~> routes() ~> check {
-          val types = responseAs[DataTypesResponse]
+          val types = responseAs[PagedResult[DataTypeResponse]]
           val idField = types.items.head.fields.find(_.name == "id")
           idField.map(_.displayName) shouldBe Some("Record ID")
         }
@@ -409,7 +409,7 @@ class DataSourceRoutesSpec
 
         Get("/api/types") ~> routes() ~> check {
           status shouldBe StatusCodes.OK
-          val types = responseAs[DataTypesResponse]
+          val types = responseAs[PagedResult[DataTypeResponse]]
           types.items should have length 1
           val dt = types.items.head
           dt.name     shouldBe "Lookup Table"
@@ -491,7 +491,7 @@ class DataSourceRoutesSpec
       }
 
       Get("/api/types") ~> routes() ~> check {
-        val types = responseAs[DataTypesResponse]
+        val types = responseAs[PagedResult[DataTypeResponse]]
         val dt    = types.items.head
         dt.fields.map(_.name) should contain allOf ("col1", "col2")
       }

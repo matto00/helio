@@ -23,7 +23,11 @@ final case class PanelAppearanceResponse(
 /** CS2c-3c discriminated wire shape: every panel response carries a `type`
  *  discriminator and a typed `config` payload whose shape is determined by
  *  the discriminator. Per-subtype flat nullable fields at the response root
- *  are gone — readers narrow on `type` and read fields from `config`. */
+ *  are gone — readers narrow on `type` and read fields from `config`.
+ *
+ *  `dataAsOf` (HEL-234): ISO-8601 timestamp of the most recent successful
+ *  pipeline run that writes to this panel's bound DataType; `None` (→ JSON
+ *  `null`) when the panel has no bound DataType or no pipeline has run. */
 final case class PanelResponse(
     id: String,
     dashboardId: String,
@@ -32,7 +36,8 @@ final case class PanelResponse(
     meta: ResourceMetaResponse,
     appearance: PanelAppearanceResponse,
     ownerId: String,
-    config: JsValue
+    config: JsValue,
+    dataAsOf: Option[String]
 )
 final case class PanelsResponse(items: Vector[PanelResponse])
 
@@ -76,8 +81,12 @@ object PanelResponse {
    *  CS2c-3c collapses the prior wide-flat shape (8 nullable subtype fields
    *  at the root) to `type` + typed `config`. Per-subtype `*Config` already
    *  carries a `RootJsonFormat`; this dispatcher selects it and emits the
-   *  config payload as the `config` field. */
-  def fromDomain(panel: Panel): PanelResponse =
+   *  config payload as the `config` field.
+   *
+   *  `dataAsOf` (HEL-234): pass the ISO timestamp from
+   *  `PipelineRepository.findLastRunAtByOutputDataTypeId` for panels with a
+   *  bound DataType; pass `None` for all other call sites. */
+  def fromDomain(panel: Panel, dataAsOf: Option[String] = None): PanelResponse =
     PanelResponse(
       id          = panel.id.value,
       dashboardId = panel.dashboardId.value,
@@ -86,7 +95,8 @@ object PanelResponse {
       meta        = ResourceMetaResponse.fromDomain(panel.meta),
       appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
       ownerId     = panel.ownerId.value,
-      config      = PanelConfigCodec.encodeConfig(panel)
+      config      = PanelConfigCodec.encodeConfig(panel),
+      dataAsOf    = dataAsOf
     )
 }
 
@@ -133,7 +143,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   // Panel request / response formats
   implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload]   = jsonFormat4(PanelAppearancePayload.apply)
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(PanelAppearanceResponse.apply)
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat8(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat9(PanelResponse.apply)
   implicit val panelsResponseFormat: RootJsonFormat[PanelsResponse]                   = jsonFormat1(PanelsResponse.apply)
 
   /** Create request — typed `config` raw `JsValue` field is resolved by

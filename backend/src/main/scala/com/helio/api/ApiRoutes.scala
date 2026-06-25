@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -75,7 +75,8 @@ final class ApiRoutes(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem
   )
-  private val permissionService = new PermissionService(permissionRepo, accessChecker)
+  private val permissionService           = new PermissionService(permissionRepo, accessChecker)
+  private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
 
   private val auth  = new AuthRoutes(authService)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
@@ -91,7 +92,7 @@ final class ApiRoutes(
           concat(
             pathPrefix("auth") { concat(auth.routes, oauth.routes) },
             authDirectives.optionalAuthenticate { userOpt =>
-              new PublicDashboardRoutes(panelRepo, panelService, aclDirective, userOpt).routes
+              new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes
             },
             authDirectives.authenticate { authenticatedUser =>
               concat(
@@ -163,7 +164,8 @@ final class ApiRoutes(
                 new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes
+                new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
+                new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes
               )
             }
           )

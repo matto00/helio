@@ -1,12 +1,9 @@
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
+import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
 
-interface DataTypesResponse {
-  items: DataType[];
-}
-
 export async function fetchDataTypes(): Promise<DataType[]> {
-  const response = await httpClient.get<DataTypesResponse>("/api/types");
+  const response = await httpClient.get<PagedResult<DataType>>("/api/types");
   return response.data.items;
 }
 

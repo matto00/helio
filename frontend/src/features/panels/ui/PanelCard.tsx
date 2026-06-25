@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, type CSSProperties } from "react";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
+import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { getDataTypeId } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -221,7 +222,14 @@ export const PanelCard = React.memo(function PanelCard({
               <InlineError error={editingTitleError} />
             </>
           ) : (
-            <h3 className="panel-grid-card__title">{panel.title}</h3>
+            <>
+              <h3 className="panel-grid-card__title">{panel.title}</h3>
+              {panel.dataAsOf ? (
+                <p className="panel-grid-card__freshness">
+                  Data as of {formatRelativeTime(panel.dataAsOf)}
+                </p>
+              ) : null}
+            </>
           )}
         </div>
         <div className="panel-grid-card__actions">

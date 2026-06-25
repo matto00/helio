@@ -6,9 +6,9 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import com.helio.domain.{AuthenticatedUser, DashboardId, PanelId, RestApiConfig, RestApiConnector, UserId}
+import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -86,11 +86,11 @@ class ApiRoutesSpec
   }
 
   private val stubFileSystem: FileSystem = new FileSystem {
-    def write(path: String, bytes: Array[Byte]): Future[Unit]  = Future.successful(())
-    def read(path: String): Future[Array[Byte]]                = Future.successful(Array.empty)
-    def delete(path: String): Future[Unit]                     = Future.successful(())
-    def exists(path: String): Future[Boolean]                  = Future.successful(false)
-    def list(prefix: String): Future[Seq[String]]              = Future.successful(Seq.empty)
+    def write(path: String, bytes: Array[Byte]): Future[Unit]                                         = Future.successful(())
+    def read(path: String): Future[Array[Byte]]                                                       = Future.successful(Array.empty)
+    def delete(path: String): Future[Unit]                                                            = Future.successful(())
+    def exists(path: String): Future[Boolean]                                                         = Future.successful(false)
+    def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]  = Future.successful(ListPage(Seq.empty, None))
   }
 
   private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
@@ -188,7 +188,11 @@ class ApiRoutesSpec
       cleanDb()
       Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[DashboardsResponse] shouldBe DashboardsResponse(Vector.empty)
+        val paged = responseAs[PagedResult[DashboardResponse]]
+        paged.items shouldBe Vector.empty
+        paged.total shouldBe 0
+        paged.offset shouldBe 0
+        paged.limit shouldBe Page.Default.limit
       }
     }
 
@@ -228,7 +232,7 @@ class ApiRoutesSpec
 
       Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val response = responseAs[DashboardsResponse]
+        val response = responseAs[PagedResult[DashboardResponse]]
         response.items should have size 1
         response.items.head.name shouldBe "Operations"
         assertResourceMeta(response.items.head.meta)
@@ -238,7 +242,7 @@ class ApiRoutesSpec
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val response = responseAs[PanelsResponse]
+        val response = responseAs[PagedResult[PanelResponse]]
         response.items should have size 1
         response.items.head.dashboardId shouldBe dashboardId
         response.items.head.title shouldBe "CPU Usage"
@@ -293,7 +297,7 @@ class ApiRoutesSpec
 
       Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items      = responseAs[DashboardsResponse].items
+        val items      = responseAs[PagedResult[DashboardResponse]].items
         items should have size 2
         val timestamps = items.map(d => java.time.Instant.parse(d.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
@@ -317,7 +321,7 @@ class ApiRoutesSpec
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items      = responseAs[PanelsResponse].items
+        val items      = responseAs[PagedResult[PanelResponse]].items
         items should have size 2
         val timestamps = items.map(p => java.time.Instant.parse(p.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
@@ -351,7 +355,7 @@ class ApiRoutesSpec
       }
 
       Get("/api/dashboards") ~> routes() ~> check {
-        val items = responseAs[DashboardsResponse].items
+        val items = responseAs[PagedResult[DashboardResponse]].items
         items.head.appearance.background shouldBe "#1e293b"
       }
     }
@@ -387,7 +391,7 @@ class ApiRoutesSpec
       }
 
       Get("/api/dashboards") ~> routes() ~> check {
-        val items = responseAs[DashboardsResponse].items
+        val items = responseAs[PagedResult[DashboardResponse]].items
         items.head.layout.md should contain only DashboardLayoutItemResponse("panel-a", 0, 1, 4, 5)
       }
     }
@@ -497,7 +501,7 @@ class ApiRoutesSpec
       }
 
       Get("/api/dashboards") ~> routes() ~> check {
-        responseAs[DashboardsResponse].items shouldBe empty
+        responseAs[PagedResult[DashboardResponse]].items shouldBe empty
       }
     }
 
@@ -545,7 +549,7 @@ class ApiRoutesSpec
       }
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        responseAs[PanelsResponse].items shouldBe empty
+        responseAs[PagedResult[PanelResponse]].items shouldBe empty
       }
     }
 
@@ -656,7 +660,7 @@ class ApiRoutesSpec
       }
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        val panels = responseAs[PanelsResponse].items
+        val panels = responseAs[PagedResult[PanelResponse]].items
         panels should have size 2
         val source = panels.find(_.id == panelId).get
         source.title shouldBe "CPU Usage"
@@ -765,7 +769,7 @@ class ApiRoutesSpec
       cleanDb()
       Get("/api/types") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[DataTypesResponse] shouldBe DataTypesResponse(Vector.empty)
+        responseAs[PagedResult[DataTypeResponse]].items shouldBe Vector.empty
       }
     }
 
@@ -1122,7 +1126,7 @@ class ApiRoutesSpec
       cleanDb()
       Get("/api/data-sources") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[DataSourcesResponse] shouldBe DataSourcesResponse(Vector.empty)
+        responseAs[PagedResult[DataSourceResponse]].items shouldBe Vector.empty
       }
     }
 
@@ -1447,14 +1451,14 @@ class ApiRoutesSpec
       }
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        val panels = responseAs[PanelsResponse].items
+        val panels = responseAs[PagedResult[PanelResponse]].items
         panels should have size 1
         panels.head.id shouldBe panelId
         panels.head.title shouldBe "My Panel"
       }
 
       Get("/api/dashboards") ~> routes() ~> check {
-        val dashboards = responseAs[DashboardsResponse].items
+        val dashboards = responseAs[PagedResult[DashboardResponse]].items
         val source     = dashboards.find(_.id == dashboardId).get
         source.name shouldBe "Source"
       }
@@ -2009,7 +2013,7 @@ class ApiRoutesSpec
 
       Get("/api/dashboards") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items = responseAs[DashboardsResponse].items
+        val items = responseAs[PagedResult[DashboardResponse]].items
         items should have size 1
         items.head.name shouldBe "My Dashboard"
       }
@@ -2142,7 +2146,7 @@ class ApiRoutesSpec
 
       Get("/api/data-sources") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val items = responseAs[DataSourcesResponse].items
+        val items = responseAs[PagedResult[DataSourceResponse]].items
         items.map(_.name) should contain ("My Source")
         items.map(_.name) should not contain "Other Source"
       }
@@ -2217,7 +2221,7 @@ class ApiRoutesSpec
 
       Get("/api/types") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val types = responseAs[DataTypesResponse]
+        val types = responseAs[PagedResult[DataTypeResponse]]
         types.items.map(_.name) should contain ("User Type")
         types.items.map(_.name) should not contain "Other Type"
       }
@@ -2237,7 +2241,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
       }
       Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[DataTypesResponse].items.head.id
+        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
       }
 
       // otherUser tries to PATCH it — returns 404, not 403 (existence is not leaked)
@@ -2262,7 +2266,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
       }
       Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[DataTypesResponse].items.head.id
+        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
       }
 
       // otherUser tries to DELETE it — returns 404, not 403 (existence is not leaked)
@@ -2312,7 +2316,7 @@ class ApiRoutesSpec
       // Now testUser reads panels for their dashboard — config.dataTypeId should be empty
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
+        val panels = responseAs[PagedResult[PanelResponse]].items
         panels should have size 1
         panels.head.config.asJsObject.fields("dataTypeId") shouldBe JsString("")
       }
@@ -2651,7 +2655,7 @@ class ApiRoutesSpec
       // Unauthenticated request should see the panels
       Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.OK
-        val resp = responseAs[PanelsResponse]
+        val resp = responseAs[PagedResult[PanelResponse]]
         resp.items should have size 1
         resp.items.head.id shouldBe panelId
       }
@@ -2980,13 +2984,127 @@ class ApiRoutesSpec
 
       Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
+        val panels = responseAs[PagedResult[PanelResponse]].items
         val panel  = panels.find(_.id == panelId).get
         val config = panel.config.asJsObject.fields
         panel.`type` shouldBe "metric"
         config.contains("orientation") shouldBe false
         config.contains("weight")      shouldBe false
         config.contains("color")       shouldBe false
+      }
+    }
+
+    // ── HEL-234: dataAsOf in GET /api/dashboards/:id/panels ────────────────
+
+    "return dataAsOf ISO string for a bound panel whose pipeline has run" in {
+      import slick.jdbc.PostgresProfile.api._
+      import java.time.Instant
+      import java.util.UUID
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Freshness Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      // Seed a data type and pipeline for the panel binding.
+      // owner_id must reference the test user seeded by cleanDb().
+      val dtId  = UUID.randomUUID().toString
+      val dsId  = UUID.randomUUID().toString
+      val pidId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+                 (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO data_types
+                 (id, name, fields, version, owner_id, created_at, updated_at)
+                 VALUES ($dtId, 'mytype', '[]', 1, $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines
+                 (id, name, source_data_source_id, output_data_type_id, last_run_status, last_run_at, owner_id, created_at, updated_at)
+                 VALUES ($pidId, 'pipe', $dsId, $dtId, 'succeeded', now(), $testUserId::uuid, now(), now())"""
+      )))
+
+      // Create a metric panel bound to the data type
+      val metricConfig = JsObject("dataTypeId" -> JsString(dtId), "fieldMapping" -> JsObject())
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("metric"), Some(metricConfig))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels   = responseAs[PanelsResponse].items
+        val panel    = panels.find(_.id == panelId).get
+        panel.dataAsOf shouldBe defined
+        // Value is a non-empty ISO string
+        panel.dataAsOf.get should not be empty
+        // Parses as an Instant
+        noException should be thrownBy Instant.parse(panel.dataAsOf.get)
+      }
+    }
+
+    "return dataAsOf null for an unbound panel" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Unbound Panel Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      // text panel — no dataTypeId binding
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Text Panel"), Some("text"), None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.dataAsOf shouldBe None
+      }
+    }
+  }
+
+  // ── Pagination route tests (HEL-133, tasks 7.5-7.7) ───────────────────────
+
+  "GET /api/dashboards pagination" should {
+
+    "apply default offset=0 and limit=200 when no params provided" in {
+      cleanDb()
+      Post("/api/dashboards", CreateDashboardRequest(Some("Test"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get("/api/dashboards") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val result = responseAs[PagedResult[DashboardResponse]]
+        result.offset shouldBe 0
+        result.limit  shouldBe Page.Default.limit
+        result.total  shouldBe 1
+        result.items  should have size 1
+      }
+    }
+
+    "clamp limit to 500 when limit=9999 is provided" in {
+      cleanDb()
+      Get("/api/dashboards?limit=9999") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val result = responseAs[PagedResult[DashboardResponse]]
+        result.limit shouldBe Page.MaxLimit
+      }
+    }
+
+    "return 400 for negative offset" in {
+      Get("/api/dashboards?offset=-1") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message shouldBe "offset must not be negative"
       }
     }
   }

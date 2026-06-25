@@ -22,7 +22,7 @@ object PanelRowMapper extends PanelProtocol {
     val id          = PanelId(row.id)
     val dashboardId = DashboardId(row.dashboardId)
     val meta        = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated)
-    val appearance  = row.appearance.parseJson.convertTo[PanelAppearance]
+    val appearance  = row.appearance
     val ownerId     = UserId(row.ownerId.toString)
 
     row.panelType match {
@@ -56,7 +56,7 @@ object PanelRowMapper extends PanelProtocol {
       createdBy    = p.meta.createdBy,
       createdAt    = p.meta.createdAt,
       lastUpdated  = p.meta.lastUpdated,
-      appearance   = p.appearance.toJson.compactPrint,
+      appearance   = p.appearance,
       panelType    = p.kind,
       typeId       = None,
       fieldMapping = None,

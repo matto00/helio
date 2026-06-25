@@ -32,3 +32,4 @@ trait JsonProtocols
     with DataSourceProtocol
     with PipelineProtocol
     with PermissionProtocol
+    with PaginationProtocol

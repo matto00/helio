@@ -1,4 +1,6 @@
 import type {
+  GrantRole,
+  PermissionGrant,
   Pipeline,
   PipelineAnalyzeResponse,
   PipelineRunRecord,
@@ -127,4 +129,35 @@ export async function fetchStepPreview(
     `/api/pipelines/${pipelineId}/steps/${stepId}/preview`,
   );
   return response.data;
+}
+
+// ── Pipeline permission management ────────────────────────────────────────────
+
+/** List all sharing grants for a pipeline. Owner-only. */
+export async function listPipelinePermissions(pipelineId: string): Promise<PermissionGrant[]> {
+  const response = await httpClient.get<{ items: PermissionGrant[] }>(
+    `/api/pipelines/${pipelineId}/permissions`,
+  );
+  return response.data.items;
+}
+
+/** Grant a role to a user on a pipeline. Owner-only. */
+export async function grantPipelinePermission(
+  pipelineId: string,
+  granteeId: string,
+  role: GrantRole,
+): Promise<PermissionGrant> {
+  const response = await httpClient.post<PermissionGrant>(
+    `/api/pipelines/${pipelineId}/permissions`,
+    { granteeId, role },
+  );
+  return response.data;
+}
+
+/** Revoke a user's grant on a pipeline. Owner-only. */
+export async function revokePipelinePermission(
+  pipelineId: string,
+  granteeId: string,
+): Promise<void> {
+  await httpClient.delete(`/api/pipelines/${pipelineId}/permissions/${granteeId}`);
 }

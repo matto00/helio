@@ -6,6 +6,7 @@ import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
 import { SourceSelectorBar } from "./SourceSelectorBar";
+import { PipelineShareDialog } from "./PipelineShareDialog";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 
@@ -74,10 +75,13 @@ export function PipelineDetailPage() {
   const [editingOutputName, setEditingOutputName] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
   // Inline discard-confirm state (replaces window.confirm on dirty cancel).
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   // ── SSE run-status hook ──
   const sseData = usePipelineRunEvents({
@@ -203,6 +207,10 @@ export function PipelineDetailPage() {
   }, [isDirty]);
 
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
+  const isOwner =
+    currentPipeline?.ownerId != null &&
+    currentUser?.id != null &&
+    currentUser.id === currentPipeline.ownerId;
 
   // ── Handlers ──
   async function handleAddStep(opType: OpType) {
@@ -369,8 +377,31 @@ export function PipelineDetailPage() {
         />
       )}
 
+      {/* ── Share dialog (owner-only) ── */}
+      {id && (
+        <PipelineShareDialog
+          pipelineId={id}
+          pipelineName={pipelineName}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
       {/* In-page back breadcrumb removed — the section breadcrumb in the top
        * command bar already shows "Data Pipelines / <pipeline name>". */}
+
+      {/* ── Share button (owner-only) ── */}
+      {isOwner && (
+        <div className="pipeline-detail-page__share-bar">
+          <button
+            className="pipeline-detail-page__share-btn"
+            onClick={() => setShareOpen(true)}
+            type="button"
+          >
+            Share
+          </button>
+        </div>
+      )}
 
       {/* ── Last-run metadata bar ── */}
       {currentPipeline.lastRunAt != null && (
