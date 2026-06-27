@@ -1,9 +1,9 @@
 ---
 name: systematic-debugging
 description: Iron Law for debugging — no fix without a probe-confirmed root cause.
-applies_to: linear-executor
+applies_to: executor
 inspired_by: superpowers/systematic-debugging (https://github.com/obra/superpowers)
-note: Inspired by superpowers; rewritten and tuned for Helio. No runtime dependency.
+note: Inspired by superpowers; rewritten for Concertino. No runtime dependency.
 ---
 
 # Systematic Debugging
@@ -21,16 +21,17 @@ symptom.** A guess is not a root cause. A symptom patch is a failure, not a fix.
 1. **Investigate.** Read the actual error message, stack trace, and failing
    output in full. Reproduce the failure consistently — record the exact
    command/steps. Identify recent changes that could have caused it.
-2. **Locate the layer.** Helio is multi-layer:
-   `React component → Redux thunk → service (axios) → Pekko route → Slick repo → PostgreSQL`.
-   Trace the data flow from symptom back toward origin and establish **which
-   layer** actually fails. Don't fix the layer where the symptom _appears_ if the
-   cause is upstream.
+2. **Locate the layer.** Most systems are multi-layer (UI → state → service →
+   API/route → data access → store, or the equivalent for your stack). Trace the
+   data flow from symptom back toward origin and establish **which layer**
+   actually fails. Don't fix the layer where the symptom _appears_ if the cause is
+   upstream. (Your project's layer chain is described in its canonical code-quality
+   doc / architecture notes — read it if you're unsure of the boundaries.)
 3. **Compare to a working example.** Find a sibling that works (another route,
-   slice, component, query) and diff the behavior. The difference is usually the
+   module, component, query) and diff the behavior. The difference is usually the
    lead.
 4. **Hypothesize + probe.** State the suspected root cause in one sentence. Then
-   run a **minimal probe** — a log line, a focused test, a `curl`, a REPL query —
+   run a **minimal probe** — a log line, a focused test, a request, a REPL query —
    whose output _confirms_ the hypothesis. If the probe doesn't confirm it, the
    hypothesis is wrong; form a new one. Do not proceed on an unconfirmed cause.
 5. **Fix the root cause + lock it.** Fix the confirmed cause (not the symptom).
@@ -40,14 +41,14 @@ symptom.** A guess is not a root cause. A symptom patch is a failure, not a fix.
 
 ## Required evidence (record in your handoff)
 
-For every bug you fix, the `files-modified.md` handoff (or your return summary)
+For every bug you fix, your handoff (e.g. `files-modified.md`) or return summary
 must include:
 
 - **Root cause:** one sentence, naming the failing layer.
 - **Probe:** the exact command/snippet you ran to confirm it.
 - **Probe output:** the output that confirms the cause predicts the symptom.
 
-The evaluator/Skeptic checks that this artifact exists and is real. An
+The evaluator/skeptic checks that this artifact exists and is real. An
 unconfirmed "root cause" is treated as not-yet-investigated.
 
 ## Red-flag phrases — STOP and return to Phase 1
@@ -59,8 +60,8 @@ unconfirmed "root cause" is treated as not-yet-investigated.
 
 ## Circuit breaker (bounded — required for autonomous operation)
 
-After **2 failed fix attempts on the same symptom**, stop patching. Either the
-root cause is wrong or the architecture is fighting you. Re-run Phase 1 from
-scratch **once**; if a third attempt would be a guess, **escalate** — surface
-the symptom, the hypotheses tried, and the probe outputs, and ask for direction.
-Never thrash silently, never give up silently.
+After **N failed fix attempts on the same symptom** (N = `budgets.debugAttempts`,
+default 2), stop patching. Either the root cause is wrong or the architecture is
+fighting you. Re-run Phase 1 from scratch **once**; if the next attempt would be a
+guess, **escalate** — surface the symptom, the hypotheses tried, and the probe
+outputs, and ask for direction. Never thrash silently, never give up silently.

@@ -4,11 +4,10 @@ set -euo pipefail
 # ===========================================================================
 # cleanup.sh — canonical post-merge teardown for the ticket-delivery flow.
 #
-# Replaces the prose in linear-orchestrator.md "Phase 4". Stops the dev servers
-# bound to this ticket's ports and removes the worktree. Safe to re-run.
+# Stops the dev servers bound to this ticket's ports and removes the worktree.
+# Safe to re-run.
 #
-# Usage:
-#   scripts/orchestrator/cleanup.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>
+# Usage: cleanup.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>
 #
 # Prints "READY cleaned worktree=<path>" on success.
 # ===========================================================================
@@ -17,8 +16,7 @@ WORKTREE_PATH="${1:?usage: cleanup.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>}
 DEV_PORT="${2:-}"
 BACKEND_PORT="${3:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Stop dev servers on this ticket's ports (no-op if already down).
 [ -n "$DEV_PORT" ]     && fuser -k "${DEV_PORT}/tcp"     2>/dev/null || true
