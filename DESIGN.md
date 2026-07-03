@@ -79,14 +79,14 @@ hardcode a value a token exists for.** **[mechanical]**
 
 ### Color (themed; tokens are `--app-*`)
 
-| Purpose            | Tokens                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Text               | `--app-text`, `--app-text-muted`                                                                                  |
-| Canvas / surfaces  | `--app-bg` (canvas) → `--app-surface-soft` (recessed wells/inputs) → `--app-surface` (cards/chrome) → `--app-surface-raised` (hover) → `--app-surface-strong` (modals/popovers/toasts) |
-| Accent (user-set)  | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders) |
-| Border             | `--app-border-subtle` (default hairline), `--app-border-strong` (hover/emphasis) — **neutral, never accent-tinted** |
-| Intent             | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error. |
-| Overlay / texture  | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                              |
+| Purpose           | Tokens                                                                                                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text              | `--app-text`, `--app-text-muted`                                                                                                                                                       |
+| Canvas / surfaces | `--app-bg` (canvas) → `--app-surface-soft` (recessed wells/inputs) → `--app-surface` (cards/chrome) → `--app-surface-raised` (hover) → `--app-surface-strong` (modals/popovers/toasts) |
+| Accent (user-set) | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders)              |
+| Border            | `--app-border-subtle` (default hairline), `--app-border-strong` (hover/emphasis) — **neutral, never accent-tinted**                                                                    |
+| Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                   |
+| Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                   |
 
 - **[mechanical]** No hardcoded hex/rgb/rgba in component CSS or TSX where a
   token applies. Intent colors always come from the intent tokens.
