@@ -28,6 +28,9 @@
   position: fixed;
   z-index: var(--z-popover);
   width: min(360px, calc(100vw - 40px));
+  /* Portalled to <body>, so the panel does not inherit the app shell's body
+     copy size — set it explicitly to the --text-sm default. */
+  font-size: var(--text-sm);
   padding: var(--space-4);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);

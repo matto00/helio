@@ -129,14 +129,15 @@ export function resolveDashboardBackground(
     return undefined;
   }
 
-  // Tint strength 0.22 — 22% of the user-chosen color blended into the theme's
-  // app-background base. Keeps strong override colors muted enough to stay within
-  // the "glass" aesthetic while still being clearly visible. Evaluated across
-  // dark/light × dark-bg/light-bg combinations; value is intentionally conservative.
+  // Tint strength 0.55 — the user-chosen color dominates the blend so a preset
+  // reads as its intended color in both themes (e.g. a dark "Twilight" preset
+  // renders dark even over the light theme's near-white base, instead of washing
+  // out to pale gray). Still blended (not raw) so the result harmonizes slightly
+  // with the theme base and stays opaque.
   const resolved = resolveTintedSurface(
     themeAppearancePalette[theme].appBackground,
     appearance.background,
-    0.22,
+    0.55,
   );
 
   return toRgbString(resolved);
@@ -150,10 +151,12 @@ export function resolveDashboardGridBackground(
     return undefined;
   }
 
+  // Slightly stronger than the window background (0.55) so the grid reads as a
+  // distinct step within the same preset color.
   const resolved = resolveTintedSurface(
     themeAppearancePalette[theme].gridBackground,
     appearance.gridBackground,
-    0.28,
+    0.62,
   );
 
   // Opaque by design: surfaces must read identically regardless of what sits

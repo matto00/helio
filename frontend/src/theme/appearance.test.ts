@@ -48,13 +48,13 @@ describe("appearance resolution", () => {
   // Lock resolveDashboardGridBackground to fully opaque output — the grid
   // override must read identically regardless of what sits behind it.
   //
-  // Blend math for gridBackground "#16233a" (r=22, g=35, b=58) at tintStrength=0.28:
-  //   dark base #191715  (r=25, g=23, b=21)    → blended r=24, g=26, b=31
-  //   light base #fdfcfa (r=253, g=252, b=250) → blended r=188, g=191, b=196
+  // Blend math for gridBackground "#16233a" (r=22, g=35, b=58) at tintStrength=0.62:
+  //   dark base #191715  (r=25, g=23, b=21)    → blended r=23, g=30, b=44
+  //   light base #fdfcfa (r=253, g=252, b=250) → blended r=110, g=117, b=131
   it("resolveDashboardGridBackground produces opaque rgba values for #16233a", () => {
     const appearance = { ...defaultDashboardAppearance, gridBackground: "#16233a" };
-    expect(resolveDashboardGridBackground("dark", appearance)).toBe("rgba(24, 26, 31, 1)");
-    expect(resolveDashboardGridBackground("light", appearance)).toBe("rgba(188, 191, 196, 1)");
+    expect(resolveDashboardGridBackground("dark", appearance)).toBe("rgba(23, 30, 44, 1)");
+    expect(resolveDashboardGridBackground("light", appearance)).toBe("rgba(110, 117, 131, 1)");
   });
 });
 
