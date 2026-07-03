@@ -26,7 +26,7 @@ import { defaultConfigFor, makeStep, pipelineStepToStep } from "../state/stepNar
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "../hooks/usePipelineRunEvents";
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
-import { createPipelineStep } from "../services/pipelineService";
+import { createPipelineStep, deletePipelineStep } from "../services/pipelineService";
 import type {
   AnalyzeStepResult,
   PipelineStepConfig,
@@ -235,6 +235,15 @@ export function PipelineDetailPage() {
 
   function handleRemoveStep(stepId: string) {
     setSteps((prev) => prev.filter((s) => s.id !== stepId));
+    // Persist the deletion for steps that exist server-side. Temp steps created
+    // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
+    // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
+    // useStepCardState: local state already reflects user intent.
+    if (!stepId.startsWith("step-")) {
+      void deletePipelineStep(stepId).catch(() => {
+        // No-op: the step is already gone from the local view.
+      });
+    }
   }
 
   async function handleRunPipeline() {

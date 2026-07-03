@@ -21,6 +21,7 @@ import {
   updatePipeline,
   updatePipelineStep,
   createPipelineStep,
+  deletePipelineStep,
   analyzePipeline,
   fetchStepPreview,
 } from "../services/pipelineService";
@@ -40,6 +41,7 @@ jest.mock("../services/pipelineService", () => ({
   updatePipeline: jest.fn(),
   updatePipelineStep: jest.fn(),
   createPipelineStep: jest.fn(),
+  deletePipelineStep: jest.fn(),
   analyzePipeline: jest.fn(),
   fetchStepPreview: jest.fn(),
 }));
@@ -51,6 +53,7 @@ const getPipelineStepsMock = jest.mocked(getPipelineSteps);
 const updatePipelineMock = jest.mocked(updatePipeline);
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 const createPipelineStepMock = jest.mocked(createPipelineStep);
+const deletePipelineStepMock = jest.mocked(deletePipelineStep);
 const analyzePipelineMock = jest.mocked(analyzePipeline);
 const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
 
@@ -178,6 +181,7 @@ describe("PipelineDetailPage", () => {
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([]);
     analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    deletePipelineStepMock.mockResolvedValue(undefined);
     updatePipelineMock.mockResolvedValue(defaultPipeline);
     updatePipelineStepMock.mockResolvedValue({
       id: "step-1",
@@ -272,6 +276,35 @@ describe("PipelineDetailPage", () => {
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
     expect(screen.getByText("Add your first transformation step")).toBeInTheDocument();
+    // A never-persisted (temp) step has no backend row, so no DELETE is issued.
+    expect(deletePipelineStepMock).not.toHaveBeenCalled();
+  });
+
+  it("removing a persisted step deletes it on the backend", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "abc-123-def",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+
+    renderDetailPage();
+
+    // The step renders from the fetched (already-persisted) data with its real id.
+    const card = await screen.findByRole("button", {
+      name: /Rename column/i,
+      expanded: false,
+    });
+    fireEvent.click(card);
+    fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
+
+    expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
+    await waitFor(() => expect(deletePipelineStepMock).toHaveBeenCalledWith("abc-123-def"));
   });
 
   it("output name field is editable — input appears on click", async () => {

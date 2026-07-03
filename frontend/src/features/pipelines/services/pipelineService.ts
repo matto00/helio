@@ -77,6 +77,10 @@ export async function updatePipelineStep(
   return response.data;
 }
 
+export async function deletePipelineStep(stepId: string): Promise<void> {
+  await httpClient.delete(`/api/pipeline-steps/${stepId}`);
+}
+
 export interface RunResult {
   rowCount: number;
   rows: Record<string, unknown>[];
