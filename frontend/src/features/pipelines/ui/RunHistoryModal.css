@@ -9,7 +9,7 @@
 .run-history-modal__empty {
   margin: 16px 0;
   text-align: center;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
 
@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--app-text);
 }
 
@@ -43,21 +43,21 @@
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--app-border-subtle);
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   text-transform: capitalize;
 }
 
 .run-history-modal__status--succeeded {
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.08);
+  color: var(--app-success);
+  border-color: color-mix(in srgb, var(--app-success) 40%, transparent);
+  background: var(--app-success-surface);
 }
 
 .run-history-modal__status--failed {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.08);
+  color: var(--app-error);
+  border-color: color-mix(in srgb, var(--app-error) 40%, transparent);
+  background: var(--app-error-surface);
 }
 
 .run-history-modal__status--running,
@@ -80,7 +80,7 @@
   border: 1px solid var(--app-border-subtle);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -88,9 +88,9 @@
   margin: 8px 0 0;
   padding: 10px;
   border-radius: var(--app-radius-sm);
-  background: rgba(239, 68, 68, 0.05);
-  color: #ef4444;
-  font-size: 0.72rem;
+  background: var(--app-error-surface);
+  color: var(--app-error);
+  font-size: var(--text-xs);
   white-space: pre-wrap;
   word-break: break-all;
 }

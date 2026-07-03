@@ -4,11 +4,26 @@
   padding: 0;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);
-  background: var(--app-surface);
+  background: var(--app-surface-strong);
   color: var(--app-text);
   box-shadow: var(--app-shadow-soft);
   /* Prevent the dialog from growing taller than the viewport */
   max-height: 90vh;
+}
+
+.ui-modal[open] {
+  animation: ui-modal-in var(--transition-slow) both;
+}
+
+@keyframes ui-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Size presets */
@@ -26,7 +41,7 @@
 
 /* Backdrop */
 .ui-modal::backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--app-overlay);
   backdrop-filter: blur(2px);
 }
 
@@ -43,8 +58,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--app-border-subtle);
   flex-shrink: 0;
 }
@@ -52,54 +67,48 @@
 .ui-modal__header-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .ui-modal__title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
   color: var(--app-text);
   line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
 .ui-modal__description {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-/* Close button — matches RunHistoryModal reference */
+/* Close button */
 .ui-modal__close {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--app-border-subtle);
+  border: none;
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition:
     background-color var(--app-transition),
-    border-color var(--app-transition),
     color var(--app-transition);
 }
 
 .ui-modal__close:hover {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
   color: var(--app-text);
-}
-
-.ui-modal__close:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 /* ── Body ─────────────────────────────────────────────────────────────────── */
@@ -107,7 +116,7 @@
 .ui-modal__body {
   flex: 1;
   overflow-y: auto;
-  padding: 18px;
+  padding: var(--space-5);
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
@@ -116,8 +125,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 18px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--app-border-subtle);
   flex-shrink: 0;
 }
@@ -127,11 +136,12 @@
 .ui-modal-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-4);
   border-radius: var(--app-radius-sm);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition:
     background-color var(--app-transition),
@@ -151,23 +161,17 @@
 }
 
 .ui-modal-btn--secondary:hover:not(:disabled) {
-  background: var(--app-surface-soft);
+  background: var(--app-surface-raised);
   border-color: var(--app-border-strong);
   color: var(--app-text);
 }
 
 .ui-modal-btn--primary {
-  border: 1px solid var(--app-accent);
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
+  border: 1px solid transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
 }
 
 .ui-modal-btn--primary:hover:not(:disabled) {
-  background: var(--app-accent);
-  color: var(--app-bg);
-}
-
-.ui-modal-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
+  background: var(--app-accent-strong);
 }

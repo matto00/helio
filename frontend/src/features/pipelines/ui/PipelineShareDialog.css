@@ -36,7 +36,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: var(--app-bg-secondary);
+  background: var(--app-surface-soft);
   border-radius: var(--app-radius-md);
 }
 
@@ -64,7 +64,7 @@
 }
 
 .pipeline-share-dialog__revoke-btn:hover {
-  background: var(--app-bg-accent);
+  background: var(--app-error-surface);
 }
 
 /* ── Empty / loading / error ─────────────────────────────────────────────── */
@@ -132,7 +132,7 @@
 .pipeline-share-dialog__close-btn {
   padding: var(--space-2) var(--space-5);
   font-size: var(--text-sm);
-  background: var(--app-bg-secondary);
+  background: var(--app-surface-soft);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
   color: var(--app-text);
@@ -140,5 +140,5 @@
 }
 
 .pipeline-share-dialog__close-btn:hover {
-  background: var(--app-bg-accent);
+  background: var(--app-surface-raised);
 }

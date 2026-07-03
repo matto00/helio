@@ -10,7 +10,7 @@
 .preview-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .preview-table thead th {
@@ -18,7 +18,7 @@
   top: 0;
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--app-border-subtle);
@@ -42,5 +42,5 @@
 .preview-table__empty {
   margin: 12px 0 0;
   color: var(--app-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }

@@ -1,11 +1,15 @@
 .status-message {
-  margin: 0 0 16px;
-  padding: 12px 14px;
-  border-radius: var(--app-radius-sm);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
+  font-size: var(--text-sm);
 }
 
 .status-message--error {
-  color: #ffb4b4;
+  border-color: color-mix(in srgb, var(--app-error) 30%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
 }

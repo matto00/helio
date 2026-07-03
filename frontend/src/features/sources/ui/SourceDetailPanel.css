@@ -1,8 +1,9 @@
 .source-detail-panel {
   border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
+  border-radius: var(--app-radius-lg);
   background: var(--app-surface);
-  padding: 16px;
+  box-shadow: var(--app-shadow-card);
+  padding: var(--space-5);
 }
 
 .source-detail-panel__header {
@@ -22,8 +23,8 @@
 
 .source-detail-panel__name {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
   color: var(--app-text);
   white-space: nowrap;
   overflow: hidden;
@@ -31,7 +32,7 @@
 }
 
 .source-detail-panel__type {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
   padding: 2px 8px;
   border: 1px solid var(--app-border-subtle);
@@ -41,13 +42,13 @@
 }
 
 .source-detail-panel__preview-btn {
-  height: 28px;
+  height: var(--control-sm);
   padding: 0 12px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -56,7 +57,7 @@
 }
 
 .source-detail-panel__preview-btn:hover:not(:disabled) {
-  background: var(--app-accent-surface);
+  background: var(--app-surface-raised);
   border-color: var(--app-border-strong);
 }
 
@@ -75,10 +76,10 @@
 .source-detail-panel__delete-btn,
 .source-detail-panel__delete-confirm-btn,
 .source-detail-panel__delete-cancel-btn {
-  height: 28px;
+  height: var(--control-sm);
   padding: 0 10px;
   border-radius: var(--app-radius-sm);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition:
     background-color var(--app-transition),
@@ -88,18 +89,18 @@
 .source-detail-panel__delete-btn {
   border: 1px solid var(--app-border-subtle);
   background: transparent;
-  color: var(--app-danger, #e53e3e);
+  color: var(--app-error);
 }
 
 .source-detail-panel__delete-btn:hover {
-  background: rgba(229, 62, 62, 0.08);
-  border-color: var(--app-danger, #e53e3e);
+  background: var(--app-error-surface);
+  border-color: var(--app-error);
 }
 
 .source-detail-panel__delete-confirm-btn {
-  border: 1px solid var(--app-danger, #e53e3e);
-  background: var(--app-danger, #e53e3e);
-  color: white;
+  border: 1px solid var(--app-error);
+  background: var(--app-error);
+  color: var(--app-bg);
 }
 
 .source-detail-panel__delete-cancel-btn {
@@ -120,16 +121,17 @@
 
 .source-detail-panel__section-title {
   margin: 0 0 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
   color: var(--app-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--eyebrow-tracking);
 }
 
 .source-detail-panel__preview-empty {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
 
@@ -139,13 +141,13 @@
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .source-detail-panel__schema-table thead th {
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--app-border-subtle);
@@ -162,17 +164,17 @@
 }
 
 .source-detail-panel__schema-field-name {
-  font-family: var(--app-font-mono, ui-monospace, monospace);
-  font-size: 0.76rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .source-detail-panel__error {
   margin: 8px 0 0;
   padding: 8px;
   border-radius: var(--app-radius-sm);
-  background: var(--app-danger-surface, #fff5f5);
-  color: var(--app-danger, #e53e3e);
-  font-size: 0.78rem;
+  background: var(--app-danger-surface);
+  color: var(--app-error);
+  font-size: var(--text-xs);
 }
 
 .source-detail-panel__empty-schema {
@@ -185,7 +187,7 @@
 
 .source-detail-panel__empty-schema-text {
   margin: 4px 0 8px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
 

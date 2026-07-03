@@ -12,7 +12,7 @@
 }
 
 .type-registry-browser__empty {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--app-text-muted);
   margin: 0;
 }
@@ -27,12 +27,12 @@
 }
 
 .type-registry-browser__item {
-  border-radius: 10px;
+  border-radius: var(--app-radius-md);
   overflow: hidden;
 }
 
 .type-registry-browser__item--selected {
-  background: var(--app-accent-surface);
+  background: var(--app-accent-dim);
 }
 
 .type-registry-browser__item-btn {
@@ -52,7 +52,7 @@
 }
 
 .type-registry-browser__item--selected .type-registry-browser__item-btn {
-  border-color: var(--app-accent-mid);
+  border-color: var(--app-accent);
   background: var(--app-accent-dim);
 }
 
@@ -62,8 +62,8 @@
 }
 
 .type-registry-browser__item-name {
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   color: var(--app-text);
   white-space: nowrap;
   overflow: hidden;
@@ -71,7 +71,7 @@
 }
 
 .type-registry-browser__item-count {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
   flex-shrink: 0;
 }
@@ -82,7 +82,7 @@
 }
 
 .type-registry-browser__empty-message {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--app-text-muted);
   margin: 0 0 1rem;
 }
@@ -111,12 +111,12 @@
   color: var(--app-text-muted);
   padding: 0;
   border-radius: var(--app-radius-sm);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   transition: color var(--app-transition);
 }
 
 .type-registry-browser__delete-btn:hover {
-  color: var(--app-danger, #e53e3e);
+  color: var(--app-error);
 }
 
 .type-registry-browser__item-confirm {
@@ -127,7 +127,7 @@
 }
 
 .type-registry-browser__confirm-text {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
 
@@ -137,20 +137,20 @@
   border-radius: var(--app-radius-sm);
   cursor: pointer;
   padding: 2px 6px;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--app-text);
 }
 
 .type-registry-browser__confirm-btn--danger {
-  border-color: var(--app-danger, #e53e3e);
-  color: var(--app-danger, #e53e3e);
+  border-color: var(--app-error);
+  color: var(--app-error);
 }
 
 .type-registry-browser__delete-error {
-  font-size: 0.8rem;
-  color: var(--app-danger, #e53e3e);
+  font-size: var(--text-xs);
+  color: var(--app-error);
   margin: 0 0 0.5rem;
   padding: 0.5rem;
-  background: var(--app-danger-surface, #fff5f5);
+  background: var(--app-danger-surface);
   border-radius: var(--app-radius-sm);
 }

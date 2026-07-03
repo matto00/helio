@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { TextField } from "../../../shared/ui/index";
+import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { register } from "../state/authSlice";
 import "./auth.css";
@@ -54,6 +55,10 @@ export function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="auth-card__brand">
+          <OrbitMark size={18} />
+          <span className="auth-card__brand-name">Helio</span>
+        </div>
         <h1 className="auth-card__title">Create account</h1>
         <p className="auth-card__subtitle">Get started with Helio</p>
 

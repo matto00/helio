@@ -1,13 +1,25 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Helio design tokens — the single source of truth for all visual values.
+
+   Architecture:
+   · Structure is NEUTRAL — backgrounds, surfaces, and borders come from warm
+     neutral ramps and never from the accent. Surfaces are OPAQUE so they read
+     identically over any dashboard background override.
+   · The accent is the single voice of color. Only `--app-accent` and
+     `--app-accent-ink` are set at runtime (appearance.ts); every other accent
+     token is derived here with color-mix so user accents carry through.
+   · Canonical breakpoints (shared with react-grid-layout): 1440 / 1100 / 768.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
   color-scheme: dark;
-  font-family:
-    "Space Grotesk",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+
+  /* --- Type families --- */
+  --font-sans:
+    "Schibsted Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-family: var(--font-sans);
 
   /* --- Type scale --- */
   --text-micro: 0.625rem; /* 10px */
@@ -19,11 +31,17 @@
   --text-2xl: 1.5rem; /* 24px */
   --text-3xl: 1.875rem; /* 30px */
 
+  /* --- Weights --- */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
   /* --- Semantic role tokens --- */
   --h1-size: var(--text-3xl);
   --eyebrow-size: var(--text-micro);
-  --eyebrow-tracking: 0.1em;
-  --eyebrow-weight: 600;
+  --eyebrow-tracking: 0.14em;
+  --eyebrow-weight: var(--weight-medium);
 
   /* --- Spacing scale (4px grid) --- */
   --space-1: 0.25rem; /* 4px */
@@ -37,62 +55,112 @@
   --space-9: 3rem; /* 48px */
   --space-10: 4rem; /* 64px */
 
+  /* --- Control metrics: every button/input/select uses one of these --- */
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 40px;
+
   /* --- Radii --- */
-  --app-radius-sm: 4px;
-  --app-radius-md: 6px;
-  --app-radius-lg: 10px;
+  --app-radius-sm: 6px;
+  --app-radius-md: 9px;
+  --app-radius-lg: 14px;
   --app-radius-pill: 9999px;
 
-  --app-shadow-soft: 0 20px 60px rgba(6, 10, 14, 0.4), 0 4px 12px rgba(6, 10, 14, 0.2);
-  --app-shadow-card: 0 4px 16px rgba(6, 10, 14, 0.3);
-  --app-transition: 0.2s ease;
+  /* --- Motion --- */
+  --app-transition: 0.16s ease;
+  --transition-slow: 0.28s cubic-bezier(0.3, 0.9, 0.4, 1);
 }
 
+/* ─── Dark: warm near-black "stone" ramp ─────────────────────────────────── */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --app-bg: #060a0e;
-  --app-bg-accent: rgba(249, 115, 22, 0.06);
-  --app-bg-secondary: rgba(249, 115, 22, 0.03);
-  /* Dot-grid intensity — tuned higher than the 6% baked into --app-bg-accent so dots
-     stay visible on dark background overrides. Adjust without touching the accent system. */
-  --dot-grid-opacity: 0.14;
-  --app-surface: rgba(15, 22, 32, 0.9);
-  --app-surface-strong: rgba(10, 16, 24, 0.95);
-  --app-surface-soft: rgba(20, 28, 40, 0.85);
-  --app-text: #e2f0ff;
-  --app-text-muted: #64748b;
+
+  --app-bg: #121110;
+  --app-surface: #1a1816;
+  --app-surface-soft: #161514;
+  --app-surface-raised: #232019;
+  --app-surface-strong: #262320;
+
+  --app-text: #f2efe9;
+  --app-text-muted: #9b948a;
+
+  --app-border-subtle: rgba(242, 239, 233, 0.09);
+  --app-border-strong: rgba(242, 239, 233, 0.18);
+
+  /* Runtime-set: --app-accent (user choice), --app-accent-ink (readable text
+     on solid accent). Defaults below match DefaultAccentColor. */
   --app-accent: #f97316;
-  --app-accent-strong: #fb923c;
-  --app-accent-surface: rgba(249, 115, 22, 0.12);
-  --app-accent-dim: rgba(249, 115, 22, 0.12);
-  --app-accent-mid: rgba(249, 115, 22, 0.25);
-  --app-border-strong: rgba(249, 115, 22, 0.3);
-  --app-border-subtle: rgba(249, 115, 22, 0.1);
+  --app-accent-ink: #16130f;
+  --app-accent-strong: color-mix(in srgb, var(--app-accent) 78%, white);
+  --app-accent-surface: color-mix(in srgb, var(--app-accent) 15%, transparent);
+  --app-accent-dim: color-mix(in srgb, var(--app-accent) 10%, transparent);
+  --app-accent-mid: color-mix(in srgb, var(--app-accent) 30%, transparent);
+  --app-bg-accent: color-mix(in srgb, var(--app-accent) 7%, transparent);
+  --app-bg-secondary: color-mix(in srgb, var(--app-accent) 4%, transparent);
+
+  /* Intent */
+  --app-success: #4cc38a;
+  --app-warning: #f5b944;
+  --app-error: #f07561;
+  --app-info: var(--app-accent);
+  --app-success-surface: color-mix(in srgb, var(--app-success) 14%, transparent);
+  --app-warning-surface: color-mix(in srgb, var(--app-warning) 14%, transparent);
+  --app-error-surface: color-mix(in srgb, var(--app-error) 14%, transparent);
+  --app-danger: var(--app-error);
+  --app-danger-surface: var(--app-error-surface);
+
+  /* Depth */
+  --app-overlay: rgba(10, 9, 8, 0.62);
+  --app-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --app-shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.35), 0 24px 64px -16px rgba(0, 0, 0, 0.55);
+
+  /* Canvas dot field (neutral — never tinted by the accent) */
+  --canvas-dot: rgba(242, 239, 233, 0.07);
 }
 
+/* ─── Light: warm paper ramp ─────────────────────────────────────────────── */
 :root[data-theme="light"] {
   color-scheme: light;
-  --app-bg: #fdfbf7;
-  --app-bg-accent: rgba(249, 115, 22, 0.06);
-  --app-bg-secondary: rgba(249, 115, 22, 0.03);
-  /* Dot-grid intensity — lower than dark theme; lighter backgrounds already provide
-     adequate contrast so the dots don't need to be as strong. */
-  --dot-grid-opacity: 0.08;
-  --app-surface: rgba(255, 255, 255, 0.9);
-  --app-surface-strong: rgba(255, 255, 255, 0.96);
-  --app-surface-soft: rgba(245, 242, 237, 0.9);
-  --app-text: #0f1419;
-  --app-text-muted: #6b7280;
+
+  --app-bg: #f4f2ed;
+  --app-surface: #fdfcfa;
+  --app-surface-soft: #efece6;
+  --app-surface-raised: #ffffff;
+  --app-surface-strong: #ffffff;
+
+  --app-text: #211d19;
+  --app-text-muted: #726b62;
+
+  --app-border-subtle: rgba(33, 29, 25, 0.11);
+  --app-border-strong: rgba(33, 29, 25, 0.2);
+
   --app-accent: #ea580c;
-  --app-accent-strong: #c2410c;
-  --app-accent-surface: rgba(234, 88, 12, 0.1);
-  --app-accent-dim: rgba(234, 88, 12, 0.1);
-  --app-accent-mid: rgba(234, 88, 12, 0.2);
-  --app-border-strong: rgba(234, 88, 12, 0.25);
-  --app-border-subtle: rgba(234, 88, 12, 0.08);
-  --app-shadow-soft: 0 20px 60px rgba(15, 20, 25, 0.12), 0 4px 12px rgba(15, 20, 25, 0.06);
-  --app-shadow-card: 0 4px 16px rgba(15, 20, 25, 0.1);
+  --app-accent-ink: #ffffff;
+  --app-accent-strong: color-mix(in srgb, var(--app-accent) 76%, black);
+  --app-accent-surface: color-mix(in srgb, var(--app-accent) 11%, transparent);
+  --app-accent-dim: color-mix(in srgb, var(--app-accent) 8%, transparent);
+  --app-accent-mid: color-mix(in srgb, var(--app-accent) 26%, transparent);
+  --app-bg-accent: color-mix(in srgb, var(--app-accent) 5%, transparent);
+  --app-bg-secondary: color-mix(in srgb, var(--app-accent) 3%, transparent);
+
+  --app-success: #1a7f4e;
+  --app-warning: #99621e;
+  --app-error: #c73a2a;
+  --app-info: var(--app-accent);
+  --app-success-surface: color-mix(in srgb, var(--app-success) 11%, transparent);
+  --app-warning-surface: color-mix(in srgb, var(--app-warning) 11%, transparent);
+  --app-error-surface: color-mix(in srgb, var(--app-error) 10%, transparent);
+  --app-danger: var(--app-error);
+  --app-danger-surface: var(--app-error-surface);
+
+  --app-overlay: rgba(33, 29, 25, 0.42);
+  --app-shadow-card: 0 1px 2px rgba(33, 29, 25, 0.05), 0 8px 24px -12px rgba(33, 29, 25, 0.14);
+  --app-shadow-soft: 0 4px 16px rgba(33, 29, 25, 0.08), 0 24px 64px -16px rgba(33, 29, 25, 0.28);
+
+  --canvas-dot: rgba(33, 29, 25, 0.09);
 }
+
+/* ═══ Base styles ═══════════════════════════════════════════════════════════ */
 
 * {
   box-sizing: border-box;
@@ -109,6 +177,9 @@ body {
   min-height: 100vh;
   background-color: var(--app-bg);
   color: var(--app-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   transition:
     background-color var(--app-transition),
     color var(--app-transition);
@@ -133,23 +204,42 @@ a {
 }
 
 ::selection {
-  background: var(--app-accent-surface);
+  background: var(--app-accent-mid);
 }
 
-/* --- Typography utility classes --- */
+/* Standard focus ring — 2px accent, 2px offset. Use `outline-offset: -2px`
+   only where the ring would otherwise be clipped (flush list items). */
+:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
 
-/* Eyebrow labels: small, uppercase, tracked */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ Typography utility classes ════════════════════════════════════════════ */
+
+/* Eyebrow labels: mono, small, uppercase, wide-tracked — the "gallery label" */
 .eyebrow {
+  font-family: var(--font-mono);
   font-size: var(--eyebrow-size);
   letter-spacing: var(--eyebrow-tracking);
   font-weight: var(--eyebrow-weight);
   text-transform: uppercase;
 }
 
-/* Wordmark: tightly tracked, semi-bold */
+/* Wordmark: serif display, brand moments only */
 .wordmark {
-  letter-spacing: 0.14em;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
 }
 
 /* Mono: JetBrains Mono with tabular numerals */

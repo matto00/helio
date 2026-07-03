@@ -14,13 +14,14 @@
 }
 
 .panel-grid > .react-grid-placeholder {
-  border-radius: var(--app-radius-md);
-  background: var(--app-accent-surface);
-  opacity: 0.4;
+  border-radius: var(--app-radius-lg);
+  background: var(--app-accent-dim);
+  border: 1px dashed var(--app-accent-mid);
+  opacity: 0.6;
 }
 
 .panel-grid .react-resizable-handle::after {
-  border-color: var(--app-accent-strong);
+  border-color: var(--app-text-muted);
 }
 
 .panel-grid-card {
@@ -33,10 +34,9 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 14px;
-  padding: clamp(14px, 2vw, 22px);
+  gap: var(--space-3);
+  padding: clamp(14px, 2vw, 20px);
   border: 1px solid var(--app-border-subtle);
-  border-top: 2px solid transparent;
   border-radius: var(--app-radius-lg);
   background: var(--panel-surface-override, var(--app-surface));
   color: var(--panel-text-override, var(--app-text));
@@ -46,30 +46,32 @@
   transition:
     background-color var(--app-transition),
     color var(--app-transition),
-    border-color var(--app-transition);
+    border-color var(--app-transition),
+    box-shadow var(--app-transition);
 }
 
 .panel-grid-card:hover {
-  border-top-color: var(--app-accent);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-soft);
 }
 
 .panel-grid-card__top {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: flex-start;
 }
 
 .panel-grid-card__actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .panel-grid-card__actions .actions-menu__trigger {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
 }
 
 .panel-grid-card__actions .actions-menu__dots {
@@ -79,8 +81,8 @@
 
 .panel-grid-card__title {
   margin: 0;
-  font-size: clamp(1rem, 1.2vw, 1.2rem);
-  font-weight: 600;
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  font-weight: var(--weight-semibold);
   line-height: 1.3;
   letter-spacing: -0.01em;
   color: inherit;
@@ -95,8 +97,8 @@
   justify-content: center;
   gap: 3px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
-  background: var(--app-surface-soft);
+  border-radius: var(--app-radius-pill);
+  background: transparent;
   color: var(--app-text-muted);
   cursor: grab;
   /* Prevent the browser's default touch gestures (scroll/zoom) on the drag handle
@@ -105,9 +107,9 @@
 }
 
 .panel-grid-card__handle span {
-  width: 4px;
-  height: 4px;
-  border-radius: 999px;
+  width: 3px;
+  height: 3px;
+  border-radius: var(--app-radius-pill);
   background: currentColor;
 }
 
@@ -116,14 +118,14 @@
 }
 
 .panel-grid-card__delete-confirm-btn {
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid rgba(248, 113, 113, 0.6);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--app-error) 60%, transparent);
   border-radius: var(--app-radius-sm);
   background: transparent;
-  color: #f87171;
-  font-size: 0.75rem;
-  font-weight: 600;
+  color: var(--app-error);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -133,13 +135,13 @@
 }
 
 .panel-grid-card__delete-confirm-btn:hover {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: #f87171;
+  background: var(--app-error-surface);
+  border-color: var(--app-error);
 }
 
 .panel-grid-card__delete-cancel-btn {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,7 +149,7 @@
   border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -163,7 +165,7 @@
 .panel-grid-card__copy {
   margin: 0;
   color: color-mix(in srgb, currentColor 74%, transparent);
-  font-size: clamp(0.82rem, 1vw, 0.94rem);
+  font-size: var(--text-sm);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -171,26 +173,30 @@
   overflow: hidden;
 }
 
+/* Footer meta: quiet mono annotations, not shouting badges */
 .panel-grid-card__footer {
   display: flex;
-  gap: 12px;
-  color: color-mix(in srgb, currentColor 80%, var(--app-accent-strong));
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  gap: var(--space-3);
+  align-items: center;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   flex-wrap: wrap;
 }
 
 .panel-grid-card__type-badge {
   padding: 2px 7px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: var(--app-radius-pill);
+  background: transparent;
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -201,7 +207,7 @@
 
 .panel-grid-card__freshness {
   margin: var(--space-1) 0 0;
-  color: var(--app-text-muted);
+  color: color-mix(in srgb, currentColor 55%, transparent);
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -211,9 +217,9 @@
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--app-accent);
-  color: var(--panel-text, var(--app-text));
-  font-size: 0.9rem;
-  font-weight: 700;
+  color: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   padding: 2px 0;
 }
 
@@ -229,11 +235,12 @@
   }
 
   .panel-grid-card {
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .panel-grid-card__footer {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -241,12 +248,12 @@
 
 @container panel-card (max-width: 219px) {
   .panel-grid-card {
-    padding: 10px;
-    gap: 8px;
+    padding: var(--space-3);
+    gap: var(--space-2);
   }
 
   .panel-grid-card__title {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
   }
 }
 
@@ -254,12 +261,12 @@
 
 @container panel-card (max-height: 179px) {
   .panel-grid-card {
-    padding: 10px;
-    gap: 8px;
+    padding: var(--space-3);
+    gap: var(--space-2);
   }
 
   .panel-grid-card__title {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
   }
 }
 
@@ -267,10 +274,10 @@
 
 @container panel-card (min-width: 420px) and (min-height: 280px) {
   .panel-grid-card {
-    padding: 20px;
+    padding: var(--space-5);
   }
 
   .panel-grid-card__title {
-    font-size: 1.1rem;
+    font-size: var(--text-lg);
   }
 }

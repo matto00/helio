@@ -3,8 +3,8 @@
  *
  * Geometry: outer circle ring + quarter-arc highlight + centre dot.
  * All paths use `var(--app-accent)` so the mark responds to theme switches
- * and the accent-colour override. A drop-shadow glow is applied via CSS
- * `filter` on the wrapping <svg>.
+ * and the accent-colour override. Rendered flat — no glow — per the design
+ * language (accent appears solid and deliberate, never as atmosphere).
  */
 export function OrbitMark({ size = 14, className }: { size?: number; className?: string }) {
   return (
@@ -16,7 +16,7 @@ export function OrbitMark({ size = 14, className }: { size?: number; className?:
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       className={className}
-      style={{ filter: "drop-shadow(0 0 5px var(--app-accent))", flexShrink: 0 }}
+      style={{ flexShrink: 0 }}
     >
       {/* Outer circle ring */}
       <circle

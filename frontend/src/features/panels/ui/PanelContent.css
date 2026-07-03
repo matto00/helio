@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   min-height: 0;
 }
 
@@ -11,13 +11,13 @@
 
 .panel-content--metric {
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .panel-content__metric-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--app-text);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  color: inherit;
   letter-spacing: -0.02em;
   line-height: 1;
   font-family: var(--font-mono);
@@ -25,10 +25,11 @@
 }
 
 .panel-content__metric-label {
-  font-size: 0.75rem;
-  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: color-mix(in srgb, currentColor 60%, transparent);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 /* Text */
@@ -36,14 +37,14 @@
 .panel-content--text {
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
   overflow-y: auto;
 }
 
 .panel-content__text-line {
   display: block;
   height: 10px;
-  border-radius: 4px;
+  border-radius: var(--app-radius-sm);
   background: var(--app-border-subtle);
 }
 
@@ -58,7 +59,7 @@
 /* Table */
 
 .panel-content--table {
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   flex-direction: column;
   justify-content: flex-start;
   align-items: stretch;
@@ -71,18 +72,18 @@
   height: 100%;
   min-height: min-content;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .panel-content__table th,
 .panel-content__table td {
   border: 1px solid var(--app-border-subtle);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   height: 18px;
 }
 
 .panel-content__table th {
-  background: var(--app-accent-surface);
+  background: color-mix(in srgb, currentColor 6%, transparent);
   width: 50%;
 }
 
@@ -96,11 +97,11 @@
 
 .panel-content--state {
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .panel-content--error {
-  color: var(--app-danger, #e05252);
+  color: var(--app-error);
 }
 
 .panel-content__spinner {
@@ -108,7 +109,7 @@
   width: 24px;
   height: 24px;
   border: 3px solid var(--app-border-subtle);
-  border-top-color: var(--app-accent, #5b8dee);
+  border-top-color: var(--app-accent);
   border-radius: 50%;
   animation: panel-spin 0.7s linear infinite;
 }
@@ -120,7 +121,7 @@
 }
 
 .panel-content__state-label {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
   text-align: center;
 }
@@ -132,8 +133,8 @@
 /* Live text */
 
 .panel-content__text-live {
-  font-size: 0.9rem;
-  color: var(--app-text);
+  font-size: var(--text-sm);
+  color: inherit;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -141,17 +142,18 @@
 /* Trend indicator */
 
 .panel-content__metric-trend {
-  font-size: 0.7rem;
-  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: color-mix(in srgb, currentColor 60%, transparent);
   letter-spacing: 0.02em;
 }
 
 .panel-content__metric-trend--up {
-  color: var(--app-success, #3db87b);
+  color: var(--app-success);
 }
 
 .panel-content__metric-trend--down {
-  color: var(--app-danger, #e05252);
+  color: var(--app-error);
 }
 
 .panel-content__metric-trend--flat {
@@ -162,15 +164,15 @@
 
 @container panel-card (max-height: 179px) {
   .panel-content__metric-value {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
 
   .panel-content__metric-label {
-    font-size: 0.65rem;
+    font-size: var(--text-micro);
   }
 
   .panel-content__metric-trend {
-    font-size: 0.6rem;
+    font-size: var(--text-micro);
   }
 }
 
@@ -182,11 +184,11 @@
   }
 
   .panel-content__metric-label {
-    font-size: 0.85rem;
+    font-size: var(--text-xs);
   }
 
   .panel-content__metric-trend {
-    font-size: 0.8rem;
+    font-size: var(--text-xs);
   }
 }
 
@@ -195,7 +197,7 @@
 @container panel-card (max-height: 179px) {
   .panel-content__table th,
   .panel-content__table td {
-    padding: 2px 6px;
+    padding: 2px var(--space-2);
     height: 14px;
   }
 }
@@ -204,7 +206,7 @@
 
 @container panel-card (max-height: 179px) {
   .panel-content__text-live {
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 }
 
@@ -212,6 +214,6 @@
 
 @container panel-card (min-height: 280px) {
   .panel-content__text-live {
-    font-size: 1.1rem;
+    font-size: var(--text-lg);
   }
 }

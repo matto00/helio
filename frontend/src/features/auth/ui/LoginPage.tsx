@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { TextField } from "../../../shared/ui/index";
 import { API_BASE_URL } from "../../../config/env";
+import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { login } from "../state/authSlice";
 import "./auth.css";
@@ -37,8 +38,12 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-card__title">Sign in</h1>
-        <p className="auth-card__subtitle">Welcome back to Helio</p>
+        <div className="auth-card__brand">
+          <OrbitMark size={18} />
+          <span className="auth-card__brand-name">Helio</span>
+        </div>
+        <h1 className="auth-card__title">Welcome back</h1>
+        <p className="auth-card__subtitle">Sign in to your workspace</p>
 
         <form onSubmit={(e) => void handleSubmit(e)} noValidate>
           <div className="auth-field">

@@ -489,7 +489,7 @@ describe("App", () => {
     renderApp({ initialPath: "/pipelines", authenticated: false });
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument(),
     );
 
     sessionStorage.setItem("helio_auth_token", "test-token");

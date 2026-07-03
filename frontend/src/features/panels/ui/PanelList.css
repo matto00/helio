@@ -1,11 +1,10 @@
 .panel-list {
   min-height: 100%;
-  padding: 26px;
+  padding: var(--space-6);
   border: none;
   border-radius: 0;
   background: var(--dashboard-grid-background-override, transparent);
   box-shadow: none;
-  backdrop-filter: none;
   overflow: hidden;
   transition: background-color var(--app-transition);
 }
@@ -14,8 +13,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 18px;
-  margin-bottom: 22px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .panel-list__header-actions {
@@ -27,19 +26,20 @@
 
 .panel-list__header h2 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
 }
 
 .panel-list__count {
-  padding: 3px 8px;
+  padding: 2px var(--space-2);
   border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .panel-list__add {
@@ -50,35 +50,33 @@
   justify-content: center;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-size: 0.85rem;
-  font-weight: 700;
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   line-height: 1;
   padding: 0;
   transition:
     border-color var(--app-transition),
-    background-color var(--app-transition);
+    background-color var(--app-transition),
+    color var(--app-transition);
 }
 
 .panel-list__add:hover:not(:disabled) {
   border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 .panel-list__add:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
-}
-
-.panel-list__add:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 .panel-list__panel-actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .panel-list__zoom-widget {
@@ -87,71 +85,63 @@
    * all panels and scroll out of view on tall dashboards. Fixed keeps it
    * pinned to the viewport's bottom-right corner so zoom is always reachable. */
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: var(--space-5);
+  right: var(--space-5);
   z-index: 10;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow-card);
 }
 
 .panel-list__zoom-level {
-  padding: 3px 8px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
-  font-size: 0.75rem;
-  font-weight: 700;
+  padding: 0 var(--space-2);
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
   min-width: 36px;
   text-align: center;
 }
 
 .panel-list__zoom-button,
 .panel-list__zoom-reset {
-  height: 26px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-size: 0.85rem;
-  font-weight: 700;
+  border: none;
+  border-radius: var(--app-radius-pill);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   line-height: 1;
-  padding: 0 6px;
+  padding: 0 var(--space-2);
   transition:
-    border-color var(--app-transition),
-    background-color var(--app-transition);
+    background-color var(--app-transition),
+    color var(--app-transition);
 }
 
 .panel-list__zoom-button {
-  width: 26px;
+  width: 22px;
   padding: 0;
-}
-
-.panel-list__zoom-reset {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0 8px;
 }
 
 .panel-list__zoom-button:hover:not(:disabled),
 .panel-list__zoom-reset:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 .panel-list__zoom-button:disabled,
 .panel-list__zoom-reset:disabled {
-  opacity: 0.6;
+  opacity: 0.45;
   cursor: not-allowed;
-}
-
-.panel-list__zoom-button:focus-visible,
-.panel-list__zoom-reset:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 .panel-list__zoom-container {
@@ -159,36 +149,37 @@
 }
 
 .panel-list__create {
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .panel-list__create-label {
   color: var(--app-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .panel-list__create-input {
   width: 100%;
-  min-height: 28px;
+  min-height: var(--control-sm);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
-  font-size: 0.75rem;
-  padding: 5px 8px;
+  font-size: var(--text-xs);
+  padding: 0 var(--space-2);
 }
 
 .panel-list__create-input:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px var(--app-accent-dim);
 }
 
 .panel-list__type-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   border: none;
   padding: 0;
   margin: 0;
@@ -197,14 +188,14 @@
 .panel-list__type-option {
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  padding: 5px 12px;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
   border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
-  background: var(--app-surface-soft);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
   color: var(--app-text-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition:
     border-color var(--app-transition),
@@ -222,8 +213,8 @@
 
 .panel-list__type-option:has(input:checked) {
   border-color: var(--app-accent);
-  background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
+  background: var(--app-accent-dim);
+  color: var(--app-accent);
 }
 
 .panel-list__type-option:hover:not(:has(input:checked)) {
@@ -237,33 +228,33 @@
 }
 
 .panel-list__create-submit {
-  min-height: 36px;
-  border: 1px solid var(--app-border-subtle);
+  height: var(--control-md);
+  border: 1px solid transparent;
   border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-weight: 600;
-  transition:
-    border-color var(--app-transition),
-    background-color var(--app-transition);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: background-color var(--app-transition);
 }
 
 .panel-list__create-submit:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
+  background: var(--app-accent-strong);
 }
 
 .panel-list__create-submit:disabled {
-  opacity: 0.65;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .panel-list__state {
-  margin: 0 0 18px;
-  padding: 16px 18px;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
-  background: var(--app-surface-soft);
+  background: var(--app-surface);
   color: var(--app-text-muted);
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 
@@ -272,67 +263,62 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin: 0 0 18px;
-  padding: 48px 24px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  background: var(--app-surface-soft);
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-10) var(--space-6);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  background: transparent;
   text-align: center;
 }
 
 .panel-list__empty-icon {
   width: 48px;
   height: 48px;
-  opacity: 0.6;
-  margin-bottom: 4px;
+  opacity: 0.55;
+  margin-bottom: var(--space-1);
 }
 
 .panel-list__empty-heading {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
   color: var(--app-text);
 }
 
 .panel-list__empty-subtext {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--app-text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .panel-list__empty-cta {
-  margin-top: 6px;
-  padding: 8px 18px;
-  border: 1px solid var(--app-border-subtle);
+  margin-top: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
   border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition:
-    border-color var(--app-transition),
-    background-color var(--app-transition);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: background-color var(--app-transition);
 }
 
 .panel-list__empty-cta:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
+  background: var(--app-accent-strong);
 }
 
 .panel-list__empty-cta:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
-}
-
-.panel-list__empty-cta:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 @media (max-width: 768px) {
   .panel-list {
-    padding: 22px;
+    padding: var(--space-5);
     min-height: auto;
   }
 

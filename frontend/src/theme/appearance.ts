@@ -12,10 +12,10 @@ export const defaultPanelAppearance: PanelAppearance = {
   transparency: 0,
 };
 
-export const dashboardAppearanceEditorFallback = "#0b1220";
-export const dashboardGridAppearanceEditorFallback = "#111d35";
-export const panelAppearanceEditorFallback = "#111827";
-export const panelTextEditorFallback = "#f8fafc";
+export const dashboardAppearanceEditorFallback = "#232019";
+export const dashboardGridAppearanceEditorFallback = "#2a2620";
+export const panelAppearanceEditorFallback = "#1a1816";
+export const panelTextEditorFallback = "#f2efe9";
 
 interface RgbColor {
   r: number;
@@ -23,8 +23,8 @@ interface RgbColor {
   b: number;
 }
 
-const readableLightText = "#f8fafc";
-const readableDarkText = "#0f172a";
+const readableLightText = "#fdfcfa";
+const readableDarkText = "#181511";
 
 const themeAppearancePalette: Record<
   Theme,
@@ -36,16 +36,16 @@ const themeAppearancePalette: Record<
   }
 > = {
   dark: {
-    appBackground: "#070b14",
-    gridBackground: "#121b31",
-    panelSurface: "#0f172a",
-    defaultText: "#edf2ff",
+    appBackground: "#121110",
+    gridBackground: "#191715",
+    panelSurface: "#1a1816",
+    defaultText: "#f2efe9",
   },
   light: {
-    appBackground: "#f3f6fb",
-    gridBackground: "#ffffff",
-    panelSurface: "#ffffff",
-    defaultText: "#101828",
+    appBackground: "#f4f2ed",
+    gridBackground: "#fdfcfa",
+    panelSurface: "#fdfcfa",
+    defaultText: "#211d19",
   },
 };
 
@@ -156,11 +156,9 @@ export function resolveDashboardGridBackground(
     0.28,
   );
 
-  // Alpha values: 0.94 (dark) / 0.97 (light). Chosen to keep the grid surface
-  // subtly distinguishable from the full-bleed shell background in both themes
-  // without making the grid area look like an opaque inset box. Delta from 1.0
-  // is intentionally small (±0.03–0.06) to stay in the "glass" range.
-  return toRgbString(resolved, theme === "dark" ? 0.94 : 0.97);
+  // Opaque by design: surfaces must read identically regardless of what sits
+  // behind them, so the grid override never lets the shell bleed through.
+  return toRgbString(resolved);
 }
 
 export function buildPanelSurface(theme: Theme, background: string, transparency: number): string {
@@ -171,10 +169,10 @@ export function buildPanelSurface(theme: Theme, background: string, transparency
     background,
     0.24,
   );
-  // Alpha formula: 0.9 at transparency=0 (solid glass floor) → 0.18 at transparency=1.0
-  // (near-invisible). The 0.72 slope is intentional: 0.9 - 1.0 * 0.72 = 0.18 exactly.
-  // The 0.9 floor preserves the glass-panel aesthetic even when transparency=0.
-  const alpha = 0.9 - clampTransparency(transparency) * 0.72;
+  // Alpha formula: fully opaque at transparency=0 → 0.15 at transparency=1.0.
+  // Opaque-by-default is intentional: panels must not tint through when the
+  // dashboard background changes. Translucency is strictly user-opted-in.
+  const alpha = 1 - clampTransparency(transparency) * 0.85;
 
   return toRgbString(resolved, alpha);
 }
@@ -243,21 +241,20 @@ export function buildAccentTokens(hex: string): Record<string, string> {
     return {};
   }
 
-  const white = { r: 255, g: 255, b: 255 };
-  const strong = blendColors(rgb, white, 0.15);
+  // Every other accent token (-strong, -surface, -dim, -mid, …) is derived in
+  // theme.css with color-mix, so a two-token write is enough to re-theme the
+  // whole app. Borders and backgrounds are neutral by design and are never
+  // rewritten from the accent.
+  const light = parseHexColor(readableLightText);
+  const dark = parseHexColor(readableDarkText);
+  const ink =
+    light !== null && dark !== null && getContrastRatio(dark, rgb) >= getContrastRatio(light, rgb)
+      ? readableDarkText
+      : readableLightText;
 
   return {
     "--app-accent": hex,
-    "--app-accent-strong": toRgbString(strong),
-    "--app-accent-surface": toRgbString(rgb, 0.12),
-    "--app-accent-dim": toRgbString(rgb, 0.12),
-    "--app-accent-mid": toRgbString(rgb, 0.25),
-    "--app-bg-accent": toRgbString(rgb, 0.06),
-    "--app-bg-secondary": toRgbString(rgb, 0.03),
-    // Borders were previously baked to orange in theme.css; derive them
-    // from the user's accent so non-orange palettes carry through.
-    "--app-border-strong": toRgbString(rgb, 0.3),
-    "--app-border-subtle": toRgbString(rgb, 0.1),
+    "--app-accent-ink": ink,
   };
 }
 

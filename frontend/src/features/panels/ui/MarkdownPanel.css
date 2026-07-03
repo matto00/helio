@@ -2,7 +2,7 @@
   overflow: auto;
   height: 100%;
   padding: 8px 12px;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--panel-text-override, inherit);
 }
@@ -30,14 +30,14 @@
 .markdown-panel h5,
 .markdown-panel h6 {
   margin: 0 0 0.5em;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: 1.3;
 }
 
 .markdown-panel code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
-  background: rgba(128, 128, 128, 0.15);
+  background: color-mix(in srgb, currentColor 10%, transparent);
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
@@ -48,21 +48,21 @@
 }
 
 .markdown-panel pre {
-  background: rgba(128, 128, 128, 0.1);
+  background: color-mix(in srgb, currentColor 7%, transparent);
   padding: 0.75em 1em;
   border-radius: 4px;
   overflow-x: auto;
 }
 
 .markdown-panel blockquote {
-  border-left: 3px solid rgba(128, 128, 128, 0.4);
+  border-left: 3px solid color-mix(in srgb, currentColor 30%, transparent);
   padding-left: 1em;
   margin-left: 0;
   opacity: 0.8;
 }
 
 .markdown-panel a {
-  color: var(--color-accent, #5a7ff2);
+  color: var(--app-accent);
 }
 
 .markdown-panel .contains-task-list {
@@ -86,7 +86,7 @@
 }
 
 .markdown-panel__placeholder {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   opacity: 0.5;
   font-style: italic;
   text-align: center;

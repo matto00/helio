@@ -16,17 +16,17 @@
 .image-panel--empty {
   flex-direction: column;
   gap: 8px;
-  background: var(--panel-placeholder-bg, rgba(128, 128, 128, 0.1));
-  border-radius: 4px;
-  color: var(--panel-placeholder-text, #888);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border-radius: var(--app-radius-sm);
+  color: color-mix(in srgb, currentColor 55%, transparent);
 }
 
 .image-panel__placeholder-icon {
-  font-size: 2rem;
+  font-size: var(--text-3xl);
   line-height: 1;
 }
 
 .image-panel__placeholder-text {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   text-align: center;
 }

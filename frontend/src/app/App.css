@@ -10,36 +10,17 @@
   transition: background-color var(--app-transition);
 }
 
-/* Dot-grid overlay — sits above the background override so it's always visible.
-   Uses --dot-grid-opacity (tuned per theme in theme.css) applied directly to
-   --app-accent via CSS relative color syntax. This decouples dot intensity from
-   the --app-bg-accent token so it can be tuned without touching the accent system.
-   z-index 5 is intentionally above .app-command-bar (z-2) and .app-sidebar (z-4);
-   pointer-events: none prevents any functional interference with those elements. */
-.app-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(
-    rgb(from var(--app-accent) r g b / var(--dot-grid-opacity, 0.1)) 1px,
-    transparent 1px
-  );
-  background-size: 28px 28px;
-  pointer-events: none;
-  z-index: 5;
-}
-
-/* --- COMMAND BAR (replaces the old large app-header) --- */
+/* --- COMMAND BAR --- */
 .app-command-bar {
-  height: 44px;
+  height: 48px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 var(--space-5);
   background: var(--app-surface);
   border-bottom: 1px solid var(--app-border-subtle);
-  gap: 16px;
+  gap: var(--space-4);
   position: relative;
   z-index: 2;
 }
@@ -47,7 +28,7 @@
 .app-command-bar__left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   min-width: 0;
   flex: 1;
 }
@@ -55,22 +36,25 @@
 .app-command-bar__logo {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   text-decoration: none;
   color: var(--app-text);
 }
 
+/* Serif wordmark — the brand signature */
 .app-command-bar__wordmark {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
   color: var(--app-text);
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .app-command-bar__sep {
   width: 1px;
-  height: 16px;
+  height: 18px;
   background: var(--app-border-subtle);
   flex-shrink: 0;
 }
@@ -78,16 +62,16 @@
 .app-command-bar__breadcrumb {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.02em;
   min-width: 0;
 }
 
 .app-command-bar__breadcrumb-sep {
-  opacity: 0.4;
+  opacity: 0.45;
   flex-shrink: 0;
 }
 
@@ -102,7 +86,7 @@
 .app-command-bar__right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -110,11 +94,12 @@
 .cmd-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: var(--app-radius-md);
-  font-size: 12px;
-  font-weight: 500;
+  gap: var(--space-1);
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   border: 1px solid var(--app-border-subtle);
   background: transparent;
@@ -129,12 +114,8 @@
 
 .cmd-btn:hover {
   border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
   color: var(--app-text);
-}
-
-.cmd-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 .cmd-btn:disabled {
@@ -143,20 +124,19 @@
 }
 
 .cmd-btn--primary {
-  background: var(--app-accent-dim);
-  border-color: var(--app-accent-mid);
-  color: var(--app-accent);
+  background: var(--app-accent);
+  border-color: transparent;
+  color: var(--app-accent-ink);
 }
 
 .cmd-btn--primary:hover {
-  background: var(--app-accent-surface);
-  border-color: var(--app-accent);
-  color: var(--app-accent-strong);
+  background: var(--app-accent-strong);
+  border-color: transparent;
+  color: var(--app-accent-ink);
 }
 
 .cmd-btn--icon {
-  width: 28px;
-  height: 28px;
+  width: var(--control-sm);
   padding: 0;
   justify-content: center;
 }
@@ -183,44 +163,24 @@
   z-index: 4;
 }
 
-.app-sidebar__logo {
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--app-border-subtle);
-}
-
-.app-sidebar__wordmark {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--app-text);
-}
-
-.app-sidebar__workspace {
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--app-text-muted);
-  letter-spacing: 0.04em;
-}
-
 .app-sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 10px 8px;
+  gap: 2px;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--app-border-subtle);
 }
 
 .app-sidebar__nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 5px 10px;
-  border-radius: var(--app-radius-md);
-  font-size: var(--text-xs);
-  font-weight: 500;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   color: var(--app-text-muted);
   text-decoration: none;
   transition:
@@ -229,13 +189,26 @@
 }
 
 .app-sidebar__nav-link:hover {
-  background: var(--app-accent-surface);
+  background: var(--app-surface-raised);
   color: var(--app-text);
 }
 
 .app-sidebar__nav-link.active {
   background: var(--app-accent-dim);
   color: var(--app-accent);
+}
+
+/* Active marker: a short accent bar, not a full glow */
+.app-sidebar__nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 14px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-accent);
 }
 
 .app-sidebar__nav-link:focus-visible {
@@ -250,9 +223,9 @@
   overflow: hidden;
 }
 
-.app-sidebar-toggle {
+.app-sidebar-toggle,
+.app-sidebar-collapse {
   position: absolute;
-  left: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
@@ -264,58 +237,26 @@
   background: var(--app-surface);
   border: 1px solid var(--app-border-subtle);
   border-left: none;
-  border-radius: 0 var(--app-radius-md) var(--app-radius-md) 0;
+  border-radius: 0 var(--app-radius-sm) var(--app-radius-sm) 0;
   color: var(--app-text-muted);
-  font-size: 18px;
-  font-weight: 400;
   cursor: pointer;
   transition:
     color var(--app-transition),
     border-color var(--app-transition);
 }
 
-.app-sidebar-toggle:hover {
-  color: var(--app-text);
-  border-color: var(--app-border-strong);
-}
-
-.app-sidebar-toggle:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
+.app-sidebar-toggle {
+  left: 0;
 }
 
 .app-sidebar-collapse {
-  position: absolute;
   right: -20px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
-  width: 20px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border-subtle);
-  border-left: none;
-  border-radius: 0 var(--app-radius-md) var(--app-radius-md) 0;
-  color: var(--app-text-muted);
-  font-size: 18px;
-  font-weight: 400;
-  cursor: pointer;
-  transition:
-    color var(--app-transition),
-    border-color var(--app-transition);
 }
 
+.app-sidebar-toggle:hover,
 .app-sidebar-collapse:hover {
   color: var(--app-text);
   border-color: var(--app-border-strong);
-}
-
-.app-sidebar-collapse:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 /* --- CONTENT AREA --- */
@@ -325,17 +266,24 @@
   min-height: 0;
   overflow-y: auto;
   position: relative;
+  /* Neutral dot field — canvas texture, confined to the work area. Painted as
+     a background (not an overlay) so it never sits above interactive chrome,
+     and derived from the text color so it stays neutral under any accent or
+     dashboard background override. */
+  background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
+  background-size: 26px 26px;
 }
 
 /* --- UNDO/REDO buttons in command bar --- */
 .undo-redo-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--app-radius-md);
-  font-size: 12px;
-  font-weight: 500;
+  gap: var(--space-1);
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   border: 1px solid var(--app-border-subtle);
   background: transparent;
@@ -349,12 +297,8 @@
 
 .undo-redo-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
   color: var(--app-text);
-}
-
-.undo-redo-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
 }
 
 .undo-redo-btn:disabled {
@@ -367,15 +311,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   padding: 0;
-  border-radius: var(--app-radius-md);
+  border-radius: var(--app-radius-sm);
   border: 1px solid var(--app-border-subtle);
   background: transparent;
   color: var(--app-text-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-xs);
   transition:
     border-color var(--app-transition),
     color var(--app-transition),
@@ -383,19 +327,14 @@
 }
 
 .topbar-theme-btn:hover {
-  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
-  background: var(--app-accent-surface);
-  color: var(--app-accent);
-}
-
-.topbar-theme-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 2px;
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 @media (max-width: 768px) {
   .app-command-bar {
-    padding: 0 12px;
+    padding: 0 var(--space-3);
   }
 
   .app-command-bar__breadcrumb {
@@ -404,7 +343,7 @@
 
   .app-sidebar {
     position: fixed;
-    top: 44px;
+    top: 48px;
     left: 0;
     bottom: 0;
     z-index: 10;
