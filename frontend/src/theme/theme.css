@@ -69,6 +69,14 @@
   /* --- Motion --- */
   --app-transition: 0.16s ease;
   --transition-slow: 0.28s cubic-bezier(0.3, 0.9, 0.4, 1);
+
+  /* --- Layering (z-index scale) --- */
+  /* All portalled popovers/menus/select dropdowns share one layer so they
+     stack consistently above page chrome; the scrim sits one below. Native
+     <dialog> modals live in the browser top layer, above these. */
+  --z-popover-scrim: 99;
+  --z-popover: 100;
+  --z-toast: 1000;
 }
 
 /* ─── Dark: warm near-black "stone" ramp ─────────────────────────────────── */

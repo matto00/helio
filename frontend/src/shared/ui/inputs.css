@@ -98,7 +98,7 @@
 
 .ui-select__panel {
   position: fixed;
-  z-index: 100;
+  z-index: var(--z-popover);
   margin: 0;
   padding: var(--space-1);
   list-style: none;
@@ -145,7 +145,7 @@
 .ui-select__scrim {
   position: fixed;
   inset: 0;
-  z-index: 99;
+  z-index: var(--z-popover-scrim);
   background: transparent;
   border: none;
   cursor: default;

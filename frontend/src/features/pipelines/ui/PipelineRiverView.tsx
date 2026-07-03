@@ -4,6 +4,8 @@
 // otherwise). Extracted from PipelineDetailPage.tsx in CS3 cycle 2 to keep
 // the parent under the 400L hard cap.
 
+import { useRef } from "react";
+
 import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
 import { StepCard } from "./StepCard";
@@ -37,6 +39,10 @@ export function PipelineRiverView({
   onStepConfigChange,
   runStepRowCounts,
 }: PipelineRiverViewProps) {
+  // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
+  // single ref anchors the portalled OpDropdown to whichever button is showing.
+  const addStepButtonRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div className="pipeline-detail-page__river">
       <div className="pipeline-detail-page__river-inner">
@@ -46,13 +52,20 @@ export function PipelineRiverView({
               Add your first transformation step
             </p>
             <button
+              ref={addStepButtonRef}
               type="button"
               className="pipeline-detail-page__add-step-btn"
               onClick={openDropdown}
             >
               + Add step
             </button>
-            {dropdownOpen && <OpDropdown onSelect={onAddStep} onClose={closeDropdown} />}
+            {dropdownOpen && (
+              <OpDropdown
+                anchorRef={addStepButtonRef}
+                onSelect={onAddStep}
+                onClose={closeDropdown}
+              />
+            )}
           </div>
         ) : (
           <>
@@ -73,13 +86,20 @@ export function PipelineRiverView({
             ))}
             <div className="pipeline-detail-page__add-step-row">
               <button
+                ref={addStepButtonRef}
                 type="button"
                 className="pipeline-detail-page__add-step-dashed-btn"
                 onClick={openDropdown}
               >
                 + Add transformation step
               </button>
-              {dropdownOpen && <OpDropdown onSelect={onAddStep} onClose={closeDropdown} />}
+              {dropdownOpen && (
+                <OpDropdown
+                  anchorRef={addStepButtonRef}
+                  onSelect={onAddStep}
+                  onClose={closeDropdown}
+                />
+              )}
             </div>
           </>
         )}

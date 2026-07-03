@@ -304,11 +304,9 @@
 
 /* ── Op type dropdown ── */
 .pipeline-detail-page__op-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
+  /* Positioned inline (position: fixed + coords) by OpDropdown, which portals
+     this menu to document.body. Only the appearance lives here. */
+  z-index: var(--z-popover);
   list-style: none;
   margin: 0;
   padding: 4px;

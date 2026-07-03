@@ -12,7 +12,13 @@
 }
 
 .ui-modal[open] {
-  animation: ui-modal-in var(--transition-slow) both;
+  /* `backwards` (not `both`): the entrance animates `transform`, and a lingering
+     forwards fill would keep the dialog as a transform containing block — which
+     re-anchors `position: fixed` popovers portalled into it (Select) to the
+     dialog instead of the viewport, mispositioning them. The `to` state equals
+     the modal's resting style, so dropping the forwards fill is visually
+     identical at rest. */
+  animation: ui-modal-in var(--transition-slow) backwards;
 }
 
 @keyframes ui-modal-in {

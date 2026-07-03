@@ -44,7 +44,7 @@
 }
 
 .user-menu__popover {
-  z-index: 30;
+  z-index: var(--z-popover);
   width: 210px;
   padding: var(--space-1);
   border: 1px solid var(--app-border-subtle);
