@@ -217,8 +217,11 @@ function resolveBreakpointLayout(
 
   // Happy path: every panel has a saved entry — skip the placement loop and return
   // the saved positions directly in panel order. This is the case for every render
-  // after the first save, which is most renders.
-  if (savedByPanelId.size === panels.length) {
+  // after the first save, which is most renders. The id check is required, not just
+  // the count: while switching dashboards the incoming `panels` (previous board) can
+  // briefly pair with the next board's `savedItems`. Equal counts but disjoint ids
+  // would otherwise make `.get(p.id)!` yield `undefined`, crashing the overlap pass.
+  if (savedByPanelId.size === panels.length && panels.every((p) => savedByPanelId.has(p.id))) {
     return panels.map((p) => savedByPanelId.get(p.id)!);
   }
 

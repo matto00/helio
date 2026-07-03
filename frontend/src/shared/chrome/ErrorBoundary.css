@@ -1,0 +1,98 @@
+.error-boundary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.error-boundary__card {
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--app-error) 30%, transparent);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.error-boundary__heading {
+  margin: 0 0 var(--space-2);
+  color: var(--app-text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.error-boundary__message {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--app-error) 30%, transparent);
+  border-radius: var(--app-radius-md);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  word-break: break-word;
+}
+
+.error-boundary__details {
+  margin: 0 0 var(--space-4);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+.error-boundary__details summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.error-boundary__stack {
+  margin: var(--space-2) 0 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-boundary__actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.error-boundary__button {
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.error-boundary__button:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.error-boundary__button--primary {
+  border-color: transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.error-boundary__button--primary:hover {
+  border-color: transparent;
+  background: var(--app-accent-strong);
+}

@@ -54,6 +54,7 @@ import { resolveDashboardBackground } from "../theme/appearance";
 import { useTheme } from "../theme/ThemeProvider";
 import { SaveStateContext, type SaveStateContextValue } from "../context/SaveStateContext";
 import { ToastViewport } from "../shared/ui/Toast";
+import { ErrorBoundary } from "../shared/chrome/ErrorBoundary";
 
 function breadcrumbLabel(pathname: string): string {
   if (pathname === "/") return "Dashboards";
@@ -301,7 +302,9 @@ function AppShell() {
             </aside>
           )}
           <section className="app-content">
-            <Outlet />
+            <ErrorBoundary resetKey={`${location.pathname}:${selectedDashboardId ?? ""}`}>
+              <Outlet />
+            </ErrorBoundary>
           </section>
         </div>
       </main>
