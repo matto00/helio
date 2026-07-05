@@ -94,6 +94,11 @@ object DemoData {
       )
     )
 
+    // enforce-pipeline-only-bindings: these seed panels are unbound (empty
+    // dataTypeId) — DemoData creates no DataSource/DataType/Pipeline rows at
+    // all, so there is no companion-DataType binding here to convert. The
+    // backend guard (PanelService.rejectCompanionBinding) and this seed are
+    // consistent by construction; verified rather than changed (task 1.3).
     val emptyMetric = MetricPanelConfig(DataTypeId(""), JsObject.empty)
     val emptyTable  = TablePanelConfig(DataTypeId(""), JsObject.empty)
     val emptyChart  = ChartPanelConfig(DataTypeId(""), JsObject.empty)

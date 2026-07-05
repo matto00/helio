@@ -107,6 +107,7 @@ const dataTypeStoreAdditions = {
       {
         id: "pipe-1",
         name: "Revenue Pipeline",
+        sourceDataSourceId: "src-1",
         sourceDataSourceName: "Source",
         outputDataTypeName: "Revenue",
         outputDataTypeId: "dt-1",

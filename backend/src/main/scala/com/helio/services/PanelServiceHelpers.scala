@@ -4,6 +4,7 @@ import com.helio.api.RequestValidation
 import com.helio.api.protocols.{CreatePanelRequest, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain._
 import com.helio.domain.panels._
+import spray.json.{JsObject, JsString, JsValue}
 
 /** Static helpers extracted from the [[PanelService]] companion to keep
  *  that file within the 300-line budget. Methods retain their original
@@ -102,5 +103,31 @@ object PanelServiceHelpers {
     typeOpt match {
       case None    => Right(None)
       case Some(t) => PanelType.fromString(t).map(Some(_))
+    }
+
+  /** Extract the bound `dataTypeId` a create-side config targets, if any.
+   *  Only the "bound trio" (Metric / Chart / Table) carry a binding; the
+   *  empty-string sentinel (`decodeCreate` default) means "not set" and is
+   *  treated as unbound, mirroring `Panel.dataTypeId`'s own convention. */
+  private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
+    config match {
+      case PanelConfigCodec.MetricCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.ChartCreate(c)  => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.TableCreate(c)  => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case _                                => None
+    }
+
+  /** Extract the `dataTypeId` an incoming PATCH `config` payload explicitly
+   *  sets to a non-null value, if any. Absent fields and explicit `null`
+   *  (unbind) both yield `None` — the guard only fires on an actual
+   *  re-bind attempt, never on unrelated field edits or unbinding. The wire
+   *  field name (`dataTypeId`) is shared verbatim across the bound trio's
+   *  `*Config.Patch` shapes, so this reads the raw JSON directly rather than
+   *  dispatching per subtype. */
+  private[services] def dataTypeIdFromConfigPatch(json: JsValue): Option[DataTypeId] =
+    json match {
+      case JsObject(fields) =>
+        fields.get("dataTypeId").collect { case JsString(s) if s.nonEmpty => DataTypeId(s) }
+      case _ => None
     }
 }

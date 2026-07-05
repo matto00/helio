@@ -82,10 +82,10 @@
   color: var(--app-error);
 }
 
-/* ── Source selector bar ── */
+/* ── Bound source bar ── */
 .pipeline-detail-page__source-bar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 10px 20px;
   background: var(--app-surface-soft);
@@ -100,123 +100,30 @@
   letter-spacing: var(--eyebrow-tracking);
   text-transform: uppercase;
   color: var(--app-text-muted);
-  padding-top: 6px;
   white-space: nowrap;
 }
 
-.pipeline-detail-page__source-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.pipeline-detail-page__source-bar-loading {
-  font-size: var(--text-xs);
-  color: var(--app-text-muted);
-}
-
-.pipeline-detail-page__source-chip-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pipeline-detail-page__source-chip {
-  display: flex;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  overflow: hidden;
-  background: var(--app-surface);
-}
-
-.pipeline-detail-page__source-chip--active {
-  border-color: var(--app-accent-mid);
-  background: var(--app-accent-dim);
-}
-
-.pipeline-detail-page__source-chip-toggle {
+.pipeline-detail-page__bound-source {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: transparent;
-  border: none;
-  border-right: 1px solid var(--app-border-subtle);
-  color: var(--app-text);
-  font-size: var(--text-xs);
-  cursor: pointer;
+  gap: 8px;
 }
 
-.pipeline-detail-page__source-chip--active .pipeline-detail-page__source-chip-toggle {
-  color: var(--app-text);
-  border-right-color: var(--app-accent-mid);
-}
-
-.pipeline-detail-page__source-chip-name {
-  font-weight: var(--weight-medium);
-}
-
-.pipeline-detail-page__source-chip-count {
-  font-size: var(--text-micro);
-  color: var(--app-text-muted);
-  font-family: var(--font-mono);
-}
-
-.pipeline-detail-page__source-chip-preview-btn {
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  color: var(--app-text-muted);
+.pipeline-detail-page__bound-source-name {
   font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.pipeline-detail-page__source-chip-preview-btn:hover {
-  color: var(--app-accent);
-}
-
-.pipeline-detail-page__source-preview {
-  border: 1px solid var(--app-accent-mid);
-  border-radius: var(--app-radius-sm);
-  overflow: auto;
-  max-width: 300px;
-}
-
-.pipeline-detail-page__source-preview-table {
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  width: 100%;
-}
-
-.pipeline-detail-page__source-preview-th {
-  padding: 3px 8px;
-  text-align: left;
-  color: var(--app-text-muted);
-  border-bottom: 1px solid var(--app-border-strong);
-  white-space: nowrap;
-}
-
-.pipeline-detail-page__source-preview-td {
-  padding: 3px 8px;
+  font-weight: var(--weight-medium);
   color: var(--app-text);
-  white-space: nowrap;
 }
 
-.pipeline-detail-page__connect-source-btn {
-  padding: 4px 10px;
-  border: 1px dashed var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  background: transparent;
+.pipeline-detail-page__bound-source-kind {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
   color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-}
-
-.pipeline-detail-page__connect-source-btn:hover {
-  border-color: var(--app-accent-mid);
-  color: var(--app-accent);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  padding: 2px 6px;
+  border-radius: var(--app-radius-sm);
 }
 
 /* ── River view ── */

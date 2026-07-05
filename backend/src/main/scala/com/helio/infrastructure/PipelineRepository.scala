@@ -135,6 +135,7 @@ class PipelineRepository(
           PipelineSummary(
             id                   = p.id,
             name                 = p.name,
+            sourceDataSourceId   = p.sourceDataSourceId,
             sourceDataSourceName = srcName,
             outputDataTypeName   = dtName,
             outputDataTypeId     = p.outputDataTypeId,
@@ -159,6 +160,7 @@ class PipelineRepository(
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,
+        sourceDataSourceId   = p.sourceDataSourceId,
         sourceDataSourceName = srcName,
         outputDataTypeName   = dtName,
         outputDataTypeId     = p.outputDataTypeId,
@@ -229,6 +231,7 @@ class PipelineRepository(
             Right(PipelineSummary(
               id                   = pipelineId,
               name                 = name,
+              sourceDataSourceId   = sourceDataSourceId.value,
               sourceDataSourceName = dataSource.name,
               outputDataTypeName   = outputDataTypeName,
               outputDataTypeId     = createdDataType.id.value,
@@ -329,6 +332,7 @@ class PipelineRepository(
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,
+        sourceDataSourceId   = p.sourceDataSourceId,
         sourceDataSourceName = srcName,
         outputDataTypeName   = dtName,
         outputDataTypeId     = p.outputDataTypeId,
@@ -353,6 +357,7 @@ object PipelineRepository {
   case class PipelineSummary(
       id: String,
       name: String,
+      sourceDataSourceId: String,
       sourceDataSourceName: String,
       outputDataTypeName: String,
       outputDataTypeId: String,

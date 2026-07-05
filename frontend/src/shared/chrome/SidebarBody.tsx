@@ -6,6 +6,7 @@ import { faDatabase, faLayerGroup, faCodeBranch } from "@fortawesome/free-solid-
 import {
   deleteDataType,
   fetchDataTypes,
+  selectPipelineOutputDataTypes,
   setSelectedTypeId,
 } from "../../features/dataTypes/state/dataTypesSlice";
 import {
@@ -40,6 +41,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
+  const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
 
   const section = sectionFromPathname(pathname);
 
@@ -50,6 +52,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       void dispatch(fetchPipelines());
     } else if (section === "registry" && dataTypes.status === "idle") {
       void dispatch(fetchDataTypes());
+    }
+    // The sources section also needs pipelines loaded: the delete-confirm
+    // warning counts pipelines that read from the source being deleted.
+    if (section === "sources" && pipelines.status === "idle") {
+      void dispatch(fetchPipelines());
     }
   }, [section, dispatch, sources.status, pipelines.status, dataTypes.status]);
 
@@ -71,6 +78,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         emptyDescription="Pull in data from PostgreSQL, MySQL, CSV, or static input."
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
         addLabel="Add source"
+        deleteWarning={(item) => {
+          const dependents = pipelines.items.filter((p) => p.sourceDataSourceId === item.id).length;
+          if (dependents === 0) return null;
+          return `${dependents} pipeline${dependents === 1 ? "" : "s"} read${dependents === 1 ? "s" : ""} from this source and will stop working.`;
+        }}
         onDelete={async (item) => {
           await dispatch(deleteSource(item.id));
           if (sources.selectedSourceId === item.id) {
@@ -104,18 +116,18 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   }
 
   if (section === "registry") {
-    const effectiveTypeId = dataTypes.selectedTypeId ?? dataTypes.items[0]?.id ?? null;
+    const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
     return (
       <SidebarItemList
         heading="Type Registry"
-        items={dataTypes.items}
+        items={pipelineOutputDataTypes}
         status={dataTypes.status}
         error={dataTypes.error}
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
         activeId={effectiveTypeId}
         emptyText="No types defined"
         emptyIcon={faLayerGroup}
-        emptyDescription="Types describe the shape of your data. Pipelines auto-generate types from their inputs."
+        emptyDescription="Types describe the shape of your data. Each pipeline produces one type as its output."
         onDelete={async (item) => {
           await dispatch(deleteDataType(item.id));
           if (dataTypes.selectedTypeId === item.id) {

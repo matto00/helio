@@ -6,6 +6,7 @@ import {
   deleteDataType as deleteDataTypeRequest,
 } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
+import type { RootState } from "../../../store/store";
 
 interface DataTypesState {
   items: DataType[];
@@ -102,3 +103,14 @@ const dataTypesSlice = createSlice({
 
 export const { setSelectedTypeId } = dataTypesSlice.actions;
 export const dataTypesReducer = dataTypesSlice.reducer;
+
+// --- Selectors ---
+
+/** DataTypes produced by a pipeline (`sourceId === null`) — the only DataTypes
+ * a panel may bind to, and the only ones surfaced in user-facing type lists
+ * (BindingEditor, panel-creation DataType step, Type Registry). Companion
+ * DataTypes (`sourceId != null`, auto-created at source registration) are
+ * internal source-schema records and are filtered out here. */
+export function selectPipelineOutputDataTypes(state: RootState): DataType[] {
+  return state.dataTypes.items.filter((dt) => dt.sourceId === null);
+}

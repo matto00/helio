@@ -23,6 +23,7 @@ const testPipelines = [
   {
     id: "p-1",
     name: "Sales Pipeline",
+    sourceDataSourceId: "ds-1",
     sourceDataSourceName: "Sales API",
     outputDataTypeName: "SalesMetrics",
     outputDataTypeId: "dt-sales",
@@ -33,6 +34,7 @@ const testPipelines = [
   {
     id: "p-2",
     name: "Inventory Sync",
+    sourceDataSourceId: "ds-2",
     sourceDataSourceName: "ERP DB",
     outputDataTypeName: "InventoryData",
     outputDataTypeId: "dt-inventory",
@@ -152,6 +154,7 @@ describe("PipelinesPage", () => {
     const neverRunPipeline = {
       id: "p-3",
       name: "New Pipeline",
+      sourceDataSourceId: "ds-3",
       sourceDataSourceName: "CSV Source",
       outputDataTypeName: "RawData",
       outputDataTypeId: "dt-raw",

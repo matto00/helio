@@ -116,17 +116,21 @@ final class PanelService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(createConfig) =>
-                val now = Instant.now()
-                val panel = buildNewPanel(
-                  id           = PanelId(UUID.randomUUID().toString),
-                  dashboardId  = dashboardId,
-                  title        = RequestValidation.normalizePanelTitle(request.title),
-                  meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                  appearance   = PanelAppearance.Default,
-                  ownerId      = user.id,
-                  createConfig = createConfig
-                )
-                panelRepo.insert(panel).map(Right(_))
+                rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_) =>
+                    val now = Instant.now()
+                    val panel = buildNewPanel(
+                      id           = PanelId(UUID.randomUUID().toString),
+                      dashboardId  = dashboardId,
+                      title        = RequestValidation.normalizePanelTitle(request.title),
+                      meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+                      appearance   = PanelAppearance.Default,
+                      ownerId      = user.id,
+                      createConfig = createConfig
+                    )
+                    panelRepo.insert(panel).map(Right(_))
+                }
             }
         }
     }
@@ -227,13 +231,40 @@ final class PanelService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
-                patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
-                  .map {
-                    case Some(panel) => Right(panel)
-                    case None        => Left(ServiceError.NotFound("Panel not found"))
-                  }
-                  .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                val incomingDataTypeId = spec.configPatch.flatMap(dataTypeIdFromConfigPatch)
+                rejectCompanionBinding(incomingDataTypeId, user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_) =>
+                    patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
+                      .map {
+                        case Some(panel) => Right(panel)
+                        case None        => Left(ServiceError.NotFound("Panel not found"))
+                      }
+                      .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                }
             }
+        }
+    }
+
+  // ── Internal: reject companion-DataType bindings (enforce-pipeline-only-bindings) ──
+
+  /** 400 when `dataTypeIdOpt` resolves to a companion DataType (`sourceId`
+   *  defined) — panels may only bind to pipeline-output types. A `None`
+   *  input (no binding attempted) or a type that doesn't resolve for this
+   *  owner (nonexistent / cross-user) both pass through unchanged: the
+   *  latter preserves the existing silent-unbind-on-read behavior instead
+   *  of turning it into a 400. */
+  private def rejectCompanionBinding(
+      dataTypeIdOpt: Option[DataTypeId],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    dataTypeIdOpt match {
+      case None => Future.successful(Right(()))
+      case Some(dataTypeId) =>
+        dataTypeRepo.findByIdOwned(dataTypeId, user).map {
+          case Some(dt) if dt.sourceId.isDefined =>
+            Left(ServiceError.BadRequest("Panels can only bind to pipeline-output data types"))
+          case _ => Right(())
         }
     }
 

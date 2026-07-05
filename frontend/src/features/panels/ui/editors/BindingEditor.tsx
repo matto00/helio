@@ -2,7 +2,10 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Select, TextField } from "../../../../shared/ui/index";
-import { fetchDataTypes } from "../../../dataTypes/state/dataTypesSlice";
+import {
+  fetchDataTypes,
+  selectPipelineOutputDataTypes,
+} from "../../../dataTypes/state/dataTypesSlice";
 import { PANEL_SLOTS } from "../../state/panelSlots";
 import { updatePanelBinding } from "../../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
@@ -26,6 +29,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
   function BindingEditor({ panel, initialRefreshInterval, onDirtyChange }, ref) {
     const dispatch = useAppDispatch();
     const dataTypes = useAppSelector((state) => state.dataTypes.items);
+    const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
     const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
 
     const initialTypeId =
@@ -98,7 +102,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
 
     const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
     const slots = PANEL_SLOTS[panel.type];
-    const filteredDataTypes = dataTypes.filter((dt) =>
+    const filteredDataTypes = pipelineOutputDataTypes.filter((dt) =>
       dt.name.toLowerCase().includes(typeSearch.toLowerCase()),
     );
 
@@ -110,9 +114,6 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           {selectedType ? (
             <div className="panel-detail-modal__selected-type">
               <span className="panel-detail-modal__selected-type-name">{selectedType.name}</span>
-              {selectedType.sourceId && (
-                <span className="panel-detail-modal__type-badge">source</span>
-              )}
               <span className="panel-detail-modal__type-count">
                 {selectedType.fields.length} fields
               </span>
@@ -160,9 +161,6 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                       }}
                     >
                       <span className="panel-detail-modal__selected-type-name">{dt.name}</span>
-                      {dt.sourceId && (
-                        <span className="panel-detail-modal__type-badge">source</span>
-                      )}
                       <span className="panel-detail-modal__type-count">
                         {dt.fields.length} fields
                       </span>
@@ -172,8 +170,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
               )}
             </>
           )}
-          <Link to="/sources" className="panel-detail-modal__source-link">
-            Add a new source →
+          <Link to="/pipelines" className="panel-detail-modal__source-link">
+            Create a pipeline →
           </Link>
         </div>
 

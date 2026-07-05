@@ -15,8 +15,10 @@ import { useEffect, useRef, useState } from "react";
 
 import "./PanelCreationModal.css";
 import { createPanel } from "../state/panelsSlice";
-import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
-import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
+import {
+  fetchDataTypes,
+  selectPipelineOutputDataTypes,
+} from "../../dataTypes/state/dataTypesSlice";
 import { PANEL_TEMPLATES } from "../state/panelTemplates";
 import type { PanelTemplate } from "../state/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -55,9 +57,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dispatch = useAppDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const { selectedDashboardId } = useAppSelector((state) => state.dashboards);
-  // 3.6 — Slices for DataType picker.
-  const pipelines = useAppSelector((state) => state.pipelines);
+  // 3.6 — Slice for DataType picker.
   const dataTypes = useAppSelector((state) => state.dataTypes);
+  const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
 
   const [step, setStep] = useState<Step>("type-select");
   const [selectedType, setSelectedType] = useState<PanelType | null>(null);
@@ -84,23 +86,12 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     dialogRef.current?.showModal();
   }, []);
 
-  // 3.6 — Fetch pipelines and data types on mount if not yet loaded.
+  // 3.6 — Fetch data types on mount if not yet loaded.
   useEffect(() => {
-    if (pipelines.status === "idle") {
-      void dispatch(fetchPipelines());
-    }
     if (dataTypes.status === "idle") {
       void dispatch(fetchDataTypes());
     }
-  }, [dispatch, pipelines.status, dataTypes.status]);
-
-  // 3.6 — Compute the set of DataType IDs produced by at least one registered pipeline.
-  const registryDataTypeIds = new Set(
-    pipelines.items.map((p) => p.outputDataTypeId).filter(Boolean),
-  );
-
-  // 3.6 — Filter DataTypes to only those in the registry.
-  const registryDataTypes = dataTypes.items.filter((dt) => registryDataTypeIds.has(dt.id));
+  }, [dispatch, dataTypes.status]);
 
   // 1.6 / 1.7 — Focus trap: Tab/Shift+Tab cycle only through modal-internal focusable elements.
   useEffect(() => {
@@ -268,11 +259,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dividerConfig: DividerTypeConfig =
     typeConfig?.type === "divider" ? typeConfig : { type: "divider" };
 
-  const datatypeStepLoading =
-    pipelines.status === "loading" ||
-    pipelines.status === "idle" ||
-    dataTypes.status === "loading" ||
-    dataTypes.status === "idle";
+  const datatypeStepLoading = dataTypes.status === "loading" || dataTypes.status === "idle";
 
   return (
     <dialog
@@ -345,7 +332,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
         {step === "datatype-select" && (
           <DataTypeSelectStep
             loading={datatypeStepLoading}
-            registryDataTypes={registryDataTypes}
+            registryDataTypes={pipelineOutputDataTypes}
             selectedDataTypeId={selectedDataTypeId}
             onSelect={setSelectedDataTypeId}
             onEmptyStateNavigate={handleClose}

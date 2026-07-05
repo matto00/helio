@@ -306,6 +306,46 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByText("Sales Metrics")).not.toBeInTheDocument();
   });
 
+  // Task 2.2 — companion DataTypes (sourceId set) are internal source-schema
+  // records and must never be offered as panel binding targets.
+  it("excludes companion DataTypes (sourceId set) from the picker", () => {
+    setupDialog();
+    renderWithStore(<PanelDetailModal panel={testPanel} onClose={jest.fn()} />, {
+      dataTypes: {
+        items: [
+          testDataType,
+          {
+            id: "dt-companion",
+            name: "Source Companion",
+            sourceId: "src-1",
+            version: 1,
+            fields: [],
+            computedFields: [],
+            createdAt: "2026-03-22T00:00:00Z",
+            updatedAt: "2026-03-22T00:00:00Z",
+          },
+        ],
+        status: "succeeded",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
+    expect(screen.queryByText("Source Companion")).not.toBeInTheDocument();
+  });
+
+  // Task 2.2 — the footer link now points at Pipelines (bindable types are
+  // pipeline outputs), not Sources.
+  it("shows a link to Pipelines (not Sources) in the Data section", () => {
+    renderModalWithDataType();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    const link = screen.getByRole("link", { name: "Create a pipeline →" });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/pipelines");
+  });
+
   // Save transitions to view mode (not close)
   it("saves binding and transitions to view mode on Save", async () => {
     updateBindingMock.mockResolvedValue(

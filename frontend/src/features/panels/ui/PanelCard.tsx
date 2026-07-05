@@ -8,8 +8,6 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { PanelContent } from "./PanelContent";
-import { PanelLegacyWarning } from "./PanelLegacyWarning";
-import { useLegacyBoundPanel } from "../hooks/useLegacyBoundPanel";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import type { Panel } from "../types/panel";
@@ -55,7 +53,6 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
-  const isLegacyBound = useLegacyBoundPanel(panel);
 
   const handleLoadMore = useCallback(() => {
     if (paginationEntry && !paginationEntry.isLoadingMore) {
@@ -81,23 +78,20 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     paginationEntry.rows.length === 0;
 
   return (
-    <>
-      {isLegacyBound && <PanelLegacyWarning />}
-      <PanelContent
-        panel={panel}
-        appearance={panel.appearance}
-        data={data}
-        rawRows={rawRows}
-        headers={headers}
-        isLoading={panel.type === "table" ? tableIsLoading : isLoading}
-        error={error}
-        noData={noData}
-        paginationRows={paginationEntry?.rows ?? null}
-        paginationHasMore={paginationEntry?.hasMore ?? false}
-        paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
-        onLoadMore={handleLoadMore}
-      />
-    </>
+    <PanelContent
+      panel={panel}
+      appearance={panel.appearance}
+      data={data}
+      rawRows={rawRows}
+      headers={headers}
+      isLoading={panel.type === "table" ? tableIsLoading : isLoading}
+      error={error}
+      noData={noData}
+      paginationRows={paginationEntry?.rows ?? null}
+      paginationHasMore={paginationEntry?.hasMore ?? false}
+      paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
+      onLoadMore={handleLoadMore}
+    />
   );
 });
 

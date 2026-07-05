@@ -69,8 +69,8 @@ export interface StaticSource extends DataSourceBase {
 export type DataSource = CsvSource | RestSource | SqlSource | StaticSource;
 
 // ── Type-narrowing helpers ───────────────────────────────────────────────────
-// Used by 3+ consumers (DataSourceList, SourceDetailPanel, refresh dispatcher)
-// so we lift them out of the call sites.
+// Used by multiple consumers (SourceDetailPanel, refresh dispatcher) so we
+// lift them out of the call sites.
 
 export const isCsvSource = (s: DataSource): s is CsvSource => s.type === "csv";
 export const isRestSource = (s: DataSource): s is RestSource => s.type === "rest_api";

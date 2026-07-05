@@ -42,6 +42,9 @@ interface SidebarItemListProps {
    * Selecting Delete swaps the row for an inline Confirm/Cancel pair *below*
    * the item so confirmation buttons don't get squeezed beside narrow rows. */
   onDelete?: (item: SidebarItem) => void | Promise<void>;
+  /** Optional dependency warning shown (as an alert) above the Confirm/Cancel
+   * pair while a delete is pending confirmation. Return `null` for no warning. */
+  deleteWarning?: (item: SidebarItem) => string | null;
 }
 
 export function SidebarItemList({
@@ -58,6 +61,7 @@ export function SidebarItemList({
   onAdd,
   addLabel,
   onDelete,
+  deleteWarning,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -201,6 +205,14 @@ export function SidebarItemList({
                 </div>
                 {isConfirmingDelete ? (
                   <div className="dashboard-list__delete-confirm-row">
+                    {(() => {
+                      const warning = deleteWarning?.(item) ?? null;
+                      return warning !== null ? (
+                        <p className="dashboard-list__delete-warning" role="alert">
+                          {warning}
+                        </p>
+                      ) : null;
+                    })()}
                     <div className="dashboard-list__delete-confirm-actions">
                       <button
                         type="button"

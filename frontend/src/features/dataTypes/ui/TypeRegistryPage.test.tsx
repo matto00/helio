@@ -12,10 +12,13 @@ jest.mock("../services/dataTypeService", () => ({
 
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
+// Pipeline-output DataType (`sourceId: null`) — the only kind the Type
+// Registry surfaces post-migration; companion DataTypes (`sourceId` set) are
+// internal source-schema records and are filtered out.
 const testDataType = {
   id: "dt-1",
   name: "Metrics",
-  sourceId: "s-1",
+  sourceId: null,
   version: 1,
   fields: [{ name: "value", displayName: "Value", dataType: "float", nullable: false }],
   computedFields: [],
@@ -54,4 +57,13 @@ describe("TypeRegistryPage", () => {
   // sidebar (SidebarItemList's ellipsis menu) so the page-level test no
   // longer asserts the Delete flow here. Sidebar delete is covered via the
   // SidebarItemList component's own tests / playwright verification.
+
+  it("shows the empty state when the only DataType is a companion type (sourceId set)", async () => {
+    const companionType = { ...testDataType, id: "dt-companion", sourceId: "s-1" };
+    fetchDataTypesMock.mockResolvedValue([companionType]);
+
+    renderWithStore(<TypeRegistryPage />);
+    await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());
+    expect(screen.queryByRole("textbox", { name: "Data type name" })).not.toBeInTheDocument();
+  });
 });

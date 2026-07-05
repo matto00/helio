@@ -92,6 +92,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
       val original = PipelineSummaryResponse(
         id                   = "pl-1",
         name                 = "Pipeline 1",
+        sourceDataSourceId   = "ds-1",
         sourceDataSourceName = "Source 1",
         outputDataTypeName   = "Type 1",
         outputDataTypeId     = "dt-1",

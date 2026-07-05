@@ -1,12 +1,14 @@
 import "./TypeRegistryBrowser.css";
 import { faLayerGroup } from "@fortawesome/free-solid-svg-icons";
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { selectPipelineOutputDataTypes } from "../state/dataTypesSlice";
 import type { DataType } from "../types/dataType";
 import { TypeDetailPanel } from "./TypeDetailPanel";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 
 export function TypeRegistryBrowser() {
-  const { items, selectedTypeId } = useAppSelector((state) => state.dataTypes);
+  const { selectedTypeId } = useAppSelector((state) => state.dataTypes);
+  const items = useAppSelector(selectPipelineOutputDataTypes);
 
   // Derive the effective selection from the sidebar (Redux) — explicit user
   // choice wins, otherwise fall back to the first item so the panel is never
@@ -21,7 +23,7 @@ export function TypeRegistryBrowser() {
         variant="main"
         icon={faLayerGroup}
         title="No types defined"
-        description="Types describe the shape of your data so panels can bind to it. Connect a data source or run a pipeline — types are generated automatically from their output."
+        description="Types are created by pipelines. Create or run a pipeline to generate a type you can bind to panels."
       />
     );
   }

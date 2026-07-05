@@ -227,6 +227,7 @@ export interface Pipeline {
 export interface PipelineSummary {
   id: string;
   name: string;
+  sourceDataSourceId: string;
   sourceDataSourceName: string;
   outputDataTypeName: string;
   outputDataTypeId?: string;

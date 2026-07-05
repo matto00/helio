@@ -23,6 +23,7 @@ final case class UpdatePipelineRequest(name: String)
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
+    sourceDataSourceId: String,
     sourceDataSourceName: String,
     outputDataTypeName: String,
     outputDataTypeId: String,
@@ -157,7 +158,7 @@ trait PipelineProtocol
   // CRUD formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat10(PipelineSummaryResponse.apply)
 
   // ── Analyze formats (per-subtype, dispatched on `type`) ──────────────────
   private val renameAnalyzeFormat: RootJsonFormat[RenameAnalyzeStepResponse]       = jsonFormat6(RenameAnalyzeStepResponse.apply)

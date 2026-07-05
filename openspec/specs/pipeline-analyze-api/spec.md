@@ -43,34 +43,6 @@ paths:
           description: Internal server error
 ```
 ## Requirements
-### Requirement: GET /api/pipelines/{id}/analyze returns pipeline with step schemas
-The backend SHALL expose `GET /api/pipelines/{id}/analyze`. The response SHALL include:
-- Pipeline summary fields: `id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, `outputDataTypeId`
-- `sourceSchema`: array of `{ name, type }` derived from the bound DataSource's DataType fields
-- `steps`: ordered array of steps, each carrying `inputSchema`, `outputSchema`, and optional `validationError`
-
-Step 0's `inputSchema` equals `sourceSchema`. Step N's `inputSchema` equals step N-1's `outputSchema`.
-
-#### Scenario: Returns 404 for unknown pipeline id
-- **WHEN** `GET /api/pipelines/nonexistent/analyze` is called
-- **THEN** the response is `404 Not Found`
-
-#### Scenario: Empty step list returns sourceSchema only
-- **WHEN** a pipeline with no steps is analyzed
-- **THEN** `steps` is an empty array and `sourceSchema` reflects the DataSource's fields
-
-#### Scenario: Select step filters fields
-- **WHEN** a pipeline has a select step with `fields: ["order_id"]` and the source has fields `order_id, amount`
-- **THEN** the select step's `outputSchema` contains only `order_id`
-
-#### Scenario: Rename cascades to subsequent steps
-- **WHEN** a pipeline has a rename step (renames `order_id` → `id`) followed by a select step
-- **THEN** the select step's `inputSchema` uses the renamed field name `id`
-
-#### Scenario: Malformed config returns validationError and treats step as identity
-- **WHEN** a step has an unparseable JSON config
-- **THEN** `validationError` is set on that step and `outputSchema` equals `inputSchema`
-
 ### Requirement: GET /api/pipelines/:id/analyze returns pipeline with per-step schemas
 The API SHALL expose `GET /api/pipelines/:id/analyze`. The response SHALL include the pipeline summary fields
 (`id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, `outputDataTypeId`), a `sourceSchema` array, and a

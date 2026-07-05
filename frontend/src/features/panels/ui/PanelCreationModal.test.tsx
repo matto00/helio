@@ -66,17 +66,15 @@ const baseStore = {
     status: "succeeded" as const,
   },
   // Pre-loaded as succeeded to prevent fetch dispatches on mount
-  pipelines: {
-    items: [],
-    status: "succeeded" as const,
-  },
   dataTypes: {
     items: [],
     status: "succeeded" as const,
   },
 };
 
-/** Store with a registry DataType for testing the datatype-select step. */
+/** Store with a pipeline-output DataType (`sourceId: null`) for testing the
+ * datatype-select step — the picker filters to these via
+ * `selectPipelineOutputDataTypes`. */
 const storeWithDataTypes = {
   ...baseStore,
   dataTypes: {
@@ -90,21 +88,6 @@ const storeWithDataTypes = {
         computedFields: [],
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
-      },
-    ],
-    status: "succeeded" as const,
-  },
-  pipelines: {
-    items: [
-      {
-        id: "pipe-1",
-        name: "Revenue Pipeline",
-        sourceDataSourceName: "Source",
-        outputDataTypeName: "Revenue",
-        outputDataTypeId: "dt-1",
-        lastRunStatus: null as null,
-        lastRunAt: null as null,
-        lastRunRowCount: null as null,
       },
     ],
     status: "succeeded" as const,
@@ -650,10 +633,10 @@ describe("PanelCreationModal — DataType picker step", () => {
     );
   });
 
-  // 4.6 — Empty state shown when no registry DataTypes are available and both slices succeeded
-  it("4.6 empty state is shown when registryDataTypes is empty and both slices are succeeded", () => {
+  // 4.6 — Empty state shown when no pipeline-output DataTypes are available
+  it("4.6 empty state is shown when there are no pipeline-output DataTypes", () => {
     const onClose = jest.fn();
-    // baseStore has no pipelines, so no pipeline-produced DataTypes exist
+    // baseStore has no dataTypes at all
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
@@ -676,17 +659,17 @@ describe("PanelCreationModal — DataType picker step", () => {
     expect(link).toHaveAttribute("href", "/pipelines");
   });
 
-  // 4.8 — Empty state is NOT shown while pipelines.status is loading
-  it("4.8 empty state is NOT shown while pipelines.status === loading", () => {
+  // 4.8 — Empty state is NOT shown while dataTypes.status is loading
+  it("4.8 empty state is NOT shown while dataTypes.status === loading", () => {
     const onClose = jest.fn();
-    const storeWithLoadingPipelines = {
+    const storeWithLoadingDataTypes = {
       ...baseStore,
-      pipelines: {
+      dataTypes: {
         items: [],
         status: "loading" as const,
       },
     };
-    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithLoadingPipelines);
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithLoadingDataTypes);
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
@@ -695,8 +678,8 @@ describe("PanelCreationModal — DataType picker step", () => {
     expect(screen.getByText("Loading data types...")).toBeInTheDocument();
   });
 
-  // 4.9 — DataType list is shown when at least one pipeline-referenced DataType exists
-  it("4.9 DataType list is shown and empty state is absent when pipeline-referenced DataType exists", () => {
+  // 4.9 — DataType list is shown when at least one pipeline-output DataType exists
+  it("4.9 DataType list is shown and empty state is absent when a pipeline-output DataType exists", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
 
@@ -706,6 +689,37 @@ describe("PanelCreationModal — DataType picker step", () => {
     expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
     expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
+  });
+
+  // 4.10 — Companion DataTypes (sourceId set) are never offered as binding targets
+  it("4.10 companion DataTypes are excluded from the picker", () => {
+    const onClose = jest.fn();
+    const storeWithCompanionType = {
+      ...baseStore,
+      dataTypes: {
+        items: [
+          ...storeWithDataTypes.dataTypes.items,
+          {
+            id: "dt-companion",
+            name: "Source Companion",
+            sourceId: "src-1",
+            version: 1,
+            fields: [],
+            computedFields: [],
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+        status: "succeeded" as const,
+      },
+    };
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithCompanionType);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Source Companion" })).not.toBeInTheDocument();
   });
 });
 

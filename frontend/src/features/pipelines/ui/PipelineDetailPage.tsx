@@ -5,7 +5,7 @@ import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
-import { SourceSelectorBar } from "./SourceSelectorBar";
+import { BoundSourceBar } from "./BoundSourceBar";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
@@ -207,6 +207,7 @@ export function PipelineDetailPage() {
   }, [isDirty]);
 
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
+  const boundSource = sources.find((s) => s.id === currentPipeline?.sourceDataSourceId);
   const isOwner =
     currentPipeline?.ownerId != null &&
     currentUser?.id != null &&
@@ -323,8 +324,8 @@ export function PipelineDetailPage() {
 
   return (
     <div className="pipeline-detail-page">
-      {/* ── Source selector bar ── */}
-      <SourceSelectorBar sources={sources} sourcesStatus={sourcesStatus} />
+      {/* ── Bound source bar ── */}
+      <BoundSourceBar sourceName={currentPipeline.sourceDataSourceName} source={boundSource} />
 
       {/* ── River view ── */}
       <PipelineRiverView

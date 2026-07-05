@@ -92,8 +92,10 @@ Key endpoints:
 - `POST /api/panels` — requires `dashboardId` in body
 - `PATCH /api/panels/:id` — updates appearance
 - `POST /api/panels/:id/duplicate`
-- `GET/POST /api/data-types`
-- `PATCH/DELETE /api/data-types/:id`
+- `GET /api/types`
+- `GET/PATCH/DELETE /api/types/:id`
+- `GET /api/types/:id/rows` — latest pipeline-run row snapshot
+- `GET/POST /api/pipelines`, `GET /api/pipelines/:id/analyze`, plus step/run/status sub-routes — pipelines are the only path that produces panel-bindable data types (source → pipeline → type → panel)
 - `GET/POST /api/data-sources`
 - `GET/DELETE /api/data-sources/:id`
 - `GET /api/data-sources/:id/sources`

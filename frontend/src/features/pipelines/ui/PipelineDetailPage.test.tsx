@@ -70,6 +70,7 @@ const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
 const defaultPipeline: PipelineSummary = {
   id: "pipe-1",
   name: "Test Pipeline",
+  sourceDataSourceId: "src-1",
   sourceDataSourceName: "Test Source",
   outputDataTypeName: "TestType",
   lastRunStatus: null,
@@ -216,11 +217,13 @@ describe("PipelineDetailPage", () => {
   // section breadcrumb ("Data Pipelines / <name>") now handles that, and is
   // covered by App.test.tsx.
 
-  it("source selector renders sources from store", () => {
+  // Task 2.3 — the mock multi-source chip bar was replaced with a read-only
+  // display of the pipeline's single bound source (name + kind).
+  it("bound source bar shows the pipeline's source name and kind", () => {
     const store = makeStore([
       {
         id: "src-1",
-        name: "Sales DB",
+        name: "Test Source",
         type: "sql",
         createdAt: "",
         updatedAt: "",
@@ -244,8 +247,47 @@ describe("PipelineDetailPage", () => {
       },
     ]);
     renderDetailPage("pipe-1", store);
-    expect(screen.getByText("Sales DB")).toBeInTheDocument();
-    expect(screen.getByText("CSV Upload")).toBeInTheDocument();
+    // defaultPipeline.sourceDataSourceId === "src-1" — only that source's
+    // name + kind are shown; the unrelated "CSV Upload" source is not.
+    expect(screen.getByText("Test Source")).toBeInTheDocument();
+    expect(screen.getByText("SQL")).toBeInTheDocument();
+    expect(screen.queryByText("CSV Upload")).not.toBeInTheDocument();
+  });
+
+  it("bound source bar resolves the source by id, not by name", () => {
+    // Source's `name` deliberately does not match defaultPipeline's
+    // `sourceDataSourceName` ("Test Source") — only the id ("src-1") does.
+    // The kind badge must still resolve, proving matching is id-based.
+    const store = makeStore([
+      {
+        id: "src-1",
+        name: "Renamed Source",
+        type: "sql",
+        createdAt: "",
+        updatedAt: "",
+        config: {
+          dialect: "postgresql",
+          host: "h",
+          port: 5432,
+          database: "d",
+          user: "u",
+          password: "p",
+          query: "SELECT 1",
+        },
+      },
+    ]);
+    renderDetailPage("pipe-1", store);
+    // The bar's display text still comes from `sourceDataSourceName`...
+    expect(screen.getByText("Test Source")).toBeInTheDocument();
+    // ...but the kind badge is resolved from the id-matched source.
+    expect(screen.getByText("SQL")).toBeInTheDocument();
+    expect(screen.queryByText("Renamed Source")).not.toBeInTheDocument();
+  });
+
+  it("bound source bar shows the source name without a kind badge when no matching source is found", () => {
+    const store = makeStore([]);
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByText("Test Source")).toBeInTheDocument();
   });
 
   it("empty state shows 'Add your first transformation step' when steps is empty", () => {
@@ -312,6 +354,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "My Pipeline",
+        sourceDataSourceId: "src-1",
         sourceDataSourceName: "Source",
         outputDataTypeName: "Type",
         lastRunStatus: null,
@@ -437,6 +480,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "Test Pipeline",
+        sourceDataSourceId: "src-1",
         sourceDataSourceName: "Test Source",
         outputDataTypeName: "TestType",
         lastRunStatus: "succeeded",
@@ -454,6 +498,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "Test Pipeline",
+        sourceDataSourceId: "src-1",
         sourceDataSourceName: "Test Source",
         outputDataTypeName: "TestType",
         lastRunStatus: "succeeded",

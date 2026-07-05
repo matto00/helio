@@ -255,8 +255,17 @@
 
 .dashboard-list__delete-confirm-row {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
   padding: var(--space-1) 0 0;
+}
+
+.dashboard-list__delete-warning {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-danger);
+  text-align: right;
 }
 
 .dashboard-list__delete-confirm-actions {

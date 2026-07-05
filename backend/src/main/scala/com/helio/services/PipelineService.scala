@@ -382,6 +382,7 @@ final class PipelineService(
     PipelineSummaryResponse(
       id                   = s.id,
       name                 = s.name,
+      sourceDataSourceId   = s.sourceDataSourceId,
       sourceDataSourceName = s.sourceDataSourceName,
       outputDataTypeName   = s.outputDataTypeName,
       outputDataTypeId     = s.outputDataTypeId,

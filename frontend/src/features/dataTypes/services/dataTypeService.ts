@@ -2,9 +2,21 @@ import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
 
+/** Wire shape of a DataType: the backend serializes `sourceId: Option[String]`
+ *  with spray-json, which omits the field entirely when it is `None` —
+ *  pipeline-output types arrive without a `sourceId` key at all. */
+type DataTypeWire = Omit<DataType, "sourceId"> & { sourceId?: string | null };
+
+/** Normalize an absent `sourceId` to `null` so the store always satisfies the
+ *  declared `sourceId: string | null` contract and `=== null` checks
+ *  (e.g. `selectPipelineOutputDataTypes`) hold against real API responses. */
+function normalizeDataType(wire: DataTypeWire): DataType {
+  return { ...wire, sourceId: wire.sourceId ?? null };
+}
+
 export async function fetchDataTypes(): Promise<DataType[]> {
-  const response = await httpClient.get<PagedResult<DataType>>("/api/types");
-  return response.data.items;
+  const response = await httpClient.get<PagedResult<DataTypeWire>>("/api/types");
+  return response.data.items.map(normalizeDataType);
 }
 
 export async function updateDataType(
@@ -13,12 +25,12 @@ export async function updateDataType(
   computedFields?: ComputedField[],
   name?: string,
 ): Promise<DataType> {
-  const response = await httpClient.patch<DataType>(`/api/types/${id}`, {
+  const response = await httpClient.patch<DataTypeWire>(`/api/types/${id}`, {
     ...(name !== undefined ? { name } : {}),
     fields,
     ...(computedFields !== undefined ? { computedFields } : {}),
   });
-  return response.data;
+  return normalizeDataType(response.data);
 }
 
 export interface ValidateExpressionResult {

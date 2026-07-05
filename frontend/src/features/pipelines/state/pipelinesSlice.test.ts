@@ -35,6 +35,7 @@ const analyzePipelineMock = jest.mocked(pipelineService.analyzePipeline);
 const testPipeline = {
   id: "p-1",
   name: "Sales Pipeline",
+  sourceDataSourceId: "ds-sales",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesMetrics",
   outputDataTypeId: "dt-sales",
@@ -46,6 +47,7 @@ const testPipeline = {
 const newPipeline = {
   id: "p-new",
   name: "New Pipeline",
+  sourceDataSourceId: "ds-csv",
   sourceDataSourceName: "CSV Source",
   outputDataTypeName: "RawData",
   outputDataTypeId: "dt-raw",
@@ -462,6 +464,7 @@ describe("createPipeline thunk", () => {
 const samplePipelineSummary: PipelineSummary = {
   id: "p-1",
   name: "Sales Pipeline",
+  sourceDataSourceId: "ds-sales",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesMetrics",
   lastRunStatus: null,

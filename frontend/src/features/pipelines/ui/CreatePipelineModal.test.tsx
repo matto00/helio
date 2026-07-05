@@ -43,6 +43,7 @@ const testDataSources: DataSource[] = [
 const newPipeline = {
   id: "p-new",
   name: "My Pipeline",
+  sourceDataSourceId: "ds-1",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesData",
   outputDataTypeId: "dt-sales",

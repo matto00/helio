@@ -1,4 +1,11 @@
-import { dataTypesReducer, deleteDataType, fetchDataTypes, updateDataType } from "./dataTypesSlice";
+import {
+  dataTypesReducer,
+  deleteDataType,
+  fetchDataTypes,
+  selectPipelineOutputDataTypes,
+  updateDataType,
+} from "./dataTypesSlice";
+import type { RootState } from "../../../store/store";
 
 const testDataType = {
   id: "dt-1",
@@ -91,5 +98,31 @@ describe("updateDataType", () => {
       updateDataType.fulfilled(updatedType, "req-5", { id: "dt-1", fields: updatedType.fields }),
     );
     expect(nextState.items[0].name).toBe("Updated Metrics");
+  });
+});
+
+// Task 2.2 — companion DataTypes (sourceId set) are internal source-schema
+// records; only pipeline-output DataTypes (sourceId === null) are bindable.
+describe("selectPipelineOutputDataTypes", () => {
+  const companionType = testDataType; // sourceId: "s-1"
+  const pipelineOutputType = {
+    ...testDataType,
+    id: "dt-2",
+    name: "Pipeline Output",
+    sourceId: null,
+  };
+
+  it("excludes companion DataTypes (sourceId set)", () => {
+    const state = { dataTypes: { items: [companionType], status: "succeeded" as const } };
+    expect(selectPipelineOutputDataTypes(state as unknown as RootState)).toEqual([]);
+  });
+
+  it("includes pipeline-output DataTypes (sourceId null)", () => {
+    const state = {
+      dataTypes: { items: [companionType, pipelineOutputType], status: "succeeded" as const },
+    };
+    expect(selectPipelineOutputDataTypes(state as unknown as RootState)).toEqual([
+      pipelineOutputType,
+    ]);
   });
 });
