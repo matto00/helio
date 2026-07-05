@@ -28,6 +28,21 @@ final case class UserSession(
 
 final case class AuthenticatedUser(id: UserId)
 
+final case class ApiTokenId(value: String) extends AnyVal
+
+/** Durable Personal Access Token (HEL-148 agent-native layer, Phase 1).
+ *  `tokenHash` is the SHA-256 hex of the raw `helio_pat_<random>` credential;
+ *  the raw token is returned once at creation and never stored. */
+final case class ApiToken(
+    id: ApiTokenId,
+    userId: UserId,
+    tokenHash: String,
+    name: String,
+    createdAt: Instant,
+    lastUsedAt: Option[Instant],
+    expiresAt: Option[Instant]
+)
+
 sealed trait AuthProvider
 object AuthProvider {
   case object Google extends AuthProvider

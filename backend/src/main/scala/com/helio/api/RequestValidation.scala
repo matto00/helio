@@ -78,6 +78,18 @@ object RequestValidation {
       case Some(o) => Left(s"Invalid dividerOrientation value: '$o'. Valid values: horizontal, vertical")
     }
 
+  val MaxApiTokenNameLength = 100
+
+  def validateCreateApiTokenRequest(req: CreateApiTokenRequest): Either[String, CreateApiTokenRequest] =
+    if (req.name.isBlank)
+      Left("name is required")
+    else if (req.name.trim.length > MaxApiTokenNameLength)
+      Left(s"name must be at most $MaxApiTokenNameLength characters")
+    else if (req.expiresInDays.exists(_ < 1))
+      Left("expiresInDays must be a positive number of days")
+    else
+      Right(req)
+
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
 }

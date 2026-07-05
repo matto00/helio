@@ -61,7 +61,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V36 — sharing-aware tables
     "dashboards",
     "panels",
-    "resource_permissions"
+    "resource_permissions",
+    // V42 — owner-only Personal Access Tokens (HEL-148 Phase 1)
+    "api_tokens"
   )
 
   override def beforeAll(): Unit = {

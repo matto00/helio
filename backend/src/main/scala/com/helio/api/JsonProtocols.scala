@@ -26,6 +26,7 @@ import com.helio.api.protocols._
 trait JsonProtocols
     extends ResourceProtocol
     with AuthProtocol
+    with ApiTokenProtocol
     with PanelProtocol
     with DashboardProtocol
     with DataTypeProtocol

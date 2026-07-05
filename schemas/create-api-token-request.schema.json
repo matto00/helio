@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/create-api-token-request.schema.json",
+  "title": "CreateApiTokenRequest",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "expiresInDays": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": ["name"],
+  "additionalProperties": false
+}

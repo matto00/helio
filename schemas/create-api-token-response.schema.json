@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/create-api-token-response.schema.json",
+  "title": "CreateApiTokenResponse",
+  "description": "The only response that ever carries the raw token — returned once at creation. Only its SHA-256 hash is persisted.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^helio_pat_[0-9a-f]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["id", "name", "token", "createdAt"],
+  "additionalProperties": false
+}

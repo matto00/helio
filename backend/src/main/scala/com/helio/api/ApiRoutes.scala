@@ -11,9 +11,9 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{ApiTokenService, AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{ApiTokenRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
@@ -36,6 +36,7 @@ final class ApiRoutes(
     sparkJobSubmitter: SparkJobSubmitter,
     pipelineRunRepo: PipelineRunRepository = null,
     dataTypeRowRepo: DataTypeRowRepository = null,
+    apiTokenRepo: ApiTokenRepository = null,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -57,7 +58,7 @@ final class ApiRoutes(
     ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
   )
 
-  private val authDirectives = new AuthDirectives(userSessionRepo)
+  private val authDirectives = new AuthDirectives(userSessionRepo, Option(apiTokenRepo))
   private val aclDirective   = new AclDirective(permissionRepo, registry)
   private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
@@ -77,6 +78,9 @@ final class ApiRoutes(
   )
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
+  // Optional wiring mirrors the nullable constructor param: fixtures that
+  // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
+  private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_))
 
   private val auth  = new AuthRoutes(authService)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
@@ -165,7 +169,8 @@ final class ApiRoutes(
                 new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes
+                new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
+                apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes)
               )
             }
           )

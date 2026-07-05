@@ -30,6 +30,14 @@ package object api {
   type UpdateUserPreferenceRequest = protocols.UpdateUserPreferenceRequest
   val UpdateUserPreferenceRequest: protocols.UpdateUserPreferenceRequest.type = protocols.UpdateUserPreferenceRequest
 
+  // ApiToken (PAT)
+  type CreateApiTokenRequest = protocols.CreateApiTokenRequest
+  val CreateApiTokenRequest: protocols.CreateApiTokenRequest.type = protocols.CreateApiTokenRequest
+  type CreateApiTokenResponse = protocols.CreateApiTokenResponse
+  val CreateApiTokenResponse: protocols.CreateApiTokenResponse.type = protocols.CreateApiTokenResponse
+  type ApiTokenResponse = protocols.ApiTokenResponse
+  val ApiTokenResponse: protocols.ApiTokenResponse.type = protocols.ApiTokenResponse
+
   // Dashboard
   type DashboardAppearancePayload = protocols.DashboardAppearancePayload
   val DashboardAppearancePayload: protocols.DashboardAppearancePayload.type = protocols.DashboardAppearancePayload
