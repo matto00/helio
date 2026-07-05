@@ -1,0 +1,29 @@
+{
+  "name": "helio-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model Context Protocol server exposing Helio's REST API as agent tools (read + workspace context). Standalone — not part of the root npm workspace.",
+  "type": "module",
+  "bin": {
+    "helio-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsx scripts/verify.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
