@@ -20,6 +20,7 @@
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
   CsvPreview,
+  DashboardProposal,
   DashboardResponse,
   DashboardSnapshot,
   DataSourceResponse,
@@ -246,5 +247,16 @@ export class HelioApi {
     appearance: Record<string, unknown>,
   ): Promise<PanelResponse> {
     return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, { appearance });
+  }
+
+  /** Apply a reviewed proposal (HEL-225). Server validates + creates the
+   *  dashboard + panels atomically via the existing services (RLS + V41). */
+  applyProposal(
+    proposal: DashboardProposal,
+  ): Promise<{ dashboard: DashboardResponse; panels: PanelResponse[] }> {
+    return this.http.post<{ dashboard: DashboardResponse; panels: PanelResponse[] }>(
+      "/api/dashboards/apply-proposal",
+      proposal,
+    );
   }
 }

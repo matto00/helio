@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{ApiTokenService, AuthService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{ApiTokenService, AuthService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{ApiTokenRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
@@ -68,6 +68,7 @@ final class ApiRoutes(
   private val authService       = new AuthService(userRepo)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
@@ -154,6 +155,7 @@ final class ApiRoutes(
                     }
                   }
                 },
+                new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
                 new DashboardRoutes(dashboardService, authenticatedUser).routes,
                 new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                 new PanelRoutes(panelService, authenticatedUser).routes,

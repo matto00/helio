@@ -180,6 +180,30 @@ export interface RunResultResponse {
   sourceRowCount?: number;
 }
 
+/** Per-panel grid placement in a proposal (optional). */
+export interface ProposalPanelLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** One proposed panel. No ids — data panels reference an existing
+ *  pipeline-output DataType by id. Matches dashboard-proposal.schema.json. */
+export interface ProposalPanel {
+  title: string;
+  type: string;
+  dataTypeId?: string;
+  fieldMapping?: Record<string, string>;
+  layout?: ProposalPanelLayout;
+}
+
+/** A dashboard proposal — the shared Proposal → Review → Apply artifact. */
+export interface DashboardProposal {
+  dashboardName: string;
+  panels: ProposalPanel[];
+}
+
 /** CSV/static source preview (`GET /api/data-sources/:id/preview`). */
 export interface CsvPreview {
   headers: string[];

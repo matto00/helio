@@ -30,6 +30,7 @@ import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage"
 import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
+import { ProposalReviewPage } from "../features/dashboards/ui/ProposalReviewPage";
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
 import { LoginPage } from "../features/auth/ui/LoginPage";
@@ -340,6 +341,7 @@ export function App() {
             <Route path="/pipelines" element={<PipelinesPage />} />
             <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
             <Route path="/registry" element={<TypeRegistryPage />} />
+            <Route path="/proposals/review" element={<ProposalReviewPage />} />
           </Route>
         </Route>
 

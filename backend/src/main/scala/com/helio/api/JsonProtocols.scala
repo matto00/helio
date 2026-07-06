@@ -29,6 +29,7 @@ trait JsonProtocols
     with ApiTokenProtocol
     with PanelProtocol
     with DashboardProtocol
+    with DashboardProposalProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol

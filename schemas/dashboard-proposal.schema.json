@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboard-proposal.schema.json",
+  "title": "DashboardProposal",
+  "description": "A proposed dashboard produced by an agent (or a fixture). Carries NO ids — nothing is minted until the proposal is applied via POST /api/dashboards/apply-proposal. Data panels reference an existing pipeline-output DataType by id.",
+  "type": "object",
+  "required": ["dashboardName", "panels"],
+  "properties": {
+    "dashboardName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "panels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ProposalPanel" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ProposalPanel": {
+      "type": "object",
+      "required": ["title", "type"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "type": {
+          "type": "string",
+          "enum": ["metric", "chart", "table", "text", "markdown", "image", "divider"]
+        },
+        "dataTypeId": {
+          "type": "string",
+          "description": "Required for metric/chart/table panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
+        },
+        "fieldMapping": {
+          "type": "object",
+          "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}."
+        },
+        "layout": { "$ref": "#/$defs/ProposalPanelLayout" }
+      },
+      "additionalProperties": false
+    },
+    "ProposalPanelLayout": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

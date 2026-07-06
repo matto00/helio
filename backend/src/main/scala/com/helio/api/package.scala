@@ -70,6 +70,14 @@ package object api {
   type DashboardSnapshotPayload = protocols.DashboardSnapshotPayload
   val DashboardSnapshotPayload: protocols.DashboardSnapshotPayload.type = protocols.DashboardSnapshotPayload
 
+  // Dashboard proposal (apply-proposal)
+  type DashboardProposal = protocols.DashboardProposal
+  val DashboardProposal: protocols.DashboardProposal.type = protocols.DashboardProposal
+  type ProposalPanel = protocols.ProposalPanel
+  val ProposalPanel: protocols.ProposalPanel.type = protocols.ProposalPanel
+  type ProposalPanelLayout = protocols.ProposalPanelLayout
+  val ProposalPanelLayout: protocols.ProposalPanelLayout.type = protocols.ProposalPanelLayout
+
   // Panel
   type PanelAppearancePayload = protocols.PanelAppearancePayload
   val PanelAppearancePayload: protocols.PanelAppearancePayload.type = protocols.PanelAppearancePayload
