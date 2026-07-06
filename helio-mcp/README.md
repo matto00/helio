@@ -1,10 +1,10 @@
 # helio-mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes
-Helio's REST API as agent tools. **Phase 2 scope: read tools + a workspace
-context resource.** Write tools (Phase 3), shell-script parity (Phase 4), the
-end-to-end proof (Phase 5), and proposal→review→apply (Phase 6) are not part of
-this package yet.
+Helio's REST API as agent tools: **read tools, write/composition tools, and a
+workspace-context resource**, all authenticated with a Personal Access Token.
+For the bigger picture (auth model, the canonical path, the shell-script twin,
+and the proposal→review→apply flow) see [`docs/agent-native.md`](../docs/agent-native.md).
 
 The server is a **thin wrapper**: every tool is a typed call to an existing
 Helio endpoint. It adds no business logic — where a capability the brief named
@@ -89,12 +89,40 @@ protocol stream.
 | `analyze_pipeline`      | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                 |
 | `get_workspace_context` | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**)                    |
 
+### Write / composition tools
+
+| Tool                      | Endpoint                          | Purpose                                                            |
+| ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
+| `create_data_source`      | `POST /api/data-sources` (static) | Create a static source from inline columns + rows                  |
+| `create_pipeline`         | `POST /api/pipelines`             | Create a pipeline → a new panel-bindable output DataType           |
+| `add_pipeline_step`       | `POST /api/pipelines/:id/steps`   | Append a transform step (config keyed by step type)                |
+| `run_pipeline`            | `POST /api/pipelines/:id/run`     | Run to completion (synchronous — rows exist on return, no polling) |
+| `create_dashboard`        | `POST /api/dashboards`            | Create an empty dashboard                                          |
+| `create_panel`            | `POST /api/panels`                | Create a panel on a dashboard                                      |
+| `bind_panel`              | `PATCH /api/panels/:id`           | Bind metric/chart/table to a pipeline-output DataType + mapping    |
+| `update_panel_appearance` | `PATCH /api/panels/:id`           | Update panel appearance (partial)                                  |
+
+Each write tool returns the created resource's id so an agent can chain the
+canonical path without re-listing. `bind_panel` field-mapping keys by type:
+metric → `{value,label?,unit?}`; chart → `{xAxis,yAxis,series?}`; table →
+`{columns}`.
+
 Plus one **resource**: `helio://workspace/context` — the same payload as
 `get_workspace_context`, so an MCP client can attach it as ambient context.
 
 Tool descriptions encode the canonical `DataSource → Pipeline → DataType →
 Panel` path and the pipeline-only binding rule (V41): a panel may bind only to a
-DataType whose `sourceId` is null (a pipeline output).
+DataType whose `sourceId` is null (a pipeline output). Binding a source companion
+is rejected with 400 — the error is surfaced verbatim, never worked around.
+
+### End-to-end composition
+
+`scripts/compose.ts` (`npm run compose`, with `HELIO_PAT` + `HELIO_API_BASE_URL`)
+drives the write tools through a real MCP client to build a full dashboard from
+scratch — source → pipeline → sort step → run → dashboard → metric/chart/table
+panels bound to the pipeline output — then reads it back to assert the chain.
+This is the composition verified rendering real data in the running app (see
+`docs/agent-native.md` → "End-to-end proof").
 
 ## Context serializer
 
@@ -166,6 +194,8 @@ src/
   context.ts     workspace-context serializer (HEL-222)
   types.ts       TS mirrors of the backend response shapes
   tools/read.ts  registers the read tools + get_workspace_context
+  tools/write.ts registers the write/composition tools
 scripts/
+  compose.ts     end-to-end composition harness (real MCP client, write tools)
   verify.ts      end-to-end harness (real MCP client over stdio)
 ```
