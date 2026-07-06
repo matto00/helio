@@ -52,16 +52,43 @@ export class HelioHttpClient {
   }
 
   /** GET `path` (relative, e.g. `/api/dashboards`) and parse the JSON body as `T`. */
-  async get<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
+  get<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
+    return this.send<T>("GET", path, undefined, query);
+  }
+
+  /** POST a JSON body to `path` and parse the JSON response as `T`. */
+  post<T>(
+    path: string,
+    body?: unknown,
+    query?: Record<string, string | number | undefined>,
+  ): Promise<T> {
+    return this.send<T>("POST", path, body, query);
+  }
+
+  /** PATCH a JSON body to `path` and parse the JSON response as `T`. */
+  patch<T>(path: string, body?: unknown): Promise<T> {
+    return this.send<T>("PATCH", path, body);
+  }
+
+  private async send<T>(
+    method: "GET" | "POST" | "PATCH",
+    path: string,
+    body?: unknown,
+    query?: Record<string, string | number | undefined>,
+  ): Promise<T> {
     const url = this.buildUrl(path, query);
+    const headers: Record<string, string> = {
+      Authorization: this.authHeader,
+      Accept: "application/json",
+    };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
     let response: Response;
     try {
       response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: this.authHeader,
-          Accept: "application/json",
-        },
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (cause) {
       // Network-level failure (backend down, DNS, connection refused).
@@ -80,6 +107,8 @@ export class HelioHttpClient {
     if (!response.ok) {
       throw new HelioApiError(response.status, url, await this.describeError(response));
     }
+    // 204 No Content (e.g. some DELETEs) — return undefined as T.
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 

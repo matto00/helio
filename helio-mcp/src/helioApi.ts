@@ -26,13 +26,31 @@ import type {
   DataTypeResponse,
   DataTypeRowsResponse,
   Paged,
+  PanelResponse,
   PipelineAnalyzeResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
   RowsPreview,
+  RunResultResponse,
 } from "./types.js";
 
 const CSV_LIKE_TYPES = new Set(["csv", "static"]);
+
+/** Inline column spec for a static data source. */
+export interface StaticColumn {
+  name: string;
+  type: string;
+}
+
+/** run_pipeline outcome. The run is synchronous on `main`: a 200 already means
+ *  completion and rows are written to `outputDataTypeId` — nothing to poll. */
+export interface RunOutcome {
+  pipelineId: string;
+  status: string;
+  rowCount: number;
+  sourceRowCount: number;
+  outputDataTypeId: string;
+}
 
 /** Composed dashboard view: the list record plus its panels from the snapshot. */
 export interface DashboardWithPanels extends DashboardResponse {
@@ -137,5 +155,96 @@ export class HelioApi {
 
   analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
     return this.http.get<PipelineAnalyzeResponse>(`/api/pipelines/${pipelineId}/analyze`);
+  }
+
+  // ── Write / composition (Phase 3) ────────────────────────────────────────
+
+  /** Create a `static` data source (inline columns + rows). The backend
+   *  auto-creates a source-companion DataType; a pipeline over this source
+   *  then produces the panel-bindable output type. Returns the flat
+   *  DataSourceResponse (static create is NOT the `{source,dataType}` wrapper
+   *  shape the REST/SQL `/api/sources` endpoint returns). */
+  createDataSource(input: {
+    name: string;
+    columns: StaticColumn[];
+    rows: unknown[][];
+  }): Promise<DataSourceResponse> {
+    return this.http.post<DataSourceResponse>("/api/data-sources", {
+      name: input.name,
+      type: "static",
+      columns: input.columns.map((c) => ({ name: c.name, type: c.type })),
+      rows: input.rows,
+    });
+  }
+
+  createPipeline(input: {
+    name: string;
+    sourceDataSourceId: string;
+    outputDataTypeName: string;
+  }): Promise<PipelineSummaryResponse> {
+    return this.http.post<PipelineSummaryResponse>("/api/pipelines", input);
+  }
+
+  /** Append a step. `config` shape is keyed by `type` (e.g. limit → {count}). */
+  addPipelineStep(
+    pipelineId: string,
+    step: { type: string; config: Record<string, unknown> },
+  ): Promise<PipelineStepResponse> {
+    return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
+  }
+
+  /** Run a pipeline to completion. Synchronous on `main`: the POST returns only
+   *  after the in-process engine finishes and writes rows to the output
+   *  DataType — no polling, no race. Re-reads the summary for the output type
+   *  id + persisted status so the result chains directly into bind_panel. */
+  async runPipeline(pipelineId: string, dry = false): Promise<RunOutcome> {
+    const result = await this.http.post<RunResultResponse>(
+      `/api/pipelines/${pipelineId}/run`,
+      undefined,
+      dry ? { dry: "true" } : undefined,
+    );
+    const summary = await this.http.get<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`);
+    return {
+      pipelineId,
+      status: summary.lastRunStatus ?? "succeeded",
+      rowCount: result.rowCount,
+      sourceRowCount: result.sourceRowCount ?? 0,
+      outputDataTypeId: summary.outputDataTypeId,
+    };
+  }
+
+  createDashboard(input: { name: string }): Promise<DashboardResponse> {
+    return this.http.post<DashboardResponse>("/api/dashboards", input);
+  }
+
+  createPanel(input: {
+    dashboardId: string;
+    title?: string;
+    type?: string;
+    config?: Record<string, unknown>;
+  }): Promise<PanelResponse> {
+    return this.http.post<PanelResponse>("/api/panels", input);
+  }
+
+  /** Bind a data panel (metric/chart/table) to a pipeline-output DataType.
+   *  PATCHes `config: { dataTypeId, fieldMapping }`. The backend rejects a
+   *  companion-DataType binding with 400 (V41 pipeline-only rule) — that error
+   *  is surfaced to the caller, never worked around. */
+  bindPanel(
+    panelId: string,
+    binding: { dataTypeId: string; fieldMapping: Record<string, string>; panelType?: string },
+  ): Promise<PanelResponse> {
+    const body: Record<string, unknown> = {
+      config: { dataTypeId: binding.dataTypeId, fieldMapping: binding.fieldMapping },
+    };
+    if (binding.panelType) body.type = binding.panelType;
+    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, body);
+  }
+
+  updatePanelAppearance(
+    panelId: string,
+    appearance: Record<string, unknown>,
+  ): Promise<PanelResponse> {
+    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, { appearance });
   }
 }

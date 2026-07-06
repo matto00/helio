@@ -16,6 +16,7 @@ import { loadConfig } from "./config.js";
 import { HelioHttpClient } from "./httpClient.js";
 import { HelioApi } from "./helioApi.js";
 import { registerReadTools } from "./tools/read.js";
+import { registerWriteTools } from "./tools/write.js";
 import { buildWorkspaceContext } from "./context.js";
 
 const WORKSPACE_CONTEXT_URI = "helio://workspace/context";
@@ -24,6 +25,7 @@ export function createServer(api: HelioApi): McpServer {
   const server = new McpServer({ name: "helio-mcp", version: "0.1.0" });
 
   registerReadTools(server, api);
+  registerWriteTools(server, api);
 
   // The same workspace snapshot as `get_workspace_context`, exposed as a
   // resource so MCP clients can attach it as ambient context.

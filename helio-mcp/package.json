@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "verify": "tsx scripts/verify.ts"
+    "verify": "tsx scripts/verify.ts",
+    "compose": "tsx scripts/compose.ts"
   },
   "engines": {
     "node": ">=20"

@@ -158,6 +158,28 @@ export interface PipelineAnalyzeResponse {
   }>;
 }
 
+/** A panel as returned by `POST /api/panels` / `PATCH /api/panels/:id`.
+ *  `config` shape is keyed by `type`; passed through. */
+export interface PanelResponse {
+  id: string;
+  dashboardId: string;
+  title: string;
+  type: string;
+  meta: ResourceMeta;
+  appearance: Record<string, unknown>;
+  ownerId: string;
+  config: unknown;
+  dataAsOf: string | null;
+}
+
+/** `POST /api/pipelines/:id/run` — synchronous run result (rows already written). */
+export interface RunResultResponse {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+  stepRowCounts?: Record<string, number>;
+  sourceRowCount?: number;
+}
+
 /** CSV/static source preview (`GET /api/data-sources/:id/preview`). */
 export interface CsvPreview {
   headers: string[];
