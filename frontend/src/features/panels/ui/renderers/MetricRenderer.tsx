@@ -3,6 +3,21 @@ interface MetricRendererProps {
   data?: MappedPanelData | null;
 }
 
+/** Cap the metric value slot's rendered decimal precision at 2 fraction digits (no thousands
+ *  grouping) so a long/repeating decimal from an `avg` aggregate doesn't overflow the value slot
+ *  (HEL-297; see design.md Decision 1). Empty string, non-numeric text, and non-finite results
+ *  (e.g. the literal `"Infinity"`) pass through unchanged — only genuinely numeric-looking
+ *  strings are reformatted. */
+function formatMetricValue(value: string | undefined): string | undefined {
+  if (value === undefined || value.trim() === "") return value;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(n);
+}
+
 export function MetricRenderer({ data }: MetricRendererProps) {
   const trend = data?.trend;
   const trendDirectionClass = trend
@@ -24,7 +39,7 @@ export function MetricRenderer({ data }: MetricRendererProps) {
   return (
     <div className="panel-content panel-content--metric">
       <span className="panel-content__metric-value">
-        {data?.value ?? "--"}
+        {formatMetricValue(data?.value) ?? "--"}
         {data?.unit && <span className="panel-content__metric-unit">{data.unit}</span>}
       </span>
       {/* The "No data" fallback is keyed on value presence, not label presence — a missing
