@@ -13,6 +13,7 @@ import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.services.ContentSourceSupport
+import com.helio.testutil.PdfFixtures
 import scala.concurrent.Future
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -47,6 +48,9 @@ class DataSourceRoutesSpec
   private var testServerBinding: Http.ServerBinding = _
   private var testServerPort: Int                   = _
   private def textUrlFor(path: String): String = s"http://localhost:$testServerPort/$path"
+  // HEL-214: PDF connector URL-ingestion route tests share the same test
+  // server / port as the text-connector routes above.
+  private def pdfUrlFor(path: String): String = s"http://localhost:$testServerPort/$path"
 
   // SSRF guard (HEL-215 cycle-2 fix, DNS-rebinding TOCTOU closed in cycle 3):
   // see the identical override in `DataSourceServiceSpec` for the full
@@ -86,6 +90,16 @@ class DataSourceRoutesSpec
           get { complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, "Hello from URL")) }
         },
         path("missing.txt") {
+          get { complete(StatusCodes.NotFound) }
+        },
+        // HEL-214: PDF connector URL-ingestion route tests.
+        path("report.pdf") {
+          get {
+            val bytes = PdfFixtures.multiPagePdf(Seq("Hello from URL"))
+            complete(HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes))
+          }
+        },
+        path("missing.pdf") {
           get { complete(StatusCodes.NotFound) }
         }
       )
@@ -175,6 +189,20 @@ class DataSourceRoutesSpec
       Multipart.FormData.BodyPart.Strict(
         "file",
         HttpEntity(ContentTypes.`text/plain(UTF-8)`, content),
+        Map("filename" -> filename)
+      )
+    )
+
+  // HEL-214: multipart upload carrying binary PDF bytes, with the `file`
+  // part's Content-Disposition `filename` set (as a browser file input sends
+  // it) so the route can determine the extension.
+  private def pdfMultipartUpload(name: String, bytes: Array[Byte], filename: String, typeValue: String = "pdf"): Multipart.FormData =
+    Multipart.FormData(
+      Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, typeValue)),
+      Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, name)),
+      Multipart.FormData.BodyPart.Strict(
+        "file",
+        HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes),
         Map("filename" -> filename)
       )
     )
@@ -381,6 +409,110 @@ class DataSourceRoutesSpec
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
         status shouldBe StatusCodes.BadGateway
         responseAs[String] should include("scheme")
+      }
+    }
+  }
+
+  "POST /api/data-sources (pdf upload, HEL-214)" should {
+
+    "return 201 and register a DataType for a valid .pdf upload" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("Page one", "Page two"))
+      Post("/api/data-sources", pdfMultipartUpload("Report", bytes, "report.pdf")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val body = responseAs[DataSourceResponse]
+        body.name shouldBe "Report"
+        body.`type` shouldBe "pdf"
+        body.id should not be empty
+
+        Get("/api/types") ~> routes() ~> check {
+          status shouldBe StatusCodes.OK
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items should have length 1
+          types.items.head.sourceId shouldBe Some(body.id)
+          types.items.head.fields.map(_.name) should contain allOf
+            ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
+        }
+      }
+    }
+
+    "return 400 for an unsupported extension" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("content"))
+      Post("/api/data-sources", pdfMultipartUpload("Bad Ext", bytes, "data.txt")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("Unsupported file extension")
+      }
+    }
+
+    "return 400 for a corrupt PDF" in {
+      cleanDb()
+      Post("/api/data-sources", pdfMultipartUpload("Corrupt", PdfFixtures.corruptBytes, "bad.pdf")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("not a valid PDF")
+      }
+    }
+
+    "return 400 for a password-protected PDF" in {
+      cleanDb()
+      val bytes = PdfFixtures.encryptedPdf()
+      Post("/api/data-sources", pdfMultipartUpload("Encrypted", bytes, "secret.pdf")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("password-protected")
+      }
+    }
+
+    "return 400 when name is missing" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("content"))
+      val noName = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "pdf")),
+        Multipart.FormData.BodyPart.Strict(
+          "file",
+          HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes),
+          Map("filename" -> "report.pdf")
+        )
+      )
+      Post("/api/data-sources", noName) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "POST /api/data-sources (pdf URL ingestion, HEL-214)" should {
+
+    "return 201 with sourceUrl set for a reachable .pdf URL" in {
+      cleanDb()
+      val url = pdfUrlFor("report.pdf")
+      val body = s"""{"name": "URL Report", "type": "pdf", "config": {"url": "$url"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val ds = responseAs[DataSourceResponse].asInstanceOf[PdfSourceResponse]
+        ds.`type` shouldBe "pdf"
+        ds.config.sourceUrl shouldBe Some(url)
+
+        Get("/api/types") ~> routes() ~> check {
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items.head.fields.map(_.name) should contain allOf
+            ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
+        }
+      }
+    }
+
+    "return 502 when the URL cannot be fetched" in {
+      cleanDb()
+      val body = s"""{"name": "Bad URL", "type": "pdf", "config": {"url": "${pdfUrlFor("missing.pdf")}"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+      }
+    }
+
+    "return 502 and never echo the upstream body for a loopback URL (SSRF guard)" in {
+      cleanDb()
+      val body = """{"name": "SSRF loopback", "type": "pdf", "config": {"url": "http://127.0.0.1:1/x"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("disallowed address")
       }
     }
   }

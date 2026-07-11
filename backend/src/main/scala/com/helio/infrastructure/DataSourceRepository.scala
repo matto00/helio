@@ -39,6 +39,9 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case DataSourceKind.Text =>
         val cfg = DataSourceConfigCodec.decodeText(row.config)
         TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+      case DataSourceKind.Pdf =>
+        val cfg = DataSourceConfigCodec.decodePdf(row.config)
+        PdfSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
       case other =>
         throw new IllegalStateException(s"Unknown data source type in DB: '$other'")
     }
@@ -54,6 +57,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case s: SqlSource    => (DataSourceKind.Sql,     DataSourceConfigCodec.encodeSql(s.config))
       case _: StaticSource => (DataSourceKind.Static,  "{}")
       case t: TextSource   => (DataSourceKind.Text,    DataSourceConfigCodec.encodeText(t.config))
+      case p: PdfSource    => (DataSourceKind.Pdf,     DataSourceConfigCodec.encodePdf(p.config))
     }
     DataSourceRow(
       id         = ds.id.value,
@@ -129,6 +133,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case s: SqlSource    => DataSourceConfigCodec.encodeSql(s.config)
       case _: StaticSource => "{}"
       case t: TextSource   => DataSourceConfigCodec.encodeText(t.config)
+      case p: PdfSource    => DataSourceConfigCodec.encodePdf(p.config)
     }
     val action = table
       .filter(_.id === source.id.value)

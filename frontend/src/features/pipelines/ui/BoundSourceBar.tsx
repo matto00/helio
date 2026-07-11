@@ -21,6 +21,8 @@ function labelForKind(kind: DataSourceKind): string {
       return "SQL";
     case "text":
       return "Text/Markdown";
+    case "pdf":
+      return "PDF";
   }
 }
 

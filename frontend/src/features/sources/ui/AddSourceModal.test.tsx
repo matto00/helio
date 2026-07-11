@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import {
   createTextSourceUpload as createTextSourceUploadRequest,
   createTextSourceUrl as createTextSourceUrlRequest,
+  createPdfSourceUpload as createPdfSourceUploadRequest,
+  createPdfSourceUrl as createPdfSourceUrlRequest,
 } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { renderWithStore } from "../../../test/renderWithStore";
@@ -14,6 +16,8 @@ jest.mock("../services/dataSourceService", () => ({
   createRestSource: jest.fn(),
   createTextSourceUpload: jest.fn(),
   createTextSourceUrl: jest.fn(),
+  createPdfSourceUpload: jest.fn(),
+  createPdfSourceUrl: jest.fn(),
   createStaticSource: jest.fn(),
   createSqlSource: jest.fn(),
   inferSqlSource: jest.fn(),
@@ -32,6 +36,8 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 
 const createTextSourceUploadMock = jest.mocked(createTextSourceUploadRequest);
 const createTextSourceUrlMock = jest.mocked(createTextSourceUrlRequest);
+const createPdfSourceUploadMock = jest.mocked(createPdfSourceUploadRequest);
+const createPdfSourceUrlMock = jest.mocked(createPdfSourceUrlRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
 describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
@@ -127,6 +133,103 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
     expect(createTextSourceUploadMock).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("AddSourceModal — PDF source (HEL-214)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchDataTypesMock.mockResolvedValue([]);
+    // jsdom does not implement showModal/close natively (Modal.tsx uses a
+    // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    });
+  });
+
+  function openPdfTab() {
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
+  }
+
+  it("shows the pdf source name field and ingestion-method toggle when selected", () => {
+    openPdfTab();
+    expect(screen.getByLabelText("Source name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /upload file/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /from url/i })).toBeInTheDocument();
+  });
+
+  it("creates a pdf source via upload and refreshes the sources list", async () => {
+    createPdfSourceUploadMock.mockResolvedValue({
+      id: "ds-1",
+      name: "Report",
+      type: "pdf",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      config: { path: "pdf/ds-1.pdf" },
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Report" } });
+    const file = new File(["%PDF-1.4"], "report.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/pdf file/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() => expect(createPdfSourceUploadMock).toHaveBeenCalledWith("Report", file));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("creates a pdf source via URL ingestion", async () => {
+    createPdfSourceUrlMock.mockResolvedValue({
+      id: "ds-2",
+      name: "URL Report",
+      type: "pdf",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      config: { path: "pdf/ds-2.pdf", sourceUrl: "https://example.com/report.pdf" },
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "URL Report" } });
+    fireEvent.click(screen.getByRole("button", { name: /from url/i }));
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://example.com/report.pdf" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() =>
+      expect(createPdfSourceUrlMock).toHaveBeenCalledWith(
+        "URL Report",
+        "https://example.com/report.pdf",
+      ),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("shows an error and does not close when name is missing", async () => {
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
+
+    const file = new File(["%PDF-1.4"], "report.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/pdf file/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
+    expect(createPdfSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,12 @@
 package com.helio.domain
 
 import com.helio.infrastructure.{DataSourceRepository, FileSystem}
+import com.helio.services.PdfTextSupport
 import PipelineRowJson.{Row, parseStaticRows}
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** In-process pipeline executor.
  *
@@ -68,11 +70,20 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
           )
         )
       else fileSystem.read(t.config.path).map(loadTextRowFromBytes(t.config.path, _))
+    case p: PdfSource =>
+      if (p.config.path.isEmpty)
+        Future.failed(
+          new IllegalArgumentException(
+            "PDF data source '" + p.name + "' (id=" + p.id.value +
+              ") is missing required config key 'path'"
+          )
+        )
+      else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _))
     case other =>
       Future.failed(
         new IllegalArgumentException(
           "Unsupported source type for in-process pipeline engine: " +
-            other.kind + ". Only static and csv are supported."
+            other.kind + ". Only static, csv, text, and pdf are supported."
         )
       )
   }
@@ -87,8 +98,8 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with
-  // CSV's multi-row loader — a future connector (HEL-214 PDF, HEL-216 image)
-  // adds its own `loadRows` case with its own extraction logic rather than
+  // CSV's multi-row loader — HEL-214 (PDF, below) adds its own `loadRows`
+  // case with its own extraction logic rather than
   // generalizing this over three data points. ──────────────────────────────
 
   private def loadTextRowFromBytes(path: String, bytes: Array[Byte]): Seq[Row] = {
@@ -96,6 +107,36 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     val filename = java.nio.file.Paths.get(path).getFileName.toString
     Seq(Map("content" -> content, "filename" -> filename, "sizeBytes" -> bytes.length.toLong))
   }
+
+  // ── PDF loader (HEL-214): multi-row loader (one row per page) — the first
+  // content connector whose `loadRows` case produces more than one row.
+  // Extraction is deferred to this pipeline-run-time call, per the
+  // pipeline-only-bindings invariant; ingest time only validates the file is
+  // a well-formed, non-encrypted PDF (see `PdfTextSupport.validate`). ───────
+
+  private def loadPdfRowsFromBytes(source: PdfSource, bytes: Array[Byte]): Future[Seq[Row]] =
+    PdfTextSupport.extractPages(bytes) match {
+      case Success(pages) =>
+        val filename  = java.nio.file.Paths.get(source.config.path).getFileName.toString
+        val pageCount = pages.size
+        Future.successful(pages.zipWithIndex.map { case (text, idx) =>
+          Map(
+            "content"        -> text,
+            "filename"       -> filename,
+            "sizeBytes"      -> bytes.length.toLong,
+            "pageNumber"     -> (idx + 1),
+            "pageCount"      -> pageCount,
+            "characterCount" -> text.length
+          )
+        })
+      case Failure(e) =>
+        Future.failed(
+          new IllegalArgumentException(
+            "PDF data source '" + source.name + "' (id=" + source.id.value +
+              ") could not be parsed: " + e.getMessage
+          )
+        )
+    }
 
   // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
 

@@ -17,7 +17,7 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 /** Thin HTTP shell for the `/api/data-sources` CRUD surface (CSV + Static +
- *  Text). Multipart unmarshalling happens here; everything else lives in
+ *  Text + Pdf). Multipart unmarshalling happens here; everything else lives in
  *  [[DataSourceService]]. */
 final class DataSourceRoutes(
     dataSourceService: DataSourceService,
@@ -38,6 +38,11 @@ final class DataSourceRoutes(
    *  upload and URL ingestion — see design.md's PayloadTooLarge decision. */
   private val textMaxBytes: Long =
     sys.env.get("TEXT_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(10485760L)
+
+  /** Early route-layer rejection for PDF uploads (HEL-214), mirroring
+   *  `textMaxBytes` above. */
+  private val pdfMaxBytes: Long =
+    sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
   val routes: Route =
     pathPrefix("data-sources") {
@@ -97,6 +102,14 @@ final class DataSourceRoutes(
             }
           case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
         }
+      } else if (typeStr.contains(DataSourceKind.Pdf)) {
+        Try(json.convertTo[PdfSourceUrlRequest]) match {
+          case Success(request) =>
+            ServiceResponse.run(dataSourceService.createPdfUrl(request.name, request.config.url, user)) { ds =>
+              StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
+            }
+          case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+        }
       } else {
         Try(json.convertTo[StaticDataSourceRequest]) match {
           case Success(req) =>
@@ -144,6 +157,19 @@ final class DataSourceRoutes(
               )
             else
               ServiceResponse.run(dataSourceService.createTextUpload(name, bytes, filename, user)) { ds =>
+                StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
+              }
+          case (Some(name), Some(bytes)) if typeStr == DataSourceKind.Pdf =>
+            // PDF uploads determine the extension from the file part's own
+            // Content-Disposition filename, same as text uploads above.
+            val filename = filePartName.getOrElse("")
+            if (bytes.length.toLong > pdfMaxBytes)
+              complete(
+                StatusCodes.RequestEntityTooLarge,
+                ErrorResponse(s"File exceeds the maximum allowed size of $pdfMaxBytes bytes")
+              )
+            else
+              ServiceResponse.run(dataSourceService.createPdfUpload(name, bytes, filename, user)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
           case (Some(name), Some(bytes)) =>

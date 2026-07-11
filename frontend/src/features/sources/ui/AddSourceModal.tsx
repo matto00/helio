@@ -10,6 +10,8 @@ import {
   createRestSource,
   createTextSourceUpload,
   createTextSourceUrl,
+  createPdfSourceUpload,
+  createPdfSourceUrl,
   inferFromCsv,
   inferFromJson,
   type SqlSourceConfig,
@@ -17,6 +19,7 @@ import {
 import { CsvForm } from "./CsvForm";
 import { InferredFieldsTable } from "./InferredFieldsTable";
 import type { EditableField } from "./InferredFieldsTable";
+import { PdfSourceForm, type PdfIngestMode } from "./PdfSourceForm";
 import { RestApiForm } from "./RestApiForm";
 import { SourceTypeToggle } from "./SourceTypeToggle";
 import { StaticSourceForm } from "./StaticSourceForm";
@@ -25,7 +28,7 @@ import { TextSourceForm, type TextIngestMode } from "./TextSourceForm";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 
-type SourceType = "rest_api" | "csv" | "static" | "sql" | "text";
+type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf";
 type Step = "configure" | "preview";
 
 interface AddSourceModalProps {
@@ -186,20 +189,52 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     }
   }
 
+  async function handleCreatePdf(mode: PdfIngestMode, file: File | null, pdfUrl: string) {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (mode === "upload" && !file) {
+      setError("A .pdf file is required.");
+      return;
+    }
+    if (mode === "url" && !pdfUrl.trim()) {
+      setError("URL is required.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (mode === "upload") {
+        await createPdfSourceUpload(name.trim(), file!);
+      } else {
+        await createPdfSourceUrl(name.trim(), pdfUrl.trim());
+      }
+      void dispatch(fetchSources());
+      void dispatch(fetchDataTypes());
+      onClose();
+    } catch {
+      setError("Failed to create PDF source.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
 
   const title = step === "configure" ? "Add Data Source" : "Preview Schema";
 
-  // Footer for the configure step (non-static, non-SQL, non-text — those
-  // three render their own self-contained form + footer since they skip the
-  // configure -> preview schema-inference step).
+  // Footer for the configure step (non-static, non-SQL, non-text, non-pdf —
+  // those four render their own self-contained form + footer since they skip
+  // the configure -> preview schema-inference step).
   const configureFooter =
     step === "configure" &&
     sourceType !== "static" &&
     sourceType !== "sql" &&
-    sourceType !== "text" ? (
+    sourceType !== "text" &&
+    sourceType !== "pdf" ? (
       <>
         <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onClose}>
           Cancel
@@ -291,6 +326,28 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
           <TextSourceForm
             onSubmit={(mode, file, textUrl) => void handleCreateText(mode, file, textUrl)}
+            isLoading={isLoading}
+            error={error}
+            onCancel={onClose}
+          />
+        </>
+      ) : step === "configure" && sourceType === "pdf" ? (
+        <>
+          <div className="add-source-modal__field">
+            <label className="add-source-modal__label" htmlFor="source-name-pdf">
+              Source name
+            </label>
+            <TextField
+              id="source-name-pdf"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Quarterly report"
+              aria-label="Source name"
+            />
+          </div>
+          <SourceTypeToggle active={sourceType} onChange={setSourceType} />
+          <PdfSourceForm
+            onSubmit={(mode, file, pdfUrl) => void handleCreatePdf(mode, file, pdfUrl)}
             isLoading={isLoading}
             error={error}
             onCancel={onClose}

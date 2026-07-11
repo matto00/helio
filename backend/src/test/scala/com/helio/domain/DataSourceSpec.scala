@@ -8,7 +8,7 @@ import java.time.Instant
 /** Unit tests for the [[DataSource]] ADT.
  *
  *  Verifies that each subtype carries the correct `kind` discriminator and
- *  that pattern matching is exhaustive across the 4 cases. These are
+ *  that pattern matching is exhaustive across the 6 cases. These are
  *  intentionally tiny — repository round-trip is covered by
  *  `DataSourceRepositorySpec`, and JSON wire shape is covered by
  *  `AggregatorRegressionSpec`. */
@@ -47,19 +47,26 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       ds.kind shouldBe "text"
     }
 
-    "exhaustive pattern matching covers all 5 subtypes" in {
+    "PdfSource carries kind 'pdf'" in {
+      val ds: DataSource = PdfSource(id, "pdf-src", owner, now, now, PdfSourceConfig("pdf/ds-1.pdf", None))
+      ds.kind shouldBe "pdf"
+    }
+
+    "exhaustive pattern matching covers all 6 subtypes" in {
       def describe(ds: DataSource): String = ds match {
         case c: CsvSource    => s"csv:${c.config.path}"
         case r: RestSource   => s"rest:${r.config.url}"
         case s: SqlSource    => s"sql:${s.config.query}"
         case _: StaticSource => "static"
         case t: TextSource   => s"text:${t.config.path}"
+        case p: PdfSource    => s"pdf:${p.config.path}"
       }
       describe(CsvSource(id, "n", owner, now, now, CsvSourceConfig("p")))                                              shouldBe "csv:p"
       describe(RestSource(id, "n", owner, now, now, RestApiConfig(url = "u")))                                          shouldBe "rest:u"
       describe(SqlSource(id, "n", owner, now, now, SqlSourceConfig("pg", "h", 1, "d", "u", "pw", "Q")))                  shouldBe "sql:Q"
       describe(StaticSource(id, "n", owner, now, now))                                                                  shouldBe "static"
       describe(TextSource(id, "n", owner, now, now, TextSourceConfig("text/p.txt", Some("https://example.com/p.txt")))) shouldBe "text:text/p.txt"
+      describe(PdfSource(id, "n", owner, now, now, PdfSourceConfig("pdf/p.pdf", Some("https://example.com/p.pdf"))))    shouldBe "pdf:pdf/p.pdf"
     }
   }
 
@@ -71,6 +78,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       DataSourceKind.parseKind("sql")      shouldBe Right("sql")
       DataSourceKind.parseKind("static")   shouldBe Right("static")
       DataSourceKind.parseKind("text")     shouldBe Right("text")
+      DataSourceKind.parseKind("pdf")      shouldBe Right("pdf")
     }
 
     "reject unknown kind strings" in {

@@ -25,7 +25,8 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-/** Business logic for CSV + Static + Text (HEL-215) data sources.
+/** Business logic for CSV + Static + Text (HEL-215) + Pdf (HEL-214) data
+ *  sources.
  *
  *  CSV inserts and previews carry raw bytes (already unmarshalled by the route
  *  layer from `Multipart.FormData`) so the service stays free of Pekko HTTP
@@ -62,6 +63,12 @@ final class DataSourceService(
    *  CSV's 50 MB) since text-file rows are meant to be modest. */
   private val textMaxBytes: Long =
     sys.env.get("TEXT_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(10485760L)
+
+  /** Max upload / URL-fetch size for PDF sources (HEL-214). Larger than
+   *  text's 10 MB default (PDFs are binary and typically larger) but well
+   *  under CSV's 50 MB — mirrors the text/CSV env-var pattern. */
+  private val pdfMaxBytes: Long =
+    sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -237,6 +244,97 @@ final class DataSourceService(
             }
       }
 
+  // ── Create (PDF, HEL-214) ─────────────────────────────────────────────────
+
+  /** Upload path: `filename` is the original uploaded file's name (used only
+   *  to determine + validate the extension; the stored `path`'s basename is
+   *  what's reported as the `filename` field value at pipeline-run time). */
+  def createPdfUpload(
+      name: String,
+      bytes: Array[Byte],
+      filename: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    ingestPdf(name, filename, bytes, sourceUrl = None, user)
+
+  /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
+   *  and stores them exactly like an upload (`config.sourceUrl` set so
+   *  refresh re-fetches instead of re-reading). */
+  def createPdfUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadGateway(err)))
+      case Right(bytes) =>
+        ingestPdf(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+    }
+
+  /** The PDF connector's `DataType` field list: the shared `{content,
+   *  filename, sizeBytes}` triple from `ContentSourceSupport.metadataFields`
+   *  (untouched signature — see design.md's rebase-surface rationale) plus
+   *  the PDF-specific `pageNumber`/`pageCount`/`characterCount` fields
+   *  appended at this connector layer. */
+  private def pdfFields(filename: String, sizeBytes: Long): Vector[DataField] =
+    ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, sizeBytes) ++ Vector(
+      DataField("pageNumber", "Page Number", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+      DataField("pageCount", "Page Count", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+      DataField("characterCount", "Character Count", DataFieldType.asString(DataFieldType.IntegerType), nullable = false)
+    )
+
+  /** Shared ingestion path for both PDF-source creation modes: extension
+   *  validation, size enforcement, `PdfTextSupport.validate` (rejects
+   *  corrupt/encrypted PDFs at ingest without doing a full text walk),
+   *  `FileSystem` write at `pdf/<sourceId>.pdf`, and `DataType` registration
+   *  via [[pdfFields]]. */
+  private def ingestPdf(
+      name: String,
+      filename: String,
+      bytes: Array[Byte],
+      sourceUrl: Option[String],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    if (name.trim.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("name is required")))
+    else
+      ContentSourceSupport.validateExtension(filename, ContentSourceSupport.PdfExtensions) match {
+        case Left(msg) =>
+          Future.successful(Left(ServiceError.BadRequest(msg)))
+        case Right(ext) =>
+          if (bytes.length.toLong > pdfMaxBytes)
+            Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $pdfMaxBytes bytes")))
+          else
+            PdfTextSupport.validate(bytes) match {
+              case Left(msg) =>
+                Future.successful(Left(ServiceError.BadRequest(msg)))
+              case Right(_) =>
+                val now      = Instant.now()
+                val sourceId = DataSourceId(UUID.randomUUID().toString)
+                val filePath = s"pdf/${sourceId.value}.$ext"
+                val source = PdfSource(
+                  id        = sourceId,
+                  name      = name.trim,
+                  ownerId   = user.id,
+                  createdAt = now,
+                  updatedAt = now,
+                  config    = PdfSourceConfig(filePath, sourceUrl)
+                )
+                fileSystem.write(filePath, bytes).flatMap { _ =>
+                  dataSourceRepo.insert(source, user).flatMap { ds =>
+                    val dt = DataType(
+                      id        = DataTypeId(UUID.randomUUID().toString),
+                      sourceId  = Some(ds.id),
+                      name      = name.trim,
+                      fields    = pdfFields(filename, bytes.length.toLong),
+                      version   = 1,
+                      createdAt = now,
+                      updatedAt = now,
+                      ownerId   = user.id
+                    )
+                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                  }
+                }
+            }
+      }
+
   // ── Update / delete ───────────────────────────────────────────────────────
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
@@ -256,6 +354,7 @@ final class DataSourceService(
               case s: SqlSource    => s.copy(name = newName, updatedAt = now)
               case s: StaticSource => s.copy(name = newName, updatedAt = now)
               case t: TextSource   => t.copy(name = newName, updatedAt = now)
+              case p: PdfSource    => p.copy(name = newName, updatedAt = now)
             }
             dataSourceRepo.update(updated, user).map {
               case None     => Left(ServiceError.NotFound("Data source not found"))
@@ -274,6 +373,8 @@ final class DataSourceService(
             fileSystem.delete(c.config.path).recover { case _ => () }
           case t: TextSource =>
             fileSystem.delete(t.config.path).recover { case _ => () }
+          case p: PdfSource =>
+            fileSystem.delete(p.config.path).recover { case _ => () }
           case _ => Future.successful(())
         }
         deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map(_ => Right(()))
@@ -306,8 +407,10 @@ final class DataSourceService(
         refreshCsv(c, user)
       case Some(t: TextSource) =>
         refreshText(t, user)
+      case Some(p: PdfSource) =>
+        refreshPdf(p, user)
       case Some(_) =>
-        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, and text sources")))
+        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, text, and pdf sources")))
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
@@ -377,6 +480,50 @@ final class DataSourceService(
     val fields   = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong)
     upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
   }
+
+  /** Refresh a PDF source (HEL-214): re-read the stored file when it was
+   *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the
+   *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
+   *  way, the refreshed bytes are re-validated via `PdfTextSupport.validate`
+   *  (catches a file that's become corrupt/encrypted on disk/upstream since
+   *  ingest-time validation) before the linked DataType's fixed field schema
+   *  is re-upserted. */
+  private def refreshPdf(source: PdfSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    source.config.sourceUrl match {
+      case None =>
+        if (source.config.path.isEmpty)
+          Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+        else
+          fileSystem.read(source.config.path).flatMap { bytes =>
+            finishPdfRefresh(source, bytes, user)
+          }.recover {
+            case _: java.nio.file.NoSuchFileException =>
+              Left(ServiceError.BadRequest(
+                "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
+              ))
+          }
+      case Some(url) =>
+        ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+          case Left(err) =>
+            Future.successful(Left(ServiceError.BadGateway(err)))
+          case Right(bytes) =>
+            if (bytes.length.toLong > pdfMaxBytes)
+              Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $pdfMaxBytes bytes")))
+            else
+              fileSystem.write(source.config.path, bytes).flatMap(_ => finishPdfRefresh(source, bytes, user))
+        }
+    }
+
+  private def finishPdfRefresh(source: PdfSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    PdfTextSupport.validate(bytes) match {
+      case Left(msg) =>
+        Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(_) =>
+        val now      = Instant.now()
+        val filename = Paths.get(source.config.path).getFileName.toString
+        val fields   = pdfFields(filename, bytes.length.toLong)
+        upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+    }
 
   /** Update the source's auto-inferred DataType in place, or insert a fresh
    *  one if no DT exists for the source. Inserts preserve the link via

@@ -3,13 +3,14 @@ package com.helio.services
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes, HttpEntity, MediaTypes, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem}
+import com.helio.testutil.PdfFixtures
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -104,6 +105,22 @@ class DataSourceServiceSpec
           }
         },
         path("missing.txt") {
+          get { complete(StatusCodes.NotFound) }
+        },
+        // HEL-214: PDF connector URL-ingestion test routes.
+        path("report.pdf") {
+          get {
+            val bytes = PdfFixtures.multiPagePdf(Seq("Hello from URL"))
+            complete(HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes))
+          }
+        },
+        path("huge.pdf") {
+          get {
+            val bytes = Array.fill[Byte](20971521)(0x41.toByte)
+            complete(HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes))
+          }
+        },
+        path("missing.pdf") {
           get { complete(StatusCodes.NotFound) }
         }
       )
@@ -386,6 +403,161 @@ class DataSourceServiceSpec
       cleanDb()
       val bytes = "content".getBytes(StandardCharsets.UTF_8)
       val src   = await(service.createTextUpload("Original Name", bytes, "notes.txt", user)).toOption.get
+
+      val result = await(service.update(src.id, UpdateDataSourceRequest(Some("Renamed")), user))
+      result.isRight shouldBe true
+      result.toOption.get.name shouldBe "Renamed"
+    }
+  }
+
+  // ── HEL-214: PDF connector ───────────────────────────────────────────────────
+
+  "DataSourceService.createPdfUpload" should {
+
+    "create a DataSource + DataType for a valid .pdf upload" in {
+      cleanDb()
+      val bytes  = PdfFixtures.multiPagePdf(Seq("Page one", "Page two"))
+      val result = await(service.createPdfUpload("Report", bytes, "report.pdf", user))
+
+      result.isRight shouldBe true
+      val src = result.toOption.get
+      src.kind shouldBe "pdf"
+      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
+      dts should have size 1
+      dts.head.fields.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
+      dts.head.fields.find(_.name == "content").map(_.dataType) shouldBe Some("string-body")
+    }
+
+    "reject an unsupported extension with BadRequest" in {
+      cleanDb()
+      val bytes  = PdfFixtures.multiPagePdf(Seq("content"))
+      val result = await(service.createPdfUpload("Bad Ext", bytes, "data.txt", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("Unsupported file extension")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+
+    "reject an oversized upload with PayloadTooLarge" in {
+      cleanDb()
+      val bytes  = Array.fill[Byte](20971521)(0x41.toByte)
+      val result = await(service.createPdfUpload("Too Big", bytes, "big.pdf", user))
+      result match {
+        case Left(ServiceError.PayloadTooLarge(msg)) => msg should include("maximum allowed size")
+        case other                                   => fail(s"Expected PayloadTooLarge, got: $other")
+      }
+    }
+
+    "reject a corrupt PDF with BadRequest" in {
+      cleanDb()
+      val result = await(service.createPdfUpload("Corrupt", PdfFixtures.corruptBytes, "bad.pdf", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("not a valid PDF")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+
+    "reject a password-protected PDF with BadRequest" in {
+      cleanDb()
+      val bytes  = PdfFixtures.encryptedPdf()
+      val result = await(service.createPdfUpload("Encrypted", bytes, "secret.pdf", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("password-protected")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+  }
+
+  "DataSourceService.createPdfUrl" should {
+
+    "fetch the URL and create a DataSource + DataType with sourceUrl set" in {
+      cleanDb()
+      val url    = urlFor("report.pdf")
+      val result = await(service.createPdfUrl("URL Report", url, user))
+      result.isRight shouldBe true
+      result.toOption.get match {
+        case p: PdfSource => p.config.sourceUrl shouldBe Some(url)
+        case other        => fail(s"expected PdfSource, got: $other")
+      }
+      val dts = await(dataTypeRepo.findBySourceId(result.toOption.get.id, owner))
+      dts.head.fields.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
+    }
+
+    "return BadGateway when the URL cannot be fetched" in {
+      cleanDb()
+      val result = await(service.createPdfUrl("Missing", urlFor("missing.pdf"), user))
+      result match {
+        case Left(ServiceError.BadGateway(_)) => succeed
+        case other                            => fail(s"Expected BadGateway, got: $other")
+      }
+    }
+
+    "return PayloadTooLarge when the fetched content exceeds the max size" in {
+      cleanDb()
+      val result = await(service.createPdfUrl("Huge", urlFor("huge.pdf"), user))
+      result match {
+        case Left(ServiceError.PayloadTooLarge(_)) => succeed
+        case other                                 => fail(s"Expected PayloadTooLarge, got: $other")
+      }
+    }
+
+    "reject a loopback URL (127.0.0.1) before issuing any request" in {
+      cleanDb()
+      val result = await(service.createPdfUrl("SSRF loopback", "http://127.0.0.1:1/x", user))
+      result match {
+        case Left(ServiceError.BadGateway(msg)) => msg should include("disallowed address")
+        case other                              => fail(s"Expected BadGateway (blocked), got: $other")
+      }
+    }
+  }
+
+  "DataSourceService.refresh (Pdf)" should {
+
+    "re-read the stored file for an upload-created pdf source" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("v1"))
+      val src   = await(service.createPdfUpload("Refreshable", bytes, "report.pdf", user)).toOption.get
+
+      val result = await(service.refresh(src.id, None, user))
+      result.isRight shouldBe true
+      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
+      dts should have size 1
+    }
+
+    "re-fetch the URL for a URL-created pdf source and overwrite the stored file" in {
+      cleanDb()
+      val src = await(service.createPdfUrl("URL Refreshable", urlFor("report.pdf"), user)).toOption.get
+        .asInstanceOf[PdfSource]
+
+      val result = await(service.refresh(src.id, None, user))
+      result.isRight shouldBe true
+      val storedBytes = await(fileSystem.read(src.config.path))
+      PdfTextSupport.validate(storedBytes).isRight shouldBe true
+    }
+  }
+
+  "DataSourceService.delete (Pdf)" should {
+
+    "remove the data source record and the stored file" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("to-delete"))
+      val src   = await(service.createPdfUpload("Deletable", bytes, "report.pdf", user)).toOption.get
+        .asInstanceOf[PdfSource]
+
+      val result = await(service.delete(src.id, user))
+      result.isRight shouldBe true
+      await(fileSystem.exists(src.config.path)) shouldBe false
+    }
+  }
+
+  "DataSourceService.update (Pdf)" should {
+
+    "rename a pdf source without throwing (regression: DataSourceService.update's closed match)" in {
+      cleanDb()
+      val bytes = PdfFixtures.multiPagePdf(Seq("content"))
+      val src   = await(service.createPdfUpload("Original Name", bytes, "report.pdf", user)).toOption.get
 
       val result = await(service.update(src.id, UpdateDataSourceRequest(Some("Renamed")), user))
       result.isRight shouldBe true
