@@ -6,8 +6,11 @@ The panel grid MUST render a different body content area for each panel type (`m
 `text`, `table`, `markdown`, `image`). When a panel has live mapped data or content, it SHALL
 display that data; when unbound or empty, it SHALL display an appropriate placeholder.
 
-The metric panel body SHALL render three lines when trend data is present: value, label, and trend
-indicator. When `trend` is absent the metric panel body renders value and label only (two lines).
+The metric panel body SHALL render three lines when trend data is present: value (with unit, if
+mapped), label, and trend indicator. When `trend` is absent the metric panel body renders value
+(with unit, if mapped) and label only (two lines). The label line is omitted entirely — not
+replaced with a "No data" fallback — when a value is present but no label is mapped; a "No data"
+fallback is shown only when the value itself is absent.
 
 #### Scenario: Unbound metric panel renders a large value placeholder
 - **WHEN** a panel with `type: "metric"` and no `typeId` is displayed in the grid
@@ -16,6 +19,18 @@ indicator. When `trend` is absent the metric panel body renders value and label 
 #### Scenario: Bound metric panel renders live value and label
 - **WHEN** a panel with `type: "metric"` has a `typeId` and data has been fetched and `trend` is not in the data map
 - **THEN** the panel body shows the mapped `value` slot as a large value and `label` slot as a sub-label
+
+#### Scenario: Bound metric panel renders unit alongside value
+- **WHEN** a panel with `type: "metric"` has a `typeId` and the mapped data includes a non-empty `unit` slot
+- **THEN** the panel body shows the `unit` slot rendered immediately adjacent to the `value` slot (e.g. "84 /100")
+
+#### Scenario: Bound metric panel with a value but no label omits the label line
+- **WHEN** a panel with `type: "metric"` has a mapped `value` slot but the `label` slot is absent or unresolved
+- **THEN** the panel body shows the value (and unit, if mapped) with no label line and no "No data" text
+
+#### Scenario: Bound metric panel with no value shows a "No data" fallback
+- **WHEN** a panel with `type: "metric"` has data fetched but the mapped `value` slot is absent, null, or empty
+- **THEN** the panel body shows the "No data" fallback text in place of the label line
 
 #### Scenario: Bound metric panel with trend renders three lines
 - **WHEN** a panel with `type: "metric"` has a `typeId` and bound data contains a `trend` field
