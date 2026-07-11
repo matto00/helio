@@ -8,6 +8,8 @@ import type { InferredField, StaticColumn } from "../types/dataSource";
 import {
   createCsvSource,
   createRestSource,
+  createTextSourceUpload,
+  createTextSourceUrl,
   inferFromCsv,
   inferFromJson,
   type SqlSourceConfig,
@@ -19,10 +21,11 @@ import { RestApiForm } from "./RestApiForm";
 import { SourceTypeToggle } from "./SourceTypeToggle";
 import { StaticSourceForm } from "./StaticSourceForm";
 import { SqlTab } from "./SqlTab";
+import { TextSourceForm, type TextIngestMode } from "./TextSourceForm";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 
-type SourceType = "rest_api" | "csv" | "static" | "sql";
+type SourceType = "rest_api" | "csv" | "static" | "sql" | "text";
 type Step = "configure" | "preview";
 
 interface AddSourceModalProps {
@@ -152,15 +155,51 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     }
   }
 
+  async function handleCreateText(mode: TextIngestMode, file: File | null, textUrl: string) {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (mode === "upload" && !file) {
+      setError("A .txt or .md file is required.");
+      return;
+    }
+    if (mode === "url" && !textUrl.trim()) {
+      setError("URL is required.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (mode === "upload") {
+        await createTextSourceUpload(name.trim(), file!);
+      } else {
+        await createTextSourceUrl(name.trim(), textUrl.trim());
+      }
+      void dispatch(fetchSources());
+      void dispatch(fetchDataTypes());
+      onClose();
+    } catch {
+      setError("Failed to create text source.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
 
   const title = step === "configure" ? "Add Data Source" : "Preview Schema";
 
-  // Footer for the configure step (non-static, non-SQL)
+  // Footer for the configure step (non-static, non-SQL, non-text — those
+  // three render their own self-contained form + footer since they skip the
+  // configure -> preview schema-inference step).
   const configureFooter =
-    step === "configure" && sourceType !== "static" && sourceType !== "sql" ? (
+    step === "configure" &&
+    sourceType !== "static" &&
+    sourceType !== "sql" &&
+    sourceType !== "text" ? (
       <>
         <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onClose}>
           Cancel
@@ -230,6 +269,28 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           <StaticSourceForm
             name={name}
             onSubmit={(columns, rows) => void handleCreateStatic(columns, rows)}
+            isLoading={isLoading}
+            error={error}
+            onCancel={onClose}
+          />
+        </>
+      ) : step === "configure" && sourceType === "text" ? (
+        <>
+          <div className="add-source-modal__field">
+            <label className="add-source-modal__label" htmlFor="source-name-text">
+              Source name
+            </label>
+            <TextField
+              id="source-name-text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Release notes"
+              aria-label="Source name"
+            />
+          </div>
+          <SourceTypeToggle active={sourceType} onChange={setSourceType} />
+          <TextSourceForm
+            onSubmit={(mode, file, textUrl) => void handleCreateText(mode, file, textUrl)}
             isLoading={isLoading}
             error={error}
             onCancel={onClose}

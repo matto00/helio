@@ -90,6 +90,28 @@ export async function createStaticSource(
   return response.data;
 }
 
+// HEL-215: plain text / Markdown connector — file upload and URL-based
+// ingestion, mirroring the CSV / REST create paths respectively.
+export async function createTextSourceUpload(name: string, file: File): Promise<DataSource> {
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("type", "text");
+  formData.append("file", file);
+  const response = await httpClient.post<DataSource>("/api/data-sources", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+export async function createTextSourceUrl(name: string, url: string): Promise<DataSource> {
+  const response = await httpClient.post<DataSource>("/api/data-sources", {
+    name,
+    type: "text",
+    config: { url },
+  });
+  return response.data;
+}
+
 export async function deleteSource(sourceId: string): Promise<void> {
   await httpClient.delete(`/api/data-sources/${sourceId}`);
 }

@@ -11,13 +11,14 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{ApiTokenService, AuthService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{ApiTokenRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
+import java.net.InetAddress
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 final class ApiRoutes(
     dashboardRepo: DashboardRepository,
@@ -40,7 +41,19 @@ final class ApiRoutes(
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
-    corsAllowedOrigins: Seq[String] = Seq("http://localhost:5173")
+    corsAllowedOrigins: Seq[String] = Seq("http://localhost:5173"),
+    // HEL-215 cycle-2 SSRF fix: real DNS resolution in production (never
+    // overridden by Main.scala); tests may inject a fake resolver so a
+    // known local-test-server hostname can be exercised end-to-end without
+    // weakening the guard for any other host (see DataSourceService).
+    dataSourceUrlResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    // HEL-215 cycle-3 fix: real (host-agnostic) denylist in production (never
+    // overridden by Main.scala); tests may admit a single known-safe test
+    // hostname without weakening the guard for any other host (see
+    // DataSourceService — this is the seam that replaced the now-removed
+    // "lying resolver" test pattern once fetchUrl started pinning the actual
+    // TCP connection to the resolved address).
+    dataSourceUrlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -69,7 +82,7 @@ final class ApiRoutes(
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker)
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)

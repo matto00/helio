@@ -62,6 +62,16 @@ final case class StaticSourceResponse(
   def `type`: String = DataSourceKind.Static
 }
 
+final case class TextSourceResponse(
+    id: String,
+    name: String,
+    createdAt: String,
+    updatedAt: String,
+    config: TextSourceConfigPayload
+) extends DataSourceResponse {
+  def `type`: String = DataSourceKind.Text
+}
+
 final case class DataSourcesResponse(items: Vector[DataSourceResponse])
 final case class UpdateDataSourceRequest(name: Option[String])
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
@@ -97,6 +107,10 @@ final case class RestApiConfigPayload(
     auth: Option[RestApiAuthPayload],
     headers: Option[Map[String, String]]
 )
+
+final case class TextSourceConfigPayload(path: String, sourceUrl: Option[String])
+final case class TextSourceUrlConfigPayload(url: String)
+final case class TextSourceUrlRequest(name: String, `type`: String, config: TextSourceUrlConfigPayload)
 
 final case class FieldOverridePayload(name: String, displayName: String, dataType: String)
 final case class CreateSourceRequest(
@@ -166,6 +180,14 @@ object DataSourceResponse {
         name      = s.name,
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString
+      )
+    case t: TextSource =>
+      TextSourceResponse(
+        id        = t.id.value,
+        name      = t.name,
+        createdAt = t.createdAt.toString,
+        updatedAt = t.updatedAt.toString,
+        config    = TextSourceConfigPayload(t.config.path, t.config.sourceUrl)
       )
   }
 
@@ -278,12 +300,16 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
   implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat4(RestApiConfigPayload.apply)
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload]       = jsonFormat3(FieldOverridePayload.apply)
+  implicit val textSourceConfigPayloadFormat: RootJsonFormat[TextSourceConfigPayload]       = jsonFormat2(TextSourceConfigPayload.apply)
+  implicit val textSourceUrlConfigPayloadFormat: RootJsonFormat[TextSourceUrlConfigPayload] = jsonFormat1(TextSourceUrlConfigPayload.apply)
+  implicit val textSourceUrlRequestFormat: RootJsonFormat[TextSourceUrlRequest]             = jsonFormat3(TextSourceUrlRequest.apply)
 
   // ── Per-subtype response formats (used only inside DataSourceResponseFormat) ─
   private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat5(CsvSourceResponse.apply)
   private val restSourceResponseFormat: RootJsonFormat[RestSourceResponse]     = jsonFormat5(RestSourceResponse.apply)
   private val sqlSourceResponseFormat: RootJsonFormat[SqlSourceResponse]       = jsonFormat5(SqlSourceResponse.apply)
   private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat4(StaticSourceResponse.apply)
+  private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat5(TextSourceResponse.apply)
 
   /** Discriminated-union format for the [[DataSourceResponse]] ADT.
    *
@@ -298,6 +324,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
         case r: RestSourceResponse   => restSourceResponseFormat.write(r).asJsObject
         case s: SqlSourceResponse    => sqlSourceResponseFormat.write(s).asJsObject
         case s: StaticSourceResponse => staticSourceResponseFormat.write(s).asJsObject
+        case t: TextSourceResponse   => textSourceResponseFormat.write(t).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(d.`type`)))
     }
@@ -307,6 +334,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
       case Some(JsString(DataSourceKind.RestApi)) => restSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Sql))     => sqlSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Static))  => staticSourceResponseFormat.read(json)
+      case Some(JsString(DataSourceKind.Text))    => textSourceResponseFormat.read(json)
       case Some(other)                            => deserializationError(s"Unknown DataSource type: $other")
       case None                                   => deserializationError("Missing 'type' discriminator on DataSource")
     }

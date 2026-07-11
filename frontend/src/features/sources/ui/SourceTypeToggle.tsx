@@ -5,7 +5,7 @@
 // Extracted from AddSourceModal.tsx in CS3 cycle 2 (behavior-preserving:
 // markup and class names are unchanged from the inlined originals).
 
-type SourceType = "rest_api" | "csv" | "static" | "sql";
+type SourceType = "rest_api" | "csv" | "static" | "sql" | "text";
 
 interface SourceTypeToggleProps {
   active: SourceType;
@@ -60,6 +60,17 @@ export function SourceTypeToggle({ active, onChange }: SourceTypeToggleProps) {
           onClick={() => onChange("sql")}
         >
           SQL Database
+        </button>
+        <button
+          type="button"
+          className={
+            active === "text"
+              ? "add-source-modal__type-btn add-source-modal__type-btn--active"
+              : "add-source-modal__type-btn"
+          }
+          onClick={() => onChange("text")}
+        >
+          Text/Markdown
         </button>
       </div>
     </div>

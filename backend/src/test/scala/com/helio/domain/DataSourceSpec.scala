@@ -42,17 +42,24 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       ds.kind shouldBe "static"
     }
 
-    "exhaustive pattern matching covers all 4 subtypes" in {
+    "TextSource carries kind 'text'" in {
+      val ds: DataSource = TextSource(id, "text-src", owner, now, now, TextSourceConfig("text/ds-1.txt", None))
+      ds.kind shouldBe "text"
+    }
+
+    "exhaustive pattern matching covers all 5 subtypes" in {
       def describe(ds: DataSource): String = ds match {
         case c: CsvSource    => s"csv:${c.config.path}"
         case r: RestSource   => s"rest:${r.config.url}"
         case s: SqlSource    => s"sql:${s.config.query}"
         case _: StaticSource => "static"
+        case t: TextSource   => s"text:${t.config.path}"
       }
       describe(CsvSource(id, "n", owner, now, now, CsvSourceConfig("p")))                                              shouldBe "csv:p"
       describe(RestSource(id, "n", owner, now, now, RestApiConfig(url = "u")))                                          shouldBe "rest:u"
       describe(SqlSource(id, "n", owner, now, now, SqlSourceConfig("pg", "h", 1, "d", "u", "pw", "Q")))                  shouldBe "sql:Q"
       describe(StaticSource(id, "n", owner, now, now))                                                                  shouldBe "static"
+      describe(TextSource(id, "n", owner, now, now, TextSourceConfig("text/p.txt", Some("https://example.com/p.txt")))) shouldBe "text:text/p.txt"
     }
   }
 
@@ -63,6 +70,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       DataSourceKind.parseKind("rest_api") shouldBe Right("rest_api")
       DataSourceKind.parseKind("sql")      shouldBe Right("sql")
       DataSourceKind.parseKind("static")   shouldBe Right("static")
+      DataSourceKind.parseKind("text")     shouldBe Right("text")
     }
 
     "reject unknown kind strings" in {

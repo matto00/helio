@@ -7,7 +7,7 @@
 // Extracted from `./models.ts` so the panel + data-source + pipeline-step
 // ADTs each live in their own file.
 
-export type DataSourceKind = "csv" | "rest_api" | "sql" | "static";
+export type DataSourceKind = "csv" | "rest_api" | "sql" | "static" | "text";
 
 export interface CsvSourceConfig {
   path: string;
@@ -66,7 +66,20 @@ export interface StaticSource extends DataSourceBase {
   type: "static";
 }
 
-export type DataSource = CsvSource | RestSource | SqlSource | StaticSource;
+// HEL-215: plain text / Markdown connector. `sourceUrl` is present only for
+// URL-ingested sources (refresh re-fetches); absent for uploads (refresh
+// re-reads the stored file).
+export interface TextSourceConfig {
+  path: string;
+  sourceUrl?: string;
+}
+
+export interface TextSource extends DataSourceBase {
+  type: "text";
+  config: TextSourceConfig;
+}
+
+export type DataSource = CsvSource | RestSource | SqlSource | StaticSource | TextSource;
 
 // ── Type-narrowing helpers ───────────────────────────────────────────────────
 // Used by multiple consumers (SourceDetailPanel, refresh dispatcher) so we
@@ -76,6 +89,7 @@ export const isCsvSource = (s: DataSource): s is CsvSource => s.type === "csv";
 export const isRestSource = (s: DataSource): s is RestSource => s.type === "rest_api";
 export const isSqlSource = (s: DataSource): s is SqlSource => s.type === "sql";
 export const isStaticSource = (s: DataSource): s is StaticSource => s.type === "static";
+export const isTextSource = (s: DataSource): s is TextSource => s.type === "text";
 
 // ── Source schema + static-source payload types ─────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.

@@ -1,5 +1,6 @@
 package com.helio.services
 
+import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.protocols.{
   CsvPreviewResponse,
@@ -16,25 +17,51 @@ import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, FileS
 import SourceConfigParsing._
 import spray.json._
 
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-/** Business logic for CSV + Static data sources.
+/** Business logic for CSV + Static + Text (HEL-215) data sources.
  *
  *  CSV inserts and previews carry raw bytes (already unmarshalled by the route
  *  layer from `Multipart.FormData`) so the service stays free of Pekko HTTP
  *  types. `Materializer` is passed explicitly because the CSV write path uses
- *  `fileSystem.write` which may internally stream. */
+ *  `fileSystem.write` which may internally stream. `ActorSystem` is passed
+ *  explicitly for `ContentSourceSupport.fetchUrl` (text-source URL
+ *  ingestion).
+ *
+ *  `resolveHost` defaults to [[ContentSourceSupport.defaultResolveHost]] (real
+ *  DNS) and `isBlocked` defaults to [[ContentSourceSupport.isBlockedAddress]]
+ *  (host-agnostic); both are forwarded to every `ContentSourceSupport.fetchUrl`
+ *  call this service makes — production (`ApiRoutes`/`Main`) never overrides
+ *  either, so the SSRF guard (including the cycle-3 DNS-rebinding pin — see
+ *  `ContentSourceSupport.fetchUrl`) is always strict in production. The
+ *  overrides exist solely so tests can exercise this service's URL-ingestion
+ *  business logic (DataType registration, refresh-and-overwrite, etc.)
+ *  against a local test HTTP server without weakening the guard for any
+ *  other host: `isBlocked` (keyed on hostname) is the intended seam for
+ *  admitting a single known-safe test hostname, since `resolveHost` alone no
+ *  longer needs overriding when the test server binds to a hostname
+ *  (`"localhost"`) that already resolves correctly via real DNS. */
 final class DataSourceService(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo:   DataTypeRepository,
-    fileSystem:     FileSystem
-)(implicit ec: ExecutionContext, @annotation.unused mat: Materializer) {
+    fileSystem:     FileSystem,
+    resolveHost:    String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    isBlocked:      (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+)(implicit ec: ExecutionContext, @annotation.unused mat: Materializer, system: ActorSystem[_]) {
 
   private val staticMaxRows = 500
+
+  /** Max upload / URL-fetch size for text sources (HEL-215). Mirrors CSV's
+   *  `CSV_MAX_FILE_SIZE_BYTES` env-var pattern; defaults smaller (10 MB vs
+   *  CSV's 50 MB) since text-file rows are meant to be modest. */
+  private val textMaxBytes: Long =
+    sys.env.get("TEXT_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(10485760L)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -132,6 +159,84 @@ final class DataSourceService(
         }
     }
 
+  // ── Create (Text/Markdown, HEL-215) ───────────────────────────────────────
+
+  /** Upload path: `filename` is the original uploaded file's name (used only
+   *  to determine + validate the extension; the stored `path`'s basename is
+   *  what's reported as the `filename` field value at pipeline-run time). */
+  def createTextUpload(
+      name: String,
+      bytes: Array[Byte],
+      filename: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    ingestText(name, filename, bytes, sourceUrl = None, user)
+
+  /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
+   *  and stores them exactly like an upload (`config.sourceUrl` set so
+   *  refresh re-fetches instead of re-reading). */
+  def createTextUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadGateway(err)))
+      case Right(bytes) =>
+        ingestText(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+    }
+
+  /** Shared ingestion path for both text-source creation modes: extension
+   *  validation, size enforcement, UTF-8 validation, `FileSystem` write at
+   *  `text/<sourceId>.<ext>`, and `DataType` registration via
+   *  `ContentSourceSupport.metadataFields(StringBodyType, ...)`. */
+  private def ingestText(
+      name: String,
+      filename: String,
+      bytes: Array[Byte],
+      sourceUrl: Option[String],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    if (name.trim.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("name is required")))
+    else
+      ContentSourceSupport.validateExtension(filename, ContentSourceSupport.TextExtensions) match {
+        case Left(msg) =>
+          Future.successful(Left(ServiceError.BadRequest(msg)))
+        case Right(ext) =>
+          if (bytes.length.toLong > textMaxBytes)
+            Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $textMaxBytes bytes")))
+          else
+            DataSourceCsvSupport.decodeUtf8(bytes) match {
+              case None =>
+                Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
+              case Some(_) =>
+                val now      = Instant.now()
+                val sourceId = DataSourceId(UUID.randomUUID().toString)
+                val filePath = s"text/${sourceId.value}.$ext"
+                val source = TextSource(
+                  id        = sourceId,
+                  name      = name.trim,
+                  ownerId   = user.id,
+                  createdAt = now,
+                  updatedAt = now,
+                  config    = TextSourceConfig(filePath, sourceUrl)
+                )
+                fileSystem.write(filePath, bytes).flatMap { _ =>
+                  dataSourceRepo.insert(source, user).flatMap { ds =>
+                    val dt = DataType(
+                      id        = DataTypeId(UUID.randomUUID().toString),
+                      sourceId  = Some(ds.id),
+                      name      = name.trim,
+                      fields    = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong),
+                      version   = 1,
+                      createdAt = now,
+                      updatedAt = now,
+                      ownerId   = user.id
+                    )
+                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                  }
+                }
+            }
+      }
+
   // ── Update / delete ───────────────────────────────────────────────────────
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
@@ -150,6 +255,7 @@ final class DataSourceService(
               case r: RestSource   => r.copy(name = newName, updatedAt = now)
               case s: SqlSource    => s.copy(name = newName, updatedAt = now)
               case s: StaticSource => s.copy(name = newName, updatedAt = now)
+              case t: TextSource   => t.copy(name = newName, updatedAt = now)
             }
             dataSourceRepo.update(updated, user).map {
               case None     => Left(ServiceError.NotFound("Data source not found"))
@@ -166,6 +272,8 @@ final class DataSourceService(
         val deleteFileF: Future[Unit] = source match {
           case c: CsvSource =>
             fileSystem.delete(c.config.path).recover { case _ => () }
+          case t: TextSource =>
+            fileSystem.delete(t.config.path).recover { case _ => () }
           case _ => Future.successful(())
         }
         deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map(_ => Right(()))
@@ -196,8 +304,10 @@ final class DataSourceService(
         }
       case Some(c: CsvSource) =>
         refreshCsv(c, user)
+      case Some(t: TextSource) =>
+        refreshText(t, user)
       case Some(_) =>
-        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv and static sources")))
+        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, and text sources")))
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
@@ -228,6 +338,45 @@ final class DataSourceService(
             "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
           ))
       }
+
+  /** Refresh a text source (HEL-215): re-read the stored file when it was
+   *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the
+   *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
+   *  way, the linked DataType's fixed `{content, filename, sizeBytes}` schema
+   *  is re-upserted (values only change on the next pipeline run, per the
+   *  pipeline-only-bindings invariant). */
+  private def refreshText(source: TextSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    source.config.sourceUrl match {
+      case None =>
+        if (source.config.path.isEmpty)
+          Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+        else
+          fileSystem.read(source.config.path).flatMap { bytes =>
+            finishTextRefresh(source, bytes, user)
+          }.recover {
+            case _: java.nio.file.NoSuchFileException =>
+              Left(ServiceError.BadRequest(
+                "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
+              ))
+          }
+      case Some(url) =>
+        ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+          case Left(err) =>
+            Future.successful(Left(ServiceError.BadGateway(err)))
+          case Right(bytes) =>
+            if (bytes.length.toLong > textMaxBytes)
+              Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $textMaxBytes bytes")))
+            else
+              fileSystem.write(source.config.path, bytes).flatMap(_ => finishTextRefresh(source, bytes, user))
+        }
+    }
+
+  private def finishTextRefresh(source: TextSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+    val now      = Instant.now()
+    val filename = Paths.get(source.config.path).getFileName.toString
+    val fields   = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong)
+    upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+  }
 
   /** Update the source's auto-inferred DataType in place, or insert a fresh
    *  one if no DT exists for the source. Inserts preserve the link via
