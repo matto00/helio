@@ -80,6 +80,7 @@ const defaultPipeline: PipelineSummary = {
 
 // Source fixture shape — uses the same discriminated-union as production code.
 import type { DataSource } from "../../sources/types/dataSource";
+import type { DataType } from "../../dataTypes/types/dataType";
 type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {
@@ -96,7 +97,11 @@ type PipelinesPreloadedState = {
   updateError?: string | null;
 };
 
-function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPreloadedState = {}) {
+function makeStore(
+  sourcesItems: SourceItem[] = [],
+  pipelinesState: PipelinesPreloadedState = {},
+  dataTypesItems: DataType[] = [],
+) {
   return configureStore({
     reducer: {
       auth: authReducer,
@@ -112,6 +117,12 @@ function makeStore(sourcesItems: SourceItem[] = [], pipelinesState: PipelinesPre
         items: sourcesItems,
         status: "succeeded" as const,
         error: null,
+      },
+      dataTypes: {
+        items: dataTypesItems,
+        status: "succeeded" as const,
+        error: null,
+        selectedTypeId: null,
       },
       pipelines: {
         items: [],
@@ -151,6 +162,8 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
             <Routes>
               <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
               <Route path="/pipelines" element={<div>Pipelines List</div>} />
+              <Route path="/sources" element={<div>Sources Page</div>} />
+              <Route path="/registry" element={<div>Type Registry Page</div>} />
             </Routes>
           </OverlayProvider>
         </Provider>
@@ -1440,5 +1453,115 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
     const badge = document.querySelector(".run-history-modal__status--queued");
     expect(badge).not.toBeNull();
+  });
+});
+
+// ── HEL-260: Edit Source / Edit Type buttons ─────────────────────────────────
+
+describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
+  const ownedSource: DataSource = {
+    id: "src-1",
+    name: "Test Source",
+    type: "sql",
+    createdAt: "",
+    updatedAt: "",
+    config: {
+      dialect: "postgresql",
+      host: "h",
+      port: 5432,
+      database: "d",
+      user: "u",
+      password: "p",
+      query: "SELECT 1",
+    },
+  };
+
+  const ownedType: DataType = {
+    id: "dt-1",
+    name: "TestType",
+    sourceId: null,
+    version: 1,
+    fields: [],
+    computedFields: [],
+    createdAt: "",
+    updatedAt: "",
+  };
+
+  const pipelineWithOutputType: PipelineSummary = {
+    id: "pipe-1",
+    name: "Test Pipeline",
+    sourceDataSourceId: "src-1",
+    sourceDataSourceName: "Test Source",
+    outputDataTypeName: "TestType",
+    outputDataTypeId: "dt-1",
+    lastRunStatus: null,
+    lastRunAt: null,
+    lastRunRowCount: null,
+  };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(pipelineWithOutputType);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("Edit Source button is visible when the bound source is in sources.items", () => {
+    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("button", { name: "Edit Source" })).toBeInTheDocument();
+  });
+
+  it("Edit Source button is absent when the bound source is not in sources.items", () => {
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
+    renderDetailPage("pipe-1", store);
+    expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
+  });
+
+  it("clicking Edit Source sets sources.selectedSourceId and navigates to /sources", () => {
+    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
+    renderDetailPage("pipe-1", store);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Source" }));
+    expect(store.getState().sources.selectedSourceId).toBe("src-1");
+    expect(screen.getByText("Sources Page")).toBeInTheDocument();
+  });
+
+  it("Edit Type button is visible when the output type is in dataTypes.items", () => {
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
+    renderDetailPage("pipe-1", store);
+    expect(screen.getByRole("button", { name: "Edit Type" })).toBeInTheDocument();
+  });
+
+  it("Edit Type button is absent when the output type is not in dataTypes.items", () => {
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
+    renderDetailPage("pipe-1", store);
+    expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
+  });
+
+  it("clicking Edit Type sets dataTypes.selectedTypeId and navigates to /registry", () => {
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
+    renderDetailPage("pipe-1", store);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Type" }));
+    expect(store.getState().dataTypes.selectedTypeId).toBe("dt-1");
+    expect(screen.getByText("Type Registry Page")).toBeInTheDocument();
+  });
+
+  // Shared-pipeline scenario: the current user has a pipeline-sharing grant
+  // (or otherwise reaches a pipeline they don't own) but does not own the
+  // bound source/type — both Edit buttons must be absent, since pipeline
+  // access confers no standing over the underlying DataSource/DataType.
+  it("shared pipeline without source/type ownership shows neither Edit button", () => {
+    const sharedPipeline: PipelineSummary = {
+      ...pipelineWithOutputType,
+      ownerId: "someone-else",
+    };
+    const store = makeStore([], { currentPipeline: sharedPipeline }, []);
+    renderDetailPage("pipe-1", store);
+    expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
   });
 });

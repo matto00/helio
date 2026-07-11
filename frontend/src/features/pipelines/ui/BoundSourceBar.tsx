@@ -28,9 +28,21 @@ interface BoundSourceBarProps {
   /** The matching DataSource record, resolved by `Pipeline.sourceDataSourceId`,
    *  for its kind badge. */
   source: DataSource | undefined;
+  /** Whether the current user owns the bound source (i.e. `source` is
+   *  resolvable in their own owner-scoped `sources.items`). Gates the "Edit
+   *  Source" button — see `pipeline-editor-page` spec. */
+  canEditSource: boolean;
+  /** Navigates to the source's detail view. Only invoked when `canEditSource`
+   *  is true (the button is not rendered otherwise). */
+  onEditSource: () => void;
 }
 
-export function BoundSourceBar({ sourceName, source }: BoundSourceBarProps) {
+export function BoundSourceBar({
+  sourceName,
+  source,
+  canEditSource,
+  onEditSource,
+}: BoundSourceBarProps) {
   return (
     <div className="pipeline-detail-page__source-bar">
       <span className="pipeline-detail-page__source-bar-label">DATA SOURCE</span>
@@ -42,6 +54,11 @@ export function BoundSourceBar({ sourceName, source }: BoundSourceBarProps) {
           </span>
         )}
       </div>
+      {canEditSource && (
+        <button className="pipeline-detail-page__edit-btn" onClick={onEditSource} type="button">
+          Edit Source
+        </button>
+      )}
     </div>
   );
 }

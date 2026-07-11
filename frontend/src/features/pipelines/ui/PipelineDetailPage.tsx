@@ -6,12 +6,14 @@ import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
 import { BoundSourceBar } from "./BoundSourceBar";
+import { BoundTypeBar } from "./BoundTypeBar";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 
 import "./PipelineDetailPage.css";
-import { fetchSources } from "../../sources/state/sourcesSlice";
+import { fetchSources, setSelectedSourceId } from "../../sources/state/sourcesSlice";
+import { fetchDataTypes, setSelectedTypeId } from "../../dataTypes/state/dataTypesSlice";
 import { markDataTypeRowsStale } from "../../panels/state/panelsSlice";
 import {
   analyzePipeline,
@@ -43,6 +45,7 @@ export function PipelineDetailPage() {
   const navigate = useNavigate();
 
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
+  const { items: dataTypes, status: dataTypesStatus } = useAppSelector((state) => state.dataTypes);
   const {
     runStatus,
     runError,
@@ -138,6 +141,13 @@ export function PipelineDetailPage() {
     }
   }, [dispatch, sourcesStatus]);
 
+  // ── DataTypes (HEL-260 — ownership check for the "Edit Type" button) ──
+  useEffect(() => {
+    if (dataTypesStatus === "idle") {
+      void dispatch(fetchDataTypes());
+    }
+  }, [dispatch, dataTypesStatus]);
+
   // Re-run /analyze whenever the steps change (add / remove / config edit) so
   // each StepCard's inputSchema (and the available-fields hints inside the op
   // editors) stays in sync without a manual refresh. Debounced so a stream of
@@ -208,12 +218,27 @@ export function PipelineDetailPage() {
 
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
   const boundSource = sources.find((s) => s.id === currentPipeline?.sourceDataSourceId);
+  const canEditSource = boundSource !== undefined;
+  const boundOutputType = dataTypes.find((dt) => dt.id === currentPipeline?.outputDataTypeId);
+  const canEditType = boundOutputType !== undefined;
   const isOwner =
     currentPipeline?.ownerId != null &&
     currentUser?.id != null &&
     currentUser.id === currentPipeline.ownerId;
 
   // ── Handlers ──
+  function handleEditSource() {
+    if (!boundSource) return;
+    dispatch(setSelectedSourceId(boundSource.id));
+    void navigate("/sources");
+  }
+
+  function handleEditType() {
+    if (!currentPipeline?.outputDataTypeId) return;
+    dispatch(setSelectedTypeId(currentPipeline.outputDataTypeId));
+    void navigate("/registry");
+  }
+
   async function handleAddStep(opType: OpType) {
     if (!id) return;
     setStepsInitialized(true);
@@ -325,7 +350,19 @@ export function PipelineDetailPage() {
   return (
     <div className="pipeline-detail-page">
       {/* ── Bound source bar ── */}
-      <BoundSourceBar sourceName={currentPipeline.sourceDataSourceName} source={boundSource} />
+      <BoundSourceBar
+        sourceName={currentPipeline.sourceDataSourceName}
+        source={boundSource}
+        canEditSource={canEditSource}
+        onEditSource={handleEditSource}
+      />
+
+      {/* ── Bound type bar ── */}
+      <BoundTypeBar
+        outputTypeName={currentPipeline.outputDataTypeName}
+        canEditType={canEditType}
+        onEditType={handleEditType}
+      />
 
       {/* ── River view ── */}
       <PipelineRiverView

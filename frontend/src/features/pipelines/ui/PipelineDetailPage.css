@@ -86,6 +86,7 @@
 .pipeline-detail-page__source-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 10px 20px;
   background: var(--app-surface-soft);
@@ -107,6 +108,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
 }
 
 .pipeline-detail-page__bound-source-name {
@@ -124,6 +126,67 @@
   border: 1px solid var(--app-border-subtle);
   padding: 2px 6px;
   border-radius: var(--app-radius-sm);
+}
+
+/* ── Bound type bar ── */
+.pipeline-detail-page__type-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__type-bar-label {
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__bound-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.pipeline-detail-page__bound-type-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+}
+
+/* ── Edit Source / Edit Type buttons (source-bar + type-bar) ──
+ * Reuses the __share-btn secondary-button recipe (transparent bg,
+ * hairline border, muted text; hover: border-strong + surface-raised + full
+ * text) so both buttons match the page's existing secondary-action style. */
+.pipeline-detail-page__edit-btn {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__edit-btn:hover {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
 }
 
 /* ── River view ── */
