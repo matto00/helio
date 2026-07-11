@@ -202,6 +202,14 @@ export function PipelineDetailPage() {
     return analyzeStep ? analyzeStep.inputSchema : [];
   }
 
+  function getAnalyzeValidationError(stepId: string): string | undefined {
+    if (!analyzeResult) return undefined;
+    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
+      (s) => s.id === stepId,
+    );
+    return analyzeStep?.validationError;
+  }
+
   // ── Dirty-state tracking ──
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
 
@@ -375,6 +383,7 @@ export function PipelineDetailPage() {
         onRemoveStep={handleRemoveStep}
         getAnalyzeColumns={getAnalyzeColumns}
         getAnalyzeSchema={getAnalyzeSchema}
+        getAnalyzeValidationError={getAnalyzeValidationError}
         onStepConfigChange={handleStepConfigChange}
         runStepRowCounts={runStepRowCounts}
       />

@@ -1,5 +1,6 @@
 package com.helio.services
 
+import com.helio.api.protocols.{ComputedFieldPayload, UpdateDataTypeRequest}
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -133,6 +134,52 @@ class DataTypeServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
 
       result shouldBe Right(())
       await(dataTypeRepo.findByIdInternal(dt.id)) shouldBe empty
+    }
+  }
+
+  // ── HEL-262: DataTypeService boundary — bare-identifier computed fields ──────
+  // (task 5.9) DataType computed fields keep accepting the pre-existing
+  // bare-identifier grammar unmodified: DataTypeService switched to
+  // ExpressionEvaluator.validateTolerant, not the pipeline compute step's
+  // stricter $-required validate(), because applyUpdate hard-blocks the whole
+  // PATCH on any invalid expression (see design.md Decision 4).
+
+  "DataTypeService computed-fields validation (HEL-262 boundary)" should {
+
+    "PATCH with an existing bare-identifier computed field expression still succeeds" in {
+      cleanDb()
+      val dt = insertDataType(sourceId = None, name = "BareIdentType")
+
+      val result = await(service.update(
+        dt.id,
+        UpdateDataTypeRequest(
+          name           = None,
+          fields         = None,
+          computedFields = Some(Vector(ComputedFieldPayload("doubled", "Doubled", "a + a", "string")))
+        ),
+        user
+      ))
+
+      result match {
+        case Right(updated) =>
+          updated.computedFields should have size 1
+          updated.computedFields.head.expression shouldBe "a + a"
+        case other => fail(s"Expected Right, got: $other")
+      }
+    }
+
+    "validateExpression accepts a bare identifier matching a known field" in {
+      cleanDb()
+      val dt = insertDataType(sourceId = None, name = "ValidateBareType")
+
+      val result = await(service.validateExpression(dt.id, "a + a", user))
+
+      result match {
+        case Right(validation) =>
+          validation.valid shouldBe true
+          validation.message shouldBe None
+        case other => fail(s"Expected Right, got: $other")
+      }
     }
   }
 }

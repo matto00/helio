@@ -1,12 +1,19 @@
 // ComputeFieldConfig — config editor for the "compute" pipeline op.
 // Renders an output field name input, an expression text input, and a read-only
-// available-fields hint list derived from the per-step inputSchema.
-// Follows the same props-driven pattern as CastFieldsConfig / FilterConfig:
-// the parent (StepCard) owns state and calls onChange with the serialized config JSON.
+// available-fields hint list (each `$`-prefixed to match the required column-
+// reference syntax — see docs/compute-expression-grammar.md) derived from the
+// per-step inputSchema. When the step's analyze result carries a
+// `validationError` (e.g. a bare identifier missing its `$` prefix, or an
+// unknown field), it's rendered inline below the expression input via the
+// shared InlineError component (same pattern as AggregateConfig's field
+// warnings). Follows the same props-driven pattern as CastFieldsConfig /
+// FilterConfig: the parent (StepCard) owns state and calls onChange with the
+// serialized config JSON.
 
 import type { ChangeEvent } from "react";
 
 import { TextField } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
 
 export interface ComputeConfigValue {
   column: string;
@@ -19,11 +26,20 @@ interface ComputeFieldConfigProps {
   config: ComputeConfigValue;
   /** Column names from the analyze endpoint's inputSchema — shown as available-fields hints. */
   analyzeColumns: string[];
+  /** The current step's analyze-time `validationError`, if any (e.g. a bare
+   *  identifier missing its `$` prefix, an unknown field, or an unrecognized
+   *  function). Rendered inline below the expression input when present. */
+  validationError?: string;
   /** Called with the typed config object on any field change (CS2c-3a). */
   onChange: (newConfig: ComputeConfigValue) => void;
 }
 
-export function ComputeFieldConfig({ config, analyzeColumns, onChange }: ComputeFieldConfigProps) {
+export function ComputeFieldConfig({
+  config,
+  analyzeColumns,
+  validationError,
+  onChange,
+}: ComputeFieldConfigProps) {
   function emit(next: ComputeConfigValue) {
     onChange(next);
   }
@@ -59,12 +75,13 @@ export function ComputeFieldConfig({ config, analyzeColumns, onChange }: Compute
         <TextField
           id="compute-expression"
           mono
-          placeholder="e.g. revenue / users"
+          placeholder='e.g. $revenue / $users, or concat($first_name, " ", $last_name)'
           value={config.expression}
           onChange={handleExpressionChange}
           onBlur={handleExpressionChange}
           aria-label="Expression"
         />
+        <InlineError error={validationError ?? null} />
       </div>
 
       {analyzeColumns.length > 0 && (
@@ -76,7 +93,7 @@ export function ComputeFieldConfig({ config, analyzeColumns, onChange }: Compute
           >
             {analyzeColumns.map((col) => (
               <li key={col} className="pipeline-detail-page__compute-fields-hint-item">
-                {col}
+                {`$${col}`}
               </li>
             ))}
           </ul>

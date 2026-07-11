@@ -43,7 +43,11 @@ final class DataTypeService(
       case None     => Left(ServiceError.NotFound("DataType not found"))
       case Some(dt) =>
         val fieldNames = dt.fields.map(_.name).toSet
-        ExpressionEvaluator.validate(expr, fieldNames) match {
+        // validateTolerant (not the pipeline compute step's strict validate): DataType
+        // computed fields are a separate feature whose save path hard-blocks on
+        // validation failure, so this preserves today's bare-identifier-accepting
+        // behavior unchanged (design.md Decision 4, "DataTypeService boundary").
+        ExpressionEvaluator.validateTolerant(expr, fieldNames) match {
           case Right(_)  => Right(ExpressionValidationResult(valid = true, message = None))
           case Left(msg) => Right(ExpressionValidationResult(valid = false, message = Some(msg)))
         }
@@ -80,7 +84,8 @@ final class DataTypeService(
         val exprError = incomingComputedFields.foldLeft(Option.empty[String]) {
           case (Some(err), _) => Some(err)
           case (None, cf) =>
-            ExpressionEvaluator.validate(cf.expression, fieldNames) match {
+            // validateTolerant, matching validateExpression above — see comment there.
+            ExpressionEvaluator.validateTolerant(cf.expression, fieldNames) match {
               case Left(msg) => Some(s"Invalid expression for computed field '${cf.name}': $msg")
               case Right(_)  => None
             }

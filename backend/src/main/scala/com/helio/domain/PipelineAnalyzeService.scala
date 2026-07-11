@@ -96,15 +96,35 @@ object PipelineAnalyzeService {
 
   /** compute — append a single derived field to the existing schema.
    *
-   *  Config shape: {"column": "outputField", "expression": "fieldA / fieldB", "type": "number"}
-   *  `expression` is recorded here for completeness but only used at execution time.
-   *  `column` + `type` drive schema inference. */
+   *  Config shape: {"column": "outputField", "expression": "$fieldA / $fieldB", "type": "number"}
+   *  `expression` is validated with the strict (`$`-required) `ExpressionEvaluator.validate`
+   *  and, on success, drives the output field's type via `ExpressionEvaluator.inferType` —
+   *  the wire `type` is only a best-effort fallback for a currently-invalid or legacy-style
+   *  (bare-identifier) expression (design.md Decision 5). This method wraps the whole
+   *  extraction + validation in one `try` so a malformed JSON config (missing/wrong-typed
+   *  keys) short-circuits to the generic `Some(s"compute config error: ...")` branch before
+   *  any expression-validity logic runs — a JSON-shape error and an expression-validity
+   *  error are never confused with each other. */
   private def inferCompute(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
-    parseConfig("compute", config) { json =>
-      val column    = json.fields("column").convertTo[String]
-      val fieldType = json.fields("type").convertTo[String]
-      inputSchema :+ SchemaField(name = column, `type` = fieldType)
-    } (inputSchema)
+    try {
+      val json       = config.parseJson.asJsObject
+      val column     = json.fields("column").convertTo[String]
+      val expression = json.fields("expression").convertTo[String]
+      val wireType   = json.fields("type").convertTo[String]
+      val fieldNames = inputSchema.map(_.name).toSet
+
+      ExpressionEvaluator.validate(expression, fieldNames) match {
+        case Left(validationMsg) =>
+          (inputSchema :+ SchemaField(name = column, `type` = wireType), Some(validationMsg))
+        case Right(_) =>
+          val fieldTypes = inputSchema.map(f => f.name -> f.`type`).toMap
+          val outputType = ExpressionEvaluator.inferType(expression, fieldTypes).getOrElse(wireType)
+          (inputSchema :+ SchemaField(name = column, `type` = outputType), None)
+      }
+    } catch {
+      case ex: Exception =>
+        (inputSchema, Some(s"compute config error: ${ex.getMessage}"))
+    }
 
   /** aggregate — groupBy fields ++ aggregation alias fields.
    *
