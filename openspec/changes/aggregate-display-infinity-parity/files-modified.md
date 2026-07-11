@@ -1,0 +1,4 @@
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.tsx` — added `formatMetricValue` helper (caps rendered value at 2 fraction digits via `Intl.NumberFormat`, no thousands grouping; passes through non-numeric/non-finite strings unchanged) and used it in the metric value slot in place of raw `data?.value`; `unit` span left untouched.
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.test.tsx` — added test cases for long/repeating decimal rounding to 2 fraction digits, integer values rendering unchanged, non-numeric string values rendering unchanged, and the literal string `"Infinity"` rendering unchanged.
+- `frontend/src/utils/aggregate.ts` — added a code comment on `coerceNumber` documenting the intentional `"Infinity"` divergence from Scala's `s.toDoubleOption` (design.md Decision 2); comment-only, no behavior change.
+- `openspec/changes/aggregate-display-infinity-parity/tasks.md` — marked all tasks complete.

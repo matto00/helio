@@ -44,6 +44,28 @@ describe("MetricRenderer — label / No data fallback", () => {
   });
 });
 
+describe("MetricRenderer — value formatting (HEL-297)", () => {
+  it("rounds a long/repeating decimal to 2 fraction digits", () => {
+    render(<MetricRenderer data={{ value: "3.3333333333333335" }} />);
+    expect(screen.getByText("3.33")).toBeInTheDocument();
+  });
+
+  it("renders an integer value unchanged (no added decimals, no thousands separator)", () => {
+    render(<MetricRenderer data={{ value: "1500" }} />);
+    expect(screen.getByText("1500")).toBeInTheDocument();
+  });
+
+  it("renders a non-numeric string value unchanged", () => {
+    render(<MetricRenderer data={{ value: "Active" }} />);
+    expect(screen.getByText("Active")).toBeInTheDocument();
+  });
+
+  it("renders the literal string 'Infinity' unchanged", () => {
+    render(<MetricRenderer data={{ value: "Infinity" }} />);
+    expect(screen.getByText("Infinity")).toBeInTheDocument();
+  });
+});
+
 describe("MetricRenderer — trend direction classes", () => {
   it("applies the --up class when trend starts with '+'", () => {
     const { container } = render(

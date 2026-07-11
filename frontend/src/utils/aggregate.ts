@@ -22,7 +22,17 @@ import type { AggFn } from "../features/panels/types/panel";
  *  which collapses `null`/`undefined` and `""` into the same sentinel). */
 export type AggregatableRow = Record<string, unknown>;
 
-/** Coerce a single cell to a finite number, or `null` if not coercible. */
+/** Coerce a single cell to a finite number, or `null` if not coercible.
+ *
+ * Documented divergence (HEL-297): Scala's `s.toDoubleOption` (used by the pipeline
+ * `AggregateStep`, the backend counterpart this module otherwise mirrors "exactly") follows
+ * Java's `Double.parseDouble` grammar, which parses the literal strings `"Infinity"`,
+ * `"-Infinity"`, and `"+Infinity"` as real (non-finite) doubles. This function's
+ * `Number.isFinite` guard deliberately excludes them instead — the `panel-viz-aggregation` spec
+ * requires TS aggregation to operate over values "coercible to a finite number," and letting
+ * `"Infinity"` through would let a non-finite result flow into a chart's bar height or a metric's
+ * value slot. Accepting it would itself be a spec-level behavior change; this is intentional,
+ * not an oversight. See design.md Decision 2 for the full rationale. */
 function coerceNumber(value: unknown): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
