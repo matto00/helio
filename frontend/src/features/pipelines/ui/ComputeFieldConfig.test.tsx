@@ -19,7 +19,7 @@ describe("ComputeFieldConfig", () => {
 
   // ── Available fields hint ──────────────────────────────────────────────────
 
-  it("renders available-fields hint list when analyzeColumns is non-empty", () => {
+  it("renders available-fields hint list, $-prefixed, when analyzeColumns is non-empty", () => {
     render(
       <ComputeFieldConfig
         config={emptyConfig}
@@ -28,9 +28,9 @@ describe("ComputeFieldConfig", () => {
       />,
     );
     expect(screen.getByRole("list", { name: "Available fields" })).toBeInTheDocument();
-    expect(screen.getByText("revenue")).toBeInTheDocument();
-    expect(screen.getByText("users")).toBeInTheDocument();
-    expect(screen.getByText("cost")).toBeInTheDocument();
+    expect(screen.getByText("$revenue")).toBeInTheDocument();
+    expect(screen.getByText("$users")).toBeInTheDocument();
+    expect(screen.getByText("$cost")).toBeInTheDocument();
   });
 
   it("does not render available-fields hint when analyzeColumns is empty", () => {
@@ -113,5 +113,24 @@ describe("ComputeFieldConfig", () => {
     fireEvent.blur(screen.getByRole("textbox", { name: "Output field name" }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  // ── validationError inline rendering (HEL-262) ────────────────────────────
+
+  it("renders the validationError message inline when present", () => {
+    render(
+      <ComputeFieldConfig
+        config={{ column: "revenue", expression: "price * qty", type: "number" }}
+        analyzeColumns={[]}
+        validationError="Column references require a '$' prefix"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Column references require a '$' prefix")).toBeInTheDocument();
+  });
+
+  it("renders no inline error when validationError is undefined", () => {
+    render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
+    expect(screen.queryByText(/prefix|Unknown field/)).not.toBeInTheDocument();
   });
 });

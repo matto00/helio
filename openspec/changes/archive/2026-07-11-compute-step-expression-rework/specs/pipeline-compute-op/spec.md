@@ -1,8 +1,5 @@
-# pipeline-compute-op Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change pipeline-op-compute-field. Update Purpose after archive.
-## Requirements
 ### Requirement: Compute op appends a derived field to each row using a unified config shape
 `InProcessPipelineEngine.applyCompute` SHALL accept config shape
 `{"column":"<name>","expression":"<expr>","type":"<type>"}` and append a new field named `column`
@@ -100,6 +97,8 @@ the step is first added.
   `"validationError": "Column references require a '$' prefix"`
 - **THEN** `ComputeFieldConfig` renders that message inline below the expression input
 
+## ADDED Requirements
+
 ### Requirement: Compute op schema inference validates the expression and infers its output type
 `PipelineAnalyzeService.inferCompute` SHALL validate `expression` against the step's `inputSchema`
 field names using `ExpressionEvaluator.validate` (the strict, `$`-required grammar — no legacy
@@ -128,4 +127,3 @@ still executes correctly at run time.
 - **WHEN** a compute step with `{"column":"x","expression":"$missing * 2","type":"number"}` is
   analyzed against an `inputSchema` that does not contain `missing`
 - **THEN** `AnalyzedStep.validationError` is set to a message indicating the unknown field
-

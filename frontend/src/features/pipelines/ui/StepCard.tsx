@@ -28,6 +28,9 @@ interface StepCardProps {
   analyzeColumns: string[];
   /** Full schema fields from the analyze endpoint's inputSchema — used by FilterConfig for type-aware value input. */
   analyzeSchema: SchemaField[];
+  /** This step's analyze-time `validationError`, if any (currently only rendered by
+   *  the "compute" op's editor — see `ComputeFieldConfig`). */
+  validationError?: string;
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   /** Output row count from the last run, if available. Null hides the chip. */
@@ -40,6 +43,7 @@ export function StepCard({
   onRemove,
   analyzeColumns,
   analyzeSchema,
+  validationError,
   onConfigChange,
   rowCount,
 }: StepCardProps) {
@@ -142,6 +146,7 @@ export function StepCard({
             <ComputeFieldConfig
               config={computeConfig}
               analyzeColumns={analyzeColumns}
+              validationError={validationError}
               onChange={onComputeChange}
             />
           ) : step.opType.id === "aggregate" ? (

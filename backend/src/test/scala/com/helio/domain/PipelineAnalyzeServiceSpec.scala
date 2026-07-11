@@ -124,7 +124,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {
-      val cfg    = """{"column":"tax","expression":"amount * 0.1","type":"number"}"""
+      val cfg    = """{"column":"tax","expression":"$amount * 0.1","type":"number"}"""
       val steps  = Vector(step("compute", cfg))
       val result = analyze(steps, baseSchema)
 
@@ -135,8 +135,17 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema.last shouldBe SchemaField("tax", "number")
     }
 
-    "compute — preserves output field type from config" in {
-      val cfg    = """{"column":"label","expression":"order_id","type":"string"}"""
+    "compute — infers output field type from the expression, ignoring a stale wire type" in {
+      val cfg    = """{"column":"label","expression":"concat($order_id, $amount)","type":"number"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == "label").map(_.`type`) shouldBe Some("string")
+    }
+
+    "compute — single-field-reference expression infers the referenced field's type" in {
+      val cfg    = """{"column":"label","expression":"$order_id","type":"number"}"""
       val steps  = Vector(step("compute", cfg))
       val result = analyze(steps, baseSchema)
 
@@ -145,7 +154,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
     "compute — computed field is visible to downstream steps" in {
-      val computeCfg = """{"column":"tax","expression":"amount * 0.1","type":"number"}"""
+      val computeCfg = """{"column":"tax","expression":"$amount * 0.1","type":"number"}"""
       val selectCfg  = """{"fields":["order_id","tax"]}"""
       val steps = Vector(
         step("compute", computeCfg, position = 0),
@@ -158,7 +167,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
     "compute — malformed config (missing column key) produces validationError and identity outputSchema" in {
-      val steps  = Vector(step("compute", """{"expression":"amount * 0.1","type":"number"}"""))
+      val steps  = Vector(step("compute", """{"expression":"$amount * 0.1","type":"number"}"""))
       val result = analyze(steps, baseSchema)
       result(0).validationError should not be empty
       result(0).outputSchema shouldBe baseSchema
@@ -169,6 +178,24 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
       result(0).validationError should not be empty
       result(0).outputSchema shouldBe baseSchema
+    }
+
+    "compute — a legacy bare-identifier expression is flagged with a validationError but still appends the wire-typed field" in {
+      val cfg    = """{"column":"revenue","expression":"amount * 0.1","type":"number"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Column references require a '$' prefix")
+      result(0).outputSchema.find(_.name == "revenue").map(_.`type`) shouldBe Some("number")
+    }
+
+    "compute — an unknown $-prefixed field reference is flagged with a validationError and falls back to the wire type" in {
+      val cfg    = """{"column":"x","expression":"$missing * 2","type":"number"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Unknown field: missing")
+      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
     }
 
     // ── aggregate inference ───────────────────────────────────────────────────

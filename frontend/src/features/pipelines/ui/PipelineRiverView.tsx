@@ -22,6 +22,7 @@ interface PipelineRiverViewProps {
   onRemoveStep: (stepId: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
+  getAnalyzeValidationError: (stepId: string) => string | undefined;
   onStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
 }
@@ -36,6 +37,7 @@ export function PipelineRiverView({
   onRemoveStep,
   getAnalyzeColumns,
   getAnalyzeSchema,
+  getAnalyzeValidationError,
   onStepConfigChange,
   runStepRowCounts,
 }: PipelineRiverViewProps) {
@@ -78,6 +80,7 @@ export function PipelineRiverView({
                   onRemove={onRemoveStep}
                   analyzeColumns={getAnalyzeColumns(step.id)}
                   analyzeSchema={getAnalyzeSchema(step.id)}
+                  validationError={getAnalyzeValidationError(step.id)}
                   onConfigChange={onStepConfigChange}
                   rowCount={runStepRowCounts?.[step.id] ?? null}
                 />
