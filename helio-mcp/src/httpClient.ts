@@ -70,7 +70,21 @@ export class HelioHttpClient {
     return this.send<T>("PATCH", path, body);
   }
 
-  private async send<T>(
+  /** POST a `multipart/form-data` body (e.g. CSV upload) to `path` and parse
+   *  the JSON response as `T`. `Content-Type` (with its boundary) is set by
+   *  `fetch` itself when the body is a `FormData` instance — never set it
+   *  manually, or the boundary will be missing and the backend's multipart
+   *  unmarshaller will fail to parse the parts. */
+  postMultipart<T>(path: string, form: FormData): Promise<T> {
+    const url = this.buildUrl(path);
+    const headers: Record<string, string> = {
+      Authorization: this.authHeader,
+      Accept: "application/json",
+    };
+    return this.dispatch<T>(url, { method: "POST", headers, body: form });
+  }
+
+  private send<T>(
     method: "GET" | "POST" | "PATCH",
     path: string,
     body?: unknown,
@@ -83,13 +97,26 @@ export class HelioHttpClient {
     };
     if (body !== undefined) headers["Content-Type"] = "application/json";
 
+    return this.dispatch<T>(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
+  /** Shared request/response handling for both JSON and multipart bodies.
+   *  `body` is typed as `string | FormData` (a JSON string or a multipart
+   *  form) rather than the DOM-only `BodyInit`/`RequestInit` type names, which
+   *  aren't declared as global values under this package's `lib` (they're
+   *  TS-only ambient interfaces, so referencing them by name trips `no-undef`
+   *  even though `fetch`'s own signature accepts this structurally). */
+  private async dispatch<T>(
+    url: string,
+    init: { method: string; headers: Record<string, string>; body?: string | FormData },
+  ): Promise<T> {
     let response: Response;
     try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
+      response = await fetch(url, init);
     } catch (cause) {
       // Network-level failure (backend down, DNS, connection refused).
       throw new HelioApiError(
