@@ -206,6 +206,18 @@ final case class RestApiConfig(
     headers: Map[String, String] = Map.empty
 )
 
+/** Classifies `DataFieldType` variants into two families: `Structured`
+ *  (existing scalar types) and `Content` (large text / binary reference
+ *  types added for the v1.4 Unstructured Data release, HEL-217). A
+ *  classifier over the single `DataFieldType` hierarchy rather than a
+ *  parallel ADT, so existing callers keyed off `DataFieldType` (schema
+ *  inference, wire serialization) don't need a union type. */
+sealed trait FieldTypeCategory
+object FieldTypeCategory {
+  case object Structured extends FieldTypeCategory
+  case object Content    extends FieldTypeCategory
+}
+
 sealed trait DataFieldType
 object DataFieldType {
   case object StringType    extends DataFieldType
@@ -213,13 +225,42 @@ object DataFieldType {
   case object FloatType     extends DataFieldType
   case object BooleanType   extends DataFieldType
   case object TimestampType extends DataFieldType
+  // Content field types (HEL-217): distinct from the structured scalars
+  // above. `StringBodyType` carries a plain JSON string (e.g. extracted
+  // document text); `BinaryRefType` carries a small JSON object referencing
+  // a binary stored via the uploads `FileSystem` abstraction — see
+  // `BinaryRef` and `BinaryRefRepository` for the durable metadata index.
+  case object StringBodyType extends DataFieldType
+  case object BinaryRefType  extends DataFieldType
 
   def asString(t: DataFieldType): String = t match {
-    case StringType    => "string"
-    case IntegerType   => "integer"
-    case FloatType     => "float"
-    case BooleanType   => "boolean"
-    case TimestampType => "timestamp"
+    case StringType     => "string"
+    case IntegerType    => "integer"
+    case FloatType      => "float"
+    case BooleanType    => "boolean"
+    case TimestampType  => "timestamp"
+    case StringBodyType => "string-body"
+    case BinaryRefType  => "binary-ref"
+  }
+
+  /** Reverse of `asString`. Returns `None` for any string that isn't one of
+   *  the 7 canonical wire values. */
+  def fromString(s: String): Option[DataFieldType] = s match {
+    case "string"      => Some(StringType)
+    case "integer"     => Some(IntegerType)
+    case "float"       => Some(FloatType)
+    case "boolean"     => Some(BooleanType)
+    case "timestamp"   => Some(TimestampType)
+    case "string-body" => Some(StringBodyType)
+    case "binary-ref"  => Some(BinaryRefType)
+    case _             => None
+  }
+
+  def category(t: DataFieldType): FieldTypeCategory = t match {
+    case StringType | IntegerType | FloatType | BooleanType | TimestampType =>
+      FieldTypeCategory.Structured
+    case StringBodyType | BinaryRefType =>
+      FieldTypeCategory.Content
   }
 }
 
@@ -301,3 +342,19 @@ final case class PipelineRunId(value: String) extends AnyVal
 
 // `PipelineStep` ADT lives in `Pipeline.scala` (sealed trait + 10 typed
 // subtypes). The pre-CS2c-3a flat case class is removed.
+
+/** Row-correlated metadata for a `binary-ref` field value (HEL-217). A
+ *  derived secondary index over the same metadata already present in the
+ *  field's inline JSONB value in `data_type_rows.data` — never an
+ *  independent read path for row data. See `BinaryRefRepository`. */
+final case class BinaryRef(
+    id: String,
+    dataTypeId: String,
+    rowIndex: Int,
+    fieldName: String,
+    storageKey: String,
+    mimeType: String,
+    filename: String,
+    sizeBytes: Long,
+    createdAt: Instant
+)

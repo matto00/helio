@@ -129,6 +129,8 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
                         { value: "float", label: "float" },
                         { value: "boolean", label: "boolean" },
                         { value: "timestamp", label: "timestamp" },
+                        { value: "string-body", label: "string-body" },
+                        { value: "binary-ref", label: "binary-ref" },
                       ]}
                     />
                   </td>
