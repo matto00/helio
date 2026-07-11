@@ -2,6 +2,7 @@ package com.helio.domain
 
 import com.helio.api.protocols.PipelineStepConfigCodec
 import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem}
+import com.helio.testutil.PdfFixtures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -739,6 +740,57 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
         Await.result(engine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage should include ("broken-text")
+      ex.getMessage should include ("path")
+    }
+
+    // HEL-214: PDF connector — multi-row loader (one row per page), the
+    // first content connector whose loadRows case produces more than one row.
+
+    "loadRows: PdfSource yields one row per page with correct pageNumber/pageCount/content/characterCount" in {
+      val bytes = PdfFixtures.multiPagePdf(Seq("Alpha content", "Beta content", "Gamma content"))
+      val tmp   = java.io.File.createTempFile("helio-pdf-regression-", ".pdf")
+      tmp.deleteOnExit()
+      java.nio.file.Files.write(tmp.toPath, bytes)
+
+      val ds = PdfSource(
+        id        = DataSourceId("ds-pdf-1"),
+        name      = "pdf-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = PdfSourceConfig(tmp.getAbsolutePath, sourceUrl = None)
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+
+      rows should have size 3
+      rows.map(_("pageNumber")) shouldBe Seq(1, 2, 3)
+      rows.foreach(_("pageCount") shouldBe 3)
+      rows.foreach(r => r("filename") shouldBe tmp.getName)
+      rows.foreach(r => r("sizeBytes") shouldBe bytes.length.toLong)
+
+      val contents = rows.map(_("content").asInstanceOf[String])
+      contents(0) should include ("Alpha content")
+      contents(1) should include ("Beta content")
+      contents(2) should include ("Gamma content")
+
+      rows.foreach { r =>
+        r("characterCount") shouldBe r("content").asInstanceOf[String].length
+      }
+    }
+
+    "loadRows: PdfSource with no path config raises a diagnostic error" in {
+      val ds = PdfSource(
+        id        = DataSourceId("ds-pdf-bad"),
+        name      = "broken-pdf",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = PdfSourceConfig("", sourceUrl = None)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("broken-pdf")
       ex.getMessage should include ("path")
     }
   }

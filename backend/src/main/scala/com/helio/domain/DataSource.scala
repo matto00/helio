@@ -82,6 +82,28 @@ final case class TextSource(
   override val kind: String = "text"
 }
 
+/** PDF-backed source (HEL-214, second content connector of the v1.4
+ *  Unstructured Data release, first *multi-row* content connector). `path` is
+ *  a FileSystem-relative key into the uploads root
+ *  (`pdf/<sourceId>.pdf`), mirroring [[TextSourceConfig]]'s convention.
+ *  `sourceUrl` is `Some(url)` for URL-ingested sources (refresh re-fetches)
+ *  and `None` for uploads (refresh re-reads the stored file). Unlike
+ *  [[TextSource]]'s single-row shape, `InProcessPipelineEngine.loadRows`
+ *  produces one row per PDF page for this source kind (see
+ *  `services/PdfTextSupport.scala`). */
+final case class PdfSourceConfig(path: String, sourceUrl: Option[String])
+
+final case class PdfSource(
+    id: DataSourceId,
+    name: String,
+    ownerId: UserId,
+    createdAt: Instant,
+    updatedAt: Instant,
+    config: PdfSourceConfig
+) extends DataSource {
+  override val kind: String = "pdf"
+}
+
 /** Manually-entered static data. Columns + rows are stored in the linked
  *  `DataType` row's schema and replicated on every preview/refresh; the
  *  payload itself lives in the row's JSON column rather than on the source.
@@ -117,8 +139,9 @@ object DataSourceKind {
   val Sql: String     = "sql"
   val Static: String  = "static"
   val Text: String    = "text"
+  val Pdf: String     = "pdf"
 
-  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text)
+  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text, Pdf)
 
   def parseKind(s: String): Either[String, String] =
     if (All.contains(s)) Right(s)

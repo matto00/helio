@@ -112,6 +112,28 @@ export async function createTextSourceUrl(name: string, url: string): Promise<Da
   return response.data;
 }
 
+// HEL-214: PDF connector — file upload and URL-based ingestion, mirroring
+// the text/Markdown create paths above.
+export async function createPdfSourceUpload(name: string, file: File): Promise<DataSource> {
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("type", "pdf");
+  formData.append("file", file);
+  const response = await httpClient.post<DataSource>("/api/data-sources", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+export async function createPdfSourceUrl(name: string, url: string): Promise<DataSource> {
+  const response = await httpClient.post<DataSource>("/api/data-sources", {
+    name,
+    type: "pdf",
+    config: { url },
+  });
+  return response.data;
+}
+
 export async function deleteSource(sourceId: string): Promise<void> {
   await httpClient.delete(`/api/data-sources/${sourceId}`);
 }
