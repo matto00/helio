@@ -2064,6 +2064,53 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-293 added metric literal label/unit (V44 columns metric_label /
+    // metric_unit). Same parity risk as `aggregation`: the config-patch
+    // whitelist in `PanelRepository.configColumnsOf` /
+    // `configColumnValuesOf` must include every config column or a
+    // batch-patched value round-trips in memory but never reaches the DB.
+    "panels updateBatch persists a metric panel's literal label/unit override (HEL-293/HEL-296)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Metric Label/Unit Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Revenue"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("config"),
+        panels = Vector(
+          PanelBatchItem(
+            panelId,
+            None,
+            None,
+            None,
+            Some(JsObject("label" -> JsString("Total Revenue"), "unit" -> JsString("USD")))
+          )
+        )
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("label") shouldBe JsString("Total Revenue")
+        panel.config.asJsObject.fields("unit") shouldBe JsString("USD")
+      }
+    }
+
   }
 
   // ── Session middleware — 401 tests ───────────────────────────────────────────
