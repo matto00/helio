@@ -4,8 +4,9 @@ TICKET_ID: HEL-293
 CHANGE_NAME: proposal-panel-config-depth
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/proposal-panel-config-depth/HEL-293
 BRANCH: feature/proposal-panel-config-depth/HEL-293
-PHASE: Delivery
+PHASE: Cleanup
 CYCLE: 1
+PR: https://github.com/matto00/helio/pull/201
 DEV_PORT: 5466
 BACKEND_PORT: 8373
 EXECUTOR_AGENT_ID: a870558f2a048f451
