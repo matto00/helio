@@ -116,3 +116,19 @@ export function getChartAggregation(panel: Panel): ChartAggregation | null {
   if (!isChartPanel(panel)) return null;
   return panel.config.aggregation ?? null;
 }
+
+/** A metric panel's literal label/unit override (HEL-293) — distinct from
+ *  `fieldMapping.label`/`fieldMapping.unit`, which bind to a data column. */
+export interface MetricLiteral {
+  label?: string;
+  unit?: string;
+}
+
+/** Returns the metric panel's literal label/unit override, or `null` when
+ *  neither is set / not a metric panel. */
+export function getMetricLiteral(panel: Panel): MetricLiteral | null {
+  if (!isMetricPanel(panel)) return null;
+  const { label, unit } = panel.config;
+  if (label === undefined && unit === undefined) return null;
+  return { label, unit };
+}

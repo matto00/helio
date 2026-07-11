@@ -205,12 +205,27 @@ export interface ChartAggregationSpec {
   yField: string;
 }
 
+/** `content`/`url`/`orientation` seed the initial config of text/markdown,
+ *  image, and divider panels (applied at create time). `chartType`/
+ *  `xAxisLabel`/`yAxisLabel`/`seriesColors` apply as a best-effort follow-up
+ *  appearance update for chart panels. `label`/`unit` are a literal
+ *  metric-panel display override — distinct from `fieldMapping.label`/
+ *  `fieldMapping.unit`, which bind to a data column. All HEL-293. */
 export interface ProposalPanel {
   title: string;
   type: string;
   dataTypeId?: string;
   fieldMapping?: Record<string, string>;
   aggregation?: MetricAggregationSpec | ChartAggregationSpec;
+  content?: string;
+  url?: string;
+  orientation?: string;
+  chartType?: string;
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+  seriesColors?: string[];
+  label?: string;
+  unit?: string;
   layout?: ProposalPanelLayout;
 }
 

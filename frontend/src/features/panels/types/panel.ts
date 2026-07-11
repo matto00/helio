@@ -86,6 +86,12 @@ export interface MetricPanelConfig {
   dataTypeId: string;
   fieldMapping: Record<string, string>;
   aggregation?: MetricAggregation | null;
+  /** Literal display label override — distinct from `fieldMapping.label`,
+   *  which binds to a data column. HEL-293. */
+  label?: string;
+  /** Literal display unit override — distinct from `fieldMapping.unit`,
+   *  which binds to a data column. HEL-293. */
+  unit?: string;
 }
 
 export interface ChartPanelConfig {

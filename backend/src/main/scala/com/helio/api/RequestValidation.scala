@@ -78,6 +78,15 @@ object RequestValidation {
       case Some(o) => Left(s"Invalid dividerOrientation value: '$o'. Valid values: horizontal, vertical")
     }
 
+  private val ValidChartTypeValues = Set("bar", "line", "pie", "scatter")
+
+  def validateChartType(chartType: Option[String]): Either[String, Option[String]] =
+    chartType match {
+      case None                                          => Right(None)
+      case Some(t) if ValidChartTypeValues.contains(t)  => Right(Some(t))
+      case Some(t) => Left(s"Invalid chartType value: '$t'. Valid values: bar, line, pie, scatter")
+    }
+
   val MaxApiTokenNameLength = 100
 
   def validateCreateApiTokenRequest(req: CreateApiTokenRequest): Either[String, CreateApiTokenRequest] =

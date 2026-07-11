@@ -219,6 +219,74 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ── HEL-293: MetricPanelConfig literal label/unit override ─────────────────
+
+  "MetricPanelConfig.label/unit" should {
+    "default to None when absent" in {
+      val decoded = MetricPanelConfig.decode(JsObject.empty)
+      decoded.label shouldBe None
+      decoded.unit shouldBe None
+    }
+
+    "decode present label/unit strings" in {
+      val decoded = MetricPanelConfig.decode(JsObject(
+        "dataTypeId" -> JsString("dt1"),
+        "label"      -> JsString("Total Revenue"),
+        "unit"       -> JsString("USD")
+      ))
+      decoded.label shouldBe Some("Total Revenue")
+      decoded.unit shouldBe Some("USD")
+    }
+
+    "round-trip via the per-subtype format (jsonFormat5)" in {
+      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD"))
+      val decoded = MetricPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves label/unit untouched (outer None)" in {
+      val patch = MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1")))
+      patch.label shouldBe None
+      patch.unit shouldBe None
+    }
+
+    "Patch.decode: explicit null clears label/unit (Some(None))" in {
+      val patch = MetricPanelConfig.Patch.decode(JsObject("label" -> JsNull, "unit" -> JsNull))
+      patch.label shouldBe Some(None)
+      patch.unit shouldBe Some(None)
+    }
+
+    "Patch.decode: present string sets label/unit (Some(Some(v)))" in {
+      val patch = MetricPanelConfig.Patch.decode(JsObject(
+        "label" -> JsString("Total Revenue"),
+        "unit"  -> JsString("USD")
+      ))
+      patch.label shouldBe Some(Some("Total Revenue"))
+      patch.unit shouldBe Some(Some("USD"))
+    }
+
+    "applyPatch: absent key preserves the existing label/unit" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD")))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None))
+      patched.config.label shouldBe Some("Total Revenue")
+      patched.config.unit shouldBe Some("USD")
+    }
+
+    "applyPatch: explicit null clears a previously-set label/unit" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD")))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, Some(None), Some(None)))
+      patched.config.label shouldBe None
+      patched.config.unit shouldBe None
+    }
+
+    "applyPatch: present string sets label/unit" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, Some(Some("Total Revenue")), Some(Some("USD"))))
+      patched.config.label shouldBe Some("Total Revenue")
+      patched.config.unit shouldBe Some("USD")
+    }
+  }
+
   "ChartPanelConfig.aggregation" should {
     val agg = JsObject(
       "groupBy" -> JsString("year"),

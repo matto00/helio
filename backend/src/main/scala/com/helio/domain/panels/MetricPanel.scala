@@ -11,13 +11,15 @@ import spray.json.DefaultJsonProtocol._
 final case class MetricPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
-    aggregation: Option[JsObject] = None
+    aggregation: Option[JsObject] = None,
+    label: Option[String] = None,
+    unit: Option[String] = None
 )
 
 object MetricPanelConfig {
-  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None)
+  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None, None, None)
 
-  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat3(MetricPanelConfig.apply)
+  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat5(MetricPanelConfig.apply)
 
   /** Tolerant JsValue decoder — missing/null fields default to empties
    *  so partial rows survive the read path (CS2c-3a cycle-2 lesson). */
@@ -35,7 +37,15 @@ object MetricPanelConfig {
         case Some(o: JsObject) => Some(o)
         case _                 => None
       }
-      MetricPanelConfig(dataTypeId, mapping, aggregation)
+      val label = fields.get("label") match {
+        case Some(JsString(s)) => Some(s)
+        case _                 => None
+      }
+      val unit = fields.get("unit") match {
+        case Some(JsString(s)) => Some(s)
+        case _                 => None
+      }
+      MetricPanelConfig(dataTypeId, mapping, aggregation, label, unit)
     case _ => Empty
   }
 
@@ -48,13 +58,16 @@ object MetricPanelConfig {
   final case class Patch(
       dataTypeId: Option[Option[DataTypeId]],
       fieldMapping: Option[Option[JsObject]],
-      aggregation: Option[Option[JsObject]]
+      aggregation: Option[Option[JsObject]],
+      label: Option[Option[String]] = None,
+      unit: Option[Option[String]] = None
   ) {
-    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty
+    def isEmpty: Boolean =
+      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && label.isEmpty && unit.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -76,7 +89,19 @@ object MetricPanelConfig {
           case Some(o: JsObject) => Some(Some(o))
           case Some(x)           => deserializationError(s"aggregation must be an object or null, got $x")
         }
-        Patch(typeId, mapping, aggregation)
+        val label = fields.get("label") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(s))
+          case Some(x)           => deserializationError(s"label must be a string or null, got $x")
+        }
+        val unit = fields.get("unit") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(s))
+          case Some(x)           => deserializationError(s"unit must be a string or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation, label, unit)
       case _ => Empty
     }
   }
@@ -120,7 +145,9 @@ final case class MetricPanel(
     config = MetricPanelConfig(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
-      aggregation  = patch.aggregation.fold(config.aggregation)(identity)
+      aggregation  = patch.aggregation.fold(config.aggregation)(identity),
+      label        = patch.label.fold(config.label)(identity),
+      unit         = patch.unit.fold(config.unit)(identity)
     )
   )
 }

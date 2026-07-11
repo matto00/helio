@@ -283,6 +283,116 @@ class DashboardApplyProposalSpec
       dashboardCount() shouldBe before
     }
 
+    // HEL-293 — content/url/orientation flow through the create-side config
+    // for non-data panels, applied via the existing PanelConfigCodec decoders.
+    "apply markdown content, image url, and divider orientation from a proposal (HEL-293)" in {
+      val before = dashboardCount()
+      val body =
+        s"""{
+           |  "dashboardName": "Content Depth",
+           |  "panels": [
+           |    {"title":"Roadmap","type":"markdown","content":"# Q3 goals\\n\\nShip it"},
+           |    {"title":"Logo","type":"image","url":"https://example.com/logo.png"},
+           |    {"title":"Sep","type":"divider","orientation":"vertical"}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj    = responseAs[String].parseJson.asJsObject
+        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+
+        val markdown = panels.find(_.fields("title").convertTo[String] == "Roadmap").get
+        markdown.fields("config").asJsObject.fields("content").convertTo[String] shouldBe "# Q3 goals\n\nShip it"
+
+        val image = panels.find(_.fields("title").convertTo[String] == "Logo").get
+        image.fields("config").asJsObject.fields("imageUrl").convertTo[String] shouldBe "https://example.com/logo.png"
+        image.fields("config").asJsObject.fields("imageFit").convertTo[String] shouldBe "contain"
+
+        val divider = panels.find(_.fields("title").convertTo[String] == "Sep").get
+        divider.fields("config").asJsObject.fields("orientation").convertTo[String] shouldBe "vertical"
+      }
+      dashboardCount() shouldBe (before + 1)
+    }
+
+    // HEL-293 — chart appearance (chartType/axis labels/seriesColors) applies
+    // as a best-effort follow-up PATCH after create (Decision 2).
+    "apply chart appearance (chartType/axis labels/seriesColors) from a proposal (HEL-293)" in {
+      val before = dashboardCount()
+      val body =
+        s"""{
+           |  "dashboardName": "Chart Appearance",
+           |  "panels": [
+           |    {"title":"Titles by Rating","type":"chart","dataTypeId":"$pipelineOutputTypeId",
+           |     "fieldMapping":{},"chartType":"bar","xAxisLabel":"Rating","yAxisLabel":"Count",
+           |     "seriesColors":["#111111","#222222"]}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj      = responseAs[String].parseJson.asJsObject
+        val panels   = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        val chart    = panels.find(_.fields("title").convertTo[String] == "Titles by Rating").get
+        val chartApp = chart.fields("appearance").asJsObject.fields("chart").asJsObject
+        chartApp.fields("chartType").convertTo[String] shouldBe "bar"
+        chartApp.fields("axisLabels").asJsObject.fields("x").asJsObject.fields("label").convertTo[String] shouldBe "Rating"
+        chartApp.fields("axisLabels").asJsObject.fields("y").asJsObject.fields("label").convertTo[String] shouldBe "Count"
+        chartApp.fields("seriesColors").convertTo[Vector[String]] shouldBe Vector("#111111", "#222222")
+      }
+      dashboardCount() shouldBe (before + 1)
+    }
+
+    // HEL-293 — metric literal label/unit override, threaded through the
+    // metric config JSON alongside dataTypeId/fieldMapping/aggregation.
+    "apply metric literal label/unit from a proposal (HEL-293)" in {
+      val before = dashboardCount()
+      val body =
+        s"""{
+           |  "dashboardName": "Metric Literal",
+           |  "panels": [
+           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |     "fieldMapping":{},"label":"Total Revenue","unit":"USD"}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj    = responseAs[String].parseJson.asJsObject
+        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
+        metric.fields("config").asJsObject.fields("label").convertTo[String] shouldBe "Total Revenue"
+        metric.fields("config").asJsObject.fields("unit").convertTo[String] shouldBe "USD"
+      }
+      dashboardCount() shouldBe (before + 1)
+    }
+
+    // HEL-293 (Decision 6) — an invalid chartType/orientation 400s in
+    // validateStructure, BEFORE any creation — nothing is created.
+    "reject an invalid chartType and create nothing" in {
+      val before = dashboardCount()
+      val body =
+        s"""{"dashboardName":"Bad","panels":[
+           |  {"title":"X","type":"chart","dataTypeId":"$pipelineOutputTypeId","fieldMapping":{},
+           |   "chartType":"bogus"}
+           |]}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String].toLowerCase should include("charttype")
+      }
+      dashboardCount() shouldBe before
+    }
+
+    "reject an invalid divider orientation and create nothing" in {
+      val before = dashboardCount()
+      val body =
+        """{"dashboardName":"Bad","panels":[
+          |  {"title":"X","type":"divider","orientation":"diagonal"}
+          |]}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String].toLowerCase should include("orientation")
+      }
+      dashboardCount() shouldBe before
+    }
+
     "reject an invalid panel type and create nothing" in {
       val before = dashboardCount()
       apply("""{"dashboardName":"Bad","panels":[{"title":"X","type":"bogus"}]}""") ~> routes ~> check {

@@ -1337,6 +1337,89 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-293: metric literal label/unit persistence (Decision 5 whitelist
+    // gotcha — guards against a repeat of the HEL-292 `aggregation` regression
+    // where `PanelRepository.replace`'s explicit column tuple silently dropped
+    // a config field on write). PATCH-then-reload via a fresh
+    // `panelRepo.findAllByDashboardId` query, NOT the PATCH response. ──
+
+    "persist a metric panel's literal label/unit across a real repository re-read (HEL-293)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Metric Literal Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "label" -> JsString("Total Revenue"),
+          "unit"  -> JsString("USD")
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("label") shouldBe JsString("Total Revenue")
+        panel.config.asJsObject.fields("unit") shouldBe JsString("USD")
+      }
+    }
+
+    "clear a metric panel's literal label/unit via explicit null and have the clear survive a real repository re-read (HEL-293)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Clear Metric Literal Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "label" -> JsString("Total Revenue"),
+          "unit"  -> JsString("USD")
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("label" -> JsNull, "unit" -> JsNull)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields.contains("label") shouldBe false
+        panel.config.asJsObject.fields.contains("unit") shouldBe false
+      }
+    }
+
     // ── REST connector routes ──────────────────────────────────────────────────
 
     "POST /api/sources creates DataSource and registers DataType on successful fetch" in {

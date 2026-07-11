@@ -40,12 +40,28 @@ const aggregationSchema = z.union([
   z.object({ groupBy: z.string().min(1), agg: aggFnSchema, yField: z.string().min(1) }),
 ]);
 
+const chartTypeSchema = z.enum(["bar", "line", "pie", "scatter"]);
+const dividerOrientationSchema = z.enum(["horizontal", "vertical"]);
+
 const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),
   fieldMapping: z.record(z.string()).optional(),
   aggregation: aggregationSchema.optional(),
+  // Initial config for non-data panels, applied at create time (HEL-293).
+  content: z.string().optional(),
+  url: z.string().optional(),
+  orientation: dividerOrientationSchema.optional(),
+  // Chart appearance, applied as a best-effort follow-up update (HEL-293).
+  chartType: chartTypeSchema.optional(),
+  xAxisLabel: z.string().optional(),
+  yAxisLabel: z.string().optional(),
+  seriesColors: z.array(z.string()).optional(),
+  // Metric literal label/unit override — distinct from fieldMapping.label/
+  // fieldMapping.unit, which bind to a data column (HEL-293).
+  label: z.string().optional(),
+  unit: z.string().optional(),
   layout: layoutSchema.optional(),
 });
 

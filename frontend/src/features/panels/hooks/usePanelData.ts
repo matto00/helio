@@ -6,6 +6,7 @@ import {
   getDataTypeId,
   getFieldMapping,
   getMetricAggregation,
+  getMetricLiteral,
 } from "../state/panelNarrowing";
 import type { MappedPanelData, Panel } from "../types/panel";
 import {
@@ -48,6 +49,10 @@ export function usePanelData(panel: Panel): PanelDataResult {
   // page size instead of silently reusing a smaller cached page.
   const metricAggregation = getMetricAggregation(panel);
   const chartAggregationSpec = getChartAggregation(panel);
+  // HEL-293 — literal label/unit override, read directly off panel.config
+  // (not part of the fetch-dedupe key: it doesn't affect which rows are
+  // fetched, only how the resolved data is displayed).
+  const metricLiteral = getMetricLiteral(panel);
   const aggregationKey = metricAggregation
     ? JSON.stringify(metricAggregation)
     : chartAggregationSpec
@@ -164,8 +169,15 @@ export function usePanelData(panel: Panel): PanelDataResult {
       const aggregate = computeAggregate(rows, metricAggregation.value, metricAggregation.agg);
       mapped.value = aggregate !== null ? String(aggregate) : "";
     }
+    // HEL-293 (Decision 4) — a literal label/unit override wins over the
+    // fieldMapping-resolved value when both are present. Deliberately NOT
+    // part of the early-return guard above: a metric with only a literal
+    // label/unit and no `value` binding still renders "--"/"No data" per
+    // MetricRenderer's hasValue guard (labels alone are not a data signal).
+    if (metricLiteral?.label) mapped.label = metricLiteral.label;
+    if (metricLiteral?.unit) mapped.unit = metricLiteral.unit;
     return mapped;
-  }, [rows, fieldMappingKey, metricAggregation]);
+  }, [rows, fieldMappingKey, metricAggregation, metricLiteral]);
 
   // HEL-292 — precomputed groupBy aggregate for a chart panel with an
   // `aggregation` spec, computed over the typed `rows` (real `null`/`undefined`
