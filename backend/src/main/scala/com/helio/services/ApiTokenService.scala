@@ -3,10 +3,8 @@ package com.helio.services
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{ApiTokenResponse, CreateApiTokenRequest, CreateApiTokenResponse}
 import com.helio.domain.{ApiToken, ApiTokenId, AuthenticatedUser}
-import com.helio.infrastructure.ApiTokenRepository
+import com.helio.infrastructure.{ApiTokenRepository, TokenHashing}
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -85,11 +83,8 @@ object ApiTokenService {
     TokenPrefix + bytes.map("%02x".format(_)).mkString
   }
 
-  /** SHA-256 hex of the full raw token (prefix included). */
-  def sha256Hex(raw: String): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(raw.getBytes(StandardCharsets.UTF_8))
-      .map("%02x".format(_))
-      .mkString
+  /** SHA-256 hex of the full raw token (prefix included). Delegates to the
+   *  shared [[TokenHashing]] helper (HEL-288) so `AuthDirectives`'s existing
+   *  `ApiTokenService.sha256Hex` call site needs no change. */
+  def sha256Hex(raw: String): String = TokenHashing.sha256Hex(raw)
 }

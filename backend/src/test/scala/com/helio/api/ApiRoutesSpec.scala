@@ -6,9 +6,9 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId}
+import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId, UserSession}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -2314,6 +2314,57 @@ class ApiRoutesSpec
     }
   }
 
+  // ── Session token hashing at rest (HEL-288) ─────────────────────────────────
+
+  "user_sessions token hashing" should {
+
+    "persist only the SHA-256 hex digest of the raw session token, never the raw value" in {
+      cleanDb()
+      var token = ""
+      Post("/api/auth/register", RegisterRequest("hash-check@example.com", "password123", None)) ~> realSessionRoutes() ~> check {
+        status shouldBe StatusCodes.Created
+        token = responseAs[AuthResponse].token
+      }
+
+      import slick.jdbc.PostgresProfile.api._
+      val expectedHash = TokenHashing.sha256Hex(token)
+      val storedHash = await(
+        db.run(sql"SELECT token_hash FROM user_sessions WHERE token_hash = $expectedHash".as[String].head)
+      )
+      storedHash shouldBe expectedHash
+      storedHash should not be token
+
+      // The raw token exists nowhere in the column.
+      val rawHits = await(db.run(sql"SELECT COUNT(*) FROM user_sessions WHERE token_hash = $token".as[Int].head))
+      rawHits shouldBe 0
+    }
+
+    "round-trip createSession / findSession / deleteSession / findValidSession by hashing the raw token at every lookup" in {
+      cleanDb()
+      val userId    = UserId(testUserId)
+      val now       = java.time.Instant.now()
+      val rawToken  = "repo-roundtrip-raw-token"
+      val session   = UserSession(token = rawToken, userId = userId, createdAt = now, expiresAt = now.plusSeconds(3600))
+
+      val created = await(userRepo.createSession(session))
+      created.token shouldBe rawToken // createSession returns the original raw-token session unchanged
+
+      // findValidSession (the hot auth path) hashes the incoming raw token to match the stored hash.
+      await(realSessionRepo.findValidSession(rawToken)) shouldBe Some(AuthenticatedUser(userId))
+      // The already-hashed value is not itself a valid raw token at lookup time.
+      await(realSessionRepo.findValidSession(TokenHashing.sha256Hex(rawToken))) shouldBe None
+
+      // findSession hashes the incoming raw token and returns the raw token back on the domain object.
+      val found = await(userRepo.findSession(rawToken))
+      found.map(_.token) shouldBe Some(rawToken)
+      found.map(_.userId) shouldBe Some(userId)
+
+      // deleteSession hashes the incoming raw token before deleting.
+      await(userRepo.deleteSession(rawToken))
+      await(userRepo.findSession(rawToken)) shouldBe None
+      await(realSessionRepo.findValidSession(rawToken)) shouldBe None
+    }
+  }
 
   // ── Ownership enforcement ────────────────────────────────────────────────────
 
