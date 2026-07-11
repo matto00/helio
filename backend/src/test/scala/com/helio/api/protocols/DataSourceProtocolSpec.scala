@@ -1,7 +1,7 @@
 package com.helio.api.protocols
 
 import com.helio.api.JsonProtocols
-import com.helio.domain.{CsvSourceConfig, RestApiConfig, SqlSourceConfig}
+import com.helio.domain.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -72,6 +72,21 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       roundTrip(r) shouldBe r
     }
 
+    "emit `type: text` and round-trip a TextSourceResponse (HEL-215)" in {
+      val r: DataSourceResponse = TextSourceResponse(
+        id        = "ds-text",
+        name      = "text-src",
+        createdAt = "2026-01-01T00:00:00Z",
+        updatedAt = "2026-01-02T00:00:00Z",
+        config    = TextSourceConfigPayload("text/ds-text.txt", Some("https://example.com/notes.txt"))
+      )
+      val json = r.toJson.asJsObject
+      json.fields("type")                                 shouldBe JsString("text")
+      json.fields("config").asJsObject.fields("path")      shouldBe JsString("text/ds-text.txt")
+      json.fields("config").asJsObject.fields("sourceUrl") shouldBe JsString("https://example.com/notes.txt")
+      roundTrip(r) shouldBe r
+    }
+
     "reject deserialization when 'type' discriminator is missing" in {
       val obj = JsObject("id" -> JsString("x"), "name" -> JsString("y"),
                          "createdAt" -> JsString("t"), "updatedAt" -> JsString("t"))
@@ -102,6 +117,18 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       val cfg     = SqlSourceConfig("postgresql", "host", 5432, "db", "u", "p", "SELECT 1")
       val encoded = DataSourceConfigCodec.encodeSql(cfg)
       DataSourceConfigCodec.decodeSql(encoded) shouldBe cfg
+    }
+
+    "round-trip text config with a sourceUrl (URL ingestion)" in {
+      val cfg     = TextSourceConfig("text/x.txt", Some("https://example.com/x.txt"))
+      val encoded = DataSourceConfigCodec.encodeText(cfg)
+      DataSourceConfigCodec.decodeText(encoded) shouldBe cfg
+    }
+
+    "round-trip text config without a sourceUrl (upload)" in {
+      val cfg     = TextSourceConfig("text/y.md", None)
+      val encoded = DataSourceConfigCodec.encodeText(cfg)
+      DataSourceConfigCodec.decodeText(encoded) shouldBe cfg
     }
   }
 

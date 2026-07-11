@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.time.Instant
 import scala.concurrent.duration.DurationInt
@@ -700,6 +701,45 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       ex.getMessage                 should include ("path")
       // Critically, it must NOT bubble up the raw Map lookup message.
       ex.getMessage                 should not include "key not found"
+    }
+
+    // HEL-215: text/Markdown connector — single-row loader.
+
+    "loadRows: TextSource yields exactly one row with content/filename/sizeBytes keys" in {
+      val tmp = java.io.File.createTempFile("helio-text-regression-", ".txt")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try writer.print("hello world") finally writer.close()
+
+      val ds = TextSource(
+        id        = DataSourceId("ds-text-1"),
+        name      = "text-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = TextSourceConfig(tmp.getAbsolutePath, sourceUrl = None)
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+      rows should have size 1
+      rows.head("content")   shouldBe "hello world"
+      rows.head("filename")  shouldBe tmp.getName
+      rows.head("sizeBytes") shouldBe "hello world".getBytes(StandardCharsets.UTF_8).length.toLong
+    }
+
+    "loadRows: TextSource with no path config raises a diagnostic error" in {
+      val ds = TextSource(
+        id        = DataSourceId("ds-text-bad"),
+        name      = "broken-text",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = TextSourceConfig("", sourceUrl = None)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("broken-text")
+      ex.getMessage should include ("path")
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────

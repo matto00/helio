@@ -53,5 +53,6 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.UnprocessableEntity(m) => complete(StatusCodes.UnprocessableEntity, ErrorResponse(m))
     case ServiceError.BadGateway(m)          => complete(StatusCodes.BadGateway, ErrorResponse(m))
     case ServiceError.InternalError(m)       => complete(StatusCodes.InternalServerError, ErrorResponse(m))
+    case ServiceError.PayloadTooLarge(m)     => complete(StatusCodes.RequestEntityTooLarge, ErrorResponse(m))
   }
 }

@@ -59,6 +59,15 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
           )
         )
       else fileSystem.read(c.config.path).map(loadCsvRowsFromBytes)
+    case t: TextSource =>
+      if (t.config.path.isEmpty)
+        Future.failed(
+          new IllegalArgumentException(
+            "Text data source '" + t.name + "' (id=" + t.id.value +
+              ") is missing required config key 'path'"
+          )
+        )
+      else fileSystem.read(t.config.path).map(loadTextRowFromBytes(t.config.path, _))
     case other =>
       Future.failed(
         new IllegalArgumentException(
@@ -76,6 +85,17 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
       dataSourceRepo = dataSourceRepo,
       loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo)
     )
+
+  // ── Text loader (HEL-215): single-row loader, deliberately not shared with
+  // CSV's multi-row loader — a future connector (HEL-214 PDF, HEL-216 image)
+  // adds its own `loadRows` case with its own extraction logic rather than
+  // generalizing this over three data points. ──────────────────────────────
+
+  private def loadTextRowFromBytes(path: String, bytes: Array[Byte]): Seq[Row] = {
+    val content  = new String(bytes, StandardCharsets.UTF_8)
+    val filename = java.nio.file.Paths.get(path).getFileName.toString
+    Seq(Map("content" -> content, "filename" -> filename, "sizeBytes" -> bytes.length.toLong))
+  }
 
   // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
 

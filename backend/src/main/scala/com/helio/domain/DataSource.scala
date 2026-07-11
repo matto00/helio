@@ -4,12 +4,12 @@ import java.time.Instant
 
 /** DataSource ADT.
  *
- *  Sealed-trait dispatch over the 4 source kinds. Each subtype carries its own
+ *  Sealed-trait dispatch over the 5 source kinds. Each subtype carries its own
  *  typed config (or no config, for [[StaticSource]] — its column/row payload
  *  lives in [[CsvSourceConfig]] and the linked `DataType` row). The `kind`
  *  string is the persistence + wire discriminator (`"csv" | "rest_api" | "sql"
- *  | "static"`); see [[DataSourceKind]] for parse / unparse at the DB-row
- *  boundary.
+ *  | "static" | "text"`); see [[DataSourceKind]] for parse / unparse at the
+ *  DB-row boundary.
  *
  *  Wire shape (after CS2c-2) is a discriminated union on `type`:
  *  {{{ { "type": "csv", "id": "...", "name": "...", "config": { ... }, ... } }}}
@@ -62,6 +62,26 @@ final case class SqlSource(
   override val kind: String = "sql"
 }
 
+/** Text/Markdown-backed source (HEL-215, first content connector of the v1.4
+ *  Unstructured Data release). `path` is a FileSystem-relative key into the
+ *  uploads root, populated for both ingestion modes — uploaded bytes are
+ *  written directly, and URL-ingested content is fetched then stored at the
+ *  same convention (`text/<sourceId>.<ext>`) so refresh/preview stay uniform
+ *  with CSV. `sourceUrl` is `Some(url)` for URL-ingested sources (refresh
+ *  re-fetches) and `None` for uploads (refresh re-reads the stored file). */
+final case class TextSourceConfig(path: String, sourceUrl: Option[String])
+
+final case class TextSource(
+    id: DataSourceId,
+    name: String,
+    ownerId: UserId,
+    createdAt: Instant,
+    updatedAt: Instant,
+    config: TextSourceConfig
+) extends DataSource {
+  override val kind: String = "text"
+}
+
 /** Manually-entered static data. Columns + rows are stored in the linked
  *  `DataType` row's schema and replicated on every preview/refresh; the
  *  payload itself lives in the row's JSON column rather than on the source.
@@ -96,8 +116,9 @@ object DataSourceKind {
   val RestApi: String = "rest_api"
   val Sql: String     = "sql"
   val Static: String  = "static"
+  val Text: String    = "text"
 
-  val All: Set[String] = Set(Csv, RestApi, Sql, Static)
+  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text)
 
   def parseKind(s: String): Either[String, String] =
     if (All.contains(s)) Right(s)

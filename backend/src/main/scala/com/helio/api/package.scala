@@ -151,6 +151,14 @@ package object api {
   val StaticDataPayload: protocols.StaticDataPayload.type = protocols.StaticDataPayload
   type StaticDataSourceRequest = protocols.StaticDataSourceRequest
   val StaticDataSourceRequest: protocols.StaticDataSourceRequest.type = protocols.StaticDataSourceRequest
+  type TextSourceConfigPayload = protocols.TextSourceConfigPayload
+  val TextSourceConfigPayload: protocols.TextSourceConfigPayload.type = protocols.TextSourceConfigPayload
+  type TextSourceUrlConfigPayload = protocols.TextSourceUrlConfigPayload
+  val TextSourceUrlConfigPayload: protocols.TextSourceUrlConfigPayload.type = protocols.TextSourceUrlConfigPayload
+  type TextSourceUrlRequest = protocols.TextSourceUrlRequest
+  val TextSourceUrlRequest: protocols.TextSourceUrlRequest.type = protocols.TextSourceUrlRequest
+  type TextSourceResponse = protocols.TextSourceResponse
+  val TextSourceResponse: protocols.TextSourceResponse.type = protocols.TextSourceResponse
 
   // Pipeline
   type CreatePipelineRequest = protocols.CreatePipelineRequest

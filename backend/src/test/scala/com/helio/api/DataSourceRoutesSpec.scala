@@ -2,15 +2,17 @@ package com.helio.api
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import com.helio.domain.{AuthenticatedUser, PagedResult, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
+import com.helio.services.ContentSourceSupport
 import scala.concurrent.Future
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -20,6 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 
+import java.net.InetAddress
 import java.nio.file.Files
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
@@ -39,6 +42,22 @@ class DataSourceRoutesSpec
   private var dataTypeRepo: DataTypeRepository              = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var fileSystem: LocalFileSystem                   = _
+
+  // Local test server for text-source URL-ingestion route tests (HEL-215).
+  private var testServerBinding: Http.ServerBinding = _
+  private var testServerPort: Int                   = _
+  private def textUrlFor(path: String): String = s"http://localhost:$testServerPort/$path"
+
+  // SSRF guard (HEL-215 cycle-2 fix, DNS-rebinding TOCTOU closed in cycle 3):
+  // see the identical override in `DataSourceServiceSpec` for the full
+  // rationale — admits only the literal "localhost" host string this suite's
+  // own test server uses, past the (hostname-keyed) `isBlocked` denylist
+  // check; real DNS (`defaultResolveHost`, unmodified) already resolves it
+  // correctly, so no resolver override is needed. Every other host —
+  // including literal blocked addresses a test supplies directly — still
+  // goes through the real, unmodified `ContentSourceSupport.isBlockedAddress`.
+  private def testIsBlocked(host: String, addr: InetAddress): Boolean =
+    if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -60,9 +79,22 @@ class DataSourceRoutesSpec
 
     val tmpDir = Files.createTempDirectory("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
+
+    val testRoutes =
+      concat(
+        path("notes.txt") {
+          get { complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, "Hello from URL")) }
+        },
+        path("missing.txt") {
+          get { complete(StatusCodes.NotFound) }
+        }
+      )
+    testServerBinding = Await.result(Http(typedSystem.classicSystem).newServerAt("localhost", 0).bind(testRoutes), 10.seconds)
+    testServerPort = testServerBinding.localAddress.getPort
   }
 
   override def afterAll(): Unit = {
+    Await.ready(testServerBinding.unbind(), 10.seconds)
     db.close()
     embeddedPostgres.close()
     super.afterAll()
@@ -109,7 +141,12 @@ class DataSourceRoutesSpec
       if (req.header[Authorization].isDefined) req
       else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
     } {
-      new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+      new ApiRoutes(
+        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo,
+        stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
+        new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+        dataSourceUrlIsBlocked = testIsBlocked
+      ).routes
     }
   }
 
@@ -126,6 +163,20 @@ class DataSourceRoutesSpec
     Multipart.FormData(
       Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, name)),
       Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`text/plain(UTF-8)`, csvContent))
+    )
+
+  // HEL-215: multipart upload carrying an explicit `type` part, with the
+  // `file` part's Content-Disposition `filename` set (as a browser file input
+  // sends it) so the route can determine the extension.
+  private def textMultipartUpload(name: String, content: String, filename: String, typeValue: String = "text"): Multipart.FormData =
+    Multipart.FormData(
+      Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, typeValue)),
+      Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, name)),
+      Multipart.FormData.BodyPart.Strict(
+        "file",
+        HttpEntity(ContentTypes.`text/plain(UTF-8)`, content),
+        Map("filename" -> filename)
+      )
     )
 
   "POST /api/data-sources" should {
@@ -203,6 +254,133 @@ class DataSourceRoutesSpec
       Post("/api/data-sources", badEncoding) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("UTF-8")
+      }
+    }
+
+    // Regression: CSV upload with an explicit `type=csv` part (not just the
+    // no-`type`-part default) still works after createMultipartUploadRoute's
+    // internal branching (HEL-215 task 7.2).
+    "return 201 for a CSV upload with an explicit type=csv part" in {
+      cleanDb()
+      Post("/api/data-sources", textMultipartUpload("Explicit CSV", validCsv, "sales.csv", typeValue = "csv")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DataSourceResponse].`type` shouldBe "csv"
+      }
+    }
+  }
+
+  "POST /api/data-sources (text upload, HEL-215)" should {
+
+    "return 201 and register a DataType for a valid .txt upload" in {
+      cleanDb()
+      Post("/api/data-sources", textMultipartUpload("Release Notes", "hello world", "notes.txt")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val body = responseAs[DataSourceResponse]
+        body.name shouldBe "Release Notes"
+        body.`type` shouldBe "text"
+        body.id should not be empty
+
+        Get("/api/types") ~> routes() ~> check {
+          status shouldBe StatusCodes.OK
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items should have length 1
+          types.items.head.sourceId shouldBe Some(body.id)
+          types.items.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
+        }
+      }
+    }
+
+    "return 201 for a valid .md upload" in {
+      cleanDb()
+      Post("/api/data-sources", textMultipartUpload("Readme", "# Title", "README.md")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DataSourceResponse].`type` shouldBe "text"
+      }
+    }
+
+    "return 400 for an unsupported extension" in {
+      cleanDb()
+      Post("/api/data-sources", textMultipartUpload("Bad Ext", "col\n1", "data.csv")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("Unsupported file extension")
+      }
+    }
+
+    "return 400 when name is missing" in {
+      cleanDb()
+      val noName = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "text")),
+        Multipart.FormData.BodyPart.Strict(
+          "file",
+          HttpEntity(ContentTypes.`text/plain(UTF-8)`, "hello"),
+          Map("filename" -> "notes.txt")
+        )
+      )
+      Post("/api/data-sources", noName) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "POST /api/data-sources (text URL ingestion, HEL-215)" should {
+
+    "return 201 with sourceUrl set for a reachable .txt URL" in {
+      cleanDb()
+      val url = textUrlFor("notes.txt")
+      val body =
+        s"""{"name": "URL Notes", "type": "text", "config": {"url": "$url"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val ds = responseAs[DataSourceResponse].asInstanceOf[TextSourceResponse]
+        ds.`type` shouldBe "text"
+        ds.config.sourceUrl shouldBe Some(url)
+
+        Get("/api/types") ~> routes() ~> check {
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
+        }
+      }
+    }
+
+    "return 502 when the URL cannot be fetched" in {
+      cleanDb()
+      val body = s"""{"name": "Bad URL", "type": "text", "config": {"url": "${textUrlFor("missing.txt")}"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+      }
+    }
+
+    // HEL-215 cycle-2 SSRF fix. `testIsBlocked` above only special-cases
+    // the literal "localhost" host string this suite's own server uses —
+    // these requests supply a different host (a literal blocked address, or
+    // no resolvable host at all for a bad scheme) so they fall through to
+    // the real guard and must still be rejected before any request is
+    // issued, proving the guard is wired through the real HTTP route.
+    "return 502 and never echo the upstream body for a loopback URL (SSRF guard)" in {
+      cleanDb()
+      val body = """{"name": "SSRF loopback", "type": "text", "config": {"url": "http://127.0.0.1:1/x"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("disallowed address")
+      }
+    }
+
+    "return 502 for the GCP metadata address (169.254.169.254)" in {
+      cleanDb()
+      val body =
+        """{"name": "SSRF metadata", "type": "text", "config": {"url": "http://169.254.169.254/computeMetadata/v1/"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("disallowed address")
+      }
+    }
+
+    "return 502 for a non-http(s) scheme" in {
+      cleanDb()
+      val body = """{"name": "SSRF scheme", "type": "text", "config": {"url": "file:///etc/passwd"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("scheme")
       }
     }
   }

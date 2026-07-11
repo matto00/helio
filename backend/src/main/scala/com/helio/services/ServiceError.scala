@@ -29,4 +29,10 @@ object ServiceError {
    *  paths that propagate REST or SQL fetch errors back as 502. */
   final case class BadGateway(message: String) extends ServiceError
   final case class InternalError(message: String) extends ServiceError
+  /** 413 Request Entity Too Large — used by content-connector ingestion paths
+   *  (HEL-215) whose size check necessarily lives at the service layer (the
+   *  route never sees the fetched bytes for URL-based ingestion, only the
+   *  URL). CSV's existing oversized-upload check lives entirely at the route
+   *  layer and doesn't need this variant. */
+  final case class PayloadTooLarge(message: String) extends ServiceError
 }

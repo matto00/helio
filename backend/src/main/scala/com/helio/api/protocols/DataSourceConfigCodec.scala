@@ -1,6 +1,6 @@
 package com.helio.api.protocols
 
-import com.helio.domain.{CsvSourceConfig, RestApiConfig, SqlSourceConfig}
+import com.helio.domain.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
 import spray.json._
 
 /** Encode / decode typed `DataSource` config to / from the JSON string stored
@@ -63,4 +63,24 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
 
   def encodeSql(cfg: SqlSourceConfig): String =
     SqlSourceConfigPayload.fromDomain(cfg).toJson.compactPrint
+
+  /** Decode text-source config: `path` (always populated) + optional
+   *  `sourceUrl` (present only for URL-ingested sources). */
+  def decodeText(raw: String): TextSourceConfig = {
+    val obj = JsonParser(raw) match {
+      case o: JsObject => o
+      case _           => JsObject.empty
+    }
+    val path = obj.fields.get("path") match {
+      case Some(JsString(p)) => p
+      case _                 => ""
+    }
+    val sourceUrl = obj.fields.get("sourceUrl").collect { case JsString(u) => u }
+    TextSourceConfig(path, sourceUrl)
+  }
+
+  def encodeText(cfg: TextSourceConfig): String =
+    JsObject(
+      Map("path" -> JsString(cfg.path)) ++ cfg.sourceUrl.map("sourceUrl" -> JsString(_))
+    ).compactPrint
 }
