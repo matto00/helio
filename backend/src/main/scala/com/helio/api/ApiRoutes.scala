@@ -13,7 +13,7 @@ import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
 import com.helio.services.{ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{ApiTokenRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import java.net.InetAddress
 import scala.collection.mutable.ListBuffer
@@ -38,6 +38,12 @@ final class ApiRoutes(
     pipelineRunRepo: PipelineRunRepository = null,
     dataTypeRowRepo: DataTypeRowRepository = null,
     apiTokenRepo: ApiTokenRepository = null,
+    // HEL-216: first real caller of BinaryRefRepository.overwriteForDataType
+    // (HEL-217 shipped the class with no wired caller). Nullable default
+    // mirrors pipelineRunRepo/dataTypeRowRepo — fixtures that don't pass one
+    // simply skip the binary_refs write (PipelineRunService's null-checked
+    // pattern).
+    binaryRefRepo: BinaryRefRepository = null,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -88,7 +94,7 @@ final class ApiRoutes(
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
   private val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem
+    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo
   )
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)

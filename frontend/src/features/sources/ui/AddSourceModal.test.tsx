@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import {
+  createImageSourceUpload as createImageSourceUploadRequest,
+  createImageSourceUrl as createImageSourceUrlRequest,
   createTextSourceUpload as createTextSourceUploadRequest,
   createTextSourceUrl as createTextSourceUrlRequest,
   createPdfSourceUpload as createPdfSourceUploadRequest,
@@ -18,6 +20,8 @@ jest.mock("../services/dataSourceService", () => ({
   createTextSourceUrl: jest.fn(),
   createPdfSourceUpload: jest.fn(),
   createPdfSourceUrl: jest.fn(),
+  createImageSourceUpload: jest.fn(),
+  createImageSourceUrl: jest.fn(),
   createStaticSource: jest.fn(),
   createSqlSource: jest.fn(),
   inferSqlSource: jest.fn(),
@@ -38,6 +42,8 @@ const createTextSourceUploadMock = jest.mocked(createTextSourceUploadRequest);
 const createTextSourceUrlMock = jest.mocked(createTextSourceUrlRequest);
 const createPdfSourceUploadMock = jest.mocked(createPdfSourceUploadRequest);
 const createPdfSourceUrlMock = jest.mocked(createPdfSourceUrlRequest);
+const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
+const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
 describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
@@ -230,6 +236,103 @@ describe("AddSourceModal — PDF source (HEL-214)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
     expect(createPdfSourceUploadMock).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("AddSourceModal — image source (HEL-216)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchDataTypesMock.mockResolvedValue([]);
+    // jsdom does not implement showModal/close natively (Modal.tsx uses a
+    // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    });
+  });
+
+  function openImageTab() {
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^image$/i }));
+  }
+
+  it("shows the image source name field and ingestion-method toggle when selected", () => {
+    openImageTab();
+    expect(screen.getByLabelText("Source name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /upload file/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /from url/i })).toBeInTheDocument();
+  });
+
+  it("creates an image source via upload and refreshes the sources list", async () => {
+    createImageSourceUploadMock.mockResolvedValue({
+      id: "ds-1",
+      name: "Photo",
+      type: "image",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      config: { path: "image/ds-1.png" },
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^image$/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Photo" } });
+    const file = new File(["fake-bytes"], "photo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/image file/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() => expect(createImageSourceUploadMock).toHaveBeenCalledWith("Photo", file));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("creates an image source via URL ingestion", async () => {
+    createImageSourceUrlMock.mockResolvedValue({
+      id: "ds-2",
+      name: "URL Photo",
+      type: "image",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      config: { path: "image/ds-2.png", sourceUrl: "https://example.com/photo.png" },
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^image$/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "URL Photo" } });
+    fireEvent.click(screen.getByRole("button", { name: /from url/i }));
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://example.com/photo.png" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() =>
+      expect(createImageSourceUrlMock).toHaveBeenCalledWith(
+        "URL Photo",
+        "https://example.com/photo.png",
+      ),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("shows an error and does not close when name is missing", async () => {
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /^image$/i }));
+
+    const file = new File(["fake-bytes"], "photo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/image file/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
+    expect(createImageSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 });

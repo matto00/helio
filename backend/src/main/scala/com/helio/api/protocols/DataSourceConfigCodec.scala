@@ -1,6 +1,13 @@
 package com.helio.api.protocols
 
-import com.helio.domain.{CsvSourceConfig, PdfSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
+import com.helio.domain.{
+  CsvSourceConfig,
+  ImageSourceConfig,
+  PdfSourceConfig,
+  RestApiConfig,
+  SqlSourceConfig,
+  TextSourceConfig
+}
 import spray.json._
 
 /** Encode / decode typed `DataSource` config to / from the JSON string stored
@@ -101,6 +108,27 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
   }
 
   def encodePdf(cfg: PdfSourceConfig): String =
+    JsObject(
+      Map("path" -> JsString(cfg.path)) ++ cfg.sourceUrl.map("sourceUrl" -> JsString(_))
+    ).compactPrint
+
+  /** Decode image-source config: same shape as `TextSourceConfig` — `path`
+   *  (always populated) + optional `sourceUrl` (present only for
+   *  URL-ingested sources). */
+  def decodeImage(raw: String): ImageSourceConfig = {
+    val obj = JsonParser(raw) match {
+      case o: JsObject => o
+      case _           => JsObject.empty
+    }
+    val path = obj.fields.get("path") match {
+      case Some(JsString(p)) => p
+      case _                 => ""
+    }
+    val sourceUrl = obj.fields.get("sourceUrl").collect { case JsString(u) => u }
+    ImageSourceConfig(path, sourceUrl)
+  }
+
+  def encodeImage(cfg: ImageSourceConfig): String =
     JsObject(
       Map("path" -> JsString(cfg.path)) ++ cfg.sourceUrl.map("sourceUrl" -> JsString(_))
     ).compactPrint

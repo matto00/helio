@@ -241,6 +241,9 @@ object ContentSourceSupport {
   /** Extensions accepted by the PDF connector (HEL-214). */
   val PdfExtensions: Set[String] = Set("pdf")
 
+  /** Extensions accepted by the image connector (HEL-216). */
+  val ImageExtensions: Set[String] = Set("png", "jpg", "jpeg", "gif", "webp", "bmp")
+
   /** Validate a filename's extension against `allowed` (lower-cased, no
    *  leading dot). Returns the lower-cased extension on success. Shared by
    *  both the upload path (filename from the multipart part) and the URL

@@ -167,6 +167,14 @@ package object api {
   val PdfSourceUrlRequest: protocols.PdfSourceUrlRequest.type = protocols.PdfSourceUrlRequest
   type PdfSourceResponse = protocols.PdfSourceResponse
   val PdfSourceResponse: protocols.PdfSourceResponse.type = protocols.PdfSourceResponse
+  type ImageSourceConfigPayload = protocols.ImageSourceConfigPayload
+  val ImageSourceConfigPayload: protocols.ImageSourceConfigPayload.type = protocols.ImageSourceConfigPayload
+  type ImageSourceUrlConfigPayload = protocols.ImageSourceUrlConfigPayload
+  val ImageSourceUrlConfigPayload: protocols.ImageSourceUrlConfigPayload.type = protocols.ImageSourceUrlConfigPayload
+  type ImageSourceUrlRequest = protocols.ImageSourceUrlRequest
+  val ImageSourceUrlRequest: protocols.ImageSourceUrlRequest.type = protocols.ImageSourceUrlRequest
+  type ImageSourceResponse = protocols.ImageSourceResponse
+  val ImageSourceResponse: protocols.ImageSourceResponse.type = protocols.ImageSourceResponse
 
   // Pipeline
   type CreatePipelineRequest = protocols.CreatePipelineRequest

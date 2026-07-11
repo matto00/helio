@@ -7,6 +7,8 @@ import { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { InferredField, StaticColumn } from "../types/dataSource";
 import {
   createCsvSource,
+  createImageSourceUpload,
+  createImageSourceUrl,
   createRestSource,
   createTextSourceUpload,
   createTextSourceUrl,
@@ -17,6 +19,7 @@ import {
   type SqlSourceConfig,
 } from "../services/dataSourceService";
 import { CsvForm } from "./CsvForm";
+import { ImageSourceForm, type ImageIngestMode } from "./ImageSourceForm";
 import { InferredFieldsTable } from "./InferredFieldsTable";
 import type { EditableField } from "./InferredFieldsTable";
 import { PdfSourceForm, type PdfIngestMode } from "./PdfSourceForm";
@@ -28,7 +31,7 @@ import { TextSourceForm, type TextIngestMode } from "./TextSourceForm";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 
-type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf";
+type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
 
 interface AddSourceModalProps {
@@ -220,21 +223,53 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     }
   }
 
+  async function handleCreateImage(mode: ImageIngestMode, file: File | null, imageUrl: string) {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (mode === "upload" && !file) {
+      setError("An image file is required.");
+      return;
+    }
+    if (mode === "url" && !imageUrl.trim()) {
+      setError("URL is required.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (mode === "upload") {
+        await createImageSourceUpload(name.trim(), file!);
+      } else {
+        await createImageSourceUrl(name.trim(), imageUrl.trim());
+      }
+      void dispatch(fetchSources());
+      void dispatch(fetchDataTypes());
+      onClose();
+    } catch {
+      setError("Failed to create image source.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleFieldChange(index: number, key: keyof EditableField, value: string | boolean) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
 
   const title = step === "configure" ? "Add Data Source" : "Preview Schema";
 
-  // Footer for the configure step (non-static, non-SQL, non-text, non-pdf —
-  // those four render their own self-contained form + footer since they skip
-  // the configure -> preview schema-inference step).
+  // Footer for the configure step (non-static, non-SQL, non-text, non-pdf,
+  // non-image — those render their own self-contained form + footer since
+  // they skip the configure -> preview schema-inference step).
   const configureFooter =
     step === "configure" &&
     sourceType !== "static" &&
     sourceType !== "sql" &&
     sourceType !== "text" &&
-    sourceType !== "pdf" ? (
+    sourceType !== "pdf" &&
+    sourceType !== "image" ? (
       <>
         <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onClose}>
           Cancel
@@ -348,6 +383,28 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
           <PdfSourceForm
             onSubmit={(mode, file, pdfUrl) => void handleCreatePdf(mode, file, pdfUrl)}
+            isLoading={isLoading}
+            error={error}
+            onCancel={onClose}
+          />
+        </>
+      ) : step === "configure" && sourceType === "image" ? (
+        <>
+          <div className="add-source-modal__field">
+            <label className="add-source-modal__label" htmlFor="source-name-image">
+              Source name
+            </label>
+            <TextField
+              id="source-name-image"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Product photo"
+              aria-label="Source name"
+            />
+          </div>
+          <SourceTypeToggle active={sourceType} onChange={setSourceType} />
+          <ImageSourceForm
+            onSubmit={(mode, file, imageUrl) => void handleCreateImage(mode, file, imageUrl)}
             isLoading={isLoading}
             error={error}
             onCancel={onClose}

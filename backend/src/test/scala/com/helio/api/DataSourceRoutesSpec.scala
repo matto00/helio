@@ -23,8 +23,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.file.Files
+import javax.imageio.ImageIO
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
@@ -51,6 +54,15 @@ class DataSourceRoutesSpec
   // HEL-214: PDF connector URL-ingestion route tests share the same test
   // server / port as the text-connector routes above.
   private def pdfUrlFor(path: String): String = s"http://localhost:$testServerPort/$path"
+
+  /** Encode a real in-memory PNG via `ImageIO` (JDK-standard) so image route
+   *  tests exercise the actual decode path. */
+  private def validPngBytes(width: Int = 4, height: Int = 3): Array[Byte] = {
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    val out    = new ByteArrayOutputStream()
+    ImageIO.write(image, "png", out)
+    out.toByteArray
+  }
 
   // SSRF guard (HEL-215 cycle-2 fix, DNS-rebinding TOCTOU closed in cycle 3):
   // see the identical override in `DataSourceServiceSpec` for the full
@@ -100,6 +112,12 @@ class DataSourceRoutesSpec
           }
         },
         path("missing.pdf") {
+          get { complete(StatusCodes.NotFound) }
+        },
+        path("photo.png") {
+          get { complete(HttpEntity(ContentTypes.`application/octet-stream`, validPngBytes())) }
+        },
+        path("missing.png") {
           get { complete(StatusCodes.NotFound) }
         }
       )
@@ -203,6 +221,19 @@ class DataSourceRoutesSpec
       Multipart.FormData.BodyPart.Strict(
         "file",
         HttpEntity(ContentType(MediaTypes.`application/pdf`), bytes),
+        Map("filename" -> filename)
+      )
+    )
+
+  // HEL-216: image multipart upload — same shape as `textMultipartUpload`
+  // but carrying raw binary bytes.
+  private def imageMultipartUpload(name: String, bytes: Array[Byte], filename: String): Multipart.FormData =
+    Multipart.FormData(
+      Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "image")),
+      Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, name)),
+      Multipart.FormData.BodyPart.Strict(
+        "file",
+        HttpEntity(ContentTypes.`application/octet-stream`, bytes),
         Map("filename" -> filename)
       )
     )
@@ -479,6 +510,79 @@ class DataSourceRoutesSpec
     }
   }
 
+  "POST /api/data-sources (image upload, HEL-216)" should {
+
+    "return 201 and register a DataType for a valid PNG upload" in {
+      cleanDb()
+      Post("/api/data-sources", imageMultipartUpload("Product Photo", validPngBytes(), "photo.png")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val body = responseAs[DataSourceResponse]
+        body.name shouldBe "Product Photo"
+        body.`type` shouldBe "image"
+        body.id should not be empty
+
+        Get("/api/types") ~> routes() ~> check {
+          status shouldBe StatusCodes.OK
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items should have length 1
+          types.items.head.sourceId shouldBe Some(body.id)
+          types.items.head.fields.map(_.name) should contain allOf
+            ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+        }
+      }
+    }
+
+    "return 201 for a valid JPEG upload" in {
+      cleanDb()
+      val out = new ByteArrayOutputStream()
+      ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "jpg", out)
+      Post("/api/data-sources", imageMultipartUpload("Photo JPEG", out.toByteArray, "photo.jpg")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DataSourceResponse].`type` shouldBe "image"
+      }
+    }
+
+    "return 400 for an unsupported extension" in {
+      cleanDb()
+      Post("/api/data-sources", imageMultipartUpload("Bad Ext", validPngBytes(), "photo.tiff")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("Unsupported file extension")
+      }
+    }
+
+    "return 400 for unreadable/corrupt image bytes" in {
+      cleanDb()
+      Post("/api/data-sources", imageMultipartUpload("Corrupt", Array[Byte](0x00, 0x01, 0x02), "photo.png")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("Unable to read image dimensions")
+      }
+    }
+
+    "return 400 for a truncated-but-header-valid PNG (ImageIO.read throws rather than returning null)" in {
+      cleanDb()
+      val truncated = validPngBytes(16, 16).dropRight(30)
+      Post("/api/data-sources", imageMultipartUpload("Truncated", truncated, "photo.png")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("Unable to read image dimensions")
+      }
+    }
+
+    "return 400 when name is missing" in {
+      cleanDb()
+      val noName = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "image")),
+        Multipart.FormData.BodyPart.Strict(
+          "file",
+          HttpEntity(ContentTypes.`application/octet-stream`, validPngBytes()),
+          Map("filename" -> "photo.png")
+        )
+      )
+      Post("/api/data-sources", noName) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
   "POST /api/data-sources (pdf URL ingestion, HEL-214)" should {
 
     "return 201 with sourceUrl set for a reachable .pdf URL" in {
@@ -513,6 +617,67 @@ class DataSourceRoutesSpec
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
         status shouldBe StatusCodes.BadGateway
         responseAs[String] should include("disallowed address")
+      }
+    }
+  }
+
+  "POST /api/data-sources (image URL ingestion, HEL-216)" should {
+
+    "return 201 with sourceUrl set for a reachable image URL" in {
+      cleanDb()
+      val url = textUrlFor("photo.png")
+      val body =
+        s"""{"name": "URL Photo", "type": "image", "config": {"url": "$url"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val ds = responseAs[DataSourceResponse].asInstanceOf[ImageSourceResponse]
+        ds.`type` shouldBe "image"
+        ds.config.sourceUrl shouldBe Some(url)
+
+        Get("/api/types") ~> routes() ~> check {
+          val types = responseAs[PagedResult[DataTypeResponse]]
+          types.items.head.fields.map(_.name) should contain allOf
+            ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+        }
+      }
+    }
+
+    "return 502 when the URL cannot be fetched" in {
+      cleanDb()
+      val body = s"""{"name": "Bad URL", "type": "image", "config": {"url": "${textUrlFor("missing.png")}"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+      }
+    }
+
+    // HEL-216 reuse mandate (task 8.1): image URL ingestion reuses the same
+    // guarded fetch as text — these SSRF cases prove the guard is wired
+    // through the real HTTP route for images too.
+    "return 502 and never echo the upstream body for a loopback URL (SSRF guard)" in {
+      cleanDb()
+      val body = """{"name": "SSRF loopback", "type": "image", "config": {"url": "http://127.0.0.1:1/x"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("disallowed address")
+      }
+    }
+
+    "return 502 for the GCP metadata address (169.254.169.254)" in {
+      cleanDb()
+      val body =
+        """{"name": "SSRF metadata", "type": "image", "config": {"url": "http://169.254.169.254/computeMetadata/v1/"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("disallowed address")
+      }
+    }
+
+    "return 502 for a non-http(s) scheme" in {
+      cleanDb()
+      val body = """{"name": "SSRF scheme", "type": "image", "config": {"url": "file:///etc/passwd"}}"""
+      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("scheme")
       }
     }
   }

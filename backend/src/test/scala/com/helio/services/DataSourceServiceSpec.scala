@@ -19,10 +19,13 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import spray.json.{JsNumber, JsString, JsValue}
 
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.UUID
+import javax.imageio.ImageIO
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -70,6 +73,15 @@ class DataSourceServiceSpec
   // real, unmodified `ContentSourceSupport.isBlockedAddress`.
   private def testIsBlocked(host: String, addr: InetAddress): Boolean =
     if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
+  /** Encode a real in-memory PNG via `ImageIO` (JDK-standard) so image
+   *  tests exercise the actual decode path. */
+  private def validPngBytes(width: Int = 4, height: Int = 3): Array[Byte] = {
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    val out    = new ByteArrayOutputStream()
+    ImageIO.write(image, "png", out)
+    out.toByteArray
+  }
 
   private val owner = UserId(UUID.randomUUID().toString)
   private val user  = AuthenticatedUser(owner)
@@ -121,6 +133,18 @@ class DataSourceServiceSpec
           }
         },
         path("missing.pdf") {
+          get { complete(StatusCodes.NotFound) }
+        },
+        path("photo.png") {
+          get { complete(HttpEntity(ContentTypes.`application/octet-stream`, validPngBytes())) }
+        },
+        path("huge.png") {
+          get {
+            val bytes = Array.fill[Byte](20971521)(0x41.toByte)
+            complete(HttpEntity(ContentTypes.`application/octet-stream`, bytes))
+          }
+        },
+        path("missing.png") {
           get { complete(StatusCodes.NotFound) }
         }
       )
@@ -558,6 +582,192 @@ class DataSourceServiceSpec
       cleanDb()
       val bytes = PdfFixtures.multiPagePdf(Seq("content"))
       val src   = await(service.createPdfUpload("Original Name", bytes, "report.pdf", user)).toOption.get
+
+      val result = await(service.update(src.id, UpdateDataSourceRequest(Some("Renamed")), user))
+      result.isRight shouldBe true
+      result.toOption.get.name shouldBe "Renamed"
+    }
+  }
+
+  // ── HEL-216: image connector ─────────────────────────────────────────────────
+
+  "DataSourceService.createImageUpload" should {
+
+    "create a DataSource + DataType for a valid PNG upload" in {
+      cleanDb()
+      val bytes  = validPngBytes(4, 3)
+      val result = await(service.createImageUpload("Photo", bytes, "photo.png", user))
+
+      result.isRight shouldBe true
+      val src = result.toOption.get
+      src.kind shouldBe "image"
+      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
+      dts should have size 1
+      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+      dts.head.fields.find(_.name == "content").map(_.dataType) shouldBe Some("binary-ref")
+      dts.head.fields.find(_.name == "width").map(_.dataType)   shouldBe Some("integer")
+      dts.head.fields.find(_.name == "mimeType").map(_.dataType) shouldBe Some("string")
+    }
+
+    "create a DataSource for a valid JPEG upload" in {
+      cleanDb()
+      val out = new java.io.ByteArrayOutputStream()
+      ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "jpg", out)
+      val result = await(service.createImageUpload("Photo JPEG", out.toByteArray, "photo.jpg", user))
+      result.isRight shouldBe true
+      result.toOption.get.kind shouldBe "image"
+    }
+
+    "reject an unsupported extension with BadRequest" in {
+      cleanDb()
+      val bytes  = validPngBytes()
+      val result = await(service.createImageUpload("Bad Ext", bytes, "data.tiff", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("Unsupported file extension")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+
+    "reject an oversized upload with PayloadTooLarge" in {
+      cleanDb()
+      val bytes  = Array.fill[Byte](20971521)(0x41.toByte)
+      val result = await(service.createImageUpload("Too Big", bytes, "big.png", user))
+      result match {
+        case Left(ServiceError.PayloadTooLarge(msg)) => msg should include("maximum allowed size")
+        case other                                   => fail(s"Expected PayloadTooLarge, got: $other")
+      }
+    }
+
+    "reject unreadable/corrupt image bytes with BadRequest" in {
+      cleanDb()
+      val bytes  = Array[Byte](0x00, 0x01, 0x02, 0x03)
+      val result = await(service.createImageUpload("Corrupt", bytes, "corrupt.png", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("Unable to read image dimensions")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+
+    "reject a truncated-but-header-valid PNG with BadRequest (ImageIO.read throws rather than returning null)" in {
+      cleanDb()
+      val bytes  = validPngBytes(16, 16).dropRight(30)
+      val result = await(service.createImageUpload("Truncated", bytes, "truncated.png", user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("Unable to read image dimensions")
+        case other                              => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+  }
+
+  "DataSourceService.createImageUrl" should {
+
+    "fetch the URL and create a DataSource + DataType with sourceUrl set" in {
+      cleanDb()
+      val url    = urlFor("photo.png")
+      val result = await(service.createImageUrl("URL Photo", url, user))
+      result.isRight shouldBe true
+      result.toOption.get match {
+        case i: ImageSource => i.config.sourceUrl shouldBe Some(url)
+        case other          => fail(s"expected ImageSource, got: $other")
+      }
+      val dts = await(dataTypeRepo.findBySourceId(result.toOption.get.id, owner))
+      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+    }
+
+    "return BadGateway when the URL cannot be fetched" in {
+      cleanDb()
+      val result = await(service.createImageUrl("Missing", urlFor("missing.png"), user))
+      result match {
+        case Left(ServiceError.BadGateway(_)) => succeed
+        case other                            => fail(s"Expected BadGateway, got: $other")
+      }
+    }
+
+    "return PayloadTooLarge when the fetched content exceeds the max size" in {
+      cleanDb()
+      val result = await(service.createImageUrl("Huge", urlFor("huge.png"), user))
+      result match {
+        case Left(ServiceError.PayloadTooLarge(_)) => succeed
+        case other                                 => fail(s"Expected PayloadTooLarge, got: $other")
+      }
+    }
+
+    // HEL-216 reuse mandate (task 8.1): image URL ingestion goes through the
+    // same guarded `ContentSourceSupport.fetchUrl`/`validateUrl` as text —
+    // these SSRF cases prove the guard applies unchanged.
+    "reject a loopback URL (127.0.0.1) before issuing any request" in {
+      cleanDb()
+      val result = await(service.createImageUrl("SSRF loopback", "http://127.0.0.1:1/x", user))
+      result match {
+        case Left(ServiceError.BadGateway(msg)) => msg should include("disallowed address")
+        case other                              => fail(s"Expected BadGateway (blocked), got: $other")
+      }
+    }
+
+    "reject the GCP metadata address (169.254.169.254)" in {
+      cleanDb()
+      val result = await(service.createImageUrl("SSRF metadata", "http://169.254.169.254/computeMetadata/v1/", user))
+      result match {
+        case Left(ServiceError.BadGateway(msg)) => msg should include("disallowed address")
+        case other                              => fail(s"Expected BadGateway (blocked), got: $other")
+      }
+    }
+
+    "reject a non-http(s) scheme before resolving the host" in {
+      cleanDb()
+      val result = await(service.createImageUrl("SSRF scheme", "file:///etc/passwd", user))
+      result match {
+        case Left(ServiceError.BadGateway(msg)) => msg should include("scheme")
+        case other                              => fail(s"Expected BadGateway (blocked), got: $other")
+      }
+    }
+  }
+
+  "DataSourceService.refresh (Image)" should {
+
+    "re-read the stored file for an upload-created image source" in {
+      cleanDb()
+      val bytes = validPngBytes()
+      val src   = await(service.createImageUpload("Refreshable", bytes, "photo.png", user)).toOption.get
+
+      val result = await(service.refresh(src.id, None, user))
+      result.isRight shouldBe true
+      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
+      dts should have size 1
+    }
+
+    "re-fetch the URL for a URL-created image source and overwrite the stored file" in {
+      cleanDb()
+      val src = await(service.createImageUrl("URL Refreshable", urlFor("photo.png"), user)).toOption.get
+        .asInstanceOf[ImageSource]
+
+      val result = await(service.refresh(src.id, None, user))
+      result.isRight shouldBe true
+      val storedBytes = await(fileSystem.read(src.config.path))
+      storedBytes shouldBe validPngBytes()
+    }
+  }
+
+  "DataSourceService.delete (Image)" should {
+
+    "remove the data source record and the stored file" in {
+      cleanDb()
+      val bytes = validPngBytes()
+      val src   = await(service.createImageUpload("Deletable", bytes, "photo.png", user)).toOption.get
+        .asInstanceOf[ImageSource]
+
+      val result = await(service.delete(src.id, user))
+      result.isRight shouldBe true
+      await(fileSystem.exists(src.config.path)) shouldBe false
+    }
+  }
+
+  "DataSourceService.update (Image)" should {
+
+    "rename an image source without throwing (regression: DataSourceService.update's closed match)" in {
+      cleanDb()
+      val bytes = validPngBytes()
+      val src   = await(service.createImageUpload("Original Name", bytes, "photo.png", user)).toOption.get
 
       val result = await(service.update(src.id, UpdateDataSourceRequest(Some("Renamed")), user))
       result.isRight shouldBe true

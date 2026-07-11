@@ -17,8 +17,8 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 /** Thin HTTP shell for the `/api/data-sources` CRUD surface (CSV + Static +
- *  Text + Pdf). Multipart unmarshalling happens here; everything else lives in
- *  [[DataSourceService]]. */
+ *  Text + Pdf + Image). Multipart unmarshalling happens here; everything else
+ *  lives in [[DataSourceService]]. */
 final class DataSourceRoutes(
     dataSourceService: DataSourceService,
     user: AuthenticatedUser
@@ -43,6 +43,13 @@ final class DataSourceRoutes(
    *  `textMaxBytes` above. */
   private val pdfMaxBytes: Long =
     sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
+
+  /** Early route-layer rejection for image uploads, mirroring the text
+   *  branch above. The service-layer check in `DataSourceService.ingestImage`
+   *  (via `ServiceError.PayloadTooLarge`) is the one guaranteed path for both
+   *  upload and URL ingestion. */
+  private val imageMaxBytes: Long =
+    sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
   val routes: Route =
     pathPrefix("data-sources") {
@@ -110,6 +117,14 @@ final class DataSourceRoutes(
             }
           case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
         }
+      } else if (typeStr.contains(DataSourceKind.Image)) {
+        Try(json.convertTo[ImageSourceUrlRequest]) match {
+          case Success(request) =>
+            ServiceResponse.run(dataSourceService.createImageUrl(request.name, request.config.url, user)) { ds =>
+              StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
+            }
+          case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+        }
       } else {
         Try(json.convertTo[StaticDataSourceRequest]) match {
           case Success(req) =>
@@ -170,6 +185,19 @@ final class DataSourceRoutes(
               )
             else
               ServiceResponse.run(dataSourceService.createPdfUpload(name, bytes, filename, user)) { ds =>
+                StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
+              }
+          case (Some(name), Some(bytes)) if typeStr == DataSourceKind.Image =>
+            // Image uploads determine the extension from the file part's own
+            // Content-Disposition filename, same as the text branch above.
+            val filename = filePartName.getOrElse("")
+            if (bytes.length.toLong > imageMaxBytes)
+              complete(
+                StatusCodes.RequestEntityTooLarge,
+                ErrorResponse(s"File exceeds the maximum allowed size of $imageMaxBytes bytes")
+              )
+            else
+              ServiceResponse.run(dataSourceService.createImageUpload(name, bytes, filename, user)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
           case (Some(name), Some(bytes)) =>
