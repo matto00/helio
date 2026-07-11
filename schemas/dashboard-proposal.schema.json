@@ -33,11 +33,50 @@
         },
         "fieldMapping": {
           "type": "object",
-          "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}."
+          "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}. fieldMapping.label/unit bind to a data column, distinct from the top-level label/unit literal override below."
         },
         "aggregation": {
           "type": "object",
           "description": "Optional viz-level aggregation, metric/chart only: metric {value,agg}; chart {groupBy,agg,yField}. agg is one of count|sum|avg|min|max."
+        },
+        "content": {
+          "type": "string",
+          "description": "Initial body for text/markdown panels. Ignored for other panel types."
+        },
+        "url": {
+          "type": "string",
+          "description": "Initial image URL for image panels (mapped internally to config.imageUrl). Ignored for other panel types."
+        },
+        "orientation": {
+          "type": "string",
+          "enum": ["horizontal", "vertical"],
+          "description": "Initial orientation for divider panels. Ignored for other panel types."
+        },
+        "chartType": {
+          "type": "string",
+          "enum": ["bar", "line", "pie", "scatter"],
+          "description": "Chart sub-type for chart panels, applied as a best-effort follow-up appearance update after create. Ignored for other panel types."
+        },
+        "xAxisLabel": {
+          "type": "string",
+          "description": "Chart x-axis title, chart panels only. Applied via the same follow-up appearance update as chartType."
+        },
+        "yAxisLabel": {
+          "type": "string",
+          "description": "Chart y-axis title, chart panels only. Applied via the same follow-up appearance update as chartType."
+        },
+        "seriesColors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Chart series colors, chart panels only. Applied via the same follow-up appearance update as chartType."
+        },
+        "label": {
+          "type": "string",
+          "description": "Literal display label for a metric panel — distinct from fieldMapping.label, which binds to a data column. Renders even when no matching bound column exists."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Literal display unit for a metric panel — distinct from fieldMapping.unit, which binds to a data column."
         },
         "layout": { "$ref": "#/$defs/ProposalPanelLayout" }
       },

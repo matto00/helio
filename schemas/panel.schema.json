@@ -52,7 +52,15 @@
       "properties": {
         "dataTypeId": { "type": "string" },
         "fieldMapping": { "type": "object" },
-        "aggregation": { "$ref": "#/$defs/MetricAggregation" }
+        "aggregation": { "$ref": "#/$defs/MetricAggregation" },
+        "label": {
+          "type": "string",
+          "description": "Literal display label override — distinct from fieldMapping.label, which binds to a data column."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Literal display unit override — distinct from fieldMapping.unit, which binds to a data column."
+        }
       }
     },
     "ChartConfig": {

@@ -74,6 +74,8 @@ export function makeMetricPanel(
     dataTypeId: overrides.config?.dataTypeId ?? "",
     fieldMapping: overrides.config?.fieldMapping ?? {},
     aggregation: overrides.config?.aggregation,
+    label: overrides.config?.label,
+    unit: overrides.config?.unit,
   };
   return applyBase<MetricPanel>(overrides, "metric", config);
 }

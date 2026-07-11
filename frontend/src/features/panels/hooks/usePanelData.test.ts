@@ -417,6 +417,54 @@ describe("usePanelData", () => {
     });
   });
 
+  // ─── HEL-293: metric literal label/unit override ─────────────────────────
+
+  describe("metric literal label/unit", () => {
+    it("literal label/unit override the fieldMapping-resolved value when both are present", async () => {
+      mockFetchDataTypeRows.mockResolvedValue({
+        rows: [{ revenue: "1000", region: "North" }],
+        rowCount: 1,
+      });
+
+      const panel = makeMetricPanel({
+        config: {
+          dataTypeId: "dt-1",
+          fieldMapping: { value: "revenue", label: "region", unit: "region" },
+          label: "Total Revenue",
+          unit: "USD",
+        },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.data?.value).toBe("1000");
+      expect(result.current.data?.label).toBe("Total Revenue");
+      expect(result.current.data?.unit).toBe("USD");
+    });
+
+    it("falls back to the fieldMapping-resolved value when no literal label/unit is set", async () => {
+      mockFetchDataTypeRows.mockResolvedValue({
+        rows: [{ revenue: "1000", region: "North" }],
+        rowCount: 1,
+      });
+
+      const panel = makeMetricPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue", label: "region" } },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.data?.value).toBe("1000");
+      expect(result.current.data?.label).toBe("North");
+    });
+  });
+
   describe("chart aggregation (chartAggregate)", () => {
     it("groups typed rows by groupBy and computes one aggregate per group", async () => {
       mockFetchDataTypeRows.mockResolvedValue({

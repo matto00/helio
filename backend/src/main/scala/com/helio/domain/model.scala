@@ -104,6 +104,26 @@ final case class ChartAppearance(
 )
 
 final case class PanelAppearance(background: String, color: String, transparency: Double, chart: Option[ChartAppearance] = None)
+
+object ChartAppearance {
+  /** Mirrors the frontend's `DEFAULT_CHART_APPEARANCE`
+   *  (`PanelDetailModal.tsx`) so a proposal-created chart and a manually-
+   *  edited one converge on the same look. Used as the base a proposal's
+   *  chart-appearance fields (Decision 2/HEL-293) override field-by-field. */
+  val Default: ChartAppearance = ChartAppearance(
+    seriesColors = Vector(
+      "#5470c6", "#91cc75", "#fac858", "#ee6666",
+      "#73c0de", "#3ba272", "#fc8452", "#9a60b4"
+    ),
+    legend  = ChartLegend(show = true, position = "top"),
+    tooltip = ChartTooltip(enabled = true),
+    axisLabels = ChartAxisLabels(
+      x = ChartAxisLabel(show = true, label = Some("X Axis")),
+      y = ChartAxisLabel(show = true, label = Some("Y Axis"))
+    ),
+    chartType = Some("line")
+  )
+}
 final case class DashboardLayoutItem(panelId: PanelId, x: Int, y: Int, w: Int, h: Int)
 final case class DashboardLayout(
     lg: Vector[DashboardLayoutItem],
