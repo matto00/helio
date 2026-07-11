@@ -1,5 +1,8 @@
-## ADDED Requirements
-
+## Purpose
+Defines how `SchemaInferenceEngine` infers a `DataType`'s field schema (names, `DataFieldType`,
+nullability, display names) from JSON, CSV, and static-connector sources, and the REST endpoints
+that preview an inferred schema without persisting it.
+## Requirements
 ### Requirement: JSON schema inference
 The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue` and return an `InferredSchema`. If the root value is a `JsArray` of objects, fields are inferred from the union of keys across all elements. If the root is a `JsObject`, fields are inferred directly from its keys. Nested `JsObject` values SHALL be flattened using dot notation. All other root shapes return an empty schema.
 
@@ -77,11 +80,17 @@ The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (firs
 - **THEN** `fromCsv` produces the same result as the equivalent LF-only CSV
 
 ### Requirement: DataFieldType sealed type
-The `DataFieldType` sealed trait SHALL define exactly five variants: `StringType`, `IntegerType`, `FloatType`, `BooleanType`, `TimestampType`. An `asString` method SHALL return the canonical lowercase string representation used for storage in `DataField.dataType`.
+The `DataFieldType` sealed trait SHALL define seven variants: `StringType`, `IntegerType`,
+`FloatType`, `BooleanType`, `TimestampType`, `StringBodyType`, `BinaryRefType`. An `asString`
+method SHALL return the canonical lowercase/hyphenated string representation used for storage in
+`DataField.dataType`. The first five are `Structured` field types; `StringBodyType` and
+`BinaryRefType` are `Content` field types (see the `type-registry-content-fields` capability for
+the `FieldTypeCategory` classifier and the content-type value-representation contract).
 
 #### Scenario: asString produces canonical names
 - **WHEN** `DataFieldType.asString` is called on each variant
-- **THEN** it returns `"string"`, `"integer"`, `"float"`, `"boolean"`, `"timestamp"` respectively
+- **THEN** it returns `"string"`, `"integer"`, `"float"`, `"boolean"`, `"timestamp"`,
+  `"string-body"`, `"binary-ref"` respectively
 
 ### Requirement: displayName auto-generation
 `SchemaInferenceEngine` SHALL generate a human-readable `displayName` from a raw field name by converting `snake_case`, `camelCase`, and dot-separated paths to title-case words.
@@ -97,6 +106,7 @@ The `DataFieldType` sealed trait SHALL define exactly five variants: `StringType
 #### Scenario: dot-separated path to title case
 - **WHEN** the field name is `address.city`
 - **THEN** `displayName` is `"Address City"`
+
 ## ADDED Requirements
 
 ### Requirement: POST /api/sources/infer — preview REST API schema without persisting
