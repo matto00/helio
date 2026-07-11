@@ -62,14 +62,36 @@ export type DividerOrientation = "horizontal" | "vertical";
 // the backend emits `dataTypeId: ""` for unbound rows, so `isBound` checks
 // must compare to a non-empty string rather than to `null`.
 
+// ── Viz-level aggregation specs (HEL-292) ───────────────────────────────────
+//
+// Mirrors backend `domain/panels/{Metric,Chart}PanelConfig.aggregation` and
+// `schemas/panel.schema.json` `$defs.MetricAggregation`/`ChartAggregation`.
+// Reuses the pipeline `aggregate` step's function set — see
+// `frontend/src/utils/aggregate.ts` and `AggregateStep.scala`.
+
+export type AggFn = "count" | "sum" | "avg" | "min" | "max";
+
+export interface MetricAggregation {
+  value: string;
+  agg: AggFn;
+}
+
+export interface ChartAggregation {
+  groupBy: string;
+  agg: AggFn;
+  yField: string;
+}
+
 export interface MetricPanelConfig {
   dataTypeId: string;
   fieldMapping: Record<string, string>;
+  aggregation?: MetricAggregation | null;
 }
 
 export interface ChartPanelConfig {
   dataTypeId: string;
   fieldMapping: Record<string, string>;
+  aggregation?: ChartAggregation | null;
 }
 
 export interface TablePanelConfig {

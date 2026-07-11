@@ -17,6 +17,7 @@ final case class ProposalPanel(
     `type`: String,
     dataTypeId: Option[String],
     fieldMapping: Option[JsObject],
+    aggregation: Option[JsObject],
     layout: Option[ProposalPanelLayout]
 )
 
@@ -38,6 +39,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
       )
       p.dataTypeId.foreach(v => fields("dataTypeId") = JsString(v))
       p.fieldMapping.foreach(v => fields("fieldMapping") = v)
+      p.aggregation.foreach(v => fields("aggregation") = v)
       p.layout.foreach(v => fields("layout") = v.toJson)
       JsObject(fields.toMap)
     }
@@ -49,6 +51,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         `type`       = obj.fields.get("type").map(_.convertTo[String]).getOrElse(deserializationError("proposal panel 'type' is required")),
         dataTypeId   = obj.fields.get("dataTypeId").map(_.convertTo[String]),
         fieldMapping = obj.fields.get("fieldMapping").map(_.asJsObject),
+        aggregation  = obj.fields.get("aggregation").map(_.asJsObject),
         layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout])
       )
     }

@@ -66,12 +66,13 @@ object PanelRowMapper extends PanelProtocol {
       imageFit     = None,
       dividerOrientation = None,
       dividerWeight      = None,
-      dividerColor       = None
+      dividerColor       = None,
+      aggregation        = None
     )
 
     p match {
-      case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping))
-      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping))
+      case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint))
+      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint))
       case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping))
       case t: TextPanel       => base.copy(content = optString(t.config.content))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
@@ -86,13 +87,15 @@ object PanelRowMapper extends PanelProtocol {
   private def metricConfig(row: PanelRepository.PanelRow): MetricPanelConfig =
     MetricPanelConfig(
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      aggregation  = row.aggregation.flatMap(parseJsObject)
     )
 
   private def chartConfig(row: PanelRepository.PanelRow): ChartPanelConfig =
     ChartPanelConfig(
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      aggregation  = row.aggregation.flatMap(parseJsObject)
     )
 
   private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =

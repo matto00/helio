@@ -190,11 +190,27 @@ export interface ProposalPanelLayout {
 
 /** One proposed panel. No ids — data panels reference an existing
  *  pipeline-output DataType by id. Matches dashboard-proposal.schema.json. */
+/** Viz-level aggregation spec for a metric panel — overrides only the `value`
+ *  slot; matches `MetricAggregation` in panel.schema.json. */
+export interface MetricAggregationSpec {
+  value: string;
+  agg: "count" | "sum" | "avg" | "min" | "max";
+}
+
+/** Viz-level groupBy aggregation spec for a chart panel (bar/line only);
+ *  matches `ChartAggregation` in panel.schema.json. */
+export interface ChartAggregationSpec {
+  groupBy: string;
+  agg: "count" | "sum" | "avg" | "min" | "max";
+  yField: string;
+}
+
 export interface ProposalPanel {
   title: string;
   type: string;
   dataTypeId?: string;
   fieldMapping?: Record<string, string>;
+  aggregation?: MetricAggregationSpec | ChartAggregationSpec;
   layout?: ProposalPanelLayout;
 }
 

@@ -51,7 +51,8 @@
       "additionalProperties": false,
       "properties": {
         "dataTypeId": { "type": "string" },
-        "fieldMapping": { "type": "object" }
+        "fieldMapping": { "type": "object" },
+        "aggregation": { "$ref": "#/$defs/MetricAggregation" }
       }
     },
     "ChartConfig": {
@@ -59,7 +60,8 @@
       "additionalProperties": false,
       "properties": {
         "dataTypeId": { "type": "string" },
-        "fieldMapping": { "type": "object" }
+        "fieldMapping": { "type": "object" },
+        "aggregation": { "$ref": "#/$defs/ChartAggregation" }
       }
     },
     "TableConfig": {
@@ -99,6 +101,25 @@
         "orientation": { "type": "string", "enum": ["horizontal", "vertical"] },
         "weight": { "type": ["integer", "null"], "minimum": 1 },
         "color": { "type": ["string", "null"], "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$" }
+      }
+    },
+    "MetricAggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "agg"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "agg": { "type": "string", "enum": ["count", "sum", "avg", "min", "max"] }
+      }
+    },
+    "ChartAggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupBy", "agg", "yField"],
+      "properties": {
+        "groupBy": { "type": "string", "minLength": 1 },
+        "agg": { "type": "string", "enum": ["count", "sum", "avg", "min", "max"] },
+        "yField": { "type": "string", "minLength": 1 }
       }
     }
   }

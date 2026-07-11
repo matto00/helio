@@ -12,12 +12,14 @@
 // need to know the subtype.
 
 import type {
+  ChartAggregation,
   ChartPanel,
   DividerOrientation,
   DividerPanel,
   ImageFit,
   ImagePanel,
   MarkdownPanel,
+  MetricAggregation,
   MetricPanel,
   Panel,
   TablePanel,
@@ -99,4 +101,18 @@ export function getDividerWeight(panel: Panel): number | null {
 export function getDividerColor(panel: Panel): string | null {
   if (!isDividerPanel(panel)) return null;
   return panel.config.color ?? null;
+}
+
+/** Returns the metric panel's viz-level aggregation spec (HEL-292), or
+ *  `null` when absent / not a metric panel. */
+export function getMetricAggregation(panel: Panel): MetricAggregation | null {
+  if (!isMetricPanel(panel)) return null;
+  return panel.config.aggregation ?? null;
+}
+
+/** Returns the chart panel's viz-level groupBy aggregation spec (HEL-292), or
+ *  `null` when absent / not a chart panel. */
+export function getChartAggregation(panel: Panel): ChartAggregation | null {
+  if (!isChartPanel(panel)) return null;
+  return panel.config.aggregation ?? null;
 }

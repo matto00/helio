@@ -1,5 +1,6 @@
 import "./PanelContent.css";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
+import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
   isChartPanel,
   isDividerPanel,
@@ -32,6 +33,8 @@ export interface PanelContentProps {
   paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
+  /** HEL-292: precomputed chart groupBy aggregate, chart panels only. */
+  chartAggregate?: GroupedAggregate | null;
 }
 
 export function PanelContent({
@@ -47,6 +50,7 @@ export function PanelContent({
   paginationHasMore,
   paginationIsLoadingMore,
   onLoadMore,
+  chartAggregate,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -82,6 +86,7 @@ export function PanelContent({
         rawRows={rawRows}
         headers={headers}
         fieldMapping={panel.config.fieldMapping}
+        chartAggregate={chartAggregate}
       />
     );
   }

@@ -4,6 +4,7 @@ import type { EChartsOption } from "echarts";
 import type { PanelAppearance } from "../types/panel";
 import { appearanceToEChartsOption } from "../../../utils/chartAppearance";
 import type { ChartType } from "../../../utils/chartAppearance";
+import type { GroupedAggregate } from "../../../utils/aggregate";
 
 const defaultOption: EChartsOption = {
   legend: { show: true },
@@ -111,21 +112,48 @@ function buildDataOption(
   };
 }
 
+/** HEL-292 — render a precomputed groupBy aggregate (`categories`/`values`
+ *  from `usePanelData`'s `groupAndAggregate` over typed rows) directly,
+ *  instead of grouping `rawRows`. `ChartPanel` never re-derives grouping from
+ *  stringified data — see design.md Decision 4. */
+function buildAggregateDataOption(
+  aggregate: GroupedAggregate,
+  chartType: ChartType,
+): Partial<EChartsOption> {
+  return {
+    xAxis: { type: "category", data: aggregate.categories },
+    series: [{ type: chartType, data: aggregate.values }],
+  };
+}
+
 export interface ChartPanelProps {
   appearance?: PanelAppearance;
   rawRows?: string[][] | null;
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
+  /** HEL-292: precomputed groupBy aggregate. Only applied when the rendered
+   *  `chartType` is `bar`/`line` — pie/scatter (or an absent aggregate) fall
+   *  back to the existing per-row `rawRows` path unchanged. */
+  chartAggregate?: GroupedAggregate | null;
 }
 
-export function ChartPanel({ appearance, rawRows, headers, fieldMapping }: ChartPanelProps = {}) {
+export function ChartPanel({
+  appearance,
+  rawRows,
+  headers,
+  fieldMapping,
+  chartAggregate,
+}: ChartPanelProps = {}) {
   const { option: appearanceOption, chartType } =
     appearance?.chart != null
       ? appearanceToEChartsOption(appearance.chart)
       : { option: {} as EChartsOption, chartType: "line" as ChartType };
 
-  const dataOption =
-    rawRows && rawRows.length > 0 && headers && headers.length > 0
+  const useAggregate = chartAggregate != null && (chartType === "bar" || chartType === "line");
+
+  const dataOption = useAggregate
+    ? buildAggregateDataOption(chartAggregate, chartType)
+    : rawRows && rawRows.length > 0 && headers && headers.length > 0
       ? buildDataOption(rawRows, headers, fieldMapping, chartType)
       : {};
 

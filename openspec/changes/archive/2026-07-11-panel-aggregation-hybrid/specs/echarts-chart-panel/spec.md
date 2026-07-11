@@ -1,8 +1,5 @@
-# echarts-chart-panel Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the ECharts-based chart panel that renders inside any panel with `type: "chart"`. Covers mounting, resizing, empty states, chart type rendering, and clean disposal.
-## Requirements
 ### Requirement: Chart panel renders a live ECharts instance
 The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart"`. The chart MUST fill the available panel card body area. When `fieldMapping.xAxis` and `fieldMapping.yAxis` are both set and data is available, the chart SHALL render a live series using the bound data; when fields are not mapped, the chart SHALL show an informative empty-state message ("Select fields to display chart data") rather than a blank canvas. If no field mapping is present, a placeholder chart SHALL be displayed defaulting to a line chart. When the panel's config carries a viz-level `aggregation` spec (`{ groupBy, agg, yField }`) and the rendered chart type is `bar` or `line`, the chart SHALL instead group rows by `groupBy` and render one aggregate mark per group (see `panel-viz-aggregation`), taking precedence over the raw `fieldMapping.xAxis`/`yAxis` per-row rendering for that render.
 
@@ -41,12 +38,3 @@ The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart
 #### Scenario: Aggregation spec takes precedence over per-row field mapping for bar/line
 - **WHEN** a bar-chart panel has both `fieldMapping.xAxis`/`yAxis` set AND a valid `aggregation` spec
 - **THEN** the chart renders the grouped/aggregated series, not the raw per-row series
-
-### Requirement: Chart panel resizes with the grid panel
-The ECharts instance MUST reflow to match the panel card dimensions whenever the panel is resized
-on the dashboard grid.
-
-#### Scenario: Chart resizes when panel is resized
-- **WHEN** the user drags a chart panel's resize handle to a new size
-- **THEN** the ECharts canvas updates its dimensions to fill the new panel size without overflow or blank space
-

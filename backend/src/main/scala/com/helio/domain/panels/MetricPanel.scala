@@ -10,13 +10,14 @@ import spray.json.DefaultJsonProtocol._
  *  mid-edit row with `type_id IS NULL` does not 500 on listByDashboard. */
 final case class MetricPanelConfig(
     dataTypeId: DataTypeId,
-    fieldMapping: JsObject
+    fieldMapping: JsObject,
+    aggregation: Option[JsObject] = None
 )
 
 object MetricPanelConfig {
-  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty)
+  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None)
 
-  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat2(MetricPanelConfig.apply)
+  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat3(MetricPanelConfig.apply)
 
   /** Tolerant JsValue decoder — missing/null fields default to empties
    *  so partial rows survive the read path (CS2c-3a cycle-2 lesson). */
@@ -30,7 +31,11 @@ object MetricPanelConfig {
         case Some(o: JsObject) => o
         case _                 => JsObject.empty
       }
-      MetricPanelConfig(dataTypeId, mapping)
+      val aggregation = fields.get("aggregation") match {
+        case Some(o: JsObject) => Some(o)
+        case _                 => None
+      }
+      MetricPanelConfig(dataTypeId, mapping, aggregation)
     case _ => Empty
   }
 
@@ -42,13 +47,14 @@ object MetricPanelConfig {
    *  `Some(Some(v))` = set). */
   final case class Patch(
       dataTypeId: Option[Option[DataTypeId]],
-      fieldMapping: Option[Option[JsObject]]
+      fieldMapping: Option[Option[JsObject]],
+      aggregation: Option[Option[JsObject]]
   ) {
-    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None)
+    val Empty: Patch = Patch(None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -64,7 +70,13 @@ object MetricPanelConfig {
           case Some(o: JsObject) => Some(Some(o))
           case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
         }
-        Patch(typeId, mapping)
+        val aggregation = fields.get("aggregation") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(o))
+          case Some(x)           => deserializationError(s"aggregation must be an object or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation)
       case _ => Empty
     }
   }
@@ -107,7 +119,8 @@ final case class MetricPanel(
   def applyPatch(patch: MetricPanelConfig.Patch): MetricPanel = copy(
     config = MetricPanelConfig(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
-      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
+      aggregation  = patch.aggregation.fold(config.aggregation)(identity)
     )
   )
 }

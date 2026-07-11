@@ -126,10 +126,11 @@ final class DashboardProposalService(
 
   private def buildCreateRequest(dashboardId: DashboardId, panel: ProposalPanel): CreatePanelRequest = {
     val configOpt: Option[JsValue] = panel.dataTypeId.map { id =>
-      JsObject(
+      val baseFields = Map(
         "dataTypeId"   -> JsString(id),
         "fieldMapping" -> panel.fieldMapping.getOrElse(JsObject.empty)
       )
+      JsObject(panel.aggregation.fold(baseFields)(agg => baseFields + ("aggregation" -> agg)))
     }
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
