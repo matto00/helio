@@ -32,6 +32,14 @@
   letter-spacing: 0.08em;
 }
 
+.panel-content__metric-unit {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  margin-left: var(--space-1);
+}
+
 /* Text */
 
 .panel-content--text {
@@ -171,6 +179,10 @@
     font-size: var(--text-micro);
   }
 
+  .panel-content__metric-unit {
+    font-size: var(--text-xs);
+  }
+
   .panel-content__metric-trend {
     font-size: var(--text-micro);
   }
@@ -185,6 +197,10 @@
 
   .panel-content__metric-label {
     font-size: var(--text-xs);
+  }
+
+  .panel-content__metric-unit {
+    font-size: var(--text-base);
   }
 
   .panel-content__metric-trend {
