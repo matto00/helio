@@ -35,6 +35,10 @@
           "type": "object",
           "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}."
         },
+        "aggregation": {
+          "type": "object",
+          "description": "Optional viz-level aggregation, metric/chart only: metric {value,agg}; chart {groupBy,agg,yField}. agg is one of count|sum|avg|min|max."
+        },
         "layout": { "$ref": "#/$defs/ProposalPanelLayout" }
       },
       "additionalProperties": false

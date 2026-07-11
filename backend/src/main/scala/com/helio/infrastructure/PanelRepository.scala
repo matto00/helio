@@ -202,8 +202,8 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     ctx.withSystemContext(
       table
         .filter(_.id === panel.id.value)
-        .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
-        .update((updated.typeId, updated.fieldMapping, updated.content, updated.imageUrl, updated.imageFit, updated.dividerOrientation, updated.dividerWeight, updated.dividerColor, lastUpdated))
+        .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.lastUpdated))
+        .update((updated.typeId, updated.fieldMapping, updated.content, updated.imageUrl, updated.imageFit, updated.dividerOrientation, updated.dividerWeight, updated.dividerColor, updated.aggregation, lastUpdated))
         .andThen(table.filter(_.id === panel.id.value).result.headOption)
     ).map(_.map(rowToDomain))
   }
@@ -249,7 +249,8 @@ object PanelRepository {
       imageFit: Option[String],
       dividerOrientation: Option[String],
       dividerWeight: Option[Int],
-      dividerColor: Option[String]
+      dividerColor: Option[String],
+      aggregation: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -270,7 +271,8 @@ object PanelRepository {
     def dividerOrientation  = column[Option[String]]("divider_orientation")
     def dividerWeight       = column[Option[Int]]("divider_weight")
     def dividerColor        = column[Option[String]]("divider_color")
+    def aggregation         = column[Option[String]]("aggregation")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor, aggregation).mapTo[PanelRow]
   }
 }

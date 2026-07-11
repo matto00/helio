@@ -9,11 +9,13 @@
 // to the corresponding `panelService` axios call.
 
 import type {
+  ChartAggregation,
   DividerOrientation,
   DividerPanelConfig,
   ImageFit,
   ImagePanelConfig,
   MarkdownPanelConfig,
+  MetricAggregation,
   Panel,
   PanelConfig,
   PanelKind,
@@ -97,15 +99,25 @@ export interface UpdatePanelBody {
   config?: Record<string, unknown>;
 }
 
-/** Build the typed `config` PATCH for a metric/chart/table binding edit. */
+/** Build the typed `config` PATCH for a metric/chart/table binding edit.
+ *  `aggregation` follows the same absent-vs-null convention as the rest of
+ *  the wire shape (HEL-292): `undefined` omits the key entirely (leave
+ *  unchanged — matches "leaving aggregation controls unset persists no
+ *  aggregation"); `null` explicitly clears a previously-configured spec;
+ *  an object sets/replaces it. */
 export function buildBindingPatch(args: {
   typeId: string | null;
   fieldMapping: Record<string, string> | null;
+  aggregation?: MetricAggregation | ChartAggregation | null;
 }): Record<string, unknown> {
-  return {
+  const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
     fieldMapping: args.fieldMapping,
   };
+  if (args.aggregation !== undefined) {
+    patch.aggregation = args.aggregation;
+  }
+  return patch;
 }
 
 /** Build the typed `config` PATCH for a text/markdown content edit. */

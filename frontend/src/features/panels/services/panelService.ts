@@ -1,6 +1,8 @@
 import type {
+  ChartAggregation,
   DividerOrientation,
   ImageFit,
+  MetricAggregation,
   Panel,
   PanelAppearance,
   PanelType,
@@ -94,11 +96,12 @@ export async function updatePanelBinding(
   typeId: string | null,
   fieldMapping: Record<string, string> | null,
   _refreshInterval: number | null,
+  aggregation?: MetricAggregation | ChartAggregation | null,
 ): Promise<Panel> {
   // refreshInterval is intentionally dropped at the network boundary — the
   // backend has no schema or column for it. The slice mirrors it into Redux
   // state as a frontend-only optimistic update so polling keeps working.
-  const config = buildBindingPatch({ typeId, fieldMapping });
+  const config = buildBindingPatch({ typeId, fieldMapping, aggregation });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

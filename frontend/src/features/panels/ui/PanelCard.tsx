@@ -51,7 +51,8 @@ export const PanelCardBody = React.memo(function PanelCardBody({
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
-  const { data, rawRows, headers, isLoading, error, noData, refresh } = usePanelData(panel);
+  const { data, rawRows, headers, isLoading, error, noData, chartAggregate, refresh } =
+    usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
 
   const handleLoadMore = useCallback(() => {
@@ -91,6 +92,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       paginationHasMore={paginationEntry?.hasMore ?? false}
       paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
       onLoadMore={handleLoadMore}
+      chartAggregate={chartAggregate}
     />
   );
 });

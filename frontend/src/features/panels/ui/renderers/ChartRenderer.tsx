@@ -1,4 +1,5 @@
 import type { PanelAppearance } from "../../types/panel";
+import type { GroupedAggregate } from "../../../../utils/aggregate";
 import { ChartPanel } from "../ChartPanel";
 
 interface ChartRendererProps {
@@ -6,9 +7,16 @@ interface ChartRendererProps {
   rawRows?: string[][] | null;
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
+  chartAggregate?: GroupedAggregate | null;
 }
 
-export function ChartRenderer({ appearance, rawRows, headers, fieldMapping }: ChartRendererProps) {
+export function ChartRenderer({
+  appearance,
+  rawRows,
+  headers,
+  fieldMapping,
+  chartAggregate,
+}: ChartRendererProps) {
   return (
     <div className="panel-content panel-content--chart">
       <ChartPanel
@@ -16,6 +24,7 @@ export function ChartRenderer({ appearance, rawRows, headers, fieldMapping }: Ch
         rawRows={rawRows}
         headers={headers}
         fieldMapping={fieldMapping}
+        chartAggregate={chartAggregate}
       />
     </div>
   );

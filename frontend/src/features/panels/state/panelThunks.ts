@@ -24,8 +24,10 @@ import {
 import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
 import type { RootState } from "../../../store/store";
 import type {
+  ChartAggregation,
   DividerOrientation,
   ImageFit,
+  MetricAggregation,
   Panel,
   PanelAppearance,
   PanelType,
@@ -158,13 +160,25 @@ export const updatePanelBinding = createAsyncThunk<
     typeId: string | null;
     fieldMapping: Record<string, string> | null;
     refreshInterval: number | null;
+    /** HEL-292: `undefined` = leave unchanged, `null` = explicit clear, an
+     *  object = set/replace. See `buildBindingPatch`. */
+    aggregation?: MetricAggregation | ChartAggregation | null;
   },
   { rejectValue: string }
 >(
   "panels/updatePanelBinding",
-  async ({ panelId, typeId, fieldMapping, refreshInterval }, { rejectWithValue }) => {
+  async ({ panelId, typeId, fieldMapping, refreshInterval, aggregation }, { rejectWithValue }) => {
     try {
-      return await updatePanelBindingRequest(panelId, typeId, fieldMapping, refreshInterval);
+      // `aggregation` is an optional 5th param on `updatePanelBindingRequest`;
+      // passing it as `undefined` when the caller didn't supply one is
+      // behaviorally identical to omitting the argument.
+      return await updatePanelBindingRequest(
+        panelId,
+        typeId,
+        fieldMapping,
+        refreshInterval,
+        aggregation,
+      );
     } catch {
       return rejectWithValue("Failed to update panel binding.");
     }

@@ -201,6 +201,50 @@ class DashboardApplyProposalSpec
       }
     }
 
+    // HEL-292 — the aggregation spec is opaque JSON to the backend; it is
+    // threaded through DashboardProposalService.buildCreateRequest verbatim
+    // and stored on the created panel's typed config via the same
+    // MetricPanelConfig/ChartPanelConfig tolerant-decode path as a direct
+    // PATCH would use.
+    "preserve the aggregation spec on a created panel (HEL-292)" in {
+      val before = dashboardCount()
+      val body =
+        s"""{
+           |  "dashboardName": "Aggregated Sales",
+           |  "panels": [
+           |    {"title":"Avg","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |     "fieldMapping":{},"aggregation":{"value":"region","agg":"count"}}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj    = responseAs[String].parseJson.asJsObject
+        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        val metric = panels.find(_.fields("title").convertTo[String] == "Avg").get
+        metric.fields("config").asJsObject.fields("aggregation") shouldBe
+          JsObject("value" -> JsString("region"), "agg" -> JsString("count"))
+      }
+      dashboardCount() shouldBe (before + 1)
+    }
+
+    "apply a proposal without an aggregation field unchanged (no aggregation on the created panel)" in {
+      val body =
+        s"""{
+           |  "dashboardName": "No Aggregation",
+           |  "panels": [
+           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |     "fieldMapping":{"value":"region"}}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj    = responseAs[String].parseJson.asJsObject
+        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
+        metric.fields("config").asJsObject.fields.keySet should not contain "aggregation"
+      }
+    }
+
     "reject binding a source-companion DataType and create nothing (V41, atomic)" in {
       val before = dashboardCount()
       val body =

@@ -1223,6 +1223,120 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-292: panel-level aggregation persistence (evaluation-1.md CR #1/#2) ──
+    //
+    // Cycle 1 computed `aggregation` correctly in memory (decode/patch/applyPatch)
+    // but never wired it into PanelRowMapper/PanelRepository, so the very first
+    // PATCH-then-reload silently dropped it. These tests PATCH the aggregation
+    // spec and then re-read it via `GET /api/dashboards/:id/panels` — a fresh
+    // `panelRepo.findAllByDashboardId` query, NOT the PATCH response — so a
+    // regression that drops the DB round-trip (but keeps the in-memory patch
+    // working) is actually caught.
+
+    "persist a metric panel's aggregation spec across a real repository re-read (HEL-292)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Metric Aggregation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val aggregation = JsObject("value" -> JsString("profit"), "agg" -> JsString("avg"))
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("aggregation" -> aggregation)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
+      }
+    }
+
+    "persist a chart panel's groupBy aggregation spec across a real repository re-read (HEL-292)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Aggregation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rating by Year"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val aggregation = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("aggregation" -> aggregation)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
+      }
+    }
+
+    "clear a metric panel's aggregation spec via explicit null and have the clear survive a real repository re-read (HEL-292)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Clear Aggregation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "aggregation" -> JsObject("value" -> JsString("profit"), "agg" -> JsString("sum"))
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("aggregation" -> JsNull)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields.contains("aggregation") shouldBe false
+      }
+    }
+
     // ── REST connector routes ──────────────────────────────────────────────────
 
     "POST /api/sources creates DataSource and registers DataType on successful fetch" in {

@@ -29,11 +29,23 @@ const layoutSchema = z.object({
   h: z.number().int().positive(),
 });
 
+const aggFnSchema = z.enum(["count", "sum", "avg", "min", "max"]);
+
+// Viz-level aggregation spec (metric OR chart shape) — matches
+// `MetricAggregation`/`ChartAggregation` in schemas/panel.schema.json.
+// A single union keeps the zod schema simple; server-side validation is the
+// authority on which shape applies to which panel type.
+const aggregationSchema = z.union([
+  z.object({ value: z.string().min(1), agg: aggFnSchema }),
+  z.object({ groupBy: z.string().min(1), agg: aggFnSchema, yField: z.string().min(1) }),
+]);
+
 const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),
   fieldMapping: z.record(z.string()).optional(),
+  aggregation: aggregationSchema.optional(),
   layout: layoutSchema.optional(),
 });
 

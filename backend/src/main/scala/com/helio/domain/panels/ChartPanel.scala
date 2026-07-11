@@ -9,13 +9,14 @@ import spray.json.DefaultJsonProtocol._
  *  as distinct types per design.md §1 so future divergence is structural. */
 final case class ChartPanelConfig(
     dataTypeId: DataTypeId,
-    fieldMapping: JsObject
+    fieldMapping: JsObject,
+    aggregation: Option[JsObject] = None
 )
 
 object ChartPanelConfig {
-  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty)
+  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None)
 
-  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat2(ChartPanelConfig.apply)
+  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat3(ChartPanelConfig.apply)
 
   def decode(json: JsValue): ChartPanelConfig = json match {
     case JsObject(fields) =>
@@ -27,7 +28,11 @@ object ChartPanelConfig {
         case Some(o: JsObject) => o
         case _                 => JsObject.empty
       }
-      ChartPanelConfig(dataTypeId, mapping)
+      val aggregation = fields.get("aggregation") match {
+        case Some(o: JsObject) => Some(o)
+        case _                 => None
+      }
+      ChartPanelConfig(dataTypeId, mapping, aggregation)
     case _ => Empty
   }
 
@@ -35,13 +40,14 @@ object ChartPanelConfig {
 
   final case class Patch(
       dataTypeId: Option[Option[DataTypeId]],
-      fieldMapping: Option[Option[JsObject]]
+      fieldMapping: Option[Option[JsObject]],
+      aggregation: Option[Option[JsObject]]
   ) {
-    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None)
+    val Empty: Patch = Patch(None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -57,7 +63,13 @@ object ChartPanelConfig {
           case Some(o: JsObject) => Some(Some(o))
           case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
         }
-        Patch(typeId, mapping)
+        val aggregation = fields.get("aggregation") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(o))
+          case Some(x)           => deserializationError(s"aggregation must be an object or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation)
       case _ => Empty
     }
   }
@@ -95,7 +107,8 @@ final case class ChartPanel(
   def applyPatch(patch: ChartPanelConfig.Patch): ChartPanel = copy(
     config = ChartPanelConfig(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
-      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
+      aggregation  = patch.aggregation.fold(config.aggregation)(identity)
     )
   )
 }

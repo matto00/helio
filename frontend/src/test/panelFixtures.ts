@@ -73,6 +73,7 @@ export function makeMetricPanel(
   const config: MetricPanelConfig = {
     dataTypeId: overrides.config?.dataTypeId ?? "",
     fieldMapping: overrides.config?.fieldMapping ?? {},
+    aggregation: overrides.config?.aggregation,
   };
   return applyBase<MetricPanel>(overrides, "metric", config);
 }
@@ -83,6 +84,7 @@ export function makeChartPanel(
   const config: ChartPanelConfig = {
     dataTypeId: overrides.config?.dataTypeId ?? "",
     fieldMapping: overrides.config?.fieldMapping ?? {},
+    aggregation: overrides.config?.aggregation,
   };
   return applyBase<ChartPanel>(overrides, "chart", config);
 }

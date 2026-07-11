@@ -165,6 +165,110 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ── HEL-292: MetricPanelConfig / ChartPanelConfig aggregation wiring ───────
+
+  "MetricPanelConfig.aggregation" should {
+    val agg = JsObject("value" -> JsString("rating"), "agg" -> JsString("avg"))
+
+    "default to None when absent" in {
+      MetricPanelConfig.decode(JsObject.empty).aggregation shouldBe None
+    }
+
+    "decode a present aggregation object" in {
+      val decoded = MetricPanelConfig.decode(JsObject(
+        "dataTypeId" -> JsString("dt1"),
+        "aggregation" -> agg
+      ))
+      decoded.aggregation shouldBe Some(agg)
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg))
+      val decoded = MetricPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves aggregation untouched (outer None)" in {
+      MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).aggregation shouldBe None
+    }
+
+    "Patch.decode: explicit null clears aggregation (Some(None))" in {
+      MetricPanelConfig.Patch.decode(JsObject("aggregation" -> JsNull)).aggregation shouldBe Some(None)
+    }
+
+    "Patch.decode: present object sets aggregation (Some(Some(v)))" in {
+      MetricPanelConfig.Patch.decode(JsObject("aggregation" -> agg)).aggregation shouldBe Some(Some(agg))
+    }
+
+    "applyPatch: absent key preserves the existing aggregation" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None))
+      patched.config.aggregation shouldBe Some(agg)
+    }
+
+    "applyPatch: explicit null clears a previously-set aggregation" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, Some(None)))
+      patched.config.aggregation shouldBe None
+    }
+
+    "applyPatch: present object sets aggregation" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, Some(Some(agg))))
+      patched.config.aggregation shouldBe Some(agg)
+    }
+  }
+
+  "ChartPanelConfig.aggregation" should {
+    val agg = JsObject(
+      "groupBy" -> JsString("year"),
+      "agg"     -> JsString("avg"),
+      "yField"  -> JsString("rating")
+    )
+
+    "default to None when absent" in {
+      ChartPanelConfig.decode(JsObject.empty).aggregation shouldBe None
+    }
+
+    "decode a present aggregation object" in {
+      val decoded = ChartPanelConfig.decode(JsObject(
+        "dataTypeId" -> JsString("dt1"),
+        "aggregation" -> agg
+      ))
+      decoded.aggregation shouldBe Some(agg)
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg))
+      val decoded = ChartPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves aggregation untouched (outer None)" in {
+      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).aggregation shouldBe None
+    }
+
+    "Patch.decode: explicit null clears aggregation (Some(None))" in {
+      ChartPanelConfig.Patch.decode(JsObject("aggregation" -> JsNull)).aggregation shouldBe Some(None)
+    }
+
+    "Patch.decode: present object sets aggregation (Some(Some(v)))" in {
+      ChartPanelConfig.Patch.decode(JsObject("aggregation" -> agg)).aggregation shouldBe Some(Some(agg))
+    }
+
+    "applyPatch: explicit null clears a previously-set aggregation" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None)))
+      patched.config.aggregation shouldBe None
+    }
+
+    "applyPatch: present object sets aggregation" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg))))
+      patched.config.aggregation shouldBe Some(agg)
+    }
+  }
+
   // Exhaustiveness pattern-match — adding an 8th subtype without updating this
   // block fails compilation (non-exhaustive match warning is fatal under the
   // build's `-Xfatal-warnings` if enabled, else a runtime MatchError surfaces
