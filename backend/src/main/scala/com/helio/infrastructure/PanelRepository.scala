@@ -202,8 +202,8 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     ctx.withSystemContext(
       table
         .filter(_.id === panel.id.value)
-        .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.lastUpdated))
-        .update((updated.typeId, updated.fieldMapping, updated.content, updated.imageUrl, updated.imageFit, updated.dividerOrientation, updated.dividerWeight, updated.dividerColor, updated.aggregation, updated.metricLabel, updated.metricUnit, lastUpdated))
+        .map(r => (configColumnsOf(r), r.lastUpdated))
+        .update((configColumnValuesOf(updated), lastUpdated))
         .andThen(table.filter(_.id === panel.id.value).result.headOption)
     ).map(_.map(rowToDomain))
   }
@@ -231,6 +231,41 @@ object PanelRepository {
       _.toJson.compactPrint,
       _.parseJson.convertTo[PanelAppearance]
     )
+
+  /** Single source of truth for "the typed-config columns" — every column a
+   *  panel subtype's config can populate via `PanelRowMapper.domainToRow`.
+   *  Both `PanelRepository.replace` and `PanelMutationOps.batchUpdate`'s
+   *  config-patch branch write back this exact set so the two paths cannot
+   *  silently diverge when a new config column is added (HEL-296). */
+  def configColumnsOf(r: PanelTable): (
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[Int]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]]
+  ) =
+    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit)
+
+  def configColumnValuesOf(row: PanelRow): (
+      Option[String],
+      Option[String],
+      Option[String],
+      Option[String],
+      Option[String],
+      Option[String],
+      Option[Int],
+      Option[String],
+      Option[String],
+      Option[String],
+      Option[String]
+  ) =
+    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit)
 
   case class PanelRow(
       id: String,

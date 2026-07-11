@@ -1988,6 +1988,129 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-296: batchUpdate config-patch path must persist `aggregation` at
+    // parity with the single-panel replace path. These tests patch aggregation
+    // via POST /api/panels/updateBatch and then re-read via a fresh
+    // GET /api/dashboards/:id/panels (not the batch response) so a regression
+    // that drops the DB write (but keeps the in-memory patch working) is
+    // actually caught. Written against pre-fix code, this test fails because
+    // batchUpdate's config-patch column whitelist omits `aggregation`.
+
+    "panels updateBatch persists a metric panel's aggregation spec (HEL-296)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Metric Aggregation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val aggregation = JsObject("value" -> JsString("rating"), "agg" -> JsString("avg"))
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("config"),
+        panels = Vector(PanelBatchItem(panelId, None, None, None, Some(JsObject("aggregation" -> aggregation))))
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
+      }
+    }
+
+    "panels updateBatch persists a chart panel's groupBy aggregation spec (HEL-296)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Chart Aggregation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rating by Year"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val aggregation = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("config"),
+        panels = Vector(PanelBatchItem(panelId, None, None, None, Some(JsObject("aggregation" -> aggregation))))
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
+      }
+    }
+
+    // HEL-293 added metric literal label/unit (V44 columns metric_label /
+    // metric_unit). Same parity risk as `aggregation`: the config-patch
+    // whitelist in `PanelRepository.configColumnsOf` /
+    // `configColumnValuesOf` must include every config column or a
+    // batch-patched value round-trips in memory but never reaches the DB.
+    "panels updateBatch persists a metric panel's literal label/unit override (HEL-293/HEL-296)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Metric Label/Unit Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Revenue"), Some("metric"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("config"),
+        panels = Vector(
+          PanelBatchItem(
+            panelId,
+            None,
+            None,
+            None,
+            Some(JsObject("label" -> JsString("Total Revenue"), "unit" -> JsString("USD")))
+          )
+        )
+      )
+
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("label") shouldBe JsString("Total Revenue")
+        panel.config.asJsObject.fields("unit") shouldBe JsString("USD")
+      }
+    }
+
   }
 
   // ── Session middleware — 401 tests ───────────────────────────────────────────

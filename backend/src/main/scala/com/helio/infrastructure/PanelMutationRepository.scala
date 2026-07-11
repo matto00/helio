@@ -103,8 +103,8 @@ trait PanelMutationOps { self: PanelRepository =>
             }
             val patchedRow = domainToRow(patched)
             updates += table.filter(_.id === item.id)
-              .map(r => (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.lastUpdated))
-              .update((patchedRow.typeId, patchedRow.fieldMapping, patchedRow.content, patchedRow.imageUrl, patchedRow.imageFit, patchedRow.dividerOrientation, patchedRow.dividerWeight, patchedRow.dividerColor, now))
+              .map(r => (configColumnsOf(r), r.lastUpdated))
+              .update((configColumnValuesOf(patchedRow), now))
               .map(_ => ())
           }
 
