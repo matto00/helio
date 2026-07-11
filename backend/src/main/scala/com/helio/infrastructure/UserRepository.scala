@@ -25,9 +25,11 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
       avatarUrl   = row.avatarUrl
     )
 
-  private def sessionRowToDomain(row: SessionRow): UserSession =
+  /** Reconstructs the domain session with the caller's raw `token`, not the
+   *  row's `tokenHash` — the row never carries the raw value (HEL-288). */
+  private def sessionRowToDomain(row: SessionRow, rawToken: String): UserSession =
     UserSession(
-      token     = row.token,
+      token     = rawToken,
       userId    = UserId(row.userId.toString),
       createdAt = row.createdAt,
       expiresAt = row.expiresAt
@@ -100,9 +102,12 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
     db.run(users.filter(_.id === UUID.fromString(userId.value)).map(_.passwordHash).result.headOption)
       .map(_.flatten)
 
+  /** Hashes the raw token before insert (HEL-288); returns the original
+   *  (raw-token) `session` unchanged so callers (`AuthService`) can still
+   *  return it in `AuthResponse.token`. */
   def createSession(session: UserSession): Future[UserSession] = {
     val row = SessionRow(
-      token     = session.token,
+      tokenHash = TokenHashing.sha256Hex(session.token),
       userId    = UUID.fromString(session.userId.value),
       createdAt = session.createdAt,
       expiresAt = session.expiresAt
@@ -110,12 +115,15 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
     db.run(sessions += row).map(_ => session)
   }
 
+  /** Hashes the incoming raw `token` before querying (HEL-288); the raw value
+   *  itself is never compared against the database. */
   def findSession(token: String): Future[Option[UserSession]] =
-    db.run(sessions.filter(_.token === token).result.headOption)
-      .map(_.map(sessionRowToDomain))
+    db.run(sessions.filter(_.tokenHash === TokenHashing.sha256Hex(token)).result.headOption)
+      .map(_.map(sessionRowToDomain(_, token)))
 
+  /** Hashes the incoming raw `token` before deleting (HEL-288). */
   def deleteSession(token: String): Future[Unit] =
-    db.run(sessions.filter(_.token === token).delete).map(_ => ())
+    db.run(sessions.filter(_.tokenHash === TokenHashing.sha256Hex(token)).delete).map(_ => ())
 }
 
 object UserRepository {
@@ -137,7 +145,7 @@ object UserRepository {
   )
 
   final case class SessionRow(
-      token: String,
+      tokenHash: String,
       userId: UUID,
       createdAt: Instant,
       expiresAt: Instant
@@ -155,10 +163,10 @@ object UserRepository {
   }
 
   class SessionTable(tag: Tag) extends Table[SessionRow](tag, "user_sessions") {
-    def token     = column[String]("token", O.PrimaryKey)
+    def tokenHash = column[String]("token_hash", O.PrimaryKey)
     def userId    = column[UUID]("user_id")
     def createdAt = column[Instant]("created_at")
     def expiresAt = column[Instant]("expires_at")
-    def * = (token, userId, createdAt, expiresAt) <> (SessionRow.tupled, SessionRow.unapply)
+    def * = (tokenHash, userId, createdAt, expiresAt) <> (SessionRow.tupled, SessionRow.unapply)
   }
 }

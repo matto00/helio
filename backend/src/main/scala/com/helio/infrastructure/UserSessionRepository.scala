@@ -19,11 +19,14 @@ class SlickUserSessionRepository(db: JdbcBackend.Database)(implicit ec: Executio
 
   private val sessions = TableQuery[SessionTable]
 
+  /** Hashes the incoming raw `token` before filtering (HEL-288) — this is the
+   *  hot authentication path, called on every protected request. */
   override def findValidSession(token: String): Future[Option[AuthenticatedUser]] = {
-    val now = Instant.now()
+    val now  = Instant.now()
+    val hash = TokenHashing.sha256Hex(token)
     db.run(
       sessions
-        .filter(s => s.token === token && s.expiresAt > now)
+        .filter(s => s.tokenHash === hash && s.expiresAt > now)
         .map(_.userId)
         .result
         .headOption
