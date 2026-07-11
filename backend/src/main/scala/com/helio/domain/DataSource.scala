@@ -127,6 +127,26 @@ final case class StaticSource(
   override val kind: String = "static"
 }
 
+/** Image-backed source (HEL-216, second content connector of the v1.4
+ *  Unstructured Data release). Config shape is identical to
+ *  [[TextSourceConfig]] — same relative-`FileSystem`-key convention
+ *  (`image/<sourceId>.<ext>`), same `sourceUrl` semantics (refresh re-fetches
+ *  vs. re-reads). The divergence from `TextSource` is entirely in the
+ *  metadata-field set and the content `DataFieldType` (`BinaryRefType`
+ *  instead of `StringBodyType`), which live in `DataSourceService`. */
+final case class ImageSourceConfig(path: String, sourceUrl: Option[String])
+
+final case class ImageSource(
+    id: DataSourceId,
+    name: String,
+    ownerId: UserId,
+    createdAt: Instant,
+    updatedAt: Instant,
+    config: ImageSourceConfig
+) extends DataSource {
+  override val kind: String = "image"
+}
+
 /** Parse / unparse helpers for the `kind` string. The DB column and the
  *  request/response `type` field both round-trip through these. Standalone —
  *  not a `sealed trait` enum — because there are no callers that want enum
@@ -140,8 +160,9 @@ object DataSourceKind {
   val Static: String  = "static"
   val Text: String    = "text"
   val Pdf: String     = "pdf"
+  val Image: String   = "image"
 
-  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text, Pdf)
+  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text, Pdf, Image)
 
   def parseKind(s: String): Either[String, String] =
     if (All.contains(s)) Right(s)

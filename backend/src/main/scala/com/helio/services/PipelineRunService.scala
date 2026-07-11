@@ -4,6 +4,7 @@ import com.helio.api.protocols.{PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.{
   AuthenticatedUser,
+  BinaryRef,
   DataField,
   DataSource,
   DataTypeId,
@@ -17,6 +18,7 @@ import com.helio.domain.{
   SqlSource
 }
 import com.helio.infrastructure.{
+  BinaryRefRepository,
   DataSourceRepository,
   DataTypeRepository,
   DataTypeRowRepository,
@@ -45,7 +47,8 @@ final class PipelineRunService(
     dataTypeRowRepo:  DataTypeRowRepository,
     cache:            PipelineRunCache,
     registry:         PipelineRunRegistry,
-    fileSystem:       FileSystem
+    fileSystem:       FileSystem,
+    binaryRefRepo:    BinaryRefRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val engine = new InProcessPipelineEngine(fileSystem)
@@ -306,6 +309,16 @@ final class PipelineRunService(
     val rowsUpsert =
       if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
       else Future.successful(())
+    // HEL-216: wire BinaryRefRepository.overwriteForDataType into the one
+    // real row-write call site, generically over row shape (not gated on
+    // source kind) — see design.md Decision "BinaryRefRepository...wired
+    // into PipelineRunService.onRunSuccess". Extracted from resultRows (the
+    // post-step, final row values — not the pre-step source rows) so the
+    // refs match exactly what jsRows/rowsUpsert just wrote.
+    val binaryRefsUpsert =
+      if (binaryRefRepo != null)
+        binaryRefRepo.overwriteForDataType(outputDataTypeId.value, extractBinaryRefs(outputDataTypeId, resultRows))
+      else Future.successful(())
     val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
     val updateRun =
       if (pipelineRunRepo != null)
@@ -314,10 +327,46 @@ final class PipelineRunService(
     for {
       _ <- schemaUpsert
       _ <- rowsUpsert
+      _ <- binaryRefsUpsert
       _ <- updateMeta
       _ <- updateRun
     } yield ()
   }
+
+  /** Extract every `binary-ref`-shaped field value from `rows` into
+   *  [[BinaryRef]] records for `binaryRefRepo.overwriteForDataType`
+   *  (HEL-217's intended write contract, first wired by HEL-216). Structural,
+   *  not schema-driven: a value matches when it's a `Map` carrying all four
+   *  required keys with the expected value types — specific enough that a
+   *  false-positive match on an unrelated JSON object is very unlikely (see
+   *  design.md's Risks/Trade-offs section); a false negative only means a
+   *  missing secondary-index entry, non-fatal since `binary_refs` is
+   *  explicitly a derived index, never the row read path. */
+  private def extractBinaryRefs(dataTypeId: DataTypeId, rows: Seq[Map[String, Any]]): Vector[BinaryRef] = {
+    val now = Instant.now()
+    rows.zipWithIndex.flatMap { case (row, rowIndex) =>
+      row.collect {
+        case (fieldName, value: Map[String, Any] @unchecked) if isBinaryRefShape(value) =>
+          BinaryRef(
+            id         = UUID.randomUUID().toString,
+            dataTypeId = dataTypeId.value,
+            rowIndex   = rowIndex,
+            fieldName  = fieldName,
+            storageKey = value("storageKey").asInstanceOf[String],
+            mimeType   = value("mimeType").asInstanceOf[String],
+            filename   = value("filename").asInstanceOf[String],
+            sizeBytes  = value("sizeBytes").asInstanceOf[Long],
+            createdAt  = now
+          )
+      }
+    }.toVector
+  }
+
+  private def isBinaryRefShape(m: Map[String, Any]): Boolean =
+    m.get("storageKey").exists(_.isInstanceOf[String]) &&
+      m.get("mimeType").exists(_.isInstanceOf[String]) &&
+      m.get("filename").exists(_.isInstanceOf[String]) &&
+      m.get("sizeBytes").exists(_.isInstanceOf[Long])
 
   // Infer field type strings from row values. Whole-number Doubles → "integer",
   // fractional Doubles → "double" (jsValueToAny always produces Double).

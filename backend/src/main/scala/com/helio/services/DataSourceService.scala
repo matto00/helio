@@ -25,15 +25,16 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-/** Business logic for CSV + Static + Text (HEL-215) + Pdf (HEL-214) data
+/** Business logic for CSV + Static + Text (HEL-215) + Pdf (HEL-214) +
+ *  Image (HEL-216) data
  *  sources.
  *
  *  CSV inserts and previews carry raw bytes (already unmarshalled by the route
  *  layer from `Multipart.FormData`) so the service stays free of Pekko HTTP
  *  types. `Materializer` is passed explicitly because the CSV write path uses
  *  `fileSystem.write` which may internally stream. `ActorSystem` is passed
- *  explicitly for `ContentSourceSupport.fetchUrl` (text-source URL
- *  ingestion).
+ *  explicitly for `ContentSourceSupport.fetchUrl` (text-source and
+ *  image-source URL ingestion).
  *
  *  `resolveHost` defaults to [[ContentSourceSupport.defaultResolveHost]] (real
  *  DNS) and `isBlocked` defaults to [[ContentSourceSupport.isBlockedAddress]]
@@ -69,6 +70,12 @@ final class DataSourceService(
    *  under CSV's 50 MB — mirrors the text/CSV env-var pattern. */
   private val pdfMaxBytes: Long =
     sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
+
+  /** Max upload / URL-fetch size for image sources (HEL-216). Between text's
+   *  10 MB and CSV's 50 MB — images are typically larger than markdown but
+   *  smaller than bulk CSV. */
+  private val imageMaxBytes: Long =
+    sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -335,6 +342,92 @@ final class DataSourceService(
             }
       }
 
+  // ── Create (Image, HEL-216) ────────────────────────────────────────────────
+
+  /** Upload path: `filename` is the original uploaded file's name (used only
+   *  to determine + validate the extension; the stored `path`'s basename is
+   *  what's reported as the `filename` field value at pipeline-run time). */
+  def createImageUpload(
+      name: String,
+      bytes: Array[Byte],
+      filename: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    ingestImage(name, filename, bytes, sourceUrl = None, user)
+
+  /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
+   *  and stores them exactly like an upload (`config.sourceUrl` set so
+   *  refresh re-fetches instead of re-reading). */
+  def createImageUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadGateway(err)))
+      case Right(bytes) =>
+        ingestImage(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+    }
+
+  /** Shared ingestion path for both image-source creation modes: extension
+   *  validation, size enforcement, dimensions/MIME derivation via
+   *  `ImageSourceSupport.dimensionsAndMime`, `FileSystem` write at
+   *  `image/<sourceId>.<ext>`, and `DataType` registration via
+   *  `ContentSourceSupport.metadataFields(BinaryRefType, ...)` plus
+   *  `width`/`height`/`mimeType` appended locally (image-specific, not part
+   *  of the generic content contract). */
+  private def ingestImage(
+      name: String,
+      filename: String,
+      bytes: Array[Byte],
+      sourceUrl: Option[String],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, DataSource]] =
+    if (name.trim.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("name is required")))
+    else
+      ContentSourceSupport.validateExtension(filename, ContentSourceSupport.ImageExtensions) match {
+        case Left(msg) =>
+          Future.successful(Left(ServiceError.BadRequest(msg)))
+        case Right(ext) =>
+          if (bytes.length.toLong > imageMaxBytes)
+            Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $imageMaxBytes bytes")))
+          else
+            ImageSourceSupport.dimensionsAndMime(bytes, filename) match {
+              case Left(msg) =>
+                Future.successful(Left(ServiceError.BadRequest(msg)))
+              case Right((width, height, mimeType)) =>
+                val now      = Instant.now()
+                val sourceId = DataSourceId(UUID.randomUUID().toString)
+                val filePath = s"image/${sourceId.value}.$ext"
+                val source = ImageSource(
+                  id        = sourceId,
+                  name      = name.trim,
+                  ownerId   = user.id,
+                  createdAt = now,
+                  updatedAt = now,
+                  config    = ImageSourceConfig(filePath, sourceUrl)
+                )
+                fileSystem.write(filePath, bytes).flatMap { _ =>
+                  dataSourceRepo.insert(source, user).flatMap { ds =>
+                    val dt = DataType(
+                      id        = DataTypeId(UUID.randomUUID().toString),
+                      sourceId  = Some(ds.id),
+                      name      = name.trim,
+                      fields    = ContentSourceSupport.metadataFields(DataFieldType.BinaryRefType, filename, bytes.length.toLong) ++
+                        Vector(
+                          DataField("width", "Width", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+                          DataField("height", "Height", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+                          DataField("mimeType", "MIME Type", DataFieldType.asString(DataFieldType.StringType), nullable = false)
+                        ),
+                      version   = 1,
+                      createdAt = now,
+                      updatedAt = now,
+                      ownerId   = user.id
+                    )
+                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                  }
+                }
+            }
+      }
+
   // ── Update / delete ───────────────────────────────────────────────────────
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
@@ -355,6 +448,7 @@ final class DataSourceService(
               case s: StaticSource => s.copy(name = newName, updatedAt = now)
               case t: TextSource   => t.copy(name = newName, updatedAt = now)
               case p: PdfSource    => p.copy(name = newName, updatedAt = now)
+              case i: ImageSource  => i.copy(name = newName, updatedAt = now)
             }
             dataSourceRepo.update(updated, user).map {
               case None     => Left(ServiceError.NotFound("Data source not found"))
@@ -375,6 +469,8 @@ final class DataSourceService(
             fileSystem.delete(t.config.path).recover { case _ => () }
           case p: PdfSource =>
             fileSystem.delete(p.config.path).recover { case _ => () }
+          case i: ImageSource =>
+            fileSystem.delete(i.config.path).recover { case _ => () }
           case _ => Future.successful(())
         }
         deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map(_ => Right(()))
@@ -409,8 +505,10 @@ final class DataSourceService(
         refreshText(t, user)
       case Some(p: PdfSource) =>
         refreshPdf(p, user)
+      case Some(i: ImageSource) =>
+        refreshImage(i, user)
       case Some(_) =>
-        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, text, and pdf sources")))
+        Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, text, pdf, and image sources")))
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
@@ -524,6 +622,55 @@ final class DataSourceService(
         val fields   = pdfFields(filename, bytes.length.toLong)
         upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
     }
+
+  /** Refresh an image source (HEL-216): re-read the stored file when it was
+   *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the
+   *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
+   *  way, the linked DataType's fixed schema is re-upserted and
+   *  `width`/`height`/`mimeType` are re-derived from the (re-read or
+   *  re-fetched) bytes. */
+  private def refreshImage(source: ImageSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    source.config.sourceUrl match {
+      case None =>
+        if (source.config.path.isEmpty)
+          Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+        else
+          fileSystem.read(source.config.path).flatMap { bytes =>
+            finishImageRefresh(source, bytes, user)
+          }.recover {
+            case _: java.nio.file.NoSuchFileException =>
+              Left(ServiceError.BadRequest(
+                "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
+              ))
+          }
+      case Some(url) =>
+        ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
+          case Left(err) =>
+            Future.successful(Left(ServiceError.BadGateway(err)))
+          case Right(bytes) =>
+            if (bytes.length.toLong > imageMaxBytes)
+              Future.successful(Left(ServiceError.PayloadTooLarge(s"File exceeds the maximum allowed size of $imageMaxBytes bytes")))
+            else
+              fileSystem.write(source.config.path, bytes).flatMap(_ => finishImageRefresh(source, bytes, user))
+        }
+    }
+
+  private def finishImageRefresh(source: ImageSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+    val filename = Paths.get(source.config.path).getFileName.toString
+    ImageSourceSupport.dimensionsAndMime(bytes, filename) match {
+      case Left(msg) =>
+        Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right((_, _, _)) =>
+        val now    = Instant.now()
+        val fields = ContentSourceSupport.metadataFields(DataFieldType.BinaryRefType, filename, bytes.length.toLong) ++
+          Vector(
+            DataField("width", "Width", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+            DataField("height", "Height", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+            DataField("mimeType", "MIME Type", DataFieldType.asString(DataFieldType.StringType), nullable = false)
+          )
+        upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+    }
+  }
 
   /** Update the source's auto-inferred DataType in place, or insert a fresh
    *  one if no DT exists for the source. Inserts preserve the link via

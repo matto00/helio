@@ -1,7 +1,7 @@
 package com.helio.domain
 
 import com.helio.infrastructure.{DataSourceRepository, FileSystem}
-import com.helio.services.PdfTextSupport
+import com.helio.services.{ImageSourceSupport, PdfTextSupport}
 import PipelineRowJson.{Row, parseStaticRows}
 
 import java.nio.charset.StandardCharsets
@@ -79,11 +79,26 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
           )
         )
       else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _))
+    case i: ImageSource =>
+      if (i.config.path.isEmpty)
+        Future.failed(
+          new IllegalArgumentException(
+            "Image data source '" + i.name + "' (id=" + i.id.value +
+              ") is missing required config key 'path'"
+          )
+        )
+      else
+        fileSystem.read(i.config.path).flatMap { bytes =>
+          loadImageRowFromBytes(i.config.path, bytes) match {
+            case Right(row) => Future.successful(row)
+            case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
+          }
+        }
     case other =>
       Future.failed(
         new IllegalArgumentException(
           "Unsupported source type for in-process pipeline engine: " +
-            other.kind + ". Only static, csv, text, and pdf are supported."
+            other.kind + ". Only static, csv, text, pdf, and image are supported."
         )
       )
   }
@@ -98,9 +113,9 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with
-  // CSV's multi-row loader — HEL-214 (PDF, below) adds its own `loadRows`
-  // case with its own extraction logic rather than
-  // generalizing this over three data points. ──────────────────────────────
+  // CSV's multi-row loader — HEL-214 (PDF) and HEL-216 (Image, below) each add
+  // their own `loadRows` case with its own extraction logic rather than
+  // generalizing this over multiple data points. ───────────────────────────
 
   private def loadTextRowFromBytes(path: String, bytes: Array[Byte]): Seq[Row] = {
     val content  = new String(bytes, StandardCharsets.UTF_8)
@@ -137,6 +152,34 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
           )
         )
     }
+
+  // ── Image loader (HEL-216): own case, deliberately not shared with
+  // TextSource's loader, per HEL-215's design note that this dispatch is
+  // per-connector rather than generalized. `content` carries the nested
+  // `binary-ref` map (`storageKey`, `mimeType`, `filename`, `sizeBytes`);
+  // width/height/mimeType are also surfaced as top-level fields. ───────────
+
+  private def loadImageRowFromBytes(path: String, bytes: Array[Byte]): Either[String, Seq[Row]] = {
+    val filename = java.nio.file.Paths.get(path).getFileName.toString
+    ImageSourceSupport.dimensionsAndMime(bytes, filename).map { case (width, height, mimeType) =>
+      val content: Map[String, Any] = Map(
+        "storageKey" -> path,
+        "mimeType"   -> mimeType,
+        "filename"   -> filename,
+        "sizeBytes"  -> bytes.length.toLong
+      )
+      Seq(
+        Map(
+          "content"   -> content,
+          "filename"  -> filename,
+          "sizeBytes" -> bytes.length.toLong,
+          "mimeType"  -> mimeType,
+          "width"     -> width,
+          "height"    -> height
+        )
+      )
+    }
+  }
 
   // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
 

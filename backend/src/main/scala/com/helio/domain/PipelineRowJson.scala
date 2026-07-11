@@ -33,6 +33,18 @@ object PipelineRowJson {
     case bd: BigDecimal           => JsNumber(bd)
     case bd: java.math.BigDecimal => JsNumber(BigDecimal(bd))
     case s: String                => JsString(s)
+    // HEL-216 (skeptic design-gate round 1, blocking): the first row value
+    // this codebase ever nests a `Map[String, Any]` inside a row is the
+    // image connector's `content` field (a `BinaryRef` map: `storageKey`,
+    // `mimeType`, `filename`, `sizeBytes`). Without this case, the catch-all
+    // below would stringify it via `Map#toString` (e.g.
+    // "Map(storageKey -> ...)") instead of producing a real JSON object,
+    // silently corrupting `data_type_rows.data.content` — the sole row-read
+    // path (see PipelineRunService.onRunSuccess / GET /api/types/:id/rows).
+    // Must come before the catch-all; recurses so any nested value gets the
+    // same treatment. Behaviour for every existing scalar case above is
+    // unchanged.
+    case m: Map[String, Any] @unchecked => JsObject(m.map { case (k, v) => k -> anyToJsValue(v) })
     case _                        => JsString(v.toString)
   }
 

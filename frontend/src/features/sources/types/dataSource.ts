@@ -7,7 +7,7 @@
 // Extracted from `./models.ts` so the panel + data-source + pipeline-step
 // ADTs each live in their own file.
 
-export type DataSourceKind = "csv" | "rest_api" | "sql" | "static" | "text" | "pdf";
+export type DataSourceKind = "csv" | "rest_api" | "sql" | "static" | "text" | "pdf" | "image";
 
 export interface CsvSourceConfig {
   path: string;
@@ -87,12 +87,32 @@ export interface PdfSourceConfig {
   sourceUrl?: string;
 }
 
+// HEL-216: image connector. Config shape is identical to `TextSourceConfig`
+// — `sourceUrl` is present only for URL-ingested sources (refresh
+// re-fetches); absent for uploads (refresh re-reads the stored file).
+export interface ImageSourceConfig {
+  path: string;
+  sourceUrl?: string;
+}
+
 export interface PdfSource extends DataSourceBase {
   type: "pdf";
   config: PdfSourceConfig;
 }
 
-export type DataSource = CsvSource | RestSource | SqlSource | StaticSource | TextSource | PdfSource;
+export interface ImageSource extends DataSourceBase {
+  type: "image";
+  config: ImageSourceConfig;
+}
+
+export type DataSource =
+  | CsvSource
+  | RestSource
+  | SqlSource
+  | StaticSource
+  | TextSource
+  | PdfSource
+  | ImageSource;
 
 // ── Type-narrowing helpers ───────────────────────────────────────────────────
 // Used by multiple consumers (SourceDetailPanel, refresh dispatcher) so we
@@ -104,6 +124,7 @@ export const isSqlSource = (s: DataSource): s is SqlSource => s.type === "sql";
 export const isStaticSource = (s: DataSource): s is StaticSource => s.type === "static";
 export const isTextSource = (s: DataSource): s is TextSource => s.type === "text";
 export const isPdfSource = (s: DataSource): s is PdfSource => s.type === "pdf";
+export const isImageSource = (s: DataSource): s is ImageSource => s.type === "image";
 
 // ── Source schema + static-source payload types ─────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.

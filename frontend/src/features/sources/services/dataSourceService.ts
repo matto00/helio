@@ -134,6 +134,28 @@ export async function createPdfSourceUrl(name: string, url: string): Promise<Dat
   return response.data;
 }
 
+// HEL-216: image connector — file upload and URL-based ingestion, mirroring
+// the text/Markdown create paths respectively.
+export async function createImageSourceUpload(name: string, file: File): Promise<DataSource> {
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("type", "image");
+  formData.append("file", file);
+  const response = await httpClient.post<DataSource>("/api/data-sources", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+export async function createImageSourceUrl(name: string, url: string): Promise<DataSource> {
+  const response = await httpClient.post<DataSource>("/api/data-sources", {
+    name,
+    type: "image",
+    config: { url },
+  });
+  return response.data;
+}
+
 export async function deleteSource(sourceId: string): Promise<void> {
   await httpClient.delete(`/api/data-sources/${sourceId}`);
 }

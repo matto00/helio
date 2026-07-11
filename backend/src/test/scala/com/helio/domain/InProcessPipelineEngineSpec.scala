@@ -745,6 +745,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
 
     // HEL-214: PDF connector — multi-row loader (one row per page), the
     // first content connector whose loadRows case produces more than one row.
+    // ─────────────────────────────────────────────────────────────────────────
 
     "loadRows: PdfSource yields one row per page with correct pageNumber/pageCount/content/characterCount" in {
       val bytes = PdfFixtures.multiPagePdf(Seq("Alpha content", "Beta content", "Gamma content"))
@@ -792,6 +793,76 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       )
       ex.getMessage should include ("broken-pdf")
       ex.getMessage should include ("path")
+    }
+
+    // HEL-216: image connector — single-row loader with a nested `content`
+    // binary-ref map.
+
+    "loadRows: ImageSource yields exactly one row with content/filename/sizeBytes/mimeType/width/height keys" in {
+      val tmp = java.io.File.createTempFile("helio-image-regression-", ".png")
+      tmp.deleteOnExit()
+      val image = new java.awt.image.BufferedImage(5, 4, java.awt.image.BufferedImage.TYPE_INT_RGB)
+      javax.imageio.ImageIO.write(image, "png", tmp)
+      val bytes = java.nio.file.Files.readAllBytes(tmp.toPath)
+
+      val ds = ImageSource(
+        id        = DataSourceId("ds-image-1"),
+        name      = "image-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = ImageSourceConfig(tmp.getAbsolutePath, sourceUrl = None)
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+      rows should have size 1
+      val row = rows.head
+      row("filename")  shouldBe tmp.getName
+      row("sizeBytes") shouldBe bytes.length.toLong
+      row("mimeType")  shouldBe "image/png"
+      row("width")     shouldBe 5
+      row("height")    shouldBe 4
+
+      val content = row("content").asInstanceOf[Map[String, Any]]
+      content("storageKey") shouldBe tmp.getAbsolutePath
+      content("mimeType")   shouldBe "image/png"
+      content("filename")   shouldBe tmp.getName
+      content("sizeBytes")  shouldBe bytes.length.toLong
+    }
+
+    "loadRows: ImageSource with no path config raises a diagnostic error" in {
+      val ds = ImageSource(
+        id        = DataSourceId("ds-image-bad"),
+        name      = "broken-image",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = ImageSourceConfig("", sourceUrl = None)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("broken-image")
+      ex.getMessage should include ("path")
+    }
+
+    "loadRows: ImageSource with corrupt bytes raises a diagnostic error (not a raw exception)" in {
+      val tmp = java.io.File.createTempFile("helio-image-corrupt-", ".png")
+      tmp.deleteOnExit()
+      val writer = new java.io.FileOutputStream(tmp)
+      try writer.write(Array[Byte](0x00, 0x01, 0x02)) finally writer.close()
+
+      val ds = ImageSource(
+        id        = DataSourceId("ds-image-corrupt"),
+        name      = "corrupt-image",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = ImageSourceConfig(tmp.getAbsolutePath, sourceUrl = None)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("Unable to read image dimensions")
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────

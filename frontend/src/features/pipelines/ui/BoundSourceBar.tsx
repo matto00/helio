@@ -23,6 +23,8 @@ function labelForKind(kind: DataSourceKind): string {
       return "Text/Markdown";
     case "pdf":
       return "PDF";
+    case "image":
+      return "Image";
   }
 }
 

@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.{BinaryRefRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.services.PipelineRunService
 import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -48,6 +48,7 @@ class PipelineRunRoutesSpec
   private var dataSourceRepo: DataSourceRepository      = _
   private var pipelineRunRepo: PipelineRunRepository    = _
   private var dataTypeRowRepo: DataTypeRowRepository    = _
+  private var binaryRefRepo: BinaryRefRepository        = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -63,6 +64,7 @@ class PipelineRunRoutesSpec
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
+    binaryRefRepo    = new BinaryRefRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -125,6 +127,25 @@ class PipelineRunRoutesSpec
     dsId
   }
 
+  /** HEL-216: seed an `ImageSource` data source backed by a real on-disk PNG
+   *  (via `ImageIO`, JDK-standard) so `InProcessPipelineEngine.loadRows`'s
+   *  `ImageSource` case can actually decode it end-to-end. */
+  private def seedDsImage(): String = {
+    import PostgresProfile.api._
+    val tmp = java.io.File.createTempFile("helio-pipeline-image-", ".png")
+    tmp.deleteOnExit()
+    val image = new java.awt.image.BufferedImage(3, 2, java.awt.image.BufferedImage.TYPE_INT_RGB)
+    javax.imageio.ImageIO.write(image, "png", tmp)
+
+    val dsId     = UUID.randomUUID().toString
+    val dsConfig = s"""{"path":"${tmp.getAbsolutePath}"}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-image', 'image', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
   // ── Test fixture helpers ──────────────────────────────────────────────────
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
@@ -138,11 +159,12 @@ class PipelineRunRoutesSpec
       dtRepo: DataTypeRepository = null,
       rowRepo: DataTypeRowRepository = null,
       registry: PipelineRunRegistry = null,
-      user: AuthenticatedUser = dummyUser
+      user: AuthenticatedUser = dummyUser,
+      binRefRepo: BinaryRefRepository = null
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
@@ -522,6 +544,59 @@ class PipelineRunRoutesSpec
       val events = Await.result(eventsFuture, 10.seconds)
       events.map(_.status) shouldBe Seq("queued", "running", "succeeded")
       events.last.rowCount shouldBe Some(2)
+    }
+
+    // ── HEL-216: BinaryRefRepository.overwriteForDataType wiring ────────────
+
+    "POST /pipelines/:id/run over an ImageSource populates binary_refs" in {
+      val cache       = new PipelineRunCache()
+      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
+      val dsId        = seedDsImage()
+      val (pid, dtId) = seedPipelineWithDtId(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+      }
+      val refs = await(binaryRefRepo.findByDataTypeId(dtId))
+      refs should have size 1
+      refs.head.fieldName shouldBe "content"
+      refs.head.rowIndex   shouldBe 0
+
+      // Matches what actually landed in data_type_rows.data.content.
+      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      storedRows should have size 1
+      val contentJs = storedRows.head.fields("content").asJsObject
+      contentJs.fields("storageKey").convertTo[String] shouldBe refs.head.storageKey
+      contentJs.fields("mimeType").convertTo[String]   shouldBe refs.head.mimeType
+    }
+
+    "POST /pipelines/:id/run (second run over an ImageSource) replaces the prior binary_refs snapshot" in {
+      val cache       = new PipelineRunCache()
+      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
+      val dsId        = seedDsImage()
+      val (pid, dtId) = seedPipelineWithDtId(dsId)
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      await(binaryRefRepo.findByDataTypeId(dtId)) should have size 1
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      await(binaryRefRepo.findByDataTypeId(dtId)) should have size 1
+    }
+
+    "POST /pipelines/:id/run over a StaticSource (no binary-ref fields) writes no binary_refs rows" in {
+      val cache       = new PipelineRunCache()
+      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
+      val dsId        = seedDsWithData()
+      val (pid, dtId) = seedPipelineWithDtId(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      await(binaryRefRepo.findByDataTypeId(dtId)) shouldBe empty
     }
 
   }

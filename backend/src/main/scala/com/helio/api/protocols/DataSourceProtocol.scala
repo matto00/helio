@@ -82,6 +82,16 @@ final case class PdfSourceResponse(
   def `type`: String = DataSourceKind.Pdf
 }
 
+final case class ImageSourceResponse(
+    id: String,
+    name: String,
+    createdAt: String,
+    updatedAt: String,
+    config: ImageSourceConfigPayload
+) extends DataSourceResponse {
+  def `type`: String = DataSourceKind.Image
+}
+
 final case class DataSourcesResponse(items: Vector[DataSourceResponse])
 final case class UpdateDataSourceRequest(name: Option[String])
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
@@ -125,6 +135,10 @@ final case class TextSourceUrlRequest(name: String, `type`: String, config: Text
 final case class PdfSourceConfigPayload(path: String, sourceUrl: Option[String])
 final case class PdfSourceUrlConfigPayload(url: String)
 final case class PdfSourceUrlRequest(name: String, `type`: String, config: PdfSourceUrlConfigPayload)
+
+final case class ImageSourceConfigPayload(path: String, sourceUrl: Option[String])
+final case class ImageSourceUrlConfigPayload(url: String)
+final case class ImageSourceUrlRequest(name: String, `type`: String, config: ImageSourceUrlConfigPayload)
 
 final case class FieldOverridePayload(name: String, displayName: String, dataType: String)
 final case class CreateSourceRequest(
@@ -210,6 +224,14 @@ object DataSourceResponse {
         createdAt = p.createdAt.toString,
         updatedAt = p.updatedAt.toString,
         config    = PdfSourceConfigPayload(p.config.path, p.config.sourceUrl)
+      )
+    case i: ImageSource =>
+      ImageSourceResponse(
+        id        = i.id.value,
+        name      = i.name,
+        createdAt = i.createdAt.toString,
+        updatedAt = i.updatedAt.toString,
+        config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl)
       )
   }
 
@@ -328,6 +350,9 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val pdfSourceConfigPayloadFormat: RootJsonFormat[PdfSourceConfigPayload]         = jsonFormat2(PdfSourceConfigPayload.apply)
   implicit val pdfSourceUrlConfigPayloadFormat: RootJsonFormat[PdfSourceUrlConfigPayload]   = jsonFormat1(PdfSourceUrlConfigPayload.apply)
   implicit val pdfSourceUrlRequestFormat: RootJsonFormat[PdfSourceUrlRequest]               = jsonFormat3(PdfSourceUrlRequest.apply)
+  implicit val imageSourceConfigPayloadFormat: RootJsonFormat[ImageSourceConfigPayload]       = jsonFormat2(ImageSourceConfigPayload.apply)
+  implicit val imageSourceUrlConfigPayloadFormat: RootJsonFormat[ImageSourceUrlConfigPayload] = jsonFormat1(ImageSourceUrlConfigPayload.apply)
+  implicit val imageSourceUrlRequestFormat: RootJsonFormat[ImageSourceUrlRequest]             = jsonFormat3(ImageSourceUrlRequest.apply)
 
   // ── Per-subtype response formats (used only inside DataSourceResponseFormat) ─
   private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat5(CsvSourceResponse.apply)
@@ -336,6 +361,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat4(StaticSourceResponse.apply)
   private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat5(TextSourceResponse.apply)
   private val pdfSourceResponseFormat: RootJsonFormat[PdfSourceResponse]       = jsonFormat5(PdfSourceResponse.apply)
+  private val imageSourceResponseFormat: RootJsonFormat[ImageSourceResponse]   = jsonFormat5(ImageSourceResponse.apply)
 
   /** Discriminated-union format for the [[DataSourceResponse]] ADT.
    *
@@ -352,6 +378,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
         case s: StaticSourceResponse => staticSourceResponseFormat.write(s).asJsObject
         case t: TextSourceResponse   => textSourceResponseFormat.write(t).asJsObject
         case p: PdfSourceResponse    => pdfSourceResponseFormat.write(p).asJsObject
+        case i: ImageSourceResponse  => imageSourceResponseFormat.write(i).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(d.`type`)))
     }
@@ -363,6 +390,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
       case Some(JsString(DataSourceKind.Static))  => staticSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Text))    => textSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Pdf))     => pdfSourceResponseFormat.read(json)
+      case Some(JsString(DataSourceKind.Image))   => imageSourceResponseFormat.read(json)
       case Some(other)                            => deserializationError(s"Unknown DataSource type: $other")
       case None                                   => deserializationError("Missing 'type' discriminator on DataSource")
     }

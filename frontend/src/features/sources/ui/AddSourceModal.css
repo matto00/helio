@@ -134,6 +134,60 @@
   color: var(--app-error);
 }
 
+/* Footer action buttons (Cancel / submit) used by Text/Pdf/Static/Image
+   forms' self-contained footers — mirrors the shared .ui-modal-btn system
+   in shared/ui/Modal.css since these forms render their own footer rather
+   than using <Modal>'s footer prop. */
+.add-source-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.add-source-modal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.add-source-modal__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.add-source-modal__btn--secondary {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.add-source-modal__btn--secondary:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.add-source-modal__btn--primary {
+  border: 1px solid transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.add-source-modal__btn--primary:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
 /* Misc legacy action-link used by SqlTab or StaticSourceForm children */
 .add-source-modal__action-link {
   border: none;
