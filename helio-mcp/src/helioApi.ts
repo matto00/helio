@@ -19,6 +19,7 @@
 
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
+  CreateSourceResult,
   CsvPreview,
   DashboardProposal,
   DashboardResponse,
@@ -31,9 +32,19 @@ import type {
   PipelineAnalyzeResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
+  RestAuthInput,
   RowsPreview,
   RunResultResponse,
 } from "./types.js";
+
+/** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
+ *  normalization described on `CreateSourceResult`. Not exported — an
+ *  implementation detail of `createRestDataSource`/`createSqlDataSource`. */
+interface RawCreateSourceResponse {
+  source: DataSourceResponse;
+  dataType?: DataTypeResponse;
+  fetchError?: string;
+}
 
 const CSV_LIKE_TYPES = new Set(["csv", "static"]);
 
@@ -176,6 +187,83 @@ export class HelioApi {
       columns: input.columns.map((c) => ({ name: c.name, type: c.type })),
       rows: input.rows,
     });
+  }
+
+  /** Create a `csv` data source from inline CSV text content (no filesystem
+   *  access from the MCP process — the agent has content, not a path). Posts
+   *  multipart form data to the same route the UI's file-upload flow uses.
+   *  Like `static`, the backend auto-creates a source-companion DataType but
+   *  this route only ever returns the flat `DataSourceResponse` (no `dataType`
+   *  field) — inspect the companion via `list_source_objects`. */
+  createCsvDataSource(input: { name: string; content: string }): Promise<DataSourceResponse> {
+    const form = new FormData();
+    form.set("name", input.name);
+    form.set("file", new Blob([input.content], { type: "text/csv" }), `${input.name}.csv`);
+    return this.http.postMultipart<DataSourceResponse>("/api/data-sources", form);
+  }
+
+  /** Create a `rest_api` data source. The backend attempts an initial fetch at
+   *  creation time; on success it returns the auto-created companion DataType,
+   *  on failure it returns `dataType: null` + `fetchError` (not an opaque
+   *  failure) so the agent can diagnose and retry. Credentials (bearer token /
+   *  api-key value) are redacted server-side before this response is built —
+   *  never echoed back raw. */
+  async createRestDataSource(input: {
+    name: string;
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    auth?: RestAuthInput;
+  }): Promise<CreateSourceResult> {
+    const raw = await this.http.post<RawCreateSourceResponse>("/api/sources", {
+      name: input.name,
+      type: "rest_api",
+      config: {
+        url: input.url,
+        method: input.method,
+        headers: input.headers,
+        auth: input.auth,
+      },
+    });
+    return {
+      source: raw.source,
+      dataType: raw.dataType ?? null,
+      fetchError: raw.fetchError ?? null,
+    };
+  }
+
+  /** Create a `sql` data source. Same create → initial-query → companion-
+   *  DataType-or-fetchError contract as `createRestDataSource`. The backend
+   *  rejects DDL/DML query keywords and redacts the password server-side —
+   *  neither is re-implemented here. */
+  async createSqlDataSource(input: {
+    name: string;
+    dialect: string;
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    query: string;
+  }): Promise<CreateSourceResult> {
+    const raw = await this.http.post<RawCreateSourceResponse>("/api/sources", {
+      name: input.name,
+      type: "sql",
+      config: {
+        dialect: input.dialect,
+        host: input.host,
+        port: input.port,
+        database: input.database,
+        user: input.user,
+        password: input.password,
+        query: input.query,
+      },
+    });
+    return {
+      source: raw.source,
+      dataType: raw.dataType ?? null,
+      fetchError: raw.fetchError ?? null,
+    };
   }
 
   createPipeline(input: {

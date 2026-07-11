@@ -91,21 +91,30 @@ protocol stream.
 
 ### Write / composition tools
 
-| Tool                      | Endpoint                          | Purpose                                                            |
-| ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
-| `create_data_source`      | `POST /api/data-sources` (static) | Create a static source from inline columns + rows                  |
-| `create_pipeline`         | `POST /api/pipelines`             | Create a pipeline → a new panel-bindable output DataType           |
-| `add_pipeline_step`       | `POST /api/pipelines/:id/steps`   | Append a transform step (config keyed by step type)                |
-| `run_pipeline`            | `POST /api/pipelines/:id/run`     | Run to completion (synchronous — rows exist on return, no polling) |
-| `create_dashboard`        | `POST /api/dashboards`            | Create an empty dashboard                                          |
-| `create_panel`            | `POST /api/panels`                | Create a panel on a dashboard                                      |
-| `bind_panel`              | `PATCH /api/panels/:id`           | Bind metric/chart/table to a pipeline-output DataType + mapping    |
-| `update_panel_appearance` | `PATCH /api/panels/:id`           | Update panel appearance (partial)                                  |
+| Tool                      | Endpoint                                  | Purpose                                                                    |
+| ------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| `create_data_source`      | `POST /api/data-sources` (static)         | Create a static source from inline columns + rows                          |
+| `create_csv_data_source`  | `POST /api/data-sources` (multipart, csv) | Create a CSV source from inline text content — no filesystem access needed |
+| `create_rest_data_source` | `POST /api/sources` (`type: rest_api`)    | Create a REST API source; returns the companion DataType or a `fetchError` |
+| `create_sql_data_source`  | `POST /api/sources` (`type: sql`)         | Create a SQL source; returns the companion DataType or a `fetchError`      |
+| `create_pipeline`         | `POST /api/pipelines`                     | Create a pipeline → a new panel-bindable output DataType                   |
+| `add_pipeline_step`       | `POST /api/pipelines/:id/steps`           | Append a transform step (config keyed by step type)                        |
+| `run_pipeline`            | `POST /api/pipelines/:id/run`             | Run to completion (synchronous — rows exist on return, no polling)         |
+| `create_dashboard`        | `POST /api/dashboards`                    | Create an empty dashboard                                                  |
+| `create_panel`            | `POST /api/panels`                        | Create a panel on a dashboard                                              |
+| `bind_panel`              | `PATCH /api/panels/:id`                   | Bind metric/chart/table to a pipeline-output DataType + mapping            |
+| `update_panel_appearance` | `PATCH /api/panels/:id`                   | Update panel appearance (partial)                                          |
 
 Each write tool returns the created resource's id so an agent can chain the
 canonical path without re-listing. `bind_panel` field-mapping keys by type:
 metric → `{value,label?,unit?}`; chart → `{xAxis,yAxis,series?}`; table →
-`{columns}`.
+`{columns}`. `create_csv_data_source` does not return a companion DataType
+inline (same as `create_data_source`) — inspect it via `list_source_objects`.
+`create_rest_data_source`/`create_sql_data_source` return `dataType: null` +
+`fetchError` when the initial fetch/query fails at creation time, rather than
+an opaque error, so the agent can diagnose and retry. Credentials (SQL
+password, REST bearer token/api-key value) are redacted server-side and never
+appear in any of these tools' results.
 
 Plus one **resource**: `helio://workspace/context` — the same payload as
 `get_workspace_context`, so an MCP client can attach it as ambient context.

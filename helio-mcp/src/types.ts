@@ -215,3 +215,23 @@ export interface RowsPreview {
   rows: unknown[];
   evaluationErrors?: string[];
 }
+
+/** REST auth input for `create_rest_data_source` — mirrors the backend's
+ *  `RestApiAuthPayload` discriminated union (see `RestApiConfigPayload.toDomain`
+ *  in `DataSourceProtocol.scala`). */
+export type RestAuthInput =
+  | { type: "none" }
+  | { type: "bearer"; token: string }
+  | { type: "api_key"; name: string; value: string; in: "header" | "query" };
+
+/** `POST /api/sources` response (REST/SQL create) — mirrors the backend's
+ *  `CreateSourceResponse`. On the wire, `dataType`/`fetchError` are Scala
+ *  `Option`s and are OMITTED entirely when `None` (spray-json drops `None`
+ *  fields); the `helioApi.ts` wrappers normalize a missing field to `null`
+ *  before returning this shape, so callers can always rely on the field being
+ *  present (never `undefined`). */
+export interface CreateSourceResult {
+  source: DataSourceResponse;
+  dataType: DataTypeResponse | null;
+  fetchError: string | null;
+}

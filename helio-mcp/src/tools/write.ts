@@ -38,8 +38,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "Create a `static` data source from inline columns + rows — the root of the canonical path " +
         "DataSource → Pipeline → DataType → Panel. The backend auto-creates a source-companion " +
         "DataType (NOT panel-bindable); build a pipeline over the returned source id to produce a " +
-        "bindable output type. Returns the created source id. (CSV/REST/SQL sources are created via " +
-        "their own endpoints and are out of this tool's scope.)",
+        "bindable output type. Returns the created source id. For a real integration use " +
+        "create_csv_data_source, create_rest_data_source, or create_sql_data_source instead.",
       inputSchema: {
         name: z.string().min(1),
         columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
@@ -48,6 +48,87 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     },
     ({ name, columns, rows }) =>
       guarded(() => api.createDataSource({ name, columns, rows: rows as unknown[][] })),
+  );
+
+  server.registerTool(
+    "create_csv_data_source",
+    {
+      title: "Create data source (CSV)",
+      description:
+        "Create a `csv` data source from inline CSV text content — no filesystem access from the " +
+        "MCP process required. Posts the content as a multipart upload to the same endpoint the " +
+        "UI's file-upload flow uses. Like `static`, the backend auto-creates a source-companion " +
+        "DataType (NOT returned inline — inspect it via list_source_objects); build a pipeline over " +
+        "the returned source id to produce a panel-bindable output type.",
+      inputSchema: {
+        name: z.string().min(1),
+        content: z.string().min(1),
+      },
+    },
+    ({ name, content }) => guarded(() => api.createCsvDataSource({ name, content })),
+  );
+
+  const restAuthSchema = z.discriminatedUnion("type", [
+    z.object({ type: z.literal("none") }),
+    z.object({ type: z.literal("bearer"), token: z.string().min(1) }),
+    z.object({
+      type: z.literal("api_key"),
+      name: z.string().min(1),
+      value: z.string().min(1),
+      in: z.enum(["header", "query"]),
+    }),
+  ]);
+
+  server.registerTool(
+    "create_rest_data_source",
+    {
+      title: "Create data source (REST API)",
+      description:
+        "Create a `rest_api` data source. The backend attempts an initial fetch at creation time: " +
+        "on success the response includes the auto-created companion DataType; on failure it returns " +
+        "dataType: null and a fetchError message instead of an opaque error, so a bad URL or " +
+        "credential can be diagnosed and retried. Bearer tokens / api-key values are redacted by the " +
+        "backend and never appear in this tool's result. Build a pipeline over the returned source id " +
+        "to produce a panel-bindable output type.",
+      inputSchema: {
+        name: z.string().min(1),
+        url: z.string().min(1),
+        method: z.string().optional(),
+        headers: z.record(z.string()).optional(),
+        auth: restAuthSchema.optional(),
+      },
+    },
+    ({ name, url, method, headers, auth }) =>
+      guarded(() => api.createRestDataSource({ name, url, method, headers, auth })),
+  );
+
+  server.registerTool(
+    "create_sql_data_source",
+    {
+      title: "Create data source (SQL)",
+      description:
+        "Create a `sql` data source. `query` MUST be a read-only SELECT — the backend rejects " +
+        "DDL/DML keywords (CREATE, DROP, ALTER, DELETE, INSERT, UPDATE, TRUNCATE) verbatim and no " +
+        "source is created if rejected. The backend runs the query once at creation time: on success " +
+        "the response includes the auto-created companion DataType; on failure it returns " +
+        "dataType: null and a fetchError message. The password is redacted server-side and never " +
+        "appears in this tool's result. Build a pipeline over the returned source id to produce a " +
+        "panel-bindable output type.",
+      inputSchema: {
+        name: z.string().min(1),
+        dialect: z.string().min(1),
+        host: z.string().min(1),
+        port: z.number().int(),
+        database: z.string().min(1),
+        user: z.string().min(1),
+        password: z.string(),
+        query: z.string().min(1),
+      },
+    },
+    ({ name, dialect, host, port, database, user, password, query }) =>
+      guarded(() =>
+        api.createSqlDataSource({ name, dialect, host, port, database, user, password, query }),
+      ),
   );
 
   server.registerTool(
