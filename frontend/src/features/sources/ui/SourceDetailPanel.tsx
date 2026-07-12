@@ -4,7 +4,7 @@ import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
 import { useAppSelector } from "../../../hooks/reduxHooks";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
-import { PreviewTable } from "../../panels/ui/PreviewTable";
+import { DataGrid } from "../../../shared/ui/index";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 
 interface SourceDetailPanelProps {
@@ -124,9 +124,10 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
           </p>
         )}
         {previewRows !== null ? (
-          <PreviewTable
+          <DataGrid
+            variant="preview"
             rows={previewRows}
-            headers={previewHeaders}
+            columns={previewHeaders?.map((h) => ({ key: h }))}
             emptyText="Source returned no rows."
           />
         ) : (

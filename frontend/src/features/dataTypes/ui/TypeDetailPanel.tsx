@@ -6,8 +6,7 @@ import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import { ComputedFieldsEditor } from "../../pipelines/ui/ComputedFieldsEditor";
-import { PreviewTable } from "../../panels/ui/PreviewTable";
-import { Select, TextField } from "../../../shared/ui/index";
+import { DataGrid, Select, TextField } from "../../../shared/ui/index";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
@@ -193,7 +192,8 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
           </p>
         )}
         {previewRows !== null ? (
-          <PreviewTable
+          <DataGrid
+            variant="preview"
             rows={previewRows}
             emptyText="No rows have been written to this type yet. Run a pipeline that writes to this type to populate it."
           />

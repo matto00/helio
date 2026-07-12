@@ -1,5 +1,6 @@
+import "./PipelinePreviewModal.css";
 import { Modal } from "../../../shared/ui/Modal";
-import { PreviewTable } from "../../panels/ui/PreviewTable";
+import { DataGrid } from "../../../shared/ui/index";
 
 interface PipelinePreviewModalProps {
   rows: Record<string, unknown>[] | null;
@@ -32,12 +33,12 @@ export function PipelinePreviewModal({
       onClose={onClose}
     >
       {!hasRun ? (
-        <p className="preview-table__empty">
+        <p className="pipeline-preview-modal__empty">
           No output yet — click <strong>Run pipeline</strong> or <strong>Dry run</strong> to
           populate this view.
         </p>
       ) : (
-        <PreviewTable rows={rows} emptyText="Pipeline returned no rows." />
+        <DataGrid variant="preview" rows={rows} emptyText="Pipeline returned no rows." />
       )}
     </Modal>
   );

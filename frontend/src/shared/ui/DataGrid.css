@@ -1,0 +1,78 @@
+/* ── DataGrid primitive ────────────────────────────────────────────────────── */
+
+.ui-data-grid {
+  border-radius: var(--app-radius-sm);
+  overflow: auto;
+}
+
+/* "preview" variant: a bounded, bordered card — used for read-only inline
+   previews (type/source/pipeline preview, step preview, schema preview). */
+.ui-data-grid--preview {
+  margin-top: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  background: var(--app-surface);
+  max-height: 320px;
+}
+
+/* "full" variant: fills its container (the table-panel body owns sizing). */
+.ui-data-grid--full {
+  width: 100%;
+  height: 100%;
+}
+
+.ui-data-grid__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ui-data-grid__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--app-border-subtle);
+  white-space: nowrap;
+}
+
+.ui-data-grid__table tbody td {
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-data-grid__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Density ── */
+
+.ui-data-grid--condensed .ui-data-grid__table th,
+.ui-data-grid--condensed .ui-data-grid__table td {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.ui-data-grid--normal .ui-data-grid__table th,
+.ui-data-grid--normal .ui-data-grid__table td {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.ui-data-grid--spacious .ui-data-grid__table th,
+.ui-data-grid--spacious .ui-data-grid__table td {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+}
+
+/* ── Empty state ── */
+
+.ui-data-grid__empty {
+  margin: var(--space-3) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}

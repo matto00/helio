@@ -1,3 +1,6 @@
+import { DataGrid } from "../../../../shared/ui/index";
+import type { ColumnDef } from "../../../../shared/ui/index";
+
 interface TableRendererProps {
   rawRows?: string[][] | null;
   headers?: string[] | null;
@@ -18,29 +21,9 @@ export function TableRenderer({
 }: TableRendererProps) {
   // Prefer paginated rows when available (Task 3.7)
   if (paginationRows && paginationRows.length > 0) {
-    const cols = Object.keys(paginationRows[0]);
     return (
       <div className="panel-content panel-content--table">
-        <table className="panel-content__table">
-          <thead>
-            <tr>
-              {cols.map((col) => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginationRows.map((row, ri) => (
-              <tr key={ri}>
-                {cols.map((col) => (
-                  <td key={col}>
-                    {row[col] !== null && row[col] !== undefined ? String(row[col]) : ""}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataGrid variant="full" rows={paginationRows} />
         {paginationHasMore && (
           <div className="panel-content__load-more">
             <button
@@ -69,26 +52,11 @@ export function TableRenderer({
 
   if (rawRows && rawRows.length > 0) {
     const cols = headers ?? rawRows[0].map((_, i) => String(i + 1));
+    const columns: ColumnDef[] = cols.map((key) => ({ key }));
+    const rows = rawRows.map((row) => Object.fromEntries(cols.map((key, i) => [key, row[i]])));
     return (
       <div className="panel-content panel-content--table">
-        <table className="panel-content__table">
-          <thead>
-            <tr>
-              {cols.map((col) => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rawRows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataGrid variant="full" rows={rows} columns={columns} />
       </div>
     );
   }

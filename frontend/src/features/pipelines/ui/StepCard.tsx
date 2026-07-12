@@ -7,6 +7,7 @@ import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { useStepCardState } from "../hooks/useStepCardState";
+import { DataGrid } from "../../../shared/ui/index";
 import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
@@ -231,33 +232,8 @@ export function StepCard({
                 <p className="pipeline-detail-page__step-preview-error" role="alert">
                   {previewError}
                 </p>
-              ) : previewRows.length === 0 ? (
-                <p className="pipeline-detail-page__step-preview-empty">No rows to preview.</p>
               ) : (
-                <div className="pipeline-detail-page__step-preview-table-wrapper">
-                  <table className="pipeline-detail-page__step-preview-table">
-                    <thead>
-                      <tr>
-                        {Object.keys(previewRows[0]).map((col) => (
-                          <th key={col} className="pipeline-detail-page__step-preview-th">
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.map((row, i) => (
-                        <tr key={i}>
-                          {Object.values(row).map((cell, j) => (
-                            <td key={j} className="pipeline-detail-page__step-preview-td">
-                              {cell === null || cell === undefined ? "" : String(cell)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <DataGrid variant="preview" rows={previewRows} emptyText="No rows to preview." />
               )}
             </div>
           )}
