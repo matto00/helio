@@ -40,3 +40,8 @@ jobs:
           service: helio-backend
           region: us-west1
           image: ${{ env.IMAGE }}
+          # COOKIE_SECURE=true is required in prod for the cross-site httpOnly
+          # session cookie (SameSite=None) — see HEL-287 / docs/deployment.md.
+          # --update-env-vars is additive: it sets only this var and preserves
+          # DATABASE_URL / CORS_ALLOWED_ORIGINS / etc. already on the service.
+          flags: "--update-env-vars=COOKIE_SECURE=true"
