@@ -7,7 +7,10 @@ TBD - created by archiving change image-panel-type. Update Purpose after archive
 When a panel has `type: "image"`, the panel body SHALL render an `<img>` element sourced from the
 panel's `imageUrl`. The CSS `object-fit` property SHALL be set to the panel's `imageFit` value
 (`contain`, `cover`, or `fill`). When `imageFit` is absent the default SHALL be `contain`.
-No DataType binding is required for image panels.
+No DataType binding is required for image panels. `imageUrl` MAY be an absolute `http://` or
+`https://` URL, or a root-relative internal upload path (`/api/uploads/image/<id>`); both SHALL
+render identically. Any other value (unparseable, non-http(s) absolute scheme) SHALL be treated as
+no image (placeholder rendering).
 
 #### Scenario: Image panel with URL renders the image
 - **WHEN** a panel with `type: "image"` has a non-null `imageUrl` and is displayed in the grid
@@ -29,6 +32,10 @@ No DataType binding is required for image panels.
 #### Scenario: Image panel with fill fit
 - **WHEN** a panel with `type: "image"` has `imageFit: "fill"`
 - **THEN** the panel body renders the image with `object-fit: fill`
+
+#### Scenario: Image panel with an internal upload URL renders the image
+- **WHEN** a panel with `type: "image"` has `imageUrl: "/api/uploads/image/<id>"`
+- **THEN** the panel body shows an `<img>` element with `src` set to that path
 
 ### Requirement: Image panel imageUrl and imageFit are settable via PATCH
 The `PATCH /api/panels/:id` endpoint SHALL accept optional `imageUrl` (string or null) and
@@ -76,4 +83,18 @@ no image (today's placeholder-rendering behavior).
 #### Scenario: Proposal image panel with no url creates a placeholder panel
 - **WHEN** a dashboard proposal's `image` panel specifies no `url` field
 - **THEN** the applied panel's `config.imageUrl` is empty (today's placeholder-rendering behavior)
+
+### Requirement: Image panel config UI supports uploading a file
+The Image panel's config editor SHALL offer an "Upload" control alongside the existing URL text
+field. On a successful upload, the editor SHALL set the panel's `imageUrl` to the uploaded image's
+returned URL, exactly as if that URL had been typed into the text field.
+
+#### Scenario: Uploading an image sets imageUrl
+- **WHEN** a user selects a valid image file via the Image panel config's Upload control
+- **THEN** the file is uploaded and the config's URL field reflects the returned upload URL
+- **AND** saving the panel persists that URL as `imageUrl` via `PATCH /api/panels/:id`
+
+#### Scenario: Upload failure surfaces an inline error
+- **WHEN** an upload request fails (rejected MIME type, over size limit, or network error)
+- **THEN** the config editor shows an inline error and leaves the existing `imageUrl` unchanged
 
