@@ -68,6 +68,21 @@ describe("DataGrid — variants and density", () => {
     );
     expect(container.firstChild).toHaveClass("ui-data-grid--spacious");
   });
+
+  it("an explicit condensed density overrides the full variant's normal default", () => {
+    const { container } = render(<DataGrid variant="full" rows={[{ a: 1 }]} density="condensed" />);
+    expect(container.firstChild).toHaveClass("ui-data-grid--condensed");
+  });
+
+  it("an explicit normal density overrides the preview variant's condensed default", () => {
+    const { container } = render(<DataGrid variant="preview" rows={[{ a: 1 }]} density="normal" />);
+    expect(container.firstChild).toHaveClass("ui-data-grid--normal");
+  });
+
+  it("an explicit spacious density applies to the full variant too", () => {
+    const { container } = render(<DataGrid variant="full" rows={[{ a: 1 }]} density="spacious" />);
+    expect(container.firstChild).toHaveClass("ui-data-grid--spacious");
+  });
 });
 
 describe("DataGrid — default cell formatting", () => {

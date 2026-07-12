@@ -57,7 +57,9 @@ describe("SqlTab", () => {
     ];
     mockInferSqlSource.mockResolvedValue(fields);
 
-    renderWithStore(<SqlTab name="Test Source" onSave={noop} isSaving={false} />);
+    const { container } = renderWithStore(
+      <SqlTab name="Test Source" onSave={noop} isSaving={false} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
 
@@ -67,6 +69,7 @@ describe("SqlTab", () => {
 
     expect(screen.getByText("id")).toBeInTheDocument();
     expect(screen.getByText("name")).toBeInTheDocument();
+    expect(container.querySelector(".ui-data-grid")).toHaveClass("ui-data-grid--condensed");
   });
 
   // ── Test connection failure (task 6.5) ────────────────────────────────────

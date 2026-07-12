@@ -19,7 +19,18 @@ interface DataGridProps {
   /** Optional explicit columns; defaults to the union of keys across the first 50 rows. */
   columns?: ColumnDef[];
   variant: DataGridVariant;
-  /** Row spacing; defaults per `variant` (preview → condensed, full → normal) unless set. */
+  /**
+   * Cell density — controls row padding and font size (line-height scales
+   * proportionally with font size):
+   * - `"condensed"` — `--space-1`/`--space-2` padding, `--text-xs` font.
+   * - `"normal"` — `--space-2`/`--space-3` padding, `--text-sm` font.
+   * - `"spacious"` — `--space-3`/`--space-4` padding, `--text-base` font.
+   *
+   * Defaults per `variant` when omitted: `preview` → `"condensed"`, `full` →
+   * `"normal"`. Consumers should rely on this default rather than pass an
+   * explicit `density` unless the surface has a documented reason to diverge
+   * from its variant's default (e.g. a denser full-variant surface).
+   */
   density?: DataGridDensity;
   /** Empty-state message shown instead of a table when `rows` is empty. */
   emptyText?: string;

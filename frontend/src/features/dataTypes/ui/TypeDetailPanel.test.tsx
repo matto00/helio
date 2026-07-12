@@ -48,4 +48,14 @@ describe("TypeDetailPanel", () => {
       ]),
     );
   });
+
+  it("renders its preview DataGrid at condensed density (preview variant default)", async () => {
+    fetchDataTypeRowsMock.mockResolvedValue({ rows: [{ body: "hello" }], rowCount: 1 });
+
+    const { container } = renderWithStore(<TypeDetailPanel dataType={testDataType} />);
+
+    await waitFor(() => expect(screen.getByText("hello")).toBeInTheDocument());
+
+    expect(container.querySelector(".ui-data-grid")).toHaveClass("ui-data-grid--condensed");
+  });
 });
