@@ -4,7 +4,8 @@ TICKET_ID: HEL-253
 CHANGE_NAME: draggable-column-widths
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/draggable-column-widths/HEL-253
 BRANCH: feature/draggable-column-widths/HEL-253
-PHASE: Delivery
+PHASE: Delivery (PR #220 open at https://github.com/matto00/helio/pull/220 — paused for human
+  merge per delivery protocol; repo auto-merge disabled, orchestrator does not merge)
 CYCLE: 2
 DEV_PORT: 5426
 BACKEND_PORT: 8333
