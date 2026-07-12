@@ -8,7 +8,11 @@
         "chromium",
         "--executable-path",
         "/usr/local/bin/chromium",
-        "--headless"
+        "--headless",
+        "--output-dir",
+        ".playwright-mcp",
+        "--output-max-size",
+        "104857600"
       ]
     }
   }
