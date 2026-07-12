@@ -174,13 +174,32 @@ All at `--control-sm/md` height, `--app-radius-sm`, `--weight-medium`,
 Canonical primitives in `frontend/src/shared/ui/`: **Modal** (sizes sm/md/lg,
 native `<dialog>`, `--app-overlay` backdrop), **TextField**, **Textarea**,
 **Select** (portal-based), **EmptyState** (variants `main`/`sidebar`; `main`
-titles are Fraunces), **Toast** (intents info/success/warning/error).
+titles are Fraunces), **Toast** (intents info/success/warning/error),
+**DataGrid** (table-shaped data primitive; variants `preview`/`full`, cell
+density `condensed`/`normal`/`spacious` — see below).
 Chrome in `frontend/src/shared/chrome/`: **Popover** (opaque
 `--app-surface-strong`), **ActionsMenu**, **SidebarItemList**,
 **StatusMessage**, **InlineError**, **SaveStateIndicator**, **AccentPicker**.
 
 Use these; do not hand-roll equivalents. **[mechanical]** (raw-element
 detection) **+ [judgment]**
+
+### DataGrid cell density
+
+`DataGrid` (`frontend/src/shared/ui/DataGrid.tsx`) exposes a `density` prop —
+`"condensed" | "normal" | "spacious"` — controlling cell padding and font
+size (line-height scales proportionally with the font-size token):
+
+| Density     | Padding                   | Font size     |
+| ----------- | ------------------------- | ------------- |
+| `condensed` | `--space-1` / `--space-2` | `--text-xs`   |
+| `normal`    | `--space-2` / `--space-3` | `--text-sm`   |
+| `spacious`  | `--space-3` / `--space-4` | `--text-base` |
+
+Density defaults from the grid's `variant` when omitted: `preview` →
+`condensed`, `full` → `normal`. Consumers should rely on this default rather
+than pass an explicit `density`, unless the surface has a documented reason to
+diverge. **[mechanical]**
 
 ## 7. UI state patterns (loading / empty / error)
 

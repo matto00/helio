@@ -1,7 +1,10 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
-import { refreshSource as refreshSourceRequest } from "../services/dataSourceService";
+import {
+  fetchCsvPreview as fetchCsvPreviewRequest,
+  refreshSource as refreshSourceRequest,
+} from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import type { DataSource } from "../types/dataSource";
@@ -22,6 +25,7 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 
 const refreshSourceMock = jest.mocked(refreshSourceRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
+const fetchCsvPreviewMock = jest.mocked(fetchCsvPreviewRequest);
 
 const csvSource: DataSource = {
   id: "src-1",
@@ -60,6 +64,19 @@ describe("SourceDetailPanel", () => {
     expect(screen.getByRole("region", { name: /inferred schema/i })).toBeInTheDocument();
     expect(screen.getByText("id")).toBeInTheDocument();
     expect(screen.getByText("amount")).toBeInTheDocument();
+  });
+
+  it("renders its preview DataGrid at condensed density (preview variant default)", async () => {
+    fetchCsvPreviewMock.mockResolvedValue({ headers: ["id"], rows: [["1"]] });
+    const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
+      dataTypes: { items: [linkedType] },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+    await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
+
+    expect(container.querySelector(".ui-data-grid")).toHaveClass("ui-data-grid--condensed");
   });
 
   it("renders the empty-schema affordance when no linked DataType exists", () => {
