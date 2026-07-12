@@ -49,17 +49,15 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Manually verify in the dev app: the panel creation modal's type picker shows exactly six
+- [x] 4.1 Manually verify in the dev app: the panel creation modal's type picker shows exactly six
   cards (metric, chart, text, table, markdown, image) with no Divider card.
-- [ ] 4.2 Manually verify: an existing divider panel (seeded via `DemoData` or created directly via
+- [x] 4.2 Manually verify: an existing divider panel (seeded via `DemoData` or created directly via
   `POST /api/panels` with `type: "divider"`) still renders correctly in the grid and remains editable
   via the detail modal.
 
-  **Executor note (4.1/4.2 left unchecked):** the executor's toolset has no browser/screenshot
-  capability, so these two items — which require visually inspecting the rendered dev app — could not
-  be performed directly. Equivalent coverage exists at the Jest level: "opens at the type-select step
-  showing all 6 panel types" (`PanelCreationModal.test.tsx`) asserts no Divider card renders (4.1's
-  claim), and `DividerPanel.test.tsx` / `PanelDetailModal.test.tsx` / `PanelDetailModal.aggregation.test.tsx`
-  (all passing, unmodified) assert existing divider panels render and remain editable (4.2's claim).
-  Flagging for the evaluator/skeptic to close out with an actual dev-server visual pass per DESIGN.md's
-  [judgment] tagging.
+  **Note:** the executor's toolset had no browser/screenshot capability and left these unchecked,
+  flagging Jest-level equivalent coverage as a stand-in. The evaluator (cycle 1) and the final-gate
+  skeptic both independently closed these out via Playwright against the running dev server: the
+  picker shows exactly 6 cards with no Divider card (4.1), and a legacy divider panel created directly
+  via `POST /api/panels` renders correctly in the grid and round-trips an orientation edit through the
+  detail modal, confirmed via a fresh `GET` (4.2). See `evaluation-1.md` and `skeptic-final-1.md`.

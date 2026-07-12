@@ -1,8 +1,8 @@
 ## MODIFIED Requirements
 
-### Requirement: Modal type picker presents all creatable panel types
-The type picker step MUST offer all creatable panel types as selectable options. No creatable type
-SHALL be hidden or disabled by default. `divider` is not a creatable type (HEL-249) — existing divider
+### Requirement: Modal type picker presents all available panel types
+The type picker step MUST offer all creatable panel types as selectable options. No creatable type SHALL be hidden or disabled by default.
+`divider` is not a creatable type (HEL-249) — existing divider
 panels remain supported for rendering/editing/back-compat per the `divider-panel-type` spec, but the
 picker never offers it.
 

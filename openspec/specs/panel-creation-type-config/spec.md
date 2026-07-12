@@ -6,7 +6,8 @@ TBD - created by archiving change panel-creation-initial-config. Update Purpose 
 ### Requirement: Step 3 of the creation modal shows type-specific config fields
 The panel creation modal step 3 (title/config step) MUST render optional type-specific configuration
 fields below the title input, determined by the panel type selected in step 1. All fields SHALL be
-optional — the user MAY leave them blank and configure later via the detail modal.
+optional — the user MAY leave them blank and configure later via the detail modal. `divider` is not a
+selectable type in step 1 (HEL-249) and therefore has no step-3 config fields.
 
 #### Scenario: Metric panel shows value label and unit inputs
 - **WHEN** the user has selected the Metric panel type and reaches step 3
@@ -24,12 +25,6 @@ optional — the user MAY leave them blank and configure later via the detail mo
 - **WHEN** the user has selected the Image panel type and reaches step 3
 - **THEN** an "Image URL" text input is shown below the title field
 - **AND** the input is optional
-
-#### Scenario: Divider panel shows orientation selector
-- **WHEN** the user has selected the Divider panel type and reaches step 3
-- **THEN** an "Orientation" selector is shown below the title field
-- **AND** the selector offers two options: Horizontal, Vertical
-- **AND** no option is pre-selected (field is optional)
 
 #### Scenario: Text panel shows no additional fields
 - **WHEN** the user has selected the Text panel type and reaches step 3
@@ -62,11 +57,6 @@ edit via the detail modal.
 - **GIVEN** the user has entered an image URL in step 3
 - **WHEN** the user confirms panel creation
 - **THEN** the creation payload includes the image URL
-
-#### Scenario: Divider orientation submitted with creation
-- **GIVEN** the user has selected an orientation in step 3
-- **WHEN** the user confirms panel creation
-- **THEN** the creation payload includes the selected orientation
 
 #### Scenario: Empty optional fields are omitted from payload
 - **GIVEN** the user leaves all type-specific config fields blank
