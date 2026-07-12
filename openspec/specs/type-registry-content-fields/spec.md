@@ -4,7 +4,6 @@
 Defines the Type Registry's content field types (`string-body`, `binary-ref`), their
 `FieldTypeCategory` classification, and the `binary_refs` persistence contract that downstream
 content connectors and pipeline ops produce and consume against.
-
 ## Requirements
 ### Requirement: DataFieldType includes content field types
 The `DataFieldType` sealed trait SHALL include two content variants in addition to the existing
@@ -89,4 +88,24 @@ The Type Registry field-type editor (`TypeDetailPanel`) SHALL include `string-bo
 - **WHEN** a user opens the data-type field editor for a field's data type
 - **THEN** `string-body` and `binary-ref` appear in the options list alongside `string`,
   `integer`, `float`, `boolean`, `timestamp`
+
+### Requirement: Type Registry list indicates unstructured DataTypes
+The Type Registry sidebar list SHALL render a visually distinct badge next to any DataType whose
+`fields` include at least one content field (`string-body` or `binary-ref`, per
+`FieldTypeCategory.Content`). DataTypes with no content fields SHALL render no such badge.
+
+#### Scenario: DataType with a content field shows the badge
+- **WHEN** the Type Registry list renders a DataType that has at least one field with
+  `dataType` equal to `"string-body"` or `"binary-ref"`
+- **THEN** that DataType's row shows the unstructured-type badge
+
+#### Scenario: Purely structured DataType shows no badge
+- **WHEN** the Type Registry list renders a DataType whose `fields` are all structured
+  (`string`, `integer`, `float`, `boolean`, `timestamp`)
+- **THEN** that DataType's row shows no unstructured-type badge
+
+#### Scenario: Classification ignores computed fields
+- **WHEN** a DataType has no content-typed `fields` but has a `computedFields` entry
+- **THEN** that DataType's row shows no unstructured-type badge (classification is based on
+  `fields`, not `computedFields`)
 
