@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -10,7 +11,7 @@ import { ActionsMenu } from "./ActionsMenu";
 import { EmptyState } from "../ui/EmptyState";
 import { TextField } from "../ui/TextField";
 
-interface SidebarItem {
+export interface SidebarItem {
   id: string;
   name: string;
 }
@@ -45,6 +46,10 @@ interface SidebarItemListProps {
   /** Optional dependency warning shown (as an alert) above the Confirm/Cancel
    * pair while a delete is pending confirmation. Return `null` for no warning. */
   deleteWarning?: (item: SidebarItem) => string | null;
+  /** Optional per-item badge rendered inline next to the item's name (e.g. the
+   * Type Registry's unstructured-type indicator). Registry-specific — other
+   * sections that reuse this component should leave it unset. */
+  renderBadge?: (item: SidebarItem) => ReactNode;
 }
 
 export function SidebarItemList({
@@ -62,6 +67,7 @@ export function SidebarItemList({
   addLabel,
   onDelete,
   deleteWarning,
+  renderBadge,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -165,7 +171,10 @@ export function SidebarItemList({
                       aria-pressed={isActive}
                       onClick={() => onSelect(item)}
                     >
-                      <span className="dashboard-list__name">{item.name}</span>
+                      <span className="dashboard-list__name-group">
+                        <span className="dashboard-list__name">{item.name}</span>
+                        {renderBadge?.(item)}
+                      </span>
                       {isActive ? (
                         <span
                           className="dashboard-list__active-dot"
@@ -181,7 +190,10 @@ export function SidebarItemList({
                       }
                       end
                     >
-                      <span className="dashboard-list__name">{item.name}</span>
+                      <span className="dashboard-list__name-group">
+                        <span className="dashboard-list__name">{item.name}</span>
+                        {renderBadge?.(item)}
+                      </span>
                       {isActive ? (
                         <span
                           className="dashboard-list__active-dot"

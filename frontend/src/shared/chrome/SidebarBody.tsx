@@ -9,6 +9,7 @@ import {
   selectPipelineOutputDataTypes,
   setSelectedTypeId,
 } from "../../features/dataTypes/state/dataTypesSlice";
+import { isUnstructuredDataType } from "../../features/dataTypes/types/dataType";
 import {
   deletePipeline,
   fetchPipelines,
@@ -117,6 +118,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
 
   if (section === "registry") {
     const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
+    // Classify over the full DataType[] list here — `renderBadge`'s `item` param
+    // is typed `SidebarItem` ({id, name}), which has no `fields` to classify on.
+    const unstructuredTypeIds = new Set(
+      pipelineOutputDataTypes.filter(isUnstructuredDataType).map((dt) => dt.id),
+    );
     return (
       <SidebarItemList
         heading="Type Registry"
@@ -134,6 +140,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
             dispatch(setSelectedTypeId(null));
           }
         }}
+        renderBadge={(item) =>
+          unstructuredTypeIds.has(item.id) ? (
+            <span className="dashboard-list__badge">Content</span>
+          ) : null
+        }
       />
     );
   }
