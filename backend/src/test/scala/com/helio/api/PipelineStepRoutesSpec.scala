@@ -328,5 +328,26 @@ class PipelineStepRoutesSpec
         responseAs[PipelineStepResponse].`type` shouldBe "extractheadings"
       }
     }
+
+    // HEL-221 -- chunkbytokencount is the 13th and final "text op" step kind;
+    // regression coverage for the same AllowedOps/CHECK-constraint drift class
+    // the splittext/extractheadings tests above guard.
+    "POST with type 'chunkbytokencount' is accepted" in {
+      cleanSteps(); val pid = seedPipeline()
+      val body = JsObject(
+        "type" -> JsString("chunkbytokencount"),
+        "config" -> JsObject(
+          "field"            -> JsString("content"),
+          "targetTokenCount" -> JsNumber(500),
+          "encoding"         -> JsString("o200k_base"),
+          "indexField"       -> JsString("chunkIndex"),
+          "tokenCountField"  -> JsString("tokenCount")
+        )
+      )
+      Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].`type` shouldBe "chunkbytokencount"
+      }
+    }
   }
 }

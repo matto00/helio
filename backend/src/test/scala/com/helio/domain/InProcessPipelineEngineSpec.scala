@@ -42,6 +42,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: AggregateConfig => AggregateStep(id, pid, 0, c, now, now)
       case c: SplitTextConfig => SplitTextStep(id, pid, 0, c, now, now)
       case c: ExtractHeadingsConfig => ExtractHeadingsStep(id, pid, 0, c, now, now)
+      case c: ChunkByTokenCountConfig => ChunkByTokenCountStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -710,6 +711,51 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val cfg  = """{ "field": "content" }"""
       val step = makeStep("extractheadings", cfg)
       run(rows, step) shouldBe empty
+    }
+
+    // ── chunkbytokencount op (HEL-221) ──────────────────────────────────────────
+
+    "chunkbytokencount: long content emits multiple chunk rows via the full engine round trip" in {
+      val content = "one two three four five six seven eight nine ten"
+      val rows    = Seq(Map[String, Any]("content" -> content))
+      val cfg     = """{ "field": "content", "targetTokenCount": 3 }"""
+      val step    = makeStep("chunkbytokencount", cfg)
+      val result  = run(rows, step)
+
+      result.size should be > 1
+      result.map(_("chunkIndex")) shouldBe result.indices.toSeq
+      result.foreach(_("tokenCount") shouldBe a[java.lang.Integer])
+    }
+
+    "chunkbytokencount: passes through other row fields unchanged" in {
+      val rows = Seq(Map[String, Any]("content" -> "one two three", "filename" -> "doc.txt"))
+      val cfg  = """{ "field": "content", "targetTokenCount": 500 }"""
+      val step = makeStep("chunkbytokencount", cfg)
+      val result = run(rows, step)
+      result should have size 1
+      result.foreach(_("filename") shouldBe "doc.txt")
+    }
+
+    "chunkbytokencount: null field value drops the row (engine round trip)" in {
+      val rows = Seq(Map[String, Any]("content" -> null))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("chunkbytokencount", cfg)
+      run(rows, step) shouldBe empty
+    }
+
+    "chunkbytokencount: empty-string field value drops the row (engine round trip)" in {
+      val rows = Seq(Map[String, Any]("content" -> ""))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("chunkbytokencount", cfg)
+      run(rows, step) shouldBe empty
+    }
+
+    "chunkbytokencount: cl100k_base encoding round trips via the full engine" in {
+      val rows = Seq(Map[String, Any]("content" -> "one two three four five six"))
+      val cfg  = """{ "field": "content", "targetTokenCount": 2, "encoding": "cl100k_base" }"""
+      val step = makeStep("chunkbytokencount", cfg)
+      val result = run(rows, step)
+      result.size should be > 1
     }
 
     "unknown op fails at the codec boundary (compile-time exhaustive in the engine)" in {

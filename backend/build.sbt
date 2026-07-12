@@ -104,6 +104,7 @@ lazy val root = (project in file("."))
       "com.google.cloud.sql" % "postgres-socket-factory" % "1.21.0",
       "com.google.cloud" % "google-cloud-storage" % "2.40.1",
       "org.apache.pdfbox" % "pdfbox" % "3.0.3",
+      "com.knuddels" % "jtokkit" % "1.1.0",
       // Spark -- compile scope (driver runs in this JVM); exclude Akka/Pekko and logging conflicts
       "org.apache.spark" %% "spark-core" % "3.5.5"
         exclude("org.apache.pekko", "*")
