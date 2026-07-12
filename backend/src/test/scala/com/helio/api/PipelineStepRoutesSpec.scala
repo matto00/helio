@@ -310,5 +310,23 @@ class PipelineStepRoutesSpec
         responseAs[PipelineStepResponse].`type` shouldBe "splittext"
       }
     }
+
+    // HEL-220 -- extractheadings is the 12th step kind; regression coverage for the
+    // same AllowedOps/CHECK-constraint drift class the splittext test above guards.
+    "POST with type 'extractheadings' is accepted" in {
+      cleanSteps(); val pid = seedPipeline()
+      val body = JsObject(
+        "type" -> JsString("extractheadings"),
+        "config" -> JsObject(
+          "field"      -> JsString("content"),
+          "indexField" -> JsString("headingIndex"),
+          "levelField" -> JsString("headingLevel")
+        )
+      )
+      Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].`type` shouldBe "extractheadings"
+      }
+    }
   }
 }

@@ -67,6 +67,11 @@ export interface SplitTextConfig {
   headingLevel: number;
   indexField: string;
 }
+export interface ExtractHeadingsConfig {
+  field: string;
+  indexField: string;
+  levelField: string;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -120,6 +125,10 @@ export interface SplitTextStep extends BasePipelineStep {
   type: "splittext";
   config: SplitTextConfig;
 }
+export interface ExtractHeadingsStep extends BasePipelineStep {
+  type: "extractheadings";
+  config: ExtractHeadingsConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -132,7 +141,8 @@ export type PipelineStep =
   | LimitStep
   | SortStep
   | AggregateStep
-  | SplitTextStep;
+  | SplitTextStep
+  | ExtractHeadingsStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -145,7 +155,8 @@ export type PipelineStepConfig =
   | LimitConfig
   | SortConfig
   | AggregateConfig
-  | SplitTextConfig;
+  | SplitTextConfig
+  | ExtractHeadingsConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -208,6 +219,10 @@ export interface SplitTextAnalyzeStep extends BaseAnalyzeStep {
   type: "splittext";
   config: SplitTextConfig;
 }
+export interface ExtractHeadingsAnalyzeStep extends BaseAnalyzeStep {
+  type: "extractheadings";
+  config: ExtractHeadingsConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -220,7 +235,8 @@ export type AnalyzeStepResult =
   | LimitAnalyzeStep
   | SortAnalyzeStep
   | AggregateAnalyzeStep
-  | SplitTextAnalyzeStep;
+  | SplitTextAnalyzeStep
+  | ExtractHeadingsAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

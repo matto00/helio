@@ -30,6 +30,8 @@ package object domain {
   val  AggregateStep = steps.AggregateStep
   type SplitTextStep = steps.SplitTextStep
   val  SplitTextStep = steps.SplitTextStep
+  type ExtractHeadingsStep = steps.ExtractHeadingsStep
+  val  ExtractHeadingsStep = steps.ExtractHeadingsStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -62,4 +64,6 @@ package object domain {
   val  AggregateConfig = steps.AggregateConfig
   type SplitTextConfig = steps.SplitTextConfig
   val  SplitTextConfig = steps.SplitTextConfig
+  type ExtractHeadingsConfig = steps.ExtractHeadingsConfig
+  val  ExtractHeadingsConfig = steps.ExtractHeadingsConfig
 }
