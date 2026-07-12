@@ -29,7 +29,5 @@ export function hasNonEmptyTypeConfig(config: TypeConfig | null): config is Type
       return !!config.chartType;
     case "image":
       return !!config.imageUrl;
-    case "divider":
-      return !!config.dividerOrientation;
   }
 }

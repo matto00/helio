@@ -267,9 +267,8 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
 export type MetricTypeConfig = { type: "metric"; valueLabel?: string; unit?: string };
 export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie" };
 export type ImageTypeConfig = { type: "image"; imageUrl?: string };
-export type DividerTypeConfig = { type: "divider"; dividerOrientation?: DividerOrientation };
 
-export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig | DividerTypeConfig;
+export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig;
 
 // ── Panel update + batch shapes ─────────────────────────────────────────────
 

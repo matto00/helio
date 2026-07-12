@@ -73,12 +73,10 @@ function seedCreateConfig(
       }
       return base;
     case "divider":
-      if (typeConfig?.type === "divider" && typeConfig.dividerOrientation) {
-        return {
-          ...(base as DividerPanelConfig),
-          orientation: typeConfig.dividerOrientation,
-        };
-      }
+      // `typeConfig` can never carry a "divider" variant (removed from the
+      // creation-time `TypeConfig` union — HEL-249); divider is no longer
+      // selectable in the type-select step, so this arm only exists for
+      // exhaustiveness over `PanelKind`. Return the unmodified default config.
       return base;
     case "text":
     case "markdown":

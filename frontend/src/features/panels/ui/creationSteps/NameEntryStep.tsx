@@ -1,5 +1,5 @@
 // Name-entry step of PanelCreationModal — title input, the subtype-specific
-// creator fields (metric / chart / image / divider), the submit/back action
+// creator fields (metric / chart / image), the submit/back action
 // row, and the live preview pane.
 //
 // The shell owns `selectedType` and `typeConfig` and derives the four
@@ -13,14 +13,12 @@ import { InlineError } from "../../../../shared/chrome/InlineError";
 import { TextField } from "../../../../shared/ui/index";
 import type {
   ChartTypeConfig,
-  DividerTypeConfig,
   ImageTypeConfig,
   MetricTypeConfig,
   PanelType,
   TypeConfig,
 } from "../../types/panel";
 import { ChartCreatorFields } from "../creators/ChartCreatorFields";
-import { DividerCreatorFields } from "../creators/DividerCreatorFields";
 import { ImageCreatorFields } from "../creators/ImageCreatorFields";
 import { MetricCreatorFields } from "../creators/MetricCreatorFields";
 import { PanelCreationPreview } from "../PanelCreationPreview";
@@ -33,7 +31,6 @@ interface NameEntryStepProps {
   metricConfig: MetricTypeConfig;
   chartConfig: ChartTypeConfig;
   imageConfig: ImageTypeConfig;
-  dividerConfig: DividerTypeConfig;
   onTypeConfigChange: (config: TypeConfig) => void;
   createError: string | null;
   /** True iff Create panel should be disabled (creating in flight, empty title, or unmet data-binding requirement). */
@@ -51,7 +48,6 @@ export function NameEntryStep({
   metricConfig,
   chartConfig,
   imageConfig,
-  dividerConfig,
   onTypeConfigChange,
   createError,
   submitDisabled,
@@ -86,9 +82,6 @@ export function NameEntryStep({
         )}
         {selectedType === "image" && (
           <ImageCreatorFields config={imageConfig} onChange={onTypeConfigChange} />
-        )}
-        {selectedType === "divider" && (
-          <DividerCreatorFields config={dividerConfig} onChange={onTypeConfigChange} />
         )}
 
         <InlineError error={createError} />
