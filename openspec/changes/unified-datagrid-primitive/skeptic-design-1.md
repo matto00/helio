@@ -1,0 +1,36 @@
+## Skeptic Report — design gate (round 1)
+
+### What I verified (with evidence)
+
+- **HEAD / worktree state**: `git log -1` → `83ee2405936af5fb36d1d57149e0ec38b21350f3 HEL-218 ...`, matching the design's claimed base commit.
+- **`openspec validate unified-datagrid-primitive --strict`** → `Change 'unified-datagrid-primitive' is valid`.
+- **PreviewTable consumers (re-grepped, not trusted)**: `grep -rln "PreviewTable" frontend/src` returns exactly `TypeDetailPanel.tsx`, `PipelinePreviewModal.tsx`, `SourceDetailPanel.tsx` (+ `PreviewTable.tsx` itself) — matches proposal/design's claimed set of 3, no new/missing consumers.
+- **Call-site line numbers, read directly**:
+  - `TypeDetailPanel.tsx:196-199` — `<PreviewTable rows={previewRows} emptyText="No rows have been written..." />` — matches tasks.md 2.1 verbatim.
+  - `SourceDetailPanel.tsx:127-131` — `<PreviewTable rows={previewRows} headers={previewHeaders} emptyText="Source returned no rows." />` — matches tasks.md 2.2 (off by one line vs. the cited `126-131`, immaterial).
+  - `PipelinePreviewModal.tsx:35` — `<p className="preview-table__empty">` (the "not yet run" message, never touching `PreviewTable`) and `:40` — `<PreviewTable rows={rows} emptyText="Pipeline returned no rows." />`. **Decision 6's claim is real**: `preview-table__empty` is styled only in `PreviewTable.css` and would silently lose its style once that stylesheet is deleted, if not addressed.
+- **`RunHistoryModal.tsx`** — read the full row-rendering block (lines ~30-50): it's `<div>`/`<span>` flex markup, no `<table>` anywhere in the file. Exclusion is correct.
+- **`TypeDetailPanel.tsx:100-148`** (`type-detail-panel__table`) — read in full: interactive `<TextField>`/`<Select>`/checkbox cells, an editable form, not a read-only preview grid. **`SourceDetailPanel.tsx:96-113`** (`source-detail-panel__schema-table`) — read in full: plain read-only `<table>`, byte-for-byte independent of `PreviewTable`. Both exclusions are defensible: genuinely distinct, out-of-ticket surfaces.
+- **`StepCard.tsx`** (rendered inside `PipelineDetailPage`, class prefix `pipeline-detail-page__step-preview-*`) — read lines 225-260: matches design.md's claimed shape and the `String(cell)`-on-object → `"[object Object]"` claim in Decision 3 exactly (`cell === null || cell === undefined ? "" : String(cell)`, line 253).
+- **`SqlTab.tsx:196-227`** — read in full: `add-source-modal__fields-table`, guarded by `inferredFields !== null && inferredFields.length > 0`, `Nullable` column is `f.nullable ? "yes" : "no"` — matches design/tasks exactly. `InferredField` (checked in `types/dataSource.ts`) is a plain `{name, dataType, nullable}` interface — the claimed cast-to-`Record<string,unknown>[]` is safe.
+- **`PipelineDetailPage.css`** — grepped the claimed selectors (`.pipeline-detail-page__step-preview-table-wrapper`, `-table`, `-th`, `-td`, `tbody tr:hover`) — all exist at the cited lines.
+- **Reference `DataGrid.tsx`/`.css`/`.test.tsx`** at the scratchpad path exist and were read in full. The component's actual contract is `rows: Record<string, unknown>[]` (strict — no support for positional/array rows), `columns?: ColumnDef[]`, `variant`, `density?`, `emptyText?`. `DataGrid.css` uses only `--app-*`/`--space-*`/`--text-*` tokens (DESIGN.md-compliant).
+
+### The gap I found: `TableRenderer`'s `rawRows` path has no specified conversion to `DataGrid`'s contract
+
+- `TableRenderer.tsx:70-94` (the "raw rows" path, one of the two data-bearing paths tasks.md 3.3 targets) operates on `rawRows?: string[][]` + `headers?: string[] | null`, **not** `Record<string, unknown>[]`. When `headers` is absent it falls back to positional labels: `const cols = headers ?? rawRows[0].map((_, i) => String(i + 1));` (line 71, confirmed by direct read).
+- `DataGrid`'s actual props (confirmed above) require `rows: Record<string, unknown>[]`. There is **no `ColumnDef`/prop path for positional array rows** in the ported primitive.
+- This path is not dead code: `PanelContent.test.tsx` lines 140-200 (`"PanelContent — live table data"`, `"PanelContent — TableContent sizing"`) actively exercise it, including test `2.3` (`rawRows={[["A"], ["B"], ["C"]]}` — **no `headers` prop at all**, exercising the numeric-fallback branch) and test `2.4` (headers provided). These are real, currently-passing assertions the migration must keep green.
+- Design.md and tasks.md 3.3 give this conversion **zero specification** — contrast with the meticulous, explicit treatment given to the other two shape-mismatches in the same document: Decision/Risk section spells out `SqlTab`'s `InferredField[]` → cast, and tasks.md 2.2 spells out `SourceDetailPanel`'s `headers: string[]` → `columns={headers.map((h) => ({ key: h }))}`. The third instance of the exact same problem class (`TableRenderer`'s `rawRows: string[][]` + optional `headers`) is passed over silently, with tasks.md 3.3 only saying "replace ... with a thin wrapper around `<DataGrid variant="full" />`" — no row-shape conversion, no column-derivation strategy, no statement on what happens to the positional-numeric-header fallback.
+- This is a real ambiguity a competent implementer could resolve multiple different (not obviously equivalent) ways — e.g., whether to key rows by `"0","1",...` vs `String(i+1)` (affecting whether column keys collide with `DataGrid`'s derived-header display), and it's inconsistent with the rigor applied to the other two conversions in the same document. `TableRenderer`/`PanelContent` (`type="table"`) is one of the ticket's 5 named required surfaces (DoD item "Table panel rendering"), so this isn't a peripheral nit.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **`design.md` (Decisions / Risks) and `tasks.md` 3.3**: add an explicit conversion strategy for `TableRenderer`'s raw-rows path, analogous to the `SqlTab`/`SourceDetailPanel` treatments already in the document. Specifically: state how `rawRows: string[][]` + `headers?: string[] | null` maps to `rows: Record<string, unknown>[]` and `columns: ColumnDef[]` — including the no-`headers` fallback (currently `String(i + 1)` positional labels) — and confirm this preserves `PanelContent.test.tsx` tests `2.1`-`2.4` and the "PanelContent — live table data" test (lines 140-200), which actively exercise this exact path (including the headers-omitted case, test `2.3`).
+
+### Non-blocking notes
+
+- `SourceDetailPanel.tsx` call-site line citation in tasks.md 2.2 (`126-131`) is off by one vs. the actual JSX (`127-131`, with 126 being the ternary condition) — cosmetic, not worth a revision round on its own but worth tightening in the same pass as CR 1.
+- The Risk section's claim that "only a bound-but-empty rows array reaches `DataGrid`'s own empty state" appears to be moot in practice for the live `PanelContent` call site: `PanelContent.tsx`'s top-level `noData` check (computed in `usePanelData.ts` from `paginationEntry.rows.length === 0`) already intercepts the bound-but-empty case with a generic "No data available" state *before* `TableRenderer`/`DataGrid` are ever reached, so `DataGrid`'s own empty message may never actually render for this call site. Harmless (doesn't break anything), but worth a one-line correction so the design doc doesn't imply a reachable code path that isn't.

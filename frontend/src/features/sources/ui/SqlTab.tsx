@@ -1,10 +1,17 @@
 import { useState } from "react";
 
-import { TextField, Textarea } from "../../../shared/ui/index";
+import { DataGrid, TextField, Textarea } from "../../../shared/ui/index";
+import type { ColumnDef } from "../../../shared/ui/index";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { inferSqlSource } from "../state/sourcesSlice";
 import type { InferredField } from "../types/dataSource";
 import type { SqlSourceConfig } from "../services/dataSourceService";
+
+const INFERRED_FIELD_COLUMNS: ColumnDef[] = [
+  { key: "name", header: "Field name" },
+  { key: "dataType", header: "Type" },
+  { key: "nullable", header: "Nullable", render: (_row, value) => (value ? "yes" : "no") },
+];
 
 type Dialect = "postgresql" | "mysql";
 
@@ -207,24 +214,11 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
             Connection successful — {inferredFields.length} field
             {inferredFields.length !== 1 ? "s" : ""} inferred:
           </p>
-          <table className="add-source-modal__fields-table" aria-label="Inferred fields">
-            <thead>
-              <tr>
-                <th>Field name</th>
-                <th>Type</th>
-                <th>Nullable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inferredFields.map((f) => (
-                <tr key={f.name}>
-                  <td>{f.name}</td>
-                  <td>{f.dataType}</td>
-                  <td>{f.nullable ? "yes" : "no"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataGrid
+            variant="preview"
+            rows={inferredFields as unknown as Record<string, unknown>[]}
+            columns={INFERRED_FIELD_COLUMNS}
+          />
         </div>
       )}
 

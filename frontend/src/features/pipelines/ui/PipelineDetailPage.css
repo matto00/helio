@@ -447,8 +447,7 @@
 }
 
 .pipeline-detail-page__step-preview-loading,
-.pipeline-detail-page__step-preview-error,
-.pipeline-detail-page__step-preview-empty {
+.pipeline-detail-page__step-preview-error {
   font-size: var(--text-xs);
   color: var(--app-text-muted);
   padding: 10px 0;
@@ -457,41 +456,6 @@
 
 .pipeline-detail-page__step-preview-error {
   color: var(--app-error);
-}
-
-.pipeline-detail-page__step-preview-table-wrapper {
-  overflow-x: auto;
-}
-
-.pipeline-detail-page__step-preview-table {
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  width: 100%;
-}
-
-.pipeline-detail-page__step-preview-th {
-  padding: 6px 8px;
-  text-align: left;
-  background: var(--app-surface-soft);
-  color: var(--app-text-muted);
-  font-weight: var(--weight-semibold);
-  border-bottom: 1px solid var(--app-border-subtle);
-  white-space: nowrap;
-}
-
-.pipeline-detail-page__step-preview-td {
-  padding: 5px 8px;
-  color: var(--app-text);
-  border-bottom: 1px solid var(--app-border-subtle);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 200px;
-}
-
-.pipeline-detail-page__step-preview-table tbody tr:hover {
-  background: var(--app-surface-soft);
 }
 
 /* ── Footer bar ── */

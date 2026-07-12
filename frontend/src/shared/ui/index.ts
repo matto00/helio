@@ -4,3 +4,4 @@ export { Select, type SelectOption } from "./Select";
 export { EmptyState } from "./EmptyState";
 export { Modal } from "./Modal";
 export { ToastViewport } from "./Toast";
+export { DataGrid, type ColumnDef } from "./DataGrid";
