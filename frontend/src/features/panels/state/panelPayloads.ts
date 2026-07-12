@@ -79,6 +79,10 @@ function seedCreateConfig(
       // exhaustiveness over `PanelKind`. Return the unmodified default config.
       return base;
     case "text":
+      return {
+        ...(base as TextPanelConfig),
+        dataTypeId: dataTypeId ?? "",
+      };
     case "markdown":
       return base;
   }
@@ -141,6 +145,34 @@ export function buildTableWidthsPatch(
 /** Build the typed `config` PATCH for a text/markdown content edit. */
 export function buildContentPatch(content: string): Pick<TextPanelConfig, "content"> {
   return { content };
+}
+
+/** Build the typed `config` PATCH for a Text panel's Content editor save
+ *  (HEL-244 design.md Decision 1's bind-direction corollary). Source mode
+ *  (`mode === "field"`) sets `dataTypeId`/`fieldMapping.content` and
+ *  deliberately OMITS `content` from the patch entirely — unlike
+ *  `buildBindingPatch`'s `label`/`unit` handling for Metric — so
+ *  `TextPanelConfig.Patch.decode`'s "absent = unchanged" convention
+ *  preserves the prior literal text untouched. Static mode (`mode ===
+ *  "literal"`) clears the binding back to unbound and sets `content` to the
+ *  current literal value. */
+export function buildTextBindingPatch(args: {
+  mode: "field" | "literal";
+  typeId: string | null;
+  fieldValue: string;
+  literalValue: string;
+}): Record<string, unknown> {
+  if (args.mode === "field") {
+    return {
+      dataTypeId: args.typeId,
+      fieldMapping: args.fieldValue ? { content: args.fieldValue } : null,
+    };
+  }
+  return {
+    dataTypeId: null,
+    fieldMapping: null,
+    content: args.literalValue,
+  };
 }
 
 /** Build the typed `config` PATCH for an image edit. */

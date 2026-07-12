@@ -77,7 +77,7 @@ object PanelRowMapper extends PanelProtocol {
       case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
       case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint))
       case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths))
-      case t: TextPanel       => base.copy(content = optString(t.config.content))
+      case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
@@ -111,7 +111,11 @@ object PanelRowMapper extends PanelProtocol {
     )
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
-    TextPanelConfig(content = row.content.getOrElse(""))
+    TextPanelConfig(
+      content      = row.content.getOrElse(""),
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+    )
 
   private def markdownConfig(row: PanelRepository.PanelRow): MarkdownPanelConfig =
     MarkdownPanelConfig(content = row.content.getOrElse(""))

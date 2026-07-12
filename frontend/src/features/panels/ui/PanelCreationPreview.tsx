@@ -61,7 +61,15 @@ function buildPreviewPanel(type: PanelType, typeConfig: TypeConfig | null | unde
         config: config as { dataTypeId: string; fieldMapping: Record<string, string> },
       };
     case "text":
-      return { ...base, type: "text", config: config as { content: string } };
+      return {
+        ...base,
+        type: "text",
+        config: config as {
+          content: string;
+          dataTypeId: string;
+          fieldMapping: Record<string, string>;
+        },
+      };
     case "markdown":
       return { ...base, type: "markdown", config: config as { content: string } };
   }

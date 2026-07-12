@@ -9,7 +9,7 @@
 // `panel-config-field-or-literal-pattern` capability spec for the documented
 // contract (props shape + mode-default heuristic).
 
-import { Select, TextField, type SelectOption } from "../../../../shared/ui/index";
+import { Select, Textarea, TextField, type SelectOption } from "../../../../shared/ui/index";
 
 export type BoundOrLiteralMode = "field" | "literal";
 
@@ -34,6 +34,12 @@ interface BoundOrLiteralFieldProps {
   literalValue: string;
   onLiteralChange: (value: string) => void;
   literalPlaceholder?: string;
+  /** HEL-244: when true, the literal-mode input renders as a multiline
+   *  `Textarea` instead of a single-line `TextField` — for long-form
+   *  literal slots (Text's `content`) rather than Metric's Label/Unit.
+   *  Defaults to `false`; omitting the prop preserves today's single-line
+   *  behavior for existing callers. */
+  literalMultiline?: boolean;
 }
 
 /** Mode toggle + Select-or-TextField, per design.md Decision 2. Presentational
@@ -49,9 +55,14 @@ export function BoundOrLiteralField({
   literalValue,
   onLiteralChange,
   literalPlaceholder,
+  literalMultiline = false,
 }: BoundOrLiteralFieldProps) {
   return (
-    <div className="panel-detail-modal__mapping-row">
+    <div
+      className={`panel-detail-modal__mapping-row${
+        literalMultiline ? " panel-detail-modal__mapping-row--align-top" : ""
+      }`}
+    >
       <span className="panel-detail-modal__mapping-label">{label}</span>
       <div className="panel-detail-modal__mode-field">
         <div className="panel-detail-modal__mode-toggle" role="group" aria-label={`${label} mode`}>
@@ -83,6 +94,14 @@ export function BoundOrLiteralField({
             onChange={onFieldChange}
             placeholder="— None —"
             options={fieldOptions}
+          />
+        ) : literalMultiline ? (
+          <Textarea
+            value={literalValue}
+            onChange={(e) => onLiteralChange(e.target.value)}
+            placeholder={literalPlaceholder}
+            aria-label={`${label} text`}
+            rows={12}
           />
         ) : (
           <TextField

@@ -83,11 +83,13 @@ class PanelSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "dispatch dataTypeId correctly (bound trio → Some, others → None)" in {
+    "dispatch dataTypeId correctly (bound-capable subtypes → Some, others → None)" in {
+      // HEL-244 — Text joins the bound-capable set alongside metric/chart/table.
       metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
       chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
       table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
-      // Empty dataTypeId on bound subtype reads as None (cycle-1 read-path tolerance)
+      text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
+      // Empty dataTypeId on bound-capable subtype reads as None (cycle-1 read-path tolerance)
       metric().dataTypeId shouldBe None
       text().dataTypeId      shouldBe None
       md().dataTypeId        shouldBe None
@@ -95,10 +97,12 @@ class PanelSpec extends AnyWordSpec with Matchers {
       divider().dataTypeId   shouldBe None
     }
 
-    "build a query for bound subtypes only" in {
+    "build a query for bound-capable subtypes only" in {
       metric(MetricPanelConfig(DataTypeId("dt1"), JsObject("a" -> JsString("b")))).buildQuery shouldBe defined
       chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).buildQuery shouldBe defined
       table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).buildQuery shouldBe defined
+      // HEL-244 — a bound Text panel builds a query too.
+      text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject("content" -> JsString("headline")))).buildQuery shouldBe defined
       // Unbound subtypes always return None
       text().buildQuery     shouldBe None
       md().buildQuery       shouldBe None
@@ -135,6 +139,17 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
       val image = img(ImagePanelConfig("http://example.com/x.png", "cover"))
       image.withBindingCleared shouldBe image
+    }
+
+    // HEL-244 design.md Decision 1 — Text's withBindingCleared diverges from
+    // Metric's blanket-Empty reset: it clears only dataTypeId/fieldMapping,
+    // preserving literal content (Metric's equivalent wipes label/unit too).
+    "preserve literal content when clearing a Text panel's binding (Decision 1 divergence)" in {
+      val bound = text(TextPanelConfig("Hello world", DataTypeId("dt1"), JsObject("content" -> JsString("headline"))))
+      val cleared = bound.withBindingCleared.asInstanceOf[TextPanel]
+      cleared.config.dataTypeId shouldBe DataTypeId("")
+      cleared.config.fieldMapping shouldBe JsObject.empty
+      cleared.config.content shouldBe "Hello world"
     }
   }
 
@@ -407,6 +422,97 @@ class PanelSpec extends AnyWordSpec with Matchers {
       val patched   = existing.applyPatch(TablePanelConfig.Patch(Some(Some(DataTypeId("dt2"))), None, None))
       patched.config.dataTypeId shouldBe DataTypeId("dt2")
       patched.config.columnWidths shouldBe widths
+    }
+  }
+
+  // ── HEL-244: TextPanelConfig dataTypeId/fieldMapping binding wiring ────────
+
+  "TextPanelConfig.dataTypeId/fieldMapping" should {
+    "default to empty when absent" in {
+      val decoded = TextPanelConfig.decode(JsObject.empty)
+      decoded.dataTypeId shouldBe DataTypeId("")
+      decoded.fieldMapping shouldBe JsObject.empty
+      decoded.content shouldBe ""
+    }
+
+    "decode present dataTypeId/fieldMapping alongside content" in {
+      val decoded = TextPanelConfig.decode(JsObject(
+        "content"      -> JsString("Static fallback"),
+        "dataTypeId"   -> JsString("dt1"),
+        "fieldMapping" -> JsObject("content" -> JsString("headline"))
+      ))
+      decoded.content shouldBe "Static fallback"
+      decoded.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.fieldMapping shouldBe JsObject("content" -> JsString("headline"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg = TextPanelConfig("Hi", DataTypeId("dt1"), JsObject("content" -> JsString("headline")))
+      val decoded = TextPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent dataTypeId/fieldMapping key leaves them untouched (outer None)" in {
+      val patch = TextPanelConfig.Patch.decode(JsObject("content" -> JsString("x")))
+      patch.dataTypeId shouldBe None
+      patch.fieldMapping shouldBe None
+    }
+
+    "Patch.decode: explicit null clears dataTypeId/fieldMapping (Some(None))" in {
+      val patch = TextPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsNull, "fieldMapping" -> JsNull))
+      patch.dataTypeId shouldBe Some(None)
+      patch.fieldMapping shouldBe Some(None)
+    }
+
+    "Patch.decode: present value sets dataTypeId/fieldMapping (Some(Some(v)))" in {
+      val patch = TextPanelConfig.Patch.decode(JsObject(
+        "dataTypeId"   -> JsString("dt1"),
+        "fieldMapping" -> JsObject("content" -> JsString("headline"))
+      ))
+      patch.dataTypeId shouldBe Some(Some(DataTypeId("dt1")))
+      patch.fieldMapping shouldBe Some(Some(JsObject("content" -> JsString("headline"))))
+    }
+
+    "applyPatch: absent content key preserves the existing content (existing convention, unaffected)" in {
+      val existing = text(TextPanelConfig("Hello", DataTypeId(""), JsObject.empty))
+      val patched = existing.applyPatch(TextPanelConfig.Patch(None, None, None))
+      patched.config.content shouldBe "Hello"
+    }
+
+    "applyPatch: dataTypeId/fieldMapping patch alongside absent content leaves content untouched" in {
+      // HEL-244 design.md Decision 1's bind-direction corollary: a Source-mode
+      // save patches only dataTypeId/fieldMapping (content key omitted
+      // entirely), and TextPanelConfig.Patch's "absent = unchanged" convention
+      // for content means the prior literal text survives untouched.
+      val existing = text(TextPanelConfig("Prior literal text", DataTypeId(""), JsObject.empty))
+      val patch = TextPanelConfig.Patch(
+        content      = None,
+        dataTypeId   = Some(Some(DataTypeId("dt1"))),
+        fieldMapping = Some(Some(JsObject("content" -> JsString("headline"))))
+      )
+      val patched = existing.applyPatch(patch)
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe JsObject("content" -> JsString("headline"))
+      patched.config.content shouldBe "Prior literal text"
+    }
+
+    "applyPatch: a Static-mode save sets content and clears any prior binding" in {
+      val existing = text(TextPanelConfig("Old", DataTypeId("dt1"), JsObject("content" -> JsString("headline"))))
+      val patch = TextPanelConfig.Patch(
+        content      = Some("New literal text"),
+        dataTypeId   = Some(None),
+        fieldMapping = Some(None)
+      )
+      val patched = existing.applyPatch(patch)
+      patched.config.content shouldBe "New literal text"
+      patched.config.dataTypeId shouldBe DataTypeId("")
+      patched.config.fieldMapping shouldBe JsObject.empty
+    }
+
+    "buildQuery selects the mapped field for a bound Text panel" in {
+      val bound = text(TextPanelConfig("", DataTypeId("dt1"), JsObject("content" -> JsString("headline"))))
+      val query = bound.buildQuery.get
+      query.selectedFields should contain theSameElementsAs List("headline")
     }
   }
 

@@ -37,8 +37,10 @@ export const isImagePanel = (p: Panel): p is ImagePanel => p.type === "image";
 export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divider";
 
 /** True when the subtype carries a `dataTypeId` / `fieldMapping` binding pair. */
-export const isBoundCapablePanel = (p: Panel): p is MetricPanel | ChartPanel | TablePanel =>
-  p.type === "metric" || p.type === "chart" || p.type === "table";
+export const isBoundCapablePanel = (
+  p: Panel,
+): p is MetricPanel | ChartPanel | TablePanel | TextPanel =>
+  p.type === "metric" || p.type === "chart" || p.type === "table" || p.type === "text";
 
 // ── Read-only accessors ─────────────────────────────────────────────────────
 //

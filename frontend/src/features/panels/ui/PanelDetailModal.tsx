@@ -13,6 +13,7 @@ import {
   isMarkdownPanel,
   isTablePanel,
   isMetricPanel,
+  isTextPanel,
 } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelData } from "../hooks/usePanelData";
@@ -30,6 +31,7 @@ import { BindingEditor } from "./editors/BindingEditor";
 import { DividerEditor } from "./editors/DividerEditor";
 import { ImageEditor } from "./editors/ImageEditor";
 import { MarkdownEditor } from "./editors/MarkdownEditor";
+import { TextContentEditor } from "./editors/TextContentEditor";
 import type { PanelEditorHandle } from "./editors/editorTypes";
 
 const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
@@ -104,6 +106,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   // ── Subtype editor refs (only one is mounted at a time per `panel.type`) ─
   const bindingEditorRef = useRef<PanelEditorHandle | null>(null);
   const markdownEditorRef = useRef<PanelEditorHandle | null>(null);
+  const textEditorRef = useRef<PanelEditorHandle | null>(null);
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
 
@@ -112,6 +115,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       return bindingEditorRef;
     }
     if (isMarkdownPanel(panel)) return markdownEditorRef;
+    if (isTextPanel(panel)) return textEditorRef;
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
     return null;
@@ -250,6 +254,15 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       return (
         <MarkdownEditor
           ref={markdownEditorRef}
+          panel={panel}
+          onDirtyChange={handleSubtypeDirtyChange}
+        />
+      );
+    }
+    if (isTextPanel(panel)) {
+      return (
+        <TextContentEditor
+          ref={textEditorRef}
           panel={panel}
           onDirtyChange={handleSubtypeDirtyChange}
         />

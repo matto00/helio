@@ -105,7 +105,11 @@ export function makeTablePanel(
 export function makeTextPanel(
   overrides: PanelBaseOverrides & { config?: Partial<TextPanelConfig> } = {},
 ): TextPanel {
-  const config: TextPanelConfig = { content: overrides.config?.content ?? "" };
+  const config: TextPanelConfig = {
+    content: overrides.config?.content ?? "",
+    dataTypeId: overrides.config?.dataTypeId ?? "",
+    fieldMapping: overrides.config?.fieldMapping ?? {},
+  };
   return applyBase<TextPanel>(overrides, "text", config);
 }
 

@@ -19,6 +19,7 @@ import {
   updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
+  updatePanelTextBinding as updatePanelTextBindingRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../services/panelService";
 import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
@@ -206,6 +207,34 @@ export const updatePanelContent = createAsyncThunk<
     return rejectWithValue("Failed to update panel content.");
   }
 });
+
+/** HEL-244: PATCH a Text panel's Content editor save — see
+ *  `buildTextBindingPatch` for the Source/Static patch-shape rules. */
+export const updatePanelTextBinding = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    mode: "field" | "literal";
+    typeId: string | null;
+    fieldValue: string;
+    literalValue: string;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelTextBinding",
+  async ({ panelId, mode, typeId, fieldValue, literalValue }, { rejectWithValue }) => {
+    try {
+      return await updatePanelTextBindingRequest(panelId, {
+        mode,
+        typeId,
+        fieldValue,
+        literalValue,
+      });
+    } catch {
+      return rejectWithValue("Failed to update panel content.");
+    }
+  },
+);
 
 export const updatePanelImage = createAsyncThunk<
   Panel,

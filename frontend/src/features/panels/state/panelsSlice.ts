@@ -15,6 +15,7 @@ import {
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,
+  updatePanelTextBinding,
   updatePanelTitle,
 } from "./panelThunks";
 import type {
@@ -139,6 +140,11 @@ const panelsSlice = createSlice({
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
+      .addCase(updatePanelTextBinding.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
       .addCase(updatePanelImage.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
@@ -225,6 +231,7 @@ export {
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,
+  updatePanelTextBinding,
   updatePanelTitle,
 } from "./panelThunks";
 export { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";
