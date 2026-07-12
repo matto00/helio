@@ -41,7 +41,6 @@
   background: var(--panel-surface-override, var(--app-surface));
   color: var(--panel-text-override, var(--app-text));
   box-shadow: var(--app-shadow-card);
-  overflow: hidden;
   position: relative;
   transition:
     background-color var(--app-transition),

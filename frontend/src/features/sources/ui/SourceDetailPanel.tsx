@@ -93,24 +93,26 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
       {relatedType !== undefined && relatedType.fields.length > 0 ? (
         <section className="source-detail-panel__schema" aria-label="Inferred schema">
           <h4 className="source-detail-panel__section-title">Schema</h4>
-          <table className="source-detail-panel__schema-table">
-            <thead>
-              <tr>
-                <th>Field</th>
-                <th>Type</th>
-                <th>Nullable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {relatedType.fields.map((field) => (
-                <tr key={field.name}>
-                  <td className="source-detail-panel__schema-field-name">{field.name}</td>
-                  <td>{field.dataType}</td>
-                  <td>{field.nullable ? "yes" : "no"}</td>
+          <div className="source-detail-panel__schema-table-wrapper">
+            <table className="source-detail-panel__schema-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Nullable</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {relatedType.fields.map((field) => (
+                  <tr key={field.name}>
+                    <td className="source-detail-panel__schema-field-name">{field.name}</td>
+                    <td>{field.dataType}</td>
+                    <td>{field.nullable ? "yes" : "no"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : (
         <EmptySchemaAffordance source={source} />
