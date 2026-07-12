@@ -3,7 +3,7 @@
 // Owns the modal lifecycle (showModal, close, dirty guard, focus trap),
 // the step machine (type-select → template-select → optional
 // datatype-select → name-entry), and the create-panel dispatch. The four
-// per-step UIs live in `./creationSteps/` and the four per-subtype
+// per-step UIs live in `./creationSteps/` and the three per-subtype
 // creator fields live in `./creators/`; this file composes them and
 // threads the shell-owned state through.
 
@@ -24,7 +24,6 @@ import type { PanelTemplate } from "../state/panelTemplates";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type {
   ChartTypeConfig,
-  DividerTypeConfig,
   ImageTypeConfig,
   MetricTypeConfig,
   PanelType,
@@ -246,7 +245,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     return "Name your panel";
   }
 
-  const templates = selectedType ? PANEL_TEMPLATES[selectedType] : [];
+  const templates = selectedType ? (PANEL_TEMPLATES[selectedType] ?? []) : [];
 
   // 2.5 — Derive per-type config objects for the sub-components; fall back to empty objects so
   //       inputs start blank and the sub-components are always controlled.
@@ -256,8 +255,6 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     typeConfig?.type === "chart" ? typeConfig : { type: "chart" };
   const imageConfig: ImageTypeConfig =
     typeConfig?.type === "image" ? typeConfig : { type: "image" };
-  const dividerConfig: DividerTypeConfig =
-    typeConfig?.type === "divider" ? typeConfig : { type: "divider" };
 
   const datatypeStepLoading = dataTypes.status === "loading" || dataTypes.status === "idle";
 
@@ -350,7 +347,6 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             metricConfig={metricConfig}
             chartConfig={chartConfig}
             imageConfig={imageConfig}
-            dividerConfig={dividerConfig}
             onTypeConfigChange={(cfg) => setTypeConfig(cfg)}
             createError={createError}
             submitDisabled={

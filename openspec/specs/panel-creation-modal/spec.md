@@ -17,11 +17,15 @@ When the user initiates panel creation, the UI MUST open a modal dialog. The mod
 - **THEN** the same panel creation modal opens at the type selection step
 
 ### Requirement: Modal type picker presents all available panel types
-The type picker step MUST offer all available panel types as selectable options. No type SHALL be hidden or disabled by default.
+The type picker step MUST offer all creatable panel types as selectable options. No creatable type SHALL be hidden or disabled by default.
+`divider` is not a creatable type (HEL-249) — existing divider
+panels remain supported for rendering/editing/back-compat per the `divider-panel-type` spec, but the
+picker never offers it.
 
 #### Scenario: All panel types are visible on modal open
 - **WHEN** the panel creation modal opens
-- **THEN** the type picker shows options for: metric, chart, text, table, markdown, image, divider
+- **THEN** the type picker shows options for: metric, chart, text, table, markdown, image
+- **AND** no `divider` option is shown
 
 #### Scenario: User selects a panel type and advances
 - **WHEN** the user selects a panel type card
@@ -31,8 +35,8 @@ The type picker step MUST offer all available panel types as selectable options.
 ### Requirement: Modal second step selects a template, third step (data-bound types only) selects a DataType, final step names the panel
 After type selection, the modal MUST present a template picker as Step 2 before advancing. For
 data-bound panel types (metric, chart, text, table), a DataType picker step (Step 3) MUST follow
-template selection before the title/config form (Step 4). For non-data-bound types (markdown, image,
-divider), template selection MUST advance directly to the title/config form (Step 3). The title/config
+template selection before the title/config form (Step 4). For non-data-bound types (markdown, image),
+template selection MUST advance directly to the title/config form (Step 3). The title/config
 form MUST display a live panel preview pane alongside the form inputs. The form SHALL be displayed in
 one column and the preview in a second column on viewports 600 px and wider. The name-entry step
 MUST also render optional type-specific configuration fields below the title input as defined by the
@@ -49,7 +53,7 @@ panel-creation-type-config spec.
 - **THEN** the DataType picker step is shown
 
 #### Scenario: Name-entry step follows template selection for non-data-bound types
-- **WHEN** the user selects a template card (or Start blank) for a non-data-bound panel type (markdown, image, divider)
+- **WHEN** the user selects a template card (or Start blank) for a non-data-bound panel type (markdown, image)
 - **THEN** the name-entry step is shown directly
 
 #### Scenario: Name-entry step follows DataType selection for data-bound types

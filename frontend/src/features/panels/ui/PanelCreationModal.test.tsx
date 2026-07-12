@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../../../test/renderWithStore";
-import { makeDividerPanel, makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
+import { makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
 import type { Panel } from "../types/panel";
 import { PanelCreationModal } from "./PanelCreationModal";
 import type { PanelContentProps } from "./PanelContent";
@@ -107,7 +107,7 @@ describe("PanelCreationModal", () => {
     });
   });
 
-  it("opens at the type-select step showing all 7 panel types", () => {
+  it("opens at the type-select step showing all 6 panel types", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
@@ -117,7 +117,7 @@ describe("PanelCreationModal", () => {
     expect(screen.getByRole("button", { name: "Table" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Divider" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Divider" })).not.toBeInTheDocument();
     // at least one description is visible
     expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
   });
@@ -132,7 +132,6 @@ describe("PanelCreationModal", () => {
     expect(screen.getByText("Show structured data in rows and columns")).toBeInTheDocument();
     expect(screen.getByText("Write formatted content with Markdown")).toBeInTheDocument();
     expect(screen.getByText("Embed an image from a URL")).toBeInTheDocument();
-    expect(screen.getByText("Separate sections with a visual line")).toBeInTheDocument();
   });
 
   it("does not show the title input on the type-select step", () => {
@@ -165,39 +164,6 @@ describe("PanelCreationModal", () => {
 
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
-  });
-
-  it("submitting dispatches createPanel with the selected type and title", async () => {
-    createPanelMock.mockResolvedValue(
-      makeDividerPanel({
-        id: "panel-new",
-        dashboardId: "dashboard-1",
-        title: "Revenue Pulse",
-        meta: defaultMeta,
-        appearance: defaultPanelAppearance,
-      }),
-    );
-
-    const onClose = jest.fn();
-    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
-
-    // Divider is non-data-bound; it skips the datatype step
-    fireEvent.click(screen.getByRole("button", { name: "Divider" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    fireEvent.change(screen.getByLabelText("Panel title"), {
-      target: { value: "Revenue Pulse" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
-
-    await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith(
-        "dashboard-1",
-        "Revenue Pulse",
-        "divider",
-        undefined,
-        undefined,
-      ),
-    );
   });
 
   it("closes modal after successful create", async () => {
@@ -440,21 +406,6 @@ describe("PanelCreationModal — type-specific config fields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     expect(screen.getByLabelText("Image URL")).toBeInTheDocument();
-  });
-
-  // 4.4 — Orientation selector appears in step 3
-  it("4.4 orientation selector appears in step 3 for divider type", () => {
-    const onClose = jest.fn();
-    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
-
-    fireEvent.click(screen.getByRole("button", { name: "Divider" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-
-    const selector = screen.getByRole("combobox", { name: "Orientation" });
-    expect(selector).toBeInTheDocument();
-    fireEvent.click(selector);
-    expect(screen.getByRole("option", { name: "Horizontal" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Vertical" })).toBeInTheDocument();
   });
 
   // 4.5 — Non-data-bound types show no additional config fields in step 3

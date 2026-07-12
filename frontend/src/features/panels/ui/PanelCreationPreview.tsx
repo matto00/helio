@@ -32,17 +32,16 @@ function buildPreviewPanel(type: PanelType, typeConfig: TypeConfig | null | unde
         config: { ...(config as { imageUrl: string; imageFit: string }), imageUrl },
       };
     }
-    case "divider": {
-      const orientation =
-        typeConfig?.type === "divider" && typeConfig.dividerOrientation
-          ? typeConfig.dividerOrientation
-          : (config as { orientation: string }).orientation;
+    case "divider":
+      // `typeConfig` can never carry a "divider" variant (removed from the
+      // creation-time `TypeConfig` union — HEL-249); divider is no longer
+      // selectable in the type-select step, so this arm only exists for
+      // exhaustiveness over `PanelType`. Return the unmodified default config.
       return {
         ...base,
         type: "divider",
-        config: { ...(config as { orientation: string }), orientation },
+        config: config as { orientation: string },
       };
-    }
     case "metric":
       return {
         ...base,

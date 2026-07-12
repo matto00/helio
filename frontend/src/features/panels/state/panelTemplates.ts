@@ -14,7 +14,7 @@ export interface PanelTemplate {
  * title in the creation modal. The null sentinel ("Start blank") bypasses
  * pre-fill entirely - see handleTemplateSelect in PanelCreationModal.
  */
-export const PANEL_TEMPLATES: Record<PanelType, PanelTemplate[]> = {
+export const PANEL_TEMPLATES: Partial<Record<PanelType, PanelTemplate[]>> = {
   metric: [
     {
       id: "metric-kpi",
@@ -97,20 +97,6 @@ export const PANEL_TEMPLATES: Record<PanelType, PanelTemplate[]> = {
       label: "Banner Image",
       description: "Wide banner image for branding or decoration",
       defaults: { title: "Banner Image" },
-    },
-  ],
-  divider: [
-    {
-      id: "divider-section",
-      label: "Section Divider",
-      description: "Horizontal line to visually separate sections",
-      defaults: { title: "Section Divider" },
-    },
-    {
-      id: "divider-labeled",
-      label: "Labeled Divider",
-      description: "Divider paired with a short section label",
-      defaults: { title: "Labeled Divider" },
     },
   ],
 };

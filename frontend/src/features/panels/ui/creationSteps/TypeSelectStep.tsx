@@ -11,7 +11,6 @@ import {
   faChartSimple,
   faFont,
   faImage,
-  faMinus,
   faTable as faTableIcon,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
@@ -51,12 +50,6 @@ const PANEL_TYPES: {
     description: "Write formatted content with Markdown",
   },
   { value: "image", label: "Image", icon: faImage, description: "Embed an image from a URL" },
-  {
-    value: "divider",
-    label: "Divider",
-    icon: faMinus,
-    description: "Separate sections with a visual line",
-  },
 ];
 
 interface TypeSelectStepProps {

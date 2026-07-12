@@ -1,8 +1,5 @@
-# panel-creation-type-config Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change panel-creation-initial-config. Update Purpose after archive.
-## Requirements
 ### Requirement: Step 3 of the creation modal shows type-specific config fields
 The panel creation modal step 3 (title/config step) MUST render optional type-specific configuration
 fields below the title input, determined by the panel type selected in step 1. All fields SHALL be
@@ -63,27 +60,3 @@ edit via the detail modal.
 - **WHEN** the user confirms panel creation
 - **THEN** the creation payload does not include the optional config fields (or omits their values)
 - **AND** the panel is created with backend-default values for those fields
-
-### Requirement: Non-empty type-specific config fields mark the modal as dirty
-If the user has entered any value in a type-specific config field, the modal MUST be treated as dirty
-for the purpose of the discard-confirmation prompt.
-
-#### Scenario: Config field entry triggers dirty state
-- **GIVEN** the user reaches step 3 and enters a value in a type-specific config field
-- **WHEN** the user attempts to close or dismiss the modal
-- **THEN** the discard-confirmation prompt is shown
-
-### Requirement: Type-specific config state resets on modal close
-All type-specific config field values MUST be cleared when the modal closes, regardless of whether
-a panel was created.
-
-#### Scenario: Config fields reset after cancel
-- **WHEN** the user cancels the creation modal after having entered config values
-- **AND** reopens the modal
-- **THEN** all type-specific config fields are empty
-
-#### Scenario: Config fields reset after successful create
-- **WHEN** the user creates a panel and the modal closes
-- **AND** the user opens the modal again
-- **THEN** all type-specific config fields are empty
-
