@@ -248,9 +248,10 @@ object PanelRepository {
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit)
+    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
@@ -263,9 +264,10 @@ object PanelRepository {
       Option[String],
       Option[String],
       Option[String],
+      Option[String],
       Option[String]
   ) =
-    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit)
+    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths)
 
   case class PanelRow(
       id: String,
@@ -287,7 +289,8 @@ object PanelRepository {
       dividerColor: Option[String],
       aggregation: Option[String],
       metricLabel: Option[String],
-      metricUnit: Option[String]
+      metricUnit: Option[String],
+      columnWidths: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -311,7 +314,8 @@ object PanelRepository {
     def aggregation         = column[Option[String]]("aggregation")
     def metricLabel         = column[Option[String]]("metric_label")
     def metricUnit          = column[Option[String]]("metric_unit")
+    def columnWidths        = column[Option[String]]("column_widths")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor, aggregation, metricLabel, metricUnit).mapTo[PanelRow]
+    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor, aggregation, metricLabel, metricUnit, columnWidths).mapTo[PanelRow]
   }
 }

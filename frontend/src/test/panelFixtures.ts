@@ -97,6 +97,7 @@ export function makeTablePanel(
   const config: TablePanelConfig = {
     dataTypeId: overrides.config?.dataTypeId ?? "",
     fieldMapping: overrides.config?.fieldMapping ?? {},
+    columnWidths: overrides.config?.columnWidths,
   };
   return applyBase<TablePanel>(overrides, "table", config);
 }

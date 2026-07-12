@@ -126,6 +126,18 @@ export function buildBindingPatch(args: {
   return patch;
 }
 
+/** Build the typed `config` PATCH for a Table panel's column-width resize
+ *  (HEL-253). Kept as its own patch object — separate from
+ *  `buildBindingPatch` — since width edits are driven by drag gestures
+ *  (frequent, debounced) on a different cadence than binding edits
+ *  (deliberate, modal-driven); a fast drag PATCH must never clobber an
+ *  in-flight binding edit's `dataTypeId`/`fieldMapping` keys. */
+export function buildTableWidthsPatch(
+  columnWidths: Record<string, number>,
+): Record<string, unknown> {
+  return { columnWidths };
+}
+
 /** Build the typed `config` PATCH for a text/markdown content edit. */
 export function buildContentPatch(content: string): Pick<TextPanelConfig, "content"> {
   return { content };

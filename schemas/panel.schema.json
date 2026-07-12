@@ -77,7 +77,12 @@
       "additionalProperties": false,
       "properties": {
         "dataTypeId": { "type": "string" },
-        "fieldMapping": { "type": "object" }
+        "fieldMapping": { "type": "object" },
+        "columnWidths": {
+          "type": "object",
+          "description": "Per-column drag-resized pixel widths, keyed by column key. Absent or empty falls back to DataGrid's default/derived widths.",
+          "additionalProperties": { "type": "integer" }
+        }
       }
     },
     "TextConfig": {

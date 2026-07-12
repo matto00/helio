@@ -86,7 +86,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
     "dispatch dataTypeId correctly (bound trio → Some, others → None)" in {
       metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
       chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
-      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
+      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
       // Empty dataTypeId on bound subtype reads as None (cycle-1 read-path tolerance)
       metric().dataTypeId shouldBe None
       text().dataTypeId      shouldBe None
@@ -98,7 +98,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
     "build a query for bound subtypes only" in {
       metric(MetricPanelConfig(DataTypeId("dt1"), JsObject("a" -> JsString("b")))).buildQuery shouldBe defined
       chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).buildQuery shouldBe defined
-      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty)).buildQuery shouldBe defined
+      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).buildQuery shouldBe defined
       // Unbound subtypes always return None
       text().buildQuery     shouldBe None
       md().buildQuery       shouldBe None
@@ -334,6 +334,79 @@ class PanelSpec extends AnyWordSpec with Matchers {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
       val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg))))
       patched.config.aggregation shouldBe Some(agg)
+    }
+  }
+
+  // ── HEL-253: TablePanelConfig.columnWidths persistence ─────────────────────
+
+  "TablePanelConfig.columnWidths" should {
+    val widths = Map("col-a" -> 120, "col-b" -> 200)
+
+    "default to empty map when absent" in {
+      TablePanelConfig.decode(JsObject.empty).columnWidths shouldBe Map.empty
+      table().config.columnWidths shouldBe Map.empty
+    }
+
+    "decode a present columnWidths object" in {
+      val decoded = TablePanelConfig.decode(JsObject(
+        "dataTypeId"   -> JsString("dt1"),
+        "columnWidths" -> JsObject("col-a" -> JsNumber(120), "col-b" -> JsNumber(200))
+      ))
+      decoded.columnWidths shouldBe widths
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths)
+      val decoded = TablePanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves columnWidths untouched (outer None)" in {
+      TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).columnWidths shouldBe None
+    }
+
+    "Patch.decode: explicit null clears columnWidths (Some(None))" in {
+      TablePanelConfig.Patch.decode(JsObject("columnWidths" -> JsNull)).columnWidths shouldBe Some(None)
+    }
+
+    "Patch.decode: present object sets columnWidths (Some(Some(v)))" in {
+      val patch = TablePanelConfig.Patch.decode(JsObject(
+        "columnWidths" -> JsObject("col-a" -> JsNumber(120), "col-b" -> JsNumber(200))
+      ))
+      patch.columnWidths shouldBe Some(Some(widths))
+    }
+
+    "applyPatch: absent key preserves the existing columnWidths" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None))
+      patched.config.columnWidths shouldBe widths
+    }
+
+    "applyPatch: explicit null clears previously-set columnWidths" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(None)))
+      patched.config.columnWidths shouldBe Map.empty
+    }
+
+    "applyPatch: present object sets columnWidths" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths))))
+      patched.config.columnWidths shouldBe widths
+    }
+
+    "applyPatch: a columnWidths-only patch leaves dataTypeId/fieldMapping untouched" in {
+      val mapping  = JsObject("slot1" -> JsString("colA"))
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), mapping, Map.empty))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths))))
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe mapping
+    }
+
+    "applyPatch: a binding-only patch leaves columnWidths untouched" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(Some(Some(DataTypeId("dt2"))), None, None))
+      patched.config.dataTypeId shouldBe DataTypeId("dt2")
+      patched.config.columnWidths shouldBe widths
     }
   }
 
