@@ -135,12 +135,15 @@
   color: var(--app-text-muted);
 }
 
+.source-detail-panel__schema-table-wrapper {
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  overflow: auto;
+}
+
 .source-detail-panel__schema-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  overflow: hidden;
   font-size: var(--text-xs);
 }
 
