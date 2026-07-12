@@ -8,13 +8,14 @@ import spray.json.DefaultJsonProtocol._
  *  configs ([[MetricPanelConfig]] / [[ChartPanelConfig]]). */
 final case class TablePanelConfig(
     dataTypeId: DataTypeId,
-    fieldMapping: JsObject
+    fieldMapping: JsObject,
+    columnWidths: Map[String, Int] = Map.empty
 )
 
 object TablePanelConfig {
-  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty)
+  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty)
 
-  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat2(TablePanelConfig.apply)
+  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat3(TablePanelConfig.apply)
 
   def decode(json: JsValue): TablePanelConfig = json match {
     case JsObject(fields) =>
@@ -26,21 +27,29 @@ object TablePanelConfig {
         case Some(o: JsObject) => o
         case _                 => JsObject.empty
       }
-      TablePanelConfig(dataTypeId, mapping)
+      val widths = fields.get("columnWidths") match {
+        case Some(o: JsObject) => decodeColumnWidths(o)
+        case _                 => Map.empty[String, Int]
+      }
+      TablePanelConfig(dataTypeId, mapping, widths)
     case _ => Empty
   }
 
   def decodeCreate(json: JsValue): TablePanelConfig = decode(json)
 
+  private def decodeColumnWidths(obj: JsObject): Map[String, Int] =
+    obj.fields.collect { case (key, JsNumber(n)) => key -> n.toInt }
+
   final case class Patch(
       dataTypeId: Option[Option[DataTypeId]],
-      fieldMapping: Option[Option[JsObject]]
+      fieldMapping: Option[Option[JsObject]],
+      columnWidths: Option[Option[Map[String, Int]]]
   ) {
-    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty
+    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty && columnWidths.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None)
+    val Empty: Patch = Patch(None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -56,7 +65,13 @@ object TablePanelConfig {
           case Some(o: JsObject) => Some(Some(o))
           case Some(x)           => deserializationError(s"fieldMapping must be an object or null, got $x")
         }
-        Patch(typeId, mapping)
+        val widths = fields.get("columnWidths") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(o: JsObject) => Some(Some(decodeColumnWidths(o)))
+          case Some(x)           => deserializationError(s"columnWidths must be an object or null, got $x")
+        }
+        Patch(typeId, mapping, widths)
       case _ => Empty
     }
   }
@@ -94,7 +109,8 @@ final case class TablePanel(
   def applyPatch(patch: TablePanelConfig.Patch): TablePanel = copy(
     config = TablePanelConfig(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
-      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty))
+      fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
+      columnWidths = patch.columnWidths.fold(config.columnWidths)(_.getOrElse(Map.empty))
     )
   )
 }

@@ -17,6 +17,7 @@ import {
   buildContentPatch,
   buildDividerPatch,
   buildImagePatch,
+  buildTableWidthsPatch,
 } from "../state/panelPayloads";
 import { httpClient } from "../../../services/httpClient";
 
@@ -122,6 +123,19 @@ export async function updatePanelImage(
   imageFit: ImageFit,
 ): Promise<Panel> {
   const config = buildImagePatch({ imageUrl, imageFit });
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
+  return response.data;
+}
+
+/** PATCH a Table panel's persisted column widths (HEL-253). Kept as its own
+ *  call — separate from `updatePanelBinding` — so a debounced resize PATCH
+ *  never races/clobbers an in-flight binding edit's absent-vs-null
+ *  semantics; see `buildTableWidthsPatch`. */
+export async function updatePanelColumnWidths(
+  panelId: string,
+  columnWidths: Record<string, number>,
+): Promise<Panel> {
+  const config = buildTableWidthsPatch(columnWidths);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

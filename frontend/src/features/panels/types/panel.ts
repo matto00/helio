@@ -103,6 +103,9 @@ export interface ChartPanelConfig {
 export interface TablePanelConfig {
   dataTypeId: string;
   fieldMapping: Record<string, string>;
+  /** Per-column drag-resized pixel widths, keyed by column key. Absent/empty
+   *  falls back to `DataGrid`'s default/derived widths. HEL-253. */
+  columnWidths?: Record<string, number>;
 }
 
 export interface TextPanelConfig {
@@ -224,6 +227,7 @@ export const emptyChartConfig = (): ChartPanelConfig => ({
 export const emptyTableConfig = (): TablePanelConfig => ({
   dataTypeId: "",
   fieldMapping: {},
+  columnWidths: {},
 });
 
 export const emptyTextConfig = (): TextPanelConfig => ({ content: "" });

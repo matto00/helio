@@ -25,6 +25,22 @@
   border-collapse: collapse;
 }
 
+/* `table-layout: fixed` is required for the `"full"` variant's drag-resize
+   feature (HEL-253) to have any visible effect: under the default `auto`
+   layout algorithm, the browser sizes columns from cell content and treats
+   an inline `width` on a `<th>` as a non-binding hint, silently ignoring it.
+   Scoped to `--full` only (not the base `.ui-data-grid__table` selector) so
+   the `--preview` variant keeps `auto` layout / content-based column sizing
+   — do not hoist this to the unscoped selector without also auditing every
+   `--preview` call site for width regressions. Once fixed layout is active,
+   every column needs an explicit width or unresized columns collapse toward
+   ~0px (see `DEFAULT_COLUMN_WIDTH` in `DataGrid.tsx`). See
+   openspec/changes/draggable-column-widths/evaluation-1.md (cycle 1) for the
+   live-browser repro that caught this. */
+.ui-data-grid--full .ui-data-grid__table {
+  table-layout: fixed;
+}
+
 .ui-data-grid__table thead th {
   position: sticky;
   top: 0;
@@ -34,6 +50,44 @@
   text-align: left;
   border-bottom: 1px solid var(--app-border-subtle);
   white-space: nowrap;
+}
+
+/* ── Column resize handle (full variant only, HEL-253) ── */
+
+.ui-data-grid__resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--space-2);
+  transform: translateX(50%);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.ui-data-grid__resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: transparent;
+  transition: background var(--app-transition);
+}
+
+.ui-data-grid__resize-handle:hover::after,
+.ui-data-grid__resize-handle:active::after {
+  background: var(--app-border-strong);
+}
+
+/* Keyboard-focus state for the arrow-key nudge (DataGrid.tsx
+   `handleResizeKeyDown`) — matches the app's standard focus-ring token
+   (DESIGN.md §8). */
+.ui-data-grid__resize-handle:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
 }
 
 .ui-data-grid__table tbody td {

@@ -93,12 +93,14 @@ export function PanelContent({
   if (isTablePanel(panel)) {
     return (
       <TableRenderer
+        panelId={panel.id}
         rawRows={rawRows}
         headers={headers}
         paginationRows={paginationRows}
         paginationHasMore={paginationHasMore}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
+        columnWidths={panel.config.columnWidths}
       />
     );
   }

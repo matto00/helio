@@ -69,13 +69,14 @@ object PanelRowMapper extends PanelProtocol {
       dividerColor       = None,
       aggregation        = None,
       metricLabel        = None,
-      metricUnit         = None
+      metricUnit         = None,
+      columnWidths       = None
     )
 
     p match {
       case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
       case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint))
-      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping))
+      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths))
       case t: TextPanel       => base.copy(content = optString(t.config.content))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
@@ -105,7 +106,8 @@ object PanelRowMapper extends PanelProtocol {
   private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =
     TablePanelConfig(
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      columnWidths = row.columnWidths.flatMap(parseColumnWidths).getOrElse(Map.empty)
     )
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
@@ -137,4 +139,12 @@ object PanelRowMapper extends PanelProtocol {
 
   private def parseJsObject(raw: String): Option[JsObject] =
     scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject => o }
+
+  private def columnWidthsColumn(widths: Map[String, Int]): Option[String] =
+    if (widths.isEmpty) None else Some(JsObject(widths.view.mapValues(JsNumber(_)).toMap).compactPrint)
+
+  private def parseColumnWidths(raw: String): Option[Map[String, Int]] =
+    scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject =>
+      o.fields.collect { case (key, JsNumber(n)) => key -> n.toInt }
+    }
 }
