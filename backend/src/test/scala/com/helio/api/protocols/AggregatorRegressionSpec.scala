@@ -126,7 +126,6 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
 
     "round-trip AuthResponse" in {
       val original = AuthResponse(
-        token     = "token-abc",
         expiresAt = "2026-12-31T23:59:59Z",
         user = UserResponse(
           id          = "u-1",

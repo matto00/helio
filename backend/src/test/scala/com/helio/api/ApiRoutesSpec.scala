@@ -2,10 +2,10 @@ package com.helio.api
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId, UserSession}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
@@ -125,29 +125,49 @@ class ApiRoutesSpec
     new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
-  import org.apache.pekko.http.scaladsl.model.headers.Authorization
 
-  /** Routes with the valid Bearer token pre-applied to every request that does
-   *  not already carry an Authorization header.  This keeps all existing
-   *  happy-path tests working without modification while still allowing the
-   *  auth-route tests to supply their own tokens.
+  // HEL-287: session auth moved from an `Authorization` bearer header to a
+  // `helio_session` cookie; a custom header is required on non-GET requests
+  // once that cookie is present (see AuthDirectives.requireCsrfHeader).
+  private val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+
+  /** Injects the given session token as a `helio_session` cookie (unless the
+   *  request already carries one) and the CSRF header (unless already
+   *  present) — mirrors what a real browser session + `httpClient.ts`
+   *  produce, so the bulk of this suite doesn't need to know about either
+   *  mechanism explicitly. */
+  private def withDefaultCredentials(token: String)(req: HttpRequest): HttpRequest = {
+    val withCookie =
+      if (req.header[Cookie].exists(_.cookies.exists(_.name == SessionCookies.Name))) req
+      else req.withHeaders(req.headers :+ Cookie(SessionCookies.Name -> token))
+    if (withCookie.headers.exists(_.is(AuthDirectives.CsrfHeaderName.toLowerCase))) withCookie
+    else withCookie.withHeaders(withCookie.headers :+ csrfHeader)
+  }
+
+  /** Routes with the valid session cookie + CSRF header pre-applied to every
+   *  request that does not already carry its own `helio_session` cookie.
+   *  This keeps all existing happy-path tests working without modification
+   *  while still allowing the auth-route tests to supply their own
+   *  credentials.
    */
   private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
-    mapRequest { req =>
-      if (req.header[Authorization].isDefined) req
-      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
-    } {
+    mapRequest(withDefaultCredentials(testToken)) {
       rawRoutes(connector)
     }
 
   /** Routes authenticated as the second (non-owner) user. */
   private def otherUserRoutes(): Route =
-    mapRequest { req =>
-      if (req.header[Authorization].isDefined) req
-      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(otherToken)))
-    } {
+    mapRequest(withDefaultCredentials(otherToken)) {
       rawRoutes()
     }
+
+  /** Reads the `helio_session` value set by a `Set-Cookie` response header —
+   *  the only place the raw session token is exposed post-HEL-287 (the JSON
+   *  body no longer carries it). Must be called from inside a `check {}`
+   *  block, where `header[T]` resolves against the actual response. */
+  private def sessionCookieValue(response: HttpResponse): String =
+    response.headers.collectFirst { case `Set-Cookie`(cookie) if cookie.name == SessionCookies.Name => cookie.value }
+      .getOrElse(fail(s"no Set-Cookie: ${SessionCookies.Name} header in response"))
 
   private def assertResourceMeta(meta: ResourceMetaResponse): Unit = {
     meta.createdBy should not be empty
@@ -2185,14 +2205,33 @@ class ApiRoutesSpec
       Post("/api/auth/register", req) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[AuthResponse]
-        resp.token should not be empty
         resp.expiresAt should not be empty
         resp.user.email shouldBe "test@example.com"
         resp.user.displayName shouldBe Some("Test User")
         resp.user.id should not be empty
+        // HEL-287 CodeQL #8: the session token is delivered via `Set-Cookie`
+        // only — never in the JSON body.
+        sessionCookieValue(response) should not be empty
         val body = responseAs[String]
         body should not include "password_hash"
         body should not include "passwordHash"
+        body should not include "\"token\""
+      }
+    }
+
+    "sets Set-Cookie with HttpOnly, Path=/, Max-Age=2592000 (30 days), and dev SameSite=Lax (design.md D1)" in {
+      cleanDb()
+      val req = RegisterRequest("cookie-attrs@example.com", "password123", None)
+      Post("/api/auth/register", req) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val cookieHeaderValue = header[`Set-Cookie`].map(_.value).getOrElse(fail("no Set-Cookie header"))
+        cookieHeaderValue should include("HttpOnly")
+        cookieHeaderValue should include("Path=/")
+        cookieHeaderValue should include("Max-Age=2592000")
+        cookieHeaderValue should include("SameSite=Lax")
+        // Test fixtures use the default (dev-shaped) CookieConfig(secure=false);
+        // Secure only appears when COOKIE_SECURE=true (prod), see CookieConfig.
+        cookieHeaderValue should not include "Secure"
       }
     }
 
@@ -2245,11 +2284,12 @@ class ApiRoutesSpec
       Post("/api/auth/login", LoginRequest("login@example.com", "password123")) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[AuthResponse]
-        resp.token should not be empty
         resp.user.email shouldBe "login@example.com"
+        sessionCookieValue(response) should not be empty
         val body = responseAs[String]
         body should not include "password_hash"
         body should not include "passwordHash"
+        body should not include "\"token\""
       }
     }
 
@@ -2285,30 +2325,35 @@ class ApiRoutesSpec
     "return 204 and invalidate the token so a second logout returns 401" in {
       cleanDb()
       var token = ""
-      Post("/api/auth/register", RegisterRequest("logout@example.com", "password123", None)) ~> routes() ~> check {
+      // logout now resolves identity via authDirectives.authenticate, which
+      // must look the cookie up in a real session store — the stub-backed
+      // routes() harness only recognizes its two fixed test tokens, so this
+      // round-trip needs realSessionRoutes() (see the "GET /api/auth/me"
+      // tests below for the same requirement).
+      Post("/api/auth/register", RegisterRequest("logout@example.com", "password123", None)) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Created
-        token = responseAs[AuthResponse].token
+        token = sessionCookieValue(response)
       }
-      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken(token))) ~> routes() ~> check {
+      Post("/api/auth/logout").withHeaders(Cookie(SessionCookies.Name -> token), csrfHeader) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.NoContent
+        // Clears the cookie (Max-Age=0) so the browser drops it immediately.
+        header[`Set-Cookie`].map(_.value) should contain("helio_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax")
       }
-      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken(token))) ~> routes() ~> check {
+      Post("/api/auth/logout").withHeaders(Cookie(SessionCookies.Name -> token), csrfHeader) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
     }
 
-    "return 401 when no Authorization header is provided" in {
+    "return 401 when no session cookie is provided" in {
       cleanDb()
-      Post("/api/auth/logout") ~> routes() ~> check {
+      Post("/api/auth/logout") ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
     }
 
-    "return 401 for an unrecognised token" in {
+    "return 401 for an unrecognised session cookie" in {
       cleanDb()
-      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-      Post("/api/auth/logout").withHeaders(Authorization(OAuth2BearerToken("deadbeefdeadbeef"))) ~> routes() ~> check {
+      Post("/api/auth/logout").withHeaders(Cookie(SessionCookies.Name -> "deadbeefdeadbeef"), csrfHeader) ~> routes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
     }
@@ -2323,7 +2368,7 @@ class ApiRoutesSpec
       var token = ""
       Post("/api/auth/register", RegisterRequest("hash-check@example.com", "password123", None)) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Created
-        token = responseAs[AuthResponse].token
+        token = sessionCookieValue(response)
       }
 
       import slick.jdbc.PostgresProfile.api._
@@ -2698,14 +2743,13 @@ class ApiRoutesSpec
 
     "return 200 with user info for a valid token" in {
       cleanDb()
-      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
       var token = ""
       // Register via realSessionRoutes to get a real DB session token
       Post("/api/auth/register", RegisterRequest("me@example.com", "password123", Some("Me User"))) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Created
-        token = responseAs[AuthResponse].token
+        token = sessionCookieValue(response)
       }
-      Get("/api/auth/me").withHeaders(Authorization(OAuth2BearerToken(token))) ~> realSessionRoutes() ~> check {
+      Get("/api/auth/me").withHeaders(Cookie(SessionCookies.Name -> token)) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.OK
         val user = responseAs[UserResponse]
         user.email shouldBe "me@example.com"
@@ -2716,13 +2760,12 @@ class ApiRoutesSpec
 
     "return 401 for an expired or unknown token" in {
       cleanDb()
-      import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-      Get("/api/auth/me").withHeaders(Authorization(OAuth2BearerToken("deadbeef00000000"))) ~> realSessionRoutes() ~> check {
+      Get("/api/auth/me").withHeaders(Cookie(SessionCookies.Name -> "deadbeef00000000")) ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
     }
 
-    "return 401 when no Authorization header is provided" in {
+    "return 401 when no session cookie is provided" in {
       cleanDb()
       Get("/api/auth/me") ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized

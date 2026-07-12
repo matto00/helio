@@ -52,6 +52,9 @@ final class ApiRoutes(
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
     corsAllowedOrigins: Seq[String] = Seq("http://localhost:5173"),
+    // HEL-287: default preserves existing test fixtures that construct
+    // ApiRoutes without an explicit cookie config (dev-shaped: not Secure).
+    cookieConfig: CookieConfig = CookieConfig(secure = false),
     // HEL-215 cycle-2 SSRF fix: real DNS resolution in production (never
     // overridden by Main.scala); tests may inject a fake resolver so a
     // known local-test-server hostname can be exercised end-to-end without
@@ -109,8 +112,8 @@ final class ApiRoutes(
   // ImageUploadRepository simply don't get the /api/uploads/image routes.
   private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem))
 
-  private val auth  = new AuthRoutes(authService)
-  private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
+  private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
+  private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
 
   private val corsSettings = CorsSettings.defaultSettings
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
@@ -120,92 +123,102 @@ final class ApiRoutes(
     cors(corsSettings) {
       health.routes ~
         pathPrefix("api") {
-          concat(
-            pathPrefix("auth") { concat(auth.routes, oauth.routes) },
-            authDirectives.optionalAuthenticate { userOpt =>
-              concat(
-                new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes,
-                imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
-              )
-            },
-            authDirectives.authenticate { authenticatedUser =>
-              concat(
-                // GET /api/auth/me — returns the current user profile
-                pathPrefix("auth") {
-                  path("me") {
-                    get {
-                      val userFuture = userRepo.findById(authenticatedUser.id)
-                      val prefsFuture = userPreferenceRepo.getPreferences(authenticatedUser.id)
+          // HEL-287 D4: custom-header CSRF check for every non-GET request
+          // that carries the session cookie. Applied once, ahead of the
+          // public/authenticated split below, so it covers `logout` (moved
+          // into the authenticated tree) uniformly; register/login exempt
+          // themselves naturally since no cookie exists yet on the request
+          // that is about to mint one.
+          authDirectives.requireCsrfHeader {
+            concat(
+              pathPrefix("auth") { concat(auth.routes, oauth.routes) },
+              authDirectives.optionalAuthenticate { userOpt =>
+                concat(
+                  new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes,
+                  imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
+                )
+              },
+              authDirectives.authenticate { authenticatedUser =>
+                concat(
+                  // POST /api/auth/logout — cookie-derived identity; clears the cookie
+                  pathPrefix("auth") { auth.logoutRoute },
+                  // GET /api/auth/me — returns the current user profile
+                  pathPrefix("auth") {
+                    path("me") {
+                      get {
+                        val userFuture = userRepo.findById(authenticatedUser.id)
+                        val prefsFuture = userPreferenceRepo.getPreferences(authenticatedUser.id)
 
-                      onComplete(userFuture.zip(prefsFuture)) {
-                        case Success((Some(user), prefs)) =>
-                          val userResponse = UserResponse.fromDomain(user).copy(
-                            preferences = Some(UserPreferences(prefs.accentColor, prefs.zoomLevels))
-                          )
-                          complete(StatusCodes.OK, userResponse)
-                        case Success((None, _)) =>
-                          complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
-                        case Failure(ex) =>
-                          complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
-                      }
-                    }
-                  }
-                },
-                pathPrefix("users") {
-                  path("me" / "update") {
-                    patch {
-                      entity(as[UpdateUserPreferenceRequest]) { req =>
-                        val userId = authenticatedUser.id
-                        val futures = ListBuffer[Future[Unit]]()
-
-                        if (req.fields.contains("accentColor")) {
-                          req.user.accentColor.foreach { color =>
-                            futures += userPreferenceRepo.upsertGlobalPrefs(userId, color)
-                          }
-                        }
-
-                        if (req.fields.contains("zoomLevel")) {
-                          for {
-                            zoom <- req.user.zoomLevel
-                            dashId <- req.user.dashboardId
-                          } {
-                            futures += userPreferenceRepo.upsertDashboardZoom(userId, DashboardId(dashId), zoom)
-                          }
-                        }
-
-                        val updateFuture = Future.sequence(futures.toSeq)
-                        onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
-                          case Success(prefs) =>
-                            complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                        onComplete(userFuture.zip(prefsFuture)) {
+                          case Success((Some(user), prefs)) =>
+                            val userResponse = UserResponse.fromDomain(user).copy(
+                              preferences = Some(UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                            )
+                            complete(StatusCodes.OK, userResponse)
+                          case Success((None, _)) =>
+                            complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
                           case Failure(ex) =>
                             complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
                         }
                       }
                     }
-                  }
-                },
-                new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
-                new DashboardRoutes(dashboardService, authenticatedUser).routes,
-                new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
-                new PanelRoutes(panelService, authenticatedUser).routes,
-                new PermissionRoutes(permissionService, authenticatedUser).routes,
-                new DataTypeRoutes(dataTypeService, authenticatedUser).routes,
-                new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
-                new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
-                new SourceRoutes(sourceService, authenticatedUser).routes,
-                new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
-                new PipelineRoutes(pipelineService, authenticatedUser).routes,
-                new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
-                new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
-                new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
-                apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
-                imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes)
-              )
-            }
-          )
+                  },
+                  pathPrefix("users") {
+                    path("me" / "update") {
+                      patch {
+                        entity(as[UpdateUserPreferenceRequest]) { req =>
+                          val userId = authenticatedUser.id
+                          val futures = ListBuffer[Future[Unit]]()
+
+                          if (req.fields.contains("accentColor")) {
+                            req.user.accentColor.foreach { color =>
+                              futures += userPreferenceRepo.upsertGlobalPrefs(userId, color)
+                            }
+                          }
+
+                          if (req.fields.contains("zoomLevel")) {
+                            for {
+                              zoom <- req.user.zoomLevel
+                              dashId <- req.user.dashboardId
+                            } {
+                              futures += userPreferenceRepo.upsertDashboardZoom(userId, DashboardId(dashId), zoom)
+                            }
+                          }
+
+                          val updateFuture = Future.sequence(futures.toSeq)
+                          onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
+                            case Success(prefs) =>
+                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                            case Failure(ex) =>
+                              complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                          }
+                        }
+                      }
+                    }
+                  },
+                  new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
+                  new DashboardRoutes(dashboardService, authenticatedUser).routes,
+                  new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
+                  new PanelRoutes(panelService, authenticatedUser).routes,
+                  new PermissionRoutes(permissionService, authenticatedUser).routes,
+                  new DataTypeRoutes(dataTypeService, authenticatedUser).routes,
+                  new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
+                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
+                  new SourceRoutes(sourceService, authenticatedUser).routes,
+                  new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
+                  new PipelineRoutes(pipelineService, authenticatedUser).routes,
+                  new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
+                  new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
+                  new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
+                  new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
+                  new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
+                  new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
+                  apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
+                  imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes)
+                )
+              }
+            )
+          }
         }
     }
 }

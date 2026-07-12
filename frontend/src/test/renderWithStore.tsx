@@ -33,7 +33,6 @@ interface TestState {
   auth?: {
     status?: "idle" | "loading" | "authenticated" | "unauthenticated";
     currentUser?: User | null;
-    token?: string | null;
   };
   dashboards?: {
     items: Array<{
@@ -95,7 +94,6 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           auth: {
             status: preloadedState.auth.status ?? "idle",
             currentUser: preloadedState.auth.currentUser ?? null,
-            token: preloadedState.auth.token ?? null,
           },
         }),
         dashboards: {

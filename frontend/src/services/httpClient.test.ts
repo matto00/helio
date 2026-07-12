@@ -13,6 +13,16 @@ function getLastInterceptor(): InterceptorEntry {
   return mgr.handlers[mgr.handlers.length - 1];
 }
 
+describe("httpClient defaults (HEL-287 CodeQL #8 / CSRF)", () => {
+  it("sends credentials (the httpOnly session cookie) with every request", () => {
+    expect(httpClient.defaults.withCredentials).toBe(true);
+  });
+
+  it("sets the CSRF header by default on every request", () => {
+    expect(httpClient.defaults.headers["X-Helio-Requested-With"]).toBe("1");
+  });
+});
+
 describe("setupAuthInterceptor", () => {
   const mockDispatch = jest.fn();
   const mockNavigate = jest.fn();

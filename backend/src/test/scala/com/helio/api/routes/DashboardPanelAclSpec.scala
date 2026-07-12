@@ -3,11 +3,11 @@ package com.helio.api.routes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ApiRoutes, JsonProtocols}
+import com.helio.api.{ApiRoutes, AuthDirectives, JsonProtocols, SessionCookies}
 import com.helio.domain._
 import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -202,15 +202,21 @@ class DashboardPanelAclSpec
       new SparkJobSubmitter("local", dataSourceRepo, mkPipelineRepo)(routeEc)
     )
 
+  // HEL-287: session auth moved from an `Authorization` bearer header to a
+  // `helio_session` cookie; the CSRF header is required on non-GET requests
+  // once that cookie is present.
   private def fullRoutes(token: String): Route =
     mapRequest { req =>
-      if (req.header[Authorization].isDefined) req
-      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(token)))
+      val withCookie =
+        if (req.header[Cookie].exists(_.cookies.exists(_.name == SessionCookies.Name))) req
+        else req.withHeaders(req.headers :+ Cookie(SessionCookies.Name -> token))
+      if (withCookie.headers.exists(_.is(AuthDirectives.CsrfHeaderName.toLowerCase))) withCookie
+      else withCookie.withHeaders(withCookie.headers :+ RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue))
     } {
       buildRoutes().routes
     }
 
-  /** Unauthenticated routes (no Authorization header injected). */
+  /** Unauthenticated routes (no session cookie injected). */
   private def anonRoutes(): Route = buildRoutes().routes
 
   private def routesA() = fullRoutes(tokenA)

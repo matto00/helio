@@ -3,7 +3,7 @@ package com.helio.api
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
@@ -174,14 +174,22 @@ class ApiTokenAuthSpec
       sqlu"TRUNCATE TABLE api_tokens, resource_permissions, panels, dashboards CASCADE"
     ))
 
+  // HEL-287: session auth (sessionA/sessionB below) moved from an
+  // `Authorization` bearer header to a `helio_session` cookie; PAT auth
+  // (`bearer`, used with actual `helio_pat_...` tokens) is unaffected — it
+  // remains the sole surviving `Authorization` header credential. Mutating
+  // session-cookie requests also need the CSRF header.
   private def bearer(token: String) = Authorization(OAuth2BearerToken(token))
+  private def sessionCookie(token: String) = Cookie(SessionCookies.Name -> token)
+  private def csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
 
   private def jsonEntity(body: String) = HttpEntity(ContentTypes.`application/json`, body)
 
-  /** Create a PAT through the real route and return (id, rawToken). */
+  /** Create a PAT through the real route (session-cookie authenticated) and
+   *  return (id, rawToken). */
   private def createPat(session: String, name: String, body: Option[String] = None): (String, String) = {
     val payload = body.getOrElse(s"""{"name":"$name"}""")
-    Post("/api/tokens", jsonEntity(payload)).addHeader(bearer(session)) ~> routes ~> check {
+    Post("/api/tokens", jsonEntity(payload)).addHeader(sessionCookie(session)).addHeader(csrfHeader) ~> routes ~> check {
       status shouldBe StatusCodes.Created
       val fields = responseAs[String].parseJson.asJsObject.fields
       (fields("id").convertTo[String], fields("token").convertTo[String])
@@ -189,10 +197,12 @@ class ApiTokenAuthSpec
   }
 
   private def createDashboard(session: String, name: String): Unit =
-    Post("/api/dashboards", jsonEntity(s"""{"name":"$name"}""")).addHeader(bearer(session)) ~> routes ~> check {
+    Post("/api/dashboards", jsonEntity(s"""{"name":"$name"}""")).addHeader(sessionCookie(session)).addHeader(csrfHeader) ~> routes ~> check {
       status shouldBe StatusCodes.Created
     }
 
+  /** GET /api/dashboards as a PAT (`authToken` is always a `helio_pat_...`
+   *  raw token in this spec — session auth never reaches this helper). */
   private def dashboardNames(authToken: String): Set[String] =
     Get("/api/dashboards").addHeader(bearer(authToken)) ~> routes ~> check {
       status shouldBe StatusCodes.OK
@@ -230,7 +240,7 @@ class ApiTokenAuthSpec
     "set expires_at when expiresInDays is provided" in {
       cleanDb()
       Post("/api/tokens", jsonEntity("""{"name":"short-lived","expiresInDays":7}"""))
-        .addHeader(bearer(sessionA)) ~> routes ~> check {
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         responseAs[String].parseJson.asJsObject.fields.keySet should contain("expiresAt")
       }
@@ -238,7 +248,7 @@ class ApiTokenAuthSpec
 
     "reject a blank name" in {
       cleanDb()
-      Post("/api/tokens", jsonEntity("""{"name":"   "}""")).addHeader(bearer(sessionA)) ~> routes ~> check {
+      Post("/api/tokens", jsonEntity("""{"name":"   "}""")).addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }
@@ -246,7 +256,7 @@ class ApiTokenAuthSpec
     "reject a non-positive expiresInDays" in {
       cleanDb()
       Post("/api/tokens", jsonEntity("""{"name":"x","expiresInDays":0}"""))
-        .addHeader(bearer(sessionA)) ~> routes ~> check {
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }
@@ -284,7 +294,7 @@ class ApiTokenAuthSpec
       val (id, raw) = createPat(sessionA, "to-revoke")
       dashboardNames(raw) shouldBe Set.empty // valid before revocation
 
-      Delete(s"/api/tokens/$id").addHeader(bearer(sessionA)) ~> routes ~> check {
+      Delete(s"/api/tokens/$id").addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.NoContent
       }
 
@@ -344,7 +354,7 @@ class ApiTokenAuthSpec
       val (_, rawA) = createPat(sessionA, "mine")
       createPat(sessionB, "theirs")
 
-      Get("/api/tokens").addHeader(bearer(sessionA)) ~> routes ~> check {
+      Get("/api/tokens").addHeader(sessionCookie(sessionA)) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val body   = responseAs[String]
         val tokens = body.parseJson.convertTo[Vector[JsValue]].map(_.asJsObject.fields)
@@ -370,7 +380,7 @@ class ApiTokenAuthSpec
       cleanDb()
       val (id, raw) = createPat(sessionA, "coveted")
 
-      Delete(s"/api/tokens/$id").addHeader(bearer(sessionB)) ~> routes ~> check {
+      Delete(s"/api/tokens/$id").addHeader(sessionCookie(sessionB)).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.NotFound
       }
 

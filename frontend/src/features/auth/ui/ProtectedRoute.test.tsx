@@ -11,7 +11,6 @@ import { ProtectedRoute } from "./ProtectedRoute";
 function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {
   const fullState: AuthState = {
     currentUser: null,
-    token: null,
     status: "idle",
     ...authState,
   };

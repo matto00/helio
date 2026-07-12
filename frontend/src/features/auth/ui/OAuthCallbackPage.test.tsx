@@ -16,11 +16,6 @@ jest.mock("../services/authService", () => ({
   oauthCallbackRequest: jest.fn(),
 }));
 
-jest.mock("../../../services/httpClient", () => ({
-  httpClient: { defaults: { headers: { common: {} } } },
-  setAuthToken: jest.fn(),
-}));
-
 const mockedAuthService = jest.mocked(authService);
 
 const oauthUser: User = {
@@ -32,7 +27,6 @@ const oauthUser: User = {
 };
 
 const oauthResponse: AuthResponse = {
-  token: "oauth-token-xyz",
   expiresAt: "2026-12-31T00:00:00Z",
   user: oauthUser,
 };
@@ -61,7 +55,6 @@ function renderCallbackPage(search: string) {
 
 describe("OAuthCallbackPage", () => {
   beforeEach(() => {
-    sessionStorage.clear();
     jest.clearAllMocks();
   });
 

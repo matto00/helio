@@ -17,7 +17,11 @@ final case class UserResponse(
     avatarUrl: Option[String] = None,
     preferences: Option[UserPreferences] = None
 )
-final case class AuthResponse(token: String, expiresAt: String, user: UserResponse)
+// HEL-287 CodeQL #8: the session token is no longer echoed in the JSON body
+// (it is delivered via `Set-Cookie` only — see AuthService.AuthResult, which
+// carries the raw token internally from AuthService to the route layer so
+// the route can build the cookie without widening this wire type).
+final case class AuthResponse(expiresAt: String, user: UserResponse)
 final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String])
 final case class UserPreferencePayload(zoomLevel: Option[Double], accentColor: Option[String], dashboardId: Option[String])
 final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
@@ -38,7 +42,7 @@ trait AuthProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
   implicit val userPreferencesFormat: RootJsonFormat[UserPreferences] = jsonFormat2(UserPreferences.apply)
   implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat6(UserResponse.apply)
-  implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat3(AuthResponse.apply)
+  implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat2(AuthResponse.apply)
 
   // Google OAuth — read-only since we only ingest Google's userinfo payload.
   implicit val googleProfileFormat: RootJsonReader[GoogleProfile] = new RootJsonReader[GoogleProfile] {

@@ -1,7 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import * as authService from "../services/authService";
-import * as httpClient from "../../../services/httpClient";
 import { applyAccentTokens } from "../../../theme/appearance";
 import type { AuthResponse, User } from "../types/user";
 import {
@@ -16,14 +15,9 @@ import {
 } from "./authSlice";
 
 jest.mock("../services/authService");
-jest.mock("../../../services/httpClient", () => ({
-  httpClient: { defaults: { headers: { common: {} } } },
-  setAuthToken: jest.fn(),
-}));
 jest.mock("../../../theme/appearance");
 
 const mockedAuthService = jest.mocked(authService);
-const mockedSetAuthToken = jest.mocked(httpClient.setAuthToken);
 const mockedApplyAccentTokens = jest.mocked(applyAccentTokens);
 
 const testUser: User = {
@@ -34,8 +28,9 @@ const testUser: User = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 
+// HEL-287 CodeQL #8: AuthResponse no longer carries a token — the session
+// identity is delivered via an HttpOnly `Set-Cookie` header, not this body.
 const testAuthResponse: AuthResponse = {
-  token: "test-token-abc123",
   expiresAt: "2026-12-31T00:00:00Z",
   user: testUser,
 };
@@ -45,45 +40,37 @@ function makeStore() {
 }
 
 describe("authSlice reducers", () => {
-  beforeEach(() => {
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
-  });
-
-  it("setAuth sets token, user, and status to authenticated", () => {
-    const state = authReducer(undefined, setAuth({ token: "tok", user: testUser }));
-    expect(state.token).toBe("tok");
+  it("setAuth sets user and status to authenticated", () => {
+    const state = authReducer(undefined, setAuth({ user: testUser }));
     expect(state.currentUser).toEqual(testUser);
     expect(state.status).toBe("authenticated");
-    expect(mockedSetAuthToken).toHaveBeenCalledWith("tok");
-    expect(sessionStorage.getItem("helio_auth_token")).toBe("tok");
   });
 
-  it("clearAuth clears token, user, and sets status to unauthenticated", () => {
-    const preloaded = authReducer(undefined, setAuth({ token: "tok", user: testUser }));
+  it("clearAuth clears user and sets status to unauthenticated", () => {
+    const preloaded = authReducer(undefined, setAuth({ user: testUser }));
     const state = authReducer(preloaded, clearAuth());
-    expect(state.token).toBeNull();
     expect(state.currentUser).toBeNull();
     expect(state.status).toBe("unauthenticated");
-    expect(mockedSetAuthToken).toHaveBeenCalledWith(null);
-    expect(sessionStorage.getItem("helio_auth_token")).toBeNull();
   });
 });
 
 describe("rehydrateAuth thunk", () => {
-  beforeEach(() => {
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
-  });
+  // HEL-287: identity is the httpOnly `helio_session` cookie (attaches
+  // automatically via httpClient's withCredentials) — rehydrateAuth calls
+  // GET /api/auth/me unconditionally and lets the response decide the
+  // outcome; there is no sessionStorage token to gate the call on.
 
-  it("sets unauthenticated when no token in sessionStorage", async () => {
+  it("sets unauthenticated when getMeRequest rejects (no valid session cookie)", async () => {
+    mockedAuthService.getMeRequest.mockRejectedValue(new Error("401"));
+
     const store = makeStore();
     await store.dispatch(rehydrateAuth());
+
     expect(store.getState().auth.status).toBe("unauthenticated");
+    expect(store.getState().auth.currentUser).toBeNull();
   });
 
-  it("sets authenticated when token is valid and getMeRequest succeeds", async () => {
-    sessionStorage.setItem("helio_auth_token", "valid-token");
+  it("sets authenticated when getMeRequest succeeds (valid session cookie)", async () => {
     mockedAuthService.getMeRequest.mockResolvedValue(testUser);
 
     const store = makeStore();
@@ -91,29 +78,10 @@ describe("rehydrateAuth thunk", () => {
 
     expect(store.getState().auth.status).toBe("authenticated");
     expect(store.getState().auth.currentUser).toEqual(testUser);
-    expect(mockedSetAuthToken).toHaveBeenCalledWith("valid-token");
-  });
-
-  it("sets unauthenticated and clears storage when getMeRequest rejects (expired token)", async () => {
-    sessionStorage.setItem("helio_auth_token", "expired-token");
-    mockedAuthService.getMeRequest.mockRejectedValue(new Error("401"));
-
-    const store = makeStore();
-    await store.dispatch(rehydrateAuth());
-
-    expect(store.getState().auth.status).toBe("unauthenticated");
-    expect(store.getState().auth.token).toBeNull();
-    expect(sessionStorage.getItem("helio_auth_token")).toBeNull();
-    expect(mockedSetAuthToken).toHaveBeenCalledWith(null);
   });
 });
 
 describe("login thunk", () => {
-  beforeEach(() => {
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
-  });
-
   it("sets authenticated state on successful login", async () => {
     mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
     const store = makeStore();
@@ -121,9 +89,7 @@ describe("login thunk", () => {
     await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
 
     expect(store.getState().auth.status).toBe("authenticated");
-    expect(store.getState().auth.token).toBe("test-token-abc123");
     expect(store.getState().auth.currentUser).toEqual(testUser);
-    expect(mockedSetAuthToken).toHaveBeenCalledWith("test-token-abc123");
   });
 
   it("sets unauthenticated status on login failure", async () => {
@@ -143,11 +109,6 @@ describe("login thunk", () => {
 });
 
 describe("logout thunk", () => {
-  beforeEach(() => {
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
-  });
-
   it("clears auth state regardless of logoutRequest outcome", async () => {
     mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
     mockedAuthService.logoutRequest.mockResolvedValue(undefined);
@@ -159,7 +120,10 @@ describe("logout thunk", () => {
     await store.dispatch(logout());
 
     expect(store.getState().auth.status).toBe("unauthenticated");
-    expect(store.getState().auth.token).toBeNull();
+    expect(store.getState().auth.currentUser).toBeNull();
+    // HEL-287: logout no longer reads a token from state or passes one to
+    // logoutRequest — the session cookie identifies which session to clear.
+    expect(mockedAuthService.logoutRequest).toHaveBeenCalledWith();
   });
 
   it("still clears auth state even when logoutRequest throws", async () => {
@@ -172,17 +136,12 @@ describe("logout thunk", () => {
     await store.dispatch(logout());
 
     expect(store.getState().auth.status).toBe("unauthenticated");
-    expect(store.getState().auth.token).toBeNull();
+    expect(store.getState().auth.currentUser).toBeNull();
   });
 });
 
 describe("handleOAuthCallback thunk", () => {
-  beforeEach(() => {
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
-  });
-
-  it("sets authenticated state and stores token on successful OAuth callback", async () => {
+  it("sets authenticated state on successful OAuth callback", async () => {
     const oauthUser: User = {
       id: "google-user-1",
       email: "google@example.com",
@@ -191,7 +150,6 @@ describe("handleOAuthCallback thunk", () => {
       createdAt: "2026-01-01T00:00:00Z",
     };
     const oauthResponse: AuthResponse = {
-      token: "oauth-token-xyz",
       expiresAt: "2026-12-31T00:00:00Z",
       user: oauthUser,
     };
@@ -202,10 +160,7 @@ describe("handleOAuthCallback thunk", () => {
 
     expect(handleOAuthCallback.fulfilled.match(result)).toBe(true);
     expect(store.getState().auth.status).toBe("authenticated");
-    expect(store.getState().auth.token).toBe("oauth-token-xyz");
     expect(store.getState().auth.currentUser).toEqual(oauthUser);
-    expect(mockedSetAuthToken).toHaveBeenCalledWith("oauth-token-xyz");
-    expect(sessionStorage.getItem("helio_auth_token")).toBe("oauth-token-xyz");
   });
 
   it("sets unauthenticated state on OAuth callback failure", async () => {
@@ -217,7 +172,6 @@ describe("handleOAuthCallback thunk", () => {
     expect(handleOAuthCallback.rejected.match(result)).toBe(true);
     expect(result.payload).toBe("OAuth sign-in failed.");
     expect(store.getState().auth.status).toBe("unauthenticated");
-    expect(store.getState().auth.token).toBeNull();
     expect(store.getState().auth.currentUser).toBeNull();
   });
 
@@ -237,8 +191,6 @@ describe("handleOAuthCallback thunk", () => {
 describe("updateUserPreferences thunk", () => {
   beforeEach(() => {
     mockedApplyAccentTokens.mockClear();
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
   });
 
   it("updates currentUser.preferences on successful update", async () => {
@@ -266,8 +218,6 @@ describe("updateUserPreferences thunk", () => {
 describe("rehydrateAuth with preferences", () => {
   beforeEach(() => {
     mockedApplyAccentTokens.mockClear();
-    mockedSetAuthToken.mockClear();
-    sessionStorage.clear();
   });
 
   it("calls applyAccentTokens when user has accentColor preference", async () => {
@@ -279,7 +229,6 @@ describe("rehydrateAuth with preferences", () => {
       },
     };
 
-    sessionStorage.setItem("helio_auth_token", "valid-token");
     mockedAuthService.getMeRequest.mockResolvedValue(userWithPrefs);
 
     const store = makeStore();
@@ -290,7 +239,6 @@ describe("rehydrateAuth with preferences", () => {
   });
 
   it("does not call applyAccentTokens when user has no accent color", async () => {
-    sessionStorage.setItem("helio_auth_token", "valid-token");
     mockedAuthService.getMeRequest.mockResolvedValue(testUser);
 
     const store = makeStore();

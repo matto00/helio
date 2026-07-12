@@ -27,6 +27,13 @@ import scala.concurrent.{ExecutionContext, Future}
  *  - 30-day session expiry (`30L * 24 * 60 * 60` seconds)
  *  - 32-byte hex session tokens
  *  - 16-byte hex CSRF state tokens with 5-minute TTL in an in-memory store */
+/** Internal carrier from `AuthService` to the route layer: the wire-facing
+ *  [[AuthResponse]] no longer includes the raw token (HEL-287 CodeQL #8 —
+ *  the token is delivered via `Set-Cookie`, not the JSON body), but the
+ *  route layer still needs the raw value once, to build that cookie. Never
+ *  marshaled to JSON. */
+final case class AuthResult(token: String, response: AuthResponse)
+
 final class AuthService(
     userRepo: UserRepository
 )(implicit ec: ExecutionContext) {
@@ -35,7 +42,7 @@ final class AuthService(
 
   // ── Register ──────────────────────────────────────────────────────────────
 
-  def register(rawRequest: RegisterRequest): Future[Either[ServiceError, AuthResponse]] =
+  def register(rawRequest: RegisterRequest): Future[Either[ServiceError, AuthResult]] =
     RequestValidation.validateRegisterRequest(rawRequest) match {
       case Left(err)  => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(req) =>
@@ -55,13 +62,13 @@ final class AuthService(
             for {
               createdUser    <- userRepo.insert(user, Some(passwordHash))
               createdSession <- userRepo.createSession(session)
-            } yield Right(authResponseOf(createdSession, createdUser))
+            } yield Right(authResultOf(createdSession, createdUser))
         }
     }
 
   // ── Login ─────────────────────────────────────────────────────────────────
 
-  def login(rawRequest: LoginRequest): Future[Either[ServiceError, AuthResponse]] =
+  def login(rawRequest: LoginRequest): Future[Either[ServiceError, AuthResult]] =
     RequestValidation.validateLoginRequest(rawRequest) match {
       case Left(err)  => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(req) =>
@@ -77,7 +84,7 @@ final class AuthService(
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
                 val session = buildSession(user.id, Instant.now())
                 userRepo.createSession(session).map { created =>
-                  Right(authResponseOf(created, user))
+                  Right(authResultOf(created, user))
                 }
               case Some(_) =>
                 Future.successful(Left(ServiceError.Unauthorized()))
@@ -96,13 +103,13 @@ final class AuthService(
   // ── OAuth completion ──────────────────────────────────────────────────────
 
   /** Given a Google profile fetched by the route layer, upsert the user, mint
-   *  a session, and return the `AuthResponse` body. */
-  def completeOAuth(profile: GoogleProfile): Future[AuthResponse] = {
+   *  a session, and return the [[AuthResult]] (raw token + wire body). */
+  def completeOAuth(profile: GoogleProfile): Future[AuthResult] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
       user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture)
       session <- userRepo.createSession(buildSession(user.id, Instant.now()))
-    } yield authResponseOf(session, user)
+    } yield authResultOf(session, user)
   }
 
   // ── CSRF state token store (OAuth `state` parameter) ──────────────────────
@@ -118,11 +125,13 @@ final class AuthService(
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
-  private def authResponseOf(session: UserSession, user: User): AuthResponse =
-    AuthResponse(
-      token     = session.token,
-      expiresAt = session.expiresAt.toString,
-      user      = UserResponse.fromDomain(user)
+  private def authResultOf(session: UserSession, user: User): AuthResult =
+    AuthResult(
+      token = session.token,
+      response = AuthResponse(
+        expiresAt = session.expiresAt.toString,
+        user      = UserResponse.fromDomain(user)
+      )
     )
 }
 

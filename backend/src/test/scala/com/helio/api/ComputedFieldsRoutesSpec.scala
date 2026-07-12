@@ -3,7 +3,7 @@ package com.helio.api
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes._
@@ -120,11 +120,17 @@ class ComputedFieldsRoutesSpec
   private def stubConnector(resp: Either[String, JsValue]): RestApiConnector =
     new RestApiConnector(Some(_ => Future.successful(resp)))
 
+  // HEL-287: session auth moved from an `Authorization` bearer header to a
+  // `helio_session` cookie; the CSRF header is required on non-GET requests
+  // once that cookie is present (see AuthDirectives.requireCsrfHeader).
   private def routes(connector: RestApiConnector = stubConnector(Left("no-http"))): Route = {
     import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
     mapRequest { req =>
-      if (req.header[Authorization].isDefined) req
-      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
+      val withCookie =
+        if (req.header[Cookie].exists(_.cookies.exists(_.name == SessionCookies.Name))) req
+        else req.withHeaders(req.headers :+ Cookie(SessionCookies.Name -> testToken))
+      if (withCookie.headers.exists(_.is(AuthDirectives.CsrfHeaderName.toLowerCase))) withCookie
+      else withCookie.withHeaders(withCookie.headers :+ RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue))
     } {
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,

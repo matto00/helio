@@ -44,6 +44,17 @@ object ServiceResponse extends JsonProtocols {
       case Left(e)  => completeError(e)
     }
 
+  /** Variant of `run` for endpoints whose success path needs to attach its
+   *  own directives around the completed response (e.g. `setCookie` — HEL-287
+   *  login/register/OAuth-callback, which set the session cookie from a
+   *  value only known once the service `Future` completes, so it can't be
+   *  wrapped as a static outer directive the way `setCookie` normally is). */
+  def runWith[A](result: Future[Either[ServiceError, A]])(success: A => Route): Route =
+    onSuccess(result) {
+      case Right(a) => success(a)
+      case Left(e)  => completeError(e)
+    }
+
   private def completeError(e: ServiceError): Route = e match {
     case ServiceError.BadRequest(m)    => complete(StatusCodes.BadRequest, ErrorResponse(m))
     case ServiceError.Unauthorized(m)  => complete(StatusCodes.Unauthorized, ErrorResponse(m))

@@ -45,9 +45,14 @@ const FQN_PREFIXES = [
   "slick.jdbc.",
 ];
 
-const fqnLineRegex = new RegExp(
-  `(${FQN_PREFIXES.map((p) => p.replace(/\./g, "\\.")).join("|")})\\w`,
-);
+// Escapes every regex metacharacter (not just `.`) so FQN_PREFIXES entries are
+// treated as literal text when composed into fqnLineRegex below. CodeQL
+// js/incomplete-sanitization: the previous version only escaped `.`.
+function escapeRegExp(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const fqnLineRegex = new RegExp(`(${FQN_PREFIXES.map(escapeRegExp).join("|")})\\w`);
 
 const hardErrors = [];
 const softWarnings = [];

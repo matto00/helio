@@ -1,17 +1,20 @@
 import axios, { isAxiosError } from "axios";
 import { API_BASE_URL } from "../config/env";
 
+// HEL-287 CodeQL #8: session identity moved from a bearer token in
+// sessionStorage + a manual Authorization header to an HttpOnly cookie set
+// by the backend. `withCredentials: true` sends/receives that cookie on
+// every request (required since prod's frontend/backend are genuinely
+// cross-site — see design.md D1). The custom header is the CSRF defense for
+// state-changing requests once the cookie can be sent cross-site (design.md
+// D4); harmless to send on GET.
 export const httpClient = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    "X-Helio-Requested-With": "1",
+  },
 });
-
-export function setAuthToken(token: string | null): void {
-  if (token) {
-    httpClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  } else {
-    delete httpClient.defaults.headers.common["Authorization"];
-  }
-}
 
 /**
  * Wire up the global 401 interceptor. Must be called once after the Redux

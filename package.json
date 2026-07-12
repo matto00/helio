@@ -12,14 +12,25 @@
     "check:schemas": "node scripts/check-schema-drift.mjs",
     "check:openspec": "node scripts/check-openspec-hygiene.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
-    "test": "jest --passWithNoTests && npm --prefix frontend test"
+    "test": "jest --passWithNoTests && npm --prefix frontend test",
+    "e2e": "playwright test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "overrides": {
+    "@babel/core": "^7.29.6",
+    "@eslint/eslintrc": {
+      "js-yaml": "^4.2.0"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^3.15.0"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.3",
+    "@playwright/test": "^1.55.1",
     "@types/jest": "^30.0.0",
     "eslint": "^9.39.3",
     "eslint-plugin-react": "^7.37.5",

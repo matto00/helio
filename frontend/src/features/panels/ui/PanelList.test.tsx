@@ -517,7 +517,6 @@ describe("PanelList", () => {
           avatarUrl: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
-        token: "test-token",
       },
     });
 
@@ -555,7 +554,6 @@ describe("PanelList", () => {
           avatarUrl: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
-        token: "test-token",
       },
     });
 
@@ -591,7 +589,6 @@ describe("PanelList", () => {
           avatarUrl: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
-        token: "test-token",
       },
     });
 
@@ -640,7 +637,6 @@ describe("PanelList", () => {
             zoomLevels: { "dashboard-1": 1.5 },
           },
         },
-        token: "test-token",
       },
     });
 
@@ -684,7 +680,6 @@ describe("PanelList", () => {
             zoomLevels: { "dashboard-1": 1.7 },
           },
         },
-        token: "test-token",
       },
     });
 
@@ -756,7 +751,6 @@ describe("PanelList", () => {
             createdAt: "2026-01-01T00:00:00Z",
             preferences: { accentColor: null, zoomLevels: { "dashboard-1": 0.5 } },
           },
-          token: "test-token",
         },
       });
       const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
@@ -778,7 +772,6 @@ describe("PanelList", () => {
             createdAt: "2026-01-01T00:00:00Z",
             preferences: { accentColor: null, zoomLevels: { "dashboard-1": 2.0 } },
           },
-          token: "test-token",
         },
       });
       const zoomContainer = container.querySelector(".panel-list__zoom-container")!;
@@ -832,7 +825,6 @@ describe("PanelList", () => {
           avatarUrl: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
-        token: "test-token",
       },
     });
 
