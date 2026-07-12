@@ -112,13 +112,27 @@ describe("BindingEditor aggregation controls", () => {
     fetchDataTypesMock.mockResolvedValue([]);
   });
 
-  it("metric panel Data section shows an Aggregation sub-section with field + agg-function selectors", () => {
+  // HEL-243 — metric no longer has a separate "Aggregation" sub-section;
+  // aggregation is exposed through the unified Value control's Reduce
+  // selector instead (see the `panel-viz-aggregation` capability spec).
+  it("metric panel Data section shows a Value control (field + Reduce selectors) and no separate Aggregation sub-section", () => {
     renderMetricModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    expect(screen.getByText("Aggregation")).toBeInTheDocument();
-    expect(screen.getByLabelText("Aggregation field")).toBeInTheDocument();
-    expect(screen.getByLabelText("Aggregation function")).toBeInTheDocument();
+    expect(screen.getByText("Value")).toBeInTheDocument();
+    expect(screen.getByLabelText("Value field")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reduce function")).toBeInTheDocument();
+    expect(screen.queryByText("Aggregation")).not.toBeInTheDocument();
+  });
+
+  it("the Reduce selector lists None (first row) plus the five reduce functions", () => {
+    renderMetricModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    fireEvent.click(screen.getByLabelText("Reduce function"));
+
+    for (const label of ["None (first row)", "Count", "Sum", "Average", "Min", "Max"]) {
+      expect(screen.getByRole("option", { name: label })).toBeInTheDocument();
+    }
   });
 
   it("chart panel Data section shows an Aggregation sub-section with group-by, agg-function, and value-field selectors", () => {
@@ -131,60 +145,75 @@ describe("BindingEditor aggregation controls", () => {
     expect(screen.getByLabelText("Aggregation value field")).toBeInTheDocument();
   });
 
-  it("does not show aggregation controls before a DataType is selected", () => {
+  it("does not show the Value control before a DataType is selected", () => {
     renderMetricModal(makeMetricPanel({ ...panelBaseFields, config: { dataTypeId: "" } }));
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    expect(screen.queryByText("Aggregation")).not.toBeInTheDocument();
+    expect(screen.queryByText("Value")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Value field")).not.toBeInTheDocument();
   });
 
-  it("leaving aggregation controls unset and saving a field-mapping-only change omits config.aggregation entirely", async () => {
+  it("saving an unrelated change (refresh interval) without touching the Value control leaves config.aggregation untouched (omitted)", async () => {
     updateBindingMock.mockResolvedValue(metricBoundPanel);
     renderMetricModal();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    selectOption("value field", "rating");
+    selectOption("refresh interval", "30s");
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() => expect(updateBindingMock).toHaveBeenCalled());
     const call = updateBindingMock.mock.calls[0];
-    // The 5th (`aggregation`) arg is `undefined` when the section wasn't
-    // touched — `buildBindingPatch` checks `args.aggregation !== undefined`,
-    // so an explicit `undefined` and an omitted 5th arg are wire-equivalent:
-    // either way `config.aggregation` is left out of the PATCH entirely
-    // (unchanged absent spec).
+    // The 5th (`aggregation`) arg is `undefined` when the Value control's
+    // Reduce selector wasn't touched — `buildBindingPatch` checks
+    // `args.aggregation !== undefined`, so an explicit `undefined` and an
+    // omitted 5th arg are wire-equivalent: either way `config.aggregation`
+    // is left out of the PATCH entirely (unchanged absent spec).
     expect(call[0]).toBe("p1");
     expect(call[1]).toBe("dt-1");
     expect(call[4]).toBeUndefined();
   });
 
-  it("configuring a metric aggregation and saving sends config.aggregation set to the configured spec", async () => {
-    updateBindingMock.mockResolvedValue(metricBoundPanel);
-    renderMetricModal();
+  // panel-viz-aggregation spec — "Selecting a reduce function moves the
+  // field from mapping to aggregation".
+  it("selecting a reduce function moves the field from fieldMapping.value to aggregation", async () => {
+    const priceMappedPanel = makeMetricPanel({
+      ...panelBaseFields,
+      config: { dataTypeId: "dt-1", fieldMapping: { value: "rating" } },
+    });
+    updateBindingMock.mockResolvedValue(priceMappedPanel);
+    renderMetricModal(priceMappedPanel);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    selectOption("aggregation field", "rating");
-    selectOption("aggregation function", "Average");
+    selectOption("reduce function", "Average");
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null, {
-        value: "rating",
-        agg: "avg",
-      }),
-    );
+    await waitFor(() => expect(updateBindingMock).toHaveBeenCalled());
+    const call = updateBindingMock.mock.calls[0];
+    expect(call[1]).toBe("dt-1");
+    expect(call[2]).toBeNull(); // fieldMapping — "value" key cleared
+    expect(call[4]).toEqual({ value: "rating", agg: "avg" });
   });
 
-  it("clearing a previously-configured aggregation and saving sends config.aggregation explicitly cleared (null)", async () => {
+  // panel-viz-aggregation spec — "Selecting 'None (first row)' moves the
+  // field back to field mapping".
+  it("selecting None (first row) moves the field back from aggregation to fieldMapping.value and clears aggregation", async () => {
     updateBindingMock.mockResolvedValue(metricWithAggregationPanel);
     renderMetricModal(metricWithAggregationPanel);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    selectOption("aggregation field", "— None —");
+    selectOption("reduce function", "None (first row)");
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null, null),
+      expect(updateBindingMock).toHaveBeenCalledWith(
+        "p1",
+        "dt-1",
+        { value: "rating" },
+        null,
+        null,
+        undefined,
+        undefined,
+      ),
     );
   });
 

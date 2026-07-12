@@ -97,11 +97,15 @@ export async function updatePanelBinding(
   fieldMapping: Record<string, string> | null,
   _refreshInterval: number | null,
   aggregation?: MetricAggregation | ChartAggregation | null,
+  /** HEL-243: literal label/unit override — `undefined` = leave unchanged,
+   *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
+  label?: string | null,
+  unit?: string | null,
 ): Promise<Panel> {
   // refreshInterval is intentionally dropped at the network boundary — the
   // backend has no schema or column for it. The slice mirrors it into Redux
   // state as a frontend-only optimistic update so polling keeps working.
-  const config = buildBindingPatch({ typeId, fieldMapping, aggregation });
+  const config = buildBindingPatch({ typeId, fieldMapping, aggregation, label, unit });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

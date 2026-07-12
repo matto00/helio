@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
-import { Select, TextField, type SelectOption } from "../../../../shared/ui/index";
+import { Select, type SelectOption } from "../../../../shared/ui/index";
 import {
   fetchDataTypes,
   selectPipelineOutputDataTypes,
@@ -20,14 +19,16 @@ import type {
 } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
-
-const AGG_FN_OPTIONS: { value: AggFn; label: string }[] = [
-  { value: "count", label: "Count" },
-  { value: "sum", label: "Sum" },
-  { value: "avg", label: "Average" },
-  { value: "min", label: "Min" },
-  { value: "max", label: "Max" },
-];
+import {
+  BoundOrLiteralField,
+  defaultBoundOrLiteralMode,
+  type BoundOrLiteralMode,
+} from "./BoundOrLiteralField";
+import { MetricValueEditor } from "./MetricValueEditor";
+import { ChartAggregationFields } from "./ChartAggregationFields";
+import { FieldMappingSlots } from "./FieldMappingSlots";
+import { DataTypePicker } from "./DataTypePicker";
+import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
 
 function isAggFn(value: string): value is AggFn {
   return (
@@ -89,9 +90,36 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       panel.type === "metric" ? (panel.config.aggregation ?? null) : null;
     const initialChartAgg: ChartAggregation | null =
       panel.type === "chart" ? (panel.config.aggregation ?? null) : null;
-    const initialAggField = initialMetricAgg?.value ?? initialChartAgg?.groupBy ?? "";
+    // HEL-243 — metric's unified Value control reuses `aggField`/`aggFn` for
+    // BOTH the plain-mapping case (`aggFn === ""`, writes `fieldMapping.value`)
+    // and the reduced case (writes `aggregation`), so its initial field must
+    // fall back to `fieldMapping.value` when no aggregation spec is present
+    // (matches `usePanelData.ts`'s existing render-precedence: aggregation
+    // wins when both happen to be set on an old-UI-authored panel).
+    const initialAggField =
+      initialMetricAgg?.value ??
+      (panel.type === "metric" ? initialFieldMapping.value : undefined) ??
+      initialChartAgg?.groupBy ??
+      "";
     const initialAggFn = initialMetricAgg?.agg ?? initialChartAgg?.agg ?? "";
     const initialAggYField = initialChartAgg?.yField ?? "";
+
+    // HEL-243 — Label/Unit bind-or-literal state, metric only. Mode defaults
+    // to "literal" when `config.label`/`config.unit` is set (matches HEL-293's
+    // documented literal-wins precedence), else "field" from any existing
+    // `fieldMapping.label`/`fieldMapping.unit` binding.
+    const initialLabelMode: BoundOrLiteralMode =
+      panel.type === "metric"
+        ? defaultBoundOrLiteralMode(panel.config.label !== undefined)
+        : "field";
+    const initialUnitMode: BoundOrLiteralMode =
+      panel.type === "metric"
+        ? defaultBoundOrLiteralMode(panel.config.unit !== undefined)
+        : "field";
+    const initialLabelField = initialFieldMapping.label ?? "";
+    const initialUnitField = initialFieldMapping.unit ?? "";
+    const initialLabelLiteral = panel.type === "metric" ? (panel.config.label ?? "") : "";
+    const initialUnitLiteral = panel.type === "metric" ? (panel.config.unit ?? "") : "";
 
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialTypeId);
     const [fieldMapping, setFieldMapping] = useState<Record<string, string>>(initialFieldMapping);
@@ -101,6 +129,12 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const [aggField, setAggField] = useState<string>(initialAggField);
     const [aggFn, setAggFn] = useState<string>(initialAggFn);
     const [aggYField, setAggYField] = useState<string>(initialAggYField);
+    const labelState = useBoundOrLiteralState(
+      initialLabelMode,
+      initialLabelField,
+      initialLabelLiteral,
+    );
+    const unitState = useBoundOrLiteralState(initialUnitMode, initialUnitField, initialUnitLiteral);
 
     const currentAggregation: MetricAggregation | ChartAggregation | null = useMemo(() => {
       if (panel.type === "metric") {
@@ -133,7 +167,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       selectedTypeId !== initialTypeId ||
       refreshInterval !== initialRefreshInterval ||
       JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping) ||
-      aggregationDirty;
+      aggregationDirty ||
+      (panel.type === "metric" && (labelState.dirty || unitState.dirty));
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -155,21 +190,42 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           setAggField(initialAggField);
           setAggFn(initialAggFn);
           setAggYField(initialAggYField);
+          labelState.reset();
+          unitState.reset();
           setSaveError(null);
         },
         save: async () => {
           if (!dataDirty) return { ok: true };
           try {
+            // HEL-243 — metric no longer writes `fieldMapping` from the
+            // generic per-slot loop; it's derived wholesale from the Value/
+            // Label/Unit controls' current state every save (mirrors the
+            // pre-existing chart/table behavior of resending the whole
+            // `fieldMapping` object, since the backend patch replaces it
+            // entirely rather than merging — see `MetricPanel.applyPatch`).
+            const outgoingFieldMapping: Record<string, string> =
+              panel.type === "metric"
+                ? {
+                    ...(aggFn === "" && aggField ? { value: aggField } : {}),
+                    ...(labelState.fieldMappingValue
+                      ? { label: labelState.fieldMappingValue }
+                      : {}),
+                    ...(unitState.fieldMappingValue ? { unit: unitState.fieldMappingValue } : {}),
+                  }
+                : fieldMapping;
             await dispatch(
               updatePanelBinding({
                 panelId: panel.id,
                 typeId: selectedTypeId,
-                fieldMapping: Object.keys(fieldMapping).length > 0 ? fieldMapping : null,
+                fieldMapping:
+                  Object.keys(outgoingFieldMapping).length > 0 ? outgoingFieldMapping : null,
                 refreshInterval,
                 // `undefined` when the aggregation section wasn't touched —
                 // omits the key entirely so an untouched absent spec stays
                 // absent (see `buildBindingPatch`).
                 aggregation: aggregationDirty ? currentAggregation : undefined,
+                label: panel.type === "metric" ? labelState.patchValue : undefined,
+                unit: panel.type === "metric" ? unitState.patchValue : undefined,
               }),
             ).unwrap();
             return { ok: true };
@@ -181,6 +237,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         },
       }),
       [
+        aggField,
+        aggFn,
         aggregationDirty,
         currentAggregation,
         dataDirty,
@@ -192,9 +250,12 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         initialRefreshInterval,
         initialTypeId,
         initialAggYField,
+        labelState,
         panel.id,
+        panel.type,
         refreshInterval,
         selectedTypeId,
+        unitState,
       ],
     );
 
@@ -207,141 +268,91 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     return (
       <>
         <h3 className="panel-detail-modal__edit-section-heading">Data</h3>
-        <div className="panel-detail-modal__data-section">
-          <span className="panel-detail-modal__data-label">Data type</span>
-          {selectedType ? (
-            <div className="panel-detail-modal__selected-type">
-              <span className="panel-detail-modal__selected-type-name">{selectedType.name}</span>
-              <span className="panel-detail-modal__type-count">
-                {selectedType.fields.length} fields
-              </span>
-              <button
-                type="button"
-                className="panel-detail-modal__type-clear"
-                aria-label="Clear selected data type"
-                onClick={() => {
-                  setSelectedTypeId(null);
-                  setFieldMapping({});
-                  setTypeSearch("");
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ) : (
-            <>
-              <TextField
-                type="text"
-                placeholder="Search data types…"
-                value={typeSearch}
-                onChange={(e) => setTypeSearch(e.target.value)}
-                aria-label="Search data types"
-              />
-              {dataTypesStatus === "loading" ? (
-                <p className="panel-detail-modal__type-hint">Loading…</p>
-              ) : filteredDataTypes.length === 0 ? (
-                <p className="panel-detail-modal__type-hint">No data types found.</p>
-              ) : (
-                <ul
-                  className="panel-detail-modal__type-list"
-                  role="listbox"
-                  aria-label="Data types"
-                >
-                  {filteredDataTypes.map((dt) => (
-                    <li
-                      key={dt.id}
-                      role="option"
-                      aria-selected={dt.id === selectedTypeId}
-                      className="panel-detail-modal__type-option"
-                      onClick={() => {
-                        setSelectedTypeId(dt.id);
-                        setTypeSearch("");
-                      }}
-                    >
-                      <span className="panel-detail-modal__selected-type-name">{dt.name}</span>
-                      <span className="panel-detail-modal__type-count">
-                        {dt.fields.length} fields
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-          <Link to="/pipelines" className="panel-detail-modal__source-link">
-            Create a pipeline →
-          </Link>
-        </div>
+        <DataTypePicker
+          selectedType={selectedType}
+          typeSearch={typeSearch}
+          onTypeSearchChange={setTypeSearch}
+          dataTypesStatus={dataTypesStatus}
+          filteredDataTypes={filteredDataTypes}
+          selectedTypeId={selectedTypeId}
+          onSelect={(dataTypeId) => {
+            setSelectedTypeId(dataTypeId);
+            setTypeSearch("");
+          }}
+          onClear={() => {
+            setSelectedTypeId(null);
+            setFieldMapping({});
+            setTypeSearch("");
+          }}
+        />
 
-        {selectedType && slots.length > 0 && (
-          <div className="panel-detail-modal__data-section">
-            <span className="panel-detail-modal__data-label">Field mapping</span>
-            {slots.map((slot) => (
-              <div key={slot.key} className="panel-detail-modal__mapping-row">
-                <label className="panel-detail-modal__mapping-label" htmlFor={`slot-${slot.key}`}>
-                  {slot.label}
-                </label>
-                <Select
-                  ariaLabel={`${slot.label} field`}
-                  value={fieldMapping[slot.key] ?? ""}
-                  onChange={(v) =>
-                    setFieldMapping((prev) => ({
-                      ...prev,
-                      [slot.key]: v,
-                    }))
-                  }
-                  placeholder="— None —"
-                  options={fieldOptions(selectedType)}
-                />
-              </div>
-            ))}
-          </div>
+        {selectedType && panel.type !== "metric" && slots.length > 0 && (
+          <FieldMappingSlots
+            slots={slots}
+            fieldMapping={fieldMapping}
+            onFieldChange={(slotKey, v) =>
+              setFieldMapping((prev) => ({
+                ...prev,
+                [slotKey]: v,
+              }))
+            }
+            fieldOptions={fieldOptions(selectedType)}
+          />
         )}
 
-        {selectedType && (panel.type === "metric" || panel.type === "chart") && (
-          <div className="panel-detail-modal__data-section">
-            <span className="panel-detail-modal__data-label">Aggregation</span>
-            {panel.type === "chart" && (
-              <div className="panel-detail-modal__mapping-row">
-                <label className="panel-detail-modal__mapping-label" htmlFor="agg-group-by">
-                  Group by
-                </label>
-                <Select
-                  ariaLabel="Group by field"
-                  value={aggField}
-                  onChange={setAggField}
-                  placeholder="— None —"
-                  options={aggFieldOptions(selectedType)}
-                />
-              </div>
-            )}
-            <div className="panel-detail-modal__mapping-row">
-              <label className="panel-detail-modal__mapping-label" htmlFor="agg-field">
-                {panel.type === "metric" ? "Field" : "Value field"}
-              </label>
-              <Select
-                ariaLabel={
-                  panel.type === "metric" ? "Aggregation field" : "Aggregation value field"
-                }
-                value={panel.type === "metric" ? aggField : aggYField}
-                onChange={panel.type === "metric" ? setAggField : setAggYField}
-                placeholder="— None —"
-                options={aggFieldOptions(selectedType)}
+        {/* HEL-243 — metric replaces the generic field-mapping loop + the
+            separate Aggregation section with one unified Value control
+            (field + Reduce) and Label/Unit bind-or-literal controls, so
+            `fieldMapping.value` and `aggregation` can never disagree (see
+            design.md Decision 1) and label/unit literals are editable
+            post-creation (see design.md Decision 2/3). */}
+        {selectedType && panel.type === "metric" && (
+          <>
+            <MetricValueEditor
+              fieldOptions={aggFieldOptions(selectedType)}
+              fieldValue={aggField}
+              onFieldChange={setAggField}
+              reduceValue={aggFn}
+              onReduceChange={setAggFn}
+            />
+            <div className="panel-detail-modal__data-section">
+              <span className="panel-detail-modal__data-label">Label &amp; Unit</span>
+              <BoundOrLiteralField
+                label="Label"
+                mode={labelState.mode}
+                onModeChange={labelState.setMode}
+                fieldOptions={aggFieldOptions(selectedType)}
+                fieldValue={labelState.fieldValue}
+                onFieldChange={labelState.setFieldValue}
+                literalValue={labelState.literalValue}
+                onLiteralChange={labelState.setLiteralValue}
+                literalPlaceholder="e.g. Revenue"
+              />
+              <BoundOrLiteralField
+                label="Unit"
+                mode={unitState.mode}
+                onModeChange={unitState.setMode}
+                fieldOptions={aggFieldOptions(selectedType)}
+                fieldValue={unitState.fieldValue}
+                onFieldChange={unitState.setFieldValue}
+                literalValue={unitState.literalValue}
+                onLiteralChange={unitState.setLiteralValue}
+                literalPlaceholder="e.g. $, %, ms"
               />
             </div>
-            <div className="panel-detail-modal__mapping-row">
-              <label className="panel-detail-modal__mapping-label" htmlFor="agg-fn">
-                Function
-              </label>
-              <Select
-                ariaLabel="Aggregation function"
-                value={aggFn}
-                onChange={setAggFn}
-                placeholder="— None —"
-                options={[{ value: "", label: "— None —" }, ...AGG_FN_OPTIONS]}
-              />
-            </div>
-          </div>
+          </>
+        )}
+
+        {selectedType && panel.type === "chart" && (
+          <ChartAggregationFields
+            fieldOptions={aggFieldOptions(selectedType)}
+            groupByValue={aggField}
+            onGroupByChange={setAggField}
+            valueFieldValue={aggYField}
+            onValueFieldChange={setAggYField}
+            aggFnValue={aggFn}
+            onAggFnChange={setAggFn}
+          />
         )}
 
         <div className="panel-detail-modal__data-section">
