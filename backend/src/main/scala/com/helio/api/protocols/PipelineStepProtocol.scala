@@ -83,6 +83,11 @@ final case class ExtractHeadingsStepResponse(
     createdAt: String, updatedAt: String, config: ExtractHeadingsConfig
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.ExtractHeadings }
 
+final case class ChunkByTokenCountStepResponse(
+    id: String, pipelineId: String, position: Int,
+    createdAt: String, updatedAt: String, config: ChunkByTokenCountConfig
+) extends PipelineStepResponse { def `type`: String = PipelineStepKind.ChunkByTokenCount }
+
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
@@ -106,6 +111,7 @@ object PipelineStepResponse {
     case s: AggregateStep => AggregateStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: SplitTextStep => SplitTextStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: ExtractHeadingsStep => ExtractHeadingsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
+    case s: ChunkByTokenCountStep => ChunkByTokenCountStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
   }
 }
 
@@ -137,6 +143,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val aggregateConfigFormat: RootJsonFormat[AggregateConfig] = AggregateConfig.format
   implicit val splitTextConfigFormat: RootJsonFormat[SplitTextConfig] = SplitTextConfig.format
   implicit val extractHeadingsConfigFormat: RootJsonFormat[ExtractHeadingsConfig] = ExtractHeadingsConfig.format
+  implicit val chunkByTokenCountConfigFormat: RootJsonFormat[ChunkByTokenCountConfig] = ChunkByTokenCountConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
@@ -151,6 +158,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val aggregateStepResponseFormat: RootJsonFormat[AggregateStepResponse] = jsonFormat6(AggregateStepResponse.apply)
   private val splitTextStepResponseFormat: RootJsonFormat[SplitTextStepResponse] = jsonFormat6(SplitTextStepResponse.apply)
   private val extractHeadingsStepResponseFormat: RootJsonFormat[ExtractHeadingsStepResponse] = jsonFormat6(ExtractHeadingsStepResponse.apply)
+  private val chunkByTokenCountStepResponseFormat: RootJsonFormat[ChunkByTokenCountStepResponse] = jsonFormat6(ChunkByTokenCountStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -170,6 +178,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case a: AggregateStepResponse => aggregateStepResponseFormat.write(a).asJsObject
         case t: SplitTextStepResponse => splitTextStepResponseFormat.write(t).asJsObject
         case e: ExtractHeadingsStepResponse => extractHeadingsStepResponseFormat.write(e).asJsObject
+        case k: ChunkByTokenCountStepResponse => chunkByTokenCountStepResponseFormat.write(k).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -188,6 +197,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case Some(JsString(PipelineStepKind.Aggregate)) => aggregateStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.SplitText)) => splitTextStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.ExtractHeadings)) => extractHeadingsStepResponseFormat.read(json)
+        case Some(JsString(PipelineStepKind.ChunkByTokenCount)) => chunkByTokenCountStepResponseFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown PipelineStep type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on PipelineStep")
       }

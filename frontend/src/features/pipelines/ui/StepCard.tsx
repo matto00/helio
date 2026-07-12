@@ -13,6 +13,7 @@ import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
+import { ChunkByTokenCountConfig } from "./ChunkByTokenCountConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
 import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FilterConfig } from "./FilterConfig";
@@ -87,6 +88,7 @@ export function StepCard({
     sortConfig,
     splitTextConfig,
     extractHeadingsConfig,
+    chunkByTokenCountConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -97,6 +99,7 @@ export function StepCard({
     onSortChange,
     onSplitTextChange,
     onExtractHeadingsChange,
+    onChunkByTokenCountChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -177,6 +180,12 @@ export function StepCard({
               config={extractHeadingsConfig}
               analyzeSchema={analyzeSchema}
               onChange={onExtractHeadingsChange}
+            />
+          ) : step.opType.id === "chunkbytokencount" ? (
+            <ChunkByTokenCountConfig
+              config={chunkByTokenCountConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onChunkByTokenCountChange}
             />
           ) : (
             <>

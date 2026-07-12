@@ -5,6 +5,8 @@ import com.helio.domain.{
   AggregateStep,
   CastConfig,
   CastStep,
+  ChunkByTokenCountConfig,
+  ChunkByTokenCountStep,
   ComputeConfig,
   ComputeStep,
   ExtractHeadingsConfig,
@@ -86,6 +88,7 @@ object PipelineStepConfigCodec {
     case c: AggregateConfig => PipelineStep.Registry(PipelineStepKind.Aggregate).encodeConfig(c)
     case c: SplitTextConfig => PipelineStep.Registry(PipelineStepKind.SplitText).encodeConfig(c)
     case c: ExtractHeadingsConfig => PipelineStep.Registry(PipelineStepKind.ExtractHeadings).encodeConfig(c)
+    case c: ChunkByTokenCountConfig => PipelineStep.Registry(PipelineStepKind.ChunkByTokenCount).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -118,6 +121,7 @@ object PipelineStepConfigCodec {
     case s: AggregateStep => s.config
     case s: SplitTextStep => s.config
     case s: ExtractHeadingsStep => s.config
+    case s: ChunkByTokenCountStep => s.config
   }
 
 }

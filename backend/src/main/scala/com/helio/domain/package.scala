@@ -32,6 +32,8 @@ package object domain {
   val  SplitTextStep = steps.SplitTextStep
   type ExtractHeadingsStep = steps.ExtractHeadingsStep
   val  ExtractHeadingsStep = steps.ExtractHeadingsStep
+  type ChunkByTokenCountStep = steps.ChunkByTokenCountStep
+  val  ChunkByTokenCountStep = steps.ChunkByTokenCountStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -66,4 +68,6 @@ package object domain {
   val  SplitTextConfig = steps.SplitTextConfig
   type ExtractHeadingsConfig = steps.ExtractHeadingsConfig
   val  ExtractHeadingsConfig = steps.ExtractHeadingsConfig
+  type ChunkByTokenCountConfig = steps.ChunkByTokenCountConfig
+  val  ChunkByTokenCountConfig = steps.ChunkByTokenCountConfig
 }

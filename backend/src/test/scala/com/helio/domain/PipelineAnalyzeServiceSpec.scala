@@ -376,6 +376,70 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── chunkbytokencount inference (HEL-221) ─────────────────────────────────
+
+    "chunkbytokencount — valid string-body field appends indexField and tokenCountField as integer" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("chunkbytokencount", """{"field":"content","indexField":"chunkIndex","tokenCountField":"tokenCount"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(
+        field("content", "string-body"),
+        field("chunkIndex", "integer"),
+        field("tokenCount", "integer")
+      )
+    }
+
+    "chunkbytokencount — unknown field is flagged at analyze time" in {
+      val steps  = Vector(step("chunkbytokencount", """{"field":"missing"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Unknown field 'missing'")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "chunkbytokencount — non-string-body field is flagged at analyze time" in {
+      val steps  = Vector(step("chunkbytokencount", """{"field":"price"}"""))
+      val schema = Vector(field("price", "integer"))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe Some(
+        "Field 'price' is not a content field (string-body); chunkbytokencount requires a string-body field"
+      )
+      result(0).outputSchema shouldBe schema
+    }
+
+    "chunkbytokencount — missing indexField/tokenCountField config defaults to 'chunkIndex'/'tokenCount'" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("chunkbytokencount", """{"field":"content"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.map(_.name) should contain allOf ("chunkIndex", "tokenCount")
+    }
+
+    "chunkbytokencount — indexField/tokenCountField collision with existing fields replaces them (last write wins)" in {
+      val schema = Vector(field("content", "string-body"), field("chunkIndex", "string"), field("tokenCount", "string"))
+      val steps  = Vector(step("chunkbytokencount", """{"field":"content","indexField":"chunkIndex","tokenCountField":"tokenCount"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(
+        field("content", "string-body"),
+        field("chunkIndex", "integer"),
+        field("tokenCount", "integer")
+      )
+    }
+
+    "chunkbytokencount — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("chunkbytokencount", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {

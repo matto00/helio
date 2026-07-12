@@ -13,6 +13,7 @@ import {
   faChartColumn,
   faFilter,
   faHeading,
+  faLayerGroup,
   faLink,
   faPencil,
   faRightLeft,
@@ -22,6 +23,7 @@ import {
 import type {
   AggregateConfig as AggregateConfigType,
   CastConfig as CastConfigType,
+  ChunkByTokenCountConfig as ChunkByTokenCountConfigType,
   ComputeConfig as ComputeConfigType,
   ExtractHeadingsConfig as ExtractHeadingsConfigType,
   FilterConfig as FilterConfigType,
@@ -35,6 +37,7 @@ import type {
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
+import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
@@ -55,6 +58,7 @@ export const OP_TYPES: OpType[] = [
   { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
   { id: "splittext", label: "Split text", icon: faAlignLeft },
   { id: "extractheadings", label: "Extract headings", icon: faHeading },
+  { id: "chunkbytokencount", label: "Chunk by token count", icon: faLayerGroup },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -101,6 +105,14 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         indexField: "headingIndex",
         levelField: "headingLevel",
       } as ExtractHeadingsConfigType;
+    case "chunkbytokencount":
+      return {
+        field: "",
+        targetTokenCount: 500,
+        encoding: "o200k_base",
+        indexField: "chunkIndex",
+        tokenCountField: "tokenCount",
+      } as ChunkByTokenCountConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -219,5 +231,27 @@ export function extractHeadingsConfigOf(step: Step): ExtractHeadingsConfigValue 
     field: cfg.field ?? "",
     indexField: cfg.indexField ?? "headingIndex",
     levelField: cfg.levelField ?? "headingLevel",
+  };
+}
+
+export function chunkByTokenCountConfigOf(step: Step): ChunkByTokenCountConfigValue {
+  const empty: ChunkByTokenCountConfigValue = {
+    field: "",
+    targetTokenCount: 500,
+    encoding: "o200k_base",
+    indexField: "chunkIndex",
+    tokenCountField: "tokenCount",
+  };
+  if (step.opType.id !== "chunkbytokencount") return empty;
+  const cfg = step.config as ChunkByTokenCountConfigType;
+  return {
+    field: cfg.field ?? "",
+    targetTokenCount:
+      typeof cfg.targetTokenCount === "number" && cfg.targetTokenCount > 0
+        ? cfg.targetTokenCount
+        : 500,
+    encoding: cfg.encoding === "cl100k_base" ? "cl100k_base" : "o200k_base",
+    indexField: cfg.indexField ?? "chunkIndex",
+    tokenCountField: cfg.tokenCountField ?? "tokenCount",
   };
 }

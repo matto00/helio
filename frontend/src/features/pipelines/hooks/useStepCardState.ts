@@ -14,6 +14,7 @@ import { updatePipelineStep } from "../services/pipelineService";
 import {
   aggregateConfigOf,
   castsOf,
+  chunkByTokenCountConfigOf,
   computeConfigOf,
   extractHeadingsConfigOf,
   filterConfigOf,
@@ -26,6 +27,7 @@ import {
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
+import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
@@ -43,6 +45,7 @@ export interface StepCardStateHandlers {
   sortConfig: SortKey[];
   splitTextConfig: SplitTextConfigValue;
   extractHeadingsConfig: ExtractHeadingsConfigValue;
+  chunkByTokenCountConfig: ChunkByTokenCountConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -53,6 +56,7 @@ export interface StepCardStateHandlers {
   onSortChange: (config: { sortBy: SortKey[] }) => void;
   onSplitTextChange: (config: SplitTextConfigValue) => void;
   onExtractHeadingsChange: (config: ExtractHeadingsConfigValue) => void;
+  onChunkByTokenCountChange: (config: ChunkByTokenCountConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -84,6 +88,8 @@ export function useStepCardState(
   const [extractHeadingsConfig, setExtractHeadingsConfig] = useState<ExtractHeadingsConfigValue>(
     () => extractHeadingsConfigOf(step),
   );
+  const [chunkByTokenCountConfig, setChunkByTokenCountConfig] =
+    useState<ChunkByTokenCountConfigValue>(() => chunkByTokenCountConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -97,6 +103,7 @@ export function useStepCardState(
     setSortConfig(sortConfigOf(step));
     setSplitTextConfig(splitTextConfigOf(step));
     setExtractHeadingsConfig(extractHeadingsConfigOf(step));
+    setChunkByTokenCountConfig(chunkByTokenCountConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -172,6 +179,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onChunkByTokenCountChange(newConfig: ChunkByTokenCountConfigValue) {
+    setChunkByTokenCountConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -183,6 +195,7 @@ export function useStepCardState(
     sortConfig,
     splitTextConfig,
     extractHeadingsConfig,
+    chunkByTokenCountConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -193,5 +206,6 @@ export function useStepCardState(
     onSortChange,
     onSplitTextChange,
     onExtractHeadingsChange,
+    onChunkByTokenCountChange,
   };
 }

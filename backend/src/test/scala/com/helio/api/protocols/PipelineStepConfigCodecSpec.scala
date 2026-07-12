@@ -79,6 +79,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("extractheadings", raw).get shouldBe
         ExtractHeadingsConfig("content", "idx", "lvl")
     }
+
+    "preserve chunkbytokencount config" in {
+      val raw = """{"field":"content","targetTokenCount":250,"encoding":"cl100k_base","indexField":"idx","tokenCountField":"cnt"}"""
+      PipelineStepConfigCodec.decode("chunkbytokencount", raw).get shouldBe
+        ChunkByTokenCountConfig("content", 250, "cl100k_base", "idx", "cnt")
+    }
   }
 
   "tolerance" should {
@@ -176,7 +182,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "sort"      -> SortConfig(Vector(SortKey("a", "asc"))),
         "aggregate" -> AggregateConfig(Vector(AggregateField("g", "string")), Vector(Aggregation("a", "sum", "x"))),
         "splittext" -> SplitTextConfig("content", "paragraph", 1, "segmentIndex"),
-        "extractheadings" -> ExtractHeadingsConfig("content", "headingIndex", "headingLevel")
+        "extractheadings" -> ExtractHeadingsConfig("content", "headingIndex", "headingLevel"),
+        "chunkbytokencount" -> ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount")
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

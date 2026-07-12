@@ -72,6 +72,13 @@ export interface ExtractHeadingsConfig {
   indexField: string;
   levelField: string;
 }
+export interface ChunkByTokenCountConfig {
+  field: string;
+  targetTokenCount: number;
+  encoding: "o200k_base" | "cl100k_base";
+  indexField: string;
+  tokenCountField: string;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -129,6 +136,10 @@ export interface ExtractHeadingsStep extends BasePipelineStep {
   type: "extractheadings";
   config: ExtractHeadingsConfig;
 }
+export interface ChunkByTokenCountStep extends BasePipelineStep {
+  type: "chunkbytokencount";
+  config: ChunkByTokenCountConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -142,7 +153,8 @@ export type PipelineStep =
   | SortStep
   | AggregateStep
   | SplitTextStep
-  | ExtractHeadingsStep;
+  | ExtractHeadingsStep
+  | ChunkByTokenCountStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -156,7 +168,8 @@ export type PipelineStepConfig =
   | SortConfig
   | AggregateConfig
   | SplitTextConfig
-  | ExtractHeadingsConfig;
+  | ExtractHeadingsConfig
+  | ChunkByTokenCountConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -223,6 +236,10 @@ export interface ExtractHeadingsAnalyzeStep extends BaseAnalyzeStep {
   type: "extractheadings";
   config: ExtractHeadingsConfig;
 }
+export interface ChunkByTokenCountAnalyzeStep extends BaseAnalyzeStep {
+  type: "chunkbytokencount";
+  config: ChunkByTokenCountConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -236,7 +253,8 @@ export type AnalyzeStepResult =
   | SortAnalyzeStep
   | AggregateAnalyzeStep
   | SplitTextAnalyzeStep
-  | ExtractHeadingsAnalyzeStep;
+  | ExtractHeadingsAnalyzeStep
+  | ChunkByTokenCountAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

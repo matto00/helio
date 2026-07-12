@@ -69,6 +69,7 @@ object PipelineAnalyzeService {
       case "aggregate"                  => inferAggregate(config, inputSchema)
       case "splittext"                  => inferSplitText(config, inputSchema)
       case "extractheadings"            => inferExtractHeadings(config, inputSchema)
+      case "chunkbytokencount"          => inferChunkByTokenCount(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -209,6 +210,40 @@ object PipelineAnalyzeService {
     } catch {
       case ex: Exception =>
         (inputSchema, Some(s"extractheadings config error: ${ex.getMessage}"))
+    }
+
+  /** chunkbytokencount (HEL-221) — mirrors `inferExtractHeadings`'s
+   *  validate-then-shape pattern, appending two fields (index + token count)
+   *  instead of one.
+   *
+   *  Looks up `config.field` in `inputSchema`. If absent, flags an unknown-field
+   *  `validationError` and passes the schema through unchanged (identity
+   *  fallback). If present but not `"string-body"`, flags a not-a-content-field
+   *  `validationError`, likewise passing the schema through unchanged. On
+   *  success, appends `indexField` and `tokenCountField` as `"integer"` (each
+   *  replacing any existing field of the same name — same collision rule
+   *  `splittext`/`extractheadings` already apply). `targetTokenCount`/`encoding`
+   *  are step parameters, not data-shape fields, so they don't appear in the
+   *  schema. */
+  private def inferChunkByTokenCount(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json            = config.parseJson.asJsObject
+      val field           = json.fields("field").convertTo[String]
+      val indexField      = json.fields.get("indexField").map(_.convertTo[String]).getOrElse("chunkIndex")
+      val tokenCountField = json.fields.get("tokenCountField").map(_.convertTo[String]).getOrElse("tokenCount")
+
+      inputSchema.find(_.name == field) match {
+        case None =>
+          (inputSchema, Some(s"Unknown field '$field'"))
+        case Some(f) if f.`type` != "string-body" =>
+          (inputSchema, Some(s"Field '$field' is not a content field (string-body); chunkbytokencount requires a string-body field"))
+        case Some(_) =>
+          val withoutIndexAndCount = inputSchema.filterNot(f => f.name == indexField || f.name == tokenCountField)
+          (withoutIndexAndCount :+ SchemaField(name = indexField, `type` = "integer") :+ SchemaField(name = tokenCountField, `type` = "integer"), None)
+      }
+    } catch {
+      case ex: Exception =>
+        (inputSchema, Some(s"chunkbytokencount config error: ${ex.getMessage}"))
     }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
