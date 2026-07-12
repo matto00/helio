@@ -110,6 +110,8 @@ export interface TablePanelConfig {
 
 export interface TextPanelConfig {
   content: string;
+  dataTypeId: string;
+  fieldMapping: Record<string, string>;
 }
 
 export interface MarkdownPanelConfig {
@@ -230,7 +232,11 @@ export const emptyTableConfig = (): TablePanelConfig => ({
   columnWidths: {},
 });
 
-export const emptyTextConfig = (): TextPanelConfig => ({ content: "" });
+export const emptyTextConfig = (): TextPanelConfig => ({
+  content: "",
+  dataTypeId: "",
+  fieldMapping: {},
+});
 
 export const emptyMarkdownConfig = (): MarkdownPanelConfig => ({ content: "" });
 

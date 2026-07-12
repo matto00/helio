@@ -269,4 +269,28 @@ describe("PanelContent — live text data", () => {
     expect(liveEl).toBeInTheDocument();
     expect(liveEl).toHaveTextContent("Sample text");
   });
+
+  // HEL-244 regression — an existing unbound Text panel (no dataTypeId, only
+  // literal config.content) must render identically to before this change:
+  // no `data` prop is passed (usePanelData returns null for unbound panels),
+  // so TextRenderer falls back to config.content.
+  it("renders literal config.content unchanged for an unbound Text panel (no data prop)", () => {
+    const { container } = render(
+      <PanelContent panel={makeTextPanel({ config: { content: "Static fallback text" } })} />,
+    );
+    const liveEl = container.querySelector(".panel-content__text-live");
+    expect(liveEl).toBeInTheDocument();
+    expect(liveEl).toHaveTextContent("Static fallback text");
+  });
+
+  it("bound data.content takes precedence over literal config.content when both are present", () => {
+    const { container } = render(
+      <PanelContent
+        panel={makeTextPanel({ config: { content: "Stale literal" } })}
+        data={{ content: "Fresh bound value" }}
+      />,
+    );
+    const liveEl = container.querySelector(".panel-content__text-live");
+    expect(liveEl).toHaveTextContent("Fresh bound value");
+  });
 });

@@ -18,6 +18,7 @@ import {
   buildDividerPatch,
   buildImagePatch,
   buildTableWidthsPatch,
+  buildTextBindingPatch,
 } from "../state/panelPayloads";
 import { httpClient } from "../../../services/httpClient";
 
@@ -113,6 +114,22 @@ export async function updatePanelBinding(
 
 export async function updatePanelContent(panelId: string, content: string): Promise<Panel> {
   const config = buildContentPatch(content);
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
+  return response.data;
+}
+
+/** PATCH a Text panel's Content editor save (HEL-244) — see
+ *  `buildTextBindingPatch` for the Source/Static patch-shape rules. */
+export async function updatePanelTextBinding(
+  panelId: string,
+  args: {
+    mode: "field" | "literal";
+    typeId: string | null;
+    fieldValue: string;
+    literalValue: string;
+  },
+): Promise<Panel> {
+  const config = buildTextBindingPatch(args);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

@@ -89,7 +89,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "content": { "type": "string" }
+        "content": { "type": "string" },
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": { "type": "object" }
       }
     },
     "MarkdownConfig": {

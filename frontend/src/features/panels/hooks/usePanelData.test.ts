@@ -6,7 +6,7 @@ import { Provider } from "react-redux";
 
 import { markDataTypeRowsStale, panelsReducer } from "../state/panelsSlice";
 import * as dataTypeService from "../../dataTypes/services/dataTypeService";
-import { makeChartPanel, makeMetricPanel } from "../../../test/panelFixtures";
+import { makeChartPanel, makeMetricPanel, makeTextPanel } from "../../../test/panelFixtures";
 import type { Panel } from "../types/panel";
 import { usePanelData } from "./usePanelData";
 
@@ -550,6 +550,53 @@ describe("usePanelData", () => {
       const panel = makeMetricPanel();
       const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
       expect(result.current.chartAggregate).toBeNull();
+    });
+  });
+
+  // ─── HEL-244: Text panel joins the bound-capable panel set ───────────────
+
+  describe("bound Text panel", () => {
+    it("resolves data.content from the first row's mapped field", async () => {
+      mockFetchDataTypeRows.mockResolvedValue({
+        rows: [{ headline: "Breaking news" }],
+        rowCount: 1,
+      });
+
+      const panel = makeTextPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { content: "headline" } },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.data).toEqual({ content: "Breaking news" });
+      expect(mockFetchDataTypeRows).toHaveBeenCalledWith("dt-1");
+    });
+
+    it("returns empty result for an unbound Text panel (empty dataTypeId)", () => {
+      const store = makeStore();
+      const panel = makeTextPanel({ config: { content: "Static text" } });
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+      expect(result.current.data).toBeNull();
+      expect(mockFetchDataTypeRows).not.toHaveBeenCalled();
+    });
+
+    it("sets noData when the bound DataType has no rows", async () => {
+      mockFetchDataTypeRows.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      const panel = makeTextPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { content: "headline" } },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.noData).toBe(true);
+      expect(result.current.data).toBeNull();
     });
   });
 });

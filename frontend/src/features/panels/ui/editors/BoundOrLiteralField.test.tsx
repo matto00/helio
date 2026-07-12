@@ -85,4 +85,38 @@ describe("BoundOrLiteralField", () => {
     fireEvent.click(screen.getByRole("option", { name: "rating" }));
     expect(onFieldChange).toHaveBeenCalledWith("rating");
   });
+
+  // HEL-244 — additive `literalMultiline` prop (Decision 3): default `false`
+  // preserves today's single-line behavior; existing Metric call sites above
+  // (no `literalMultiline` passed) already exercise that default unmodified.
+  describe("literalMultiline", () => {
+    it("renders a single-line text field in literal mode when omitted (default false)", () => {
+      renderField({ mode: "literal", literalValue: "Revenue" });
+      const input = screen.getByLabelText("Label text");
+      expect(input.tagName).toBe("INPUT");
+    });
+
+    it("renders a multiline textarea in literal mode when literalMultiline is true", () => {
+      renderField({ mode: "literal", literalValue: "Hello world", literalMultiline: true });
+      const input = screen.getByLabelText("Label text");
+      expect(input.tagName).toBe("TEXTAREA");
+      expect(input).toHaveValue("Hello world");
+    });
+
+    it("does not render a textarea in field mode even when literalMultiline is true", () => {
+      renderField({ mode: "field", literalMultiline: true });
+      expect(screen.getByLabelText("Label field")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Label text")).not.toBeInTheDocument();
+    });
+
+    it("propagates textarea edits via onLiteralChange when literalMultiline is true", () => {
+      const onLiteralChange = jest.fn();
+      renderField({ mode: "literal", literalValue: "", literalMultiline: true, onLiteralChange });
+
+      fireEvent.change(screen.getByLabelText("Label text"), {
+        target: { value: "Multi\nline" },
+      });
+      expect(onLiteralChange).toHaveBeenCalledWith("Multi\nline");
+    });
+  });
 });

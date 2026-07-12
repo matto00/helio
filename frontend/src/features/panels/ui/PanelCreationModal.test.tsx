@@ -584,6 +584,36 @@ describe("PanelCreationModal — DataType picker step", () => {
     );
   });
 
+  // HEL-244 (task 4.8) — creating a Text panel with a selected DataType now
+  // seeds config.dataTypeId (previously discarded by seedCreateConfig's
+  // "text" case; the createPanel call itself already passed dataTypeId
+  // through — see `buildTextBindingPatch`'s dedicated unit tests in
+  // `panelPayloads.test.ts` for the config-shape assertion).
+  it("HEL-244 Create panel call for a Text panel includes dataTypeId selected in the DataType step", async () => {
+    createPanelMock.mockResolvedValue(mockPanel({ type: "text", title: "My Text Panel" }));
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), {
+      target: { value: "My Text Panel" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "My Text Panel",
+        "text",
+        undefined,
+        "dt-1",
+      ),
+    );
+  });
+
   // 4.6 — Empty state shown when no pipeline-output DataTypes are available
   it("4.6 empty state is shown when there are no pipeline-output DataTypes", () => {
     const onClose = jest.fn();
