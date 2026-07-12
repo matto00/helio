@@ -65,7 +65,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V42 — owner-only Personal Access Tokens (HEL-148 Phase 1)
     "api_tokens",
     // V46 — binary_refs, indirect owner via data_type_id -> data_types (HEL-217)
-    "binary_refs"
+    "binary_refs",
+    // V54 — image_uploads, direct owner (HEL-246)
+    "image_uploads"
   )
 
   override def beforeAll(): Unit = {

@@ -144,6 +144,24 @@ export async function updatePanelImage(
   return response.data;
 }
 
+export interface UploadPanelImageResponse {
+  id: string;
+  url: string;
+}
+
+/** Upload a file to the standalone panel-literal image store (HEL-246),
+ *  mirroring `dataSourceService.createCsvSource`'s multipart shape. The
+ *  returned `url` is a root-relative `/api/uploads/image/<id>` path — set it
+ *  directly as the Image panel's `imageUrl`, exactly like a typed URL. */
+export async function uploadPanelImage(file: File): Promise<UploadPanelImageResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<UploadPanelImageResponse>("/api/uploads/image", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
 /** PATCH a Table panel's persisted column widths (HEL-253). Kept as its own
  *  call — separate from `updatePanelBinding` — so a debounced resize PATCH
  *  never races/clobbers an in-flight binding edit's absent-vs-null

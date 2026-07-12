@@ -40,6 +40,29 @@ describe("ImagePanel — with imageUrl", () => {
   });
 });
 
+describe("ImagePanel — with a root-relative upload URL (HEL-246)", () => {
+  it("renders an <img> element with src set to the root-relative path", () => {
+    const { container } = render(
+      <ImagePanel imageUrl="/api/uploads/image/abc-123" imageFit={null} />,
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "/api/uploads/image/abc-123");
+  });
+
+  it("rejects a protocol-relative path smuggled as root-relative", () => {
+    const { container } = render(
+      <ImagePanel imageUrl="//evil.example.com/x.png" imageFit={null} />,
+    );
+    const img = container.querySelector("img");
+    // Falls through to the plain absolute-URL branch (resolved against the
+    // base's protocol) rather than being rendered as the literal smuggled
+    // path — same trust level as typing "http://evil.example.com/x.png"
+    // directly, not a new same-origin-looking bypass.
+    expect(img).toHaveAttribute("src", "http://evil.example.com/x.png");
+  });
+});
+
 describe("ImagePanel — without imageUrl", () => {
   it("renders placeholder when imageUrl is null", () => {
     const { container } = render(<ImagePanel imageUrl={null} imageFit={null} />);

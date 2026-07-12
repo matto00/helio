@@ -35,3 +35,4 @@ trait JsonProtocols
     with PipelineProtocol
     with PermissionProtocol
     with PaginationProtocol
+    with ImageUploadProtocol

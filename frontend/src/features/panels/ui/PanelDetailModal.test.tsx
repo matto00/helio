@@ -4,6 +4,7 @@ import { updatePanelAppearance as updatePanelAppearanceRequest } from "../servic
 import { updatePanelBinding as updatePanelBindingRequest } from "../services/panelService";
 import { updatePanelContent as updatePanelContentRequest } from "../services/panelService";
 import { updatePanelImage as updatePanelImageRequest } from "../services/panelService";
+import { uploadPanelImage as uploadPanelImageRequest } from "../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { renderWithStore } from "../../../test/renderWithStore";
@@ -23,6 +24,7 @@ jest.mock("../services/panelService", () => ({
   updatePanelBinding: jest.fn(),
   updatePanelContent: jest.fn(),
   updatePanelImage: jest.fn(),
+  uploadPanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
 }));
 
@@ -34,6 +36,7 @@ const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const updateBindingMock = jest.mocked(updatePanelBindingRequest);
 const updateContentMock = jest.mocked(updatePanelContentRequest);
 const updateImageMock = jest.mocked(updatePanelImageRequest);
+const uploadImageMock = jest.mocked(uploadPanelImageRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 
@@ -135,6 +138,7 @@ describe("PanelDetailModal", () => {
     updateBindingMock.mockReset();
     updateContentMock.mockReset();
     updateImageMock.mockReset();
+    uploadImageMock.mockReset();
     updateDividerMock.mockReset();
     // Default to resolving with empty array so data-type fetch does not crash tests
     fetchDataTypesMock.mockResolvedValue([]);
@@ -853,5 +857,37 @@ describe("PanelDetailModal -- divider panel", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
+  });
+});
+
+describe("Image editor upload (HEL-246)", () => {
+  beforeEach(() => {
+    uploadImageMock.mockReset();
+  });
+
+  it("uploads a selected file and sets the URL field to the returned url", async () => {
+    uploadImageMock.mockResolvedValue({ id: "abc123", url: "/api/uploads/image/abc123" });
+    renderImageModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    const file = new File(["fake-bytes"], "photo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Upload image file"), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadImageMock).toHaveBeenCalledWith(file));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Image URL")).toHaveValue("/api/uploads/image/abc123"),
+    );
+  });
+
+  it("shows an inline error and preserves the existing imageUrl when the upload fails", async () => {
+    uploadImageMock.mockRejectedValue(new Error("boom"));
+    renderImageModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    const file = new File(["fake-bytes"], "photo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Upload image file"), { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText(/Upload failed/)).toBeInTheDocument());
+    expect(screen.getByLabelText("Image URL")).toHaveValue("https://example.com/img.png");
   });
 });
