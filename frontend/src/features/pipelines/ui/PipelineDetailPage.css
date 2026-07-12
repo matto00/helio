@@ -622,7 +622,8 @@
  * Without this, the raw <label>/<input> pairs flow inline and the inputs
  * shrink to content width, producing the cramped "pill" look. */
 .pipeline-detail-page__compute-config,
-.pipeline-detail-page__limit-config {
+.pipeline-detail-page__limit-config,
+.pipeline-detail-page__splittext-config {
   display: flex;
   flex-direction: column;
   gap: 10px;

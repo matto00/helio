@@ -12,7 +12,8 @@ import com.helio.domain.{
   PipelineStepKind,
   RenameConfig,
   SelectConfig,
-  SortConfig
+  SortConfig,
+  SplitTextConfig
 }
 import spray.json._
 
@@ -109,6 +110,12 @@ final case class AggregateAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Aggregate }
 
+final case class SplitTextAnalyzeStepResponse(
+    id: String, position: Int, config: SplitTextConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.SplitText }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -171,6 +178,7 @@ trait PipelineProtocol
   private val limitAnalyzeFormat: RootJsonFormat[LimitAnalyzeStepResponse]         = jsonFormat6(LimitAnalyzeStepResponse.apply)
   private val sortAnalyzeFormat: RootJsonFormat[SortAnalyzeStepResponse]           = jsonFormat6(SortAnalyzeStepResponse.apply)
   private val aggregateAnalyzeFormat: RootJsonFormat[AggregateAnalyzeStepResponse] = jsonFormat6(AggregateAnalyzeStepResponse.apply)
+  private val splitTextAnalyzeFormat: RootJsonFormat[SplitTextAnalyzeStepResponse] = jsonFormat6(SplitTextAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -185,6 +193,7 @@ trait PipelineProtocol
         case l: LimitAnalyzeStepResponse     => limitAnalyzeFormat.write(l).asJsObject
         case s: SortAnalyzeStepResponse      => sortAnalyzeFormat.write(s).asJsObject
         case a: AggregateAnalyzeStepResponse => aggregateAnalyzeFormat.write(a).asJsObject
+        case t: SplitTextAnalyzeStepResponse => splitTextAnalyzeFormat.write(t).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -200,6 +209,7 @@ trait PipelineProtocol
         case Some(JsString(PipelineStepKind.Limit))     => limitAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Sort))      => sortAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Aggregate)) => aggregateAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.SplitText)) => splitTextAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

@@ -292,5 +292,23 @@ class PipelineStepRoutesSpec
         responseAs[PipelineStepResponse].`type` shouldBe "aggregate"
       }
     }
+
+    // HEL-219 -- splittext is the 11th step kind; regression coverage for the
+    // same AllowedOps/CHECK-constraint drift class the aggregate test above guards.
+    "POST with type 'splittext' is accepted" in {
+      cleanSteps(); val pid = seedPipeline()
+      val body = JsObject(
+        "type" -> JsString("splittext"),
+        "config" -> JsObject(
+          "field"      -> JsString("content"),
+          "mode"       -> JsString("paragraph"),
+          "indexField" -> JsString("segmentIndex")
+        )
+      )
+      Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].`type` shouldBe "splittext"
+      }
+    }
   }
 }

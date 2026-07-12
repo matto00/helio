@@ -67,6 +67,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("aggregate", raw).get shouldBe
         AggregateConfig(Vector(AggregateField("dept", "string")), Vector(Aggregation("total", "sum", "x")))
     }
+
+    "preserve splittext config" in {
+      val raw = """{"field":"content","mode":"heading","headingLevel":2,"indexField":"idx"}"""
+      PipelineStepConfigCodec.decode("splittext", raw).get shouldBe
+        SplitTextConfig("content", "heading", 2, "idx")
+    }
   }
 
   "tolerance" should {
@@ -162,7 +168,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "select"    -> SelectConfig(Vector("a")),
         "limit"     -> LimitConfig(5),
         "sort"      -> SortConfig(Vector(SortKey("a", "asc"))),
-        "aggregate" -> AggregateConfig(Vector(AggregateField("g", "string")), Vector(Aggregation("a", "sum", "x")))
+        "aggregate" -> AggregateConfig(Vector(AggregateField("g", "string")), Vector(Aggregation("a", "sum", "x"))),
+        "splittext" -> SplitTextConfig("content", "paragraph", 1, "segmentIndex")
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

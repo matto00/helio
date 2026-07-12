@@ -250,6 +250,68 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── splittext inference (HEL-219) ─────────────────────────────────────────
+
+    "splittext — valid string-body field appends indexField as integer" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("splittext", """{"field":"content","indexField":"segmentIndex"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(
+        field("content", "string-body"),
+        field("segmentIndex", "integer")
+      )
+    }
+
+    "splittext — unknown field is flagged at analyze time" in {
+      val steps  = Vector(step("splittext", """{"field":"missing"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Unknown field 'missing'")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "splittext — non-string-body field is flagged at analyze time" in {
+      val steps  = Vector(step("splittext", """{"field":"price"}"""))
+      val schema = Vector(field("price", "integer"))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe Some(
+        "Field 'price' is not a content field (string-body); splittext requires a string-body field"
+      )
+      result(0).outputSchema shouldBe schema
+    }
+
+    "splittext — missing indexField config defaults to 'segmentIndex'" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("splittext", """{"field":"content"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.map(_.name) should contain("segmentIndex")
+    }
+
+    "splittext — indexField collision with an existing field replaces it (last write wins)" in {
+      val schema = Vector(field("content", "string-body"), field("segmentIndex", "string"))
+      val steps  = Vector(step("splittext", """{"field":"content","indexField":"segmentIndex"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(
+        field("content", "string-body"),
+        field("segmentIndex", "integer")
+      )
+    }
+
+    "splittext — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("splittext", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {

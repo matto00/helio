@@ -61,6 +61,12 @@ export interface AggregateConfig {
   groupBy: AggregateField[];
   aggregations: Aggregation[];
 }
+export interface SplitTextConfig {
+  field: string;
+  mode: "paragraph" | "heading";
+  headingLevel: number;
+  indexField: string;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -110,6 +116,10 @@ export interface AggregateStep extends BasePipelineStep {
   type: "aggregate";
   config: AggregateConfig;
 }
+export interface SplitTextStep extends BasePipelineStep {
+  type: "splittext";
+  config: SplitTextConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -121,7 +131,8 @@ export type PipelineStep =
   | SelectStep
   | LimitStep
   | SortStep
-  | AggregateStep;
+  | AggregateStep
+  | SplitTextStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -133,7 +144,8 @@ export type PipelineStepConfig =
   | SelectConfig
   | LimitConfig
   | SortConfig
-  | AggregateConfig;
+  | AggregateConfig
+  | SplitTextConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -192,6 +204,10 @@ export interface AggregateAnalyzeStep extends BaseAnalyzeStep {
   type: "aggregate";
   config: AggregateConfig;
 }
+export interface SplitTextAnalyzeStep extends BaseAnalyzeStep {
+  type: "splittext";
+  config: SplitTextConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -203,7 +219,8 @@ export type AnalyzeStepResult =
   | SelectAnalyzeStep
   | LimitAnalyzeStep
   | SortAnalyzeStep
-  | AggregateAnalyzeStep;
+  | AggregateAnalyzeStep
+  | SplitTextAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

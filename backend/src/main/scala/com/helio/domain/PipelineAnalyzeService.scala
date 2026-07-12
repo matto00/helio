@@ -67,6 +67,7 @@ object PipelineAnalyzeService {
       case "cast"                       => inferCast(config, inputSchema)
       case "compute"                    => inferCompute(config, inputSchema)
       case "aggregate"                  => inferAggregate(config, inputSchema)
+      case "splittext"                  => inferSplitText(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -149,6 +150,34 @@ object PipelineAnalyzeService {
       }
       groupByFields ++ aggFields
     } (inputSchema)
+
+  /** splittext (HEL-219) — mirrors `inferCompute`'s validate-then-shape pattern.
+   *
+   *  Looks up `config.field` in `inputSchema`. If absent, flags an unknown-field
+   *  `validationError` and passes the schema through unchanged (identity
+   *  fallback). If present but not `"string-body"`, flags a not-a-content-field
+   *  `validationError`, likewise passing the schema through unchanged. On
+   *  success, appends `indexField` as `"integer"` (replacing any existing field
+   *  of the same name — same collision rule `compute` already applies). */
+  private def inferSplitText(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json       = config.parseJson.asJsObject
+      val field      = json.fields("field").convertTo[String]
+      val indexField = json.fields.get("indexField").map(_.convertTo[String]).getOrElse("segmentIndex")
+
+      inputSchema.find(_.name == field) match {
+        case None =>
+          (inputSchema, Some(s"Unknown field '$field'"))
+        case Some(f) if f.`type` != "string-body" =>
+          (inputSchema, Some(s"Field '$field' is not a content field (string-body); splittext requires a string-body field"))
+        case Some(_) =>
+          val withoutIndex = inputSchema.filterNot(_.name == indexField)
+          (withoutIndex :+ SchemaField(name = indexField, `type` = "integer"), None)
+      }
+    } catch {
+      case ex: Exception =>
+        (inputSchema, Some(s"splittext config error: ${ex.getMessage}"))
+    }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

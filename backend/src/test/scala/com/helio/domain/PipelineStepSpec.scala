@@ -25,15 +25,16 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val limit     = LimitStep(id, pid, 0, LimitConfig(10), now, now)
   private val sort      = SortStep(id, pid, 0, SortConfig(Vector.empty), now, now)
   private val aggregate = AggregateStep(id, pid, 0, AggregateConfig(Vector.empty, Vector.empty), now, now)
+  private val splitText = SplitTextStep(id, pid, 0, SplitTextConfig("content", "paragraph"), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
-        "cast", "select", "limit", "sort", "aggregate"
+        "cast", "select", "limit", "sort", "aggregate", "splittext"
       )
     }
 
@@ -63,6 +64,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       limit.kind     shouldBe PipelineStepKind.Limit
       sort.kind      shouldBe PipelineStepKind.Sort
       aggregate.kind shouldBe PipelineStepKind.Aggregate
+      splitText.kind shouldBe PipelineStepKind.SplitText
     }
 
     "every subtype carries the common base fields" in {
@@ -95,6 +97,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: LimitStep     => PipelineStepKind.Limit
           case _: SortStep      => PipelineStepKind.Sort
           case _: AggregateStep => PipelineStepKind.Aggregate
+          case _: SplitTextStep => PipelineStepKind.SplitText
         }
         tag shouldBe s.kind
       }

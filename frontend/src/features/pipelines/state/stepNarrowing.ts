@@ -6,6 +6,7 @@
 // original file; consumers import them by name.
 
 import {
+  faAlignLeft,
   faArrowsUpDown,
   faArrowUp,
   faCalculator,
@@ -28,12 +29,14 @@ import type {
   RenameConfig as RenameConfigType,
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
+  SplitTextConfig as SplitTextConfigType,
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
+import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded until
 // full join semantics ship (re-expose when HEL-278 is resolved and the
@@ -47,6 +50,7 @@ export const OP_TYPES: OpType[] = [
   { id: "cast", label: "Cast type", icon: faRightLeft },
   { id: "limit", label: "Limit rows", icon: faArrowUp },
   { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
+  { id: "splittext", label: "Split text", icon: faAlignLeft },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -80,6 +84,13 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       return { rightDataSourceId: "", joinKey: "", joinType: "inner" };
     case "groupby":
       return { groupBy: [], aggColumn: "", aggFunction: "sum" };
+    case "splittext":
+      return {
+        field: "",
+        mode: "paragraph",
+        headingLevel: 1,
+        indexField: "segmentIndex",
+      } as SplitTextConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -166,4 +177,22 @@ export function sortConfigOf(step: Step): SortKey[] {
   if (step.opType.id !== "sort") return [];
   const cfg = step.config as SortConfigType;
   return Array.isArray(cfg.sortBy) ? (cfg.sortBy as SortKey[]) : [];
+}
+
+export function splitTextConfigOf(step: Step): SplitTextConfigValue {
+  const empty: SplitTextConfigValue = {
+    field: "",
+    mode: "paragraph",
+    headingLevel: 1,
+    indexField: "segmentIndex",
+  };
+  if (step.opType.id !== "splittext") return empty;
+  const cfg = step.config as SplitTextConfigType;
+  return {
+    field: cfg.field ?? "",
+    mode: cfg.mode === "heading" ? "heading" : "paragraph",
+    headingLevel:
+      typeof cfg.headingLevel === "number" && cfg.headingLevel > 0 ? cfg.headingLevel : 1,
+    indexField: cfg.indexField ?? "segmentIndex",
+  };
 }
