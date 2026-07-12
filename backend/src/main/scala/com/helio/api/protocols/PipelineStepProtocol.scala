@@ -73,6 +73,11 @@ final case class AggregateStepResponse(
     createdAt: String, updatedAt: String, config: AggregateConfig
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Aggregate }
 
+final case class SplitTextStepResponse(
+    id: String, pipelineId: String, position: Int,
+    createdAt: String, updatedAt: String, config: SplitTextConfig
+) extends PipelineStepResponse { def `type`: String = PipelineStepKind.SplitText }
+
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
@@ -94,6 +99,7 @@ object PipelineStepResponse {
     case s: LimitStep     => LimitStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: SortStep      => SortStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: AggregateStep => AggregateStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
+    case s: SplitTextStep => SplitTextStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
   }
 }
 
@@ -123,6 +129,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val aggregateFieldFormat: RootJsonFormat[AggregateField]   = AggregateField.format
   implicit val aggregationFormat: RootJsonFormat[Aggregation]         = Aggregation.format
   implicit val aggregateConfigFormat: RootJsonFormat[AggregateConfig] = AggregateConfig.format
+  implicit val splitTextConfigFormat: RootJsonFormat[SplitTextConfig] = SplitTextConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
@@ -135,6 +142,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val limitStepResponseFormat: RootJsonFormat[LimitStepResponse]         = jsonFormat6(LimitStepResponse.apply)
   private val sortStepResponseFormat: RootJsonFormat[SortStepResponse]           = jsonFormat6(SortStepResponse.apply)
   private val aggregateStepResponseFormat: RootJsonFormat[AggregateStepResponse] = jsonFormat6(AggregateStepResponse.apply)
+  private val splitTextStepResponseFormat: RootJsonFormat[SplitTextStepResponse] = jsonFormat6(SplitTextStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -152,6 +160,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case l: LimitStepResponse     => limitStepResponseFormat.write(l).asJsObject
         case s: SortStepResponse      => sortStepResponseFormat.write(s).asJsObject
         case a: AggregateStepResponse => aggregateStepResponseFormat.write(a).asJsObject
+        case t: SplitTextStepResponse => splitTextStepResponseFormat.write(t).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -168,6 +177,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case Some(JsString(PipelineStepKind.Limit))     => limitStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Sort))      => sortStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Aggregate)) => aggregateStepResponseFormat.read(json)
+        case Some(JsString(PipelineStepKind.SplitText)) => splitTextStepResponseFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown PipelineStep type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on PipelineStep")
       }

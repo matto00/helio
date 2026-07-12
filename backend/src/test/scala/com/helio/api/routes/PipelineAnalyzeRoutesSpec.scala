@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
-import com.helio.domain.{AuthenticatedUser, PipelineId, SelectConfig, UserId}
+import com.helio.domain.{AuthenticatedUser, PipelineId, SelectConfig, SplitTextConfig, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -144,6 +144,26 @@ class PipelineAnalyzeRoutesSpec
         step.`type` shouldBe "select"
         step.inputSchema.map(_.name)  should contain allOf ("order_id", "amount", "created_at")
         step.outputSchema.map(_.name) shouldBe Vector("order_id", "amount")
+        step.validationError shouldBe None
+      }
+    }
+
+    "return 200 with correct schemas for a pipeline with a splittext step (regression: analyze 500 on splittext)" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"content","displayName":"Content","dataType":"string-body","nullable":false},{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      await(pipelineStepRepo.insert(PipelineId(pid), "splittext", SplitTextConfig(field = "content", mode = "paragraph"), dummyUser))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp: PipelineAnalyzeResponse = responseAs[PipelineAnalyzeResponse]
+
+        resp.steps should have size 1
+        val step: AnalyzeStepResponse = resp.steps(0)
+        step.`type` shouldBe "splittext"
+        step.inputSchema.map(_.name)  should contain allOf ("content", "order_id")
+        step.outputSchema.map(_.name) should contain allOf ("content", "order_id", "segmentIndex")
         step.validationError shouldBe None
       }
     }

@@ -19,6 +19,7 @@ import { LimitConfig } from "./LimitConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
+import { SplitTextConfig } from "./SplitTextConfig";
 
 interface StepCardProps {
   step: Step;
@@ -83,6 +84,7 @@ export function StepCard({
     aggregateConfig,
     limitCount,
     sortConfig,
+    splitTextConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -91,6 +93,7 @@ export function StepCard({
     onAggregateChange,
     onLimitChange,
     onSortChange,
+    onSplitTextChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -160,6 +163,12 @@ export function StepCard({
             <LimitConfig count={limitCount} onChange={onLimitChange} />
           ) : step.opType.id === "sort" ? (
             <SortConfig sortBy={sortConfig} columns={analyzeColumns} onChange={onSortChange} />
+          ) : step.opType.id === "splittext" ? (
+            <SplitTextConfig
+              config={splitTextConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onSplitTextChange}
+            />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">

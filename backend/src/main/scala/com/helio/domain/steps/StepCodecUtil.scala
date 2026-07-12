@@ -27,4 +27,11 @@ private[steps] object StepCodecUtil {
       case Some(JsString(s)) => s
       case _                 => default
     }
+
+  /** Extract an integer field with a default. */
+  def intOr(obj: JsObject, key: String, default: Int): Int =
+    obj.fields.get(key) match {
+      case Some(JsNumber(n)) => scala.util.Try(n.toIntExact).getOrElse(default)
+      case _                 => default
+    }
 }

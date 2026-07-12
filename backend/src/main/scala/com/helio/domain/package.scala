@@ -28,6 +28,8 @@ package object domain {
   val  SortStep      = steps.SortStep
   type AggregateStep = steps.AggregateStep
   val  AggregateStep = steps.AggregateStep
+  type SplitTextStep = steps.SplitTextStep
+  val  SplitTextStep = steps.SplitTextStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -58,4 +60,6 @@ package object domain {
   val  Aggregation     = steps.Aggregation
   type AggregateConfig = steps.AggregateConfig
   val  AggregateConfig = steps.AggregateConfig
+  type SplitTextConfig = steps.SplitTextConfig
+  val  SplitTextConfig = steps.SplitTextConfig
 }

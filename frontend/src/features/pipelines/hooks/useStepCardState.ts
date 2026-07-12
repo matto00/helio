@@ -20,6 +20,7 @@ import {
   renamesOf,
   selectedFieldsOf,
   sortConfigOf,
+  splitTextConfigOf,
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
@@ -27,6 +28,7 @@ import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
+import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 
 export interface StepCardStateHandlers {
   selectedFields: string[];
@@ -37,6 +39,7 @@ export interface StepCardStateHandlers {
   aggregateConfig: AggregateConfigValue;
   limitCount: number;
   sortConfig: SortKey[];
+  splitTextConfig: SplitTextConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -45,6 +48,7 @@ export interface StepCardStateHandlers {
   onAggregateChange: (config: AggregateConfigValue) => void;
   onLimitChange: (config: { count: number }) => void;
   onSortChange: (config: { sortBy: SortKey[] }) => void;
+  onSplitTextChange: (config: SplitTextConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -70,6 +74,9 @@ export function useStepCardState(
   );
   const [limitCount, setLimitCount] = useState<number>(() => limitCountOf(step));
   const [sortConfig, setSortConfig] = useState<SortKey[]>(() => sortConfigOf(step));
+  const [splitTextConfig, setSplitTextConfig] = useState<SplitTextConfigValue>(() =>
+    splitTextConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -81,6 +88,7 @@ export function useStepCardState(
     setAggregateConfig(aggregateConfigOf(step));
     setLimitCount(limitCountOf(step));
     setSortConfig(sortConfigOf(step));
+    setSplitTextConfig(splitTextConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -146,6 +154,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onSplitTextChange(newConfig: SplitTextConfigValue) {
+    setSplitTextConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -155,6 +168,7 @@ export function useStepCardState(
     aggregateConfig,
     limitCount,
     sortConfig,
+    splitTextConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -163,5 +177,6 @@ export function useStepCardState(
     onAggregateChange,
     onLimitChange,
     onSortChange,
+    onSplitTextChange,
   };
 }

@@ -22,7 +22,9 @@ import com.helio.domain.{
   SelectConfig,
   SelectStep,
   SortConfig,
-  SortStep
+  SortStep,
+  SplitTextConfig,
+  SplitTextStep
 }
 import spray.json._
 
@@ -80,6 +82,7 @@ object PipelineStepConfigCodec {
     case c: LimitConfig     => PipelineStep.Registry(PipelineStepKind.Limit).encodeConfig(c)
     case c: SortConfig      => PipelineStep.Registry(PipelineStepKind.Sort).encodeConfig(c)
     case c: AggregateConfig => PipelineStep.Registry(PipelineStepKind.Aggregate).encodeConfig(c)
+    case c: SplitTextConfig => PipelineStep.Registry(PipelineStepKind.SplitText).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -110,6 +113,7 @@ object PipelineStepConfigCodec {
     case s: LimitStep     => s.config
     case s: SortStep      => s.config
     case s: AggregateStep => s.config
+    case s: SplitTextStep => s.config
   }
 
 }

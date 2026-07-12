@@ -24,7 +24,8 @@ class PipelineStepProtocolSpec extends AnyWordSpec with Matchers with JsonProtoc
     SelectStepResponse("s", "p", 0, now, now, SelectConfig(Vector("a"))),
     LimitStepResponse("s", "p", 0, now, now, LimitConfig(5)),
     SortStepResponse("s", "p", 0, now, now, SortConfig(Vector(SortKey("a", "asc")))),
-    AggregateStepResponse("s", "p", 0, now, now, AggregateConfig(Vector.empty, Vector.empty))
+    AggregateStepResponse("s", "p", 0, now, now, AggregateConfig(Vector.empty, Vector.empty)),
+    SplitTextStepResponse("s", "p", 0, now, now, SplitTextConfig("content", "paragraph", 1, "segmentIndex"))
   )
 
   "PipelineStepResponse discriminated-union format" should {

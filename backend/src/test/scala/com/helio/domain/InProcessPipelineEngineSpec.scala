@@ -40,6 +40,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: LimitConfig     => LimitStep(id, pid, 0, c, now, now)
       case c: SortConfig      => SortStep(id, pid, 0, c, now, now)
       case c: AggregateConfig => AggregateStep(id, pid, 0, c, now, now)
+      case c: SplitTextConfig => SplitTextStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -643,6 +644,35 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val result = run(sampleRows, step)
       result should have size sampleRows.size
       result.map(_("name")) shouldBe sampleRows.map(_("name"))
+    }
+
+    // ── splittext op (HEL-219) ─────────────────────────────────────────────────
+
+    "splittext: paragraph mode emits one row per segment via the full engine round trip" in {
+      val rows = Seq(Map[String, Any]("content" -> "Para one.\n\nPara two."))
+      val cfg  = """{ "field": "content", "mode": "paragraph" }"""
+      val step = makeStep("splittext", cfg)
+      val result = run(rows, step)
+      result should have size 2
+      result.map(_("content")) shouldBe Seq("Para one.", "Para two.")
+      result.map(_("segmentIndex")) shouldBe Seq(0, 1)
+    }
+
+    "splittext: heading mode round trip via config decode/engine execution" in {
+      val rows = Seq(Map[String, Any]("content" -> "## A\nx\n## B\ny", "filename" -> "doc.md"))
+      val cfg  = """{ "field": "content", "mode": "heading", "headingLevel": 2 }"""
+      val step = makeStep("splittext", cfg)
+      val result = run(rows, step)
+      result should have size 2
+      result.foreach(_("filename") shouldBe "doc.md")
+      result.map(_("content")) shouldBe Seq("## A\nx", "## B\ny")
+    }
+
+    "splittext: null field value drops the row (engine round trip)" in {
+      val rows = Seq(Map[String, Any]("content" -> null))
+      val cfg  = """{ "field": "content", "mode": "paragraph" }"""
+      val step = makeStep("splittext", cfg)
+      run(rows, step) shouldBe empty
     }
 
     "unknown op fails at the codec boundary (compile-time exhaustive in the engine)" in {
