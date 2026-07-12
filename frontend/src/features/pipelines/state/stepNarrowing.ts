@@ -12,6 +12,7 @@ import {
   faCalculator,
   faChartColumn,
   faFilter,
+  faHeading,
   faLink,
   faPencil,
   faRightLeft,
@@ -22,6 +23,7 @@ import type {
   AggregateConfig as AggregateConfigType,
   CastConfig as CastConfigType,
   ComputeConfig as ComputeConfigType,
+  ExtractHeadingsConfig as ExtractHeadingsConfigType,
   FilterConfig as FilterConfigType,
   LimitConfig as LimitConfigType,
   PipelineStep,
@@ -34,6 +36,7 @@ import type {
 import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
+import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
@@ -51,6 +54,7 @@ export const OP_TYPES: OpType[] = [
   { id: "limit", label: "Limit rows", icon: faArrowUp },
   { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
   { id: "splittext", label: "Split text", icon: faAlignLeft },
+  { id: "extractheadings", label: "Extract headings", icon: faHeading },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -91,6 +95,12 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         headingLevel: 1,
         indexField: "segmentIndex",
       } as SplitTextConfigType;
+    case "extractheadings":
+      return {
+        field: "",
+        indexField: "headingIndex",
+        levelField: "headingLevel",
+      } as ExtractHeadingsConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -194,5 +204,20 @@ export function splitTextConfigOf(step: Step): SplitTextConfigValue {
     headingLevel:
       typeof cfg.headingLevel === "number" && cfg.headingLevel > 0 ? cfg.headingLevel : 1,
     indexField: cfg.indexField ?? "segmentIndex",
+  };
+}
+
+export function extractHeadingsConfigOf(step: Step): ExtractHeadingsConfigValue {
+  const empty: ExtractHeadingsConfigValue = {
+    field: "",
+    indexField: "headingIndex",
+    levelField: "headingLevel",
+  };
+  if (step.opType.id !== "extractheadings") return empty;
+  const cfg = step.config as ExtractHeadingsConfigType;
+  return {
+    field: cfg.field ?? "",
+    indexField: cfg.indexField ?? "headingIndex",
+    levelField: cfg.levelField ?? "headingLevel",
   };
 }

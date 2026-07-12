@@ -14,6 +14,7 @@ import type { Step } from "../types/step";
 import { AggregateConfig } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
+import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
@@ -85,6 +86,7 @@ export function StepCard({
     limitCount,
     sortConfig,
     splitTextConfig,
+    extractHeadingsConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -94,6 +96,7 @@ export function StepCard({
     onLimitChange,
     onSortChange,
     onSplitTextChange,
+    onExtractHeadingsChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -168,6 +171,12 @@ export function StepCard({
               config={splitTextConfig}
               analyzeSchema={analyzeSchema}
               onChange={onSplitTextChange}
+            />
+          ) : step.opType.id === "extractheadings" ? (
+            <ExtractHeadingsConfig
+              config={extractHeadingsConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onExtractHeadingsChange}
             />
           ) : (
             <>

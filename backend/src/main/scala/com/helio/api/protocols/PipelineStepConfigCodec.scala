@@ -7,6 +7,8 @@ import com.helio.domain.{
   CastStep,
   ComputeConfig,
   ComputeStep,
+  ExtractHeadingsConfig,
+  ExtractHeadingsStep,
   FilterConfig,
   FilterStep,
   GroupByConfig,
@@ -83,6 +85,7 @@ object PipelineStepConfigCodec {
     case c: SortConfig      => PipelineStep.Registry(PipelineStepKind.Sort).encodeConfig(c)
     case c: AggregateConfig => PipelineStep.Registry(PipelineStepKind.Aggregate).encodeConfig(c)
     case c: SplitTextConfig => PipelineStep.Registry(PipelineStepKind.SplitText).encodeConfig(c)
+    case c: ExtractHeadingsConfig => PipelineStep.Registry(PipelineStepKind.ExtractHeadings).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -114,6 +117,7 @@ object PipelineStepConfigCodec {
     case s: SortStep      => s.config
     case s: AggregateStep => s.config
     case s: SplitTextStep => s.config
+    case s: ExtractHeadingsStep => s.config
   }
 
 }

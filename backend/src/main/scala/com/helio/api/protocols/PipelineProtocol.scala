@@ -5,6 +5,7 @@ import com.helio.domain.{
   AggregateConfig,
   CastConfig,
   ComputeConfig,
+  ExtractHeadingsConfig,
   FilterConfig,
   GroupByConfig,
   JoinConfig,
@@ -116,6 +117,12 @@ final case class SplitTextAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.SplitText }
 
+final case class ExtractHeadingsAnalyzeStepResponse(
+    id: String, position: Int, config: ExtractHeadingsConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.ExtractHeadings }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -179,6 +186,7 @@ trait PipelineProtocol
   private val sortAnalyzeFormat: RootJsonFormat[SortAnalyzeStepResponse]           = jsonFormat6(SortAnalyzeStepResponse.apply)
   private val aggregateAnalyzeFormat: RootJsonFormat[AggregateAnalyzeStepResponse] = jsonFormat6(AggregateAnalyzeStepResponse.apply)
   private val splitTextAnalyzeFormat: RootJsonFormat[SplitTextAnalyzeStepResponse] = jsonFormat6(SplitTextAnalyzeStepResponse.apply)
+  private val extractHeadingsAnalyzeFormat: RootJsonFormat[ExtractHeadingsAnalyzeStepResponse] = jsonFormat6(ExtractHeadingsAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -194,6 +202,7 @@ trait PipelineProtocol
         case s: SortAnalyzeStepResponse      => sortAnalyzeFormat.write(s).asJsObject
         case a: AggregateAnalyzeStepResponse => aggregateAnalyzeFormat.write(a).asJsObject
         case t: SplitTextAnalyzeStepResponse => splitTextAnalyzeFormat.write(t).asJsObject
+        case e: ExtractHeadingsAnalyzeStepResponse => extractHeadingsAnalyzeFormat.write(e).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -210,6 +219,7 @@ trait PipelineProtocol
         case Some(JsString(PipelineStepKind.Sort))      => sortAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Aggregate)) => aggregateAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.SplitText)) => splitTextAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.ExtractHeadings)) => extractHeadingsAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

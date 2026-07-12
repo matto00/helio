@@ -15,6 +15,7 @@ import {
   aggregateConfigOf,
   castsOf,
   computeConfigOf,
+  extractHeadingsConfigOf,
   filterConfigOf,
   limitCountOf,
   renamesOf,
@@ -26,6 +27,7 @@ import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
+import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
@@ -40,6 +42,7 @@ export interface StepCardStateHandlers {
   limitCount: number;
   sortConfig: SortKey[];
   splitTextConfig: SplitTextConfigValue;
+  extractHeadingsConfig: ExtractHeadingsConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -49,6 +52,7 @@ export interface StepCardStateHandlers {
   onLimitChange: (config: { count: number }) => void;
   onSortChange: (config: { sortBy: SortKey[] }) => void;
   onSplitTextChange: (config: SplitTextConfigValue) => void;
+  onExtractHeadingsChange: (config: ExtractHeadingsConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -77,6 +81,9 @@ export function useStepCardState(
   const [splitTextConfig, setSplitTextConfig] = useState<SplitTextConfigValue>(() =>
     splitTextConfigOf(step),
   );
+  const [extractHeadingsConfig, setExtractHeadingsConfig] = useState<ExtractHeadingsConfigValue>(
+    () => extractHeadingsConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -89,6 +96,7 @@ export function useStepCardState(
     setLimitCount(limitCountOf(step));
     setSortConfig(sortConfigOf(step));
     setSplitTextConfig(splitTextConfigOf(step));
+    setExtractHeadingsConfig(extractHeadingsConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -159,6 +167,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onExtractHeadingsChange(newConfig: ExtractHeadingsConfigValue) {
+    setExtractHeadingsConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -169,6 +182,7 @@ export function useStepCardState(
     limitCount,
     sortConfig,
     splitTextConfig,
+    extractHeadingsConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -178,5 +192,6 @@ export function useStepCardState(
     onLimitChange,
     onSortChange,
     onSplitTextChange,
+    onExtractHeadingsChange,
   };
 }

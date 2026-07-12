@@ -29,8 +29,8 @@ import scala.util.Try
  *  kinds registered there round-trip through the codec / protocol / engine.
  *  The four match sites in this codebase (`PipelineStepResponse.fromDomain`,
  *  `PipelineStepConfigCodec.extractConfig`, the protocol writer, the
- *  exhaustiveness test in `PipelineStepSpec`) all enumerate the same 11
- *  subtypes; adding a 12th step kind without updating those is caught by
+ *  exhaustiveness test in `PipelineStepSpec`) all enumerate the same 12
+ *  subtypes; adding a 13th step kind without updating those is caught by
  *  the kind-set parity test (`PipelineStepKind.All` shouldBe registry.keys).
  *
  *  Wire shape (unchanged): discriminated union on `type` with a typed `config`
@@ -109,7 +109,8 @@ object PipelineStep {
     LimitStep.Kind     -> LimitStep.companion,
     SortStep.Kind      -> SortStep.companion,
     AggregateStep.Kind -> AggregateStep.companion,
-    SplitTextStep.Kind -> SplitTextStep.companion
+    SplitTextStep.Kind -> SplitTextStep.companion,
+    ExtractHeadingsStep.Kind -> ExtractHeadingsStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -139,6 +140,7 @@ object PipelineStepKind {
   val Sort: String      = SortStep.Kind
   val Aggregate: String = AggregateStep.Kind
   val SplitText: String = SplitTextStep.Kind
+  val ExtractHeadings: String = ExtractHeadingsStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

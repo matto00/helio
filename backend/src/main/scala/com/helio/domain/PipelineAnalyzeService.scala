@@ -68,6 +68,7 @@ object PipelineAnalyzeService {
       case "compute"                    => inferCompute(config, inputSchema)
       case "aggregate"                  => inferAggregate(config, inputSchema)
       case "splittext"                  => inferSplitText(config, inputSchema)
+      case "extractheadings"            => inferExtractHeadings(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -177,6 +178,37 @@ object PipelineAnalyzeService {
     } catch {
       case ex: Exception =>
         (inputSchema, Some(s"splittext config error: ${ex.getMessage}"))
+    }
+
+  /** extractheadings (HEL-220) — mirrors `inferSplitText`'s validate-then-shape
+   *  pattern, with two appended fields instead of one.
+   *
+   *  Looks up `config.field` in `inputSchema`. If absent, flags an unknown-field
+   *  `validationError` and passes the schema through unchanged (identity
+   *  fallback). If present but not `"string-body"`, flags a not-a-content-field
+   *  `validationError`, likewise passing the schema through unchanged. On
+   *  success, appends `indexField` and `levelField` as `"integer"` (each
+   *  replacing any existing field of the same name — same collision rule
+   *  `splittext` already applies). */
+  private def inferExtractHeadings(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json       = config.parseJson.asJsObject
+      val field      = json.fields("field").convertTo[String]
+      val indexField = json.fields.get("indexField").map(_.convertTo[String]).getOrElse("headingIndex")
+      val levelField = json.fields.get("levelField").map(_.convertTo[String]).getOrElse("headingLevel")
+
+      inputSchema.find(_.name == field) match {
+        case None =>
+          (inputSchema, Some(s"Unknown field '$field'"))
+        case Some(f) if f.`type` != "string-body" =>
+          (inputSchema, Some(s"Field '$field' is not a content field (string-body); extractheadings requires a string-body field"))
+        case Some(_) =>
+          val withoutIndexAndLevel = inputSchema.filterNot(f => f.name == indexField || f.name == levelField)
+          (withoutIndexAndLevel :+ SchemaField(name = indexField, `type` = "integer") :+ SchemaField(name = levelField, `type` = "integer"), None)
+      }
+    } catch {
+      case ex: Exception =>
+        (inputSchema, Some(s"extractheadings config error: ${ex.getMessage}"))
     }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

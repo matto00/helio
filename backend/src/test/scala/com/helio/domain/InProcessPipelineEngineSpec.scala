@@ -41,6 +41,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: SortConfig      => SortStep(id, pid, 0, c, now, now)
       case c: AggregateConfig => AggregateStep(id, pid, 0, c, now, now)
       case c: SplitTextConfig => SplitTextStep(id, pid, 0, c, now, now)
+      case c: ExtractHeadingsConfig => ExtractHeadingsStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -672,6 +673,42 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val rows = Seq(Map[String, Any]("content" -> null))
       val cfg  = """{ "field": "content", "mode": "paragraph" }"""
       val step = makeStep("splittext", cfg)
+      run(rows, step) shouldBe empty
+    }
+
+    // ── extractheadings op (HEL-220) ────────────────────────────────────────────
+
+    "extractheadings: mixed-level headings emit one row per heading via the full engine round trip" in {
+      val rows = Seq(Map[String, Any]("content" -> "# Title\ntext\n## Section\nmore text"))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("extractheadings", cfg)
+      val result = run(rows, step)
+      result should have size 2
+      result.map(_("content")) shouldBe Seq("Title", "Section")
+      result.map(_("headingIndex")) shouldBe Seq(0, 1)
+      result.map(_("headingLevel")) shouldBe Seq(1, 2)
+    }
+
+    "extractheadings: passes through other row fields unchanged" in {
+      val rows = Seq(Map[String, Any]("content" -> "# Title", "filename" -> "doc.md"))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("extractheadings", cfg)
+      val result = run(rows, step)
+      result should have size 1
+      result.foreach(_("filename") shouldBe "doc.md")
+    }
+
+    "extractheadings: null field value drops the row (engine round trip)" in {
+      val rows = Seq(Map[String, Any]("content" -> null))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("extractheadings", cfg)
+      run(rows, step) shouldBe empty
+    }
+
+    "extractheadings: no heading lines drops the row (engine round trip)" in {
+      val rows = Seq(Map[String, Any]("content" -> "no headings here"))
+      val cfg  = """{ "field": "content" }"""
+      val step = makeStep("extractheadings", cfg)
       run(rows, step) shouldBe empty
     }
 
