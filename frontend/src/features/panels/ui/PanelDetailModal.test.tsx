@@ -359,7 +359,15 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null, undefined),
+      expect(updateBindingMock).toHaveBeenCalledWith(
+        "p1",
+        "dt-1",
+        null,
+        null,
+        undefined,
+        undefined,
+        undefined,
+      ),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
@@ -469,7 +477,15 @@ describe("PanelDetailModal", () => {
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
     // Data binding sent to the server
     await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith("p1", "dt-1", null, null, undefined),
+      expect(updateBindingMock).toHaveBeenCalledWith(
+        "p1",
+        "dt-1",
+        null,
+        null,
+        undefined,
+        undefined,
+        undefined,
+      ),
     );
     // Transitions to view mode, not closes
     await waitFor(() =>

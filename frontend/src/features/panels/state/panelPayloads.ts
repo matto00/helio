@@ -98,15 +98,17 @@ export interface UpdatePanelBody {
 }
 
 /** Build the typed `config` PATCH for a metric/chart/table binding edit.
- *  `aggregation` follows the same absent-vs-null convention as the rest of
- *  the wire shape (HEL-292): `undefined` omits the key entirely (leave
- *  unchanged — matches "leaving aggregation controls unset persists no
- *  aggregation"); `null` explicitly clears a previously-configured spec;
- *  an object sets/replaces it. */
+ *  `aggregation`/`label`/`unit` follow the same absent-vs-null convention
+ *  (HEL-292, extended to `label`/`unit` by HEL-243): `undefined` omits the
+ *  key entirely (leave unchanged — matches "leaving aggregation controls
+ *  unset persists no aggregation"); `null` explicitly clears a previously-
+ *  configured value; a value sets/replaces it. */
 export function buildBindingPatch(args: {
   typeId: string | null;
   fieldMapping: Record<string, string> | null;
   aggregation?: MetricAggregation | ChartAggregation | null;
+  label?: string | null;
+  unit?: string | null;
 }): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
@@ -114,6 +116,12 @@ export function buildBindingPatch(args: {
   };
   if (args.aggregation !== undefined) {
     patch.aggregation = args.aggregation;
+  }
+  if (args.label !== undefined) {
+    patch.label = args.label;
+  }
+  if (args.unit !== undefined) {
+    patch.unit = args.unit;
   }
   return patch;
 }

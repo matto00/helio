@@ -4,7 +4,7 @@
 Defines viz-level aggregation for metric and chart panels — count/sum/avg/min/max over all bound rows for metrics, and groupBy aggregation into one mark per group for bar/line charts — so common aggregated views no longer require a dedicated pipeline `aggregate` step, while keeping pipelines as the transform/typing layer.
 ## Requirements
 ### Requirement: Metric panel supports a viz-level aggregation spec
-A `MetricPanelConfig` SHALL have an optional `aggregation` property of shape `{ value: string, agg: "count" | "sum" | "avg" | "min" | "max" }`. When present, the metric panel's `value` slot SHALL render the result of applying `agg` to the `value` field across ALL rows returned for the panel's bound DataType, instead of reading `rows[0]`. `label`, `unit`, and `trend` slots are unaffected and continue to read `fieldMapping` off the first row. When `aggregation` is absent, the metric panel SHALL render exactly as before (`rows[0]` via `fieldMapping.value`).
+A `MetricPanelConfig` SHALL have an optional `aggregation` property of shape `{ value: string, agg: "count" | "sum" | "avg" | "min" | "max" }`. When present, the metric panel's `value` slot SHALL render the result of applying `agg` to the `value` field across ALL rows returned for the panel's bound DataType, instead of reading `rows[0]`. `label`, `unit`, and `trend` slots are unaffected and continue to read `fieldMapping` off the first row. When `aggregation` is absent, the metric panel SHALL render exactly as before (`rows[0]` via `fieldMapping.value`). The Metric config UI SHALL present the choice between a plain field mapping and a reduced aggregation as a single Value control (one field selector + one Reduce selector) so `fieldMapping.value` and `aggregation` are never both set by user action: selecting "None (first row)" in the Reduce selector clears `aggregation` and writes `fieldMapping.value`; selecting any other reduce function clears `fieldMapping.value` and writes `aggregation`.
 
 #### Scenario: Metric renders avg aggregate over all rows
 - **WHEN** a metric panel is bound to a DataType with `aggregation = { value: "rating", agg: "avg" }` and
@@ -24,6 +24,17 @@ A `MetricPanelConfig` SHALL have an optional `aggregation` property of shape `{ 
 - **WHEN** a metric panel's config has no `aggregation` property
 - **THEN** the metric's `value` slot renders `fieldMapping.value` read from the first bound row,
   matching pre-existing behavior
+
+#### Scenario: Selecting a reduce function moves the field from mapping to aggregation
+- **WHEN** the user has `fieldMapping.value = "price"` and no aggregation, and selects "Average" in
+  the Value control's Reduce selector, then saves
+- **THEN** the PATCH persists `aggregation = { value: "price", agg: "avg" }` and clears
+  `fieldMapping.value`
+
+#### Scenario: Selecting "None (first row)" moves the field back to field mapping
+- **WHEN** the user has `aggregation = { value: "price", agg: "avg" }` and selects "None (first row)"
+  in the Reduce selector, then saves
+- **THEN** the PATCH persists `fieldMapping.value = "price"` and clears `aggregation`
 
 ### Requirement: Chart panel supports a viz-level groupBy aggregation spec
 A `ChartPanelConfig` SHALL have an optional `aggregation` property of shape `{ groupBy: string, agg: "count" | "sum" | "avg" | "min" | "max", yField: string }`. When present and the chart's rendered type is `bar` or `line`, the chart SHALL group all bound rows by the `groupBy` field and plot one aggregate mark per group (categories = distinct `groupBy` values, values = `agg` applied to `yField` within each group), instead of plotting one mark per raw row. When `aggregation` is absent, the chart SHALL render exactly as before (one mark per row via `fieldMapping`).

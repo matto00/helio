@@ -163,21 +163,31 @@ export const updatePanelBinding = createAsyncThunk<
     /** HEL-292: `undefined` = leave unchanged, `null` = explicit clear, an
      *  object = set/replace. See `buildBindingPatch`. */
     aggregation?: MetricAggregation | ChartAggregation | null;
+    /** HEL-243: literal label/unit override — `undefined` = leave unchanged,
+     *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
+    label?: string | null;
+    unit?: string | null;
   },
   { rejectValue: string }
 >(
   "panels/updatePanelBinding",
-  async ({ panelId, typeId, fieldMapping, refreshInterval, aggregation }, { rejectWithValue }) => {
+  async (
+    { panelId, typeId, fieldMapping, refreshInterval, aggregation, label, unit },
+    { rejectWithValue },
+  ) => {
     try {
-      // `aggregation` is an optional 5th param on `updatePanelBindingRequest`;
-      // passing it as `undefined` when the caller didn't supply one is
-      // behaviorally identical to omitting the argument.
+      // `aggregation`/`label`/`unit` are optional trailing params on
+      // `updatePanelBindingRequest`; passing them as `undefined` when the
+      // caller didn't supply one is behaviorally identical to omitting the
+      // argument.
       return await updatePanelBindingRequest(
         panelId,
         typeId,
         fieldMapping,
         refreshInterval,
         aggregation,
+        label,
+        unit,
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");
