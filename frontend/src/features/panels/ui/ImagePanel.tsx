@@ -9,11 +9,31 @@ interface ImagePanelProps {
   imageFit: string | null;
 }
 
+// HEL-246: a root-relative internal upload path (`/api/uploads/image/<id>`,
+// as returned by the upload endpoint) has no scheme of its own, so it must
+// be resolved against a base URL to parse at all — `new URL(url)` (no base)
+// throws for any relative input. Resolving against `window.location.origin`
+// lets both an absolute `http(s)://` URL and a root-relative upload path
+// parse through the same call; the protocol allow-list check below still
+// runs against the resolved URL.
 function sanitizeImageUrl(url: string): string | null {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url, window.location.origin);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
       return null;
+    }
+    // Render a genuine root-relative path (`/api/uploads/image/<id>`) with
+    // the original literal string, not `parsed.href` — a bare path needs no
+    // browser-support work as an <img src>. Guarded to single-slash-prefixed
+    // inputs that still resolve to *this page's own origin*: a
+    // protocol-relative/backslash-smuggled value like "//evil.com/x" also
+    // starts with "/" but resolves (via the base URL's protocol) to a
+    // different origin — that falls through to the plain `parsed.href`
+    // branch below instead, which is exactly the same "any absolute
+    // http(s) URL is accepted" behavior already in place for a typed
+    // external URL, so no new host is trusted here.
+    if (url.startsWith("/") && !url.startsWith("//") && parsed.origin === window.location.origin) {
+      return url;
     }
     return parsed.href;
   } catch {

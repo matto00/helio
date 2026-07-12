@@ -204,6 +204,10 @@ package object api {
   type RunResultResponse = protocols.RunResultResponse
   val RunResultResponse: protocols.RunResultResponse.type = protocols.RunResultResponse
 
+  // Image upload (HEL-246)
+  type ImageUploadResponse = protocols.ImageUploadResponse
+  val ImageUploadResponse: protocols.ImageUploadResponse.type = protocols.ImageUploadResponse
+
   // Permission
   type GrantPermissionRequest = protocols.GrantPermissionRequest
   val GrantPermissionRequest: protocols.GrantPermissionRequest.type = protocols.GrantPermissionRequest

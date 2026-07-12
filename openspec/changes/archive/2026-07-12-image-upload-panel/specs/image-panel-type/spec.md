@@ -1,8 +1,5 @@
-# image-panel-type Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change image-panel-type. Update Purpose after archive.
-## Requirements
 ### Requirement: Image panel renders a stored URL with configurable fit
 When a panel has `type: "image"`, the panel body SHALL render an `<img>` element sourced from the
 panel's `imageUrl`. The CSS `object-fit` property SHALL be set to the panel's `imageFit` value
@@ -37,26 +34,6 @@ no image (placeholder rendering).
 - **WHEN** a panel with `type: "image"` has `imageUrl: "/api/uploads/image/<id>"`
 - **THEN** the panel body shows an `<img>` element with `src` set to that path
 
-### Requirement: Image panel imageUrl and imageFit are settable via PATCH
-The `PATCH /api/panels/:id` endpoint SHALL accept optional `imageUrl` (string or null) and
-`imageFit` (one of `contain | cover | fill`, or null) fields and persist them on the panel record.
-
-#### Scenario: PATCH sets imageUrl on an image panel
-- **WHEN** a PATCH request is sent with `imageUrl: "https://example.com/logo.png"` on an image panel
-- **THEN** the response includes `imageUrl: "https://example.com/logo.png"`
-
-#### Scenario: PATCH sets imageFit on an image panel
-- **WHEN** a PATCH request is sent with `imageFit: "cover"` on an image panel
-- **THEN** the response includes `imageFit: "cover"`
-
-#### Scenario: PATCH without imageUrl leaves imageUrl unchanged
-- **WHEN** a PATCH request is sent without an `imageUrl` field
-- **THEN** the panel's existing `imageUrl` is preserved in the response
-
-#### Scenario: PATCH with invalid imageFit is rejected
-- **WHEN** a PATCH request is sent with `imageFit: "stretch"` (not a valid value)
-- **THEN** the response is 400 Bad Request
-
 ### Requirement: Panel response includes imageUrl and imageFit fields
 Every panel response SHALL include `imageUrl` (string or null) and `imageFit` (string or null).
 For non-image panels both fields SHALL be null.
@@ -69,20 +46,7 @@ For non-image panels both fields SHALL be null.
 - **WHEN** a panel with type other than `image` is retrieved
 - **THEN** the response includes `imageUrl: null` and `imageFit: null`
 
-### Requirement: Image panel can be created with an initial URL via a dashboard proposal
-`POST /api/dashboards/apply-proposal` SHALL accept an optional `url` field per image panel in the
-proposal. When present, the created panel's `config.imageUrl` SHALL be set to that value (with
-`imageFit` defaulting to `"contain"`) at creation time. When absent, the panel SHALL be created with
-no image (today's placeholder-rendering behavior).
-
-#### Scenario: Proposal-created image panel renders its proposed image
-- **WHEN** a dashboard proposal's panel has `type: "image"` and `url: "https://example.com/logo.png"`
-- **THEN** the applied panel's `config.imageUrl` is `"https://example.com/logo.png"` and the dashboard
-  grid renders that image with `object-fit: contain`
-
-#### Scenario: Proposal image panel with no url creates a placeholder panel
-- **WHEN** a dashboard proposal's `image` panel specifies no `url` field
-- **THEN** the applied panel's `config.imageUrl` is empty (today's placeholder-rendering behavior)
+## ADDED Requirements
 
 ### Requirement: Image panel config UI supports uploading a file
 The Image panel's config editor SHALL offer an "Upload" control alongside the existing URL text
@@ -97,4 +61,3 @@ returned URL, exactly as if that URL had been typed into the text field.
 #### Scenario: Upload failure surfaces an inline error
 - **WHEN** an upload request fails (rejected MIME type, over size limit, or network error)
 - **THEN** the config editor shows an inline error and leaves the existing `imageUrl` unchanged
-

@@ -21,4 +21,5 @@ object IdParsing {
   val PipelineRunIdSegment: PathMatcher1[PipelineRunId]     = Segment.map(PipelineRunId(_))
   val UserIdSegment: PathMatcher1[UserId]                   = Segment.map(UserId(_))
   val ApiTokenIdSegment: PathMatcher1[ApiTokenId]           = Segment.map(ApiTokenId(_))
+  val ImageUploadIdSegment: PathMatcher1[ImageUploadId]     = Segment.map(ImageUploadId(_))
 }

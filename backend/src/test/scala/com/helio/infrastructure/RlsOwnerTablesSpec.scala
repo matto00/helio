@@ -9,6 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -43,6 +44,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   private var privilegedDb: JdbcBackend.Database = _   // postgres superuser
   private var appDb:        JdbcBackend.Database = _   // helio_app_test (non-superuser)
   private var ctx: DbContext = _
+  private var imageUploadRepo: ImageUploadRepository = _   // HEL-246
 
   /** Two synthetic owner UUIDs whose rows must never bleed across user contexts. */
   private val ownerA = UserId(UUID.randomUUID().toString)
@@ -106,6 +108,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     appDb = JdbcBackend.Database.forDataSource(new HikariDataSource(appCfg), Some(5))
 
     ctx = new DbContext(appDb, privilegedDb)
+    imageUploadRepo = new ImageUploadRepository(ctx)
 
     // Seed user rows so pipelines.owner_id FK references are satisfied.
     await(ctx.withSystemContext(DBIO.seq(
@@ -131,7 +134,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
    *  privileged pool so RLS does not interfere with the cleanup. */
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines CASCADE"
+      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads CASCADE"
     ))
 
   // ── Helper: seed via withSystemContext (BYPASSRLS) so setup is never ──────
@@ -291,6 +294,66 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       ))
 
       rows.toSet should contain allOf (pidA, pidB)
+    }
+  }
+
+  // ── image_uploads RLS (HEL-246) ──────────────────────────────────────────
+
+  /** Seed via `ImageUploadRepository.insert` (not raw SQL like the helpers
+   *  above) — this is the real write path, so the assertions below prove
+   *  the repository's `withUserContext` call actually goes through the
+   *  owner RLS policy rather than merely asserting the policy exists. */
+  private def seedImageUpload(ownerId: UserId): String = {
+    val upload = ImageUpload(
+      id         = ImageUploadId(UUID.randomUUID().toString),
+      ownerId    = ownerId,
+      storageKey = s"images/${UUID.randomUUID().toString}.png",
+      mimeType   = "image/png",
+      filename   = "photo.png",
+      sizeBytes  = 123L,
+      createdAt  = Instant.now()
+    )
+    await(imageUploadRepo.insert(upload))
+    upload.id.value
+  }
+
+  "RLS on image_uploads" should {
+
+    "ImageUploadRepository.insert runs in the uploading user's context — ownerA sees only their own upload" in {
+      cleanDb()
+      val idA = seedImageUpload(ownerA)
+      val idB = seedImageUpload(ownerB)
+
+      val rows = await(ctx.withUserContext(ownerA.value)(
+        sql"SELECT id FROM image_uploads".as[String]
+      ))
+
+      rows.toSet shouldBe Set(idA)
+      rows should not contain idB
+    }
+
+    "withUserContext(ownerB) cannot see ownerA's uploads" in {
+      cleanDb()
+      val idA = seedImageUpload(ownerA)
+      seedImageUpload(ownerB)
+
+      val rows = await(ctx.withUserContext(ownerB.value)(
+        sql"SELECT id FROM image_uploads".as[String]
+      ))
+
+      rows should not contain idA
+    }
+
+    "withSystemContext (privileged pool) sees all uploads regardless of owner" in {
+      cleanDb()
+      val idA = seedImageUpload(ownerA)
+      val idB = seedImageUpload(ownerB)
+
+      val rows = await(ctx.withSystemContext(
+        sql"SELECT id FROM image_uploads".as[String]
+      ))
+
+      rows.toSet should contain allOf (idA, idB)
     }
   }
 

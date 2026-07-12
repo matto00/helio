@@ -358,3 +358,19 @@ final case class BinaryRef(
     sizeBytes: Long,
     createdAt: Instant
 )
+
+final case class ImageUploadId(value: String) extends AnyVal
+
+/** Standalone panel-literal image upload metadata (HEL-246). Unlike
+ *  [[BinaryRef]] this has no parent DataType/row — it is a direct-owner
+ *  upload backing an Image panel's `imageUrl`, served back unauthenticated
+ *  via `GET /api/uploads/image/:id`. See design.md Decision 1. */
+final case class ImageUpload(
+    id: ImageUploadId,
+    ownerId: UserId,
+    storageKey: String,
+    mimeType: String,
+    filename: String,
+    sizeBytes: Long,
+    createdAt: Instant
+)

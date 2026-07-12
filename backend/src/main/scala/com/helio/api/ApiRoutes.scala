@@ -11,9 +11,9 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 
 import java.net.InetAddress
 import scala.collection.mutable.ListBuffer
@@ -44,6 +44,10 @@ final class ApiRoutes(
     // simply skip the binary_refs write (PipelineRunService's null-checked
     // pattern).
     binaryRefRepo: BinaryRefRepository = null,
+    // HEL-246: nullable default mirrors apiTokenRepo/binaryRefRepo above —
+    // fixtures that don't pass one simply don't get the
+    // /api/uploads/image routes mounted (imageUploadServiceOpt.fold(reject)).
+    imageUploadRepo: ImageUploadRepository = null,
     googleClientId: String = "",
     googleClientSecret: String = "",
     googleRedirectUri: String = "",
@@ -101,6 +105,9 @@ final class ApiRoutes(
   // Optional wiring mirrors the nullable constructor param: fixtures that
   // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
   private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_))
+  // HEL-246: same optional-wiring pattern — fixtures that don't pass an
+  // ImageUploadRepository simply don't get the /api/uploads/image routes.
+  private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem))
 
   private val auth  = new AuthRoutes(authService)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri)
@@ -116,7 +123,10 @@ final class ApiRoutes(
           concat(
             pathPrefix("auth") { concat(auth.routes, oauth.routes) },
             authDirectives.optionalAuthenticate { userOpt =>
-              new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes
+              concat(
+                new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes,
+                imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
+              )
             },
             authDirectives.authenticate { authenticatedUser =>
               concat(
@@ -191,7 +201,8 @@ final class ApiRoutes(
                 new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
                 new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
-                apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes)
+                apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
+                imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes)
               )
             }
           )
