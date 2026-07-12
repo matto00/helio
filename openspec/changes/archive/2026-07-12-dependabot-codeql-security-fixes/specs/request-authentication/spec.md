@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Protected routes require a valid Bearer token`
+- TO: `### Requirement: Protected routes require a valid session`
+
 ## MODIFIED Requirements
 
 ### Requirement: Protected routes require a valid session

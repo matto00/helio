@@ -68,22 +68,6 @@ On a `200 OK` response it SHALL dispatch `setAuth`. On any other response it SHA
 - **THEN** `GET /api/auth/me` returns `401`, `clearAuth` is dispatched, and `auth.status` becomes
   `'unauthenticated'`
 
-### Requirement: No client-side persistence of the session credential
-The frontend SHALL NOT store the session token in `sessionStorage`, `localStorage`, or any other
-JavaScript-readable storage, and SHALL NOT set a manual `Authorization` header for session auth. The
-shared Axios `httpClient` instance SHALL be configured with `withCredentials: true` so the browser
-manages cookie attachment.
-
-#### Scenario: Nothing written to sessionStorage on login
-- **WHEN** `setAuth` is dispatched after a successful login, register, or OAuth callback
-- **THEN** `sessionStorage.getItem('helio_auth_token')` (and any equivalent key) returns `null`
-
-#### Scenario: No Authorization header set for session auth
-- **WHEN** the user successfully logs in
-- **THEN** subsequent HTTP requests via `httpClient` do NOT carry a manually-set
-  `Authorization: Bearer` header for session identity (the session cookie is attached automatically by
-  the browser via `withCredentials`)
-
 ### Requirement: handleOAuthCallback thunk
 The frontend SHALL expose a `handleOAuthCallback(code: string, state?: string)` async thunk that calls
 `GET /api/auth/google/callback` with `withCredentials: true` and the provided `code`/optional `state`
@@ -101,6 +85,24 @@ query parameters. On `200 OK` (the backend sets the session cookie via `Set-Cook
 - **WHEN** `handleOAuthCallback({ code: "expired-code" })` is dispatched and the backend returns an
   error
 - **THEN** the thunk rejects and `auth.status` remains `'unauthenticated'`
+
+## ADDED Requirements
+
+### Requirement: No client-side persistence of the session credential
+The frontend SHALL NOT store the session token in `sessionStorage`, `localStorage`, or any other
+JavaScript-readable storage, and SHALL NOT set a manual `Authorization` header for session auth. The
+shared Axios `httpClient` instance SHALL be configured with `withCredentials: true` so the browser
+manages cookie attachment.
+
+#### Scenario: Nothing written to sessionStorage on login
+- **WHEN** `setAuth` is dispatched after a successful login, register, or OAuth callback
+- **THEN** `sessionStorage.getItem('helio_auth_token')` (and any equivalent key) returns `null`
+
+#### Scenario: No Authorization header set for session auth
+- **WHEN** the user successfully logs in
+- **THEN** subsequent HTTP requests via `httpClient` do NOT carry a manually-set
+  `Authorization: Bearer` header for session identity (the session cookie is attached automatically by
+  the browser via `withCredentials`)
 
 ## REMOVED Requirements
 
