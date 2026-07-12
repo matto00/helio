@@ -70,31 +70,28 @@ let originalFetch: typeof global.fetch;
 
 beforeEach(() => {
   originalFetch = global.fetch;
-  sessionStorage.clear();
 });
 
 afterEach(() => {
   global.fetch = originalFetch;
-  sessionStorage.clear();
 });
 
 // ---- Tests (3.5 – 3.7) -------------------------------------------------
 
 describe("usePipelineRunEvents", () => {
-  // 3.5 Opens fetch with Authorization header when active=true
-  it("calls fetch with Authorization header when active=true and pipelineId is provided", async () => {
+  // HEL-287: session identity is the `helio_session` HttpOnly cookie, not a
+  // sessionStorage token + manual Authorization header — the fetch call
+  // must pass credentials: "include" so the cookie attaches.
+  it("calls fetch with credentials: include when active=true and pipelineId is provided", async () => {
     const { controller, fetchMock } = createSseMock();
     global.fetch = fetchMock;
-    sessionStorage.setItem("helio_auth_token", "test-token");
 
     renderHook(() => usePipelineRunEvents({ pipelineId: "pipe-1", active: true }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/pipelines/pipe-1/run-events",
-        expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: "Bearer test-token" }),
-        }),
+        expect.objectContaining({ credentials: "include" }),
       );
     });
 

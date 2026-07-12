@@ -3,7 +3,7 @@ package com.helio.api
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
@@ -156,16 +156,20 @@ class DashboardApplyProposalSpec
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
-  private def bearer = Authorization(OAuth2BearerToken(session))
+  // HEL-287: session auth moved from an `Authorization` bearer header to a
+  // `helio_session` cookie; mutating requests also need the CSRF header.
+  private def sessionCookie = Cookie(SessionCookies.Name -> session)
+  private def csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
   private def json(s: String) = HttpEntity(ContentTypes.`application/json`, s)
 
   private def dashboardCount(): Int =
-    Get("/api/dashboards").addHeader(bearer) ~> routes ~> check {
+    Get("/api/dashboards").addHeader(sessionCookie) ~> routes ~> check {
       status shouldBe StatusCodes.OK
       responseAs[String].parseJson.asJsObject.fields("total").convertTo[Int]
     }
 
-  private def apply(body: String) = Post("/api/dashboards/apply-proposal", json(body)).addHeader(bearer)
+  private def apply(body: String) =
+    Post("/api/dashboards/apply-proposal", json(body)).addHeader(sessionCookie).addHeader(csrfHeader)
 
   "POST /api/dashboards/apply-proposal" should {
 
@@ -193,7 +197,7 @@ class DashboardApplyProposalSpec
       dashboardCount() shouldBe (before + 1)
 
       // Layout persisted for the positioned panel.
-      Get(s"/api/dashboards/$createdId/export").addHeader(bearer) ~> routes ~> check {
+      Get(s"/api/dashboards/$createdId/export").addHeader(sessionCookie) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         responseAs[String].parseJson.asJsObject
           .fields("dashboard").asJsObject.fields("layout").asJsObject

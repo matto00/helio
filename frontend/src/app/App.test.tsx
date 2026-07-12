@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { authReducer } from "../features/auth/state/authSlice";
+import { getMeRequest } from "../features/auth/services/authService";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
@@ -58,15 +59,13 @@ jest.mock("../features/auth/services/authService", () => ({
   oauthCallbackRequest: jest.fn(),
 }));
 
-// Prevent rehydrateAuth from overwriting the preloaded authenticated state in App tests.
-// The token is set in sessionStorage so rehydrateAuth finds it and keeps the authenticated status.
-beforeAll(() => {
-  sessionStorage.setItem("helio_auth_token", "test-token");
-});
-
-afterAll(() => {
-  sessionStorage.clear();
-});
+// HEL-287: App always dispatches rehydrateAuth() on mount (identity is the
+// httpOnly cookie now, not a sessionStorage token, so there is nothing to
+// gate the call on). getMeRequest is mocked to always succeed by default,
+// which keeps `authenticated: true` fixtures authenticated post-rehydrate;
+// tests using `authenticated: false` override it to reject for that test
+// only (see "redirects unauthenticated user from /pipelines to /login").
+const getMeRequestMock = jest.mocked(getMeRequest);
 
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
@@ -116,12 +115,10 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
               avatarUrl: null,
               createdAt: "2026-01-01T00:00:00Z",
             },
-            token: "test-token",
             status: "authenticated" as const,
           }
         : {
             currentUser: null,
-            token: null,
             status: "unauthenticated" as const,
           },
     },
@@ -485,14 +482,16 @@ describe("App", () => {
   });
 
   it("redirects unauthenticated user from /pipelines to /login", async () => {
-    sessionStorage.removeItem("helio_auth_token");
+    // App's rehydrateAuth() always fires on mount (HEL-287: identity is the
+    // httpOnly cookie, not a token this test can pre-seed/omit) — reject
+    // getMeRequest for this test only so rehydration doesn't re-authenticate
+    // the "no cookie" scenario back to authenticated.
+    getMeRequestMock.mockRejectedValueOnce(new Error("no session"));
     renderApp({ initialPath: "/pipelines", authenticated: false });
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument(),
     );
-
-    sessionStorage.setItem("helio_auth_token", "test-token");
   });
 
   it("saves panel appearance changes via the API and returns to view mode", async () => {

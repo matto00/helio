@@ -13,6 +13,8 @@ backend/.bsp/
 backend/.metals/
 backend/.ivy2/
 coverage/
+playwright-report/
+test-results/
 .DS_Store
 *.log
 backend/.env

@@ -3,6 +3,7 @@ package com.helio.api
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.`Set-Cookie`
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.OAuthRoutes
@@ -179,11 +180,14 @@ class GoogleOAuthRoutesSpec
       Get(s"/api/auth/google/callback?code=auth-code-123&state=$stateParam") ~> route ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[AuthResponse]
-        resp.token should not be empty
         resp.expiresAt should not be empty
         resp.user.email shouldBe "alice@example.com"
         resp.user.displayName shouldBe Some("Alice")
         resp.user.avatarUrl shouldBe Some("https://pic.url/alice")
+        // HEL-287 CodeQL #8: the session token is delivered via `Set-Cookie`
+        // only — never in the JSON body.
+        header[`Set-Cookie`].map(_.cookie.name) shouldBe Some("helio_session")
+        header[`Set-Cookie`].map(_.cookie.value) should not be Some("")
       }
     }
 

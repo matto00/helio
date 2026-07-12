@@ -26,15 +26,13 @@ export interface UsePipelineRunEventsOptions {
 
 const TERMINAL_STATUSES = new Set<SseRunStatus>(["succeeded", "failed", "dry_run"]);
 
-/** sessionStorage key used by authSlice to persist the bearer token. */
-const SESSION_STORAGE_KEY = "helio_auth_token";
-
 // -- Hook -----------------------------------------------------------------
 
 /**
  * Opens an authenticated SSE connection to GET /api/pipelines/:id/run-events
- * while active is true. Uses fetch + ReadableStream so the Authorization header
- * can be included (EventSource does not support custom headers).
+ * while active is true. Uses fetch + ReadableStream (rather than EventSource,
+ * which can't send `credentials: "include"`) so the `helio_session` cookie
+ * (HEL-287 CodeQL #8) attaches automatically.
  *
  * - Connection is opened when active is true and pipelineId is defined.
  * - Auto-closes when a terminal status (succeeded, failed, dry_run) is received.
@@ -71,15 +69,12 @@ export function usePipelineRunEvents({
     let unmounted = false;
 
     async function connect() {
-      const token = sessionStorage.getItem(SESSION_STORAGE_KEY);
       const url = `/api/pipelines/${pipelineId}/run-events`;
 
       let response: Response;
       try {
         response = await fetch(url, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          credentials: "include",
           signal: controller.signal,
         });
       } catch (err) {

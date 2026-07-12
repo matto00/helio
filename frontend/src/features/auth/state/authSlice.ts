@@ -9,7 +9,6 @@ import {
   registerRequest,
   updateUserPreferencesRequest,
 } from "../services/authService";
-import { setAuthToken } from "../../../services/httpClient";
 import { applyAccentTokens } from "../../../theme/appearance";
 import type {
   AuthResponse,
@@ -18,39 +17,29 @@ import type {
   UserPreferences,
 } from "../types/user";
 
-interface AuthRootState {
-  auth: AuthState;
-}
-
-const SESSION_STORAGE_KEY = "helio_auth_token";
-
 export interface AuthState {
   currentUser: User | null;
-  token: string | null;
   status: "idle" | "loading" | "authenticated" | "unauthenticated";
 }
 
 const initialState: AuthState = {
   currentUser: null,
-  token: null,
   status: "idle",
 };
 
-export const rehydrateAuth = createAsyncThunk<AuthResponse | null, void, { rejectValue: string }>(
+// HEL-287 CodeQL #8: the session identity now lives in an HttpOnly cookie
+// (never JS-readable), so rehydration on load can't check for a token —
+// it calls GET /api/auth/me unconditionally (the cookie attaches
+// automatically via httpClient's withCredentials) and lets the response
+// (200 = authenticated, 401 = not logged in) decide the outcome.
+export const rehydrateAuth = createAsyncThunk<void, void>(
   "auth/rehydrateAuth",
-  async (_, { rejectWithValue }) => {
-    const token = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (!token) {
-      return null;
-    }
-    setAuthToken(token);
+  async (_, { dispatch }) => {
     try {
       const user = await getMeRequest();
-      return { token, expiresAt: "", user };
+      dispatch(setAuth({ user }));
     } catch {
-      setAuthToken(null);
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      return rejectWithValue("Session expired");
+      dispatch(clearAuth());
     }
   },
 );
@@ -99,20 +88,14 @@ export const handleOAuthCallback = createAsyncThunk<
   }
 });
 
-export const logout = createAsyncThunk<void, void, { state: AuthRootState }>(
-  "auth/logout",
-  async (_, { getState, dispatch }) => {
-    const token = getState().auth.token;
-    if (token) {
-      try {
-        await logoutRequest(token);
-      } catch {
-        // fire-and-forget; always clear local state
-      }
-    }
-    dispatch(clearAuth());
-  },
-);
+export const logout = createAsyncThunk<void, void>("auth/logout", async (_, { dispatch }) => {
+  try {
+    await logoutRequest();
+  } catch {
+    // fire-and-forget; always clear local state
+  }
+  dispatch(clearAuth());
+});
 
 export const updateUserPreferences = createAsyncThunk<
   UserPreferences,
@@ -130,54 +113,32 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setAuth(state, action: PayloadAction<{ token: string; user: User }>) {
-      state.token = action.payload.token;
+    setAuth(state, action: PayloadAction<{ user: User }>) {
       state.currentUser = action.payload.user;
       state.status = "authenticated";
-      setAuthToken(action.payload.token);
-      sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
+      if (action.payload.user.preferences?.accentColor) {
+        applyAccentTokens(action.payload.user.preferences.accentColor);
+      }
     },
     clearAuth(state) {
-      state.token = null;
       state.currentUser = null;
       state.status = "unauthenticated";
-      setAuthToken(null);
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
     },
   },
   extraReducers: (builder) => {
     builder
-      // rehydrateAuth
+      // rehydrateAuth — state is set by the setAuth/clearAuth dispatches
+      // inside the thunk; only the pending status needs handling here.
       .addCase(rehydrateAuth.pending, (state) => {
         state.status = "loading";
-      })
-      .addCase(rehydrateAuth.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.token = action.payload.token;
-          state.currentUser = action.payload.user;
-          state.status = "authenticated";
-          if (action.payload.user.preferences?.accentColor) {
-            applyAccentTokens(action.payload.user.preferences.accentColor);
-          }
-        } else {
-          state.status = "unauthenticated";
-        }
-      })
-      .addCase(rehydrateAuth.rejected, (state) => {
-        state.token = null;
-        state.currentUser = null;
-        state.status = "unauthenticated";
       })
       // login
       .addCase(login.pending, (state) => {
         state.status = "loading";
       })
       .addCase(login.fulfilled, (state, action) => {
-        state.token = action.payload.token;
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        setAuthToken(action.payload.token);
-        sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
         if (action.payload.user.preferences?.accentColor) {
           applyAccentTokens(action.payload.user.preferences.accentColor);
         }
@@ -190,11 +151,8 @@ const authSlice = createSlice({
         state.status = "loading";
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.token = action.payload.token;
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        setAuthToken(action.payload.token);
-        sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
         if (action.payload.user.preferences?.accentColor) {
           applyAccentTokens(action.payload.user.preferences.accentColor);
         }
@@ -207,17 +165,13 @@ const authSlice = createSlice({
         state.status = "loading";
       })
       .addCase(handleOAuthCallback.fulfilled, (state, action) => {
-        state.token = action.payload.token;
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        setAuthToken(action.payload.token);
-        sessionStorage.setItem(SESSION_STORAGE_KEY, action.payload.token);
         if (action.payload.user.preferences?.accentColor) {
           applyAccentTokens(action.payload.user.preferences.accentColor);
         }
       })
       .addCase(handleOAuthCallback.rejected, (state) => {
-        state.token = null;
         state.currentUser = null;
         state.status = "unauthenticated";
       })

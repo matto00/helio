@@ -25,12 +25,19 @@ import scala.util.{Failure, Success}
  *  [[AuthService.completeOAuth]] for the user upsert + session mint.
  *
  *  CSRF state generation/validation is also delegated to `AuthService` so the
- *  in-memory token store lives next to the rest of the auth surface. */
+ *  in-memory token store lives next to the rest of the auth surface.
+ *
+ *  HEL-287 CodeQL #8: the callback response no longer echoes the session
+ *  token in the JSON body — it is set via `Set-Cookie` (see
+ *  [[SessionCookies]]), matching `AuthRoutes` register/login. */
 class OAuthRoutes(
     authService: AuthService,
     googleClientId: String = "",
     googleClientSecret: String = "",
-    googleRedirectUri: String = ""
+    googleRedirectUri: String = "",
+    // HEL-287: default preserves existing test call sites that construct
+    // OAuthRoutes positionally without a cookie config.
+    cookieConfig: CookieConfig = CookieConfig(secure = false)
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -115,11 +122,14 @@ class OAuthRoutes(
     val result = for {
       accessToken <- exchangeCodeForTokenImpl(code)
       profile     <- fetchGoogleProfileImpl(accessToken)
-      authResp    <- authService.completeOAuth(profile)
-    } yield authResp
+      authResult  <- authService.completeOAuth(profile)
+    } yield authResult
 
     onComplete(result) {
-      case Success(authResp)                       => complete(StatusCodes.OK, authResp)
+      case Success(authResult) =>
+        setCookie(SessionCookies.issue(authResult.token, cookieConfig)) {
+          complete(StatusCodes.OK, authResult.response)
+        }
       case Failure(ex) if isUpstreamOAuthError(ex) => complete(StatusCodes.BadGateway, ErrorResponse("Failed to exchange authorization code"))
       case Failure(ex)                             => complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
     }

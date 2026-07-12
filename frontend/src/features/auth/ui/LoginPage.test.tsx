@@ -14,11 +14,6 @@ jest.mock("../services/authService", () => ({
   oauthCallbackRequest: jest.fn(),
 }));
 
-jest.mock("../../../services/httpClient", () => ({
-  httpClient: { defaults: { headers: { common: {} } } },
-  setAuthToken: jest.fn(),
-}));
-
 function makeStore() {
   return configureStore({ reducer: { auth: authReducer } });
 }

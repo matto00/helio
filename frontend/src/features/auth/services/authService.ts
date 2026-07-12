@@ -27,8 +27,10 @@ export async function registerRequest(payload: RegisterPayload): Promise<AuthRes
   return response.data;
 }
 
-export async function logoutRequest(token: string): Promise<void> {
-  await httpClient.post("/api/auth/logout", {}, { headers: { Authorization: `Bearer ${token}` } });
+export async function logoutRequest(): Promise<void> {
+  // HEL-287: session identity is the `helio_session` cookie (httpClient sets
+  // withCredentials: true), so no token needs to be passed/attached here.
+  await httpClient.post("/api/auth/logout");
 }
 
 export async function getMeRequest(): Promise<User> {

@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{
@@ -103,9 +103,11 @@ class UploadRoutesSpec
       Future.successful(if (token == testToken) Some(testUser) else None)
   }
 
-  /** Authenticated routes (default: attaches the test bearer token unless the
-   *  request already carries an `Authorization` header — used by the
-   *  "unauthenticated" scenarios below to send a request with none). */
+  /** Authenticated routes (default: attaches the test session cookie + CSRF
+   *  header unless the request already carries a `helio_session` cookie —
+   *  used by the "unauthenticated" scenarios below to send a request with
+   *  neither. HEL-287: session auth moved from an `Authorization` bearer
+   *  header to a cookie. */
   private def routes(): Route = {
     val ec                 = typedSystem.executionContext
     val ctx                = new DbContext(db, db)(ec)
@@ -116,8 +118,11 @@ class UploadRoutesSpec
     val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(ec)
     val pipelineStepRepo   = new PipelineStepRepository(ctx)(ec)
     mapRequest { req =>
-      if (req.header[Authorization].isDefined) req
-      else req.withHeaders(req.headers :+ Authorization(OAuth2BearerToken(testToken)))
+      val withCookie =
+        if (req.header[Cookie].exists(_.cookies.exists(_.name == SessionCookies.Name))) req
+        else req.withHeaders(req.headers :+ Cookie(SessionCookies.Name -> testToken))
+      if (withCookie.headers.exists(_.is(AuthDirectives.CsrfHeaderName.toLowerCase))) withCookie
+      else withCookie.withHeaders(withCookie.headers :+ RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue))
     } {
       new ApiRoutes(
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, stubConnector, userRepo,

@@ -15,8 +15,9 @@ export interface User {
   preferences?: UserPreferences;
 }
 
+// HEL-287 CodeQL #8: the session token is delivered via an HttpOnly
+// `Set-Cookie` header, never in this response body.
 export interface AuthResponse {
-  token: string;
   expiresAt: string;
   user: User;
 }

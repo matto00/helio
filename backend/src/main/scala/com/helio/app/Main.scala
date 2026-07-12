@@ -3,7 +3,7 @@ package com.helio.app
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import com.helio.api.ApiRoutes
+import com.helio.api.{ApiRoutes, CookieConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
 import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
@@ -96,6 +96,11 @@ object Main {
         .filter(_.nonEmpty)
         .toSeq
       logger.info("CORS allowed origins: {}", corsAllowedOrigins.mkString(", "))
+      // HEL-287 D1: COOKIE_SECURE drives both the session cookie's `Secure`
+      // attribute and its derived `SameSite` (None iff secure, else Lax) —
+      // see CookieConfig and design.md for the deployment-topology evidence.
+      val cookieConfig = CookieConfig.fromEnv()
+      logger.info("Session cookie config: secure={} sameSite={}", cookieConfig.secure, cookieConfig.sameSite)
       val apiRoutes = new ApiRoutes(
         dashboardRepo,
         panelRepo,
@@ -119,7 +124,8 @@ object Main {
         googleClientId,
         googleClientSecret,
         googleRedirectUri,
-        corsAllowedOrigins
+        corsAllowedOrigins,
+        cookieConfig
       )
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {

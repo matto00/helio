@@ -1,26 +1,39 @@
-## ADDED Requirements
+# frontend-auth-state Specification
 
+## Purpose
+Redux state and thunks for tracking authentication status and the current user in the frontend.
+## Requirements
 ### Requirement: Auth slice tracks current user and status
-The frontend Redux store SHALL include an `authSlice` with state shape `{ currentUser: User | null, status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated', token: string | null }`. The slice SHALL expose actions `setAuth`, `clearAuth`, and async thunks `rehydrateAuth` and `handleOAuthCallback`. The `User` type SHALL include `avatarUrl: string | null` in addition to `id`, `email`, `displayName`, and `createdAt`.
+The frontend Redux store SHALL include an `authSlice` with state shape `{ currentUser: User | null,
+status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated' }`. There SHALL be no `token` field —
+the session credential lives exclusively in an `HttpOnly` cookie managed by the backend and is never
+readable by frontend JavaScript. The slice SHALL expose actions `setAuth`, `clearAuth`, and async
+thunks `rehydrateAuth` and `handleOAuthCallback`. The `User` type SHALL include
+`avatarUrl: string | null` in addition to `id`, `email`, `displayName`, and `createdAt`.
 
 #### Scenario: Initial state
 - **WHEN** the Redux store is first created
-- **THEN** `auth.status` is `'idle'`, `auth.currentUser` is `null`, and `auth.token` is `null`
+- **THEN** `auth.status` is `'idle'` and `auth.currentUser` is `null`
 
 #### Scenario: setAuth action
-- **WHEN** `setAuth({ user, token })` is dispatched
-- **THEN** `auth.currentUser` is set to `user`, `auth.token` is set to `token`, and `auth.status` is `'authenticated'`
+- **WHEN** `setAuth({ user })` is dispatched
+- **THEN** `auth.currentUser` is set to `user` and `auth.status` is `'authenticated'`
 
 #### Scenario: clearAuth action
 - **WHEN** `clearAuth()` is dispatched
-- **THEN** `auth.currentUser` is `null`, `auth.token` is `null`, and `auth.status` is `'unauthenticated'`
+- **THEN** `auth.currentUser` is `null` and `auth.status` is `'unauthenticated'`
 
 ### Requirement: Login thunk
-The frontend SHALL expose a `login(email, password)` async thunk that calls `POST /api/auth/login`. On success it SHALL dispatch `setAuth` with the returned user and token. On failure it SHALL return a rejected action with an error message.
+The frontend SHALL expose a `login(email, password)` async thunk that calls `POST /api/auth/login`
+with `withCredentials: true`. On success (the backend sets the session cookie via `Set-Cookie`) it
+SHALL dispatch `setAuth` with the returned user. On failure it SHALL return a rejected action with an
+error message.
 
 #### Scenario: Successful login
 - **WHEN** `login({ email, password })` is dispatched with valid credentials
-- **THEN** `POST /api/auth/login` is called, `auth.status` transitions to `'authenticated'`, and `auth.currentUser` is populated
+- **THEN** `POST /api/auth/login` is called with credentials included, `auth.status` transitions to
+  `'authenticated'`, and `auth.currentUser` is populated
+- **AND** the response body contains no `token` field
 
 #### Scenario: Failed login
 - **WHEN** `login({ email, password })` is dispatched with invalid credentials
@@ -38,63 +51,53 @@ The frontend SHALL expose a `register(email, password, displayName?)` async thun
 - **THEN** the thunk rejects with a message indicating the email is already in use
 
 ### Requirement: Logout thunk
-The frontend SHALL expose a `logout()` async thunk that calls `POST /api/auth/logout` with the current token. On completion (success or failure) it SHALL dispatch `clearAuth` and remove the token from `sessionStorage`.
+The frontend SHALL expose a `logout()` async thunk that calls `POST /api/auth/logout` with
+`withCredentials: true` (no token argument — the session cookie identifies the session). On
+completion (success or failure) it SHALL dispatch `clearAuth`.
 
 #### Scenario: Successful logout
 - **WHEN** `logout()` is dispatched while authenticated
-- **THEN** `POST /api/auth/logout` is called, `clearAuth` is dispatched, and `auth.status` becomes `'unauthenticated'`
+- **THEN** `POST /api/auth/logout` is called with credentials included, `clearAuth` is dispatched, and
+  `auth.status` becomes `'unauthenticated'`
 
-#### Scenario: Logout clears token even on network error
+#### Scenario: Logout clears state even on network error
 - **WHEN** `logout()` is dispatched and the network request fails
-- **THEN** `clearAuth` is still dispatched and the local session is cleared
+- **THEN** `clearAuth` is still dispatched and the local session state is cleared
 
 ### Requirement: Session rehydration on app load
-The frontend SHALL expose a `rehydrateAuth()` async thunk. On app mount, the application SHALL dispatch `rehydrateAuth()`. The thunk SHALL read the token from `sessionStorage`; if present it SHALL call `GET /api/auth/me` with the token. On a `200 OK` response it SHALL dispatch `setAuth`. On any other response or if no token exists it SHALL dispatch `clearAuth`.
+The frontend SHALL expose a `rehydrateAuth()` async thunk. On app mount, the application SHALL
+dispatch `rehydrateAuth()`, which SHALL call `GET /api/auth/me` with `withCredentials: true` (the
+browser attaches the session cookie automatically; there is no client-side check for a stored token).
+On a `200 OK` response it SHALL dispatch `setAuth`. On any other response it SHALL dispatch
+`clearAuth`.
 
-#### Scenario: Valid token in sessionStorage
-- **WHEN** `rehydrateAuth()` is dispatched and `sessionStorage` contains a valid token
-- **THEN** `GET /api/auth/me` is called, `auth.status` becomes `'authenticated'`, and `auth.currentUser` is populated
+#### Scenario: Valid session cookie present
+- **WHEN** `rehydrateAuth()` is dispatched and the browser holds a valid `helio_session` cookie
+- **THEN** `GET /api/auth/me` is called, `auth.status` becomes `'authenticated'`, and `auth.currentUser`
+  is populated
 
-#### Scenario: Expired or invalid token in sessionStorage
-- **WHEN** `rehydrateAuth()` is dispatched and the token in `sessionStorage` is expired or unrecognised
-- **THEN** `GET /api/auth/me` returns `401`, `clearAuth` is dispatched, and `auth.status` becomes `'unauthenticated'`
-
-#### Scenario: No token in sessionStorage
-- **WHEN** `rehydrateAuth()` is dispatched and `sessionStorage` has no token
-- **THEN** `clearAuth` is dispatched immediately without calling the server and `auth.status` becomes `'unauthenticated'`
-
-### Requirement: Token persisted to sessionStorage
-The frontend SHALL write the bearer token to `sessionStorage` under the key `helio_auth_token` whenever `setAuth` is dispatched, and SHALL remove it whenever `clearAuth` is dispatched.
-
-#### Scenario: Token written on login
-- **WHEN** `setAuth` is dispatched with a token
-- **THEN** `sessionStorage.getItem('helio_auth_token')` returns that token
-
-#### Scenario: Token removed on logout
-- **WHEN** `clearAuth` is dispatched
-- **THEN** `sessionStorage.getItem('helio_auth_token')` returns `null`
-
-### Requirement: Bearer token attached to all API requests
-The frontend SHALL set `Authorization: Bearer <token>` as a default header on the shared Axios `httpClient` instance whenever `setAuth` is dispatched, and SHALL remove that header whenever `clearAuth` is dispatched.
-
-#### Scenario: Header present after login
-- **WHEN** the user successfully logs in
-- **THEN** all subsequent HTTP requests made via `httpClient` include `Authorization: Bearer <token>`
-
-#### Scenario: Header removed after logout
-- **WHEN** the user logs out
-- **THEN** subsequent HTTP requests via `httpClient` do NOT include an `Authorization` header
+#### Scenario: No or invalid session cookie
+- **WHEN** `rehydrateAuth()` is dispatched and the browser has no `helio_session` cookie, or it is
+  expired/unrecognised
+- **THEN** `GET /api/auth/me` returns `401`, `clearAuth` is dispatched, and `auth.status` becomes
+  `'unauthenticated'`
 
 ### Requirement: handleOAuthCallback thunk
-The frontend SHALL expose a `handleOAuthCallback(code: string, state?: string)` async thunk that calls `GET /api/auth/google/callback` with the provided `code` and optional `state` query parameters. On `200 OK` it SHALL dispatch `setAuth({ token, user })` and store the token in `sessionStorage`. On failure it SHALL return a rejected action.
+The frontend SHALL expose a `handleOAuthCallback(code: string, state?: string)` async thunk that calls
+`GET /api/auth/google/callback` with `withCredentials: true` and the provided `code`/optional `state`
+query parameters. On `200 OK` (the backend sets the session cookie via `Set-Cookie`) it SHALL dispatch
+`setAuth({ user })`. On failure it SHALL return a rejected action.
 
 #### Scenario: Successful OAuth callback exchange
 - **WHEN** `handleOAuthCallback({ code: "valid-code" })` is dispatched
-- **THEN** `GET /api/auth/google/callback?code=valid-code` is called
-- **AND** on success `auth.status` becomes `'authenticated'` and `auth.currentUser` is populated with `avatarUrl`
+- **THEN** `GET /api/auth/google/callback?code=valid-code` is called with credentials included
+- **AND** on success `auth.status` becomes `'authenticated'` and `auth.currentUser` is populated with
+  `avatarUrl`
+- **AND** the response body contains no `token` field
 
 #### Scenario: Failed OAuth callback exchange
-- **WHEN** `handleOAuthCallback({ code: "expired-code" })` is dispatched and the backend returns an error
+- **WHEN** `handleOAuthCallback({ code: "expired-code" })` is dispatched and the backend returns an
+  error
 - **THEN** the thunk rejects and `auth.status` remains `'unauthenticated'`
 
 ### Requirement: User model includes avatarUrl
@@ -107,3 +110,20 @@ The `User` TypeScript interface SHALL include `avatarUrl: string | null`. This f
 #### Scenario: Email/password user has null avatarUrl
 - **WHEN** an email/password login completes successfully
 - **THEN** `auth.currentUser.avatarUrl` is `null`
+
+### Requirement: No client-side persistence of the session credential
+The frontend SHALL NOT store the session token in `sessionStorage`, `localStorage`, or any other
+JavaScript-readable storage, and SHALL NOT set a manual `Authorization` header for session auth. The
+shared Axios `httpClient` instance SHALL be configured with `withCredentials: true` so the browser
+manages cookie attachment.
+
+#### Scenario: Nothing written to sessionStorage on login
+- **WHEN** `setAuth` is dispatched after a successful login, register, or OAuth callback
+- **THEN** `sessionStorage.getItem('helio_auth_token')` (and any equivalent key) returns `null`
+
+#### Scenario: No Authorization header set for session auth
+- **WHEN** the user successfully logs in
+- **THEN** subsequent HTTP requests via `httpClient` do NOT carry a manually-set
+  `Authorization: Bearer` header for session identity (the session cookie is attached automatically by
+  the browser via `withCredentials`)
+
