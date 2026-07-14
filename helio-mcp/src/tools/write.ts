@@ -250,4 +250,89 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     },
     ({ panelId, appearance }) => guarded(() => api.updatePanelAppearance(panelId, appearance)),
   );
+
+  // ── Delete tools ──────────────────────────────────────────────────────────
+  // Each wraps a backend DELETE (204 No Content). Deletion is PERMANENT and
+  // owner-scoped; the backend's 403 (not owner) / 404 (unknown id) is surfaced
+  // verbatim by `guarded`. On success the tool returns `{ deleted: true, id }`.
+
+  server.registerTool(
+    "delete_dashboard",
+    {
+      title: "Delete dashboard",
+      description:
+        "Permanently delete a dashboard (DELETE /api/dashboards/:id). This CASCADES: all of the " +
+        "dashboard's panels are deleted with it. Data sources, pipelines, and DataTypes are NOT " +
+        "affected. Owner-only — a non-owner gets 403, an unknown id 404. Irreversible.",
+      inputSchema: { dashboardId: z.string().min(1) },
+    },
+    ({ dashboardId }) => guarded(() => api.deleteDashboard(dashboardId)),
+  );
+
+  server.registerTool(
+    "delete_data_source",
+    {
+      title: "Delete data source",
+      description:
+        "Permanently delete a data source (DELETE /api/data-sources/:id). This CASCADES to any " +
+        "pipeline built on this source — and transitively that pipeline's steps, run history, and " +
+        "output DataType. The source's own companion DataType is not deleted (its sourceId is " +
+        "cleared). Irreversible — prefer deleting dependent pipelines/dashboards first if you want " +
+        "to control the blast radius.",
+      inputSchema: { dataSourceId: z.string().min(1) },
+    },
+    ({ dataSourceId }) => guarded(() => api.deleteDataSource(dataSourceId)),
+  );
+
+  server.registerTool(
+    "delete_data_type",
+    {
+      title: "Delete data type",
+      description:
+        "Permanently delete a DataType (DELETE /api/types/:id). If it is a pipeline OUTPUT type this " +
+        "CASCADES to the pipeline that produces it (and that pipeline's steps and run history). Any " +
+        "panels bound to this DataType are unbound (not deleted). Irreversible.",
+      inputSchema: { dataTypeId: z.string().min(1) },
+    },
+    ({ dataTypeId }) => guarded(() => api.deleteDataType(dataTypeId)),
+  );
+
+  server.registerTool(
+    "delete_panel",
+    {
+      title: "Delete panel",
+      description:
+        "Permanently delete a single panel from its dashboard (DELETE /api/panels/:id). Does not " +
+        "affect the dashboard or the DataType the panel was bound to. Irreversible.",
+      inputSchema: { panelId: z.string().min(1) },
+    },
+    ({ panelId }) => guarded(() => api.deletePanel(panelId)),
+  );
+
+  server.registerTool(
+    "delete_pipeline",
+    {
+      title: "Delete pipeline",
+      description:
+        "Permanently delete a pipeline (DELETE /api/pipelines/:id). This CASCADES to the pipeline's " +
+        "steps and run history. Its output DataType is NOT deleted (delete it separately with " +
+        "delete_data_type if you also want to remove the bindable type). Owner-only. Irreversible.",
+      inputSchema: { pipelineId: z.string().min(1) },
+    },
+    ({ pipelineId }) => guarded(() => api.deletePipeline(pipelineId)),
+  );
+
+  server.registerTool(
+    "delete_pipeline_step",
+    {
+      title: "Delete pipeline step",
+      description:
+        "Permanently delete a single pipeline transform step (DELETE /api/pipeline-steps/:stepId). " +
+        "NOTE: a step is addressed by its OWN id at a flat top-level path, not nested under its " +
+        "pipeline — pass the step id (from get_pipeline / add_pipeline_step), not the pipeline id. " +
+        "Re-run the pipeline afterward to reflect the change. Irreversible.",
+      inputSchema: { stepId: z.string().min(1) },
+    },
+    ({ stepId }) => guarded(() => api.deletePipelineStep(stepId)),
+  );
 }

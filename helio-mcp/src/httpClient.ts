@@ -70,6 +70,13 @@ export class HelioHttpClient {
     return this.send<T>("PATCH", path, body);
   }
 
+  /** DELETE `path`. Helio's delete endpoints answer `204 No Content`, so the
+   *  response body is empty — `dispatch` returns `undefined` for a 204 rather
+   *  than trying to `JSON.parse("")`. Callers default `T` to `void`. */
+  delete<T = void>(path: string): Promise<T> {
+    return this.send<T>("DELETE", path);
+  }
+
   /** POST a `multipart/form-data` body (e.g. CSV upload) to `path` and parse
    *  the JSON response as `T`. `Content-Type` (with its boundary) is set by
    *  `fetch` itself when the body is a `FormData` instance — never set it
@@ -85,7 +92,7 @@ export class HelioHttpClient {
   }
 
   private send<T>(
-    method: "GET" | "POST" | "PATCH",
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
     query?: Record<string, string | number | undefined>,

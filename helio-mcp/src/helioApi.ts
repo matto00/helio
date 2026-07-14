@@ -347,4 +347,58 @@ export class HelioApi {
       proposal,
     );
   }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  //
+  // Every delete endpoint answers `204 No Content` (the backend's
+  // `ServiceResponse.runNoContent`), so there is no body to return; each
+  // wrapper resolves to a small `{ deleted: true, id }` acknowledgement so the
+  // MCP tool result is not an empty string. Deletion is permanent — the backend
+  // is owner-scoped (a non-owner gets 403, an unknown id 404, surfaced verbatim
+  // by the tool's guarded handler). Cascades are FK-enforced in PostgreSQL.
+
+  /** `DELETE /api/dashboards/:id`. Owner-only. Cascades to the dashboard's
+   *  panels (and per-user zoom prefs). Does not touch data sources/types. */
+  async deleteDashboard(dashboardId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/dashboards/${dashboardId}`);
+    return { deleted: true, id: dashboardId };
+  }
+
+  /** `DELETE /api/data-sources/:id`. Cascades to any pipeline built on this
+   *  source (and, transitively, that pipeline's steps/runs/output DataType);
+   *  the source's companion DataType has its `sourceId` set null, not deleted. */
+  async deleteDataSource(dataSourceId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/data-sources/${dataSourceId}`);
+    return { deleted: true, id: dataSourceId };
+  }
+
+  /** `DELETE /api/types/:id`. Cascades to any pipeline whose output is this
+   *  DataType (and that pipeline's steps/runs); panels bound to it are unbound
+   *  (`type_id` set null), not deleted. */
+  async deleteDataType(dataTypeId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/types/${dataTypeId}`);
+    return { deleted: true, id: dataTypeId };
+  }
+
+  /** `DELETE /api/panels/:id`. Removes a single panel from its dashboard. */
+  async deletePanel(panelId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/panels/${panelId}`);
+    return { deleted: true, id: panelId };
+  }
+
+  /** `DELETE /api/pipelines/:id`. Owner-only. Cascades to the pipeline's steps
+   *  and run history. The output DataType is NOT deleted by deleting the
+   *  pipeline (delete it separately with delete_data_type if desired). */
+  async deletePipeline(pipelineId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/pipelines/${pipelineId}`);
+    return { deleted: true, id: pipelineId };
+  }
+
+  /** `DELETE /api/pipeline-steps/:stepId`. Note the flat top-level path — a
+   *  step is addressed by its own id, NOT nested under its pipeline. Removes a
+   *  single transform step; re-run the pipeline to reflect the change. */
+  async deletePipelineStep(stepId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/pipeline-steps/${stepId}`);
+    return { deleted: true, id: stepId };
+  }
 }
