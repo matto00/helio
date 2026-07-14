@@ -401,4 +401,16 @@ export class HelioApi {
     await this.http.delete(`/api/pipeline-steps/${stepId}`);
     return { deleted: true, id: stepId };
   }
+
+  /** Set a dashboard's responsive grid layout. PATCHes /api/dashboards/:id with
+   *  a DashboardLayoutPayload. Takes flat `{panelId,x,y,w,h}` items and applies
+   *  them to all four breakpoints (lg/md/sm/xs) — a desktop-first placement that
+   *  the backend requires be fully specified. */
+  updateDashboardLayout(
+    dashboardId: string,
+    items: { panelId: string; x: number; y: number; w: number; h: number }[],
+  ): Promise<DashboardResponse> {
+    const layout = { lg: items, md: items, sm: items, xs: items };
+    return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { layout });
+  }
 }

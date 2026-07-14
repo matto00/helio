@@ -335,4 +335,34 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     },
     ({ stepId }) => guarded(() => api.deletePipelineStep(stepId)),
   );
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+
+  server.registerTool(
+    "update_dashboard_layout",
+    {
+      title: "Update dashboard grid layout",
+      description:
+        "Position/size a dashboard's panels on its responsive grid (PATCH /api/dashboards/:id). " +
+        "Pass `items` as [{panelId,x,y,w,h}] on a 12-column grid: x 0-11, w 1-12, and y/h in row " +
+        "units (row height is fixed by the frontend). The same placement is applied to all " +
+        "breakpoints. Panels not listed keep their current/auto position. Returns the updated " +
+        "dashboard. Create + bind panels first, then call this with their ids.",
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        items: z
+          .array(
+            z.object({
+              panelId: z.string().min(1),
+              x: z.number().int().min(0),
+              y: z.number().int().min(0),
+              w: z.number().int().positive(),
+              h: z.number().int().positive(),
+            }),
+          )
+          .min(1),
+      },
+    },
+    ({ dashboardId, items }) => guarded(() => api.updateDashboardLayout(dashboardId, items)),
+  );
 }
