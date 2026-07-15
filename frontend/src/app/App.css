@@ -332,6 +332,37 @@
   color: var(--app-text);
 }
 
+/* --- COMMAND BAR: phone-only dashboard-switcher title (App.tsx) ---
+ * Hidden by default; shown only <=768px below. Sits alongside (never
+ * replaces) the desktop breadcrumb markup, which stays untouched. */
+.app-command-bar__mobile-title {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.app-command-bar__mobile-title-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45vw;
+}
+
+.app-command-bar__mobile-title:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: var(--app-radius-sm);
+}
+
 @media (max-width: 768px) {
   .app-command-bar {
     padding: 0 var(--space-3);
@@ -341,16 +372,34 @@
     display: none;
   }
 
-  .app-sidebar {
-    position: fixed;
-    top: 48px;
-    left: 0;
-    bottom: 0;
-    z-index: 10;
-    overflow: visible;
+  .app-command-bar__mobile-title {
+    display: inline-flex;
   }
 
-  .app-sidebar--collapsed {
-    width: 0;
+  /* Desktop layout-editing affordances (undo/redo, dashboard appearance) are
+     out of scope for the phone viewer (mobile-pwa-handoff.md §2 — no CRUD/
+     editing on phone) and, left in place, they crowd the command bar enough
+     to squeeze the mobile title control to zero width. Hide them here so the
+     dashboard switcher stays usable; this does not touch PanelGrid or any
+     HEL-301 file. */
+  .undo-redo-btn,
+  .dashboard-appearance-editor {
+    display: none;
+  }
+
+  /* The old fixed/width-0 stub trapped the sidebar with no reopen affordance
+     (see notes/mobile-pwa-handoff.md §W3.0). BottomNav + the dashboard sheet
+     replace it entirely below the phone breakpoint; the desktop sidebar is
+     simply not rendered here. */
+  .app-sidebar,
+  .app-sidebar-toggle,
+  .app-sidebar-collapse {
+    display: none;
+  }
+
+  /* Reserve space for the fixed BottomNav (control-lg + space-4) plus the
+     safe-area inset so page content is never occluded behind it. */
+  .app-content {
+    padding-bottom: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
   }
 }
