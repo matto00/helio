@@ -1,7 +1,10 @@
-## ADDED Requirements
+# frontend-auth-ui Specification
 
+## Purpose
+Frontend authentication UI: login and registration pages, Google OAuth entry point, logout control, and global 401 handling.
+## Requirements
 ### Requirement: Login page
-The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed. The page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth flow.
+The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed. The page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth flow. If on-device verification (HEL-300) determines that Google OAuth cannot complete inside an iOS standalone PWA, the Google button SHALL be hidden below the ratified phone breakpoint (430px) when the app runs in standalone display mode (via a `display-mode: standalone` media query); email/password login SHALL remain fully available in that state. Login and registration inputs SHALL keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
 
 #### Scenario: Successful login redirects to home
 - **WHEN** the user submits valid credentials on the login page
@@ -20,9 +23,13 @@ The frontend SHALL provide a `/login` page with an email/password form. Submitti
 - **THEN** a link to `/register` is visible
 
 #### Scenario: Google login button is visible and functional
-- **WHEN** the user is on the login page
+- **WHEN** the user is on the login page in a regular browser context
 - **THEN** a "Continue with Google" button is rendered and enabled
 - **AND** clicking it navigates the browser to `GET /api/auth/google` (a full browser navigation, not a fetch)
+
+#### Scenario: Standalone OAuth degradation (contingent on device test)
+- **WHEN** the on-device test recorded on HEL-300 shows OAuth failing in iOS standalone mode, and the app runs in standalone display mode at a viewport at or below the phone breakpoint
+- **THEN** the "Continue with Google" button is hidden and email/password login remains usable
 
 ### Requirement: Registration page
 The frontend SHALL provide a `/register` page with email, password, and optional display name fields. Submitting the form SHALL dispatch the `register` thunk. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed.
@@ -64,3 +71,4 @@ The frontend SHALL intercept all `401 Unauthorized` HTTP responses via an Axios 
 #### Scenario: 401 during rehydration does not cause a redirect loop
 - **WHEN** `GET /api/auth/me` returns `401` during initial rehydration
 - **THEN** `clearAuth` is dispatched and the user is redirected to `/login` only once, without a navigation loop
+
