@@ -149,9 +149,14 @@ inside dense rows may be 24px. **[mechanical]** No other control heights.
 ## 4. Breakpoints
 
 Canonical set, shared with React Grid Layout (`panelGridConfig.ts`):
-**1440 / 1100 / 768**. CSS media queries use these values only. Container
+**1440 / 1100 / 768 / 430**. CSS media queries use these values only. Container
 queries on `panel-card` handle panel-internal density and are the right tool
 for that job. **[mechanical]**
+
+**430 (phone, ratified HEL-300):** the mobile PWA shell needs a sub-768 phone
+breakpoint; 430px covers every iPhone portrait width (the largest is
+430–440pt) while staying clear of small tablets. `PanelDetailModal.css`'s
+pre-existing, unratified `480px` query was folded into this value.
 
 ## 5. Buttons
 

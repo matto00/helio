@@ -572,7 +572,7 @@
   outline-offset: 1px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 430px) {
   .panel-detail-modal__row {
     grid-template-columns: 1fr;
   }
