@@ -9,7 +9,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRotateLeft,
@@ -21,7 +21,10 @@ import {
 import "./App.css";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
-import { SidebarBody } from "../shared/chrome/SidebarBody";
+import { SidebarBody, sectionFromPathname } from "../shared/chrome/SidebarBody";
+import { BottomNav } from "../shared/chrome/BottomNav";
+import { MobileNavSheet, type MobileNavSheetItem } from "../shared/chrome/MobileNavSheet";
+import { navDestinations } from "../shared/chrome/navDestinations";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
@@ -39,7 +42,13 @@ import { RegisterPage } from "../features/auth/ui/RegisterPage";
 import {
   fetchDashboards,
   setDashboardLayoutLocally,
+  setSelectedDashboardId,
 } from "../features/dashboards/state/dashboardsSlice";
+import {
+  selectPipelineOutputDataTypes,
+  setSelectedTypeId,
+} from "../features/dataTypes/state/dataTypesSlice";
+import { setSelectedSourceId } from "../features/sources/state/sourcesSlice";
 import {
   redoLayout,
   selectCanRedo,
@@ -75,6 +84,7 @@ function AppShell() {
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
   const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
+  const [isMobileNavSheetOpen, setIsMobileNavSheetOpen] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -87,21 +97,103 @@ function AppShell() {
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
+  // Registry only ever lists pipeline-bound output types (strict
+  // source→pipeline→type→panel; see the sidebar's own SidebarBody.tsx) — the
+  // breadcrumb and the phone sheet must agree on that same filtered set, or
+  // the title text and the sheet's active-item highlight could disagree.
+  const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
+  const mobileSection = sectionFromPathname(location.pathname);
+  const pipelineRouteId = location.pathname.startsWith("/pipelines/")
+    ? location.pathname.split("/")[2]
+    : null;
   const breadcrumbItemName = ((): string | null => {
-    if (location.pathname.startsWith("/sources")) {
+    if (mobileSection === "sources") {
       const id = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
       return sources.items.find((s) => s.id === id)?.name ?? null;
     }
-    if (location.pathname.startsWith("/pipelines/")) {
-      const id = location.pathname.split("/")[2];
-      return pipelines.items.find((p) => p.id === id)?.name ?? null;
+    if (mobileSection === "pipelines" && pipelineRouteId !== null) {
+      return pipelines.items.find((p) => p.id === pipelineRouteId)?.name ?? null;
     }
-    if (location.pathname.startsWith("/registry")) {
-      const id = dataTypes.selectedTypeId ?? dataTypes.items[0]?.id ?? null;
-      return dataTypes.items.find((dt) => dt.id === id)?.name ?? null;
+    if (mobileSection === "registry") {
+      const id = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
+      return pipelineOutputDataTypes.find((dt) => dt.id === id)?.name ?? null;
     }
     return null;
   })();
+
+  // Phone section sheet — one sheet component reused for every section,
+  // fed by the exact same selectors/actions the desktop sidebar
+  // (DashboardList / SidebarBody+SidebarItemList) reads and dispatches, per
+  // notes/mobile-pwa-handoff.md §W3.2/§W3.3 ("do not fork the state"; every
+  // section is a picker, never a dead end). Pipelines select via navigation
+  // (matching SidebarItemList's `toHref`), the rest via Redux selection.
+  const mobileSheetItems: MobileNavSheetItem[] = (() => {
+    switch (mobileSection) {
+      case "dashboards":
+        return items.map((dashboard) => ({
+          id: dashboard.id,
+          name: dashboard.name,
+          isActive: dashboard.id === selectedDashboardId,
+        }));
+      case "sources": {
+        const effectiveSourceId = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
+        return sources.items.map((source) => ({
+          id: source.id,
+          name: source.name,
+          isActive: source.id === effectiveSourceId,
+        }));
+      }
+      case "pipelines":
+        return pipelines.items.map((pipeline) => ({
+          id: pipeline.id,
+          name: pipeline.name,
+          isActive: pipeline.id === pipelineRouteId,
+        }));
+      case "registry": {
+        const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
+        return pipelineOutputDataTypes.map((dataType) => ({
+          id: dataType.id,
+          name: dataType.name,
+          isActive: dataType.id === effectiveTypeId,
+        }));
+      }
+    }
+  })();
+
+  // Reuses the same section→label mapping the desktop breadcrumb heading
+  // uses, so the sheet's own heading (and the phone title's accessible name)
+  // never drifts from desktop wording.
+  const mobileSheetTitle = breadcrumbLabel(location.pathname);
+  const mobileTitleDisplayName =
+    mobileSection === "dashboards"
+      ? selectedDashboardName
+      : (breadcrumbItemName ?? mobileSheetTitle);
+  const mobileTitleVisible = mobileSection === "dashboards" ? selectedDashboard !== null : true;
+
+  const mobileSheetEmptyMessage: Record<typeof mobileSection, string> = {
+    dashboards: "No dashboards yet.",
+    sources: "No data sources yet.",
+    pipelines: "No pipelines yet.",
+    registry: "No types yet.",
+  };
+
+  function handleMobileSheetSelect(item: MobileNavSheetItem) {
+    switch (mobileSection) {
+      case "dashboards":
+        dispatch(setSelectedDashboardId(item.id));
+        return;
+      case "sources":
+        dispatch(setSelectedSourceId(item.id));
+        return;
+      case "pipelines":
+        navigate(`/pipelines/${item.id}`);
+        return;
+      case "registry":
+        dispatch(setSelectedTypeId(item.id));
+        return;
+    }
+  }
+
   const flushFnRef = useRef<(() => void) | null>(null);
 
   const registerFlush = useCallback((fn: (() => void) | null) => {
@@ -212,6 +304,26 @@ function AppShell() {
                 </>
               )}
             </nav>
+            {/* Phone-only: the breadcrumb above is display:none <768px (App.css),
+                so this is the section-item switcher entry point there —
+                dashboards, sources, pipelines, and registry all share the one
+                control + MobileNavSheet per notes/mobile-pwa-handoff.md
+                §W3.2/§W3.3. Desktop breadcrumb markup above is untouched. */}
+            {mobileTitleVisible && (
+              <button
+                type="button"
+                className="app-command-bar__mobile-title"
+                onClick={() => setIsMobileNavSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={isMobileNavSheetOpen}
+                aria-label={`Switch ${mobileSheetTitle.toLowerCase()} (current: ${mobileTitleDisplayName})`}
+              >
+                <span className="app-command-bar__mobile-title-name" aria-hidden="true">
+                  {mobileTitleDisplayName}
+                </span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+            )}
             {onDashboardView && selectedDashboard !== null && (
               <SaveStateIndicator onSaveNow={flush} />
             )}
@@ -278,18 +390,16 @@ function AppShell() {
           ) : (
             <aside className="app-sidebar">
               <nav className="app-sidebar__nav" aria-label="Main navigation">
-                <NavLink to="/" end className="app-sidebar__nav-link">
-                  Dashboards
-                </NavLink>
-                <NavLink to="/sources" className="app-sidebar__nav-link">
-                  Data Sources
-                </NavLink>
-                <NavLink to="/pipelines" className="app-sidebar__nav-link">
-                  Data Pipelines
-                </NavLink>
-                <NavLink to="/registry" className="app-sidebar__nav-link">
-                  Type Registry
-                </NavLink>
+                {navDestinations.map((destination) => (
+                  <NavLink
+                    key={destination.to}
+                    to={destination.to}
+                    end={destination.end}
+                    className="app-sidebar__nav-link"
+                  >
+                    {destination.label}
+                  </NavLink>
+                ))}
               </nav>
               <SidebarBody onCollapse={() => setIsDashboardListCollapsed(true)} />
               <button
@@ -308,7 +418,20 @@ function AppShell() {
             </ErrorBoundary>
           </section>
         </div>
+
+        {/* Phone-only section nav — hidden >=768px via BottomNav.css; every
+            protected route renders it so no route is a navigation trap
+            (notes/mobile-pwa-handoff.md §W3.3). */}
+        <BottomNav />
       </main>
+      <MobileNavSheet
+        open={isMobileNavSheetOpen}
+        onClose={() => setIsMobileNavSheetOpen(false)}
+        title={mobileSheetTitle}
+        items={mobileSheetItems}
+        onSelect={handleMobileSheetSelect}
+        emptyMessage={mobileSheetEmptyMessage[mobileSection]}
+      />
     </SaveStateContext.Provider>
   );
 }

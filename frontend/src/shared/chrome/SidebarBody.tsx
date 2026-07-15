@@ -152,7 +152,10 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   return <DashboardList onCollapse={onCollapse} />;
 }
 
-function sectionFromPathname(
+/** Exported so `App.tsx` can drive the phone section-item sheet off the same
+ * route-matching logic as the desktop sidebar — one source of truth for
+ * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3). */
+export function sectionFromPathname(
   pathname: string,
 ): "dashboards" | "sources" | "pipelines" | "registry" {
   if (pathname.startsWith("/sources")) return "sources";

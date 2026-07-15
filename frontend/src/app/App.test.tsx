@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
@@ -10,6 +10,7 @@ import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice"
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import {
@@ -69,6 +70,7 @@ const getMeRequestMock = jest.mocked(getMeRequest);
 
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
+const getPipelinesMock = jest.mocked(getPipelinesRequest);
 const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 const updatePanelAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
@@ -421,7 +423,11 @@ describe("App", () => {
 
     renderApp();
 
-    const pipelinesLink = await screen.findByRole("link", { name: "Data Pipelines" });
+    // Scoped to the desktop sidebar landmark: BottomNav (hidden >=768px via
+    // CSS, which jsdom doesn't evaluate) also renders a "Data Pipelines"
+    // link, so an unscoped query would be ambiguous.
+    const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
+    const pipelinesLink = within(sidebarNav).getByRole("link", { name: "Data Pipelines" });
     expect(pipelinesLink).toBeInTheDocument();
     expect(pipelinesLink).toHaveAttribute("href", "/pipelines");
 
@@ -438,7 +444,8 @@ describe("App", () => {
 
     renderApp();
 
-    const dataSourcesLink = await screen.findByRole("link", { name: "Data Sources" });
+    const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
+    const dataSourcesLink = within(sidebarNav).getByRole("link", { name: "Data Sources" });
     expect(dataSourcesLink).toBeInTheDocument();
     expect(dataSourcesLink).toHaveAttribute("href", "/sources");
   });
@@ -450,7 +457,8 @@ describe("App", () => {
     renderApp();
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("link", { name: "Type Registry" })).toBeInTheDocument();
+    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
+    expect(within(sidebarNav).getByRole("link", { name: "Type Registry" })).toBeInTheDocument();
   });
 
   it("navigates to /registry and renders the Type Registry page", async () => {
@@ -461,7 +469,8 @@ describe("App", () => {
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole("link", { name: "Type Registry" }));
+    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
+    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Type Registry" }));
 
     // The in-page heading was dropped (top breadcrumb shows the section).
     // Verify the page rendered by looking for its container.
@@ -479,6 +488,69 @@ describe("App", () => {
         "Data Pipelines",
       ),
     );
+  });
+
+  // Task 5.1 — the phone section-item sheet reuses MobileNavSheet for
+  // /sources, /pipelines, /registry, not just dashboards. These two tests
+  // exercise the /pipelines wiring specifically: `toHref`-style navigation
+  // (not a Redux select) and the empty-state message, per
+  // notes/mobile-pwa-handoff.md §W3.3 ("every section is a picker, never a
+  // dead end"). jsdom doesn't evaluate the `<768px` CSS gate, so the
+  // phone title control is queryable regardless of viewport.
+  it("phone section sheet on /pipelines navigates to the tapped pipeline's detail route", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    // `mockResolvedValue` (not `...Once`) — both `SidebarBody` (gated on
+    // `status === "idle"`) and `PipelinesPage` (unconditional) independently
+    // dispatch `fetchPipelines()` on mount, so `getPipelines()` is called
+    // twice; whichever call resolves last wins in the reducer, so both need
+    // the same data or the test is order-dependent/flaky.
+    getPipelinesMock.mockResolvedValue([
+      {
+        id: "pipe-1",
+        name: "Revenue ETL",
+        sourceDataSourceId: "src-1",
+        sourceDataSourceName: "Profit",
+        outputDataTypeName: "RevenueRow",
+        outputDataTypeId: "type-1",
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-03-14T10:00:00Z",
+        lastRunRowCount: 10,
+      },
+    ]);
+
+    renderApp({ initialPath: "/pipelines" });
+
+    const titleButton = await screen.findByRole("button", { name: /Switch data pipelines/i });
+    fireEvent.click(titleButton);
+
+    // Exact name (not a substring regex): the desktop sidebar's
+    // `ActionsMenu` trigger for the same pipeline is aria-labelled
+    // "Revenue ETL actions", which a loose `/Revenue ETL/` match would also
+    // catch since jsdom doesn't hide it via the `<768px` CSS gate.
+    const sheetItem = await screen.findByRole("button", { name: "Revenue ETL" });
+    fireEvent.click(sheetItem);
+
+    // Selecting navigates (not a Redux select), and dismisses the sheet.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Revenue ETL",
+      ),
+    );
+  });
+
+  it("phone section sheet on /pipelines shows the empty-state message when there are no pipelines", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    getPipelinesMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/pipelines" });
+
+    const titleButton = await screen.findByRole("button", { name: /Switch data pipelines/i });
+    fireEvent.click(titleButton);
+
+    expect(await screen.findByText("No pipelines yet.")).toBeInTheDocument();
   });
 
   it("redirects unauthenticated user from /pipelines to /login", async () => {

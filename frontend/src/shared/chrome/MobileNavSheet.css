@@ -1,0 +1,144 @@
+/* Bottom sheet picker — dashboard switcher and (later) section-item nav on
+ * phone. Portalled to document.body; shares the popover z-index layer with
+ * ActionsMenu/Select so stacking is consistent with the rest of the app. */
+
+.mobile-nav-sheet__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover-scrim);
+  background: var(--app-overlay);
+  border: none;
+  padding: 0;
+  cursor: default;
+  animation: mobile-nav-sheet-backdrop-in var(--app-transition) both;
+}
+
+@keyframes mobile-nav-sheet-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mobile-nav-sheet__panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-popover);
+  max-height: 70dvh;
+  display: flex;
+  flex-direction: column;
+  /* Opaque per DESIGN.md — sheets never let the page (or a custom dashboard
+     background) bleed through. */
+  background: var(--app-surface-strong);
+  border: 1px solid var(--app-border-subtle);
+  border-bottom: none;
+  border-radius: var(--app-radius-lg) var(--app-radius-lg) 0 0;
+  box-shadow: var(--app-shadow-soft);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: mobile-nav-sheet-in var(--transition-slow) both;
+}
+
+@keyframes mobile-nav-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-sheet__panel,
+  .mobile-nav-sheet__backdrop {
+    animation: none;
+  }
+}
+
+.mobile-nav-sheet__drag-handle {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4) var(--space-2);
+  /* Grabber + title live in one pointer-tracked region so a downward drag
+     from either dismisses the sheet. */
+  touch-action: none;
+}
+
+.mobile-nav-sheet__grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto var(--space-3);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-border-strong);
+}
+
+.mobile-nav-sheet__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+  text-align: center;
+}
+
+.mobile-nav-sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  overflow-y: auto;
+}
+
+.mobile-nav-sheet__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-lg);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.mobile-nav-sheet__item:hover,
+.mobile-nav-sheet__item:focus-visible {
+  background: var(--app-surface-raised);
+}
+
+.mobile-nav-sheet__item--active {
+  background: var(--app-accent-dim);
+}
+
+.mobile-nav-sheet__item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-nav-sheet__active-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--app-accent);
+}
+
+.mobile-nav-sheet__empty {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
