@@ -1,13 +1,16 @@
 import { act, fireEvent, screen } from "@testing-library/react";
+import { createRef } from "react";
 
 import { Responsive, useContainerWidth } from "react-grid-layout";
 import { createScaledStrategy } from "react-grid-layout/core";
 import { updatePanelTitle as updatePanelTitleRequest } from "../services/panelService";
 import { updatePanelsBatch as updatePanelsBatchRequest } from "../services/panelService";
+import { updateDashboardLayout as updateDashboardLayoutRequest } from "../../dashboards/services/dashboardService";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
+import { AUTO_SAVE_INTERVAL_MS } from "../hooks/usePanelGridSave";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
-import { PanelGrid } from "./PanelGrid";
+import { PanelGrid, type PanelGridHandle } from "./PanelGrid";
 
 jest.mock("react-grid-layout", () => {
   const React = require("react");
@@ -72,6 +75,7 @@ jest.mock("../../dashboards/services/dashboardService", () => ({
 
 const updatePanelTitleMock = jest.mocked(updatePanelTitleRequest);
 const updatePanelsBatchMock = jest.mocked(updatePanelsBatchRequest);
+const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 
 const testPanel = makeMetricPanel({
   id: "panel-1",
@@ -124,6 +128,8 @@ describe("PanelGrid", () => {
     updatePanelTitleMock.mockReset();
     updatePanelsBatchMock.mockReset();
     updatePanelsBatchMock.mockResolvedValue({ panels: [] });
+    updateDashboardLayoutMock.mockReset();
+    updateDashboardLayoutMock.mockResolvedValue({} as never);
   });
 
   afterEach(() => {
@@ -380,6 +386,118 @@ describe("PanelGrid", () => {
       });
 
       expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Task 5.2 — desktop/tablet width (>=768) renders the RGL grid, unchanged.
+  it("renders the RGL <Responsive> grid, not the mobile stack, at a >=768px container width", () => {
+    const { container } = renderWithStore(
+      <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+      { panels: { items: [testPanel] } },
+    );
+
+    expect(MockResponsive).toHaveBeenCalled();
+    expect(container.querySelector(".mobile-panel-stack")).not.toBeInTheDocument();
+  });
+
+  // ─── HEL-301 hazard §4.1 — phone width is structurally incapable of persisting layout ──
+  // Below panelGridConfig.breakpoints.sm (768px) PanelGrid mounts MobilePanelStack,
+  // not DesktopPanelGrid — the only component that calls usePanelGridSave. These
+  // tests are the structural regression guard for that guarantee: no
+  // updateDashboardLayout dispatch (network PATCH) and no setLayoutPending
+  // (hasPendingLayout) transition, on mount, on a width change that stays below
+  // the boundary, or across the 30s auto-save tick.
+  describe("phone width — mobile stack (hazard §4.1)", () => {
+    beforeEach(() => {
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width: 375,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+    });
+
+    it("renders the read-only stack, not the RGL <Responsive> grid", () => {
+      const { container } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      expect(MockResponsive).not.toHaveBeenCalled();
+      expect(container.querySelector(".mobile-panel-stack")).toBeInTheDocument();
+    });
+
+    it("dispatches no layout PATCH on mount, on a width change, or across the auto-save tick", () => {
+      const { store, rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      // Mount.
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+      expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+
+      // Width change while still below the sm boundary (375 -> 400).
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width: 400,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+      expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+
+      // The 30s auto-save tick — DesktopPanelGrid's usePanelGridSave is
+      // never mounted here, so there is no interval to fire in the first
+      // place; advancing fake timers confirms nothing latent fires either.
+      act(() => {
+        jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
+      });
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+      expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+    });
+
+    it("does not register a save-flush handle with the imperative ref (nothing to flush)", () => {
+      const ref = createRef<PanelGridHandle>();
+      renderWithStore(
+        <PanelGrid ref={ref} dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      // Calling the outer handle's flushAndReset must not throw and must not
+      // reach the network — DesktopPanelGrid (the only owner of a real
+      // flushAndReset) is never mounted at phone width.
+      expect(() => ref.current?.flushAndReset()).not.toThrow();
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+
+    // Closes the coverage gap the `mobile-viewer-stack` spec's own scenario
+    // wording calls out: a width change that crosses back *above* the sm
+    // boundary while PanelGrid is already mounted must swap the mobile stack
+    // out for the real RGL grid (and vice versa) — not get stuck on
+    // whichever branch first mounted.
+    it("swaps to the RGL <Responsive> grid when the width crosses back above 768px", () => {
+      const { container, rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      expect(MockResponsive).not.toHaveBeenCalled();
+      expect(container.querySelector(".mobile-panel-stack")).toBeInTheDocument();
+
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width: 900,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+
+      expect(MockResponsive).toHaveBeenCalled();
+      expect(container.querySelector(".mobile-panel-stack")).not.toBeInTheDocument();
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     });
   });
   // ─────────────────────────────────────────────────────────────────────────────

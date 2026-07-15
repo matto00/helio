@@ -135,6 +135,18 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
     render(<PanelContent panel={makeChartPanel()} />);
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
+
+  // HEL-301 — compact threads through to ChartPanel so the phone stack can
+  // hide the legend / shrink axis labels (W5).
+  it("forwards compact=true to ChartPanel", () => {
+    render(<PanelContent panel={makeChartPanel()} compact />);
+    expect(capturedChartProps?.compact).toBe(true);
+  });
+
+  it("leaves compact undefined for the desktop grid (no compact prop passed)", () => {
+    render(<PanelContent panel={makeChartPanel()} />);
+    expect(capturedChartProps?.compact).toBeUndefined();
+  });
 });
 
 describe("PanelContent — live table data", () => {

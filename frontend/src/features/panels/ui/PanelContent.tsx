@@ -35,6 +35,9 @@ export interface PanelContentProps {
   onLoadMore?: () => void;
   /** HEL-292: precomputed chart groupBy aggregate, chart panels only. */
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-301: forwarded to `ChartRenderer` only — see `ChartPanel`'s
+   *  `compact` prop. */
+  compact?: boolean;
 }
 
 export function PanelContent({
@@ -51,6 +54,7 @@ export function PanelContent({
   paginationIsLoadingMore,
   onLoadMore,
   chartAggregate,
+  compact,
 }: PanelContentProps) {
   if (isLoading) {
     return (
@@ -87,6 +91,7 @@ export function PanelContent({
         headers={headers}
         fieldMapping={panel.config.fieldMapping}
         chartAggregate={chartAggregate}
+        compact={compact}
       />
     );
   }

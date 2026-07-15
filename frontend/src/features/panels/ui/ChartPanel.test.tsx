@@ -290,6 +290,62 @@ describe("ChartPanel \u2014 chartAggregate (HEL-292)", () => {
   });
 });
 
+describe("ChartPanel \u2014 compact (HEL-301, phone stack)", () => {
+  it("hides the legend when compact is true", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: { ...baseChartConfig, legend: { show: true, position: "top" as const } },
+    };
+    render(<ChartPanel appearance={appearance} compact />);
+    const option = getOption(screen.getByTestId("echarts")) as { legend: { show: boolean } };
+    expect(option.legend.show).toBe(false);
+  });
+
+  it("does not hide the legend when compact is omitted (desktop default)", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: { ...baseChartConfig, legend: { show: true, position: "top" as const } },
+    };
+    render(<ChartPanel appearance={appearance} />);
+    const option = getOption(screen.getByTestId("echarts")) as { legend: { show: boolean } };
+    expect(option.legend.show).toBe(true);
+  });
+
+  it("shrinks axis label font size when compact is true", () => {
+    const headers = ["date", "price"];
+    const rawRows = [["2024-01-01", "100"]];
+    render(
+      <ChartPanel
+        fieldMapping={{ xAxis: "date", yAxis: "price" }}
+        headers={headers}
+        rawRows={rawRows}
+        compact
+      />,
+    );
+    const option = getOption(screen.getByTestId("echarts")) as {
+      xAxis: { axisLabel: { fontSize: number } };
+    };
+    expect(option.xAxis.axisLabel.fontSize).toBe(10);
+  });
+
+  it("does not add axis overrides for a pie chart when compact is true", () => {
+    const appearance = {
+      background: "transparent",
+      color: "inherit",
+      transparency: 0,
+      chart: { ...baseChartConfig, chartType: "pie" as const },
+    };
+    render(<ChartPanel appearance={appearance} compact />);
+    const option = getOption(screen.getByTestId("echarts"));
+    expect(option.xAxis).toBeUndefined();
+    expect(option.yAxis).toBeUndefined();
+  });
+});
+
 describe("ChartPanel \u2014 scatter chart", () => {
   const headers = ["x", "y"];
   const rawRows = [

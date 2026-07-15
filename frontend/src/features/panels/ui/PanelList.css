@@ -326,3 +326,11 @@
     flex-direction: column;
   }
 }
+
+/* W4.4: zoom is desktop chrome — iOS/Android have pinch, and the widget eats
+   header space at phone widths. */
+@media (max-width: 430px) {
+  .panel-list__zoom-widget {
+    display: none;
+  }
+}

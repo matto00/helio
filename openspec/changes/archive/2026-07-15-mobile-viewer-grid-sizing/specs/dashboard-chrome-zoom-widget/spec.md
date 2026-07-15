@@ -1,8 +1,5 @@
-# dashboard-chrome-zoom-widget Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change rework-dashboard-chrome. Update Purpose after archive.
-## Requirements
 ### Requirement: Zoom controls render as a floating bottom-right widget
 The zoom controls (zoom in, zoom out, reset, level label) SHALL be rendered as a floating widget
 anchored to the bottom-right corner of the `.panel-list` container via
@@ -23,21 +20,3 @@ controls are desktop chrome and pinch-zoom is the native gesture on touch device
 #### Scenario: Phone viewport — widget hidden
 - **WHEN** a dashboard is selected and the viewport is below the 430px phone breakpoint
 - **THEN** the zoom widget is not visible
-
-### Requirement: Zoom widget is accessible
-The zoom widget container SHALL carry `role="group"` and `aria-label="Zoom controls"` so
-assistive technology can identify the group. Individual buttons SHALL retain their existing
-aria-labels: "Zoom in", "Zoom out", "Reset zoom".
-
-#### Scenario: Accessible group label present
-- **WHEN** a dashboard is selected and the zoom widget is rendered
-- **THEN** the widget root element has `role="group"` and `aria-label="Zoom controls"`
-
-### Requirement: Zoom widget does not overlap the sidebar or header
-The widget SHALL use `position: absolute` (not `position: fixed`) so it is contained within
-the `.panel-list` scroll boundary and does not overflow into adjacent layout regions.
-
-#### Scenario: Widget is contained in panel area
-- **WHEN** the zoom widget is rendered
-- **THEN** it is positioned relative to `.panel-list`, not the viewport
-
