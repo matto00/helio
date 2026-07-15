@@ -1,0 +1,93 @@
+/* Phone read-only stack (HEL-301). Reuses `.panel-grid-card` (PanelGrid.css)
+   for card chrome/appearance parity with the desktop grid; the rules below
+   only override what the stack needs to differ (W4.3/W4.4). */
+
+.mobile-panel-stack {
+  display: flex;
+  flex-direction: column;
+  /* W4.4: --space-3 (12px) rhythm replaces the desktop grid's
+     margin:[18,18] + containerPadding for both inter-card gutters and the
+     stack's own container padding. */
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.mobile-panel-stack__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Metric / chart: fixed policy height from mobilePanelHeights.ts, applied via
+   the `--mobile-panel-height` custom property (D3). Two classes so this wins
+   over `.panel-grid-card`'s `height: 100%` regardless of CSS import order. */
+.mobile-panel-stack__item.mobile-panel-stack__item--metric,
+.mobile-panel-stack__item.mobile-panel-stack__item--chart {
+  height: var(--mobile-panel-height);
+  flex-shrink: 0;
+}
+
+/* Table / markdown / text / image: intrinsic-height kinds that never receive
+   `--mobile-panel-height`. `.panel-grid-card` (PanelGrid.css) sets
+   `container-type: size` so desktop's container queries can key off a
+   fixed `h × rowHeight` cell height — but size containment requires a
+   *definite* height source. These four kinds have none in the stack
+   (`height: 100%` against an auto-height flex parent resolves to `auto`),
+   so under size containment the box collapses to ~0 content height (just
+   its own padding) regardless of content. Restore `inline-size`
+   containment (keeps the width-based `@container` rules in PanelGrid.css/
+   PanelContent.css working; drops the height-based ones, which don't make
+   sense for a content-sized box anyway) so the card sizes to its content
+   like any normal box. Two classes to win over `.panel-grid-card`
+   regardless of CSS import order (same pattern as metric/chart above). */
+.mobile-panel-stack__item.mobile-panel-stack__item--table,
+.mobile-panel-stack__item.mobile-panel-stack__item--markdown,
+.mobile-panel-stack__item.mobile-panel-stack__item--text,
+.mobile-panel-stack__item.mobile-panel-stack__item--image {
+  container-type: inline-size;
+  height: auto;
+  flex-shrink: 0;
+}
+
+/* Table: capped at min(60dvh, intrinsic) and the only stack kind with a
+   nested scroll container (W4.3/W5). Horizontal scroll is delegated
+   entirely to DataGrid's own `.ui-data-grid { overflow: auto }` — hiding
+   overflow-x here is a second line of defense against the page body ever
+   scrolling sideways. */
+.mobile-panel-stack__item--table .panel-content--table {
+  max-height: 60dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Markdown / text: fully intrinsic — no fixed height, no cap, no internal
+   scroll (W4.3). Overrides the shared components' own `overflow`/`height`,
+   which desktop relies on to bound content inside a fixed `h × rowHeight`
+   card — the stack has no such fixed height to bound against. */
+.mobile-panel-stack__item--markdown .markdown-panel {
+  height: auto;
+  overflow: visible;
+}
+
+.mobile-panel-stack__item--text .panel-content--text {
+  height: auto;
+  overflow-y: visible;
+}
+
+/* Image: natural aspect ratio, never stretched to fill a fixed cell
+   (W4.3/W5). */
+.mobile-panel-stack__item--image .image-panel,
+.mobile-panel-stack__item--image .image-panel__img {
+  height: auto;
+  max-width: 100%;
+}
+
+/* Divider: bare hairline, no card chrome at all — no border, no padding, no
+   header, no footer (W4.3). Not wrapped in `.panel-grid-card`. */
+.mobile-panel-stack__item--divider {
+  padding: var(--space-2) 0;
+}
+
+.mobile-panel-stack__item--divider .divider-panel {
+  height: auto;
+}

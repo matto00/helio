@@ -14,7 +14,12 @@ import type { Panel } from "../types/panel";
 
 // ─── Style helper ────────────────────────────────────────────────────────────
 
-function getPanelCardStyle(
+// Exported for reuse by `MobilePanelStack` (HEL-301), which builds its own
+// read-only card markup rather than reusing this file's drag/edit-oriented
+// `PanelCard` wrapper — the appearance-to-style mapping is the one piece
+// worth sharing so custom panel backgrounds/colors stay consistent between
+// the desktop grid and the phone stack.
+export function getPanelCardStyle(
   appearance: Panel["appearance"],
   theme: "dark" | "light",
 ): CSSProperties {
@@ -43,11 +48,17 @@ interface PanelCardBodyProps {
   panel: Panel;
   /** When true the body short-circuits and renders nothing (drag-freeze). */
   frozen: boolean;
+  /** HEL-301: true when rendered in the phone stack — forwarded to
+   *  `ChartRenderer` so ECharts hides the legend and shrinks axis labels
+   *  instead of overflowing a narrow phone width (W5). No effect on other
+   *  renderers; unset (desktop grid) is unchanged. */
+  compact?: boolean;
 }
 
 export const PanelCardBody = React.memo(function PanelCardBody({
   panel,
   frozen,
+  compact,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
@@ -93,6 +104,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
       onLoadMore={handleLoadMore}
       chartAggregate={chartAggregate}
+      compact={compact}
     />
   );
 });

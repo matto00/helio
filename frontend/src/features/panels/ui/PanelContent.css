@@ -22,6 +22,9 @@
   line-height: 1;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  /* W4.4: a long value (e.g. "1,234,567.89") must not wrap onto a second
+     line — the metric band is short by design and a wrap would clip. */
+  white-space: nowrap;
 }
 
 .panel-content__metric-label {

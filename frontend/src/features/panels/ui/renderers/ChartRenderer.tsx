@@ -8,6 +8,8 @@ interface ChartRendererProps {
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-301: forwarded to `ChartPanel` — see its `compact` prop. */
+  compact?: boolean;
 }
 
 export function ChartRenderer({
@@ -16,6 +18,7 @@ export function ChartRenderer({
   headers,
   fieldMapping,
   chartAggregate,
+  compact,
 }: ChartRendererProps) {
   return (
     <div className="panel-content panel-content--chart">
@@ -25,6 +28,7 @@ export function ChartRenderer({
         headers={headers}
         fieldMapping={fieldMapping}
         chartAggregate={chartAggregate}
+        compact={compact}
       />
     </div>
   );

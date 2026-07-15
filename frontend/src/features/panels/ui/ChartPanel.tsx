@@ -13,6 +13,11 @@ const defaultOption: EChartsOption = {
   series: [{ type: "line" }],
 };
 
+/** `compact` mode (HEL-301, phone stack): axis-label font size, shrunk from
+ *  ECharts' default to fit the narrow phone width (W5: "fix via ECharts
+ *  config, not CSS" — this is an ECharts option value, not a CSS token). */
+const COMPACT_AXIS_LABEL_FONT_SIZE = 10;
+
 function buildDataOption(
   rawRows: string[][],
   headers: string[],
@@ -135,6 +140,12 @@ export interface ChartPanelProps {
    *  `chartType` is `bar`/`line` — pie/scatter (or an absent aggregate) fall
    *  back to the existing per-row `rawRows` path unchanged. */
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-301 (W5): true when rendered in the phone stack, where there is no
+   *  room for a legend and full-size axis labels overflow. Hides the legend
+   *  and shrinks axis label font via ECharts config — "fix via ECharts
+   *  config, not CSS" per the binding handoff — rather than clipping with
+   *  `overflow: hidden`. Defaults to false; desktop is unaffected. */
+  compact?: boolean;
 }
 
 export function ChartPanel({
@@ -143,6 +154,7 @@ export function ChartPanel({
   headers,
   fieldMapping,
   chartAggregate,
+  compact = false,
 }: ChartPanelProps = {}) {
   const { option: appearanceOption, chartType } =
     appearance?.chart != null
@@ -198,6 +210,31 @@ export function ChartPanel({
         ...(appearanceOption.legend as object),
         textStyle,
       },
+    };
+  }
+
+  if (compact) {
+    option = {
+      ...option,
+      legend: { ...(option.legend as object), show: false },
+      ...(isPie
+        ? {}
+        : {
+            xAxis: {
+              ...(option.xAxis as object),
+              axisLabel: {
+                ...(option.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
+                fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+              },
+            },
+            yAxis: {
+              ...(option.yAxis as object),
+              axisLabel: {
+                ...(option.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
+                fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+              },
+            },
+          }),
     };
   }
 

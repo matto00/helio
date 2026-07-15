@@ -6,7 +6,7 @@
 import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
 import { dashboardGridCols } from "../../dashboards/state/dashboardLayout";
-import type { DashboardLayout } from "../../dashboards/types/dashboard";
+import type { DashboardLayout, DashboardLayoutItem } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
 
 export interface PanelGridConfig {
@@ -110,4 +110,25 @@ export function fromResponsiveLayouts(
     sm: toItems(layouts.sm),
     xs: toItems(layouts.xs),
   };
+}
+
+/** Orders panels for the phone read-only stack (HEL-301, mobile-viewer-stack
+ *  spec): resolved `xs` layout `y` ascending, breaking ties by `x` ascending.
+ *  `xsLayout` is expected to carry an entry for every panel — callers pass
+ *  `resolveDashboardLayout(...).xs`, whose fallback placement guarantees this
+ *  — but a panel with no entry sorts last rather than crashing, defensively. */
+export function orderPanelsForMobileStack(
+  panels: Panel[],
+  xsLayout: DashboardLayoutItem[],
+): Panel[] {
+  const positionById = new Map(xsLayout.map((item) => [item.panelId, item]));
+  return [...panels].sort((a, b) => {
+    const posA = positionById.get(a.id);
+    const posB = positionById.get(b.id);
+    if (!posA && !posB) return 0;
+    if (!posA) return 1;
+    if (!posB) return -1;
+    if (posA.y !== posB.y) return posA.y - posB.y;
+    return posA.x - posB.x;
+  });
 }

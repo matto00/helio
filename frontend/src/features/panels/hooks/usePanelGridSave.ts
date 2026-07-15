@@ -21,7 +21,10 @@ import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { PanelUpdateFields } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
-const AUTO_SAVE_INTERVAL_MS = 30_000;
+// Exported so the HEL-301 structural no-persist test (PanelGrid.test.tsx)
+// can advance fake timers past exactly this interval without duplicating the
+// magic number.
+export const AUTO_SAVE_INTERVAL_MS = 30_000;
 
 export interface PanelGridSaveHandle {
   /** Immediately flush pending panel updates and reset the auto-save timer. */
