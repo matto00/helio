@@ -15,6 +15,12 @@ import { defineConfig, minimal2023Preset } from "@vite-pwa/assets-generator/conf
 export default defineConfig({
   preset: {
     ...minimal2023Preset,
+    transparent: {
+      ...minimal2023Preset.transparent,
+      // The preset's default 64px icon is referenced by nothing (the manifest
+      // uses 192/512 only) but would land in the SW precache via the png glob.
+      sizes: [192, 512],
+    },
     apple: {
       ...minimal2023Preset.apple,
       resizeOptions: {
