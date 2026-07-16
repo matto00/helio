@@ -70,13 +70,15 @@ object PanelRowMapper extends PanelProtocol {
       aggregation        = None,
       metricLabel        = None,
       metricUnit         = None,
-      columnWidths       = None
+      columnWidths       = None,
+      tableDensity       = None,
+      columnOrder        = None
     )
 
     p match {
       case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
       case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint))
-      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths))
+      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder))
       case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
@@ -107,7 +109,9 @@ object PanelRowMapper extends PanelProtocol {
     TablePanelConfig(
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
-      columnWidths = row.columnWidths.flatMap(parseColumnWidths).getOrElse(Map.empty)
+      columnWidths = row.columnWidths.flatMap(parseColumnWidths).getOrElse(Map.empty),
+      density      = row.tableDensity,
+      columnOrder  = row.columnOrder.flatMap(parseColumnOrder)
     )
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
@@ -154,5 +158,13 @@ object PanelRowMapper extends PanelProtocol {
   private def parseColumnWidths(raw: String): Option[Map[String, Int]] =
     scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject =>
       o.fields.collect { case (key, JsNumber(n)) => key -> n.toInt }
+    }
+
+  private def columnOrderColumn(order: Option[List[String]]): Option[String] =
+    order.map(keys => JsArray(keys.map(JsString(_)).toVector).compactPrint)
+
+  private def parseColumnOrder(raw: String): Option[List[String]] =
+    scala.util.Try(raw.parseJson).toOption.collect { case JsArray(elems) =>
+      elems.collect { case JsString(s) => s }.toList
     }
 }

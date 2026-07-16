@@ -11,6 +11,7 @@ import {
   fetchPanels,
   updatePanelAppearance,
   updatePanelBinding,
+  updatePanelColumnWidths,
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,
@@ -135,6 +136,14 @@ const panelsSlice = createSlice({
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
+      // HEL-255 — keep the stored panel's config.columnWidths in sync after a
+      // debounced grid resize so the edit pane's Reset button reflects reality
+      // without a reload.
+      .addCase(updatePanelColumnWidths.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
       .addCase(updatePanelTextBinding.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
@@ -227,6 +236,7 @@ export {
   fetchPanels,
   updatePanelAppearance,
   updatePanelBinding,
+  updatePanelColumnWidths,
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,

@@ -3,6 +3,8 @@ package com.helio.infrastructure
 import com.helio.api.protocols.PanelProtocol
 import com.helio.domain._
 import com.helio.domain.panels._
+import slick.collection.heterogeneous.HNil
+import slick.collection.heterogeneous.syntax._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -249,9 +251,11 @@ object PanelRepository {
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
+      Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths)
+    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths, r.tableDensity, r.columnOrder)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
@@ -265,9 +269,11 @@ object PanelRepository {
       Option[String],
       Option[String],
       Option[String],
+      Option[String],
+      Option[String],
       Option[String]
   ) =
-    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths)
+    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths, row.tableDensity, row.columnOrder)
 
   case class PanelRow(
       id: String,
@@ -290,7 +296,9 @@ object PanelRepository {
       aggregation: Option[String],
       metricLabel: Option[String],
       metricUnit: Option[String],
-      columnWidths: Option[String]
+      columnWidths: Option[String],
+      tableDensity: Option[String],
+      columnOrder: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -315,7 +323,15 @@ object PanelRepository {
     def metricLabel         = column[Option[String]]("metric_label")
     def metricUnit          = column[Option[String]]("metric_unit")
     def columnWidths        = column[Option[String]]("column_widths")
+    def tableDensity        = column[Option[String]]("table_density")
+    def columnOrder         = column[Option[String]]("column_order")
 
-    def * = (id, dashboardId, title, createdBy, createdAt, lastUpdated, appearance, panelType, typeId, fieldMapping, ownerId, content, imageUrl, imageFit, dividerOrientation, dividerWeight, dividerColor, aggregation, metricLabel, metricUnit, columnWidths).mapTo[PanelRow]
+    // 23 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
+    // a Slick HList (see `slick.collection.heterogeneous`) rather than a tuple.
+    def * =
+      (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
+        panelType :: typeId :: fieldMapping :: ownerId :: content :: imageUrl :: imageFit ::
+        dividerOrientation :: dividerWeight :: dividerColor :: aggregation :: metricLabel ::
+        metricUnit :: columnWidths :: tableDensity :: columnOrder :: HNil).mapTo[PanelRow]
   }
 }

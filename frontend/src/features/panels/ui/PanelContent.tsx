@@ -106,6 +106,8 @@ export function PanelContent({
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         columnWidths={panel.config.columnWidths}
+        density={panel.config.density}
+        columnOrder={panel.config.columnOrder}
       />
     );
   }

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
+import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
 import {
@@ -69,7 +70,8 @@ describe("PanelContent — placeholder (unbound)", () => {
   });
 
   it("renders a table element for type table", () => {
-    const { container } = render(<PanelContent panel={makeTablePanel()} />);
+    // TableRenderer now dispatches (width-persist thunk), so a store is needed.
+    const { container } = renderWithStore(<PanelContent panel={makeTablePanel()} />);
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 });
@@ -151,7 +153,7 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
 
 describe("PanelContent — live table data", () => {
   it("renders live rows and headers", () => {
-    const { container } = render(
+    const { container } = renderWithStore(
       <PanelContent
         panel={makeTablePanel()}
         rawRows={[
@@ -171,7 +173,7 @@ describe("PanelContent — live table data", () => {
 
 describe("PanelContent — TableContent sizing", () => {
   it("2.1 renders .panel-content--table container when data rows are provided", () => {
-    const { container } = render(
+    const { container } = renderWithStore(
       <PanelContent
         panel={makeTablePanel()}
         rawRows={[
@@ -185,14 +187,14 @@ describe("PanelContent — TableContent sizing", () => {
   });
 
   it("2.2 renders placeholder table inside .panel-content--table when no data", () => {
-    const { container } = render(<PanelContent panel={makeTablePanel()} />);
+    const { container } = renderWithStore(<PanelContent panel={makeTablePanel()} />);
     const tableContainer = container.querySelector(".panel-content--table");
     expect(tableContainer).toBeInTheDocument();
     expect(tableContainer?.querySelector("table")).toBeInTheDocument();
   });
 
   it("2.3 renders correct number of <tr> rows for given rawRows", () => {
-    const { container } = render(
+    const { container } = renderWithStore(
       <PanelContent panel={makeTablePanel()} rawRows={[["A"], ["B"], ["C"]]} />,
     );
     const rows = container.querySelectorAll("tbody tr");
@@ -200,7 +202,7 @@ describe("PanelContent — TableContent sizing", () => {
   });
 
   it("2.4 renders column headers from headers prop when provided", () => {
-    render(
+    renderWithStore(
       <PanelContent
         panel={makeTablePanel()}
         rawRows={[["val1", "val2"]]}

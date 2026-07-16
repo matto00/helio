@@ -397,35 +397,128 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
     "applyPatch: absent key preserves the existing columnWidths" in {
       val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None))
       patched.config.columnWidths shouldBe widths
     }
 
     "applyPatch: explicit null clears previously-set columnWidths" in {
       val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(None)))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(None), None, None))
       patched.config.columnWidths shouldBe Map.empty
     }
 
     "applyPatch: present object sets columnWidths" in {
       val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths))))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths)), None, None))
       patched.config.columnWidths shouldBe widths
     }
 
     "applyPatch: a columnWidths-only patch leaves dataTypeId/fieldMapping untouched" in {
       val mapping  = JsObject("slot1" -> JsString("colA"))
       val existing = table(TablePanelConfig(DataTypeId("dt1"), mapping, Map.empty))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths))))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths)), None, None))
       patched.config.dataTypeId shouldBe DataTypeId("dt1")
       patched.config.fieldMapping shouldBe mapping
     }
 
     "applyPatch: a binding-only patch leaves columnWidths untouched" in {
       val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(Some(Some(DataTypeId("dt2"))), None, None))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(Some(Some(DataTypeId("dt2"))), None, None, None, None))
       patched.config.dataTypeId shouldBe DataTypeId("dt2")
       patched.config.columnWidths shouldBe widths
+    }
+  }
+
+  // ── HEL-255: TablePanelConfig density + columnOrder display config ──────────
+
+  "TablePanelConfig.density/columnOrder" should {
+    val order = List("b", "a")
+
+    "default to None when the fields are ABSENT (spray-json None-omission)" in {
+      val decoded = TablePanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
+      decoded.density shouldBe None
+      decoded.columnOrder shouldBe None
+    }
+
+    "decode valid density and columnOrder" in {
+      val decoded = TablePanelConfig.decode(JsObject(
+        "dataTypeId"  -> JsString("dt1"),
+        "density"     -> JsString("spacious"),
+        "columnOrder" -> JsArray(JsString("b"), JsString("a"))
+      ))
+      decoded.density shouldBe Some("spacious")
+      decoded.columnOrder shouldBe Some(order)
+    }
+
+    "lenient decode: an unknown density is treated as absent" in {
+      TablePanelConfig.decode(JsObject("density" -> JsString("cozy"))).density shouldBe None
+    }
+
+    "lenient decode: a wrong-typed density is treated as absent" in {
+      TablePanelConfig.decode(JsObject("density" -> JsNumber(3))).density shouldBe None
+    }
+
+    "round-trip valid values through the per-subtype format" in {
+      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("condensed"), Some(order))
+      val decoded = TablePanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "omit absent density/columnOrder from the wire (spray-json None-omission)" in {
+      val json = TablePanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject
+      json.fields.keySet should not contain "density"
+      json.fields.keySet should not contain "columnOrder"
+    }
+
+    "Patch.decode: absent keys leave both fields untouched (outer None)" in {
+      val patch = TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1")))
+      patch.density shouldBe None
+      patch.columnOrder shouldBe None
+    }
+
+    "Patch.decode: explicit null clears each field (Some(None))" in {
+      val patch = TablePanelConfig.Patch.decode(JsObject("density" -> JsNull, "columnOrder" -> JsNull))
+      patch.density shouldBe Some(None)
+      patch.columnOrder shouldBe Some(None)
+    }
+
+    "Patch.decode: present values set each field (Some(Some(v)))" in {
+      val patch = TablePanelConfig.Patch.decode(JsObject(
+        "density"     -> JsString("condensed"),
+        "columnOrder" -> JsArray(JsString("b"), JsString("a"))
+      ))
+      patch.density shouldBe Some(Some("condensed"))
+      patch.columnOrder shouldBe Some(Some(order))
+    }
+
+    "Patch.decode: an invalid density is rejected (deserializationError → 400)" in {
+      a[DeserializationException] should be thrownBy
+        TablePanelConfig.Patch.decode(JsObject("density" -> JsString("cozy")))
+    }
+
+    "applyPatch: absent keys preserve existing density/columnOrder" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("spacious"), Some(order)))
+      val patched  = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None))
+      patched.config.density shouldBe Some("spacious")
+      patched.config.columnOrder shouldBe Some(order)
+    }
+
+    "applyPatch: explicit null clears previously-set density/columnOrder" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("spacious"), Some(order)))
+      val patched  = existing.applyPatch(TablePanelConfig.Patch(None, None, None, Some(None), Some(None)))
+      patched.config.density shouldBe None
+      patched.config.columnOrder shouldBe None
+    }
+
+    "applyPatch: a display-only patch leaves dataTypeId/fieldMapping untouched" in {
+      val mapping  = JsObject("slot1" -> JsString("colA"))
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), mapping, Map.empty))
+      val patched  = existing.applyPatch(
+        TablePanelConfig.Patch(None, None, None, Some(Some("condensed")), Some(Some(order)))
+      )
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe mapping
+      patched.config.density shouldBe Some("condensed")
     }
   }
 

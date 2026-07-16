@@ -1,21 +1,29 @@
 package com.helio.domain.panels
 
+import com.helio.api.RequestValidation
 import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 /** Typed config for a [[TablePanel]] — same shape as the other "bound trio"
- *  configs ([[MetricPanelConfig]] / [[ChartPanelConfig]]). */
+ *  configs ([[MetricPanelConfig]] / [[ChartPanelConfig]]), plus per-panel table
+ *  display state (`columnWidths`, `density`, `columnOrder`).
+ *
+ *  `density` (`condensed` | `normal` | `spacious`) and `columnOrder` (ordered
+ *  visible-column keys) follow the HEL-253 `columnWidths` pattern: optional,
+ *  absent = defaults (normal density; all columns visible in natural order). */
 final case class TablePanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
-    columnWidths: Map[String, Int] = Map.empty
+    columnWidths: Map[String, Int] = Map.empty,
+    density: Option[String] = None,
+    columnOrder: Option[List[String]] = None
 )
 
 object TablePanelConfig {
-  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty)
+  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty, None, None)
 
-  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat3(TablePanelConfig.apply)
+  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat5(TablePanelConfig.apply)
 
   def decode(json: JsValue): TablePanelConfig = json match {
     case JsObject(fields) =>
@@ -31,7 +39,17 @@ object TablePanelConfig {
         case Some(o: JsObject) => decodeColumnWidths(o)
         case _                 => Map.empty[String, Int]
       }
-      TablePanelConfig(dataTypeId, mapping, widths)
+      // Lenient: a wrong-typed or unknown density is treated as absent, never
+      // stored as-is (matches this decode path's tolerant philosophy).
+      val density = fields.get("density") match {
+        case Some(JsString(s)) if RequestValidation.ValidTableDensityValues.contains(s) => Some(s)
+        case _                                                                          => None
+      }
+      val columnOrder = fields.get("columnOrder") match {
+        case Some(JsArray(elems)) => Some(elems.collect { case JsString(s) => s }.toList)
+        case _                    => None
+      }
+      TablePanelConfig(dataTypeId, mapping, widths, density, columnOrder)
     case _ => Empty
   }
 
@@ -43,13 +61,17 @@ object TablePanelConfig {
   final case class Patch(
       dataTypeId: Option[Option[DataTypeId]],
       fieldMapping: Option[Option[JsObject]],
-      columnWidths: Option[Option[Map[String, Int]]]
+      columnWidths: Option[Option[Map[String, Int]]],
+      density: Option[Option[String]],
+      columnOrder: Option[Option[List[String]]]
   ) {
-    def isEmpty: Boolean = dataTypeId.isEmpty && fieldMapping.isEmpty && columnWidths.isEmpty
+    def isEmpty: Boolean =
+      dataTypeId.isEmpty && fieldMapping.isEmpty && columnWidths.isEmpty &&
+        density.isEmpty && columnOrder.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -71,7 +93,29 @@ object TablePanelConfig {
           case Some(o: JsObject) => Some(Some(decodeColumnWidths(o)))
           case Some(x)           => deserializationError(s"columnWidths must be an object or null, got $x")
         }
-        Patch(typeId, mapping, widths)
+        // Invalid density on the PATCH path is a hard 400 (imageFit precedent):
+        // reject unknown values rather than silently dropping them.
+        val density = fields.get("density") match {
+          case None         => None
+          case Some(JsNull) => Some(None)
+          case Some(JsString(s)) =>
+            RequestValidation.validateTableDensity(Some(s)) match {
+              case Right(_)  => Some(Some(s))
+              case Left(err) => deserializationError(err)
+            }
+          case Some(x) => deserializationError(s"density must be a string or null, got $x")
+        }
+        val columnOrder = fields.get("columnOrder") match {
+          case None                 => None
+          case Some(JsNull)         => Some(None)
+          case Some(JsArray(elems)) =>
+            Some(Some(elems.map {
+              case JsString(s) => s
+              case x           => deserializationError(s"columnOrder entries must be strings, got $x")
+            }.toList))
+          case Some(x) => deserializationError(s"columnOrder must be an array or null, got $x")
+        }
+        Patch(typeId, mapping, widths, density, columnOrder)
       case _ => Empty
     }
   }
@@ -110,7 +154,9 @@ final case class TablePanel(
     config = TablePanelConfig(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
-      columnWidths = patch.columnWidths.fold(config.columnWidths)(_.getOrElse(Map.empty))
+      columnWidths = patch.columnWidths.fold(config.columnWidths)(_.getOrElse(Map.empty)),
+      density      = patch.density.fold(config.density)(identity),
+      columnOrder  = patch.columnOrder.fold(config.columnOrder)(identity)
     )
   )
 }

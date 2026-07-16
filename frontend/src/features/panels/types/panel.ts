@@ -53,6 +53,8 @@ export type PanelKind = "metric" | "chart" | "table" | "text" | "markdown" | "im
 
 export type ImageFit = "contain" | "cover" | "fill";
 
+export type TableDensity = "condensed" | "normal" | "spacious";
+
 export type DividerOrientation = "horizontal" | "vertical";
 
 // ── Per-subtype config shapes ───────────────────────────────────────────────
@@ -106,6 +108,12 @@ export interface TablePanelConfig {
   /** Per-column drag-resized pixel widths, keyed by column key. Absent/empty
    *  falls back to `DataGrid`'s default/derived widths. HEL-253. */
   columnWidths?: Record<string, number>;
+  /** `DataGrid` row spacing. Absent falls back to normal. HEL-255. */
+  density?: TableDensity;
+  /** Ordered list of visible data-column keys. Absent/empty shows all columns
+   *  in natural order; non-empty renders exactly those keys, in order,
+   *  intersected with the keys present in the data. HEL-255. */
+  columnOrder?: string[];
 }
 
 export interface TextPanelConfig {

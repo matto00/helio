@@ -1,9 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 
 import { TableRenderer } from "./TableRenderer";
 import { updatePanelColumnWidths } from "../../services/panelService";
+import { renderWithStore } from "../../../../test/renderWithStore";
+
+/** Permissive read shape for asserting the stored table panel's persisted
+ *  widths without wrestling the loosely-typed test store's `getState()`. */
+type StoredTablePanel = { config?: { columnWidths?: Record<string, number> } };
 
 jest.mock("../../services/panelService", () => ({
+  ...jest.requireActual("../../services/panelService"),
   updatePanelColumnWidths: jest.fn().mockResolvedValue({}),
 }));
 
@@ -39,7 +45,7 @@ describe("TableRenderer — column widths load on mount", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("passes config.columnWidths through to DataGrid as the applied widths", () => {
-    render(
+    renderWithStore(
       <TableRenderer
         panelId="panel-1"
         rawRows={[["1", "2"]]}
@@ -57,7 +63,9 @@ describe("TableRenderer — column widths load on mount", () => {
     // `table-layout: fixed` is active (see DataGrid.tsx `DEFAULT_COLUMN_WIDTH`),
     // so an un-configured column is no longer style-less — it renders at the
     // shared default rather than collapsing under fixed table layout.
-    render(<TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />);
+    renderWithStore(
+      <TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />,
+    );
     const headers = screen.getAllByRole("columnheader");
     const colA = headers.find((h) => h.textContent?.startsWith("a"));
     expect(colA).toHaveStyle({ width: "160px" });
@@ -77,7 +85,7 @@ describe("TableRenderer — debounced width persistence", () => {
 
   it("debounces a resize into a single updatePanelColumnWidths call 400ms after the drag settles", () => {
     stubColumnWidth(200);
-    const { container } = render(
+    const { container } = renderWithStore(
       <TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />,
     );
 
@@ -88,7 +96,9 @@ describe("TableRenderer — debounced width persistence", () => {
     // No network call yet — still within the debounce window.
     expect(mockUpdatePanelColumnWidths).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(400);
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
 
     expect(mockUpdatePanelColumnWidths).toHaveBeenCalledTimes(1);
     expect(mockUpdatePanelColumnWidths).toHaveBeenCalledWith("panel-1", { a: 250 });
@@ -96,7 +106,7 @@ describe("TableRenderer — debounced width persistence", () => {
 
   it("coalesces several rapid resizes of the same column into one persisted call", () => {
     stubColumnWidth(200);
-    const { container } = render(
+    const { container } = renderWithStore(
       <TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />,
     );
 
@@ -108,9 +118,172 @@ describe("TableRenderer — debounced width persistence", () => {
     fireEvent.mouseMove(window, { clientX: 160 });
     fireEvent.mouseUp(window);
 
-    jest.advanceTimersByTime(400);
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
 
     expect(mockUpdatePanelColumnWidths).toHaveBeenCalledTimes(1);
     expect(mockUpdatePanelColumnWidths).toHaveBeenCalledWith("panel-1", { a: 260 });
+  });
+});
+
+describe("TableRenderer — resize syncs widths into the stored panel (HEL-255 CR#1)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockUpdatePanelColumnWidths.mockReset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("dispatches the width-persist thunk so the stored panel's columnWidths updates without reload", async () => {
+    stubColumnWidth(200);
+    // The debounced PATCH resolves with the persisted panel; the thunk's
+    // fulfilled reducer must fold it back into the store so a same-session
+    // edit-pane open sees the widths (Reset button enables without reload).
+    const persisted = {
+      id: "panel-1",
+      dashboardId: "d-1",
+      title: "Rows",
+      type: "table",
+      meta: { createdBy: "u", createdAt: "", lastUpdated: "" },
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+      config: { dataTypeId: "dt1", fieldMapping: {}, columnWidths: { a: 250 } },
+    };
+    mockUpdatePanelColumnWidths.mockResolvedValue(persisted as never);
+
+    const { store, container } = renderWithStore(
+      <TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />,
+      {
+        panels: {
+          items: [{ id: "panel-1", dashboardId: "d-1", title: "Rows", type: "table" }],
+        },
+      },
+    );
+
+    // Before any resize the stored panel has no widths.
+    const before = store.getState().panels.items.find((p: { id: string }) => p.id === "panel-1") as
+      | StoredTablePanel
+      | undefined;
+    expect(before?.config?.columnWidths).toBeUndefined();
+
+    fireEvent.mouseDown(getHandle(container, "a"), { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 150 });
+    fireEvent.mouseUp(window);
+
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(mockUpdatePanelColumnWidths).toHaveBeenCalledWith("panel-1", { a: 250 });
+    const after = store.getState().panels.items.find((p: { id: string }) => p.id === "panel-1") as
+      | StoredTablePanel
+      | undefined;
+    expect(after?.config?.columnWidths).toEqual({ a: 250 });
+  });
+});
+
+describe("TableRenderer — density (HEL-255)", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("passes the density prop through to DataGrid's density class", () => {
+    const { container } = renderWithStore(
+      <TableRenderer
+        panelId="panel-1"
+        rawRows={[["1", "2"]]}
+        headers={["a", "b"]}
+        density="spacious"
+      />,
+    );
+    expect(container.querySelector(".ui-data-grid--spacious")).not.toBeNull();
+  });
+
+  it("falls back to DataGrid's full-variant default (normal) when density is absent", () => {
+    const { container } = renderWithStore(
+      <TableRenderer panelId="panel-1" rawRows={[["1", "2"]]} headers={["a", "b"]} />,
+    );
+    expect(container.querySelector(".ui-data-grid--normal")).not.toBeNull();
+    expect(container.querySelector(".ui-data-grid--spacious")).toBeNull();
+  });
+});
+
+describe("TableRenderer — columnOrder (HEL-255)", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  function headerKeys(): string[] {
+    return screen.getAllByRole("columnheader").map((h) => h.textContent?.trim() ?? "");
+  }
+
+  it("renders all columns in natural order when columnOrder is absent", () => {
+    renderWithStore(
+      <TableRenderer panelId="p" rawRows={[["1", "2", "3"]]} headers={["a", "b", "c"]} />,
+    );
+    expect(headerKeys()).toEqual(["a", "b", "c"]);
+  });
+
+  it("reorders and hides columns per columnOrder", () => {
+    renderWithStore(
+      <TableRenderer
+        panelId="p"
+        rawRows={[["1", "2", "3"]]}
+        headers={["a", "b", "c"]}
+        columnOrder={["c", "a"]}
+      />,
+    );
+    expect(headerKeys()).toEqual(["c", "a"]);
+  });
+
+  it("skips stale keys not present in the data (no empty column)", () => {
+    renderWithStore(
+      <TableRenderer
+        panelId="p"
+        rawRows={[["1", "2"]]}
+        headers={["a", "b"]}
+        columnOrder={["gone", "a"]}
+      />,
+    );
+    expect(headerKeys()).toEqual(["a"]);
+  });
+
+  it("applies columnOrder on the paginated-rows path too", () => {
+    renderWithStore(
+      <TableRenderer
+        panelId="p"
+        paginationRows={[{ a: "1", b: "2", c: "3" }]}
+        columnOrder={["b", "a"]}
+      />,
+    );
+    expect(headerKeys()).toEqual(["b", "a"]);
+  });
+});
+
+describe("TableRenderer — width re-seed on external clear (HEL-255 design D6)", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("re-seeds local widths to defaults when persisted columnWidths clears for the same panel", () => {
+    const { rerender } = renderWithStore(
+      <TableRenderer
+        panelId="panel-1"
+        rawRows={[["1", "2"]]}
+        headers={["a", "b"]}
+        columnWidths={{ a: 240 }}
+      />,
+    );
+    let colA = screen.getAllByRole("columnheader").find((h) => h.textContent?.startsWith("a"));
+    expect(colA).toHaveStyle({ width: "240px" });
+
+    // Simulate a Reset-widths save clearing the persisted widths for the same panel.
+    rerender(
+      <TableRenderer
+        panelId="panel-1"
+        rawRows={[["1", "2"]]}
+        headers={["a", "b"]}
+        columnWidths={{}}
+      />,
+    );
+    colA = screen.getAllByRole("columnheader").find((h) => h.textContent?.startsWith("a"));
+    expect(colA).toHaveStyle({ width: "160px" });
   });
 });

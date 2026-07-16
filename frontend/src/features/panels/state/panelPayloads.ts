@@ -19,6 +19,7 @@ import type {
   Panel,
   PanelConfig,
   PanelKind,
+  TableDensity,
   TextPanelConfig,
   TypeConfig,
 } from "../types/panel";
@@ -116,6 +117,12 @@ export function buildBindingPatch(args: {
   aggregation?: MetricAggregation | ChartAggregation | null;
   label?: string | null;
   unit?: string | null;
+  /** HEL-255 Table display config, folded into the same single Save PATCH.
+   *  Each follows the absent-vs-null convention: `undefined` omits the key
+   *  (leave unchanged); `null` clears it; a value sets it. */
+  density?: TableDensity;
+  columnOrder?: string[] | null;
+  columnWidths?: null;
 }): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
@@ -129,6 +136,15 @@ export function buildBindingPatch(args: {
   }
   if (args.unit !== undefined) {
     patch.unit = args.unit;
+  }
+  if (args.density !== undefined) {
+    patch.density = args.density;
+  }
+  if (args.columnOrder !== undefined) {
+    patch.columnOrder = args.columnOrder;
+  }
+  if (args.columnWidths !== undefined) {
+    patch.columnWidths = args.columnWidths;
   }
   return patch;
 }
