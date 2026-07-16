@@ -54,5 +54,41 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       decoded.config.fieldMapping shouldBe JsObject.empty
       decoded.config.content shouldBe "Just literal"
     }
+
+    // HEL-245: Markdown now persists typeId/fieldMapping alongside content —
+    // before this change domainToRow discarded a bound Markdown panel's
+    // binding (the skeptic-verified gap), so a Source-mode Markdown panel
+    // silently reverted to unbound after a round-trip through the table.
+    "round-trip a bound Markdown panel's typeId/fieldMapping through domainToRow/rowToDomain" in {
+      val panel = MarkdownPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        MarkdownPanelConfig("# Static fallback", DataTypeId("dt1"), JsObject("content" -> JsString("body")))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe MarkdownPanel.Kind
+      row.typeId shouldBe Some("dt1")
+      row.fieldMapping shouldBe Some(JsObject("content" -> JsString("body")).compactPrint)
+      row.content shouldBe Some("# Static fallback")
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[MarkdownPanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.config.fieldMapping shouldBe JsObject("content" -> JsString("body"))
+      decoded.config.content shouldBe "# Static fallback"
+    }
+
+    "round-trip an unbound Markdown panel (no typeId/fieldMapping columns written)" in {
+      val panel = MarkdownPanel(id, dashboardId, "t", meta, appearance, owner, MarkdownPanelConfig("Just literal", DataTypeId(""), JsObject.empty))
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.typeId shouldBe None
+      row.fieldMapping shouldBe None
+      row.content shouldBe Some("Just literal")
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[MarkdownPanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("")
+      decoded.config.fieldMapping shouldBe JsObject.empty
+      decoded.config.content shouldBe "Just literal"
+    }
   }
 }

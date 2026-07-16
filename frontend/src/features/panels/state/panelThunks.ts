@@ -15,10 +15,10 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
-  updatePanelContent as updatePanelContentRequest,
   updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
+  updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest,
   updatePanelTextBinding as updatePanelTextBindingRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../services/panelService";
@@ -196,20 +196,8 @@ export const updatePanelBinding = createAsyncThunk<
   },
 );
 
-export const updatePanelContent = createAsyncThunk<
-  Panel,
-  { panelId: string; content: string },
-  { rejectValue: string }
->("panels/updatePanelContent", async ({ panelId, content }, { rejectWithValue }) => {
-  try {
-    return await updatePanelContentRequest(panelId, content);
-  } catch {
-    return rejectWithValue("Failed to update panel content.");
-  }
-});
-
 /** HEL-244: PATCH a Text panel's Content editor save — see
- *  `buildTextBindingPatch` for the Source/Static patch-shape rules. */
+ *  `buildContentBindingPatch` for the Source/Static patch-shape rules. */
 export const updatePanelTextBinding = createAsyncThunk<
   Panel,
   {
@@ -225,6 +213,35 @@ export const updatePanelTextBinding = createAsyncThunk<
   async ({ panelId, mode, typeId, fieldValue, literalValue }, { rejectWithValue }) => {
     try {
       return await updatePanelTextBindingRequest(panelId, {
+        mode,
+        typeId,
+        fieldValue,
+        literalValue,
+      });
+    } catch {
+      return rejectWithValue("Failed to update panel content.");
+    }
+  },
+);
+
+/** HEL-245: PATCH a Markdown panel's Content editor save — mirrors
+ *  `updatePanelTextBinding`; see `buildContentBindingPatch` for the
+ *  Source/Static patch-shape rules. */
+export const updatePanelMarkdownBinding = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    mode: "field" | "literal";
+    typeId: string | null;
+    fieldValue: string;
+    literalValue: string;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelMarkdownBinding",
+  async ({ panelId, mode, typeId, fieldValue, literalValue }, { rejectWithValue }) => {
+    try {
+      return await updatePanelMarkdownBindingRequest(panelId, {
         mode,
         typeId,
         fieldValue,

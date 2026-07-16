@@ -11,7 +11,7 @@ import {
   resetPanelPagination,
   updatePanelAppearance,
   updatePanelBinding,
-  updatePanelContent,
+  updatePanelMarkdownBinding,
   updatePanelsBatch,
 } from "./panelsSlice";
 import { importDashboard } from "../../dashboards/state/dashboardsSlice";
@@ -494,7 +494,7 @@ describe("panelsSlice", () => {
     });
   });
 
-  it("replaces the updated panel when updatePanelContent fulfills", () => {
+  it("replaces the updated panel when updatePanelMarkdownBinding fulfills", () => {
     const markdownPanel = makeMarkdownPanel({
       id: "panel-1",
       dashboardId: "dashboard-1",
@@ -509,10 +509,19 @@ describe("panelsSlice", () => {
 
     const nextState = panelsReducer(
       initialState,
-      updatePanelContent.fulfilled(
-        { ...markdownPanel, config: { content: "## Updated content" } },
+      updatePanelMarkdownBinding.fulfilled(
+        {
+          ...markdownPanel,
+          config: { content: "## Updated content", dataTypeId: "", fieldMapping: {} },
+        },
         "request-id-4",
-        { panelId: "panel-1", content: "## Updated content" },
+        {
+          panelId: "panel-1",
+          mode: "literal",
+          typeId: null,
+          fieldValue: "",
+          literalValue: "## Updated content",
+        },
       ),
     );
 

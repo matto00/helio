@@ -19,8 +19,9 @@
  *
  * Silent (kept silent — automatic/background):
  *   - updateDashboardAppearance, updateDashboardLayout, renameDashboard,
- *     updatePanelAppearance, updatePanelTitle, updatePanelContent,
- *     updatePanelImage, updatePanelBinding, updatePanelDivider, updatePanelsBatch,
+ *     updatePanelAppearance, updatePanelTitle, updatePanelTextBinding,
+ *     updatePanelMarkdownBinding, updatePanelImage, updatePanelBinding,
+ *     updatePanelDivider, updatePanelsBatch,
  *     updateSource, updateDataType, analyzePipeline, updatePipeline,
  *     fetchPanelPage, fetchDashboards, fetchSources, fetchDataTypes,
  *     fetchPipelines, fetchPipeline, fetchPipelineSteps, fetchPipelineRunHistory

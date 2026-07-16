@@ -110,7 +110,7 @@ export function PanelContent({
     );
   }
   if (isTextPanel(panel)) return <TextRenderer data={data} content={panel.config.content} />;
-  if (isMarkdownPanel(panel)) return <MarkdownRenderer panel={panel} />;
+  if (isMarkdownPanel(panel)) return <MarkdownRenderer panel={panel} data={data} />;
   if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
   if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
 

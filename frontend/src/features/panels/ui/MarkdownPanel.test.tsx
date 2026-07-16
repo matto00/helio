@@ -23,6 +23,13 @@ describe("MarkdownPanel — with content", () => {
     render(<MarkdownPanel content={"- [x] Done\n- [ ] Todo"} />);
     expect(screen.getByTestId("markdown-content")).toHaveTextContent("Done");
   });
+
+  it("resolves a helio:// image ref to the uploads route via urlTransform", () => {
+    render(<MarkdownPanel content="![logo](helio://uploads/image/abc123)" />);
+    expect(screen.getByTestId("markdown-content")).toHaveTextContent(
+      "![logo](/api/uploads/image/abc123)",
+    );
+  });
 });
 
 describe("MarkdownPanel — without content", () => {

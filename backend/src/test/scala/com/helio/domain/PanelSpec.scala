@@ -89,6 +89,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
       chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
       table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
       text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
+      // HEL-245 — Markdown joins the bound-capable set alongside Text.
+      md(MarkdownPanelConfig("hi", DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
       // Empty dataTypeId on bound-capable subtype reads as None (cycle-1 read-path tolerance)
       metric().dataTypeId shouldBe None
       text().dataTypeId      shouldBe None
@@ -103,6 +105,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
       table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).buildQuery shouldBe defined
       // HEL-244 — a bound Text panel builds a query too.
       text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject("content" -> JsString("headline")))).buildQuery shouldBe defined
+      // HEL-245 — a bound Markdown panel builds a query too.
+      md(MarkdownPanelConfig("hi", DataTypeId("dt1"), JsObject("content" -> JsString("body")))).buildQuery shouldBe defined
       // Unbound subtypes always return None
       text().buildQuery     shouldBe None
       md().buildQuery       shouldBe None
@@ -513,6 +517,101 @@ class PanelSpec extends AnyWordSpec with Matchers {
       val bound = text(TextPanelConfig("", DataTypeId("dt1"), JsObject("content" -> JsString("headline"))))
       val query = bound.buildQuery.get
       query.selectedFields should contain theSameElementsAs List("headline")
+    }
+  }
+
+  // ── HEL-245: MarkdownPanelConfig dataTypeId/fieldMapping binding wiring ─────
+
+  "MarkdownPanelConfig.dataTypeId/fieldMapping" should {
+    "default to empty when absent (spray-json omits Option=None; here fields are simply absent)" in {
+      val decoded = MarkdownPanelConfig.decode(JsObject.empty)
+      decoded.dataTypeId shouldBe DataTypeId("")
+      decoded.fieldMapping shouldBe JsObject.empty
+      decoded.content shouldBe ""
+    }
+
+    "decode present dataTypeId/fieldMapping alongside content" in {
+      val decoded = MarkdownPanelConfig.decode(JsObject(
+        "content"      -> JsString("# Static fallback"),
+        "dataTypeId"   -> JsString("dt1"),
+        "fieldMapping" -> JsObject("content" -> JsString("body"))
+      ))
+      decoded.content shouldBe "# Static fallback"
+      decoded.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.fieldMapping shouldBe JsObject("content" -> JsString("body"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg = MarkdownPanelConfig("# Hi", DataTypeId("dt1"), JsObject("content" -> JsString("body")))
+      val decoded = MarkdownPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent dataTypeId/fieldMapping key leaves them untouched (outer None)" in {
+      val patch = MarkdownPanelConfig.Patch.decode(JsObject("content" -> JsString("x")))
+      patch.dataTypeId shouldBe None
+      patch.fieldMapping shouldBe None
+    }
+
+    "Patch.decode: explicit null clears dataTypeId/fieldMapping (Some(None))" in {
+      val patch = MarkdownPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsNull, "fieldMapping" -> JsNull))
+      patch.dataTypeId shouldBe Some(None)
+      patch.fieldMapping shouldBe Some(None)
+    }
+
+    "Patch.decode: present value sets dataTypeId/fieldMapping (Some(Some(v)))" in {
+      val patch = MarkdownPanelConfig.Patch.decode(JsObject(
+        "dataTypeId"   -> JsString("dt1"),
+        "fieldMapping" -> JsObject("content" -> JsString("body"))
+      ))
+      patch.dataTypeId shouldBe Some(Some(DataTypeId("dt1")))
+      patch.fieldMapping shouldBe Some(Some(JsObject("content" -> JsString("body"))))
+    }
+
+    "applyPatch: absent content key preserves the existing content (existing convention, unaffected)" in {
+      val existing = md(MarkdownPanelConfig("Hello", DataTypeId(""), JsObject.empty))
+      val patched = existing.applyPatch(MarkdownPanelConfig.Patch(None, None, None))
+      patched.config.content shouldBe "Hello"
+    }
+
+    "applyPatch: dataTypeId/fieldMapping patch alongside absent content leaves content untouched (Source-mode save)" in {
+      val existing = md(MarkdownPanelConfig("Prior literal markdown", DataTypeId(""), JsObject.empty))
+      val patch = MarkdownPanelConfig.Patch(
+        content      = None,
+        dataTypeId   = Some(Some(DataTypeId("dt1"))),
+        fieldMapping = Some(Some(JsObject("content" -> JsString("body"))))
+      )
+      val patched = existing.applyPatch(patch)
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe JsObject("content" -> JsString("body"))
+      patched.config.content shouldBe "Prior literal markdown"
+    }
+
+    "applyPatch: a Static-mode save sets content and clears any prior binding" in {
+      val existing = md(MarkdownPanelConfig("Old", DataTypeId("dt1"), JsObject("content" -> JsString("body"))))
+      val patch = MarkdownPanelConfig.Patch(
+        content      = Some("New literal markdown"),
+        dataTypeId   = Some(None),
+        fieldMapping = Some(None)
+      )
+      val patched = existing.applyPatch(patch)
+      patched.config.content shouldBe "New literal markdown"
+      patched.config.dataTypeId shouldBe DataTypeId("")
+      patched.config.fieldMapping shouldBe JsObject.empty
+    }
+
+    "withBindingCleared preserves literal content (Decision 1 divergence, mirrors Text)" in {
+      val bound = md(MarkdownPanelConfig("# Hello world", DataTypeId("dt1"), JsObject("content" -> JsString("body"))))
+      val cleared = bound.withBindingCleared.asInstanceOf[MarkdownPanel]
+      cleared.config.dataTypeId shouldBe DataTypeId("")
+      cleared.config.fieldMapping shouldBe JsObject.empty
+      cleared.config.content shouldBe "# Hello world"
+    }
+
+    "buildQuery selects the mapped field for a bound Markdown panel" in {
+      val bound = md(MarkdownPanelConfig("", DataTypeId("dt1"), JsObject("content" -> JsString("body"))))
+      val query = bound.buildQuery.get
+      query.selectedFields should contain theSameElementsAs List("body")
     }
   }
 

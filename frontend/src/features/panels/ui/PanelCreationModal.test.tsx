@@ -180,8 +180,9 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    // Markdown is non-data-bound; it skips the datatype step
-    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    // Image is non-data-bound; it skips the datatype step (markdown is now
+    // data-bound per HEL-245, so this generic create-flow test uses Image).
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "My Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
@@ -195,8 +196,8 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    // Markdown is non-data-bound; it skips the datatype step
-    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    // Image is non-data-bound; it skips the datatype step (see note above).
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Broken Panel" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
@@ -319,8 +320,9 @@ describe("PanelCreationModal — live preview", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    // Markdown is non-data-bound; goes directly to name-entry
-    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    // Image is non-data-bound; goes directly to name-entry (markdown is now
+    // data-bound per HEL-245).
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     const preview = screen.getByTestId("panel-creation-preview");
@@ -528,17 +530,60 @@ describe("PanelCreationModal — DataType picker step", () => {
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
-  // 4.3 — DataType step is skipped for markdown type (goes directly to name-entry)
-  it("4.3 DataType step is skipped for markdown type (goes directly to name-entry)", () => {
+  // 4.3a — DataType step renders after template selection for markdown type
+  // (HEL-245: markdown joined the data-bound set, mirroring the metric flow).
+  it("4.3a DataType step renders after template selection for markdown type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    // Should be on the datatype-select step, not name-entry.
+    expect(screen.getByText("Choose a data type")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
+  });
+
+  // 4.3b — DataType step is skipped for a non-data-bound type (image goes
+  // directly to name-entry).
+  it("4.3b DataType step is skipped for image type (goes directly to name-entry)", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     // Should land directly on name-entry step
     expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
     expect(screen.queryByText("Choose a data type")).not.toBeInTheDocument();
+  });
+
+  // 4.3c — Create panel call for a Markdown panel includes the DataType
+  // selected in the DataType step (mirrors the HEL-244 Text assertion).
+  it("4.3c Create panel call for a Markdown panel includes dataTypeId selected in the DataType step", async () => {
+    createPanelMock.mockResolvedValue(mockPanel({ type: "markdown", title: "My Markdown Panel" }));
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), {
+      target: { value: "My Markdown Panel" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "My Markdown Panel",
+        "markdown",
+        undefined,
+        "dt-1",
+      ),
+    );
   });
 
   // 4.4 — Next button disabled when no DataType selected; enabled after selection
@@ -587,7 +632,7 @@ describe("PanelCreationModal — DataType picker step", () => {
   // HEL-244 (task 4.8) — creating a Text panel with a selected DataType now
   // seeds config.dataTypeId (previously discarded by seedCreateConfig's
   // "text" case; the createPanel call itself already passed dataTypeId
-  // through — see `buildTextBindingPatch`'s dedicated unit tests in
+  // through — see `buildCreatePanelBody`'s dedicated unit tests in
   // `panelPayloads.test.ts` for the config-shape assertion).
   it("HEL-244 Create panel call for a Text panel includes dataTypeId selected in the DataType step", async () => {
     createPanelMock.mockResolvedValue(mockPanel({ type: "text", title: "My Text Panel" }));

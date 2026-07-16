@@ -28,24 +28,13 @@ import { MetricValueEditor } from "./MetricValueEditor";
 import { ChartAggregationFields } from "./ChartAggregationFields";
 import { FieldMappingSlots } from "./FieldMappingSlots";
 import { DataTypePicker } from "./DataTypePicker";
+import { fieldOptions } from "./fieldOptions";
 import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
 
 function isAggFn(value: string): value is AggFn {
   return (
     value === "count" || value === "sum" || value === "avg" || value === "min" || value === "max"
   );
-}
-
-/** Field + computed-field options for a selected DataType, shared by the
- *  field-mapping and aggregation sections. */
-function fieldOptions(dataType: DataType): SelectOption[] {
-  return [
-    ...dataType.fields.map((f) => ({ value: f.name, label: f.name })),
-    ...(dataType.computedFields ?? []).map((cf) => ({
-      value: cf.name,
-      label: `${cf.name} (computed)`,
-    })),
-  ];
 }
 
 /** Same as `fieldOptions`, plus an explicit "— None —" (empty-value) option.

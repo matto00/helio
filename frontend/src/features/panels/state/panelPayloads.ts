@@ -84,7 +84,10 @@ function seedCreateConfig(
         dataTypeId: dataTypeId ?? "",
       };
     case "markdown":
-      return base;
+      return {
+        ...(base as MarkdownPanelConfig),
+        dataTypeId: dataTypeId ?? "",
+      };
   }
 }
 
@@ -142,21 +145,17 @@ export function buildTableWidthsPatch(
   return { columnWidths };
 }
 
-/** Build the typed `config` PATCH for a text/markdown content edit. */
-export function buildContentPatch(content: string): Pick<TextPanelConfig, "content"> {
-  return { content };
-}
-
-/** Build the typed `config` PATCH for a Text panel's Content editor save
- *  (HEL-244 design.md Decision 1's bind-direction corollary). Source mode
- *  (`mode === "field"`) sets `dataTypeId`/`fieldMapping.content` and
- *  deliberately OMITS `content` from the patch entirely — unlike
- *  `buildBindingPatch`'s `label`/`unit` handling for Metric — so
- *  `TextPanelConfig.Patch.decode`'s "absent = unchanged" convention
+/** Build the typed `config` PATCH for a Text or Markdown panel's Content
+ *  editor save (HEL-244 design.md Decision 1's bind-direction corollary;
+ *  shared by Markdown per HEL-245). Source mode (`mode === "field"`) sets
+ *  `dataTypeId`/`fieldMapping.content` and deliberately OMITS `content` from
+ *  the patch entirely — unlike `buildBindingPatch`'s `label`/`unit` handling
+ *  for Metric — so `TextPanelConfig.Patch.decode` /
+ *  `MarkdownPanelConfig.Patch.decode`'s "absent = unchanged" convention
  *  preserves the prior literal text untouched. Static mode (`mode ===
  *  "literal"`) clears the binding back to unbound and sets `content` to the
  *  current literal value. */
-export function buildTextBindingPatch(args: {
+export function buildContentBindingPatch(args: {
   mode: "field" | "literal";
   typeId: string | null;
   fieldValue: string;
@@ -191,11 +190,6 @@ export function buildDividerPatch(args: {
     weight: args.weight,
     color: args.color,
   };
-}
-
-/** Build the typed `config` PATCH for an arbitrary markdown edit. */
-export function buildMarkdownPatch(content: string): Pick<MarkdownPanelConfig, "content"> {
-  return { content };
 }
 
 // ── Batch payload ───────────────────────────────────────────────────────────

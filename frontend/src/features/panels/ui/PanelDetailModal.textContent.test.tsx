@@ -142,9 +142,9 @@ describe("TextContentEditor (via PanelDetailModal)", () => {
     expect(args.fieldValue).toBe("headline");
     // The regression this guards: the save call must carry the mode/typeId/
     // fieldValue needed to omit `content` from the outgoing patch (see
-    // `buildTextBindingPatch`'s dedicated unit tests in panelPayloads.test.ts
+    // `buildContentBindingPatch`'s dedicated unit tests in panelPayloads.test.ts
     // for the exact patch-shape assertion) — literalValue is passed through
-    // but `buildTextBindingPatch` never surfaces it in Source mode.
+    // but `buildContentBindingPatch` never surfaces it in Source mode.
     expect(args.literalValue).toBe("Prior literal text");
   });
 

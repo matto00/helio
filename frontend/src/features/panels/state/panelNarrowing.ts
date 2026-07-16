@@ -39,8 +39,12 @@ export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divid
 /** True when the subtype carries a `dataTypeId` / `fieldMapping` binding pair. */
 export const isBoundCapablePanel = (
   p: Panel,
-): p is MetricPanel | ChartPanel | TablePanel | TextPanel =>
-  p.type === "metric" || p.type === "chart" || p.type === "table" || p.type === "text";
+): p is MetricPanel | ChartPanel | TablePanel | TextPanel | MarkdownPanel =>
+  p.type === "metric" ||
+  p.type === "chart" ||
+  p.type === "table" ||
+  p.type === "text" ||
+  p.type === "markdown";
 
 // ── Read-only accessors ─────────────────────────────────────────────────────
 //

@@ -9,12 +9,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-import type { SelectOption } from "../../../../shared/ui/index";
 import {
   fetchDataTypes,
   selectPipelineOutputDataTypes,
 } from "../../../dataTypes/state/dataTypesSlice";
-import type { DataType } from "../../../dataTypes/types/dataType";
 import { updatePanelTextBinding } from "../../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import type { TextPanel } from "../../types/panel";
@@ -22,20 +20,8 @@ import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 import { BoundOrLiteralField, defaultBoundOrLiteralMode } from "./BoundOrLiteralField";
 import { DataTypePicker } from "./DataTypePicker";
+import { fieldOptions } from "./fieldOptions";
 import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
-
-/** Field + computed-field options for a selected DataType — mirrors
- *  `BindingEditor`'s `fieldOptions` helper (duplicated rather than
- *  extracted; see design.md Planner Notes). */
-function fieldOptions(dataType: DataType): SelectOption[] {
-  return [
-    ...dataType.fields.map((f) => ({ value: f.name, label: f.name })),
-    ...(dataType.computedFields ?? []).map((cf) => ({
-      value: cf.name,
-      label: `${cf.name} (computed)`,
-    })),
-  ];
-}
 
 interface TextContentEditorProps {
   panel: TextPanel;
