@@ -325,7 +325,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
       decoded.aggregation shouldBe Some(agg)
     }
 
-    "round-trip via the per-subtype format (jsonFormat3)" in {
+    "round-trip via the per-subtype format (jsonFormat4)" in {
       val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg))
       val decoded = ChartPanelConfig.decode(cfg.toJson)
       decoded shouldBe cfg
@@ -345,14 +345,133 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
     "applyPatch: explicit null clears a previously-set aggregation" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None)))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None), None))
       patched.config.aggregation shouldBe None
     }
 
     "applyPatch: present object sets aggregation" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg))))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg)), None))
       patched.config.aggregation shouldBe Some(agg)
+    }
+  }
+
+  // ── HEL-248: ChartPanelConfig.chartOptions per-chart-type display config ────
+
+  "ChartPanelConfig.chartOptions" should {
+    val opts = ChartOptions(
+      line    = Some(LineChartOptions(smooth = Some(true), showPoints = Some(false), areaFill = Some(true))),
+      bar     = Some(BarChartOptions(orientation = Some("horizontal"), stacking = Some("stacked"), barGapPct = Some(20))),
+      pie     = Some(PieChartOptions(donutHolePct = Some(50), showPercentLabels = Some(true))),
+      scatter = Some(ScatterChartOptions(sizeField = Some("population"), colorField = Some("region")))
+    )
+
+    "default to None when the field is ABSENT (spray-json None-omission)" in {
+      ChartPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1"))).chartOptions shouldBe None
+    }
+
+    "decode a present per-type-keyed chartOptions object" in {
+      val decoded = ChartPanelConfig.decode(JsObject(
+        "dataTypeId"   -> JsString("dt1"),
+        "chartOptions" -> opts.toJson
+      ))
+      decoded.chartOptions shouldBe Some(opts)
+    }
+
+    "normalize an empty chartOptions object to None" in {
+      ChartPanelConfig.decode(JsObject("chartOptions" -> JsObject.empty)).chartOptions shouldBe None
+    }
+
+    "lenient decode: an unknown stacking is dropped to None (stored-row tolerance)" in {
+      val decoded = ChartPanelConfig.decode(JsObject(
+        "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
+      ))
+      decoded.chartOptions shouldBe None
+    }
+
+    "lenient decode: an out-of-range donutHolePct is dropped to None" in {
+      val decoded = ChartPanelConfig.decode(JsObject(
+        "chartOptions" -> JsObject("pie" -> JsObject("donutHolePct" -> JsNumber(150)))
+      ))
+      decoded.chartOptions shouldBe None
+    }
+
+    "round-trip via the per-subtype format (jsonFormat4)" in {
+      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts))
+      val decoded = ChartPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "omit absent chartOptions from the wire (spray-json None-omission)" in {
+      val json = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject
+      json.fields.keySet should not contain "chartOptions"
+    }
+
+    "decodeCreate: an invalid enum is rejected (deserializationError → 400)" in {
+      a[DeserializationException] should be thrownBy
+        ChartPanelConfig.decodeCreate(JsObject(
+          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
+        ))
+    }
+
+    "decodeCreate: an out-of-range barGapPct is rejected" in {
+      a[DeserializationException] should be thrownBy
+        ChartPanelConfig.decodeCreate(JsObject(
+          "chartOptions" -> JsObject("bar" -> JsObject("barGapPct" -> JsNumber(200)))
+        ))
+    }
+
+    "Patch.decode: absent key leaves chartOptions untouched (outer None)" in {
+      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).chartOptions shouldBe None
+    }
+
+    "Patch.decode: explicit null clears chartOptions (Some(None))" in {
+      ChartPanelConfig.Patch.decode(JsObject("chartOptions" -> JsNull)).chartOptions shouldBe Some(None)
+    }
+
+    "Patch.decode: present object sets chartOptions (Some(Some(v)))" in {
+      ChartPanelConfig.Patch.decode(JsObject("chartOptions" -> opts.toJson)).chartOptions shouldBe Some(Some(opts))
+    }
+
+    "Patch.decode: an invalid stacking is rejected (deserializationError → 400)" in {
+      a[DeserializationException] should be thrownBy
+        ChartPanelConfig.Patch.decode(JsObject(
+          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
+        ))
+    }
+
+    "applyPatch: absent key preserves existing chartOptions" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None))
+      patched.config.chartOptions shouldBe Some(opts)
+    }
+
+    "applyPatch: explicit null clears a previously-set chartOptions" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(None)))
+      patched.config.chartOptions shouldBe None
+    }
+
+    "applyPatch: a chartOptions-only patch leaves dataTypeId/fieldMapping/aggregation untouched" in {
+      val mapping  = JsObject("xAxis" -> JsString("colA"))
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), mapping, None, None))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(Some(opts))))
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe mapping
+      patched.config.chartOptions shouldBe Some(opts)
+    }
+
+    "switching type preserves other types' options (keyed map is untouched on partial edit)" in {
+      // Only the bar entry changes; line/pie/scatter pass through unchanged.
+      val barOnly = ChartOptions(bar = Some(BarChartOptions(stacking = Some("normalized"))))
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
+      val patched  = existing.applyPatch(
+        ChartPanelConfig.Patch(None, None, None, Some(Some(opts.copy(bar = barOnly.bar))))
+      )
+      patched.config.chartOptions.flatMap(_.line) shouldBe opts.line
+      patched.config.chartOptions.flatMap(_.pie) shouldBe opts.pie
+      patched.config.chartOptions.flatMap(_.scatter) shouldBe opts.scatter
+      patched.config.chartOptions.flatMap(_.bar).flatMap(_.stacking) shouldBe Some("normalized")
     }
   }
 

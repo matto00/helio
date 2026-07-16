@@ -28,6 +28,7 @@ import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
 import type { RootState } from "../../../store/store";
 import type {
   ChartAggregation,
+  ChartTypeOptionsMap,
   DividerOrientation,
   ImageFit,
   MetricAggregation,
@@ -173,19 +174,33 @@ export const updatePanelBinding = createAsyncThunk<
     /** HEL-255: Table density/columnOrder/width-reset, folded into the same
      *  single Save PATCH. See `TableDisplayPatch`. */
     tableDisplay?: TableDisplayPatch;
+    /** HEL-248: Chart per-type display options, folded into the same single
+     *  Save PATCH. `undefined` = leave unchanged, `null` = clear, object =
+     *  replace. See `buildBindingPatch`. */
+    chartOptions?: ChartTypeOptionsMap | null;
   },
   { rejectValue: string }
 >(
   "panels/updatePanelBinding",
   async (
-    { panelId, typeId, fieldMapping, refreshInterval, aggregation, label, unit, tableDisplay },
+    {
+      panelId,
+      typeId,
+      fieldMapping,
+      refreshInterval,
+      aggregation,
+      label,
+      unit,
+      tableDisplay,
+      chartOptions,
+    },
     { rejectWithValue },
   ) => {
     try {
-      // `aggregation`/`label`/`unit`/`tableDisplay` are optional trailing
-      // params on `updatePanelBindingRequest`; passing them as `undefined`
-      // when the caller didn't supply one is behaviorally identical to
-      // omitting the argument.
+      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions` are optional
+      // trailing params on `updatePanelBindingRequest`; passing them as
+      // `undefined` when the caller didn't supply one is behaviorally identical
+      // to omitting the argument.
       return await updatePanelBindingRequest(
         panelId,
         typeId,
@@ -195,6 +210,7 @@ export const updatePanelBinding = createAsyncThunk<
         label,
         unit,
         tableDisplay,
+        chartOptions,
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");

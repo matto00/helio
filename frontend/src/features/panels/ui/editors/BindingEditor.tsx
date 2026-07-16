@@ -1,11 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 
-import { Select, type SelectOption } from "../../../../shared/ui/index";
+import { Select } from "../../../../shared/ui/index";
 import {
   fetchDataTypes,
   selectPipelineOutputDataTypes,
 } from "../../../dataTypes/state/dataTypesSlice";
-import type { DataType } from "../../../dataTypes/types/dataType";
 import { PANEL_SLOTS } from "../../state/panelSlots";
 import { updatePanelBinding } from "../../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
@@ -18,19 +17,18 @@ import type {
   TablePanel,
 } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
+import type { ChartType } from "../../../../utils/chartAppearance";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
-import {
-  BoundOrLiteralField,
-  defaultBoundOrLiteralMode,
-  type BoundOrLiteralMode,
-} from "./BoundOrLiteralField";
-import { MetricValueEditor } from "./MetricValueEditor";
+import { defaultBoundOrLiteralMode, type BoundOrLiteralMode } from "./BoundOrLiteralField";
+import { MetricBindingFields } from "./MetricBindingFields";
 import { ChartAggregationFields } from "./ChartAggregationFields";
+import { ChartDisplayFields } from "./ChartDisplayFields";
 import { TableDisplayFields } from "./TableDisplayFields";
 import { FieldMappingSlots } from "./FieldMappingSlots";
 import { DataTypePicker } from "./DataTypePicker";
-import { fieldOptions } from "./fieldOptions";
+import { aggFieldOptions, fieldOptions } from "./fieldOptions";
 import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
+import { useChartDisplayState } from "./useChartDisplayState";
 import { useTableDisplayState } from "./useTableDisplayState";
 
 function isAggFn(value: string): value is AggFn {
@@ -39,19 +37,14 @@ function isAggFn(value: string): value is AggFn {
   );
 }
 
-/** Same as `fieldOptions`, plus an explicit "— None —" (empty-value) option.
- *  Unlike field mapping (whose slots always carry a meaning once a DataType
- *  is picked), an aggregation spec is fully optional and the user needs a
- *  selectable way to clear a previously-configured field — hence the
- *  explicit clear option here only. */
-function aggFieldOptions(dataType: DataType): SelectOption[] {
-  return [{ value: "", label: "— None —" }, ...fieldOptions(dataType)];
-}
-
 interface BindingEditorProps {
   panel: MetricPanel | ChartPanel | TablePanel;
   /** Optional poll interval persisted only on the frontend until CS3 cleanup. */
   initialRefreshInterval: number | null;
+  /** HEL-248: the *live* chart type selected in the Appearance section (the
+   *  modal owns `chartAppearance` state). Drives which chart Display controls
+   *  render, swapping before save. Only meaningful for chart panels. */
+  chartType?: ChartType;
   onDirtyChange: DirtyChangeCallback;
 }
 
@@ -61,7 +54,10 @@ interface BindingEditorProps {
  *  just narrows the inputs from the typed config and pushes them back via
  *  the same thunk so the wire shape ends up as a typed PATCH on `config`. */
 export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
-  function BindingEditor({ panel, initialRefreshInterval, onDirtyChange }, ref) {
+  function BindingEditor(
+    { panel, initialRefreshInterval, chartType = "line", onDirtyChange },
+    ref,
+  ) {
     const dispatch = useAppDispatch();
     const dataTypes = useAppSelector((state) => state.dataTypes.items);
     const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
@@ -132,6 +128,10 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
     const fieldKeys = selectedType ? fieldOptions(selectedType).map((option) => option.value) : [];
     const tableDisplay = useTableDisplayState(panel, fieldKeys, selectedTypeId);
+    // HEL-248 — chart per-type display options (inert for non-chart kinds). The
+    // working map holds every type's options; the live `chartType` only decides
+    // which controls render, so a type switch never drops another type's entry.
+    const chartDisplay = useChartDisplayState(panel);
 
     const currentAggregation: MetricAggregation | ChartAggregation | null = useMemo(() => {
       if (panel.type === "metric") {
@@ -166,7 +166,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping) ||
       aggregationDirty ||
       (panel.type === "metric" && (labelState.dirty || unitState.dirty)) ||
-      (panel.type === "table" && tableDisplay.dirty);
+      (panel.type === "table" && tableDisplay.dirty) ||
+      (panel.type === "chart" && chartDisplay.dirty);
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -191,6 +192,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           labelState.reset();
           unitState.reset();
           tableDisplay.reset();
+          chartDisplay.reset();
           setSaveError(null);
         },
         save: async () => {
@@ -229,6 +231,10 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                 // its `patch` fields are `undefined` unless the user changed
                 // them, so untouched panels persist nothing extra.
                 tableDisplay: panel.type === "table" ? tableDisplay.patch : undefined,
+                // HEL-248 — Chart per-type display options ride the same single
+                // PATCH; `undefined` when the Display section was untouched, so
+                // an untouched chart panel persists nothing extra.
+                chartOptions: panel.type === "chart" ? chartDisplay.patch : undefined,
               }),
             ).unwrap();
             return { ok: true };
@@ -243,6 +249,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         aggField,
         aggFn,
         aggregationDirty,
+        chartDisplay,
         currentAggregation,
         dataDirty,
         dispatch,
@@ -310,40 +317,15 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             design.md Decision 1) and label/unit literals are editable
             post-creation (see design.md Decision 2/3). */}
         {selectedType && panel.type === "metric" && (
-          <>
-            <MetricValueEditor
-              fieldOptions={aggFieldOptions(selectedType)}
-              fieldValue={aggField}
-              onFieldChange={setAggField}
-              reduceValue={aggFn}
-              onReduceChange={setAggFn}
-            />
-            <div className="panel-detail-modal__data-section">
-              <span className="panel-detail-modal__data-label">Label &amp; Unit</span>
-              <BoundOrLiteralField
-                label="Label"
-                mode={labelState.mode}
-                onModeChange={labelState.setMode}
-                fieldOptions={aggFieldOptions(selectedType)}
-                fieldValue={labelState.fieldValue}
-                onFieldChange={labelState.setFieldValue}
-                literalValue={labelState.literalValue}
-                onLiteralChange={labelState.setLiteralValue}
-                literalPlaceholder="e.g. Revenue"
-              />
-              <BoundOrLiteralField
-                label="Unit"
-                mode={unitState.mode}
-                onModeChange={unitState.setMode}
-                fieldOptions={aggFieldOptions(selectedType)}
-                fieldValue={unitState.fieldValue}
-                onFieldChange={unitState.setFieldValue}
-                literalValue={unitState.literalValue}
-                onLiteralChange={unitState.setLiteralValue}
-                literalPlaceholder="e.g. $, %, ms"
-              />
-            </div>
-          </>
+          <MetricBindingFields
+            fieldOptions={aggFieldOptions(selectedType)}
+            fieldValue={aggField}
+            onFieldChange={setAggField}
+            reduceValue={aggFn}
+            onReduceChange={setAggFn}
+            labelState={labelState}
+            unitState={unitState}
+          />
         )}
 
         {selectedType && panel.type === "chart" && (
@@ -355,6 +337,25 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onValueFieldChange={setAggYField}
             aggFnValue={aggFn}
             onAggFnChange={setAggFn}
+          />
+        )}
+
+        {/* HEL-248 — Chart per-type Display controls. Rendered for every chart
+            panel (independent of a data binding, except scatter's field selects
+            which need bound columns); swaps on the live chart type. */}
+        {panel.type === "chart" && (
+          <ChartDisplayFields
+            chartType={chartType}
+            line={chartDisplay.line}
+            onLineChange={chartDisplay.setLine}
+            bar={chartDisplay.bar}
+            onBarChange={chartDisplay.setBar}
+            pie={chartDisplay.pie}
+            onPieChange={chartDisplay.setPie}
+            scatter={chartDisplay.scatter}
+            onScatterChange={chartDisplay.setScatter}
+            fieldOptions={selectedType ? fieldOptions(selectedType) : []}
+            isBound={selectedType !== null}
           />
         )}
 

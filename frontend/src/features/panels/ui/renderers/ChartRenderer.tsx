@@ -1,4 +1,4 @@
-import type { PanelAppearance } from "../../types/panel";
+import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import { ChartPanel } from "../ChartPanel";
 
@@ -8,6 +8,8 @@ interface ChartRendererProps {
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-248: forwarded to `ChartPanel` — persisted per-type display options. */
+  chartOptions?: ChartTypeOptionsMap | null;
   /** HEL-301: forwarded to `ChartPanel` — see its `compact` prop. */
   compact?: boolean;
 }
@@ -18,6 +20,7 @@ export function ChartRenderer({
   headers,
   fieldMapping,
   chartAggregate,
+  chartOptions,
   compact,
 }: ChartRendererProps) {
   return (
@@ -28,6 +31,7 @@ export function ChartRenderer({
         headers={headers}
         fieldMapping={fieldMapping}
         chartAggregate={chartAggregate}
+        chartOptions={chartOptions}
         compact={compact}
       />
     </div>

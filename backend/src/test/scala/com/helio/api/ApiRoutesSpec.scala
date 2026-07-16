@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAut
 import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId, UserSession}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
+import spray.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -1491,6 +1491,162 @@ class ApiRoutesSpec
         config("density")      shouldBe JsString("condensed")
         config("dataTypeId")   shouldBe JsString(dt.id.value)
         config("fieldMapping") shouldBe mapping
+      }
+    }
+
+    // ── HEL-248: chart panel per-type display options (chartOptions)
+    // persistence. Same regression guard as HEL-255 — a missed
+    // `configColumnsOf`/`configColumnValuesOf` tuple extension would let the
+    // PATCH succeed in memory but silently drop chart_options on write.
+    // PATCH-then-reload via a fresh repository query (GET .../panels). ──
+
+    "persist a chart panel's per-type chartOptions across a real repository re-read (HEL-248)" in {
+      cleanDb()
+      import spray.json._
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val chartOptions = JsObject(
+        "line" -> JsObject("smooth" -> JsBoolean(true), "areaFill" -> JsBoolean(true)),
+        "bar"  -> JsObject("orientation" -> JsString("horizontal"), "stacking" -> JsString("normalized"), "barGapPct" -> JsNumber(30))
+      )
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> chartOptions)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        val config = panel.config.asJsObject.fields
+        config("chartOptions") shouldBe chartOptions
+      }
+    }
+
+    "leave a chart panel's stored chartOptions unchanged on a PATCH without the key (HEL-248)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Absent Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val chartOptions = JsObject("pie" -> JsObject("donutHolePct" -> JsNumber(50), "showPercentLabels" -> JsBoolean(true)))
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> chartOptions)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // A later PATCH that omits chartOptions (only touches title) must not drop it.
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(""))))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("chartOptions") shouldBe chartOptions
+      }
+    }
+
+    "clear a chart panel's chartOptions when PATCHed with null (HEL-248)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Clear Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("stacked")))
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> JsNull)))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields.contains("chartOptions") shouldBe false
+      }
+    }
+
+    "reject an invalid chart stacking with 400 and persist nothing (HEL-248)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Validation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields.contains("chartOptions") shouldBe false
       }
     }
 

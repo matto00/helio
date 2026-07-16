@@ -394,9 +394,29 @@ describe("PanelCreationModal — type-specific config fields", () => {
     expect(selector).toBeInTheDocument();
     // Open the custom Select to reveal options in the portal listbox
     fireEvent.click(selector);
+    // HEL-248: all four chart types are first-class at creation (adds Scatter).
     expect(screen.getByRole("option", { name: "Line" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Bar" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pie" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Scatter" })).toBeInTheDocument();
+  });
+
+  // HEL-248 — a Scatter chart panel can be created end-to-end from step 3.
+  it("4.2b chart panel can be created with the Scatter type selected", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    const selector = screen.getByRole("combobox", { name: "Chart type" });
+    fireEvent.click(selector);
+    fireEvent.click(screen.getByRole("option", { name: "Scatter" }));
+
+    // The selector now reflects the Scatter choice.
+    expect(screen.getByRole("combobox", { name: "Chart type" })).toHaveTextContent("Scatter");
   });
 
   // 4.3 — Image URL field appears in step 3

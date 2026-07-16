@@ -72,12 +72,13 @@ object PanelRowMapper extends PanelProtocol {
       metricUnit         = None,
       columnWidths       = None,
       tableDensity       = None,
-      columnOrder        = None
+      columnOrder        = None,
+      chartOptions       = None
     )
 
     p match {
       case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
-      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint))
+      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions))
       case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder))
       case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
@@ -102,7 +103,8 @@ object PanelRowMapper extends PanelProtocol {
     ChartPanelConfig(
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
-      aggregation  = row.aggregation.flatMap(parseJsObject)
+      aggregation  = row.aggregation.flatMap(parseJsObject),
+      chartOptions = row.chartOptions.flatMap(parseChartOptions)
     )
 
   private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =
@@ -167,4 +169,13 @@ object PanelRowMapper extends PanelProtocol {
     scala.util.Try(raw.parseJson).toOption.collect { case JsArray(elems) =>
       elems.collect { case JsString(s) => s }.toList
     }
+
+  // HEL-248 — serialize/parse the per-chart-type options JSONB column. The read
+  // path is tolerant (`strict = false`): a malformed/legacy value decodes to
+  // `None` rather than throwing, matching this mapper's read-path philosophy.
+  private def chartOptionsColumn(options: Option[ChartOptions]): Option[String] =
+    options.map(_.toJson.compactPrint)
+
+  private def parseChartOptions(raw: String): Option[ChartOptions] =
+    scala.util.Try(raw.parseJson).toOption.flatMap(ChartOptions.parse(_, strict = false))
 }

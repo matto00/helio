@@ -98,3 +98,20 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-255 table dis
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 });
+
+// HEL-248: the Chart Display controls (per-type boolean toggle rows and the
+// group-spacing / donut-hole sliders) are reachable in the panel-detail edit
+// pane on mobile, so they must keep the same mobile-scoped ≥44px overrides.
+// The orientation/stacking dropdowns reuse the shared Select — already covered
+// above by `.ui-select__trigger`.
+describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-248 chart display)", () => {
+  const mobileBlock = findMediaBlock(css, "max-width: 768px");
+
+  it.each([
+    [".panel-detail-modal__toggle-row", "min-height"],
+    ['.panel-detail-modal__slider input[type="range"]', "min-height"],
+  ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
+    const body = findRuleBody(mobileBlock, selector);
+    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  });
+});
