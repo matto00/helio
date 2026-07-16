@@ -26,10 +26,12 @@ import {
 } from "./BoundOrLiteralField";
 import { MetricValueEditor } from "./MetricValueEditor";
 import { ChartAggregationFields } from "./ChartAggregationFields";
+import { TableDisplayFields } from "./TableDisplayFields";
 import { FieldMappingSlots } from "./FieldMappingSlots";
 import { DataTypePicker } from "./DataTypePicker";
 import { fieldOptions } from "./fieldOptions";
 import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
+import { useTableDisplayState } from "./useTableDisplayState";
 
 function isAggFn(value: string): value is AggFn {
   return (
@@ -125,6 +127,12 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     );
     const unitState = useBoundOrLiteralState(initialUnitMode, initialUnitField, initialUnitLiteral);
 
+    // Bound DataType currently selected + its field keys (natural order) —
+    // needed by the Table display-config hook, so derived before it. HEL-255.
+    const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
+    const fieldKeys = selectedType ? fieldOptions(selectedType).map((option) => option.value) : [];
+    const tableDisplay = useTableDisplayState(panel, fieldKeys, selectedTypeId);
+
     const currentAggregation: MetricAggregation | ChartAggregation | null = useMemo(() => {
       if (panel.type === "metric") {
         return aggField && isAggFn(aggFn) ? { value: aggField, agg: aggFn } : null;
@@ -157,7 +165,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       refreshInterval !== initialRefreshInterval ||
       JSON.stringify(fieldMapping) !== JSON.stringify(initialFieldMapping) ||
       aggregationDirty ||
-      (panel.type === "metric" && (labelState.dirty || unitState.dirty));
+      (panel.type === "metric" && (labelState.dirty || unitState.dirty)) ||
+      (panel.type === "table" && tableDisplay.dirty);
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -181,6 +190,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           setAggYField(initialAggYField);
           labelState.reset();
           unitState.reset();
+          tableDisplay.reset();
           setSaveError(null);
         },
         save: async () => {
@@ -215,6 +225,10 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                 aggregation: aggregationDirty ? currentAggregation : undefined,
                 label: panel.type === "metric" ? labelState.patchValue : undefined,
                 unit: panel.type === "metric" ? unitState.patchValue : undefined,
+                // HEL-255 — Table display config rides the same single PATCH;
+                // its `patch` fields are `undefined` unless the user changed
+                // them, so untouched panels persist nothing extra.
+                tableDisplay: panel.type === "table" ? tableDisplay.patch : undefined,
               }),
             ).unwrap();
             return { ok: true };
@@ -244,11 +258,11 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         panel.type,
         refreshInterval,
         selectedTypeId,
+        tableDisplay,
         unitState,
       ],
     );
 
-    const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
     const slots = PANEL_SLOTS[panel.type];
     const filteredDataTypes = pipelineOutputDataTypes.filter((dt) =>
       dt.name.toLowerCase().includes(typeSearch.toLowerCase()),
@@ -341,6 +355,22 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onValueFieldChange={setAggYField}
             aggFnValue={aggFn}
             onAggFnChange={setAggFn}
+          />
+        )}
+
+        {/* HEL-255 — Table display controls (density always; Columns list only
+            when a DataType is bound, since `columns` is empty when unbound). */}
+        {panel.type === "table" && (
+          <TableDisplayFields
+            density={tableDisplay.density}
+            onDensityChange={tableDisplay.setDensity}
+            columns={tableDisplay.columns}
+            onToggleVisible={tableDisplay.toggleVisible}
+            onMoveUp={tableDisplay.moveUp}
+            onMoveDown={tableDisplay.moveDown}
+            hasStoredWidths={tableDisplay.hasStoredWidths}
+            resetWidthsPending={tableDisplay.resetWidthsPending}
+            onResetWidths={tableDisplay.requestResetWidths}
           />
         )}
 

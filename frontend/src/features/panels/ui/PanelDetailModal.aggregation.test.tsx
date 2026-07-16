@@ -213,6 +213,8 @@ describe("BindingEditor aggregation controls", () => {
         null,
         undefined,
         undefined,
+        // HEL-255: trailing tableDisplay arg — undefined for a metric panel.
+        undefined,
       ),
     );
   });

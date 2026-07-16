@@ -74,3 +74,27 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => 
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 });
+
+// HEL-255: the Table display controls (density dropdown reuses the shared
+// Select — covered above by `.ui-select__trigger`; here we lock the Columns
+// visibility rows, the up/down reorder buttons, and the Reset column widths
+// action) are also reachable in the panel-detail edit pane on mobile, so they
+// must keep the same mobile-scoped ≥44px overrides.
+describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-255 table display)", () => {
+  const mobileBlock = findMediaBlock(css, "max-width: 768px");
+
+  it.each([
+    [".panel-detail-modal__column-row", "min-height"],
+    [".panel-detail-modal__column-visibility", "min-height"],
+    [".panel-detail-modal__reset-widths-btn", "min-height"],
+  ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
+    const body = findRuleBody(mobileBlock, selector);
+    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  });
+
+  it("the column reorder buttons get a 44x44 minimum tap target", () => {
+    const body = findRuleBody(mobileBlock, ".panel-detail-modal__column-move-btn");
+    expect(body).toMatch(/min-width:\s*44px\s*;/);
+    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  });
+});

@@ -82,6 +82,16 @@
           "type": "object",
           "description": "Per-column drag-resized pixel widths, keyed by column key. Absent or empty falls back to DataGrid's default/derived widths.",
           "additionalProperties": { "type": "integer" }
+        },
+        "density": {
+          "type": "string",
+          "enum": ["condensed", "normal", "spacious"],
+          "description": "DataGrid row spacing. Absent falls back to normal."
+        },
+        "columnOrder": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered list of visible data-column keys. Absent or empty shows all columns in natural order; when non-empty, exactly these keys render in this order (intersected with keys present in the data)."
         }
       }
     },

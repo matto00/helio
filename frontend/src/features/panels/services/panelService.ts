@@ -6,6 +6,7 @@ import type {
   Panel,
   PanelAppearance,
   PanelType,
+  TableDensity,
   TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
@@ -89,6 +90,16 @@ export async function updatePanelsBatch(
   return response.data;
 }
 
+/** HEL-255: Table display-config slice of a binding Save. Each field follows
+ *  the absent-vs-null convention — `undefined` leaves the stored value
+ *  unchanged, `null` clears it (density only ever sets a value; `columnWidths`
+ *  is only ever cleared, by the Reset action). */
+export interface TableDisplayPatch {
+  density?: TableDensity;
+  columnOrder?: string[] | null;
+  columnWidths?: null;
+}
+
 /** PATCH a binding (metric/chart/table). The backend dispatches on the
  *  stored panel's `type` and applies the typed-config patch — there is no
  *  cross-type leak because the typed-config decoders are subtype-specific. */
@@ -102,11 +113,23 @@ export async function updatePanelBinding(
    *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
   label?: string | null,
   unit?: string | null,
+  /** HEL-255: Table density/columnOrder/width-reset folded into the same
+   *  single Save PATCH so the whole edit pane persists atomically. */
+  tableDisplay?: TableDisplayPatch,
 ): Promise<Panel> {
   // refreshInterval is intentionally dropped at the network boundary — the
   // backend has no schema or column for it. The slice mirrors it into Redux
   // state as a frontend-only optimistic update so polling keeps working.
-  const config = buildBindingPatch({ typeId, fieldMapping, aggregation, label, unit });
+  const config = buildBindingPatch({
+    typeId,
+    fieldMapping,
+    aggregation,
+    label,
+    unit,
+    density: tableDisplay?.density,
+    columnOrder: tableDisplay?.columnOrder,
+    columnWidths: tableDisplay?.columnWidths,
+  });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

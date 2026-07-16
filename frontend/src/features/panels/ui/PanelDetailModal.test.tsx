@@ -371,6 +371,8 @@ describe("PanelDetailModal", () => {
         undefined,
         undefined,
         undefined,
+        // HEL-255: trailing tableDisplay arg — undefined for a metric panel.
+        undefined,
       ),
     );
     await waitFor(() =>
@@ -488,6 +490,8 @@ describe("PanelDetailModal", () => {
         null,
         undefined,
         undefined,
+        undefined,
+        // HEL-255: trailing tableDisplay arg — undefined for a metric panel.
         undefined,
       ),
     );

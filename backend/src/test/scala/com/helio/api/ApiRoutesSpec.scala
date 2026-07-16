@@ -1357,6 +1357,143 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-255: table display config (density + columnOrder) persistence.
+    // Same regression guard as HEL-292/293 — a missed `configColumnsOf`/
+    // `configColumnValuesOf` tuple extension would let the PATCH succeed in
+    // memory but silently drop the columns on write. PATCH-then-reload via a
+    // fresh `panelRepo.findAllByDashboardId` query (GET .../panels), NOT the
+    // PATCH response. ──
+
+    "persist a table panel's density + columnOrder across a real repository re-read (HEL-255)" in {
+      cleanDb()
+      import spray.json._
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Table Display Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val columnOrder = JsArray(JsString("b"), JsString("a"))
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "density"     -> JsString("spacious"),
+          "columnOrder" -> columnOrder
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        val config = panel.config.asJsObject.fields
+        config("density")     shouldBe JsString("spacious")
+        config("columnOrder") shouldBe columnOrder
+      }
+    }
+
+    "reject an invalid table density with 400 and persist nothing (HEL-255)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Density Validation Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("density" -> JsString("cozy"))))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields.contains("density") shouldBe false
+      }
+    }
+
+    "leave a table panel's dataTypeId/fieldMapping untouched on a display-only PATCH (HEL-255)" in {
+      cleanDb()
+      import com.helio.domain._
+      import java.time.Instant
+      import java.util.UUID
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Display Only Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "BoundType",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = UserId(testUserId)
+      )
+      await(dataTypeRepo.insert(dt, testUser))
+
+      val mapping = JsObject("value" -> JsString("col1"))
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject(
+          "dataTypeId"   -> JsString(dt.id.value),
+          "fieldMapping" -> mapping
+        )))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // Display-only PATCH: density only, no dataTypeId/fieldMapping.
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, None, None, config = Some(JsObject("density" -> JsString("condensed"))))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PanelsResponse].items
+        val panel  = panels.find(_.id == panelId).get
+        val config = panel.config.asJsObject.fields
+        config("density")      shouldBe JsString("condensed")
+        config("dataTypeId")   shouldBe JsString(dt.id.value)
+        config("fieldMapping") shouldBe mapping
+      }
+    }
+
     // ── HEL-293: metric literal label/unit persistence (Decision 5 whitelist
     // gotcha — guards against a repeat of the HEL-292 `aggregation` regression
     // where `PanelRepository.replace`'s explicit column tuple silently dropped

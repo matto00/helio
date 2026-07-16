@@ -15,12 +15,14 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
+  updatePanelColumnWidths as updatePanelColumnWidthsRequest,
   updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest,
   updatePanelTextBinding as updatePanelTextBindingRequest,
   updatePanelTitle as updatePanelTitleRequest,
+  type TableDisplayPatch,
 } from "../services/panelService";
 import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
 import type { RootState } from "../../../store/store";
@@ -168,19 +170,22 @@ export const updatePanelBinding = createAsyncThunk<
      *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
     label?: string | null;
     unit?: string | null;
+    /** HEL-255: Table density/columnOrder/width-reset, folded into the same
+     *  single Save PATCH. See `TableDisplayPatch`. */
+    tableDisplay?: TableDisplayPatch;
   },
   { rejectValue: string }
 >(
   "panels/updatePanelBinding",
   async (
-    { panelId, typeId, fieldMapping, refreshInterval, aggregation, label, unit },
+    { panelId, typeId, fieldMapping, refreshInterval, aggregation, label, unit, tableDisplay },
     { rejectWithValue },
   ) => {
     try {
-      // `aggregation`/`label`/`unit` are optional trailing params on
-      // `updatePanelBindingRequest`; passing them as `undefined` when the
-      // caller didn't supply one is behaviorally identical to omitting the
-      // argument.
+      // `aggregation`/`label`/`unit`/`tableDisplay` are optional trailing
+      // params on `updatePanelBindingRequest`; passing them as `undefined`
+      // when the caller didn't supply one is behaviorally identical to
+      // omitting the argument.
       return await updatePanelBindingRequest(
         panelId,
         typeId,
@@ -189,12 +194,32 @@ export const updatePanelBinding = createAsyncThunk<
         aggregation,
         label,
         unit,
+        tableDisplay,
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");
     }
   },
 );
+
+/** HEL-255: persist a Table panel's drag-resized column widths AND keep the
+ *  Redux-stored panel in sync. The raw `updatePanelColumnWidths` service call
+ *  is fire-and-forget (debounced from the grid); routing it through a thunk
+ *  whose `fulfilled` reducer replaces the stored panel means `config.
+ *  columnWidths` is no longer stale after a same-session resize — so the edit
+ *  pane's "Reset column widths" button (gated on `hasStoredWidths`) enables
+ *  without a page reload. Mirrors `updatePanelBinding`'s fulfilled sync. */
+export const updatePanelColumnWidths = createAsyncThunk<
+  Panel,
+  { panelId: string; columnWidths: Record<string, number> },
+  { rejectValue: string }
+>("panels/updatePanelColumnWidths", async ({ panelId, columnWidths }, { rejectWithValue }) => {
+  try {
+    return await updatePanelColumnWidthsRequest(panelId, columnWidths);
+  } catch {
+    return rejectWithValue("Failed to persist column widths.");
+  }
+});
 
 /** HEL-244: PATCH a Text panel's Content editor save — see
  *  `buildContentBindingPatch` for the Source/Static patch-shape rules. */

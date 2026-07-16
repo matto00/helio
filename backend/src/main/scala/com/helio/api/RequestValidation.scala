@@ -87,6 +87,15 @@ object RequestValidation {
       case Some(t) => Left(s"Invalid chartType value: '$t'. Valid values: bar, line, pie, scatter")
     }
 
+  val ValidTableDensityValues = Set("condensed", "normal", "spacious")
+
+  def validateTableDensity(density: Option[String]): Either[String, Option[String]] =
+    density match {
+      case None                                            => Right(None)
+      case Some(d) if ValidTableDensityValues.contains(d)  => Right(Some(d))
+      case Some(d) => Left(s"Invalid density value: '$d'. Valid values: condensed, normal, spacious")
+    }
+
   val MaxApiTokenNameLength = 100
 
   def validateCreateApiTokenRequest(req: CreateApiTokenRequest): Either[String, CreateApiTokenRequest] =

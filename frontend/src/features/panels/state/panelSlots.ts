@@ -15,7 +15,9 @@ export const PANEL_SLOTS: Record<PanelType, PanelSlot[]> = {
     { key: "yAxis", label: "Y Axis" },
     { key: "series", label: "Series" },
   ],
-  table: [{ key: "columns", label: "Columns" }],
+  // HEL-255: the vestigial "columns" fieldMapping slot (rendering never read
+  // it) is superseded by the Table display controls (`TableDisplayFields`).
+  table: [],
   text: [{ key: "content", label: "Content" }],
   markdown: [],
   image: [],

@@ -90,5 +90,51 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       decoded.config.fieldMapping shouldBe JsObject.empty
       decoded.config.content shouldBe "Just literal"
     }
+
+    // HEL-255: guard the table arm the same way the Markdown arm was guarded —
+    // domainToRow must persist density/columnOrder (+ widths) and rowToDomain
+    // must read them back, for both a fully-populated and an all-absent config.
+    "round-trip a Table panel with density + columnOrder + columnWidths set" in {
+      val panel = TablePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        TablePanelConfig(
+          DataTypeId("dt1"),
+          JsObject("slot" -> JsString("colA")),
+          Map("a" -> 120, "b" -> 200),
+          Some("spacious"),
+          Some(List("b", "a"))
+        )
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe TablePanel.Kind
+      row.typeId shouldBe Some("dt1")
+      row.columnWidths shouldBe Some(JsObject("a" -> JsNumber(120), "b" -> JsNumber(200)).compactPrint)
+      row.tableDensity shouldBe Some("spacious")
+      row.columnOrder shouldBe Some(JsArray(JsString("b"), JsString("a")).compactPrint)
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[TablePanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.config.columnWidths shouldBe Map("a" -> 120, "b" -> 200)
+      decoded.config.density shouldBe Some("spacious")
+      decoded.config.columnOrder shouldBe Some(List("b", "a"))
+    }
+
+    "round-trip a Table panel with density/columnOrder/columnWidths all absent (no columns written)" in {
+      val panel = TablePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        TablePanelConfig(DataTypeId("dt1"), JsObject.empty)
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.columnWidths shouldBe None
+      row.tableDensity shouldBe None
+      row.columnOrder shouldBe None
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[TablePanel]
+      decoded.config.columnWidths shouldBe Map.empty
+      decoded.config.density shouldBe None
+      decoded.config.columnOrder shouldBe None
+    }
   }
 }
