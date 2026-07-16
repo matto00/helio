@@ -18,7 +18,7 @@ selectable type in step 1 (HEL-249) and therefore has no step-3 config fields.
 #### Scenario: Chart panel shows chart type selector
 - **WHEN** the user has selected the Chart panel type and reaches step 3
 - **THEN** a "Chart type" selector is shown below the title field
-- **AND** the selector offers three options: Line, Bar, Pie
+- **AND** the selector offers four options: Line, Bar, Pie, Scatter
 - **AND** no option is pre-selected (field is optional)
 
 #### Scenario: Image panel shows image URL input

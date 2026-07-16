@@ -537,6 +537,37 @@
   outline-offset: 2px;
 }
 
+/* Chart Display controls (HEL-248): per-chart-type toggles + inline hints. The
+   orientation/stacking dropdowns reuse the shared Select and the group-spacing/
+   donut sliders reuse `.panel-detail-modal__slider`; these styles cover the
+   boolean toggle rows and the inline help text. */
+
+.panel-detail-modal__toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.panel-detail-modal__toggle-row input {
+  accent-color: var(--app-accent);
+}
+
+.panel-detail-modal__toggle-label {
+  font-size: var(--text-sm);
+}
+
+.panel-detail-modal__field-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
 /* Mobile tap targets (HEL-245). Below the mobile-shell breakpoint the panel
    detail modal is reachable by tapping a panel card (mobile-viewer-stack
    spec), so the interactive controls in the Content editor must meet the
@@ -582,6 +613,17 @@
   }
 
   .panel-detail-modal__reset-widths-btn {
+    min-height: 44px;
+  }
+
+  /* HEL-248: Chart Display controls — the per-type boolean toggle rows and the
+     group-spacing/donut sliders must also meet the 44px tap minimum at the
+     mobile-shell breakpoint. */
+  .panel-detail-modal__toggle-row {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__slider input[type="range"] {
     min-height: 44px;
   }
 }

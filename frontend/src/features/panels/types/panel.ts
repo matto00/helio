@@ -96,10 +96,61 @@ export interface MetricPanelConfig {
   unit?: string;
 }
 
+// ── Per-chart-type display options (HEL-248) ────────────────────────────────
+//
+// Mirrors backend `domain/panels/ChartPanel.scala` (`ChartOptions` + per-type
+// case classes) and `schemas/panel.schema.json` `$defs.ChartOptions`. Keyed
+// per chart type so switching bar→pie→bar restores the original bar settings —
+// nothing is destroyed on a type change. Every option maps to a real ECharts
+// construct (see `ChartPanel.tsx`).
+
+export interface LineChartOptions {
+  /** series.smooth — smooth (spline) line interpolation. */
+  smooth?: boolean;
+  /** series.showSymbol — render point markers on the line. */
+  showPoints?: boolean;
+  /** series.areaStyle — fill the area beneath the line. */
+  areaFill?: boolean;
+}
+
+export interface BarChartOptions {
+  /** horizontal swaps the category/value axis roles. */
+  orientation?: "vertical" | "horizontal";
+  /** stacked → series.stack; normalized → stacked plus a client-side
+   *  per-category percent transform with a 0–100% value axis. */
+  stacking?: "none" | "stacked" | "normalized";
+  /** series.barCategoryGap — spacing between category groups (0–100%). */
+  barGapPct?: number;
+}
+
+export interface PieChartOptions {
+  /** series.radius inner hole size, as a percentage (0 = full pie, 0–90). */
+  donutHolePct?: number;
+  /** series.label with a percentage formatter. */
+  showPercentLabels?: boolean;
+}
+
+export interface ScatterChartOptions {
+  /** Bound data-column key driving series.symbolSize (bubble sizing). */
+  sizeField?: string;
+  /** Bound data-column key grouping rows into one series per distinct value. */
+  colorField?: string;
+}
+
+export interface ChartTypeOptionsMap {
+  line?: LineChartOptions;
+  bar?: BarChartOptions;
+  pie?: PieChartOptions;
+  scatter?: ScatterChartOptions;
+}
+
 export interface ChartPanelConfig {
   dataTypeId: string;
   fieldMapping: Record<string, string>;
   aggregation?: ChartAggregation | null;
+  /** Per-chart-type display options. Absent falls back to prior rendering;
+   *  entries under a non-active type are preserved across type switches. */
+  chartOptions?: ChartTypeOptionsMap | null;
 }
 
 export interface TablePanelConfig {
@@ -289,7 +340,7 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
 // for panel types that benefit from initial configuration.
 
 export type MetricTypeConfig = { type: "metric"; valueLabel?: string; unit?: string };
-export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie" };
+export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie" | "scatter" };
 export type ImageTypeConfig = { type: "image"; imageUrl?: string };
 
 export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig;

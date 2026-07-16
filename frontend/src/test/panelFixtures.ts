@@ -87,6 +87,7 @@ export function makeChartPanel(
     dataTypeId: overrides.config?.dataTypeId ?? "",
     fieldMapping: overrides.config?.fieldMapping ?? {},
     aggregation: overrides.config?.aggregation,
+    chartOptions: overrides.config?.chartOptions,
   };
   return applyBase<ChartPanel>(overrides, "chart", config);
 }

@@ -136,5 +136,43 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       decoded.config.density shouldBe None
       decoded.config.columnOrder shouldBe None
     }
+
+    // HEL-248: guard the chart arm's BOTH directions — domainToRow must
+    // serialize chart_options and rowToDomain must read it back. A missed write
+    // arm silently drops chartOptions on dashboard duplicate/snapshot (the
+    // HEL-245/255 sibling-bug class).
+    "round-trip a Chart panel with per-type chartOptions set" in {
+      val opts = ChartOptions(
+        line = Some(LineChartOptions(smooth = Some(true), areaFill = Some(true))),
+        bar  = Some(BarChartOptions(orientation = Some("horizontal"), stacking = Some("normalized"), barGapPct = Some(30))),
+        pie  = Some(PieChartOptions(donutHolePct = Some(40), showPercentLabels = Some(true)))
+      )
+      val panel = ChartPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ChartPanelConfig(DataTypeId("dt1"), JsObject("xAxis" -> JsString("colA")), None, Some(opts))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe ChartPanel.Kind
+      row.typeId shouldBe Some("dt1")
+      row.chartOptions shouldBe Some(opts.toJson.compactPrint)
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ChartPanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.config.chartOptions shouldBe Some(opts)
+    }
+
+    "round-trip a Chart panel with chartOptions absent (NULL column → None)" in {
+      val panel = ChartPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.chartOptions shouldBe None
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ChartPanel]
+      decoded.config.chartOptions shouldBe None
+    }
   }
 }

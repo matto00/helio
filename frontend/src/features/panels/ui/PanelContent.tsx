@@ -91,6 +91,7 @@ export function PanelContent({
         headers={headers}
         fieldMapping={panel.config.fieldMapping}
         chartAggregate={chartAggregate}
+        chartOptions={panel.config.chartOptions}
         compact={compact}
       />
     );

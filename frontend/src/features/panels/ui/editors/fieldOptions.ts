@@ -16,3 +16,12 @@ export function fieldOptions(dataType: DataType): SelectOption[] {
     })),
   ];
 }
+
+/** Same as `fieldOptions`, plus an explicit "— None —" (empty-value) option.
+ *  Unlike field mapping (whose slots always carry a meaning once a DataType is
+ *  picked), an aggregation spec is fully optional and the user needs a
+ *  selectable way to clear a previously-configured field — hence the explicit
+ *  clear option here only. */
+export function aggFieldOptions(dataType: DataType): SelectOption[] {
+  return [{ value: "", label: "— None —" }, ...fieldOptions(dataType)];
+}

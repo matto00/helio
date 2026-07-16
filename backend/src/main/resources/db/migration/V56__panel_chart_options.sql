@@ -1,0 +1,21 @@
+-- HEL-248 — Persist per-chart-type display options on Chart panels.
+--
+-- ChartPanelConfig gains an optional `chartOptions` object keyed per chart type
+-- (`line` | `bar` | `pie` | `scatter`), each key independently shaped:
+--   * line:    smooth / showPoints / areaFill (booleans)
+--   * bar:     orientation / stacking / barGapPct
+--   * pie:     donutHolePct / showPercentLabels
+--   * scatter: sizeField / colorField (bound data-column keys)
+--
+-- Kept as a single dedicated nullable JSONB column following the
+-- `aggregation` / `column_order` precedent (V53/V55): one concern per column,
+-- and the concern here is "chart display options". Keying per type means a
+-- bar→pie→bar type switch restores the original bar settings — nothing is
+-- destroyed on a type change.
+--
+-- Applies only to `type='chart'` rows; NULL for every other kind (same
+-- convention as `aggregation` / `column_widths`). NULL means "no options" =
+-- exactly the pre-change rendering, so existing rows require zero data
+-- migration. Rollback = drop the column.
+
+ALTER TABLE panels ADD COLUMN chart_options JSONB;

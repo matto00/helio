@@ -10,6 +10,7 @@
 
 import type {
   ChartAggregation,
+  ChartTypeOptionsMap,
   DividerOrientation,
   DividerPanelConfig,
   ImageFit,
@@ -123,6 +124,10 @@ export function buildBindingPatch(args: {
   density?: TableDensity;
   columnOrder?: string[] | null;
   columnWidths?: null;
+  /** HEL-248 Chart per-type display options, folded into the same single Save
+   *  PATCH. `undefined` omits the key (untouched → persist nothing); `null`
+   *  clears all stored options; an object replaces the keyed map. */
+  chartOptions?: ChartTypeOptionsMap | null;
 }): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
@@ -145,6 +150,9 @@ export function buildBindingPatch(args: {
   }
   if (args.columnWidths !== undefined) {
     patch.columnWidths = args.columnWidths;
+  }
+  if (args.chartOptions !== undefined) {
+    patch.chartOptions = args.chartOptions;
   }
   return patch;
 }

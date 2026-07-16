@@ -246,6 +246,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
           ref={bindingEditorRef}
           panel={panel}
           initialRefreshInterval={panel.refreshInterval ?? null}
+          chartType={chartAppearance.chartType}
           onDirtyChange={handleSubtypeDirtyChange}
         />
       );

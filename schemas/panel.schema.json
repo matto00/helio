@@ -69,7 +69,11 @@
       "properties": {
         "dataTypeId": { "type": "string" },
         "fieldMapping": { "type": "object" },
-        "aggregation": { "$ref": "#/$defs/ChartAggregation" }
+        "aggregation": { "$ref": "#/$defs/ChartAggregation" },
+        "chartOptions": {
+          "$ref": "#/$defs/ChartOptions",
+          "description": "Per-chart-type display options keyed by chart type. Absent falls back to the pre-HEL-248 rendering. Options stored under a non-active type are ignored on render but preserved across type switches."
+        }
       }
     },
     "TableConfig": {
@@ -147,6 +151,87 @@
         "groupBy": { "type": "string", "minLength": 1 },
         "agg": { "type": "string", "enum": ["count", "sum", "avg", "min", "max"] },
         "yField": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ChartOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-chart-type display options (HEL-248). Each key is optional and independently shaped; every option maps to a real ECharts construct.",
+      "properties": {
+        "line": { "$ref": "#/$defs/LineChartOptions" },
+        "bar": { "$ref": "#/$defs/BarChartOptions" },
+        "pie": { "$ref": "#/$defs/PieChartOptions" },
+        "scatter": { "$ref": "#/$defs/ScatterChartOptions" }
+      }
+    },
+    "LineChartOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "smooth": {
+          "type": "boolean",
+          "description": "series.smooth — smooth (spline) line interpolation."
+        },
+        "showPoints": {
+          "type": "boolean",
+          "description": "series.showSymbol — render point markers on the line."
+        },
+        "areaFill": {
+          "type": "boolean",
+          "description": "series.areaStyle — fill the area beneath the line."
+        }
+      }
+    },
+    "BarChartOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "orientation": {
+          "type": "string",
+          "enum": ["vertical", "horizontal"],
+          "description": "horizontal swaps the category/value axis roles."
+        },
+        "stacking": {
+          "type": "string",
+          "enum": ["none", "stacked", "normalized"],
+          "description": "stacked → series.stack; normalized → stacked plus a client-side per-category percent transform with a 0–100% value axis."
+        },
+        "barGapPct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "series.barCategoryGap — spacing between category groups, as a percentage."
+        }
+      }
+    },
+    "PieChartOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "donutHolePct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 90,
+          "description": "series.radius inner hole size, as a percentage (0 = full pie)."
+        },
+        "showPercentLabels": {
+          "type": "boolean",
+          "description": "series.label with a percentage formatter."
+        }
+      }
+    },
+    "ScatterChartOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sizeField": {
+          "type": "string",
+          "description": "Bound data-column key driving series.symbolSize (bubble sizing)."
+        },
+        "colorField": {
+          "type": "string",
+          "description": "Bound data-column key that groups rows into one series (legend entry) per distinct value."
+        }
       }
     }
   }
