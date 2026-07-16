@@ -1,11 +1,12 @@
-// HEL-244 — `buildTextBindingPatch` (Text panel Content editor save) and the
-// "text" case of `seedCreateConfig` (via `buildCreatePanelBody`).
+// HEL-244/HEL-245 — `buildContentBindingPatch` (Text/Markdown panel Content
+// editor save) and the "text"/"markdown" cases of `seedCreateConfig` (via
+// `buildCreatePanelBody`).
 
-import { buildCreatePanelBody, buildTextBindingPatch } from "./panelPayloads";
+import { buildCreatePanelBody, buildContentBindingPatch } from "./panelPayloads";
 
-describe("buildTextBindingPatch", () => {
+describe("buildContentBindingPatch", () => {
   it("Source mode (field): sets dataTypeId/fieldMapping.content and OMITS content entirely", () => {
-    const patch = buildTextBindingPatch({
+    const patch = buildContentBindingPatch({
       mode: "field",
       typeId: "dt-1",
       fieldValue: "headline",
@@ -23,7 +24,7 @@ describe("buildTextBindingPatch", () => {
   });
 
   it("Source mode with no field chosen: fieldMapping is null (no content slot bound yet)", () => {
-    const patch = buildTextBindingPatch({
+    const patch = buildContentBindingPatch({
       mode: "field",
       typeId: "dt-1",
       fieldValue: "",
@@ -36,7 +37,7 @@ describe("buildTextBindingPatch", () => {
   });
 
   it("Static mode (literal): sets content and clears dataTypeId/fieldMapping to unbound", () => {
-    const patch = buildTextBindingPatch({
+    const patch = buildContentBindingPatch({
       mode: "literal",
       typeId: "dt-1",
       fieldValue: "headline",
@@ -66,6 +67,29 @@ describe("buildCreatePanelBody — text case seeds dataTypeId", () => {
       dashboardId: "d1",
       title: "My Text Panel",
       type: "text",
+    });
+
+    expect(body.config).toMatchObject({ content: "", dataTypeId: "", fieldMapping: {} });
+  });
+});
+
+describe("buildCreatePanelBody — markdown case seeds dataTypeId", () => {
+  it("seeds config.dataTypeId from the creation modal's selected DataType", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "My Markdown Panel",
+      type: "markdown",
+      dataTypeId: "dt-1",
+    });
+
+    expect(body.config).toMatchObject({ content: "", dataTypeId: "dt-1", fieldMapping: {} });
+  });
+
+  it("defaults config.dataTypeId to empty string when no DataType is selected", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "My Markdown Panel",
+      type: "markdown",
     });
 
     expect(body.config).toMatchObject({ content: "", dataTypeId: "", fieldMapping: {} });

@@ -116,6 +116,8 @@ export interface TextPanelConfig {
 
 export interface MarkdownPanelConfig {
   content: string;
+  dataTypeId: string;
+  fieldMapping: Record<string, string>;
 }
 
 export interface ImagePanelConfig {
@@ -238,7 +240,11 @@ export const emptyTextConfig = (): TextPanelConfig => ({
   fieldMapping: {},
 });
 
-export const emptyMarkdownConfig = (): MarkdownPanelConfig => ({ content: "" });
+export const emptyMarkdownConfig = (): MarkdownPanelConfig => ({
+  content: "",
+  dataTypeId: "",
+  fieldMapping: {},
+});
 
 export const emptyImageConfig = (): ImagePanelConfig => ({
   imageUrl: "",

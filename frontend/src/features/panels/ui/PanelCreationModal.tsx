@@ -42,7 +42,7 @@ const FOCUSABLE_SELECTORS =
 type Step = "type-select" | "template-select" | "datatype-select" | "name-entry";
 
 // 3.2 — Data-bound panel types require a DataType selection before creation.
-const DATA_BOUND_TYPES: PanelType[] = ["metric", "chart", "text", "table"];
+const DATA_BOUND_TYPES: PanelType[] = ["metric", "chart", "text", "table", "markdown"];
 
 function isDataBound(type: PanelType | null): boolean {
   return type !== null && (DATA_BOUND_TYPES as string[]).includes(type);

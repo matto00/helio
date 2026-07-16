@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./MarkdownPanel.css";
+import { resolveMarkdownUrl } from "./markdownUrls";
 
 interface MarkdownPanelProps {
   content: string | null;
@@ -19,7 +20,9 @@ export function MarkdownPanel({ content }: MarkdownPanelProps) {
 
   return (
     <div className="markdown-panel">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={resolveMarkdownUrl}>
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }

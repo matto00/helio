@@ -11,10 +11,10 @@ import {
   fetchPanels,
   updatePanelAppearance,
   updatePanelBinding,
-  updatePanelContent,
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,
+  updatePanelMarkdownBinding,
   updatePanelTextBinding,
   updatePanelTitle,
 } from "./panelThunks";
@@ -135,12 +135,12 @@ const panelsSlice = createSlice({
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
-      .addCase(updatePanelContent.fulfilled, (state, action) => {
+      .addCase(updatePanelTextBinding.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
-      .addCase(updatePanelTextBinding.fulfilled, (state, action) => {
+      .addCase(updatePanelMarkdownBinding.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
@@ -227,10 +227,10 @@ export {
   fetchPanels,
   updatePanelAppearance,
   updatePanelBinding,
-  updatePanelContent,
   updatePanelDivider,
   updatePanelImage,
   updatePanelsBatch,
+  updatePanelMarkdownBinding,
   updatePanelTextBinding,
   updatePanelTitle,
 } from "./panelThunks";

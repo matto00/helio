@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../services/panelService";
 import { updatePanelBinding as updatePanelBindingRequest } from "../services/panelService";
-import { updatePanelContent as updatePanelContentRequest } from "../services/panelService";
+import { updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest } from "../services/panelService";
 import { updatePanelImage as updatePanelImageRequest } from "../services/panelService";
 import { uploadPanelImage as uploadPanelImageRequest } from "../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../services/panelService";
@@ -22,7 +22,7 @@ jest.mock("../services/panelService", () => ({
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn(),
   updatePanelBinding: jest.fn(),
-  updatePanelContent: jest.fn(),
+  updatePanelMarkdownBinding: jest.fn(),
   updatePanelImage: jest.fn(),
   uploadPanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
@@ -34,7 +34,7 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const updateBindingMock = jest.mocked(updatePanelBindingRequest);
-const updateContentMock = jest.mocked(updatePanelContentRequest);
+const updateMarkdownBindingMock = jest.mocked(updatePanelMarkdownBindingRequest);
 const updateImageMock = jest.mocked(updatePanelImageRequest);
 const uploadImageMock = jest.mocked(uploadPanelImageRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
@@ -136,7 +136,7 @@ describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
     updateBindingMock.mockReset();
-    updateContentMock.mockReset();
+    updateMarkdownBindingMock.mockReset();
     updateImageMock.mockReset();
     uploadImageMock.mockReset();
     updateDividerMock.mockReset();
@@ -643,7 +643,7 @@ describe("PanelDetailModal", () => {
     // No API calls should have been made
     expect(updateAppearanceMock).not.toHaveBeenCalled();
     expect(updateBindingMock).not.toHaveBeenCalled();
-    expect(updateContentMock).not.toHaveBeenCalled();
+    expect(updateMarkdownBindingMock).not.toHaveBeenCalled();
     expect(updateImageMock).not.toHaveBeenCalled();
     expect(updateDividerMock).not.toHaveBeenCalled();
   });

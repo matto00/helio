@@ -116,7 +116,11 @@ export function makeTextPanel(
 export function makeMarkdownPanel(
   overrides: PanelBaseOverrides & { config?: Partial<MarkdownPanelConfig> } = {},
 ): MarkdownPanel {
-  const config: MarkdownPanelConfig = { content: overrides.config?.content ?? "" };
+  const config: MarkdownPanelConfig = {
+    content: overrides.config?.content ?? "",
+    dataTypeId: overrides.config?.dataTypeId ?? "",
+    fieldMapping: overrides.config?.fieldMapping ?? {},
+  };
   return applyBase<MarkdownPanel>(overrides, "markdown", config);
 }
 

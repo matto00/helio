@@ -421,6 +421,35 @@
   outline-offset: 2px;
 }
 
+/* Mobile tap targets (HEL-245). Below the mobile-shell breakpoint the panel
+   detail modal is reachable by tapping a panel card (mobile-viewer-stack
+   spec), so the interactive controls in the Content editor must meet the
+   codebase's 44px tap-target convention (BottomNav.css / mobile-bottom-nav
+   spec). At desktop density these controls stay at their --control-* heights;
+   this override only relaxes the minimum height/width on touch-width
+   viewports. Style-only — no BoundOrLiteralField/DataTypePicker logic change.
+   768px is the canonical mobile-shell breakpoint (DESIGN.md §4), matching the
+   BottomNav query where the 44px rule already lives. 44px is the a11y tap
+   minimum (not a --control token), consistent with BottomNav.css. */
+@media (max-width: 768px) {
+  .panel-detail-modal__mode-toggle-btn {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__type-option {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__type-clear {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-detail-modal .ui-select__trigger {
+    min-height: 44px;
+  }
+}
+
 /* Discard warning */
 
 .panel-detail-modal__discard-warning {
