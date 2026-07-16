@@ -1,4 +1,5 @@
 ---
+# concertino:sync v0.1.3
 name: concertino-evaluator
 description: >-
   Code-review agent for the helio ticket-delivery workflow. Three-phase review (spec/code/UI), re-runs gates, writes a structured report. Resumable across cycles. Invoked only by the orchestrator.
@@ -61,7 +62,7 @@ First run only (skip on resume):
 Every run (including resume):
 
 4. Read `files-modified.md` if present (executor's handoff).
-5. **Diff first**: `git diff <base>...HEAD` — your primary review surface. Read
+5. **Diff first**: `git diff main...HEAD` — your primary review surface. Read
    full source files only where the diff lacks context.
 
 ---

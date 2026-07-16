@@ -1,4 +1,5 @@
 ---
+# concertino:sync v0.1.3
 name: concertino-skeptic
 description: >-
   Cold adversarial verification gate for the helio ticket-delivery workflow. Spawned fresh at the design-soundness and final gates; verifies against ground truth, owns subjective design judgment. Invoked only by the orchestrator.
@@ -94,7 +95,7 @@ actually **ships**. Independently verify — do not trust the PASS.
 ### 1. Re-establish ground truth
 
 - Read the ticket acceptance criteria (`ticket.md` or the ticket provider).
-- `git diff <base>...HEAD` — the actual change. Read full files where needed.
+- `git diff main...HEAD` — the actual change. Read full files where needed.
 - Read `files-modified.md` and the latest `evaluation-*.md` as **claims**.
 
 ### 2. Acceptance criteria — trace each one

@@ -1,4 +1,5 @@
 ---
+# concertino:sync v0.1.3
 name: concertino-executor
 description: >-
   Implementation agent for the helio ticket-delivery workflow. Implements the planned change, runs verification gates, commits. Resumable across evaluation cycles. Invoked only by the orchestrator.
@@ -97,7 +98,7 @@ source file:
 - `path/to/file.ext` — brief rationale
 ```
 
-Use `git diff --name-only <base>...HEAD` to enumerate. This gives the evaluator a
+Use `git diff --name-only main...HEAD` to enumerate. This gives the evaluator a
 compact map to orient review. Overwrite on re-runs to reflect the current state.
 
 ### 5. Pre-commit self-check
@@ -107,7 +108,7 @@ compact map to orient review. Overwrite on re-runs to reflect the current state.
 
 ### 6. Run verification gates
 
-Determine which areas changed (`git diff --name-only <base>...HEAD`) and run the
+Determine which areas changed (`git diff --name-only main...HEAD`) and run the
 gates whose `when` matches:
 
 When changed files match `frontend/**`:
