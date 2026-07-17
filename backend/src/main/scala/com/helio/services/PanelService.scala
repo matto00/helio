@@ -112,10 +112,14 @@ final class PanelService(
           case Right(ResourceAccess.Viewer) =>
             Future.successful(Left(ServiceError.Forbidden()))
           case Right(_) =>
-            resolveCreateConfig(request) match {
+            val resolved = for {
+              createConfig <- resolveCreateConfig(request)
+              appearance   <- resolveCreateAppearance(request.appearance)
+            } yield (createConfig, appearance)
+            resolved match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right(createConfig) =>
+              case Right((createConfig, appearance)) =>
                 rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user).flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
@@ -125,7 +129,7 @@ final class PanelService(
                       dashboardId  = dashboardId,
                       title        = RequestValidation.normalizePanelTitle(request.title),
                       meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                      appearance   = PanelAppearance.Default,
+                      appearance   = appearance,
                       ownerId      = user.id,
                       createConfig = createConfig
                     )
@@ -199,7 +203,14 @@ final class PanelService(
                 case Right(ResourceAccess.Viewer) =>
                   Future.successful(Left(ServiceError.Forbidden()))
                 case Right(_) =>
-                  validateBatchTypeMatch(items.zip(panels)) match {
+                  // D5 — validate every item's chartType before the transactional
+                  // write so an invalid value rejects the whole batch (no partial
+                  // write). This is the path the live edit UI uses.
+                  val batchValidation = for {
+                    _ <- validateBatchTypeMatch(items.zip(panels))
+                    _ <- validateBatchChartTypes(items)
+                  } yield ()
+                  batchValidation match {
                     case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
                     case Right(_) =>
                       val now = Instant.now()

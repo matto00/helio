@@ -129,7 +129,9 @@ describe("PanelCreationModal", () => {
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
     expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
-    expect(screen.getByText("Visualize trends with line, bar, or pie")).toBeInTheDocument();
+    expect(
+      screen.getByText("Visualize trends with line, bar, pie, or scatter"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Add freeform text or headings")).toBeInTheDocument();
     expect(screen.getByText("Show structured data in rows and columns")).toBeInTheDocument();
     expect(screen.getByText("Write formatted content with Markdown")).toBeInTheDocument();

@@ -41,14 +41,21 @@ final case class PanelResponse(
 )
 final case class PanelsResponse(items: Vector[PanelResponse])
 
-/** Create request — `{ dashboardId, title?, type, config }`. `config` is a
- *  typed JSON object whose shape is determined by `type`; the per-subtype
- *  decoder under `domain/panels` resolves it (tolerant of `{}`). */
+/** Create request — `{ dashboardId, title?, type, config, appearance? }`.
+ *  `config` is a typed JSON object whose shape is determined by `type`; the
+ *  per-subtype decoder under `domain/panels` resolves it (tolerant of `{}`).
+ *
+ *  `appearance` (HEL-305) is an optional creation-time appearance with the same
+ *  wire shape as the PATCH appearance (`PanelAppearancePayload`). When present
+ *  it is normalized + `chartType`-validated and stored on the created panel in
+ *  place of `PanelAppearance.Default`; when absent the default is applied
+ *  exactly as before. Additive and non-breaking. */
 final case class CreatePanelRequest(
     dashboardId: Option[String],
     title: Option[String],
     `type`: Option[String],
-    config: Option[JsValue]
+    config: Option[JsValue],
+    appearance: Option[PanelAppearancePayload] = None
 )
 
 /** Update request — `{ title?, appearance?, type?, config? }`. `config`
@@ -149,7 +156,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   /** Create request — typed `config` raw `JsValue` field is resolved by
    *  the service via [[PanelConfigCodec.decodeCreateConfig]] once `type`
    *  is validated. The wire is `{ dashboardId?, title?, type?, config? }`. */
-  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat4(CreatePanelRequest.apply)
+  implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat5(CreatePanelRequest.apply)
 
   /** Custom format for `UpdatePanelRequest` — `config` is preserved as a
    *  raw `JsValue` so the service can decode it against the stored panel's

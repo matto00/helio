@@ -1,6 +1,6 @@
 import type { Theme } from "./theme";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
-import type { PanelAppearance } from "../features/panels/types/panel";
+import type { ChartAppearance, PanelAppearance } from "../features/panels/types/panel";
 export const defaultDashboardAppearance: DashboardAppearance = {
   background: "transparent",
   gridBackground: "transparent",
@@ -10,6 +10,30 @@ export const defaultPanelAppearance: PanelAppearance = {
   background: "transparent",
   color: "inherit",
   transparency: 0,
+};
+
+/** Shared default chart appearance — mirrors the backend `ChartAppearance.Default`
+ *  (`domain/model.scala`). Kept here (not private to `PanelDetailModal.tsx`) so
+ *  both the edit pane and the creation payload builder compose the same base
+ *  instead of duplicating it (HEL-305 D3). */
+export const defaultChartAppearance: ChartAppearance = {
+  seriesColors: [
+    "#5470c6",
+    "#91cc75",
+    "#fac858",
+    "#ee6666",
+    "#73c0de",
+    "#3ba272",
+    "#fc8452",
+    "#9a60b4",
+  ],
+  legend: { show: true, position: "top" },
+  tooltip: { enabled: true },
+  axisLabels: {
+    x: { show: true, label: "X Axis" },
+    y: { show: true, label: "Y Axis" },
+  },
+  chartType: "line",
 };
 
 export const dashboardAppearanceEditorFallback = "#232019";

@@ -21,6 +21,7 @@ import { usePanelData } from "../hooks/usePanelData";
 import { usePanelDetailModalLifecycle } from "../hooks/usePanelDetailModalLifecycle";
 import {
   clampTransparency,
+  defaultChartAppearance,
   getColorInputValue,
   panelAppearanceEditorFallback,
   panelTextEditorFallback,
@@ -36,28 +37,8 @@ import { MarkdownEditor } from "./editors/MarkdownEditor";
 import { TextContentEditor } from "./editors/TextContentEditor";
 import type { PanelEditorHandle } from "./editors/editorTypes";
 
-const DEFAULT_CHART_APPEARANCE: ChartAppearance = {
-  seriesColors: [
-    "#5470c6",
-    "#91cc75",
-    "#fac858",
-    "#ee6666",
-    "#73c0de",
-    "#3ba272",
-    "#fc8452",
-    "#9a60b4",
-  ],
-  legend: { show: true, position: "top" },
-  tooltip: { enabled: true },
-  axisLabels: {
-    x: { show: true, label: "X Axis" },
-    y: { show: true, label: "Y Axis" },
-  },
-  chartType: "line",
-};
-
 function padSeriesColors(colors: string[]): string[] {
-  const defaults = DEFAULT_CHART_APPEARANCE.seriesColors;
+  const defaults = defaultChartAppearance.seriesColors;
   const padded = [...colors];
   while (padded.length < 8) {
     padded.push(defaults[padded.length]);
@@ -67,12 +48,12 @@ function padSeriesColors(colors: string[]): string[] {
 
 function buildInitialChart(panel: Panel): ChartAppearance {
   return {
-    ...DEFAULT_CHART_APPEARANCE,
+    ...defaultChartAppearance,
     ...(panel.appearance.chart ?? {}),
     seriesColors: padSeriesColors(panel.appearance.chart?.seriesColors ?? []),
-    legend: panel.appearance.chart?.legend ?? DEFAULT_CHART_APPEARANCE.legend,
-    tooltip: panel.appearance.chart?.tooltip ?? DEFAULT_CHART_APPEARANCE.tooltip,
-    axisLabels: panel.appearance.chart?.axisLabels ?? DEFAULT_CHART_APPEARANCE.axisLabels,
+    legend: panel.appearance.chart?.legend ?? defaultChartAppearance.legend,
+    tooltip: panel.appearance.chart?.tooltip ?? defaultChartAppearance.tooltip,
+    axisLabels: panel.appearance.chart?.axisLabels ?? defaultChartAppearance.axisLabels,
     chartType: panel.appearance.chart?.chartType ?? "line",
   };
 }

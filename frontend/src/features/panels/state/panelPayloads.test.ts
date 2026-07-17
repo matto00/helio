@@ -131,6 +131,80 @@ describe("buildCreatePanelBody — collection case (HEL-247, HEL-305 lesson)", (
   });
 });
 
+describe("buildCreatePanelBody — chart case carries chartType (HEL-305)", () => {
+  it("carries a selected chartType as appearance.chart.chartType composed over the shared default", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "My Chart",
+      type: "chart",
+      typeConfig: { type: "chart", chartType: "bar" },
+      dataTypeId: "dt-1",
+    });
+
+    // The regression HEL-305 guards: the creation-modal chart-type selection
+    // must reach the create payload as appearance.chart.chartType (not be
+    // dropped so every new chart renders as line).
+    expect(body.appearance?.chart?.chartType).toBe("bar");
+    // Composed over the shared default chart appearance (series colors etc.),
+    // not a bare { chartType } object.
+    expect(body.appearance?.chart?.seriesColors?.length).toBe(8);
+    expect(body.appearance?.background).toBe("transparent");
+    // Config binding is still seeded as before.
+    expect(body.config).toMatchObject({ dataTypeId: "dt-1" });
+  });
+
+  it("omits appearance entirely when chartType is unset", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "My Chart",
+      type: "chart",
+      typeConfig: { type: "chart" },
+      dataTypeId: "dt-1",
+    });
+
+    expect("appearance" in body).toBe(false);
+  });
+
+  it("omits appearance for non-chart panel types", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "My Metric",
+      type: "metric",
+      typeConfig: { type: "metric", valueLabel: "Revenue" },
+      dataTypeId: "dt-1",
+    });
+
+    expect("appearance" in body).toBe(false);
+  });
+});
+
+describe("buildCreatePanelBody — metric case seeds label/unit (HEL-305)", () => {
+  it("seeds config.label/config.unit from the creation modal's valueLabel/unit", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "Revenue",
+      type: "metric",
+      typeConfig: { type: "metric", valueLabel: "Revenue", unit: "USD" },
+      dataTypeId: "dt-1",
+    });
+
+    expect(body.config).toMatchObject({ dataTypeId: "dt-1", label: "Revenue", unit: "USD" });
+  });
+
+  it("omits label/unit when the creation fields are blank", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "Revenue",
+      type: "metric",
+      typeConfig: { type: "metric", valueLabel: "", unit: "" },
+      dataTypeId: "dt-1",
+    });
+
+    expect("label" in body.config).toBe(false);
+    expect("unit" in body.config).toBe(false);
+  });
+});
+
 describe("buildCollectionPatch (HEL-247)", () => {
   it("carries a layout-only change without unrelated cleared fields", () => {
     const patch = buildCollectionPatch({

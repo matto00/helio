@@ -20,7 +20,9 @@ import type {
   ImagePanelConfig,
   MarkdownPanelConfig,
   MetricAggregation,
+  MetricPanelConfig,
   Panel,
+  PanelAppearance,
   PanelConfig,
   PanelKind,
   TableDensity,
@@ -28,6 +30,7 @@ import type {
   TypeConfig,
 } from "../types/panel";
 import { emptyConfigForKind } from "../types/panel";
+import { defaultChartAppearance, defaultPanelAppearance } from "../../../theme/appearance";
 
 // ── Create payload ──────────────────────────────────────────────────────────
 
@@ -36,6 +39,12 @@ export interface CreatePanelBody {
   title: string;
   type: PanelKind;
   config: PanelConfig;
+  /** Optional creation-time appearance. Emitted only for chart panels whose
+   *  creation-modal chart-type selector is set, so the selected chart type
+   *  takes effect on the created panel's first render (HEL-305). Composed over
+   *  the shared default panel/chart appearance. Omitted otherwise, so the
+   *  backend applies its default appearance exactly as before. */
+  appearance?: PanelAppearance;
 }
 
 /** Build a `POST /api/panels` body from the high-level form values collected
@@ -50,11 +59,34 @@ export function buildCreatePanelBody(args: {
   dataTypeId?: string;
 }): CreatePanelBody {
   const config = seedCreateConfig(args.type, args.typeConfig, args.dataTypeId);
-  return {
+  const body: CreatePanelBody = {
     dashboardId: args.dashboardId,
     title: args.title,
     type: args.type,
     config,
+  };
+  const appearance = seedCreateAppearance(args.type, args.typeConfig);
+  if (appearance) {
+    body.appearance = appearance;
+  }
+  return body;
+}
+
+/** Carry the creation-modal chart-type selection into the create payload as
+ *  `appearance.chart.chartType`, composed over the shared default panel/chart
+ *  appearance (HEL-305). Returns `undefined` for non-chart types and for charts
+ *  with no chart-type selection, so the `appearance` key is omitted entirely
+ *  and the backend applies its default appearance unchanged. */
+function seedCreateAppearance(
+  type: PanelKind,
+  typeConfig: TypeConfig | null | undefined,
+): PanelAppearance | undefined {
+  if (type !== "chart" || typeConfig?.type !== "chart" || !typeConfig.chartType) {
+    return undefined;
+  }
+  return {
+    ...defaultPanelAppearance,
+    chart: { ...defaultChartAppearance, chartType: typeConfig.chartType },
   };
 }
 
@@ -65,7 +97,25 @@ function seedCreateConfig(
 ): PanelConfig {
   const base = emptyConfigForKind(type);
   switch (type) {
-    case "metric":
+    case "metric": {
+      // Seed the literal display label/unit (HEL-293 `config.label`/`config.unit`)
+      // from the creation modal's "Value label"/"Unit" inputs so they take
+      // effect on first render (HEL-305). Empty values are omitted so the
+      // absent-vs-null convention leaves them unset.
+      const metric: MetricPanelConfig = {
+        ...(base as MetricPanelConfig),
+        dataTypeId: dataTypeId ?? "",
+      };
+      if (typeConfig?.type === "metric") {
+        if (typeConfig.valueLabel) {
+          metric.label = typeConfig.valueLabel;
+        }
+        if (typeConfig.unit) {
+          metric.unit = typeConfig.unit;
+        }
+      }
+      return metric;
+    }
     case "chart":
     case "table":
       return {
