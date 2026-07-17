@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/create-panel-request.schema.json",
   "title": "CreatePanelRequest",
-  "description": "Discriminated create-panel payload — `type` selects the shape of `config`. `config` is optional; an empty/absent value falls back to the subtype's defaults (codec read-path tolerance rule).",
+  "description": "Discriminated create-panel payload — `type` selects the shape of `config`. `config` is optional; an empty/absent value falls back to the subtype's defaults (codec read-path tolerance rule). `appearance` is optional (same shape as the PATCH appearance); when present it is validated (including `chartType` against the allowed set) and stored on the created panel in place of the default appearance.",
   "type": "object",
   "required": ["dashboardId"],
   "properties": {
@@ -12,7 +12,8 @@
       "type": "string",
       "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
     },
-    "config": { "type": "object" }
+    "config": { "type": "object" },
+    "appearance": { "$ref": "panel-appearance.schema.json" }
   },
   "additionalProperties": false,
   "allOf": [

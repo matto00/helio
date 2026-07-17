@@ -2276,6 +2276,201 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-305: creation-time appearance + chartType validation on all
+    //    three appearance write paths (create / PATCH / updateBatch) ──────────
+
+    "create a chart panel with an appearance and persist chart.chartType (HEL-305)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Create Appearance Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      val appearance = PanelAppearancePayload(
+        Some("transparent"),
+        Some("inherit"),
+        Some(0.0),
+        Some(ChartAppearance.Default.copy(chartType = Some("pie")))
+      )
+      var panelId = ""
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Pie"), Some("chart"), None, Some(appearance))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        panelId = response.id
+        response.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
+      }
+
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panel = responseAs[PanelsResponse].items.find(_.id == panelId).get
+        panel.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
+      }
+    }
+
+    "create a panel without an appearance and keep the default appearance (HEL-305)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Create Default Appearance Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Plain"), Some("chart"), None, None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.appearance.background shouldBe "transparent"
+        response.appearance.color shouldBe "inherit"
+        response.appearance.transparency shouldBe 0.0
+        response.appearance.chart shouldBe None
+      }
+    }
+
+    "reject a create request with an invalid chartType with 400 (HEL-305)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Create ChartType Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      val appearance = PanelAppearancePayload(
+        Some("transparent"),
+        Some("inherit"),
+        Some(0.0),
+        Some(ChartAppearance.Default.copy(chartType = Some("donut")))
+      )
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Bad"), Some("chart"), None, Some(appearance))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
+      }
+    }
+
+    "reject a PATCH with an invalid chartType with 400 (HEL-305 D5)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Patch ChartType Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val bad = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut"))))
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(bad), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
+      }
+    }
+
+    "persist a valid chartType via PATCH (HEL-305 D5)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Valid Patch ChartType Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      var panelId = ""
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val good = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("scatter"))))
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(good), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].appearance.chart.flatMap(_.chartType) shouldBe Some("scatter")
+      }
+    }
+
+    "reject an updateBatch with an invalid chartType with 400 and no partial write (HEL-305 D5)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      var panelId1    = ""
+      var panelId2    = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Invalid ChartType Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart 1"), Some("chart"), None)) ~> routes() ~> check {
+        panelId1 = responseAs[PanelResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart 2"), Some("chart"), None)) ~> routes() ~> check {
+        panelId2 = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None)), None, None),
+          PanelBatchItem(
+            panelId2,
+            None,
+            Some(PanelAppearancePayload(Some("#222222"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut"))))),
+            None,
+            None
+          )
+        )
+      )
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
+      }
+
+      // No partial write — the otherwise-valid first item must NOT have been persisted.
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panel1 = responseAs[PanelsResponse].items.find(_.id == panelId1).get
+        panel1.appearance.background shouldBe "transparent"
+      }
+    }
+
+    "persist a valid chartType via updateBatch (HEL-305 D5)" in {
+      cleanDb()
+      import com.helio.domain.ChartAppearance
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Valid ChartType Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val batchReq = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(
+            panelId,
+            None,
+            Some(PanelAppearancePayload(Some("transparent"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("pie"))))),
+            None,
+            None
+          )
+        )
+      )
+      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[UpdatePanelsBatchResponse].panels.head.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
+      }
+    }
+
     "panels updateBatch returns 404 for an unknown panel id" in {
       cleanDb()
 

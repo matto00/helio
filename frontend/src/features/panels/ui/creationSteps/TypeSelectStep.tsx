@@ -35,7 +35,7 @@ const PANEL_TYPES: {
     value: "chart",
     label: "Chart",
     icon: faChartLine,
-    description: "Visualize trends with line, bar, or pie",
+    description: "Visualize trends with line, bar, pie, or scatter",
   },
   { value: "text", label: "Text", icon: faFont, description: "Add freeform text or headings" },
   {
