@@ -1,29 +1,6 @@
-# panel-write-accumulator Specification
+# panel-write-accumulator — Delta (fix-mobile-silent-edit-drop / HEL-304)
 
-## Purpose
-TBD - created by archiving change batch-panel-flush. Update Purpose after archive.
-## Requirements
-### Requirement: Panel field changes accumulate in Redux before flushing
-The frontend MUST accumulate panel title and appearance changes in a
-`pendingPanelUpdates` map in Redux state rather than dispatching individual
-`PATCH /api/panels/:id` calls immediately on each interaction.
-
-#### Scenario: Title change is accumulated
-- **WHEN** the user commits a panel title edit (Enter or blur)
-- **THEN** the new title is merged into `pendingPanelUpdates[panelId]` in Redux
-- **AND** the panel's displayed title updates immediately (optimistic)
-- **AND** no `PATCH /api/panels/:id` call is issued at that moment
-
-#### Scenario: Appearance change is accumulated
-- **WHEN** the user saves panel appearance settings in PanelDetailModal
-- **THEN** the updated appearance is merged into `pendingPanelUpdates[panelId]`
-- **AND** the panel's displayed appearance updates immediately (optimistic)
-- **AND** no `PATCH /api/panels/:id` call is issued at that moment
-
-#### Scenario: Multiple field changes for the same panel are merged
-- **WHEN** the user changes a panel's title and then its appearance before the debounce fires
-- **THEN** both changes are present in `pendingPanelUpdates[panelId]` as a merged object
-- **AND** the flush sends a single batch entry for that panel containing both field updates
+## MODIFIED Requirements
 
 ### Requirement: Accumulated panel changes are flushed via batch endpoint on a debounce
 The frontend MUST flush the `pendingPanelUpdates` map to `POST /api/panels/updateBatch`
@@ -68,26 +45,3 @@ desktop grid (≥768px) being mounted.
 - **WHEN** the container width drops below 768px before the next flush (desktop grid unmounts, stack mounts)
 - **THEN** the pending updates are NOT stranded — the next interval tick or "Save now" flushes them via
   `updatePanelsBatch`
-
-### Requirement: The batch flush payload covers all accumulated field types
-The `updatePanelsBatch` request MUST include all field types present across all pending panels
-in a single call, using the `fields` envelope from the `UpdatePanelsBatchRequest` type.
-
-#### Scenario: Fields list is derived from accumulated changes
-- **GIVEN** pending updates include title changes for some panels and appearance changes for others
-- **WHEN** the flush fires
-- **THEN** the request `fields` array contains `["title", "appearance"]`
-- **AND** each panel entry in the `panels` array carries only the fields that were changed for it
-
-### Requirement: lastSavedAt timestamp is tracked in panelsSlice
-The frontend MUST store a `lastSavedAt: number | null` field in `panelsSlice` state
-that is set to `Date.now()` whenever `updatePanelsBatch` fulfills successfully.
-
-#### Scenario: lastSavedAt is updated on successful flush
-- **WHEN** `updatePanelsBatch` fulfills
-- **THEN** `state.lastSavedAt` is set to the current Unix timestamp in milliseconds
-
-#### Scenario: lastSavedAt starts as null
-- **WHEN** the application initializes
-- **THEN** `state.lastSavedAt` is `null`
-
