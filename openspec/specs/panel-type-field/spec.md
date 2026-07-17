@@ -3,7 +3,7 @@ Defines the persisted panel type field, its valid values, and the DataType bindi
 ## Requirements
 ### Requirement: Panel has a persisted type field
 Every panel SHALL have a `type` field persisted in the database with one of the values:
-`metric`, `chart`, `text`, `table`, `markdown`, `image`, `divider`. The default value SHALL be `metric`.
+`metric`, `chart`, `text`, `table`, `markdown`, `image`, `divider`, `collection`. The default value SHALL be `metric`.
 
 #### Scenario: New panel created without type defaults to metric
 - **WHEN** a panel is created without a `type` field in the request body
@@ -24,6 +24,10 @@ Every panel SHALL have a `type` field persisted in the database with one of the 
 #### Scenario: New panel created with divider type
 - **WHEN** a panel is created with `type: "divider"` in the request body
 - **THEN** the created panel has `type: "divider"` in the response
+
+#### Scenario: New panel created with collection type
+- **WHEN** a panel is created with `type: "collection"` in the request body
+- **THEN** the created panel has `type: "collection"` in the response
 
 #### Scenario: Panel response always includes type
 - **WHEN** any panel is retrieved via `GET /api/dashboards/:id/panels`
@@ -47,7 +51,7 @@ The `PATCH /api/panels/:id` endpoint SHALL accept an optional `type` field and u
 ### Requirement: Invalid type values are rejected
 The API SHALL reject panel create and update requests that supply an unrecognised `type` value
 with a 400 Bad Request response. Valid type values are: `metric`, `chart`, `text`, `table`,
-`markdown`, `image`, `divider`.
+`markdown`, `image`, `divider`, `collection`.
 
 #### Scenario: Unknown type is rejected on create
 - **WHEN** `POST /api/panels` is called with `type: "unknown"`
