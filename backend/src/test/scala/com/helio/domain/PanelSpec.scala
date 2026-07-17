@@ -38,9 +38,11 @@ class PanelSpec extends AnyWordSpec with Matchers {
     ImagePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def divider(cfg: DividerPanelConfig = DividerPanelConfig.Empty): DividerPanel =
     DividerPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+  private def collection(cfg: CollectionPanelConfig = CollectionPanelConfig.Empty): CollectionPanel =
+    CollectionPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 7 panel kinds" in {
+    "be the single source of truth for all 8 panel kinds" in {
       Panel.Registry.keySet shouldBe Set(
         MetricPanel.Kind,
         ChartPanel.Kind,
@@ -48,18 +50,20 @@ class PanelSpec extends AnyWordSpec with Matchers {
         TextPanel.Kind,
         MarkdownPanel.Kind,
         ImagePanel.Kind,
-        DividerPanel.Kind
+        DividerPanel.Kind,
+        CollectionPanel.Kind
       )
     }
 
     "expose canonical kind strings" in {
-      MetricPanel.Kind   shouldBe "metric"
-      ChartPanel.Kind    shouldBe "chart"
-      TablePanel.Kind    shouldBe "table"
-      TextPanel.Kind     shouldBe "text"
-      MarkdownPanel.Kind shouldBe "markdown"
-      ImagePanel.Kind    shouldBe "image"
-      DividerPanel.Kind  shouldBe "divider"
+      MetricPanel.Kind     shouldBe "metric"
+      ChartPanel.Kind      shouldBe "chart"
+      TablePanel.Kind      shouldBe "table"
+      TextPanel.Kind       shouldBe "text"
+      MarkdownPanel.Kind   shouldBe "markdown"
+      ImagePanel.Kind      shouldBe "image"
+      DividerPanel.Kind    shouldBe "divider"
+      CollectionPanel.Kind shouldBe "collection"
     }
   }
 
@@ -832,17 +836,141 @@ class PanelSpec extends AnyWordSpec with Matchers {
   // build's `-Xfatal-warnings` if enabled, else a runtime MatchError surfaces
   // in the test). Mirrors the CS2c-3a `PipelineStepSpec` exhaustiveness check.
   "Exhaustiveness over Panel subtypes" should {
-    "cover all 7 kinds in a closed match" in {
-      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider())
+    "cover all 8 kinds in a closed match" in {
+      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider(), collection())
       all.foreach {
-        case _: MetricPanel   => succeed
-        case _: ChartPanel    => succeed
-        case _: TablePanel    => succeed
-        case _: TextPanel     => succeed
-        case _: MarkdownPanel => succeed
-        case _: ImagePanel    => succeed
-        case _: DividerPanel  => succeed
+        case _: MetricPanel     => succeed
+        case _: ChartPanel      => succeed
+        case _: TablePanel      => succeed
+        case _: TextPanel       => succeed
+        case _: MarkdownPanel   => succeed
+        case _: ImagePanel      => succeed
+        case _: DividerPanel    => succeed
+        case _: CollectionPanel => succeed
       }
+    }
+  }
+
+  // ── HEL-247: CollectionPanelConfig — tolerant decode, absent-vs-null patch,
+  //    base-type extensibility, and codec dispatch ────────────────────────────
+  "CollectionPanelConfig.decode" should {
+    "default baseType=metric, layout=grid, no itemOptions when fields are absent" in {
+      // spray-json omits None on the wire — these fields are ABSENT, not null.
+      val cfg = CollectionPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
+      cfg.baseType shouldBe "metric"
+      cfg.layout shouldBe "grid"
+      cfg.itemOptions shouldBe None
+      cfg.dataTypeId shouldBe DataTypeId("dt1")
+    }
+
+    "decode an empty object to Empty (all defaults)" in {
+      CollectionPanelConfig.decode(JsObject.empty) shouldBe CollectionPanelConfig.Empty
+    }
+
+    "decode present baseType/layout/itemOptions" in {
+      val items = JsObject("metric" -> JsObject("unit" -> JsString("$")))
+      val cfg = CollectionPanelConfig.decode(JsObject(
+        "dataTypeId"  -> JsString("dt1"),
+        "fieldMapping" -> JsObject("value" -> JsString("amount")),
+        "baseType"    -> JsString("metric"),
+        "layout"      -> JsString("list"),
+        "itemOptions" -> items
+      ))
+      cfg.layout shouldBe "list"
+      cfg.itemOptions shouldBe Some(items)
+    }
+
+    "tolerate a malformed/unknown layout on the read path (defaults to grid, never throws)" in {
+      val cfg = CollectionPanelConfig.decode(JsObject("layout" -> JsString("spiral")))
+      cfg.layout shouldBe "grid"
+    }
+
+    "round-trip via the per-subtype format" in {
+      val cfg = CollectionPanelConfig(
+        DataTypeId("dt1"),
+        JsObject("value" -> JsString("amount")),
+        "metric",
+        "list",
+        Some(JsObject("metric" -> JsObject("label" -> JsString("Region"))))
+      )
+      CollectionPanelConfig.decode(cfg.toJson) shouldBe cfg
+    }
+  }
+
+  "CollectionPanelConfig.decodeCreate" should {
+    "reject an invalid layout enum with a deserialization error (400)" in {
+      an[DeserializationException] should be thrownBy
+        CollectionPanelConfig.decodeCreate(JsObject("layout" -> JsString("spiral")))
+    }
+  }
+
+  "CollectionPanelConfig.Patch" should {
+    "leave layout untouched when absent (outer None)" in {
+      CollectionPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).layout shouldBe None
+    }
+
+    "carry a layout-only patch without clearing other concerns" in {
+      val patch = CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("list")))
+      patch.layout shouldBe Some(Some("list"))
+      patch.dataTypeId shouldBe None
+      patch.fieldMapping shouldBe None
+      patch.itemOptions shouldBe None
+    }
+
+    "treat explicit null itemOptions as clear (Some(None))" in {
+      CollectionPanelConfig.Patch.decode(JsObject("itemOptions" -> JsNull)).itemOptions shouldBe Some(None)
+    }
+
+    "reject an invalid layout enum in a patch (400)" in {
+      an[DeserializationException] should be thrownBy
+        CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("spiral")))
+    }
+
+    "applyPatch: a layout-only patch leaves the binding and itemOptions intact" in {
+      val existing = collection(CollectionPanelConfig(
+        DataTypeId("dt1"),
+        JsObject("value" -> JsString("amount")),
+        "metric",
+        "grid",
+        Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
+      ))
+      val patched = existing.applyPatch(CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("list"))))
+      patched.config.layout shouldBe "list"
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe JsObject("value" -> JsString("amount"))
+      patched.config.itemOptions shouldBe Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
+    }
+
+    "applyPatch: explicit null clears itemOptions" in {
+      val existing = collection(CollectionPanelConfig(
+        DataTypeId("dt1"), JsObject.empty, "metric", "grid",
+        Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
+      ))
+      val patched = existing.applyPatch(CollectionPanelConfig.Patch.decode(JsObject("itemOptions" -> JsNull)))
+      patched.config.itemOptions shouldBe None
+    }
+  }
+
+  "PanelConfigCodec (collection dispatch)" should {
+    "decode a create-side collection config" in {
+      val created = PanelConfigCodec.decodeCreateConfig(
+        CollectionPanel.Kind,
+        Some(JsObject("dataTypeId" -> JsString("dt1")))
+      )
+      created shouldBe Right(PanelConfigCodec.CollectionCreate(
+        CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "grid", None)
+      ))
+    }
+
+    "reject an unknown panel type on create with a Left" in {
+      PanelConfigCodec.decodeCreateConfig("unknown", Some(JsObject.empty)).isLeft shouldBe true
+    }
+
+    "encode a collection panel's config" in {
+      val panel = collection(CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "list", None))
+      val json = PanelConfigCodec.encodeConfig(panel).asJsObject
+      json.fields("layout") shouldBe JsString("list")
+      json.fields("baseType") shouldBe JsString("metric")
     }
   }
 }

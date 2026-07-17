@@ -61,31 +61,34 @@ object PanelType {
   case object Chart    extends PanelType
   case object Text     extends PanelType
   case object Table    extends PanelType
-  case object Markdown extends PanelType
-  case object Image    extends PanelType
-  case object Divider  extends PanelType
+  case object Markdown   extends PanelType
+  case object Image      extends PanelType
+  case object Divider    extends PanelType
+  case object Collection extends PanelType
 
   val Default: PanelType = Metric
 
   def fromString(s: String): Either[String, PanelType] = s match {
-    case "metric"   => Right(Metric)
-    case "chart"    => Right(Chart)
-    case "text"     => Right(Text)
-    case "table"    => Right(Table)
-    case "markdown" => Right(Markdown)
-    case "image"    => Right(Image)
-    case "divider"  => Right(Divider)
-    case other      => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider")
+    case "metric"     => Right(Metric)
+    case "chart"      => Right(Chart)
+    case "text"       => Right(Text)
+    case "table"      => Right(Table)
+    case "markdown"   => Right(Markdown)
+    case "image"      => Right(Image)
+    case "divider"    => Right(Divider)
+    case "collection" => Right(Collection)
+    case other        => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider, collection")
   }
 
   def asString(t: PanelType): String = t match {
-    case Metric   => "metric"
-    case Chart    => "chart"
-    case Text     => "text"
-    case Table    => "table"
-    case Markdown => "markdown"
-    case Image    => "image"
-    case Divider  => "divider"
+    case Metric     => "metric"
+    case Chart      => "chart"
+    case Text       => "text"
+    case Table      => "table"
+    case Markdown   => "markdown"
+    case Image      => "image"
+    case Divider    => "divider"
+    case Collection => "collection"
   }
 }
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)

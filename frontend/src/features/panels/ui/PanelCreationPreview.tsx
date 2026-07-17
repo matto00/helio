@@ -80,6 +80,20 @@ function buildPreviewPanel(type: PanelType, typeConfig: TypeConfig | null | unde
           fieldMapping: Record<string, string>;
         },
       };
+    case "collection":
+      // HEL-247 — the preview is unbound (IDs are placeholders), so the
+      // CollectionRenderer shows its "bind a data type" placeholder. baseType/
+      // layout come from `emptyCollectionConfig` (metric / grid).
+      return {
+        ...base,
+        type: "collection",
+        config: config as {
+          dataTypeId: string;
+          fieldMapping: Record<string, string>;
+          baseType: string;
+          layout: "grid" | "list";
+        },
+      };
   }
 }
 

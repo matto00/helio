@@ -103,5 +103,12 @@ export function computeMobilePanelHeight(
     case "image":
     case "divider":
       return { height: null, scrollsInternally: false };
+    case "collection":
+      // HEL-247 (D5) — a collection is tile content like metric/markdown, NOT a
+      // table: it sizes to its intrinsic content and the item grid wraps to the
+      // stack's content width (via the renderer's auto-fill minmax). Explicitly
+      // intrinsic with no internal scroller — deliberately NOT the "only table
+      // gets a nested scroller" bucket, and never a silent fall-through default.
+      return { height: null, scrollsInternally: false };
   }
 }

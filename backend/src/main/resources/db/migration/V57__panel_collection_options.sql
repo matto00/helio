@@ -1,0 +1,24 @@
+-- HEL-247 — Persist Collection panel options.
+--
+-- A Collection panel renders N homogeneous items of one base type, bound to a
+-- multi-row DataType (one row = one rendered item). Its binding reuses the
+-- existing `type_id` / `field_mapping` columns (so the bound-trio machinery —
+-- query building, binding-clear, freshness — works unchanged); this column
+-- stores only the collection-specific concerns as a single JSON object:
+--
+--   { "baseType": "metric", "layout": "grid" | "list",
+--     "itemOptions": { "<baseType>": { … } } }
+--
+-- Kept as a single dedicated nullable JSONB column following the
+-- `aggregation` / `column_order` / `chart_options` precedent (V53/V55/V56): one
+-- concern per column, and the concern here is "collection options". Keying
+-- `itemOptions` per base type means adding a future base type (image, markdown)
+-- is a code-only change — no migration — since a new type adds a key, not a
+-- column.
+--
+-- Applies only to `type='collection'` rows; NULL for every other kind. NULL
+-- means "default collection options" (baseType=metric, layout=grid, no item
+-- options) = exactly the pre-change behavior, so existing rows require zero
+-- data migration. Rollback = drop the column.
+
+ALTER TABLE panels ADD COLUMN collection_options JSONB;

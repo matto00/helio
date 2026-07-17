@@ -107,7 +107,7 @@ describe("PanelCreationModal", () => {
     });
   });
 
-  it("opens at the type-select step showing all 6 panel types", () => {
+  it("opens at the type-select step showing all 7 panel types", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
@@ -117,6 +117,8 @@ describe("PanelCreationModal", () => {
     expect(screen.getByRole("button", { name: "Table" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
+    // HEL-247 — Collection joins the creatable set.
+    expect(screen.getByRole("button", { name: "Collection" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Divider" })).not.toBeInTheDocument();
     // at least one description is visible
     expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
@@ -560,6 +562,20 @@ describe("PanelCreationModal — DataType picker step", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     // Should be on the datatype-select step, not name-entry.
+    expect(screen.getByText("Choose a data type")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
+  });
+
+  // HEL-247 — Collection is data-bound: the DataType step renders after
+  // template selection (a collection is meaningless unbound).
+  it("DataType step renders after template selection for collection type", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
     expect(screen.getByText("Choose a data type")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();

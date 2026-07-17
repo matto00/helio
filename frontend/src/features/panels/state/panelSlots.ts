@@ -22,4 +22,8 @@ export const PANEL_SLOTS: Record<PanelType, PanelSlot[]> = {
   markdown: [],
   image: [],
   divider: [],
+  // HEL-247: a collection has no slots of its own — the editor derives its
+  // shared item slots from `PANEL_SLOTS[baseType]` (e.g. `PANEL_SLOTS.metric`)
+  // instead, so a new base type never needs an entry here.
+  collection: [],
 };

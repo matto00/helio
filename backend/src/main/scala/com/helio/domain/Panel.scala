@@ -110,13 +110,14 @@ object Panel {
    *  Adding an 8th panel kind means dropping in one `panels/<Kind>Panel.scala`
    *  file and adding one line here. */
   val Registry: Map[String, Companion] = Map(
-    MetricPanel.Kind   -> MetricPanel.companion,
-    ChartPanel.Kind    -> ChartPanel.companion,
-    TablePanel.Kind    -> TablePanel.companion,
-    TextPanel.Kind     -> TextPanel.companion,
-    MarkdownPanel.Kind -> MarkdownPanel.companion,
-    ImagePanel.Kind    -> ImagePanel.companion,
-    DividerPanel.Kind  -> DividerPanel.companion
+    MetricPanel.Kind     -> MetricPanel.companion,
+    ChartPanel.Kind      -> ChartPanel.companion,
+    TablePanel.Kind      -> TablePanel.companion,
+    TextPanel.Kind       -> TextPanel.companion,
+    MarkdownPanel.Kind   -> MarkdownPanel.companion,
+    ImagePanel.Kind      -> ImagePanel.companion,
+    DividerPanel.Kind    -> DividerPanel.companion,
+    CollectionPanel.Kind -> CollectionPanel.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -142,13 +143,14 @@ object Panel {
  *  derived from the registry so the allow-list cannot drift from the
  *  actual set of registered kinds. */
 object PanelKind {
-  val Metric: String   = MetricPanel.Kind
-  val Chart: String    = ChartPanel.Kind
-  val Table: String    = TablePanel.Kind
-  val Text: String     = TextPanel.Kind
-  val Markdown: String = MarkdownPanel.Kind
-  val Image: String    = ImagePanel.Kind
-  val Divider: String  = DividerPanel.Kind
+  val Metric: String     = MetricPanel.Kind
+  val Chart: String      = ChartPanel.Kind
+  val Table: String      = TablePanel.Kind
+  val Text: String       = TextPanel.Kind
+  val Markdown: String   = MarkdownPanel.Kind
+  val Image: String      = ImagePanel.Kind
+  val Divider: String    = DividerPanel.Kind
+  val Collection: String = CollectionPanel.Kind
 
   val Default: String = Metric
 

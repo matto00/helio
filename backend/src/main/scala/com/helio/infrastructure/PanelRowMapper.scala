@@ -40,6 +40,8 @@ object PanelRowMapper extends PanelProtocol {
         ImagePanel(id, dashboardId, row.title, meta, appearance, ownerId, imageConfig(row))
       case DividerPanel.Kind =>
         DividerPanel(id, dashboardId, row.title, meta, appearance, ownerId, dividerConfig(row))
+      case CollectionPanel.Kind =>
+        CollectionPanel(id, dashboardId, row.title, meta, appearance, ownerId, collectionConfig(row))
       case _ =>
         // Unknown kind on disk — fall back to PanelType.Default (Metric) per the
         // pre-CS2c-3b behaviour. The wide-flat case class did this via
@@ -73,7 +75,8 @@ object PanelRowMapper extends PanelProtocol {
       columnWidths       = None,
       tableDensity       = None,
       columnOrder        = None,
-      chartOptions       = None
+      chartOptions       = None,
+      collectionOptions  = None
     )
 
     p match {
@@ -84,6 +87,7 @@ object PanelRowMapper extends PanelProtocol {
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
+      case c: CollectionPanel => base.copy(typeId = optString(c.config.dataTypeId.value), fieldMapping = jsObjectColumn(c.config.fieldMapping), collectionOptions = collectionOptionsColumn(c.config))
       case _                  => base
     }
   }
@@ -143,6 +147,21 @@ object PanelRowMapper extends PanelProtocol {
       color       = row.dividerColor
     )
 
+  /** Rebuild a collection config from the binding columns (`type_id` /
+   *  `field_mapping`) plus the `collection_options` JSONB blob. Tolerant:
+   *  a malformed/legacy blob decodes to defaults via `CollectionPanelConfig.
+   *  decode` (baseType=metric, layout=grid, no itemOptions) rather than throwing. */
+  private def collectionConfig(row: PanelRepository.PanelRow): CollectionPanelConfig = {
+    val optionFields = row.collectionOptions.flatMap(parseJsObject).map(_.fields).getOrElse(Map.empty[String, JsValue])
+    val merged = JsObject(
+      optionFields ++ Map[String, JsValue](
+        "dataTypeId"   -> JsString(row.typeId.getOrElse("")),
+        "fieldMapping" -> row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      )
+    )
+    CollectionPanelConfig.decode(merged)
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def optString(s: String): Option[String] =
@@ -178,4 +197,18 @@ object PanelRowMapper extends PanelProtocol {
 
   private def parseChartOptions(raw: String): Option[ChartOptions] =
     scala.util.Try(raw.parseJson).toOption.flatMap(ChartOptions.parse(_, strict = false))
+
+  // HEL-247 — serialize the Collection panel's `{ baseType, layout, itemOptions }`
+  // into the `collection_options` JSONB column. `baseType`/`layout` always have
+  // a value (defaults), so the object is always written for a collection panel;
+  // `itemOptions` is included only when present. The binding (`dataTypeId` /
+  // `fieldMapping`) lives in `type_id` / `field_mapping`, NOT here.
+  private def collectionOptionsColumn(config: CollectionPanelConfig): Option[String] = {
+    val base = Map[String, JsValue](
+      "baseType" -> JsString(config.baseType),
+      "layout"   -> JsString(config.layout)
+    )
+    val withItems = config.itemOptions.fold(base)(o => base + ("itemOptions" -> o))
+    Some(JsObject(withItems).compactPrint)
+  }
 }

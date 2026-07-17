@@ -24,9 +24,10 @@ object PanelConfigCodec {
     case tp: TablePanel     => tp.config.toJson
     case t:  TextPanel      => t.config.toJson
     case m:  MarkdownPanel  => m.config.toJson
-    case i:  ImagePanel     => i.config.toJson
-    case d:  DividerPanel   => d.config.toJson
-    case other              => deserializationError(s"Unknown panel kind for encode: '${other.kind}'")
+    case i:  ImagePanel      => i.config.toJson
+    case d:  DividerPanel    => d.config.toJson
+    case c:  CollectionPanel => c.config.toJson
+    case other               => deserializationError(s"Unknown panel kind for encode: '${other.kind}'")
   }
 
   // ── Decode: (kind, JsValue) → typed Config (create-path) ──────────────────
@@ -42,6 +43,7 @@ object PanelConfigCodec {
   final case class MarkdownCreate(config: MarkdownPanelConfig) extends CreateConfig
   final case class ImageCreate(config: ImagePanelConfig)       extends CreateConfig
   final case class DividerCreate(config: DividerPanelConfig)   extends CreateConfig
+  final case class CollectionCreate(config: CollectionPanelConfig) extends CreateConfig
 
   /** Decode a create-side typed config from `(kind, config?)`. `decode(None)`
    *  yields the subtype's `Empty` config (codec read-path tolerance rule). */
@@ -55,6 +57,7 @@ object PanelConfigCodec {
       case MarkdownPanel.Kind => safe(MarkdownCreate(MarkdownPanelConfig.decodeCreate(payload)))
       case ImagePanel.Kind    => safe(ImageCreate(ImagePanelConfig.decodeCreate(payload)))
       case DividerPanel.Kind  => safe(DividerCreate(DividerPanelConfig.decodeCreate(payload)))
+      case CollectionPanel.Kind => safe(CollectionCreate(CollectionPanelConfig.decodeCreate(payload)))
       case unknown            =>
         Left(s"Unknown panel type: '$unknown'. Valid values: ${Panel.Registry.keySet.toSeq.sorted.mkString(", ")}")
     }
@@ -74,9 +77,10 @@ object PanelConfigCodec {
     case tp: TablePanel    => tp.applyPatch(TablePanelConfig.Patch.decode(json))
     case t:  TextPanel     => t.applyPatch(TextPanelConfig.Patch.decode(json))
     case m:  MarkdownPanel => m.applyPatch(MarkdownPanelConfig.Patch.decode(json))
-    case i:  ImagePanel    => i.applyPatch(ImagePanelConfig.Patch.decode(json))
-    case d:  DividerPanel  => d.applyPatch(DividerPanelConfig.Patch.decode(json))
-    case other             => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
+    case i:  ImagePanel      => i.applyPatch(ImagePanelConfig.Patch.decode(json))
+    case d:  DividerPanel    => d.applyPatch(DividerPanelConfig.Patch.decode(json))
+    case c:  CollectionPanel => c.applyPatch(CollectionPanelConfig.Patch.decode(json))
+    case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
   }
 
   // ── Internal helper ───────────────────────────────────────────────────────

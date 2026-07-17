@@ -421,6 +421,48 @@
   outline-offset: 2px;
 }
 
+/* Collection layout segmented control (HEL-247). A two-option grid/list toggle;
+   shares the mode-toggle recipe (accent selection wash, neutral hairline) so it
+   reads as the same control family. */
+
+.panel-detail-modal__segmented {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.panel-detail-modal__segmented-btn {
+  flex: 1;
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.panel-detail-modal__segmented-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.panel-detail-modal__segmented-btn--active {
+  border-color: var(--app-accent);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+}
+
+.panel-detail-modal__segmented-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
 /* Table display controls (HEL-255): column visibility/order rows + reset. The
    density dropdown reuses the shared Select; these styles cover the Columns
    list and the Reset column widths action. */
@@ -624,6 +666,14 @@
   }
 
   .panel-detail-modal__slider input[type="range"] {
+    min-height: 44px;
+  }
+
+  /* HEL-247: Collection editor — the grid/list layout segmented buttons must
+     also meet the 44px tap minimum. The base-type Select and the value-field /
+     label / unit Selects are already covered by the `.ui-select__trigger` rule
+     above, and the label/unit mode toggles by `.panel-detail-modal__mode-toggle-btn`. */
+  .panel-detail-modal__segmented-btn {
     min-height: 44px;
   }
 }

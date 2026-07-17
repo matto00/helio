@@ -11,6 +11,7 @@ import {
   faChartSimple,
   faFont,
   faImage,
+  faLayerGroup,
   faTable as faTableIcon,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
@@ -50,6 +51,12 @@ const PANEL_TYPES: {
     description: "Write formatted content with Markdown",
   },
   { value: "image", label: "Image", icon: faImage, description: "Embed an image from a URL" },
+  {
+    value: "collection",
+    label: "Collection",
+    icon: faLayerGroup,
+    description: "Render one tile per row of a data type",
+  },
 ];
 
 interface TypeSelectStepProps {

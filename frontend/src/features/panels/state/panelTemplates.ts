@@ -99,4 +99,12 @@ export const PANEL_TEMPLATES: Partial<Record<PanelType, PanelTemplate[]>> = {
       defaults: { title: "Banner Image" },
     },
   ],
+  collection: [
+    {
+      id: "collection-metric-grid",
+      label: "Metric Collection",
+      description: "One metric tile per row of a data type",
+      defaults: { title: "Metric Collection" },
+    },
+  ],
 };

@@ -86,6 +86,23 @@ describe("mobilePanelHeights — markdown, text, image, divider", () => {
   );
 });
 
+describe("mobilePanelHeights — collection (HEL-247 D5)", () => {
+  it("is fully intrinsic — no fixed height, no internal scroll (an explicit entry, not a default)", () => {
+    for (const h of [1, 5, 12]) {
+      const policy = computeMobilePanelHeight("collection", h, PHONE_CONTENT_WIDTH);
+      expect(policy.height).toBeNull();
+      expect(policy.scrollsInternally).toBe(false);
+    }
+  });
+
+  it("is not the table's internal-scroll bucket", () => {
+    expect(computeMobilePanelHeight("collection", 5, PHONE_CONTENT_WIDTH).scrollsInternally).toBe(
+      false,
+    );
+    expect(computeMobilePanelHeight("table", 5, PHONE_CONTENT_WIDTH).scrollsInternally).toBe(true);
+  });
+});
+
 describe("resolveStackContentWidth", () => {
   it("subtracts stack/card chrome from the measured container width", () => {
     const contentWidth = resolveStackContentWidth(390);

@@ -11,6 +11,9 @@
 import type {
   ChartAggregation,
   ChartTypeOptionsMap,
+  CollectionItemOptions,
+  CollectionLayout,
+  CollectionPanelConfig,
   DividerOrientation,
   DividerPanelConfig,
   ImageFit,
@@ -90,6 +93,15 @@ function seedCreateConfig(
         ...(base as MarkdownPanelConfig),
         dataTypeId: dataTypeId ?? "",
       };
+    case "collection":
+      // HEL-305 lesson — carry the creation-time discriminators explicitly
+      // rather than relying on a `typeConfig` passthrough that silently drops
+      // them. `baseType`/`layout` come from `emptyCollectionConfig` (metric /
+      // grid) and the binding is seeded from the DataType step.
+      return {
+        ...(base as CollectionPanelConfig),
+        dataTypeId: dataTypeId ?? "",
+      };
   }
 }
 
@@ -153,6 +165,36 @@ export function buildBindingPatch(args: {
   }
   if (args.chartOptions !== undefined) {
     patch.chartOptions = args.chartOptions;
+  }
+  return patch;
+}
+
+/** Build the typed `config` PATCH for a Collection panel's editor save
+ *  (HEL-247). Follows the same absent-vs-null convention as `buildBindingPatch`:
+ *  `undefined` omits the key (leave unchanged); `null` clears to default; a
+ *  value sets it. The editor always resends `dataTypeId`/`fieldMapping` (the
+ *  backend patch replaces `fieldMapping` wholesale), while `baseType`/`layout`/
+ *  `itemOptions` ride the same single PATCH so the whole editor persists
+ *  atomically. */
+export function buildCollectionPatch(args: {
+  typeId: string | null;
+  fieldMapping: Record<string, string> | null;
+  baseType?: string;
+  layout?: CollectionLayout;
+  itemOptions?: CollectionItemOptions | null;
+}): Record<string, unknown> {
+  const patch: Record<string, unknown> = {
+    dataTypeId: args.typeId,
+    fieldMapping: args.fieldMapping,
+  };
+  if (args.baseType !== undefined) {
+    patch.baseType = args.baseType;
+  }
+  if (args.layout !== undefined) {
+    patch.layout = args.layout;
+  }
+  if (args.itemOptions !== undefined) {
+    patch.itemOptions = args.itemOptions;
   }
   return patch;
 }

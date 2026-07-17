@@ -174,5 +174,62 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ChartPanel]
       decoded.config.chartOptions shouldBe None
     }
+
+    // HEL-247: guard BOTH mapper directions for a Collection panel — the binding
+    // rides type_id/field_mapping while baseType/layout/itemOptions ride the
+    // collection_options JSONB blob. A missed write arm would silently drop the
+    // config on dashboard duplicate/snapshot (the HEL-245/248 sibling-bug class),
+    // so this exercises the full create→duplicate→read round-trip.
+    "round-trip a Collection panel with baseType/layout/itemOptions set" in {
+      val items = JsObject("metric" -> JsObject("unit" -> JsString("$"), "label" -> JsString("Revenue")))
+      val panel = CollectionPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        CollectionPanelConfig(DataTypeId("dt1"), JsObject("value" -> JsString("amount")), "metric", "list", Some(items))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe CollectionPanel.Kind
+      row.typeId shouldBe Some("dt1")
+      row.fieldMapping shouldBe Some(JsObject("value" -> JsString("amount")).compactPrint)
+      row.collectionOptions shouldBe defined
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[CollectionPanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.config.fieldMapping shouldBe JsObject("value" -> JsString("amount"))
+      decoded.config.baseType shouldBe "metric"
+      decoded.config.layout shouldBe "list"
+      decoded.config.itemOptions shouldBe Some(items)
+    }
+
+    "round-trip a Collection panel with a NULL collection_options column → defaults" in {
+      // Simulate a legacy/mid-edit row: binding present, collection_options NULL.
+      val panel = CollectionPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "grid", None)
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      val rowNulled = row.copy(collectionOptions = None)
+
+      val decoded = PanelRowMapper.rowToDomain(rowNulled).asInstanceOf[CollectionPanel]
+      decoded.config.baseType shouldBe "metric"
+      decoded.config.layout shouldBe "grid"
+      decoded.config.itemOptions shouldBe None
+    }
+
+    "preserve item options under a non-active base-type key across a round-trip" in {
+      // D3: options stored under a key other than the active baseType must survive.
+      val items = JsObject(
+        "metric" -> JsObject("unit" -> JsString("$")),
+        "image"  -> JsObject("fit" -> JsString("cover"))
+      )
+      val panel = CollectionPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "grid", Some(items))
+      )
+
+      val decoded = PanelRowMapper.rowToDomain(PanelRowMapper.domainToRow(panel)).asInstanceOf[CollectionPanel]
+      decoded.config.itemOptions shouldBe Some(items)
+    }
   }
 }
