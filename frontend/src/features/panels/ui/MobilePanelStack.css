@@ -43,7 +43,8 @@
 .mobile-panel-stack__item.mobile-panel-stack__item--table,
 .mobile-panel-stack__item.mobile-panel-stack__item--markdown,
 .mobile-panel-stack__item.mobile-panel-stack__item--text,
-.mobile-panel-stack__item.mobile-panel-stack__item--image {
+.mobile-panel-stack__item.mobile-panel-stack__item--image,
+.mobile-panel-stack__item.mobile-panel-stack__item--collection {
   container-type: inline-size;
   height: auto;
   flex-shrink: 0;
@@ -72,6 +73,18 @@
 .mobile-panel-stack__item--text .panel-content--text {
   height: auto;
   overflow-y: visible;
+}
+
+/* Collection (HEL-247/HEL-303): fully intrinsic in the stack — no fixed
+   height, no internal scroller. `.panel-content--collection`
+   (CollectionRenderer.css) sets `overflow-y: auto` so desktop can scroll items
+   inside a fixed `h × rowHeight` card; the stack has no such fixed height, so
+   restore intrinsic sizing (mirrors the markdown/text overrides above). The
+   auto-fill `minmax(min(140px, 100%), 1fr)` grid wraps to the stack content
+   width — no horizontal body scroll — per the mobile-panel-sizing spec. */
+.mobile-panel-stack__item--collection .panel-content--collection {
+  height: auto;
+  overflow: visible;
 }
 
 /* Image: natural aspect ratio, never stretched to fill a fixed cell
