@@ -1,18 +1,15 @@
-import React, { useImperativeHandle, useRef } from "react";
+import React from "react";
 import { useContainerWidth } from "react-grid-layout";
 
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
-import { DesktopPanelGrid, type DesktopPanelGridHandle } from "./DesktopPanelGrid";
+import { DesktopPanelGrid } from "./DesktopPanelGrid";
 import { MobilePanelStack } from "./MobilePanelStack";
+import { usePanelUpdatesFlush, type PanelUpdatesFlushHandle } from "../hooks/usePanelUpdatesFlush";
 import { panelGridConfig } from "./panelGridConfig";
 import "./PanelGrid.css";
 
-export interface PanelGridHandle {
-  /** Immediately flush pending panel updates and reset the auto-save timer.
-   *  A no-op below the `sm` boundary — see the class doc below. */
-  flushAndReset: () => void;
-}
+export type PanelGridHandle = PanelUpdatesFlushHandle;
 
 interface PanelGridProps {
   dashboardId: string;
@@ -24,15 +21,21 @@ interface PanelGridProps {
 /**
  * Measures the grid container and branches on `panelGridConfig.breakpoints.sm`
  * (768px) — the same width React Grid Layout uses to resolve the `xs`
- * breakpoint. Below it, `<DesktopPanelGrid>` (RGL plus the auto-save wiring)
- * is never mounted; `<MobilePanelStack>` renders instead.
+ * breakpoint. Below it, `<DesktopPanelGrid>` (RGL plus layout persistence) is
+ * never mounted; `<MobilePanelStack>` renders instead.
  *
- * This is a structural guarantee, not a rendering preference: the auto-save
- * hook (`usePanelGridSave`, the only path that can dispatch
- * `updateDashboardLayout` / `setLayoutPending`) lives entirely inside
- * `DesktopPanelGrid`. Below the boundary it is never called — there is no
- * code path capable of persisting a layout write from the phone stack. See
- * hazard §4.1 of notes/mobile-pwa-handoff.md (the binding spec).
+ * HEL-304: the pending-panel-updates flush (`usePanelUpdatesFlush`) is owned
+ * here, so it runs at EVERY width — panel title/appearance edits staged in the
+ * detail modal below the boundary flush via the batch endpoint exactly like
+ * desktop, and "Save now" is functional on the phone stack.
+ *
+ * Layout persistence stays a structural desktop-only guarantee: the only path
+ * that can dispatch `updateDashboardLayout` / `setLayoutPending`
+ * (`useLayoutSave`) lives entirely inside `DesktopPanelGrid`. It registers its
+ * `persistLayout` into this hook's flush slot on mount and clears it on
+ * unmount, so below the boundary the slot is empty and there is no code path
+ * capable of persisting a layout write from the phone stack. See hazard §4.1
+ * of notes/mobile-pwa-handoff.md (the binding spec).
  */
 export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(function PanelGrid(
   { dashboardId, layout, panels, zoomLevel = 1.0 },
@@ -41,20 +44,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
   const { containerRef, width } = useContainerWidth({
     initialWidth: panelGridConfig.initialWidth,
   });
-  const desktopHandleRef = useRef<DesktopPanelGridHandle | null>(null);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      flushAndReset: () => {
-        // No-op below the sm boundary: DesktopPanelGridHandle isn't mounted,
-        // so there is nothing pending to flush — the stack path never
-        // accumulates a layout or panel-appearance write in the first place.
-        desktopHandleRef.current?.flushAndReset();
-      },
-    }),
-    [],
-  );
+  const { registerLayoutFlush } = usePanelUpdatesFlush({ dashboardId, forwardedRef: ref });
 
   const isPhone = width < panelGridConfig.breakpoints.sm;
 
@@ -64,12 +54,12 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
         <MobilePanelStack panels={panels} layout={layout} containerWidth={width} />
       ) : (
         <DesktopPanelGrid
-          ref={desktopHandleRef}
           dashboardId={dashboardId}
           layout={layout}
           panels={panels}
           zoomLevel={zoomLevel}
           width={width}
+          registerLayoutFlush={registerLayoutFlush}
         />
       )}
     </div>

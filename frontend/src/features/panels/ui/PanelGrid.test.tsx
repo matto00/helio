@@ -7,7 +7,9 @@ import { updatePanelTitle as updatePanelTitleRequest } from "../services/panelSe
 import { updatePanelsBatch as updatePanelsBatchRequest } from "../services/panelService";
 import { updateDashboardLayout as updateDashboardLayoutRequest } from "../../dashboards/services/dashboardService";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
-import { AUTO_SAVE_INTERVAL_MS } from "../hooks/usePanelGridSave";
+import { AUTO_SAVE_INTERVAL_MS } from "../hooks/usePanelUpdatesFlush";
+import { accumulatePanelUpdate } from "../state/panelsSlice";
+import { SaveStateContext } from "../../../context/SaveStateContext";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
 import { PanelGrid, type PanelGridHandle } from "./PanelGrid";
@@ -459,17 +461,32 @@ describe("PanelGrid", () => {
       expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
     });
 
-    it("does not register a save-flush handle with the imperative ref (nothing to flush)", () => {
+    // HEL-304: rewrite of the former "does not register a save-flush handle"
+    // test. The panel-update flush is now hoisted to PanelGrid and mounts at
+    // every width, so the imperative handle IS live at phone width — it flushes
+    // the pending panel batch — while still never dispatching a layout PATCH.
+    it("exposes a live flush handle at phone width that flushes the panel batch but never PATCHes layout", async () => {
       const ref = createRef<PanelGridHandle>();
-      renderWithStore(
+      const { store } = renderWithStore(
         <PanelGrid ref={ref} dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
         { panels: { items: [testPanel] } },
       );
 
-      // Calling the outer handle's flushAndReset must not throw and must not
-      // reach the network — DesktopPanelGrid (the only owner of a real
-      // flushAndReset) is never mounted at phone width.
-      expect(() => ref.current?.flushAndReset()).not.toThrow();
+      act(() => {
+        store.dispatch(
+          accumulatePanelUpdate({
+            panelId: "panel-1",
+            fields: { appearance: { background: "#123456", color: "inherit", transparency: 0 } },
+          }),
+        );
+      });
+
+      await act(async () => {
+        ref.current?.flushAndReset();
+      });
+
+      expect(updatePanelsBatchMock).toHaveBeenCalledTimes(1);
+      expect(store.getState().panels.pendingPanelUpdates).toEqual({});
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     });
 
@@ -497,6 +514,147 @@ describe("PanelGrid", () => {
 
       expect(MockResponsive).toHaveBeenCalled();
       expect(container.querySelector(".mobile-panel-stack")).not.toBeInTheDocument();
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+
+    // HEL-304 Decision 3 / task 1.3 probe — a pure width change that crosses
+    // below the sm boundary with no user drag must issue ZERO layout PATCH.
+    // Layout persistence stays structurally desktop-only; the shell swap alone
+    // never writes layout (the sacred HEL-301 xs byte-identity guarantee).
+    it("issues zero layout PATCH on a pure resize across the 768px boundary (no drag)", async () => {
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width: 1280,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+      const { rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width: 375,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+
+      await act(async () => {
+        jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
+      });
+
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ─── HEL-304 — width-independent panel-update flush (remedy (a)) ──────────────
+  // The pending-panel-updates flush lifecycle (30s interval, dashboard-switch
+  // flush, Save-now registration, imperative handle) is hoisted out of
+  // DesktopPanelGrid to PanelGrid, so it runs at EVERY container width. Panel
+  // title/appearance edits staged below 768px (mobile stack) now persist via
+  // the batch endpoint exactly like desktop; layout persistence stays
+  // structurally desktop-only (zero layout PATCH from the phone path).
+  describe("HEL-304 — width-independent panel-update flush", () => {
+    const stagedAppearance = { background: "#123456", color: "inherit", transparency: 0 } as const;
+
+    function setWidth(width: number) {
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+    }
+
+    // 3.1 — appearance edit staged at phone width flushes on the auto-save tick.
+    it("flushes an appearance edit staged at phone width on the auto-save tick", async () => {
+      setWidth(375);
+      const { store } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      act(() => {
+        store.dispatch(
+          accumulatePanelUpdate({ panelId: "panel-1", fields: { appearance: stagedAppearance } }),
+        );
+      });
+      expect(updatePanelsBatchMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
+      });
+
+      expect(updatePanelsBatchMock).toHaveBeenCalledTimes(1);
+      expect(store.getState().panels.pendingPanelUpdates).toEqual({});
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+
+    // 3.2 — "Save now" at phone width dispatches the batch; no-op when clean.
+    it("wires a functional Save-now at phone width and no-ops when clean", async () => {
+      setWidth(375);
+      const holder: { fn: (() => void) | null } = { fn: null };
+      const registerFlush = (fn: (() => void) | null) => {
+        holder.fn = fn;
+      };
+      const { store } = renderWithStore(
+        <SaveStateContext.Provider value={{ registerFlush, flush: () => holder.fn?.() }}>
+          <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />
+        </SaveStateContext.Provider>,
+        { panels: { items: [testPanel] } },
+      );
+
+      // A real flush handler is registered even at phone width.
+      expect(holder.fn).not.toBeNull();
+
+      // No-op with nothing pending.
+      act(() => {
+        holder.fn?.();
+      });
+      expect(updatePanelsBatchMock).not.toHaveBeenCalled();
+
+      // Stage, then Save now.
+      act(() => {
+        store.dispatch(
+          accumulatePanelUpdate({ panelId: "panel-1", fields: { appearance: stagedAppearance } }),
+        );
+      });
+      await act(async () => {
+        holder.fn?.();
+      });
+
+      expect(updatePanelsBatchMock).toHaveBeenCalledTimes(1);
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+
+    // 3.3 — updates staged at desktop survive a width drop below 768px (the
+    // resize-mid-edit strand) and flush on the next tick.
+    it("does not strand updates staged at desktop when the width drops below 768px", async () => {
+      setWidth(1280);
+      const { store, rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      act(() => {
+        store.dispatch(
+          accumulatePanelUpdate({ panelId: "panel-1", fields: { appearance: stagedAppearance } }),
+        );
+      });
+
+      // Window resized below the boundary before the next flush.
+      setWidth(375);
+      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+
+      await act(async () => {
+        jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
+      });
+
+      expect(updatePanelsBatchMock).toHaveBeenCalledTimes(1);
+      expect(store.getState().panels.pendingPanelUpdates).toEqual({});
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     });
   });

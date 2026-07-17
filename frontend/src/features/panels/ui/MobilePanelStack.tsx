@@ -3,9 +3,14 @@
 //
 // Structurally incapable of persisting layout (hazard §4.1 of
 // notes/mobile-pwa-handoff.md, the binding spec): this file never imports
-// `usePanelGridSave` and holds no dispatch path to `updateDashboardLayout`
-// or `setLayoutPending`. Do not add either import here — see
-// `PanelGrid.tsx`'s class doc for why that guarantee matters.
+// `useLayoutSave` and holds no dispatch path to `updateDashboardLayout` or
+// `setLayoutPending`. Do not add either import here — see `PanelGrid.tsx`'s
+// class doc for why that guarantee matters.
+//
+// HEL-304: panel title/appearance edits made in `PanelDetailModal` here DO
+// persist — they stage into `pendingPanelUpdates` and are flushed by
+// `usePanelUpdatesFlush`, which `PanelGrid` mounts at every width. That flush
+// path issues only panel-batch writes, never a dashboard-layout PATCH.
 //
 // Panels are ordered by the resolved `xs` layout (`y` then `x`,
 // `orderPanelsForMobileStack`). Heights come from `mobilePanelHeights`
