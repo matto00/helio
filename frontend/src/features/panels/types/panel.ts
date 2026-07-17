@@ -49,9 +49,19 @@ export interface PanelAppearance {
   chart?: ChartAppearance;
 }
 
-export type PanelKind = "metric" | "chart" | "table" | "text" | "markdown" | "image" | "divider";
+export type PanelKind =
+  | "metric"
+  | "chart"
+  | "table"
+  | "text"
+  | "markdown"
+  | "image"
+  | "divider"
+  | "collection";
 
 export type ImageFit = "contain" | "cover" | "fill";
+
+export type CollectionLayout = "grid" | "list";
 
 export type TableDensity = "condensed" | "normal" | "spacious";
 
@@ -190,6 +200,43 @@ export interface DividerPanelConfig {
   color?: string | null;
 }
 
+// ── Collection panel (HEL-247) ──────────────────────────────────────────────
+//
+// Mirrors backend `domain/panels/CollectionPanel.scala` and
+// `schemas/panel.schema.json` `$defs.CollectionConfig`. A Collection renders N
+// homogeneous items of one `baseType`, bound to a multi-row DataType (one row =
+// one item), with the shared `fieldMapping` applied to every item. Binding
+// reuses `dataTypeId`/`fieldMapping` (the bound-trio shape); `baseType`,
+// `layout`, and `itemOptions` are the collection-specific concerns.
+//
+// `itemOptions` is keyed per base type so a future base-type switch preserves
+// the other type's options and adding a base type (image, markdown) is a
+// code-only change — no schema-shape break (`baseType` widens its enum).
+
+export interface CollectionMetricItemOptions {
+  /** Literal label override applied to every metric item (HEL-243 literal-wins). */
+  label?: string;
+  /** Literal unit override applied to every metric item. */
+  unit?: string;
+}
+
+export interface CollectionItemOptions {
+  metric?: CollectionMetricItemOptions;
+}
+
+export interface CollectionPanelConfig {
+  dataTypeId: string;
+  /** Shared field mapping applied to every rendered item. */
+  fieldMapping: Record<string, string>;
+  /** Which base panel kind each item renders as. Ships with "metric" only. */
+  baseType: string;
+  /** Item layout. Absent/legacy falls back to "grid". */
+  layout: CollectionLayout;
+  /** Shared literal item overrides, keyed per base type. Options under a
+   *  non-active base-type key are preserved across base-type switches. */
+  itemOptions?: CollectionItemOptions | null;
+}
+
 export type PanelConfig =
   | MetricPanelConfig
   | ChartPanelConfig
@@ -197,7 +244,8 @@ export type PanelConfig =
   | TextPanelConfig
   | MarkdownPanelConfig
   | ImagePanelConfig
-  | DividerPanelConfig;
+  | DividerPanelConfig
+  | CollectionPanelConfig;
 
 // ── Discriminated union ─────────────────────────────────────────────────────
 //
@@ -257,6 +305,11 @@ export interface DividerPanel extends PanelBase {
   config: DividerPanelConfig;
 }
 
+export interface CollectionPanel extends PanelBase {
+  type: "collection";
+  config: CollectionPanelConfig;
+}
+
 export type Panel =
   | MetricPanel
   | ChartPanel
@@ -264,7 +317,8 @@ export type Panel =
   | TextPanel
   | MarkdownPanel
   | ImagePanel
-  | DividerPanel;
+  | DividerPanel
+  | CollectionPanel;
 
 // Legacy alias — `PanelType` was the discriminator string literal union under
 // the pre-CS2c-3c flat shape. Same set as `PanelKind`; kept as an alias so
@@ -314,6 +368,13 @@ export const emptyDividerConfig = (): DividerPanelConfig => ({
   orientation: "horizontal",
 });
 
+export const emptyCollectionConfig = (): CollectionPanelConfig => ({
+  dataTypeId: "",
+  fieldMapping: {},
+  baseType: "metric",
+  layout: "grid",
+});
+
 export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   switch (kind) {
     case "metric":
@@ -330,6 +391,8 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
       return emptyImageConfig();
     case "divider":
       return emptyDividerConfig();
+    case "collection":
+      return emptyCollectionConfig();
   }
 }
 

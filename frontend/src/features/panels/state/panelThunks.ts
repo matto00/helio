@@ -15,6 +15,7 @@ import {
   fetchPanels as fetchPanelsRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelBinding as updatePanelBindingRequest,
+  updatePanelCollection as updatePanelCollectionRequest,
   updatePanelColumnWidths as updatePanelColumnWidthsRequest,
   updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
@@ -29,6 +30,8 @@ import type { RootState } from "../../../store/store";
 import type {
   ChartAggregation,
   ChartTypeOptionsMap,
+  CollectionItemOptions,
+  CollectionLayout,
   DividerOrientation,
   ImageFit,
   MetricAggregation,
@@ -214,6 +217,36 @@ export const updatePanelBinding = createAsyncThunk<
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");
+    }
+  },
+);
+
+/** HEL-247: PATCH a Collection panel's editor save — binding +
+ *  baseType/layout/itemOptions in a single config PATCH. */
+export const updatePanelCollection = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    typeId: string | null;
+    fieldMapping: Record<string, string> | null;
+    baseType?: string;
+    layout?: CollectionLayout;
+    itemOptions?: CollectionItemOptions | null;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelCollection",
+  async ({ panelId, typeId, fieldMapping, baseType, layout, itemOptions }, { rejectWithValue }) => {
+    try {
+      return await updatePanelCollectionRequest(panelId, {
+        typeId,
+        fieldMapping,
+        baseType,
+        layout,
+        itemOptions,
+      });
+    } catch {
+      return rejectWithValue("Failed to update collection panel.");
     }
   },
 );

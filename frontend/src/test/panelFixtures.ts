@@ -8,6 +8,8 @@
 import type {
   ChartPanel,
   ChartPanelConfig,
+  CollectionPanel,
+  CollectionPanelConfig,
   DividerPanel,
   DividerPanelConfig,
   ImagePanel,
@@ -144,4 +146,17 @@ export function makeDividerPanel(
     color: overrides.config?.color,
   };
   return applyBase<DividerPanel>(overrides, "divider", config);
+}
+
+export function makeCollectionPanel(
+  overrides: PanelBaseOverrides & { config?: Partial<CollectionPanelConfig> } = {},
+): CollectionPanel {
+  const config: CollectionPanelConfig = {
+    dataTypeId: overrides.config?.dataTypeId ?? "",
+    fieldMapping: overrides.config?.fieldMapping ?? {},
+    baseType: overrides.config?.baseType ?? "metric",
+    layout: overrides.config?.layout ?? "grid",
+    itemOptions: overrides.config?.itemOptions,
+  };
+  return applyBase<CollectionPanel>(overrides, "collection", config);
 }

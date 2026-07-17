@@ -13,9 +13,11 @@ import type {
   UpdatePanelsBatchResponse,
 } from "../types/panel";
 import type { PagedResult } from "../../../types/models";
+import type { CollectionItemOptions, CollectionLayout } from "../types/panel";
 import {
   buildCreatePanelBody,
   buildBindingPatch,
+  buildCollectionPatch,
   buildDividerPatch,
   buildImagePatch,
   buildTableWidthsPatch,
@@ -135,6 +137,25 @@ export async function updatePanelBinding(
     columnWidths: tableDisplay?.columnWidths,
     chartOptions,
   });
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
+  return response.data;
+}
+
+/** PATCH a Collection panel's editor save (HEL-247). The binding
+ *  (`dataTypeId`/`fieldMapping`) plus `baseType`/`layout`/`itemOptions` ride a
+ *  single config PATCH so the whole editor persists atomically; each field
+ *  follows the absent-vs-null convention (see `buildCollectionPatch`). */
+export async function updatePanelCollection(
+  panelId: string,
+  args: {
+    typeId: string | null;
+    fieldMapping: Record<string, string> | null;
+    baseType?: string;
+    layout?: CollectionLayout;
+    itemOptions?: CollectionItemOptions | null;
+  },
+): Promise<Panel> {
+  const config = buildCollectionPatch(args);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

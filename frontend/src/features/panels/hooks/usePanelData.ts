@@ -100,7 +100,12 @@ export function usePanelData(panel: Panel): PanelDataResult {
         ? 200
         : panel.type === "table"
           ? 50
-          : 10;
+          : // HEL-247 (skeptic CR2) — a collection renders one item per row, so
+            // it needs table-parity page size (50), NOT the silent 10-row `else`
+            // bucket, which would cap a "one metric per region" collection.
+            panel.type === "collection"
+            ? 50
+            : 10;
     const keyAtDispatch = currentFetchKey;
 
     void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize }))

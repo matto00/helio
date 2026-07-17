@@ -8,6 +8,7 @@ import "./PanelDetailModal.css";
 import { accumulatePanelUpdate } from "../state/panelsSlice";
 import {
   isChartPanel,
+  isCollectionPanel,
   isDividerPanel,
   isImagePanel,
   isMarkdownPanel,
@@ -28,6 +29,7 @@ import type { ChartAppearance, Panel, PanelAppearance } from "../types/panel";
 import { PanelContent } from "./PanelContent";
 import { AppearanceEditor } from "./editors/AppearanceEditor";
 import { BindingEditor } from "./editors/BindingEditor";
+import { CollectionEditor } from "./editors/CollectionEditor";
 import { DividerEditor } from "./editors/DividerEditor";
 import { ImageEditor } from "./editors/ImageEditor";
 import { MarkdownEditor } from "./editors/MarkdownEditor";
@@ -109,6 +111,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const textEditorRef = useRef<PanelEditorHandle | null>(null);
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
+  const collectionEditorRef = useRef<PanelEditorHandle | null>(null);
 
   function activeEditorRef(): RefObject<PanelEditorHandle | null> | null {
     if (isMetricPanel(panel) || isChartPanel(panel) || isTablePanel(panel)) {
@@ -118,6 +121,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     if (isTextPanel(panel)) return textEditorRef;
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
+    if (isCollectionPanel(panel)) return collectionEditorRef;
     return null;
   }
 
@@ -278,6 +282,15 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       return (
         <DividerEditor
           ref={dividerEditorRef}
+          panel={panel}
+          onDirtyChange={handleSubtypeDirtyChange}
+        />
+      );
+    }
+    if (isCollectionPanel(panel)) {
+      return (
+        <CollectionEditor
+          ref={collectionEditorRef}
           panel={panel}
           onDirtyChange={handleSubtypeDirtyChange}
         />

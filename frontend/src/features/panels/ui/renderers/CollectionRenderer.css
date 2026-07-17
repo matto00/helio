@@ -1,0 +1,48 @@
+/* Collection panel body (HEL-247). Overrides the base `.panel-content`
+   centering so items flow from the top and the body scrolls vertically inside
+   the panel on desktop (table-panel precedent). Both layouts use design tokens
+   for spacing; the grid wraps responsively so there is never horizontal
+   overflow — including at 390px phone width. */
+
+.panel-content--collection {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+/* Grid: responsive auto-fill columns. `min(140px, 100%)` clamps the track so a
+   container narrower than the 140px legibility floor never forces a horizontal
+   scrollbar; at ~390px content width this resolves to two columns. */
+.panel-content--collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+  gap: var(--space-2);
+  align-content: start;
+}
+
+/* List: a single column with a hairline divider between items. */
+.panel-content--collection-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-content--collection-list .panel-content__collection-item:not(:last-child) {
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.panel-content__collection-item {
+  display: flex;
+  min-width: 0;
+}
+
+/* Each item reuses `MetricRenderer` (`.panel-content--metric`). Inside a
+   collection tile the standalone metric's 3xl value is oversized, so scale it
+   to the tile density while keeping the mono tabular-numeral treatment. */
+.panel-content__collection-item .panel-content--metric {
+  padding: var(--space-2) var(--space-3);
+}
+
+.panel-content__collection-item .panel-content__metric-value {
+  font-size: var(--text-2xl);
+}

@@ -2,7 +2,11 @@
 // editor save) and the "text"/"markdown" cases of `seedCreateConfig` (via
 // `buildCreatePanelBody`).
 
-import { buildCreatePanelBody, buildContentBindingPatch } from "./panelPayloads";
+import {
+  buildCollectionPatch,
+  buildCreatePanelBody,
+  buildContentBindingPatch,
+} from "./panelPayloads";
 
 describe("buildContentBindingPatch", () => {
   it("Source mode (field): sets dataTypeId/fieldMapping.content and OMITS content entirely", () => {
@@ -93,5 +97,70 @@ describe("buildCreatePanelBody — markdown case seeds dataTypeId", () => {
     });
 
     expect(body.config).toMatchObject({ content: "", dataTypeId: "", fieldMapping: {} });
+  });
+});
+
+describe("buildCreatePanelBody — collection case (HEL-247, HEL-305 lesson)", () => {
+  it("carries baseType/layout EXPLICITLY plus the seeded binding", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "Metrics by Region",
+      type: "collection",
+      dataTypeId: "dt-1",
+    });
+
+    // The regression HEL-305 guards: creation-time discriminators must be
+    // carried explicitly in the payload, not dropped via a typeConfig passthrough.
+    expect(body.type).toBe("collection");
+    expect(body.config).toEqual({
+      dataTypeId: "dt-1",
+      fieldMapping: {},
+      baseType: "metric",
+      layout: "grid",
+    });
+  });
+
+  it("defaults config.dataTypeId to empty string when no DataType is selected", () => {
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      title: "Empty Collection",
+      type: "collection",
+    });
+
+    expect(body.config).toMatchObject({ dataTypeId: "", baseType: "metric", layout: "grid" });
+  });
+});
+
+describe("buildCollectionPatch (HEL-247)", () => {
+  it("carries a layout-only change without unrelated cleared fields", () => {
+    const patch = buildCollectionPatch({
+      typeId: "dt-1",
+      fieldMapping: { value: "amount" },
+      layout: "list",
+    });
+    expect(patch.layout).toBe("list");
+    expect(patch.dataTypeId).toBe("dt-1");
+    expect(patch.fieldMapping).toEqual({ value: "amount" });
+    // baseType/itemOptions were not supplied → their keys are omitted entirely
+    // (absent = unchanged), never clobbered.
+    expect("baseType" in patch).toBe(false);
+    expect("itemOptions" in patch).toBe(false);
+  });
+
+  it("omits itemOptions when undefined and clears it when null", () => {
+    expect("itemOptions" in buildCollectionPatch({ typeId: "dt-1", fieldMapping: null })).toBe(
+      false,
+    );
+    const cleared = buildCollectionPatch({ typeId: "dt-1", fieldMapping: null, itemOptions: null });
+    expect(cleared.itemOptions).toBeNull();
+  });
+
+  it("sets a literal metric unit under itemOptions.metric", () => {
+    const patch = buildCollectionPatch({
+      typeId: "dt-1",
+      fieldMapping: { value: "amount" },
+      itemOptions: { metric: { unit: "$" } },
+    });
+    expect(patch.itemOptions).toEqual({ metric: { unit: "$" } });
   });
 });

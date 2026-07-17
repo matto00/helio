@@ -5,9 +5,9 @@ TBD - created by archiving change panel-datatype-selection. Update Purpose after
 ## Requirements
 ### Requirement: DataType picker step for data-bound panel types during creation
 The modal SHALL present a DataType picker step after template selection when the selected panel type
-is data-bound (metric, chart, text, table). The picker SHALL list only DataTypes referenced by at
-least one pipeline via `outputDataTypeId`. Non-data-bound types (markdown, image, divider) SHALL
-skip this step and advance directly to the name-entry step.
+is data-bound (metric, chart, text, table, collection). The picker SHALL list only DataTypes
+referenced by at least one pipeline via `outputDataTypeId`. Non-data-bound types (markdown, image,
+divider) SHALL skip this step and advance directly to the name-entry step.
 
 #### Scenario: DataType step appears after template selection for metric type
 - **WHEN** the user selects the "metric" type card and then selects a template
@@ -24,6 +24,10 @@ skip this step and advance directly to the name-entry step.
 
 #### Scenario: DataType step appears after template selection for table type
 - **WHEN** the user selects the "table" type card and then selects a template
+- **THEN** the DataType picker step is shown
+
+#### Scenario: DataType step appears after template selection for collection type
+- **WHEN** the user selects the "collection" type card and then selects a template
 - **THEN** the DataType picker step is shown
 
 #### Scenario: DataType step is skipped for markdown type

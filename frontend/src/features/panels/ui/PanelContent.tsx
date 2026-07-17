@@ -3,6 +3,7 @@ import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
   isChartPanel,
+  isCollectionPanel,
   isDividerPanel,
   isImagePanel,
   isMarkdownPanel,
@@ -11,6 +12,7 @@ import {
   isTextPanel,
 } from "../state/panelNarrowing";
 import { ChartRenderer } from "./renderers/ChartRenderer";
+import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
 import { ImageRenderer } from "./renderers/ImageRenderer";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
@@ -116,6 +118,11 @@ export function PanelContent({
   if (isMarkdownPanel(panel)) return <MarkdownRenderer panel={panel} data={data} />;
   if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
   if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
+  // HEL-247 — collection uses the table fetch path (rawRows/headers): one bound
+  // row expands to one metric item.
+  if (isCollectionPanel(panel)) {
+    return <CollectionRenderer panel={panel} rawRows={rawRows} headers={headers} />;
+  }
 
   // Exhaustiveness fallback — the union is closed so this is unreachable.
   return <MetricRenderer data={data} />;

@@ -85,6 +85,7 @@ object PanelServiceHelpers {
     case PanelConfigCodec.MarkdownCreate(c) => MarkdownPanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.ImageCreate(c)    => ImagePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.DividerCreate(c)  => DividerPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.CollectionCreate(c) => CollectionPanel(id, dashboardId, title, meta, appearance, ownerId, c)
   }
 
   private[services] def validateCreatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
@@ -111,10 +112,11 @@ object PanelServiceHelpers {
    *  treated as unbound, mirroring `Panel.dataTypeId`'s own convention. */
   private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
     config match {
-      case PanelConfigCodec.MetricCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.ChartCreate(c)  => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.TableCreate(c)  => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case _                                => None
+      case PanelConfigCodec.MetricCreate(c)     => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.ChartCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.TableCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.CollectionCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case _                                    => None
     }
 
   /** Extract the `dataTypeId` an incoming PATCH `config` payload explicitly

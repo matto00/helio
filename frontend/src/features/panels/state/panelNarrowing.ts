@@ -14,6 +14,7 @@
 import type {
   ChartAggregation,
   ChartPanel,
+  CollectionPanel,
   DividerOrientation,
   DividerPanel,
   ImageFit,
@@ -35,16 +36,18 @@ export const isTextPanel = (p: Panel): p is TextPanel => p.type === "text";
 export const isMarkdownPanel = (p: Panel): p is MarkdownPanel => p.type === "markdown";
 export const isImagePanel = (p: Panel): p is ImagePanel => p.type === "image";
 export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divider";
+export const isCollectionPanel = (p: Panel): p is CollectionPanel => p.type === "collection";
 
 /** True when the subtype carries a `dataTypeId` / `fieldMapping` binding pair. */
 export const isBoundCapablePanel = (
   p: Panel,
-): p is MetricPanel | ChartPanel | TablePanel | TextPanel | MarkdownPanel =>
+): p is MetricPanel | ChartPanel | TablePanel | TextPanel | MarkdownPanel | CollectionPanel =>
   p.type === "metric" ||
   p.type === "chart" ||
   p.type === "table" ||
   p.type === "text" ||
-  p.type === "markdown";
+  p.type === "markdown" ||
+  p.type === "collection";
 
 // ── Read-only accessors ─────────────────────────────────────────────────────
 //

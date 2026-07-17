@@ -11,7 +11,7 @@
     "title": { "type": "string", "minLength": 1, "maxLength": 160 },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
+      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider", "collection"]
     },
     "meta": { "$ref": "https://helio.local/schemas/resource-meta.schema.json" },
     "appearance": { "$ref": "https://helio.local/schemas/panel-appearance.schema.json" },
@@ -42,6 +42,12 @@
       "properties": {
         "type": { "const": "divider" },
         "config": { "$ref": "#/$defs/DividerConfig" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "collection" },
+        "config": { "$ref": "#/$defs/CollectionConfig" }
       }
     }
   ],
@@ -132,6 +138,49 @@
         "orientation": { "type": "string", "enum": ["horizontal", "vertical"] },
         "weight": { "type": ["integer", "null"], "minimum": 1 },
         "color": { "type": ["string", "null"], "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$" }
+      }
+    },
+    "CollectionConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Collection panel config (HEL-247). Binding reuses dataTypeId/fieldMapping; baseType/layout/itemOptions are the collection-specific concerns. Adding a future base type is a code-only change (widen the baseType enum + add an itemOptions key) — no schema-shape break.",
+      "properties": {
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": {
+          "type": "object",
+          "description": "Shared field mapping applied to every rendered item."
+        },
+        "baseType": {
+          "type": "string",
+          "enum": ["metric"],
+          "description": "Which base panel kind each item renders as. Ships with metric only; widening this enum is how a future base type is added."
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["grid", "list"],
+          "description": "Item layout. Absent falls back to grid."
+        },
+        "itemOptions": {
+          "$ref": "#/$defs/CollectionItemOptions",
+          "description": "Shared literal item overrides, keyed per base type. Options under a non-active base type key are preserved across base-type switches."
+        }
+      }
+    },
+    "CollectionItemOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-base-type shared item options for a collection panel.",
+      "properties": {
+        "metric": { "$ref": "#/$defs/CollectionMetricItemOptions" }
+      }
+    },
+    "CollectionMetricItemOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Literal label/unit overrides applied to every metric item (HEL-243 literal-wins semantics).",
+      "properties": {
+        "label": { "type": "string" },
+        "unit": { "type": "string" }
       }
     },
     "MetricAggregation": {
