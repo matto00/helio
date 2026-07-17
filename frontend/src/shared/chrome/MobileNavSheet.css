@@ -142,3 +142,16 @@
   color: var(--app-text-muted);
   font-size: var(--text-sm);
 }
+
+/* HEL-303: sheet rows are the primary tap target on phone (dashboard switcher
+   + section-item nav). `--control-lg` (40px) sits under the 44px HIG minimum,
+   so lift the row to 44px at the mobile-shell breakpoint — literal `44px`, not
+   a `--control` token, matching the established tap-target convention in
+   `BottomNav.css` and `PanelDetailModal.css`'s mobile block. The sheet only
+   renders at phone width, so the media gate is belt-and-suspenders for
+   consistency with that pattern and reads as touch-target intent. */
+@media (max-width: 768px) {
+  .mobile-nav-sheet__item {
+    min-height: 44px;
+  }
+}

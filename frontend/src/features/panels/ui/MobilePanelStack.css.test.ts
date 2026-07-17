@@ -34,7 +34,11 @@ function findRuleBody(source: string, selectorSubstring: string): string {
 }
 
 describe("MobilePanelStack.css — intrinsic-height items vs. container-type: size", () => {
-  const intrinsicKinds = ["table", "markdown", "text", "image"] as const;
+  // HEL-303: `collection` is intrinsic (mobilePanelHeights returns height:null,
+  // so no `--mobile-panel-height`), so — like table/markdown/text/image — it
+  // must override `.panel-grid-card`'s `container-type: size` or it collapses
+  // to ~0 content height in the stack.
+  const intrinsicKinds = ["table", "markdown", "text", "image", "collection"] as const;
 
   it.each(intrinsicKinds)("the --%s stack-item rule does not set container-type: size", (kind) => {
     const body = findRuleBody(css, `.mobile-panel-stack__item--${kind}`);
@@ -43,13 +47,30 @@ describe("MobilePanelStack.css — intrinsic-height items vs. container-type: si
     expect(body).not.toMatch(/container-type:\s*size\b/);
   });
 
-  it("the table/markdown/text/image rule explicitly restores inline-size containment", () => {
-    // This is the actual guard: the shared `.panel-grid-card` class
-    // (PanelGrid.css) sets `container-type: size` unconditionally, so these
-    // four stack-item classes must override it, not merely omit `size`.
-    const body = findRuleBody(css, ".mobile-panel-stack__item--table");
-    expect(body).toMatch(/container-type:\s*inline-size\s*;/);
+  it.each(intrinsicKinds)(
+    "the --%s stack-item rule explicitly restores inline-size containment",
+    (kind) => {
+      // This is the actual guard: the shared `.panel-grid-card` class
+      // (PanelGrid.css) sets `container-type: size` unconditionally, so these
+      // intrinsic-height stack-item classes must override it, not merely omit
+      // `size`. (All five share one selector list, so this asserts the shared
+      // rule carries both declarations.)
+      const body = findRuleBody(css, `.mobile-panel-stack__item--${kind}`);
+      expect(body).toMatch(/container-type:\s*inline-size\s*;/);
+      expect(body).toMatch(/height:\s*auto\s*;/);
+    },
+  );
+
+  it("collection restores intrinsic sizing on its content body (no nested scroller)", () => {
+    // CollectionRenderer.css sets `overflow-y: auto` for desktop's fixed-height
+    // card; the stack must restore intrinsic height + visible overflow so
+    // collection has no internal scroller (mobile-panel-sizing spec).
+    const body = findRuleBody(
+      css,
+      ".mobile-panel-stack__item--collection .panel-content--collection",
+    );
     expect(body).toMatch(/height:\s*auto\s*;/);
+    expect(body).toMatch(/overflow:\s*visible\s*;/);
   });
 
   it("metric/chart (which DO get an explicit --mobile-panel-height) are unaffected", () => {

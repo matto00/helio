@@ -621,6 +621,24 @@
    BottomNav query where the 44px rule already lives. 44px is the a11y tap
    minimum (not a --control token), consistent with BottomNav.css. */
 @media (max-width: 768px) {
+  /* HEL-303: the modal is reachable on phone by tapping a stack panel, so the
+     header Edit/Close controls and the footer Save/Cancel actions — the entry
+     and exit points of the reachable edit flow — must also meet the 44px tap
+     minimum. They sit at `--control-sm` (28px) / `--control-md` (32px) by
+     default, both under 44px. */
+  .panel-detail-modal__edit-btn {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__btn {
+    min-height: 44px;
+  }
+
   .panel-detail-modal__mode-toggle-btn {
     min-height: 44px;
   }
@@ -674,6 +692,27 @@
      label / unit Selects are already covered by the `.ui-select__trigger` rule
      above, and the label/unit mode toggles by `.panel-detail-modal__mode-toggle-btn`. */
   .panel-detail-modal__segmented-btn {
+    min-height: 44px;
+  }
+
+  /* HEL-303 (cycle 2): the Chart Display checkbox rows — Show legend / Enable
+     tooltip / Show X-axis label / Show Y-axis label — are `.panel-detail-modal__chart-label`
+     flex rows wrapping a 13px native checkbox and render ~19px tall by default
+     (evaluator live measurement at 390×844). They are reachable in every chart
+     panel's edit flow (bar/line/pie/scatter share this markup), so lift them to
+     the 44px tap minimum. The base rule already centers content (align-items:
+     center), so the checkbox + text stay vertically centred in the taller row. */
+  .panel-detail-modal__chart-label {
+    min-height: 44px;
+  }
+
+  /* The 7 Series-color swatches are bare native `input[type="color"]` boxes at
+     32×28px — under the minimum. Native color inputs vary by engine, but they
+     sit in the same reachable Chart Display flow, so give them a 44×44 target
+     via the same @media pattern; `.panel-detail-modal__color-swatches` already
+     sets `flex-wrap: wrap`, so the wider swatches wrap instead of crowding. */
+  .panel-detail-modal__color-swatches input[type="color"] {
+    min-width: 44px;
     min-height: 44px;
   }
 }
