@@ -29,6 +29,9 @@ The frontend MUST accumulate panel title and appearance changes in a
 The frontend MUST flush the `pendingPanelUpdates` map to `POST /api/panels/updateBatch`
 on a 30-second `setInterval` whenever the map is non-empty, using the existing `updatePanelsBatch` thunk.
 The timer MUST reset to 30 seconds after any manual "Save now" flush.
+The flush lifecycle (interval, dashboard-switch flush, Save-now registration) MUST be owned by a component that is
+mounted whenever a dashboard view renders, independent of the grid container width — it MUST NOT be gated on the
+desktop grid (≥768px) being mounted.
 
 #### Scenario: Pending updates are sent after 30-second interval
 - **GIVEN** one or more panel field changes have been accumulated
@@ -52,6 +55,19 @@ The timer MUST reset to 30 seconds after any manual "Save now" flush.
 - **WHEN** the PanelGrid component unmounts (user navigates away)
 - **THEN** the interval timer is cancelled
 - **AND** any un-flushed updates are discarded (no flush on unmount)
+
+#### Scenario: Appearance edit staged at phone width flushes like desktop
+- **GIVEN** the grid container width is below 768px (mobile stack is rendered)
+- **WHEN** the user saves an appearance (or title) edit in the panel detail modal
+- **AND** the 30-second interval elapses (or "Save now" is clicked)
+- **THEN** the frontend dispatches `updatePanelsBatch` with the staged changes
+- **AND** `pendingPanelUpdates` is cleared after a successful response
+
+#### Scenario: Pending updates survive a shell switch (resize below 768px mid-edit)
+- **GIVEN** panel field changes were accumulated while the desktop grid (≥768px) was rendered
+- **WHEN** the container width drops below 768px before the next flush (desktop grid unmounts, stack mounts)
+- **THEN** the pending updates are NOT stranded — the next interval tick or "Save now" flushes them via
+  `updatePanelsBatch`
 
 ### Requirement: The batch flush payload covers all accumulated field types
 The `updatePanelsBatch` request MUST include all field types present across all pending panels

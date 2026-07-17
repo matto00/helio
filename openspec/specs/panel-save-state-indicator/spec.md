@@ -56,7 +56,10 @@ The system SHALL reveal a "Save now" control when the user hovers the save-state
 - **THEN** a "Save now" control becomes visible
 
 ### Requirement: Save now immediately flushes pending updates
-The system SHALL dispatch `updatePanelsBatch` immediately when the user clicks "Save now", clears pending updates, updates the last-saved timestamp, and resets the auto-save timer.
+The system SHALL dispatch `updatePanelsBatch` immediately when the user clicks "Save now", clears pending updates,
+updates the last-saved timestamp, and resets the auto-save timer. The "Save now" control MUST be functional at
+every viewport width at which it is rendered — including below 768px, where the mobile stack is mounted — never a
+visible control wired to an unregistered (no-op) flush.
 
 #### Scenario: Save now dispatches updatePanelsBatch
 - **WHEN** the user clicks "Save now"
@@ -71,6 +74,12 @@ The system SHALL dispatch `updatePanelsBatch` immediately when the user clicks "
 #### Scenario: Save now is a no-op when no pending changes
 - **WHEN** the user clicks "Save now" with no pending panel updates
 - **THEN** no network request is made
+
+#### Scenario: Save now flushes at phone width
+- **GIVEN** pending panel updates staged while the viewport/container width is below 768px
+- **WHEN** the user clicks "Save now"
+- **THEN** `updatePanelsBatch` is dispatched with the pending updates
+- **AND** no `PATCH /api/dashboards/:id` (layout) request is issued
 
 ### Requirement: Navigation guard prompts on unsaved changes
 The system SHALL register a `beforeunload` handler that prompts the user when `pendingPanelUpdates` is non-empty.
