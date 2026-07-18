@@ -14,6 +14,14 @@
 // add a call to `useLayoutSave` (or anything that dispatches
 // `updateDashboardLayout` / `setLayoutPending`) outside this file without
 // re-reading that hazard section first.
+//
+// HEL-306: because this component fully unmounts when the width drops below the
+// `sm` boundary (or on a dashboard switch — `PanelList.tsx` keys `<PanelGrid>`
+// by `selectedDashboardId`, a true remount), `useLayoutSave` also flushes any
+// staged-but-unpersisted layout change in its unmount cleanup, so a
+// desktop-staged drag/resize is not dropped by the shell swap. This stays
+// inside the desktop-only hook and runs on desktop-staged data only, so the
+// HEL-301 structural guarantee is unchanged.
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";

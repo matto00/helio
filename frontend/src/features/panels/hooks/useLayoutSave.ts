@@ -9,6 +9,16 @@
 // (`registerLayoutFlush`) so a manual "Save now" or auto-save tick persists a
 // pending layout change; on unmount it clears the slot, so crossing below the
 // boundary leaves no layout-write path (a pure resize never PATCHes layout).
+//
+// HEL-306: it also flushes any staged-but-unpersisted layout change in its own
+// unmount cleanup, so a desktop-staged drag/resize survives DesktopPanelGrid
+// unmounting for any reason — the window shrinking below the `sm` boundary
+// (`PanelList.tsx` keys `<PanelGrid>` by `selectedDashboardId`, so a dashboard
+// switch is likewise a true remount), or route navigation. This does NOT weaken
+// the HEL-301 guarantee: the flush runs in this desktop-only hook's teardown on
+// desktop-staged data only, and `persistLayout`'s equality guard makes a
+// browse-only crossing (no staged change) a no-op — the mobile stack still
+// mounts no layout-write path.
 
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 
@@ -95,6 +105,21 @@ export function useLayoutSave({
     registerLayoutFlush(persistLayout);
     return () => registerLayoutFlush(null);
   }, [registerLayoutFlush, persistLayout]);
+
+  // HEL-306: keep the latest persistLayout in a ref and flush it exactly once at
+  // true unmount. Kept in a ref (updated every render, no dependency array — the
+  // usePanelUpdatesFlush latest-ref pattern) so the unmount effect can stay
+  // empty-dep: its cleanup fires only when DesktopPanelGrid actually unmounts
+  // (boundary crossing or dashboard switch), not on every persistLayout identity
+  // change. Flushing directly (not via the parent slot) means teardown order
+  // between this effect and the slot-clear effect above is irrelevant. The
+  // equality + in-flight guards inside persistLayout make a flush with no staged
+  // change a no-op, so a browse-only crossing dispatches nothing.
+  const persistLayoutRef = useRef(persistLayout);
+  useEffect(() => {
+    persistLayoutRef.current = persistLayout;
+  });
+  useEffect(() => () => persistLayoutRef.current(), []);
 
   const markLayoutChanged = useCallback(
     (next: DashboardLayout) => {

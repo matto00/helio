@@ -15,6 +15,12 @@
 // `updateDashboardLayout` / `setLayoutPending` write can fire. This preserves
 // the HEL-301 xs byte-identity guarantee (hazard §4.1 of
 // notes/mobile-pwa-handoff.md, the binding spec).
+//
+// HEL-306: a layout change staged on desktop but not yet flushed is instead
+// persisted by `useLayoutSave`'s own unmount cleanup (not via this slot), so
+// the boundary crossing that empties this slot no longer drops the staged edit.
+// This slot remains the path for the auto-save tick / "Save now" while the
+// desktop grid is mounted; the unmount flush covers the teardown case.
 
 import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from "react";
 
