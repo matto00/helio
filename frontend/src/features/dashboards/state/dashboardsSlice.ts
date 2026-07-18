@@ -12,6 +12,7 @@ import {
   updateDashboardAppearance as updateDashboardAppearanceRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../services/dashboardService";
+import { applyDashboardProposal as applyDashboardProposalRequest } from "../services/proposalService";
 import type { RootState } from "../../../store/store";
 import type {
   Dashboard,
@@ -20,6 +21,7 @@ import type {
   DashboardSnapshot,
   DuplicateDashboardResponse,
 } from "../types/dashboard";
+import type { AppliedProposal, DashboardProposal } from "../types/proposal";
 
 interface DashboardsState {
   items: Dashboard[];
@@ -168,6 +170,22 @@ export const importDashboard = createAsyncThunk<
   }
 });
 
+export const applyProposal = createAsyncThunk<
+  AppliedProposal,
+  DashboardProposal,
+  { rejectValue: string }
+>("dashboards/applyProposal", async (proposal, { rejectWithValue }) => {
+  try {
+    return await applyDashboardProposalRequest(proposal);
+  } catch (err) {
+    const serverMessage =
+      isAxiosError(err) && typeof err.response?.data?.message === "string"
+        ? err.response.data.message
+        : null;
+    return rejectWithValue(serverMessage ?? "Failed to apply the proposal.");
+  }
+});
+
 const dashboardsSlice = createSlice({
   name: "dashboards",
   initialState,
@@ -247,6 +265,10 @@ const dashboardsSlice = createSlice({
         state.selectedDashboardId = action.payload.dashboard.id;
       })
       .addCase(importDashboard.fulfilled, (state, action) => {
+        state.items.push(action.payload.dashboard);
+        state.selectedDashboardId = action.payload.dashboard.id;
+      })
+      .addCase(applyProposal.fulfilled, (state, action) => {
         state.items.push(action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
       });

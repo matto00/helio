@@ -6,8 +6,7 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
 import type { DataType } from "../../dataTypes/types/dataType";
-import { fetchDashboards, setSelectedDashboardId } from "../state/dashboardsSlice";
-import { applyDashboardProposal } from "../services/proposalService";
+import { applyProposal } from "../state/dashboardsSlice";
 import { ProposalReview, type ReviewDataType } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
 
@@ -61,12 +60,12 @@ export function ProposalReviewPage() {
     setApplying(true);
     setApplyError(null);
     try {
-      const { dashboard } = await applyDashboardProposal(edited);
-      await dispatch(fetchDashboards());
-      dispatch(setSelectedDashboardId(dashboard.id));
+      // The thunk's fulfilled reducer inserts and selects the created dashboard
+      // in the same dispatch cycle, so the sidebar list is never stale (HEL-290).
+      await dispatch(applyProposal(edited)).unwrap();
       navigate("/");
     } catch (err) {
-      setApplyError(extractError(err));
+      setApplyError(typeof err === "string" ? err : "Failed to apply the proposal.");
       setApplying(false);
     }
   };
@@ -150,9 +149,4 @@ function synthesizeDemoProposal(dataTypes: DataType[]): DashboardProposal {
       },
     ],
   };
-}
-
-function extractError(err: unknown): string {
-  const maybe = err as { response?: { data?: { message?: string } }; message?: string };
-  return maybe?.response?.data?.message ?? maybe?.message ?? "Failed to apply the proposal.";
 }
