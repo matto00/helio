@@ -14,6 +14,11 @@ import { TextField } from "../ui/TextField";
 export interface SidebarItem {
   id: string;
   name: string;
+  /** Optional secondary line rendered under the name (e.g. the Type Registry's
+   * "Pipeline: <name>" provenance). Registry-specific — other sections that
+   * reuse this component leave it unset and render name-only. The list filter
+   * matches on `name` only, never the subtitle. */
+  subtitle?: string;
 }
 
 interface SidebarItemListProps {
@@ -167,14 +172,15 @@ export function SidebarItemList({
                   {onSelect !== undefined ? (
                     <button
                       type="button"
-                      className={className}
+                      className={
+                        item.subtitle !== undefined
+                          ? `${className} dashboard-list__button--stacked`
+                          : className
+                      }
                       aria-pressed={isActive}
                       onClick={() => onSelect(item)}
                     >
-                      <span className="dashboard-list__name-group">
-                        <span className="dashboard-list__name">{item.name}</span>
-                        {renderBadge?.(item)}
-                      </span>
+                      {renderItemText(item, renderBadge)}
                       {isActive ? (
                         <span
                           className="dashboard-list__active-dot"
@@ -185,15 +191,15 @@ export function SidebarItemList({
                   ) : toHref !== undefined ? (
                     <NavLink
                       to={toHref(item)}
-                      className={({ isActive: routeActive }) =>
-                        routeActive || isActive ? className : "dashboard-list__button"
-                      }
+                      className={({ isActive: routeActive }) => {
+                        const base = routeActive || isActive ? className : "dashboard-list__button";
+                        return item.subtitle !== undefined
+                          ? `${base} dashboard-list__button--stacked`
+                          : base;
+                      }}
                       end
                     >
-                      <span className="dashboard-list__name-group">
-                        <span className="dashboard-list__name">{item.name}</span>
-                        {renderBadge?.(item)}
-                      </span>
+                      {renderItemText(item, renderBadge)}
                       {isActive ? (
                         <span
                           className="dashboard-list__active-dot"
@@ -253,5 +259,23 @@ export function SidebarItemList({
         </ul>
       )}
     </section>
+  );
+}
+
+/** Renders a row's name (+ optional badge) and, when set, the provenance
+ * subtitle stacked beneath. Shared by the button and NavLink row variants so
+ * the two stay identical. When `subtitle` is unset no subtitle element is
+ * emitted, keeping other sections' markup unchanged. */
+function renderItemText(item: SidebarItem, renderBadge?: (item: SidebarItem) => ReactNode) {
+  return (
+    <span className="dashboard-list__text">
+      <span className="dashboard-list__name-group">
+        <span className="dashboard-list__name">{item.name}</span>
+        {renderBadge?.(item)}
+      </span>
+      {item.subtitle !== undefined ? (
+        <span className="dashboard-list__subtitle">{item.subtitle}</span>
+      ) : null}
+    </span>
   );
 }

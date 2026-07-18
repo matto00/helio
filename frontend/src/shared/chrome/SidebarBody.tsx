@@ -13,6 +13,7 @@ import { isUnstructuredDataType } from "../../features/dataTypes/types/dataType"
 import {
   deletePipeline,
   fetchPipelines,
+  selectPipelineNameByOutputTypeId,
   setCreatePipelineModalOpen,
 } from "../../features/pipelines/state/pipelinesSlice";
 import {
@@ -23,7 +24,7 @@ import {
 } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
-import { SidebarItemList } from "./SidebarItemList";
+import { SidebarItemList, type SidebarItem } from "./SidebarItemList";
 
 interface SidebarBodyProps {
   onCollapse: () => void;
@@ -43,6 +44,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
+  const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
   const section = sectionFromPathname(pathname);
 
@@ -55,8 +57,10 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       void dispatch(fetchDataTypes());
     }
     // The sources section also needs pipelines loaded: the delete-confirm
-    // warning counts pipelines that read from the source being deleted.
-    if (section === "sources" && pipelines.status === "idle") {
+    // warning counts pipelines that read from the source being deleted. The
+    // registry section needs them too, to resolve each DataType's producing
+    // pipeline for the provenance subtitle (HEL-270).
+    if ((section === "sources" || section === "registry") && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
     }
   }, [section, dispatch, sources.status, pipelines.status, dataTypes.status]);
@@ -123,10 +127,20 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     const unstructuredTypeIds = new Set(
       pipelineOutputDataTypes.filter(isUnstructuredDataType).map((dt) => dt.id),
     );
+    // Attach the producing-pipeline provenance subtitle where resolvable; omit
+    // it entirely when no pipeline is loaded for the DataType (HEL-270).
+    const registryItems: SidebarItem[] = pipelineOutputDataTypes.map((dt) => {
+      const pipelineName = pipelineNameByTypeId.get(dt.id);
+      return {
+        id: dt.id,
+        name: dt.name,
+        subtitle: pipelineName !== undefined ? `Pipeline: ${pipelineName}` : undefined,
+      };
+    });
     return (
       <SidebarItemList
         heading="Type Registry"
-        items={pipelineOutputDataTypes}
+        items={registryItems}
         status={dataTypes.status}
         error={dataTypes.error}
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}

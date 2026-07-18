@@ -56,3 +56,53 @@ describe("SidebarItemList delete-confirm warning", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("SidebarItemList subtitle (provenance)", () => {
+  it("renders the subtitle under the name when an item sets one", () => {
+    render(
+      <SidebarItemList
+        heading="Type Registry"
+        items={[{ id: "t-1", name: "RevenueRow", subtitle: "Pipeline: Revenue ETL" }]}
+        status="succeeded"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    const row = screen.getByText("RevenueRow").closest("li");
+    expect(row?.querySelector(".dashboard-list__subtitle")).toHaveTextContent(
+      "Pipeline: Revenue ETL",
+    );
+  });
+
+  it("renders no subtitle element for items that omit one (other-sections guard)", () => {
+    render(
+      <SidebarItemList
+        heading="Type Registry"
+        items={[{ id: "t-1", name: "RevenueRow" }]}
+        status="succeeded"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    const row = screen.getByText("RevenueRow").closest("li");
+    expect(row?.querySelector(".dashboard-list__subtitle")).not.toBeInTheDocument();
+  });
+
+  it("filters on name only — a subtitle-only match yields the no-matches state", () => {
+    render(
+      <SidebarItemList
+        heading="Type Registry"
+        items={[{ id: "t-1", name: "RevenueRow", subtitle: "Pipeline: Revenue ETL" }]}
+        status="succeeded"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Filter type registry by name/i }), {
+      target: { value: "Revenue ETL" },
+    });
+
+    expect(screen.getByText("No matches")).toBeInTheDocument();
+    expect(screen.queryByText("RevenueRow")).not.toBeInTheDocument();
+  });
+});

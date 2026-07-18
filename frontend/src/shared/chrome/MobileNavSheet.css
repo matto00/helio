@@ -120,11 +120,31 @@
   background: var(--app-accent-dim);
 }
 
+/* Stacks the name over an optional provenance subtitle (Type Registry
+   "Pipeline: <name>", HEL-270). The row uses min-height, so a subtitle grows
+   the tap target rather than shrinking it. */
+.mobile-nav-sheet__item-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
 .mobile-nav-sheet__item-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mobile-nav-sheet__item-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--app-text-muted);
 }
 
 .mobile-nav-sheet__active-dot {

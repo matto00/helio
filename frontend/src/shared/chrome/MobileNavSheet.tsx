@@ -8,6 +8,10 @@ export interface MobileNavSheetItem {
   id: string;
   name: string;
   isActive: boolean;
+  /** Optional secondary line under the name (Type Registry "Pipeline: <name>"
+   * provenance, HEL-270). Other sections leave it unset and render name-only,
+   * matching the desktop sidebar's `SidebarItem.subtitle`. */
+  subtitle?: string;
 }
 
 interface MobileNavSheetProps {
@@ -156,7 +160,12 @@ export function MobileNavSheet({
                     onClose();
                   }}
                 >
-                  <span className="mobile-nav-sheet__item-name">{item.name}</span>
+                  <span className="mobile-nav-sheet__item-text">
+                    <span className="mobile-nav-sheet__item-name">{item.name}</span>
+                    {item.subtitle !== undefined && (
+                      <span className="mobile-nav-sheet__item-subtitle">{item.subtitle}</span>
+                    )}
+                  </span>
                   {item.isActive && (
                     <span className="mobile-nav-sheet__active-dot" aria-label="Current" />
                   )}
