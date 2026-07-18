@@ -1,4 +1,5 @@
 import {
+  applyProposal,
   createDashboard,
   dashboardsReducer,
   fetchDashboards,
@@ -333,6 +334,81 @@ describe("dashboardsSlice", () => {
     expect(nextState.items).toHaveLength(2);
     expect(nextState.items[1].id).toBe("dashboard-imported");
     expect(nextState.selectedDashboardId).toBe("dashboard-imported");
+  });
+
+  // HEL-290 — applying a proposal must update the dashboards list in the same
+  // dispatch cycle (the sidebar was stale because the old flow relied on a
+  // condition-blocked fetchDashboards refetch).
+  it("appends the applied dashboard and selects it on applyProposal.fulfilled", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const nextState = dashboardsReducer(
+      initialState,
+      applyProposal.fulfilled(
+        {
+          dashboard: {
+            id: "dashboard-applied",
+            name: "Applied overview",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+          panels: [],
+        },
+        "req-apply",
+        { dashboardName: "Applied overview", panels: [] },
+      ),
+    );
+
+    expect(nextState.items).toHaveLength(2);
+    expect(nextState.items[1].id).toBe("dashboard-applied");
+    expect(nextState.selectedDashboardId).toBe("dashboard-applied");
+  });
+
+  it("leaves items and selection unchanged and carries the server message on applyProposal.rejected", () => {
+    const initialState = dashboardsReducer(
+      undefined,
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultAppearance,
+            layout: defaultLayout,
+          },
+        ],
+        "request-id",
+        undefined,
+      ),
+    );
+
+    const action = applyProposal.rejected(
+      new Error("Rejected"),
+      "req-apply-fail",
+      { dashboardName: "Applied overview", panels: [] },
+      "Panel references an unknown DataType.",
+    );
+    const nextState = dashboardsReducer(initialState, action);
+
+    expect(nextState.items).toEqual(initialState.items);
+    expect(nextState.selectedDashboardId).toBe(initialState.selectedDashboardId);
+    expect(action.payload).toBe("Panel references an unknown DataType.");
   });
 
   describe("setDashboardLayoutLocally", () => {
