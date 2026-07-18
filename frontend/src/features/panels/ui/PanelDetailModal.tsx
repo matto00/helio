@@ -5,6 +5,10 @@ import type { FormEvent, RefObject } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import "./PanelDetailModal.css";
+import "./PanelDetailModal.binding.css";
+import "./PanelDetailModal.sections.css";
+import "./PanelDetailModal.appearance.css";
+import "./PanelDetailModal.mobile.css";
 import { accumulatePanelUpdate } from "../state/panelsSlice";
 import {
   isChartPanel,

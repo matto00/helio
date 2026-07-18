@@ -1,0 +1,128 @@
+/* W4.5: full-screen on phone — desktop's centered card has no analogue on a
+   390px viewport, and a persistent close control (already present, not
+   hover-gated) is the only dismissal affordance that matters there.
+   Desktop/tablet (>=430px) presentation above is unchanged. */
+@media (max-width: 430px) {
+  .panel-detail-modal,
+  .panel-detail-modal--view {
+    width: 100vw;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+  }
+}
+
+/* Mobile tap targets (HEL-245). Below the mobile-shell breakpoint the panel
+   detail modal is reachable by tapping a panel card (mobile-viewer-stack
+   spec), so the interactive controls in the Content editor must meet the
+   codebase's 44px tap-target convention (BottomNav.css / mobile-bottom-nav
+   spec). At desktop density these controls stay at their --control-* heights;
+   this override only relaxes the minimum height/width on touch-width
+   viewports. Style-only — no BoundOrLiteralField/DataTypePicker logic change.
+   768px is the canonical mobile-shell breakpoint (DESIGN.md §4), matching the
+   BottomNav query where the 44px rule already lives. 44px is the a11y tap
+   minimum (not a --control token), consistent with BottomNav.css. */
+@media (max-width: 768px) {
+  /* HEL-303: the modal is reachable on phone by tapping a stack panel, so the
+     header Edit/Close controls and the footer Save/Cancel actions — the entry
+     and exit points of the reachable edit flow — must also meet the 44px tap
+     minimum. They sit at `--control-sm` (28px) / `--control-md` (32px) by
+     default, both under 44px. */
+  .panel-detail-modal__edit-btn {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__btn {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__mode-toggle-btn {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__type-option {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__type-clear {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-detail-modal .ui-select__trigger {
+    min-height: 44px;
+  }
+
+  /* HEL-255: Table display controls — the column visibility rows, the up/down
+     reorder buttons, and the Reset column widths action must also meet the
+     44px tap minimum at the mobile-shell breakpoint. */
+  .panel-detail-modal__column-row {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__column-visibility {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__column-move-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__reset-widths-btn {
+    min-height: 44px;
+  }
+
+  /* HEL-248: Chart Display controls — the per-type boolean toggle rows and the
+     group-spacing/donut sliders must also meet the 44px tap minimum at the
+     mobile-shell breakpoint. */
+  .panel-detail-modal__toggle-row {
+    min-height: 44px;
+  }
+
+  .panel-detail-modal__slider input[type="range"] {
+    min-height: 44px;
+  }
+
+  /* HEL-247: Collection editor — the grid/list layout segmented buttons must
+     also meet the 44px tap minimum. The base-type Select and the value-field /
+     label / unit Selects are already covered by the `.ui-select__trigger` rule
+     above, and the label/unit mode toggles by `.panel-detail-modal__mode-toggle-btn`. */
+  .panel-detail-modal__segmented-btn {
+    min-height: 44px;
+  }
+
+  /* HEL-303 (cycle 2): the Chart Display checkbox rows — Show legend / Enable
+     tooltip / Show X-axis label / Show Y-axis label — are `.panel-detail-modal__chart-label`
+     flex rows wrapping a 13px native checkbox and render ~19px tall by default
+     (evaluator live measurement at 390×844). They are reachable in every chart
+     panel's edit flow (bar/line/pie/scatter share this markup), so lift them to
+     the 44px tap minimum. The base rule already centers content (align-items:
+     center), so the checkbox + text stay vertically centred in the taller row. */
+  .panel-detail-modal__chart-label {
+    min-height: 44px;
+  }
+
+  /* The 7 Series-color swatches are bare native `input[type="color"]` boxes at
+     32×28px — under the minimum. Native color inputs vary by engine, but they
+     sit in the same reachable Chart Display flow, so give them a 44×44 target
+     via the same @media pattern; `.panel-detail-modal__color-swatches` already
+     sets `flex-wrap: wrap`, so the wider swatches wrap instead of crowding. */
+  .panel-detail-modal__color-swatches input[type="color"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 430px) {
+  .panel-detail-modal__row {
+    grid-template-columns: 1fr;
+  }
+}
