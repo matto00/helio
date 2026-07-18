@@ -95,4 +95,24 @@ describe("MobileNavSheet", () => {
     expect(screen.getByText("No data sources yet.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Ops Overview/ })).not.toBeInTheDocument();
   });
+
+  it("renders the provenance subtitle for an item that sets one", () => {
+    renderSheet({
+      items: [
+        { id: "type-1", name: "RevenueRow", isActive: false, subtitle: "Pipeline: Revenue ETL" },
+      ],
+    });
+
+    const item = screen.getByRole("button", { name: /RevenueRow/ });
+    expect(item.querySelector(".mobile-nav-sheet__item-subtitle")).toHaveTextContent(
+      "Pipeline: Revenue ETL",
+    );
+  });
+
+  it("renders no subtitle element for an item that omits one", () => {
+    renderSheet({ items: [{ id: "type-1", name: "RevenueRow", isActive: false }] });
+
+    const item = screen.getByRole("button", { name: /RevenueRow/ });
+    expect(item.querySelector(".mobile-nav-sheet__item-subtitle")).not.toBeInTheDocument();
+  });
 });

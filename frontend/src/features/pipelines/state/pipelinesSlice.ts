@@ -1,5 +1,6 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSelector, createSlice } from "@reduxjs/toolkit";
 
+import type { RootState } from "../../../store/store";
 import {
   getPipelines,
   createPipeline as createPipelineRequest,
@@ -351,6 +352,25 @@ const pipelinesSlice = createSlice({
       });
   },
 });
+
+/** Maps each pipeline's `outputDataTypeId` → that pipeline's name, for deriving
+ * "which pipeline produces this DataType" provenance in the Type Registry list
+ * (HEL-270). Pipelines whose `outputDataTypeId` is absent are skipped, so the
+ * map only ever holds resolvable DataType → pipeline pairs. Memoized on
+ * `state.pipelines.items` so consumers (desktop sidebar + phone sheet) share one
+ * stable reference. */
+export const selectPipelineNameByOutputTypeId = createSelector(
+  (state: RootState) => state.pipelines.items,
+  (items): Map<string, string> => {
+    const map = new Map<string, string>();
+    for (const pipeline of items) {
+      if (pipeline.outputDataTypeId !== undefined && pipeline.outputDataTypeId !== null) {
+        map.set(pipeline.outputDataTypeId, pipeline.name);
+      }
+    }
+    return map;
+  },
+);
 
 export const { clearRunState, setRunStatus, setCreatePipelineModalOpen } = pipelinesSlice.actions;
 export type { PipelinesState };

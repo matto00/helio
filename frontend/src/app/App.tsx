@@ -48,6 +48,10 @@ import {
   selectPipelineOutputDataTypes,
   setSelectedTypeId,
 } from "../features/dataTypes/state/dataTypesSlice";
+import {
+  fetchPipelines,
+  selectPipelineNameByOutputTypeId,
+} from "../features/pipelines/state/pipelinesSlice";
 import { setSelectedSourceId } from "../features/sources/state/sourcesSlice";
 import {
   redoLayout,
@@ -102,6 +106,7 @@ function AppShell() {
   // breadcrumb and the phone sheet must agree on that same filtered set, or
   // the title text and the sheet's active-item highlight could disagree.
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
+  const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
   const mobileSection = sectionFromPathname(location.pathname);
   const pipelineRouteId = location.pathname.startsWith("/pipelines/")
     ? location.pathname.split("/")[2]
@@ -151,11 +156,18 @@ function AppShell() {
         }));
       case "registry": {
         const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
-        return pipelineOutputDataTypes.map((dataType) => ({
-          id: dataType.id,
-          name: dataType.name,
-          isActive: dataType.id === effectiveTypeId,
-        }));
+        return pipelineOutputDataTypes.map((dataType) => {
+          // Provenance subtitle: which pipeline produces this DataType. Omitted
+          // when no pipeline is loaded for it, mirroring the desktop sidebar
+          // (HEL-270).
+          const pipelineName = pipelineNameByTypeId.get(dataType.id);
+          return {
+            id: dataType.id,
+            name: dataType.name,
+            isActive: dataType.id === effectiveTypeId,
+            subtitle: pipelineName !== undefined ? `Pipeline: ${pipelineName}` : undefined,
+          };
+        });
       }
     }
   })();
@@ -259,6 +271,16 @@ function AppShell() {
 
     void dispatch(fetchPanels(selectedDashboardId));
   }, [dispatch, selectedDashboardId]);
+
+  // The phone registry sheet resolves each DataType's producing pipeline for its
+  // provenance subtitle (HEL-270). Fetch pipelines when the registry section is
+  // active and not yet loaded — status-gated so a sidebar-driven fetch and this
+  // one don't loop. Mirrors the desktop `SidebarBody` registry-section fetch.
+  useEffect(() => {
+    if (mobileSection === "registry" && pipelines.status === "idle") {
+      void dispatch(fetchPipelines());
+    }
+  }, [dispatch, mobileSection, pipelines.status]);
 
   const shellStyle =
     onDashboardView &&

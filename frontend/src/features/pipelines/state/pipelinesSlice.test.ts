@@ -6,11 +6,13 @@ import {
   fetchPipelineRunHistory,
   fetchPipelineSteps,
   pipelinesReducer,
+  selectPipelineNameByOutputTypeId,
   submitPipelineRun,
   updatePipeline,
 } from "./pipelinesSlice";
 import * as pipelineService from "../services/pipelineService";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
+import type { RootState } from "../../../store/store";
 
 jest.mock("../services/pipelineService", () => ({
   getPipelines: jest.fn(),
@@ -801,5 +803,41 @@ describe("analyzePipeline thunk", () => {
       ([action]) => action.type === "pipelines/analyzePipeline/rejected",
     );
     expect(rejectedCall).toBeDefined();
+  });
+});
+
+describe("selectPipelineNameByOutputTypeId", () => {
+  function stateWith(items: PipelineSummary[]): RootState {
+    return { pipelines: { items } } as unknown as RootState;
+  }
+
+  it("maps outputDataTypeId → pipeline name for pipelines that carry one", () => {
+    const map = selectPipelineNameByOutputTypeId(
+      stateWith([
+        { ...testPipeline, outputDataTypeId: "dt-sales", name: "Sales Pipeline" },
+        { ...newPipeline, outputDataTypeId: "dt-raw", name: "Raw Ingest" },
+      ]),
+    );
+
+    expect(map.get("dt-sales")).toBe("Sales Pipeline");
+    expect(map.get("dt-raw")).toBe("Raw Ingest");
+    expect(map.size).toBe(2);
+  });
+
+  it("skips pipelines with an absent outputDataTypeId", () => {
+    const withoutOutput: PipelineSummary = { ...testPipeline };
+    delete withoutOutput.outputDataTypeId;
+
+    const map = selectPipelineNameByOutputTypeId(
+      stateWith([withoutOutput, { ...newPipeline, outputDataTypeId: "dt-raw" }]),
+    );
+
+    expect(map.has("dt-sales")).toBe(false);
+    expect(map.get("dt-raw")).toBe(newPipeline.name);
+    expect(map.size).toBe(1);
+  });
+
+  it("returns an empty map when there are no pipelines", () => {
+    expect(selectPipelineNameByOutputTypeId(stateWith([])).size).toBe(0);
   });
 });
