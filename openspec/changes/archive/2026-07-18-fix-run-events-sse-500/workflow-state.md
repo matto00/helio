@@ -6,12 +6,14 @@
 - WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/bug/sse-run-events-500/HEL-299
 - DEV_PORT: 5472
 - BACKEND_PORT: 8379
-- PHASE: Execution
-- CYCLE: 1
-- SKEPTIC_CYCLE: 0
+- PHASE: Delivery
+- FINAL_GATE: CONFIRM (round 1, report skeptic-final-1.md)
+- CYCLE: 1 (evaluator PASS, evaluation-1.md — unread per protocol)
+- SKEPTIC_CYCLE: 1
 - DESIGN_GATE: CONFIRM (round 1, report skeptic-design-1.md)
-- EXECUTOR_AGENT_ID: (not yet spawned)
-- EVALUATOR_AGENT_ID: (not yet spawned)
+- EXECUTOR_AGENT_ID: a37d157f47de0b5a6 (commit 55276e78)
+- EVALUATOR_AGENT_ID: a461435366077600b
+- NOTE: 500 not reproduced across full matrix; fallback shipped (hardening + regression tests + probe-report.md)
 
 ## Session-specific model overrides (user-directed)
 
