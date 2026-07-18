@@ -527,6 +527,55 @@ class PipelineRunRoutesSpec
       }
     }
 
+    // HEL-299 regression: the SSE guard's grantee branch is the only path that
+    // runs `UUID.fromString(caller.id.value)` + the `withUserContext` grant
+    // query (the owner path short-circuits on a string compare). It was the
+    // prime suspect for the observed 500, so lock it at 200 for a viewer
+    // grantee of an existing pipeline.
+    "GET /pipelines/:id/run-events returns text/event-stream for a viewer grantee (non-owner)" in {
+      import PostgresProfile.api._
+      val cache   = new PipelineRunCache()
+      val dsId    = seedDs("static")
+      val pid     = seedPipeline(dsId)
+      val granteeId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, display_name, created_at, updated_at)
+                 VALUES ($granteeId::uuid, 'hel299-grantee@test', 'Grantee', now(), now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+                 VALUES ('pipeline', ${pid.value}, $granteeId::uuid, 'viewer', now())"""
+      )))
+      val reg     = new PipelineRunRegistry()(typedSystem)
+      val grantee = AuthenticatedUser(UserId(granteeId))
+      Get(s"/pipelines/${pid.value}/run-events") ~> makeRoutes(cache, registry = reg, user = grantee) ~> check {
+        status shouldBe StatusCodes.OK
+        contentType.mediaType.mainType shouldBe "text"
+        contentType.mediaType.subType  shouldBe "event-stream"
+      }
+    }
+
+    // HEL-299: if the access-check future fails with an unexpected internal
+    // exception, the route must return a generic 500 that does NOT leak the
+    // exception message (previously it returned `ex.getMessage` in the body).
+    "GET /pipelines/:id/run-events returns a generic 500 without leaking the exception message on guard failure" in {
+      implicit val ec: ExecutionContext = routeEc
+      val secret       = "leaky-internal-detail-should-not-surface"
+      val failingRepo  = new PipelineRepository(ctx, new DataTypeRepository(ctx)(routeEc), dataSourceRepo)(routeEc) {
+        override def findByIdShared(id: PipelineId, callerOpt: Option[AuthenticatedUser]): Future[Option[Pipeline]] =
+          Future.failed(new RuntimeException(secret))
+      }
+      val reg          = new PipelineRunRegistry()(typedSystem)
+      val service      = new PipelineRunService(
+        failingRepo, stepRepo, dataSourceRepo, null, null, null, new PipelineRunCache(), reg, fileSystem, null
+      )
+      val routes: Route = new PipelineRunStreamRoutes(service, dummyUser).routes
+      Get("/pipelines/00000000-0000-0000-0000-0000000000aa/run-events") ~> routes ~> check {
+        status shouldBe StatusCodes.InternalServerError
+        val body = responseAs[String]
+        body should not include secret
+        body should include("Internal server error")
+      }
+    }
+
     "POST /pipelines/:id/run publishes queued -> running -> succeeded via SSE" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
