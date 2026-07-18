@@ -10,7 +10,7 @@
     "title": { "type": "string", "maxLength": 160 },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
+      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider", "collection"]
     },
     "config": { "type": "object" },
     "appearance": { "$ref": "panel-appearance.schema.json" }
@@ -44,6 +44,12 @@
     {
       "if": { "properties": { "type": { "const": "divider" } }, "required": ["type"] },
       "then": { "properties": { "config": { "$ref": "panel.schema.json#/$defs/DividerConfig" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "collection" } }, "required": ["type"] },
+      "then": {
+        "properties": { "config": { "$ref": "panel.schema.json#/$defs/CollectionConfig" } }
+      }
     }
   ]
 }

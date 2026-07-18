@@ -69,6 +69,57 @@ export interface DashboardWithPanels extends DashboardResponse {
   panels: DashboardSnapshot["panels"];
 }
 
+/** Result of `upload_image`: the stored id, its served (Bearer-free) url, and
+ *  the `helio://` markdown reference an agent drops into a markdown panel. */
+export interface ImageUploadOutcome {
+  id: string;
+  url: string;
+  markdownRef: string;
+}
+
+/** Complete default `ChartAppearance`, mirroring the backend's
+ *  `ChartAppearance.Default` (`backend/.../domain/model.scala`) and the
+ *  frontend's `DEFAULT_CHART_APPEARANCE`. The backend decodes `ChartAppearance`
+ *  with spray-json `jsonFormat5` where only `chartType` is optional —
+ *  `seriesColors`/`legend`/`tooltip`/`axisLabels` are REQUIRED. A bare
+ *  `{ chartType }` therefore fails `entity(as[CreatePanelRequest])`
+ *  deserialization (generic 400) before the service runs, so `createPanel`
+ *  overlays the caller's partial chart fields onto this complete base (HEL-315
+ *  design D2). */
+const DEFAULT_CHART_APPEARANCE: Record<string, unknown> = {
+  seriesColors: [
+    "#5470c6",
+    "#91cc75",
+    "#fac858",
+    "#ee6666",
+    "#73c0de",
+    "#3ba272",
+    "#fc8452",
+    "#9a60b4",
+  ],
+  legend: { show: true, position: "top" },
+  tooltip: { enabled: true },
+  axisLabels: {
+    x: { show: true, label: "X Axis" },
+    y: { show: true, label: "Y Axis" },
+  },
+  chartType: "line",
+};
+
+/** Overlay a caller's partial `chart` appearance onto the complete default so
+ *  the payload always carries `ChartAppearance`'s required fields. Non-chart
+ *  appearance keys (background/color/transparency) pass through untouched. */
+function withCompleteChartAppearance(appearance: Record<string, unknown>): Record<string, unknown> {
+  const chart = appearance.chart;
+  if (chart && typeof chart === "object" && !Array.isArray(chart)) {
+    return {
+      ...appearance,
+      chart: { ...DEFAULT_CHART_APPEARANCE, ...(chart as Record<string, unknown>) },
+    };
+  }
+  return appearance;
+}
+
 /** Composed pipeline view: summary plus its ordered steps. */
 export interface PipelineWithSteps extends PipelineSummaryResponse {
   steps: PipelineStepResponse[];
@@ -306,25 +357,76 @@ export class HelioApi {
     return this.http.post<DashboardResponse>("/api/dashboards", input);
   }
 
+  /** Create a panel. `type` ∈
+   *  metric/chart/table/text/markdown/image/collection (the MCP no longer
+   *  offers `divider`; the backend wire still accepts it on other paths).
+   *  `config` is the subtype's create-time config (e.g. collection
+   *  `{ baseType, layout }`, chart `{ chartOptions }`, table
+   *  `{ density, columnOrder }`, text/markdown `{ content }`).
+   *
+   *  `appearance` (HEL-305 create channel) is an optional passthrough with the
+   *  same wire shape as `update_panel_appearance`. When it carries a `chart`
+   *  object the caller's partial chart fields (notably `chartType`) are overlaid
+   *  onto the COMPLETE default `ChartAppearance` — a bare `{ chart: { chartType }}`
+   *  fails the backend's non-optional `ChartAppearance` deserialization (design
+   *  D2). */
   createPanel(input: {
     dashboardId: string;
     title?: string;
     type?: string;
     config?: Record<string, unknown>;
+    appearance?: Record<string, unknown>;
   }): Promise<PanelResponse> {
-    return this.http.post<PanelResponse>("/api/panels", input);
+    const body: Record<string, unknown> = {
+      dashboardId: input.dashboardId,
+      title: input.title,
+      type: input.type,
+      config: input.config,
+    };
+    if (input.appearance) body.appearance = withCompleteChartAppearance(input.appearance);
+    return this.http.post<PanelResponse>("/api/panels", body);
   }
 
-  /** Bind a data panel (metric/chart/table) to a pipeline-output DataType.
-   *  PATCHes `config: { dataTypeId, fieldMapping }`. The backend rejects a
-   *  companion-DataType binding with 400 (V41 pipeline-only rule) — that error
-   *  is surfaced to the caller, never worked around. */
+  /** Upload an image (HEL-246). Posts a single `file` multipart part to
+   *  `POST /api/uploads/image` — the same shape `create_csv_data_source` uses —
+   *  and returns the stored `id`, its served `url` (`/api/uploads/image/<id>`),
+   *  and the `helio://uploads/image/<id>` markdown reference. `content` is
+   *  base64 by default (images are binary); pass `encoding: "utf8"` for text
+   *  content. The backend's 413 (oversize) is surfaced verbatim by the tool. */
+  async uploadImage(input: {
+    content: string;
+    filename: string;
+    mime?: string;
+    encoding?: "base64" | "utf8";
+  }): Promise<ImageUploadOutcome> {
+    const bytes = Buffer.from(input.content, input.encoding ?? "base64");
+    const form = new FormData();
+    form.set(
+      "file",
+      new Blob([bytes], { type: input.mime ?? "application/octet-stream" }),
+      input.filename,
+    );
+    const result = await this.http.postMultipart<{ id: string; url: string }>(
+      "/api/uploads/image",
+      form,
+    );
+    return { ...result, markdownRef: `helio://uploads/image/${result.id}` };
+  }
+
+  /** Bind a panel (metric/chart/table/text/markdown/collection) to a
+   *  pipeline-output DataType. PATCHes `config: { dataTypeId, fieldMapping }`;
+   *  the PATCH is a per-field merge, so a collection's create-time
+   *  `baseType`/`layout` survive this bind (design D3). `fieldMapping` is
+   *  optional — a table binds with no mapping (columns are a vestigial slot;
+   *  visible columns come from `config.columnOrder`, HEL-255). The backend
+   *  rejects a companion-DataType binding with 400 (V41 pipeline-only rule) —
+   *  that error is surfaced to the caller, never worked around. */
   bindPanel(
     panelId: string,
-    binding: { dataTypeId: string; fieldMapping: Record<string, string>; panelType?: string },
+    binding: { dataTypeId: string; fieldMapping?: Record<string, string>; panelType?: string },
   ): Promise<PanelResponse> {
     const body: Record<string, unknown> = {
-      config: { dataTypeId: binding.dataTypeId, fieldMapping: binding.fieldMapping },
+      config: { dataTypeId: binding.dataTypeId, fieldMapping: binding.fieldMapping ?? {} },
     };
     if (binding.panelType) body.type = binding.panelType;
     return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, body);

@@ -196,24 +196,68 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "upload_image",
+    {
+      title: "Upload an image",
+      description:
+        "Upload an image (POST /api/uploads/image, single `file` multipart part — the same pattern " +
+        "as create_csv_data_source). `content` is the image bytes, base64-encoded by default " +
+        '(images are binary); pass encoding:"utf8" only for text content. Returns { id, url, ' +
+        "markdownRef }: `url` is the Bearer-free served path (/api/uploads/image/<id>) usable as an " +
+        "image panel's config.imageUrl; `markdownRef` is `helio://uploads/image/<id>` to embed in a " +
+        "markdown panel's config.content (e.g. `![caption](helio://uploads/image/<id>)`). The " +
+        "backend's 413 (image exceeds the configured max size) is surfaced verbatim.",
+      inputSchema: {
+        content: z.string().min(1),
+        filename: z.string().min(1),
+        mime: z.string().optional(),
+        encoding: z.enum(["base64", "utf8"]).optional(),
+      },
+    },
+    ({ content, filename, mime, encoding }) =>
+      guarded(() => api.uploadImage({ content, filename, mime, encoding })),
+  );
+
+  server.registerTool(
     "create_panel",
     {
       title: "Create panel",
       description:
-        "Create a panel on a dashboard. `type` ∈ metric/chart/table/text/markdown/image/divider. " +
-        "For data panels (metric/chart/table) create it then bind_panel to a pipeline-output " +
-        "DataType; for text/markdown pass config.content. Returns the panel id.",
+        "Create a panel on a dashboard. `type` ∈ " +
+        "metric/chart/table/text/markdown/image/collection (there is no `divider`: divider " +
+        "creation was dropped for agent/UI parity, mirroring the human app — the backend wire " +
+        "still accepts it on other paths, the MCP just no longer offers it). Data panels " +
+        "(metric/chart/table/collection) are created then bound with bind_panel to a " +
+        "pipeline-output DataType.\n" +
+        "config by type:\n" +
+        "• metric — bind later; literal `label`/`unit` overrides optional.\n" +
+        "• chart — `chartOptions` keyed by chart type (line {smooth,showPoints,areaFill}; " +
+        "bar {orientation:vertical|horizontal, stacking:none|stacked|normalized, barGapPct:0-100}; " +
+        "pie {donutHolePct:0-90, showPercentLabels}; scatter {sizeField,colorField}). Set the " +
+        "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config.\n" +
+        "• table — `density` (condensed|normal|spacious) and `columnOrder` (string[] of visible " +
+        "column keys, in order).\n" +
+        "• collection — `baseType` (metric) and `layout` (grid|list); set these here at create " +
+        "time (they survive a later bind_panel merge-patch). One bound row = one rendered item.\n" +
+        "• text/markdown — `content` (literal/static text). In markdown `content`, reference an " +
+        "uploaded image with the `helio://uploads/image/<id>` scheme (get <id> from upload_image).\n" +
+        "• image — `imageUrl` (use an uploaded image's served `url`, or its " +
+        "`helio://uploads/image/<id>` ref) and optional `imageFit` (contain|cover|fill).\n" +
+        "`appearance` is an optional passthrough (same shape as update_panel_appearance); its " +
+        "`chart.chartType` is the create-time channel for a bar/pie/scatter chart. Returns the " +
+        "panel id.",
       inputSchema: {
         dashboardId: z.string().min(1),
         title: z.string().optional(),
         type: z
-          .enum(["metric", "chart", "table", "text", "markdown", "image", "divider"])
+          .enum(["metric", "chart", "table", "text", "markdown", "image", "collection"])
           .optional(),
         config: z.record(z.unknown()).optional(),
+        appearance: z.record(z.unknown()).optional(),
       },
     },
-    ({ dashboardId, title, type, config }) =>
-      guarded(() => api.createPanel({ dashboardId, title, type, config })),
+    ({ dashboardId, title, type, config, appearance }) =>
+      guarded(() => api.createPanel({ dashboardId, title, type, config, appearance })),
   );
 
   server.registerTool(
@@ -221,15 +265,23 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     {
       title: "Bind panel to a DataType",
       description:
-        "Bind a metric/chart/table panel to a pipeline-output DataType and set its field mapping. " +
-        "fieldMapping keys by panel type: metric → {value,label?,unit?}; chart → {xAxis,yAxis,series?}; " +
-        "table → {columns}. The DataType MUST be a pipeline output (sourceId null); binding a source " +
-        "companion is rejected with 400 (V41). Pass panelType to match the panel's type.",
+        "Bind a panel to a pipeline-output DataType and set its field mapping. " +
+        "fieldMapping keys by panel type: metric → {value, label?, unit?}; " +
+        "chart → {xAxis, yAxis, series?}; text/markdown → {content} (the DataType column whose " +
+        "value fills the text/markdown body in Source mode); collection → the base-type slots, " +
+        "i.e. for baseType metric {value, label?, unit?} applied to every row/item; " +
+        "table → no fieldMapping needed (omit it — the old `columns` slot is vestigial; visible " +
+        "columns come from config.columnOrder set on create_panel). A collection's " +
+        "baseType/layout are set on create_panel and preserved by this bind (merge-patch). " +
+        "The DataType MUST be a pipeline output (sourceId null); binding a source companion is " +
+        "rejected with 400 (V41). Pass panelType to match the panel's type.",
       inputSchema: {
         panelId: z.string().min(1),
         dataTypeId: z.string().min(1),
-        fieldMapping: z.record(z.string()),
-        panelType: z.enum(["metric", "chart", "table"]).optional(),
+        fieldMapping: z.record(z.string()).optional(),
+        panelType: z
+          .enum(["metric", "chart", "table", "text", "markdown", "collection"])
+          .optional(),
       },
     },
     ({ panelId, dataTypeId, fieldMapping, panelType }) =>
