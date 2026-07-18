@@ -9,7 +9,7 @@ interface DividerPanelProps {
 export function DividerPanel({ orientation, weight, color }: DividerPanelProps) {
   const isVertical = orientation === "vertical";
   const thickness = weight ?? 1;
-  const resolvedColor = color ?? "var(--color-border)";
+  const resolvedColor = color ?? "var(--app-border-subtle)";
 
   return (
     <div
