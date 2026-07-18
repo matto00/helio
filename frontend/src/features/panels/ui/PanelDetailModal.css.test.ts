@@ -15,7 +15,7 @@ import path from "path";
 // convention (mobile-bottom-nav spec / BottomNav.css) at the mobile-shell
 // breakpoint, without touching BoundOrLiteralField logic.
 
-const CSS_PATH = path.join(__dirname, "PanelDetailModal.css");
+const CSS_PATH = path.join(__dirname, "PanelDetailModal.mobile.css");
 const css = fs.readFileSync(CSS_PATH, "utf-8");
 
 /** Extracts the full body of the first `@media` at-rule whose prelude contains

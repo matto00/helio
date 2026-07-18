@@ -1,0 +1,188 @@
+/* Collection layout segmented control (HEL-247). A two-option grid/list toggle;
+   shares the mode-toggle recipe (accent selection wash, neutral hairline) so it
+   reads as the same control family. */
+
+.panel-detail-modal__segmented {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.panel-detail-modal__segmented-btn {
+  flex: 1;
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.panel-detail-modal__segmented-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.panel-detail-modal__segmented-btn--active {
+  border-color: var(--app-accent);
+  background: var(--app-accent-surface);
+  color: var(--app-accent-strong);
+}
+
+.panel-detail-modal__segmented-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* Table display controls (HEL-255): column visibility/order rows + reset. The
+   density dropdown reuses the shared Select; these styles cover the Columns
+   list and the Reset column widths action. */
+
+.panel-detail-modal__column-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.panel-detail-modal__column-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+}
+
+.panel-detail-modal__column-visibility {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.panel-detail-modal__column-visibility input {
+  accent-color: var(--app-accent);
+}
+
+.panel-detail-modal__column-key {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.panel-detail-modal__column-move {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.panel-detail-modal__column-move-btn {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.panel-detail-modal__column-move-btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.panel-detail-modal__column-move-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.panel-detail-modal__column-move-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.panel-detail-modal__reset-widths-btn {
+  justify-self: start;
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.panel-detail-modal__reset-widths-btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.panel-detail-modal__reset-widths-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel-detail-modal__reset-widths-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* Chart Display controls (HEL-248): per-chart-type toggles + inline hints. The
+   orientation/stacking dropdowns reuse the shared Select and the group-spacing/
+   donut sliders reuse `.panel-detail-modal__slider`; these styles cover the
+   boolean toggle rows and the inline help text. */
+
+.panel-detail-modal__toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.panel-detail-modal__toggle-row input {
+  accent-color: var(--app-accent);
+}
+
+.panel-detail-modal__toggle-label {
+  font-size: var(--text-sm);
+}
+
+.panel-detail-modal__field-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
