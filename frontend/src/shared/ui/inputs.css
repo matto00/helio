@@ -150,3 +150,20 @@
   border: none;
   cursor: default;
 }
+
+/* HEL-308: shared Select popover option rows are a primary tap target on phone
+   (field pickers, dropdowns across the app). By default `.ui-select__option`
+   sizes from padding + `--text-sm` line-height (~34px), under the 44px HIG
+   minimum. Lift to 44px at the mobile-shell breakpoint — literal `44px`, not a
+   `--control` token, matching the established tap-target convention in
+   `MobileNavSheet.css` / `PanelDetailModal.css`'s mobile block. The option is
+   `display: block`, so a bare `min-height` would top-align the label; the
+   mobile rule switches to flex + `align-items: center` to keep it centered.
+   Desktop density is unchanged (nothing outside this media block moves). */
+@media (max-width: 768px) {
+  .ui-select__option {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

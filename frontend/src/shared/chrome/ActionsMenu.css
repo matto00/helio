@@ -69,3 +69,20 @@
 .actions-menu__item--danger:hover:not(:disabled) {
   background: var(--app-error-surface);
 }
+
+/* HEL-308: actions-menu items are a primary tap target on phone (panel-card,
+   dashboard-list, and sidebar kebab menus). By default `.actions-menu__item`
+   sizes from padding + `--text-xs` line-height (~31px), under the 44px HIG
+   minimum. Lift to 44px at the mobile-shell breakpoint — literal `44px`, not a
+   `--control` token, matching the established tap-target convention in
+   `MobileNavSheet.css` / `PanelDetailModal.css`'s mobile block. The item is
+   `display: block`, so a bare `min-height` would top-align the label; the
+   mobile rule switches to flex + `align-items: center` to keep it centered.
+   Desktop density is unchanged (nothing outside this media block moves). */
+@media (max-width: 768px) {
+  .actions-menu__item {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
