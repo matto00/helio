@@ -30,7 +30,7 @@ describe("DividerPanel — horizontal (default)", () => {
     const { container } = render(<DividerPanel color={null} />);
     const rule = container.querySelector(".divider-panel__rule") as HTMLElement | null;
     expect(rule).toBeInTheDocument();
-    expect(rule?.style.backgroundColor).toBe("var(--color-border)");
+    expect(rule?.style.backgroundColor).toBe("var(--app-border-subtle)");
   });
 });
 
