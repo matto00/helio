@@ -126,7 +126,14 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
         );
       })}
       {detailPanel ? (
-        <PanelDetailModal panel={detailPanel} onClose={() => setDetailPanelId(null)} />
+        // HEL-307: key by panel id so a direct switch between panels remounts
+        // the modal subtree, re-seeding every `useState(initial*)` form field
+        // from the target panel (see DesktopPanelGrid for the full rationale).
+        <PanelDetailModal
+          key={detailPanel.id}
+          panel={detailPanel}
+          onClose={() => setDetailPanelId(null)}
+        />
       ) : null}
     </div>
   );
