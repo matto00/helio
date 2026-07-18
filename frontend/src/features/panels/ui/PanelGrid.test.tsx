@@ -659,4 +659,139 @@ describe("PanelGrid", () => {
     });
   });
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // ─── HEL-306 — staged layout flushes when the desktop grid unmounts ──────────
+  // A layout change staged on desktop (drag/resize within the 30s auto-save
+  // window) must not be dropped when DesktopPanelGrid unmounts — whether the
+  // window shrinks below the sm boundary, the user switches dashboards, or
+  // navigates away. useLayoutSave flushes the staged layout in its unmount
+  // cleanup. The HEL-301 structural guarantee is preserved: the flush runs in
+  // the desktop hook's teardown on desktop-staged data only, so a browse-only
+  // crossing (no staged change) still dispatches nothing.
+  describe("HEL-306 — flush staged layout on desktop grid unmount", () => {
+    function setWidth(width: number) {
+      mockUseContainerWidth.mockReturnValue({
+        containerRef: { current: null },
+        width,
+        mounted: true,
+        measureWidth: jest.fn(),
+      });
+    }
+
+    // Reads the latest <Responsive> props captured by the mock spy so a test can
+    // drive onLayoutChange (simulating a drag/resize tick) directly.
+    function latestResponsiveProps() {
+      return MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1][0];
+    }
+
+    // A layout that moves panel-1 away from its resolved default position (x:0)
+    // at the lg breakpoint, so markLayoutChanged stages a real change.
+    const movedLayouts = {
+      lg: [{ i: "panel-1", x: 4, y: 0, w: 4, h: 5 }],
+      md: [{ i: "panel-1", x: 0, y: 0, w: 4, h: 5 }],
+      sm: [{ i: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
+      xs: [{ i: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
+    };
+    const stagedLayout = {
+      lg: [{ panelId: "panel-1", x: 4, y: 0, w: 4, h: 5 }],
+      md: [{ panelId: "panel-1", x: 0, y: 0, w: 4, h: 5 }],
+      sm: [{ panelId: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
+      xs: [{ panelId: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
+    };
+
+    // 3.1 — shrink-mid-edit: a staged layout change flushes exactly one PATCH
+    // carrying the staged layout when the width drops below 768px.
+    it("flushes the staged layout exactly once when the width drops below 768px mid-edit", async () => {
+      setWidth(1280);
+      const { rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      // Stage a layout change (RGL onLayoutChange fires during a drag).
+      act(() => {
+        (
+          latestResponsiveProps().onLayoutChange as unknown as (
+            current: unknown,
+            all: typeof movedLayouts,
+          ) => void
+        )(undefined, movedLayouts);
+      });
+
+      // Still staged — nothing has flushed yet.
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+
+      // Window shrinks below the boundary → DesktopPanelGrid unmounts.
+      setWidth(375);
+      await act(async () => {
+        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      });
+
+      expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+      expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", stagedLayout);
+    });
+
+    // 3.2 — browse-only crossing: no staged change → the unmount path dispatches
+    // zero layout PATCHes (re-runs the HEL-301 guarantee through the new path).
+    it("dispatches no layout PATCH on a browse-only crossing below 768px", async () => {
+      setWidth(1280);
+      const { rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      // No drag — just resize below the boundary. DesktopPanelGrid unmounts.
+      setWidth(375);
+      await act(async () => {
+        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      });
+
+      expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+    });
+
+    // 3.3 — rapid repeated crossings: stage once, cross down/up/down quickly.
+    // The staged layout persists exactly once (equality + in-flight guards) and
+    // no PATCH originates while the mobile stack is mounted.
+    it("persists the staged layout exactly once across rapid repeated boundary crossings", async () => {
+      setWidth(1280);
+      const { rerender } = renderWithStore(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        { panels: { items: [testPanel] } },
+      );
+
+      // Stage a layout change on desktop.
+      act(() => {
+        (
+          latestResponsiveProps().onLayoutChange as unknown as (
+            current: unknown,
+            all: typeof movedLayouts,
+          ) => void
+        )(undefined, movedLayouts);
+      });
+
+      // Down (unmount → flush), up (remount, re-seeds from resolvedLayout), down
+      // again (unmount → equality/in-flight guard suppresses a duplicate).
+      setWidth(375);
+      await act(async () => {
+        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      });
+      // While the mobile stack is mounted, no PATCH can originate from it.
+      expect(MockResponsive).not.toHaveBeenCalledTimes(0); // grid mounted at least once
+      const patchesAfterFirstDown = updateDashboardLayoutMock.mock.calls.length;
+
+      setWidth(1280);
+      await act(async () => {
+        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      });
+
+      setWidth(375);
+      await act(async () => {
+        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      });
+
+      expect(patchesAfterFirstDown).toBe(1);
+      expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 });
