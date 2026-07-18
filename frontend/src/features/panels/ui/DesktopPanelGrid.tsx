@@ -284,6 +284,11 @@ export function DesktopPanelGrid({
       </Responsive>
       {detailPanelId !== null ? (
         <PanelDetailModal
+          // HEL-307: key by panel id so a direct switch between panels remounts
+          // the modal subtree, re-seeding every `useState(initial*)` form field
+          // from the target panel. Without it React reuses the instance and Save
+          // could write the previous panel's staged values onto this one.
+          key={detailPanelId}
           panel={panels.find((p) => p.id === detailPanelId)!}
           onClose={() => setDetailPanelId(null)}
         />
