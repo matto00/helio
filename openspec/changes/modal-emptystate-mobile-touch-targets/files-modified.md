@@ -1,0 +1,4 @@
+- `frontend/src/shared/ui/Modal.css` — add a `@media (max-width: 768px)` block flooring `.ui-modal__close` (min-width + min-height 44px) and `.ui-modal-btn` (min-height 44px) to the mobile tap-target minimum; desktop density unchanged.
+- `frontend/src/shared/ui/EmptyState.css` — add a `@media (max-width: 768px)` block flooring `.ui-empty-state__cta` (min-height 44px) on the base selector, which also defensively floors the sidebar variant (not mounted at this breakpoint).
+- `frontend/src/shared/ui/Modal.css.test.ts` — new CSS-lock regression test (following the `inputs.css.test.ts` precedent) asserting the mobile block retains the `.ui-modal__close` and `.ui-modal-btn` 44px floors.
+- `frontend/src/shared/ui/EmptyState.css.test.ts` — new CSS-lock regression test asserting the mobile block retains the `.ui-empty-state__cta` 44px floor.

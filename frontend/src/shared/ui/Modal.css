@@ -181,3 +181,21 @@
 .ui-modal-btn--primary:hover:not(:disabled) {
   background: var(--app-accent-strong);
 }
+
+/* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ── */
+
+@media (max-width: 768px) {
+  /* Square icon button — both axes must clear the 44px floor. `min-*` leaves
+     desktop's fixed --control-sm intact while the mobile floor wins; the
+     glyph is already flex-centered so it stays centered as the box grows. */
+  .ui-modal__close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Footer button — already flex-centered, so only the height floor is
+     needed. Desktop keeps its fixed --control-md height. */
+  .ui-modal-btn {
+    min-height: 44px;
+  }
+}

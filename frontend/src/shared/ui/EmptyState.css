@@ -122,3 +122,15 @@
 .ui-empty-state__cta-icon {
   font-size: 0.8em;
 }
+
+/* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ── */
+
+@media (max-width: 768px) {
+  /* Base selector, so it also floors the more-specific sidebar variant
+     (--control-sm, 28px) defensively — the sidebar column is not mounted at
+     this breakpoint. Already flex-centered, so only the height floor is
+     needed. */
+  .ui-empty-state__cta {
+    min-height: 44px;
+  }
+}
