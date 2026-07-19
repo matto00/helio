@@ -107,6 +107,15 @@ describe("ProposalReview", () => {
     expect(screen.getByText(/source companion/i)).toBeInTheDocument();
   });
 
+  it("flags an unbound collection panel with a 'needs bound DataType' warning (HEL-310)", () => {
+    const proposal: DashboardProposal = {
+      dashboardName: "Unbound Collection",
+      panels: [{ title: "Top Metrics", type: "collection" }],
+    };
+    renderReview({ proposal });
+    expect(screen.getByText("No DataType bound")).toBeInTheDocument();
+  });
+
   it("disables accept while applying and shows a server error", () => {
     renderReview({ applying: true, error: "Panels can only bind to pipeline-output data types" });
     expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();

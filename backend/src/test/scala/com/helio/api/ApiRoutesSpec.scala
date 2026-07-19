@@ -305,6 +305,32 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-310: contract-level coverage for `type: "collection"` — the schema
+    // parity guard (npm run check:schemas) covers the static contract; this
+    // covers the runtime route accepting and echoing the type.
+    "create a collection panel and return 201 with type echoed (HEL-310)" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Top Metrics"), Some("collection"), None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.dashboardId shouldBe dashboardId
+        response.title shouldBe "Top Metrics"
+        response.`type` shouldBe "collection"
+        response.id should not be empty
+        assertResourceMeta(response.meta)
+        assertPanelAppearance(response.appearance)
+      }
+    }
+
     "return dashboards sorted by lastUpdated descending" in {
       cleanDb()
 

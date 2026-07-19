@@ -26,7 +26,7 @@ interface ProposalReviewProps {
   onReject: () => void;
 }
 
-const DATA_PANEL_TYPES = new Set(["metric", "chart", "table"]);
+const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection"]);
 const PREVIEW_COLS = 12;
 const PREVIEW_ROW_PX = 16;
 
