@@ -159,11 +159,22 @@
    `MobileNavSheet.css` / `PanelDetailModal.css`'s mobile block. The option is
    `display: block`, so a bare `min-height` would top-align the label; the
    mobile rule switches to flex + `align-items: center` to keep it centered.
-   Desktop density is unchanged (nothing outside this media block moves). */
+   Desktop density is unchanged (nothing outside this media block moves).
+
+   HEL-314: the bare `.ui-select__trigger` is `min-height: var(--control-md)`
+   (32px), also under the 44px minimum at call sites outside `.panel-detail-modal`
+   (which has its own mobile override). Lift to `min-height: 44px` at the
+   mobile-shell breakpoint. The trigger is already `display: flex; align-items:
+   center`, so the label stays centered with only a height bump — no flex switch
+   needed. The more-specific `.panel-detail-modal`-scoped override is unaffected. */
 @media (max-width: 768px) {
   .ui-select__option {
     display: flex;
     align-items: center;
+    min-height: 44px;
+  }
+
+  .ui-select__trigger {
     min-height: 44px;
   }
 }

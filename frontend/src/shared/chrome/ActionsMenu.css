@@ -78,11 +78,24 @@
    `MobileNavSheet.css` / `PanelDetailModal.css`'s mobile block. The item is
    `display: block`, so a bare `min-height` would top-align the label; the
    mobile rule switches to flex + `align-items: center` to keep it centered.
-   Desktop density is unchanged (nothing outside this media block moves). */
+   Desktop density is unchanged (nothing outside this media block moves).
+
+   HEL-314: the kebab trigger itself is a `--control-sm` (28px) square, also
+   under the 44px minimum. Lift both axes with `min-width`/`min-height: 44px`
+   (not fixed `width`/`height`) so desktop's 28px stays intact while the mobile
+   floor wins. The dots glyph stays centered without a flex switch here: the
+   co-applied `.popover__trigger` class (Popover.css) already supplies
+   `inline-flex` + `align-items`/`justify-content: center`, so the glyph
+   re-centers once the box grows. */
 @media (max-width: 768px) {
   .actions-menu__item {
     display: flex;
     align-items: center;
+    min-height: 44px;
+  }
+
+  .actions-menu__trigger {
+    min-width: 44px;
     min-height: 44px;
   }
 }

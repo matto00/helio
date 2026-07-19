@@ -67,4 +67,14 @@ describe("ActionsMenu.css — mobile ≥44px tap targets (HEL-308)", () => {
     expect(body).toMatch(/display:\s*flex\s*;/);
     expect(body).toMatch(/align-items:\s*center\s*;/);
   });
+
+  // HEL-314: the kebab trigger itself must also clear 44px on both axes (it is a
+  // square icon button). Centering is inherited from the co-applied
+  // `.popover__trigger` class, so this rule only needs the min-width/min-height
+  // floor inside the same mobile-shell media block.
+  it("the actions-menu trigger gets min-width and min-height: 44px at the mobile-shell breakpoint", () => {
+    const body = findRuleBody(mobileBlock, ".actions-menu__trigger");
+    expect(body).toMatch(/min-width:\s*44px\s*;/);
+    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  });
 });
