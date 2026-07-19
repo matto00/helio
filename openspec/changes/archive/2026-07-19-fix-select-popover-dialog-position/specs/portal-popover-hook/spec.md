@@ -1,8 +1,5 @@
-# portal-popover-hook Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change portal-popover-hook. Update Purpose after archive.
-## Requirements
 ### Requirement: usePortalPopover hook encapsulates trigger ref and position state
 The `usePortalPopover` hook SHALL export a trigger ref, open/close state, panel position, and
 an open handler so that popover components can share the portal/positioning pattern without
@@ -27,24 +24,3 @@ dialog's origin.
 - **THEN** the panel aligns to its trigger — its top edge sits just below the trigger's bottom edge
   and its left edge matches the trigger's left edge — because the dialog's entrance animation leaves
   no lingering containing-block `transform` at rest
-
-### Requirement: All popover components use usePortalPopover
-All popover components (`ActionsMenu`, `DashboardAppearanceEditor`, `UserMenu`, `Select`) SHALL
-use `usePortalPopover` and MUST NOT duplicate trigger-ref and position-state logic inline.
-
-#### Scenario: ActionsMenu uses hook
-- **WHEN** ActionsMenu renders its popover
-- **THEN** it uses the shared hook for open/close and position state
-
-#### Scenario: DashboardAppearanceEditor uses hook
-- **WHEN** DashboardAppearanceEditor renders its popover
-- **THEN** it uses the shared hook for open/close and position state
-
-#### Scenario: Select uses hook
-- **WHEN** Select renders its dropdown panel
-- **THEN** it uses the shared hook for open/close and position state
-
-#### Scenario: UserMenu uses hook
-- **WHEN** UserMenu renders its menu popover
-- **THEN** it uses the shared hook for open/close and position state
-
