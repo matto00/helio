@@ -125,4 +125,45 @@ describe("selectPipelineOutputDataTypes", () => {
       pipelineOutputType,
     ]);
   });
+
+  // Task 2.1 — memoization must yield the same array reference for repeated
+  // calls with an unchanged `dataTypes.items` reference, so React-Redux render
+  // bailout succeeds and the "different result" warning is suppressed (HEL-312).
+  it("returns the same reference across repeated calls with unchanged items", () => {
+    const items = [companionType, pipelineOutputType];
+    const state = { dataTypes: { items, status: "succeeded" as const } } as unknown as RootState;
+    const first = selectPipelineOutputDataTypes(state);
+    const second = selectPipelineOutputDataTypes(state);
+    expect(second).toBe(first);
+  });
+
+  // Task 2.2 — stability holds across an unrelated state change (same `items`
+  // reference in a new state object), and a replaced `items` array recomputes.
+  it("keeps a stable reference across an unrelated state change", () => {
+    const items = [companionType, pipelineOutputType];
+    const stateBefore = {
+      dataTypes: { items, status: "loading" as const },
+    } as unknown as RootState;
+    const first = selectPipelineOutputDataTypes(stateBefore);
+    // Unrelated slice-level change; `items` array reference is untouched.
+    const stateAfter = {
+      dataTypes: { items, status: "succeeded" as const },
+      pipelines: { items: [] },
+    } as unknown as RootState;
+    const second = selectPipelineOutputDataTypes(stateAfter);
+    expect(second).toBe(first);
+  });
+
+  it("recomputes a new array when items is replaced", () => {
+    const stateBefore = {
+      dataTypes: { items: [companionType, pipelineOutputType], status: "succeeded" as const },
+    } as unknown as RootState;
+    const first = selectPipelineOutputDataTypes(stateBefore);
+    const stateAfter = {
+      dataTypes: { items: [pipelineOutputType], status: "succeeded" as const },
+    } as unknown as RootState;
+    const second = selectPipelineOutputDataTypes(stateAfter);
+    expect(second).not.toBe(first);
+    expect(second).toEqual([pipelineOutputType]);
+  });
 });
