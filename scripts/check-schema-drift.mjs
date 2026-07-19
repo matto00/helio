@@ -14,6 +14,13 @@ const protocolsAggregator = join(
   "backend/src/main/scala/com/helio/api/JsonProtocols.scala",
 );
 const protocolsDir = join(repoRoot, "backend/src/main/scala/com/helio/api/protocols");
+const modelScala = join(repoRoot, "backend/src/main/scala/com/helio/domain/model.scala");
+const proposalServiceScala = join(
+  repoRoot,
+  "backend/src/main/scala/com/helio/services/DashboardProposalService.scala",
+);
+const helioMcpProposalTs = join(repoRoot, "helio-mcp/src/tools/proposal.ts");
+const proposalReviewTsx = join(repoRoot, "frontend/src/features/dashboards/ui/ProposalReview.tsx");
 
 // Extract `case class <Name>(<params>)` (handles multi-line param lists).
 // Returns Map<className, fieldName[]>.
@@ -119,15 +126,180 @@ for (const file of readdirSync(schemasDir).sort()) {
   }
 }
 
+// --- Panel-type enum parity guard (HEL-310) ---
+// The canonical panel-type set lives in PanelType.fromString (model.scala) and
+// the canonical *data*-panel set lives in DataPanelKinds (DashboardProposalService.scala).
+// Every surface below that separately enumerates panel types must match one of
+// those two canonical sets exactly, or a new/removed panel type can silently
+// drift out of sync (as happened across HEL-247/HEL-305/HEL-315).
+
+function extractBetween(src, startMarker, endMarker, file) {
+  const startIdx = src.indexOf(startMarker);
+  if (startIdx === -1) throw new Error(`${file}: could not find "${startMarker}"`);
+  const endIdx = src.indexOf(endMarker, startIdx + startMarker.length);
+  if (endIdx === -1)
+    throw new Error(`${file}: could not find "${endMarker}" after "${startMarker}"`);
+  return src.slice(startIdx, endIdx);
+}
+
+function extractQuoted(str) {
+  return [...str.matchAll(/"([a-zA-Z0-9]+)"/g)].map((m) => m[1]);
+}
+
+function getEnumAt(schema, path, file) {
+  let node = schema;
+  for (const key of path) {
+    node = node?.[key];
+    if (node === undefined) {
+      throw new Error(`${file}: no node at ${path.join(".")}`);
+    }
+  }
+  if (!Array.isArray(node)) throw new Error(`${file}: ${path.join(".")} is not an enum array`);
+  return node;
+}
+
+function compareSets(actual, canonical, label) {
+  const actualSet = new Set(actual);
+  const canonicalSet = new Set(canonical);
+  const missing = canonical.filter((t) => !actualSet.has(t));
+  const extra = actual.filter((t) => !canonicalSet.has(t));
+  if (!missing.length && !extra.length) return null;
+  const parts = [`${label}:`];
+  if (missing.length) parts.push(`  missing: ${missing.join(", ")}`);
+  if (extra.length) parts.push(`  unexpected: ${extra.join(", ")}`);
+  return parts.join("\n");
+}
+
+const modelSrc = readFileSync(modelScala, "utf8");
+const fromStringBody = extractBetween(
+  modelSrc,
+  "def fromString(s: String)",
+  "def asString(t: PanelType)",
+  modelScala,
+);
+// Match `case "x" => Right(...)` arms only — excludes the `case other => Left(...)` fallback.
+const canonicalPanelTypes = [
+  ...fromStringBody.matchAll(/case\s+"([a-zA-Z0-9]+)"\s*=>\s*Right/g),
+].map((m) => m[1]);
+if (canonicalPanelTypes.length < 8) {
+  console.error(
+    `Canonical panel-type parse from ${modelScala} yielded only ${canonicalPanelTypes.length} types ` +
+      `(expected >= 8) — PanelType.fromString may have been reformatted; update the parser in this script.`,
+  );
+  process.exit(1);
+}
+
+const proposalServiceSrc = readFileSync(proposalServiceScala, "utf8");
+const dataPanelKindsMatch = proposalServiceSrc.match(
+  /DataPanelKinds:\s*Set\[String\]\s*=\s*Set\(([^)]*)\)/,
+);
+if (!dataPanelKindsMatch) {
+  throw new Error(
+    `${proposalServiceScala}: could not find "DataPanelKinds: Set[String] = Set(...)"`,
+  );
+}
+const canonicalDataPanelKinds = extractQuoted(dataPanelKindsMatch[1]);
+
+const panelTypeSurfaces = [
+  {
+    label: "schemas/create-panel-request.schema.json properties.type.enum",
+    canonical: canonicalPanelTypes,
+    actual: getEnumAt(
+      JSON.parse(readFileSync(join(schemasDir, "create-panel-request.schema.json"), "utf8")),
+      ["properties", "type", "enum"],
+      "create-panel-request.schema.json",
+    ),
+  },
+  {
+    label: "schemas/panel.schema.json properties.type.enum",
+    canonical: canonicalPanelTypes,
+    actual: getEnumAt(
+      JSON.parse(readFileSync(join(schemasDir, "panel.schema.json"), "utf8")),
+      ["properties", "type", "enum"],
+      "panel.schema.json",
+    ),
+  },
+  {
+    label: "schemas/update-panels-batch-request.schema.json panels.items.type.enum",
+    canonical: canonicalPanelTypes,
+    actual: getEnumAt(
+      JSON.parse(readFileSync(join(schemasDir, "update-panels-batch-request.schema.json"), "utf8")),
+      ["properties", "panels", "items", "properties", "type", "enum"],
+      "update-panels-batch-request.schema.json",
+    ),
+  },
+  {
+    label: "schemas/dashboard-proposal.schema.json $defs.ProposalPanel.properties.type.enum",
+    canonical: canonicalPanelTypes,
+    actual: getEnumAt(
+      JSON.parse(readFileSync(join(schemasDir, "dashboard-proposal.schema.json"), "utf8")),
+      ["$defs", "ProposalPanel", "properties", "type", "enum"],
+      "dashboard-proposal.schema.json",
+    ),
+  },
+];
+
+const helioMcpProposalSrc = readFileSync(helioMcpProposalTs, "utf8");
+const panelTypesBody = extractBetween(
+  helioMcpProposalSrc,
+  "const PANEL_TYPES = [",
+  "] as const;",
+  helioMcpProposalTs,
+);
+panelTypeSurfaces.push({
+  label: "helio-mcp/src/tools/proposal.ts PANEL_TYPES",
+  canonical: canonicalPanelTypes,
+  actual: extractQuoted(panelTypesBody),
+});
+
+const dataPanelTypeSurfaces = [
+  {
+    label: "helio-mcp/src/tools/proposal.ts DATA_PANEL_TYPES",
+    canonical: canonicalDataPanelKinds,
+    actual: extractQuoted(
+      extractBetween(
+        helioMcpProposalSrc,
+        "const DATA_PANEL_TYPES = new Set([",
+        "])",
+        helioMcpProposalTs,
+      ),
+    ),
+  },
+  {
+    label: "frontend/.../ProposalReview.tsx DATA_PANEL_TYPES",
+    canonical: canonicalDataPanelKinds,
+    actual: extractQuoted(
+      extractBetween(
+        readFileSync(proposalReviewTsx, "utf8"),
+        "const DATA_PANEL_TYPES = new Set([",
+        "])",
+        proposalReviewTsx,
+      ),
+    ),
+  },
+];
+
+let panelTypeChecked = 0;
+for (const { label, canonical, actual } of [...panelTypeSurfaces, ...dataPanelTypeSurfaces]) {
+  const mismatch = compareSets(actual, canonical, label);
+  if (mismatch) errors.push(mismatch);
+  else panelTypeChecked += 1;
+}
+
 if (errors.length) {
   console.error("Schema/JsonProtocols drift detected:\n");
   for (const e of errors) console.error(e + "\n");
   console.error(
-    "Update either the schema in schemas/ or the case class under backend/.../api/protocols/ so they agree.",
+    "Update either the schema in schemas/ or the case class under backend/.../api/protocols/ so they agree.\n" +
+      "For panel-type enum mismatches, widen the diverging surface to match the backend canonical set " +
+      "(PanelType.fromString / DataPanelKinds).",
   );
   process.exit(1);
 }
 
 console.log(
   `schemas in sync with JsonProtocols (${checked.length} checked across ${sources.length} protocol files)`,
+);
+console.log(
+  `panel-type enums in sync with backend canonical sets (${panelTypeChecked} surfaces checked)`,
 );

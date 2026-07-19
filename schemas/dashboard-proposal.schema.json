@@ -25,11 +25,11 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 160 },
         "type": {
           "type": "string",
-          "enum": ["metric", "chart", "table", "text", "markdown", "image", "divider"]
+          "enum": ["metric", "chart", "table", "text", "markdown", "image", "divider", "collection"]
         },
         "dataTypeId": {
           "type": "string",
-          "description": "Required for metric/chart/table panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
+          "description": "Required for metric/chart/table/collection panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
         },
         "fieldMapping": {
           "type": "object",

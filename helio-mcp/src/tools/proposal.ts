@@ -19,8 +19,17 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { DashboardProposal, ProposalPanel } from "../types.js";
 
-const DATA_PANEL_TYPES = new Set(["metric", "chart", "table"]);
-const PANEL_TYPES = ["metric", "chart", "table", "text", "markdown", "image", "divider"] as const;
+const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection"]);
+const PANEL_TYPES = [
+  "metric",
+  "chart",
+  "table",
+  "text",
+  "markdown",
+  "image",
+  "divider",
+  "collection",
+] as const;
 
 const layoutSchema = z.object({
   x: z.number().int().nonnegative(),

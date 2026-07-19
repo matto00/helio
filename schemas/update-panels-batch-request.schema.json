@@ -24,7 +24,16 @@
           "title": { "type": "string" },
           "type": {
             "type": "string",
-            "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider"]
+            "enum": [
+              "metric",
+              "chart",
+              "text",
+              "table",
+              "markdown",
+              "image",
+              "divider",
+              "collection"
+            ]
           },
           "appearance": { "$ref": "panel-appearance.schema.json" },
           "config": { "type": "object" }
