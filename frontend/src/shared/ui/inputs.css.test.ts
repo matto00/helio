@@ -67,4 +67,13 @@ describe("inputs.css — mobile ≥44px tap targets (HEL-308)", () => {
     expect(body).toMatch(/display:\s*flex\s*;/);
     expect(body).toMatch(/align-items:\s*center\s*;/);
   });
+
+  // HEL-314: the bare Select trigger (32px `--control-md`) must also clear 44px
+  // at call sites outside `.panel-detail-modal`. The trigger is already
+  // flex-centered, so only the min-height floor is needed inside the same
+  // mobile-shell media block.
+  it("the bare Select trigger gets min-height: 44px at the mobile-shell breakpoint", () => {
+    const body = findRuleBody(mobileBlock, ".ui-select__trigger");
+    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  });
 });
