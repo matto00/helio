@@ -1,5 +1,6 @@
 package com.helio.domain
 
+import org.slf4j.LoggerFactory
 import spray.json._
 
 import java.sql.{Connection, DriverManager, Types}
@@ -7,6 +8,8 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
 
 object SqlConnector {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   // ── DDL/DML keyword check ─────────────────────────────────────────────────
 
@@ -85,7 +88,12 @@ object SqlConnector {
           } finally {
             conn.close()
           }
-        }.toEither.left.map(e => s"SQL execution failed: ${e.getMessage}")
+        }.toEither.left.map { e =>
+          // HEL-311: keep the "SQL execution failed" category prefix (not
+          // sensitive), drop the raw JDBC/driver message tail, log the cause.
+          log.error("SQL execution failed", e)
+          "SQL execution failed"
+        }
       }
     }
 

@@ -1,5 +1,8 @@
 package com.helio.api
 
+import ch.qos.logback.classic.{Logger => LogbackLogger}
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model._
@@ -14,6 +17,7 @@ import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 
 import scala.concurrent.{Await, Future}
@@ -262,6 +266,54 @@ class GoogleOAuthRoutesSpec
       Get(s"/api/auth/google/callback?code=bad-code&state=$stateParam") ~> route ~> check {
         status shouldBe StatusCodes.BadGateway
         responseAs[ErrorResponse].message shouldBe "Failed to exchange authorization code"
+      }
+    }
+  }
+
+  "GET /api/auth/google/callback unexpected internal failure" should {
+
+    // HEL-311: any Failure that isn't a recognized upstream OAuth error must
+    // return a generic 500 body — never `ex.getMessage` — with the exception
+    // detail logged server-side (full exception + stack trace).
+    "return a generic 500 without leaking the exception message, and log the detail" in {
+      cleanDb()
+
+      val secret = "leaky-internal-detail-should-not-surface-hel311"
+      val oauthRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.successful("access-token-abc")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.failed(new RuntimeException(secret))
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      val logbackLogger = LoggerFactory.getLogger(oauthRoutes.getClass).asInstanceOf[LogbackLogger]
+      val appender       = new ListAppender[ILoggingEvent]()
+      appender.start()
+      logbackLogger.addAppender(appender)
+
+      try {
+        var stateParam = ""
+        Get("/api/auth/google") ~> route ~> check {
+          val location = header("Location").map(_.value()).getOrElse("")
+          stateParam = location.split("state=").last.split("&").head
+        }
+
+        Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+          status shouldBe StatusCodes.InternalServerError
+          val body = responseAs[String]
+          body should not include secret
+          body should include("Internal server error")
+        }
+
+        // The full exception (with the secret detail) must be logged server-side.
+        import scala.jdk.CollectionConverters._
+        val events = appender.list.asScala.toSeq
+        events should not be empty
+        val logged = events.find(e => Option(e.getThrowableProxy).exists(_.getMessage == secret))
+        logged shouldBe defined
+      } finally {
+        logbackLogger.detachAppender(appender)
       }
     }
   }

@@ -6,6 +6,7 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException
 import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
+import org.slf4j.LoggerFactory
 
 import java.io.IOException
 import java.util.{List => JList}
@@ -21,6 +22,8 @@ import scala.util.Try
  *  see design.md's "Dependency" decision for the full rationale over iText /
  *  shelling out to `pdftotext`). */
 object PdfTextSupport {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   /** Ingest-time validation: opens the document once via `Loader.loadPDF`,
    *  always closes it, and returns the page count on success. Deliberately
@@ -41,7 +44,10 @@ object PdfTextSupport {
       case _: InvalidPasswordException =>
         Left("PDF is password-protected; encrypted PDFs are not supported")
       case e: IOException =>
-        Left(s"File is not a valid PDF: ${e.getMessage}")
+        // HEL-311: keep the curated "File is not a valid PDF" category
+        // message, drop the raw parser-exception tail; log the cause.
+        log.warn("File is not a valid PDF", e)
+        Left("File is not a valid PDF")
     } finally {
       if (document != null) document.close()
     }

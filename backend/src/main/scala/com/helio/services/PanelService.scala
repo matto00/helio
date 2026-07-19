@@ -6,6 +6,7 @@ import com.helio.domain._
 import com.helio.domain.panels._
 import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
 import com.helio.services.PanelServiceHelpers._
+import org.slf4j.LoggerFactory
 import spray.json.JsValue
 
 import java.time.Instant
@@ -45,6 +46,8 @@ final class PanelService(
     dataTypeRepo:  DataTypeRepository,
     accessChecker: AccessChecker
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private val patchApplier = new PanelPatchApplier(panelRepo)
 
@@ -216,7 +219,12 @@ final class PanelService(
                       val now = Instant.now()
                       panelRepo.batchUpdate(items, now)
                         .map(updated => Right(updated))
-                        .recover { case ex => Left(ServiceError.BadRequest(ex.getMessage)) }
+                        .recover { case ex =>
+                          // HEL-311: never echo a raw DB-failure message; log
+                          // the detail server-side and return a generic body.
+                          log.error(s"batchUpdate failed for dashboard ${dashboardId.value}", ex)
+                          Left(ServiceError.BadRequest("Batch update failed"))
+                        }
                   }
               }
             }

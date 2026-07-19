@@ -296,7 +296,11 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     }
 
     "the Spark job fails" should {
-      "call updateLastRun with 'failed' and persist a failed run record with errorLog" in {
+      // HEL-311: the persisted errorLog and the cache's `error` field (which
+      // `RunStatusResponse.error` surfaces via `GET /pipelines/:id/runs/:runId`)
+      // must be a generic, curated message — never the raw Spark analysis
+      // exception text (e.g. column/table names, query plan detail).
+      "call updateLastRun with 'failed' and persist a generic errorLog (no raw exception text)" in {
         startDb()
         try {
           val dsId = UUID.randomUUID().toString
@@ -318,12 +322,21 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           Thread.sleep(3000)
           val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Failed)
-          // Verify run record was persisted with error
+          // Verify run record was persisted with a generic error — the raw
+          // Spark exception (which would include "nonexistent_column") must
+          // not appear in the persisted errorLog.
           val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))))
           runs should have size 1
           runs.head.status   shouldBe RunStatus.Failed
-          runs.head.errorLog shouldBe defined
+          runs.head.errorLog shouldBe Some("Pipeline execution failed")
+          runs.head.errorLog.get should not include "nonexistent_column"
           runs.head.rowCount shouldBe None
+          // Verify the run cache — the surface `RunStatusResponse.error`
+          // (GET /pipelines/:id/runs/:runId) reads from — is equally generic.
+          val cached = cache.get(runs.head.id)
+          cached shouldBe defined
+          cached.get.error shouldBe Some("Pipeline execution failed")
+          cached.get.error.get should not include "nonexistent_column"
           submitterWithRepo.spark.stop()
         } finally stopDb()
       }

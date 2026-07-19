@@ -9,6 +9,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.helio.api._
 import com.helio.services.AuthService
+import org.slf4j.LoggerFactory
 import spray.json._
 
 import java.net.URLEncoder
@@ -41,6 +42,8 @@ class OAuthRoutes(
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private implicit val ec: ExecutionContextExecutor = system.executionContext
 
@@ -131,7 +134,11 @@ class OAuthRoutes(
           complete(StatusCodes.OK, authResult.response)
         }
       case Failure(ex) if isUpstreamOAuthError(ex) => complete(StatusCodes.BadGateway, ErrorResponse("Failed to exchange authorization code"))
-      case Failure(ex)                             => complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+      case Failure(ex) =>
+        // HEL-311: never echo raw exception text to the client — log the full
+        // exception + stack trace server-side and return a generic body.
+        log.error("OAuth callback failed unexpectedly during code exchange", ex)
+        complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
     }
   }
 

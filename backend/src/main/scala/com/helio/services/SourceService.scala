@@ -186,7 +186,10 @@ final class SourceService(
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
     SqlConnector.execute(source.config, maxRows = 100).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
+        // HEL-311: `err` is already a generic, curated category message
+        // (SqlConnector logs the raw JDBC cause server-side) — pass through
+        // as-is rather than double-wrapping with a redundant prefix.
+        Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(rows) =>
         val now    = Instant.now()
         val schema = SqlConnector.inferSchema(rows)
@@ -202,7 +205,10 @@ final class SourceService(
   private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
     connector.fetch(source.config).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
+        // HEL-311: `err` is already a generic, curated category message
+        // (RestApiConnector logs the raw cause server-side) — pass through
+        // as-is rather than double-wrapping with a redundant prefix.
+        Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(json) =>
         val now    = Instant.now()
         val schema = SchemaInferenceEngine.fromJson(json)
@@ -232,7 +238,10 @@ final class SourceService(
   private def previewSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
     SqlConnector.execute(source.config, maxRows = 10).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadGateway(s"SQL execution failed: $err")))
+        // HEL-311: `err` is already a generic, curated category message
+        // (SqlConnector logs the raw JDBC cause server-side) — pass through
+        // as-is rather than double-wrapping with a redundant prefix.
+        Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(rows) =>
         dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
           val computedFields          = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
@@ -245,7 +254,10 @@ final class SourceService(
   private def previewRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
     connector.fetch(source.config).flatMap {
       case Left(err) =>
-        Future.successful(Left(ServiceError.BadGateway(s"Fetch failed: $err")))
+        // HEL-311: `err` is already a generic, curated category message
+        // (RestApiConnector logs the raw cause server-side) — pass through
+        // as-is rather than double-wrapping with a redundant prefix.
+        Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(json) =>
         val rawRows = connector.toRows(json).take(10)
         dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>

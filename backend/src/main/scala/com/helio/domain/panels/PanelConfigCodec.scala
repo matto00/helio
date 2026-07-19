@@ -1,6 +1,7 @@
 package com.helio.domain.panels
 
 import com.helio.domain.Panel
+import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -12,6 +13,8 @@ import spray.json.DefaultJsonProtocol._
  *  one of these methods so the seven-subtype enumeration is centralised in
  *  one file. */
 object PanelConfigCodec {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   // ── Encode: domain Panel → JsValue config payload ─────────────────────────
 
@@ -88,7 +91,14 @@ object PanelConfigCodec {
   private def safe[A](thunk: => A): Either[String, A] =
     try Right(thunk)
     catch {
+      // DeserializationException messages are always curated/static text
+      // authored via `deserializationError(...)` in this package — never a
+      // wrapped raw exception — so they are safe to return to the client.
       case d: DeserializationException => Left(d.getMessage)
-      case e: Throwable                => Left(s"config decode failed: ${e.getMessage}")
+      // Any other Throwable (e.g. a coding bug surfacing as NPE/ClassCastException)
+      // is NOT curated and must not reach the client body (HEL-311).
+      case e: Throwable =>
+        log.error("config decode failed", e)
+        Left("config decode failed")
     }
 }

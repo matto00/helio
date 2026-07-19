@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
 import org.apache.pekko.stream.Materializer
+import org.slf4j.LoggerFactory
 import spray.json._
 
 import scala.concurrent.duration._
@@ -15,6 +16,8 @@ import scala.util.Try
 class RestApiConnector(
     fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None
 )(implicit system: ActorSystem[_]) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private implicit val ec: ExecutionContext = system.executionContext
   private implicit val mat: Materializer    = Materializer(system)
@@ -53,13 +56,23 @@ class RestApiConnector(
         response.entity.toStrict(30.seconds).map { entity =>
           val body = entity.data.utf8String
           if (response.status.isSuccess()) {
-            Try(body.parseJson).toEither.left.map(e => s"Failed to parse JSON response: ${e.getMessage}")
+            Try(body.parseJson).toEither.left.map { e =>
+              // HEL-311: keep the curated category prefix, drop the raw
+              // parser-exception tail; log the cause.
+              log.error("Failed to parse JSON response from REST source", e)
+              "Failed to parse JSON response"
+            }
           } else {
             Left(s"HTTP ${response.status.intValue()}: $body")
           }
         }
       }
-      .recover { case e => Left(s"Request failed: ${e.getMessage}") }
+      .recover { case e =>
+        // HEL-311: keep the "Request failed" category prefix, drop the raw
+        // exception tail; log the cause.
+        log.error("REST source request failed", e)
+        Left("Request failed")
+      }
   }
 
   private def buildAuthHeaders(auth: RestApiAuth): List[HttpHeader] = auth match {

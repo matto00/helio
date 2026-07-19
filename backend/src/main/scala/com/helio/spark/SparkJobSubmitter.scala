@@ -23,6 +23,7 @@ import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, Pipel
 import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
+import org.slf4j.LoggerFactory
 import spray.json.{DefaultJsonProtocol, JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
 import DefaultJsonProtocol._
 
@@ -38,6 +39,8 @@ class SparkJobSubmitter(
     pipelineRepo: PipelineRepository,
     pipelineRunRepo: PipelineRunRepository = null
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private val sparkEc: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
@@ -90,8 +93,15 @@ class SparkJobSubmitter(
           }
         } catch {
           case ex: Throwable =>
+            // HEL-311: this `errorMsg` fans out to the same client-visible
+            // surfaces as the in-process engine's run-failure path
+            // (`PipelineRunService.executeRun`) — cache `error` (surfaced via
+            // `RunStatusResponse.error`) and the persisted run record's
+            // `errorLog`. Keep the static prefix, log the raw cause
+            // server-side, never echo it to the client.
             val now      = Instant.now()
-            val errorMsg = Option(ex.getMessage).getOrElse(ex.getClass.getName)
+            log.error(s"Spark pipeline job failed for pipeline ${pipeline.id.value}, run $runIdStr", ex)
+            val errorMsg = "Pipeline execution failed"
             cache.update(runIdStr, RunStatus.Failed, error = Some(errorMsg))
             pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Failed, now)
             if (pipelineRunRepo != null) {
