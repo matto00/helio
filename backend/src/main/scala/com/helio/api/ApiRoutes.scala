@@ -14,6 +14,7 @@ import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, Pipelin
 import com.helio.services.{ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
 import scala.collection.mutable.ListBuffer
@@ -70,6 +71,8 @@ final class ApiRoutes(
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private implicit val ec = system.executionContext
   private implicit val mat: Materializer = SystemMaterializer(system).materializer
@@ -158,7 +161,10 @@ final class ApiRoutes(
                           case Success((None, _)) =>
                             complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
                           case Failure(ex) =>
-                            complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                            // HEL-311: log the full exception server-side; never echo
+                            // raw exception text in the client-facing body.
+                            log.error(s"GET /api/auth/me failed for user ${authenticatedUser.id.value}", ex)
+                            complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                         }
                       }
                     }
@@ -190,7 +196,10 @@ final class ApiRoutes(
                             case Success(prefs) =>
                               complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))
                             case Failure(ex) =>
-                              complete(StatusCodes.InternalServerError, ErrorResponse(ex.getMessage))
+                              // HEL-311: log the full exception server-side; never echo
+                              // raw exception text in the client-facing body.
+                              log.error(s"PATCH /api/users/me/update failed for user ${authenticatedUser.id.value}", ex)
+                              complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                           }
                         }
                       }

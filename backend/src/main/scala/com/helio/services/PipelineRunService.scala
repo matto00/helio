@@ -28,6 +28,7 @@ import com.helio.infrastructure.{
   PipelineStepRepository
 }
 import com.helio.spark.PipelineRunCache
+import org.slf4j.LoggerFactory
 import spray.json._
 
 import java.time.Instant
@@ -50,6 +51,8 @@ final class PipelineRunService(
     fileSystem:       FileSystem,
     binaryRefRepo:    BinaryRefRepository = null
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private val engine = new InProcessPipelineEngine(fileSystem)
 
@@ -143,9 +146,10 @@ final class PipelineRunService(
                             Right(RunResultResponse(previewRows, totalCount, counts, sourceRows.size.toLong))
                           }
                       }.recover { case ex =>
-                        Left(ServiceError.UnprocessableEntity(
-                          "Pipeline execution failed: " + Option(ex.getMessage).getOrElse(ex.getClass.getName)
-                        ))
+                        // HEL-311: keep the "Pipeline execution failed" prefix, drop
+                        // the raw exception tail; log the detail server-side.
+                        log.error(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
+                        Left(ServiceError.UnprocessableEntity("Pipeline execution failed"))
                       }
                   }
                 }
@@ -247,8 +251,13 @@ final class PipelineRunService(
 
     runFuture.transformWith {
       case Failure(ex) =>
-        val errMsg = "Pipeline execution failed: " +
-          Option(ex.getMessage).getOrElse(ex.getClass.getName)
+        // HEL-311: this single `errMsg` fans out to three client-visible
+        // surfaces — the SSE `errorLog` event, `RunStatusResponse.error`,
+        // and the persisted `PipelineRunRecord.errorLog` returned by
+        // run-history. Genericizing here (keeping the static prefix, logging
+        // the raw cause server-side) covers all three at construction.
+        log.error(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
+        val errMsg = "Pipeline execution failed"
         publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
         val failWork: Future[Unit] =
           if (!isDry) {

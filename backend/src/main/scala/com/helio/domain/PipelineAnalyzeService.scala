@@ -1,5 +1,6 @@
 package com.helio.domain
 
+import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -10,6 +11,8 @@ final case class SchemaField(name: String, `type`: String)
 // ── PipelineAnalyzeService — pure schema-math inference for all 8 ops ─────────
 
 object PipelineAnalyzeService {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   /** Minimal step input consumed by inference — decoupled from infrastructure row types. */
   final case class PipelineStepInput(
@@ -126,7 +129,10 @@ object PipelineAnalyzeService {
       }
     } catch {
       case ex: Exception =>
-        (inputSchema, Some(s"compute config error: ${ex.getMessage}"))
+        // HEL-311: keep the "<op> config error" category (signals which step
+        // is misconfigured), drop the raw exception tail; log the detail.
+        log.warn("compute config error", ex)
+        (inputSchema, Some("compute config error"))
     }
 
   /** aggregate — groupBy fields ++ aggregation alias fields.
@@ -178,7 +184,10 @@ object PipelineAnalyzeService {
       }
     } catch {
       case ex: Exception =>
-        (inputSchema, Some(s"splittext config error: ${ex.getMessage}"))
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("splittext config error", ex)
+        (inputSchema, Some("splittext config error"))
     }
 
   /** extractheadings (HEL-220) — mirrors `inferSplitText`'s validate-then-shape
@@ -209,7 +218,10 @@ object PipelineAnalyzeService {
       }
     } catch {
       case ex: Exception =>
-        (inputSchema, Some(s"extractheadings config error: ${ex.getMessage}"))
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("extractheadings config error", ex)
+        (inputSchema, Some("extractheadings config error"))
     }
 
   /** chunkbytokencount (HEL-221) — mirrors `inferExtractHeadings`'s
@@ -243,7 +255,10 @@ object PipelineAnalyzeService {
       }
     } catch {
       case ex: Exception =>
-        (inputSchema, Some(s"chunkbytokencount config error: ${ex.getMessage}"))
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("chunkbytokencount config error", ex)
+        (inputSchema, Some("chunkbytokencount config error"))
     }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -259,7 +274,10 @@ object PipelineAnalyzeService {
       (output, None)
     } catch {
       case ex: Exception =>
-        (fallback, Some(s"$op config error: ${ex.getMessage}"))
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn(s"$op config error", ex)
+        (fallback, Some(s"$op config error"))
     }
 
   /** Determine the output type of an aggregation function applied to `field`. */

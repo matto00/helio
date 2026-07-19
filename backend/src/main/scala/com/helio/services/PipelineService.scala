@@ -50,6 +50,7 @@ import com.helio.domain.{
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -75,6 +76,8 @@ final class PipelineService(
     dataSourceRepo:   DataSourceRepository,
     dataTypeRepo:     DataTypeRepository
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 
@@ -233,8 +236,11 @@ final class PipelineService(
     else
       PipelineStepConfigCodec.decode(req.`type`, req.config.compactPrint) match {
         case Failure(ex) =>
+          // HEL-311: keep the curated "Invalid '<type>' config" prefix, drop
+          // the raw decode-exception tail; log the detail server-side.
+          log.warn(s"addStep: config decode failed for step type '${req.`type`}'", ex)
           Future.successful(Left(ServiceError.BadRequest(
-            s"Invalid '${req.`type`}' config: ${ex.getMessage}"
+            s"Invalid '${req.`type`}' config"
           )))
         case Success(typedConfig) =>
           // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
@@ -314,8 +320,11 @@ final class PipelineService(
                       case Some(cfgJson) =>
                         PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
                           case Failure(ex) =>
+                            // HEL-311: keep the curated "Invalid '<type>' config" prefix,
+                            // drop the raw decode-exception tail; log the detail server-side.
+                            log.warn(s"updateStep: config decode failed for step type '${existing.kind}'", ex)
                             Future.successful(Left(ServiceError.BadRequest(
-                              s"Invalid '${existing.kind}' config: ${ex.getMessage}"
+                              s"Invalid '${existing.kind}' config"
                             )))
                           case Success(typedConfig) =>
                             val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
@@ -407,17 +416,27 @@ final class PipelineService(
 
 object PipelineService {
 
-  /** Classify a DB exception into the appropriate ServiceError variant. */
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** Classify a DB exception into the appropriate ServiceError variant.
+   *
+   *  HEL-311: the raw PSQLException/JDBC message (which can include table,
+   *  column, and constraint names) and any other exception's raw message
+   *  must never reach the client body. The full exception is logged
+   *  server-side; only a generic, curated message per category is returned.
+   */
   private[services] def classifyDbError(ex: Throwable): ServiceError = ex match {
     case e: PSQLException =>
       val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
+      log.error("Pipeline step DB operation failed", e)
       if (msg.contains("violates foreign key constraint"))
-        ServiceError.NotFound(msg)
+        ServiceError.NotFound("Referenced resource not found")
       else if (msg.contains("violates check constraint"))
-        ServiceError.BadRequest(msg)
+        ServiceError.BadRequest("Request violates a data constraint")
       else
-        ServiceError.InternalError(msg)
+        ServiceError.InternalError("Internal server error")
     case other =>
-      ServiceError.InternalError(Option(other.getMessage).getOrElse(other.getClass.getName))
+      log.error("Pipeline step DB operation failed", other)
+      ServiceError.InternalError("Internal server error")
   }
 }

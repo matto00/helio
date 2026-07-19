@@ -390,12 +390,17 @@ class PipelineRunRoutesSpec
       runs.head.errorLog   shouldBe None
     }
 
-    "POST /pipelines/:id/run (non-dry, failure via bad join step) inserts a pipeline_runs row with status failed" in {
-      val cache = new PipelineRunCache()
-      val dsId  = seedDsWithData()
-      val pid   = seedPipeline(dsId)
+    // HEL-311: fan-out surface (c) — the persisted `PipelineRunRecord.errorLog`
+    // (returned by `GET /pipelines/:id/run-history`) must be the same generic,
+    // curated message as the direct run-failure response — never the raw
+    // "DataSource not found for join: <id>" exception text.
+    "POST /pipelines/:id/run (non-dry, failure via bad join step) inserts a pipeline_runs row with a generic errorLog" in {
+      val cache            = new PipelineRunCache()
+      val dsId             = seedDsWithData()
+      val pid              = seedPipeline(dsId)
+      val missingSourceId = "00000000-0000-0000-0000-000000000099"
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
+        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -403,8 +408,9 @@ class PipelineRunRoutesSpec
       runs should have size 1
       runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "failed"
-      runs.head.errorLog   shouldBe defined
-      runs.head.errorLog.get should not be empty
+      runs.head.errorLog   shouldBe Some("Pipeline execution failed")
+      runs.head.errorLog.get should not include missingSourceId
+      runs.head.errorLog.get should not include "DataSource not found for join"
     }
 
     "POST /pipelines/:id/run?dry=true inserts a dry_run row in the repository" in {
@@ -487,17 +493,24 @@ class PipelineRunRoutesSpec
       fieldMap("rate")  shouldBe "double"
     }
 
-    "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422" in {
+    // HEL-311: the "Pipeline execution failed" body must be exactly the
+    // generic, curated message — the raw underlying exception (here
+    // "DataSource not found for join: <id>") must not leak into the
+    // client response body, even though it's server-side logged.
+    "POST /pipelines/:id/run failure sets last_run_status to failed and returns 422 with a generic body" in {
       import PostgresProfile.api._
-      val cache = new PipelineRunCache()
-      val dsId  = seedDsWithData()
-      val pid   = seedPipeline(dsId)
+      val cache          = new PipelineRunCache()
+      val dsId           = seedDsWithData()
+      val pid            = seedPipeline(dsId)
+      val missingSourceId = "00000000-0000-0000-0000-000000000099"
       await(stepRepo.insert(pid, "join",
-        JoinConfig("00000000-0000-0000-0000-000000000099", "name", "inner"), dummyUser))
+        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
-        resp.message should include ("Pipeline execution failed")
+        resp.message shouldBe "Pipeline execution failed"
+        resp.message should not include missingSourceId
+        resp.message should not include "DataSource not found for join"
       }
       val statusOpt = await(db.run(
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
@@ -593,6 +606,34 @@ class PipelineRunRoutesSpec
       val events = Await.result(eventsFuture, 10.seconds)
       events.map(_.status) shouldBe Seq("queued", "running", "succeeded")
       events.last.rowCount shouldBe Some(2)
+    }
+
+    // HEL-311: fan-out surface (a) — the SSE `errorLog` event published on
+    // run failure must be the same generic, curated message as the direct
+    // HTTP response and the persisted run record — never the raw
+    // "DataSource not found for join: <id>" exception text.
+    "POST /pipelines/:id/run publishes queued -> running -> failed via SSE with a generic errorLog" in {
+      val cache            = new PipelineRunCache()
+      val dsId             = seedDsWithData()
+      val pid              = seedPipeline(dsId)
+      val reg              = new PipelineRunRegistry()(typedSystem)
+      val missingSourceId = "00000000-0000-0000-0000-000000000099"
+      await(stepRepo.insert(pid, "join",
+        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+
+      val eventsFuture = reg
+        .subscribe(pid.value)
+        .runWith(Sink.seq)(Materializer(system))
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, registry = reg) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      val events = Await.result(eventsFuture, 10.seconds)
+      events.map(_.status) shouldBe Seq("queued", "running", "failed")
+      events.last.errorLog shouldBe Some("Pipeline execution failed")
+      events.last.errorLog.get should not include missingSourceId
+      events.last.errorLog.get should not include "DataSource not found for join"
     }
 
     // ── HEL-216: BinaryRefRepository.overwriteForDataType wiring ────────────

@@ -1,12 +1,15 @@
 package com.helio.api
 
+import ch.qos.logback.classic.{Logger => LogbackLogger}
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
-import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, UserId, UserSession}
+import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, User, UserId, UserSession}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
@@ -15,6 +18,7 @@ import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 
 import scala.concurrent.{Await, Future}
@@ -3257,6 +3261,55 @@ class ApiRoutesSpec
       cleanDb()
       Get("/api/auth/me") ~> realSessionRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
+      }
+    }
+  }
+
+  "GET /api/auth/me unexpected internal failure" should {
+
+    // HEL-311: if the user-lookup future fails unexpectedly, the route must
+    // return a generic 500 that does NOT leak the exception message
+    // (previously it returned `ex.getMessage` in the body), and must log the
+    // full exception + stack trace server-side.
+    "return a generic 500 without leaking the exception message, and log the detail" in {
+      cleanDb()
+      var token = ""
+      Post("/api/auth/register", RegisterRequest("me-fail@example.com", "password123", None)) ~> realSessionRoutes() ~> check {
+        status shouldBe StatusCodes.Created
+        token = sessionCookieValue(response)
+      }
+
+      val secret = "leaky-internal-detail-should-not-surface-hel311"
+      val failingUserRepo = new UserRepository(db)(typedSystem.executionContext) {
+        override def findById(userId: UserId): Future[Option[User]] =
+          Future.failed(new RuntimeException(secret))
+      }
+      val failingRoutes: Route = new ApiRoutes(
+        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem,
+        stubConnector(Left("no real HTTP in tests")), failingUserRepo, realSessionRepo, userPreferenceRepo,
+        pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
+        new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
+      ).routes
+
+      val logbackLogger = LoggerFactory.getLogger(classOf[ApiRoutes]).asInstanceOf[LogbackLogger]
+      val appender       = new ListAppender[ILoggingEvent]()
+      appender.start()
+      logbackLogger.addAppender(appender)
+
+      try {
+        Get("/api/auth/me").withHeaders(Cookie(SessionCookies.Name -> token)) ~> failingRoutes ~> check {
+          status shouldBe StatusCodes.InternalServerError
+          val body = responseAs[String]
+          body should not include secret
+          body should include("Internal server error")
+        }
+
+        import scala.jdk.CollectionConverters._
+        val events = appender.list.asScala.toSeq
+        val logged = events.find(e => Option(e.getThrowableProxy).exists(_.getMessage == secret))
+        logged shouldBe defined
+      } finally {
+        logbackLogger.detachAppender(appender)
       }
     }
   }

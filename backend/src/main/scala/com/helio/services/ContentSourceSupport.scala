@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
 import org.apache.pekko.stream.Materializer
 import com.helio.domain.{DataField, DataFieldType}
+import org.slf4j.LoggerFactory
 
 import java.net.{Inet6Address, InetAddress, InetSocketAddress, URI}
 import scala.concurrent.duration._
@@ -20,6 +21,8 @@ import scala.util.{Failure, Success, Try}
  *  PDF/image); the per-connector extraction/storage logic (e.g. PDF text
  *  extraction, image binary storage) stays in each connector's own service. */
 object ContentSourceSupport {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   /** Build the `{content, filename, sizeBytes}` `DataField` triple every
    *  content connector's `DataType` registers. This is the single place that
@@ -130,7 +133,12 @@ object ContentSourceSupport {
               case None => Left(s"URL is missing a host: $url")
               case Some(host) =>
                 resolveHost(host) match {
-                  case Failure(e) => Left(s"Could not resolve host '$host': ${e.getMessage}")
+                  case Failure(e) =>
+                    // HEL-311: keep the curated "Could not resolve host" prefix
+                    // and the (caller-supplied) hostname, drop the raw DNS
+                    // resolver exception tail; log the cause.
+                    log.warn(s"Could not resolve host '$host'", e)
+                    Left(s"Could not resolve host '$host'")
                   case Success(addresses) if addresses.isEmpty =>
                     Left(s"Could not resolve host '$host': no addresses returned")
                   case Success(addresses) if addresses.exists(a => isBlocked(host, a)) =>
@@ -231,7 +239,12 @@ object ContentSourceSupport {
               else Left(s"Upstream returned HTTP $code")
             }
           }
-          .recover { case e => Left(s"Request failed: ${e.getMessage}") }
+          .recover { case e =>
+            // HEL-311: keep the "Request failed" category prefix, drop the
+            // raw exception tail; log the cause.
+            log.error("Content source URL fetch failed", e)
+            Left("Request failed")
+          }
     }
   }
 
