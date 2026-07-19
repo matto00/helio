@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSelector, createSlice } from "@reduxjs/toolkit";
 
 import {
   fetchDataTypes as fetchDataTypesRequest,
@@ -110,7 +110,12 @@ export const dataTypesReducer = dataTypesSlice.reducer;
  * a panel may bind to, and the only ones surfaced in user-facing type lists
  * (BindingEditor, panel-creation DataType step, Type Registry). Companion
  * DataTypes (`sourceId != null`, auto-created at source registration) are
- * internal source-schema records and are filtered out here. */
-export function selectPipelineOutputDataTypes(state: RootState): DataType[] {
-  return state.dataTypes.items.filter((dt) => dt.sourceId === null);
-}
+ * internal source-schema records and are filtered out here. Memoized on
+ * `state.dataTypes.items` so the filtered array keeps a stable reference while
+ * the input is unchanged — this lets React-Redux render bailout succeed and
+ * suppresses the "selector returned a different result" warning across the
+ * bound editors and other consumers (HEL-312). */
+export const selectPipelineOutputDataTypes: (state: RootState) => DataType[] = createSelector(
+  (state: RootState) => state.dataTypes.items,
+  (items) => items.filter((dt) => dt.sourceId === null),
+);
