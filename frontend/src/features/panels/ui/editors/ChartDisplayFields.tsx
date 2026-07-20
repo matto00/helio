@@ -8,7 +8,7 @@
 // the Display controls before save. Every control maps to a real ECharts
 // construct (see `ChartPanel.tsx`).
 
-import { Select, type SelectOption } from "../../../../shared/ui/index";
+import { Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import type {
   BarChartOptions,
   LineChartOptions,
@@ -46,6 +46,9 @@ interface ChartDisplayFieldsProps {
   /** True when a DataType is bound — scatter field selects are only meaningful
    *  once columns exist. */
   isBound: boolean;
+  /** HEL-318: static subtitle/footnote text. Empty string when unset. */
+  annotation: string;
+  onAnnotationChange: (value: string) => void;
 }
 
 function isBarOrientation(value: string): value is NonNullable<BarChartOptions["orientation"]> {
@@ -90,12 +93,28 @@ export function ChartDisplayFields({
   onScatterChange,
   fieldOptions,
   isBound,
+  annotation,
+  onAnnotationChange,
 }: ChartDisplayFieldsProps) {
   const fieldSelectOptions: SelectOption[] = [{ value: "", label: "— None —" }, ...fieldOptions];
 
   return (
     <>
       <h3 className="panel-detail-modal__edit-section-heading">Display</h3>
+
+      <div className="panel-detail-modal__data-section">
+        <label className="panel-detail-modal__data-label" htmlFor="chart-annotation">
+          Annotation
+        </label>
+        <TextField
+          id="chart-annotation"
+          type="text"
+          value={annotation}
+          onChange={(e) => onAnnotationChange(e.target.value)}
+          aria-label="Annotation"
+          placeholder="Optional subtitle shown beneath the chart"
+        />
+      </div>
 
       {chartType === "line" && (
         <>

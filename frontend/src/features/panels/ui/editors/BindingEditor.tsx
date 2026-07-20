@@ -107,6 +107,9 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const initialUnitField = initialFieldMapping.unit ?? "";
     const initialLabelLiteral = panel.type === "metric" ? (panel.config.label ?? "") : "";
     const initialUnitLiteral = panel.type === "metric" ? (panel.config.unit ?? "") : "";
+    // HEL-318 — chart static annotation (subtitle/footnote). Chart-only; empty
+    // string for other subtypes so the control/dirty check stay inert.
+    const initialAnnotation = panel.type === "chart" ? (panel.config.annotation ?? "") : "";
 
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialTypeId);
     const [fieldMapping, setFieldMapping] = useState<Record<string, string>>(initialFieldMapping);
@@ -116,6 +119,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const [aggField, setAggField] = useState<string>(initialAggField);
     const [aggFn, setAggFn] = useState<string>(initialAggFn);
     const [aggYField, setAggYField] = useState<string>(initialAggYField);
+    const [annotation, setAnnotation] = useState<string>(initialAnnotation);
     const labelState = useBoundOrLiteralState(
       initialLabelMode,
       initialLabelField,
@@ -160,6 +164,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       aggFn !== initialAggFn ||
       (panel.type === "chart" && aggYField !== initialAggYField);
 
+    const annotationDirty = panel.type === "chart" && annotation !== initialAnnotation;
+
     const dataDirty =
       selectedTypeId !== initialTypeId ||
       refreshInterval !== initialRefreshInterval ||
@@ -167,7 +173,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       aggregationDirty ||
       (panel.type === "metric" && (labelState.dirty || unitState.dirty)) ||
       (panel.type === "table" && tableDisplay.dirty) ||
-      (panel.type === "chart" && chartDisplay.dirty);
+      (panel.type === "chart" && (chartDisplay.dirty || annotationDirty));
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -189,6 +195,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           setAggField(initialAggField);
           setAggFn(initialAggFn);
           setAggYField(initialAggYField);
+          setAnnotation(initialAnnotation);
           labelState.reset();
           unitState.reset();
           tableDisplay.reset();
@@ -235,6 +242,10 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                 // PATCH; `undefined` when the Display section was untouched, so
                 // an untouched chart panel persists nothing extra.
                 chartOptions: panel.type === "chart" ? chartDisplay.patch : undefined,
+                // HEL-318 — Chart annotation rides the same single PATCH.
+                // `undefined` when untouched; an empty/whitespace-only value
+                // clears (maps to `null`), a non-blank value sets it.
+                annotation: annotationDirty ? (annotation.trim() ? annotation : null) : undefined,
               }),
             ).unwrap();
             return { ok: true };
@@ -249,6 +260,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         aggField,
         aggFn,
         aggregationDirty,
+        annotation,
+        annotationDirty,
         chartDisplay,
         currentAggregation,
         dataDirty,
@@ -256,6 +269,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         fieldMapping,
         initialAggField,
         initialAggFn,
+        initialAnnotation,
         initialFieldMapping,
         initialRefreshInterval,
         initialTypeId,
@@ -356,6 +370,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onScatterChange={chartDisplay.setScatter}
             fieldOptions={selectedType ? fieldOptions(selectedType) : []}
             isBound={selectedType !== null}
+            annotation={annotation}
+            onAnnotationChange={setAnnotation}
           />
         )}
 

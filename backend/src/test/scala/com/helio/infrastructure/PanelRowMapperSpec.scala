@@ -272,5 +272,64 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       val decoded = PanelRowMapper.rowToDomain(rowNulled).asInstanceOf[TimelinePanel]
       decoded.config.timelineOptions shouldBe TimelineOptions("asc")
     }
+
+    // HEL-318: guard BOTH mapper directions for the caption/annotation text
+    // columns. A missed write arm would silently drop the caption/annotation on
+    // dashboard duplicate/snapshot (the HEL-245/247/248/317 sibling-bug class),
+    // so this exercises the full create→duplicate→read round-trip.
+    "round-trip an Image panel's caption through image_caption" in {
+      val panel = ImagePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ImagePanelConfig("http://x/y.png", "cover", Some("Hero photo — Reuters"))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe ImagePanel.Kind
+      row.imageCaption shouldBe Some("Hero photo — Reuters")
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ImagePanel]
+      decoded.config.caption shouldBe Some("Hero photo — Reuters")
+    }
+
+    "write NULL image_caption for an Image panel with no caption; a NULL/blank column reads back as None" in {
+      val panel = ImagePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ImagePanelConfig("http://x/y.png", "cover", None)
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.imageCaption shouldBe None
+
+      // Legacy/blank stored value normalizes to None on read (no empty strip).
+      val blankRow = row.copy(imageCaption = Some("   "))
+      PanelRowMapper.rowToDomain(blankRow).asInstanceOf[ImagePanel].config.caption shouldBe None
+    }
+
+    "round-trip a Chart panel's annotation through chart_annotation" in {
+      val panel = ChartPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, Some("Source: BLS"))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe ChartPanel.Kind
+      row.chartAnnotation shouldBe Some("Source: BLS")
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ChartPanel]
+      decoded.config.annotation shouldBe Some("Source: BLS")
+    }
+
+    "write NULL chart_annotation for a Chart panel with no annotation; a NULL/blank column reads back as None" in {
+      val panel = ChartPanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.chartAnnotation shouldBe None
+
+      val blankRow = row.copy(chartAnnotation = Some("  "))
+      PanelRowMapper.rowToDomain(blankRow).asInstanceOf[ChartPanel].config.annotation shouldBe None
+    }
   }
 }

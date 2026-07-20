@@ -182,13 +182,22 @@ final case class ChartPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     aggregation: Option[JsObject] = None,
-    chartOptions: Option[ChartOptions] = None
+    chartOptions: Option[ChartOptions] = None,
+    annotation: Option[String] = None
 )
 
 object ChartPanelConfig {
-  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None, None)
+  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None, None, None)
 
-  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat4(ChartPanelConfig.apply)
+  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat5(ChartPanelConfig.apply)
+
+  /** Normalize an annotation input to the cleared/set state: absent, null,
+   *  empty, and whitespace-only all collapse to `None` so a blank annotation
+   *  round-trips as an omitted field, never a stored `""`. */
+  private def normalizeAnnotation(value: Option[JsValue]): Option[String] = value match {
+    case Some(JsString(s)) if s.trim.nonEmpty => Some(s)
+    case _                                    => None
+  }
 
   private def decodeInternal(json: JsValue, strict: Boolean): ChartPanelConfig = json match {
     case JsObject(fields) =>
@@ -205,7 +214,7 @@ object ChartPanelConfig {
         case _                 => None
       }
       val chartOptions = fields.get("chartOptions").flatMap(ChartOptions.parse(_, strict))
-      ChartPanelConfig(dataTypeId, mapping, aggregation, chartOptions)
+      ChartPanelConfig(dataTypeId, mapping, aggregation, chartOptions, normalizeAnnotation(fields.get("annotation")))
     case _ => Empty
   }
 
@@ -219,14 +228,15 @@ object ChartPanelConfig {
       dataTypeId: Option[Option[DataTypeId]],
       fieldMapping: Option[Option[JsObject]],
       aggregation: Option[Option[JsObject]],
-      chartOptions: Option[Option[ChartOptions]]
+      chartOptions: Option[Option[ChartOptions]],
+      annotation: Option[Option[String]]
   ) {
     def isEmpty: Boolean =
-      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && chartOptions.isEmpty
+      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && chartOptions.isEmpty && annotation.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -256,7 +266,15 @@ object ChartPanelConfig {
           case Some(o: JsObject) => Some(ChartOptions.parse(o, strict = true))
           case Some(x)           => deserializationError(s"chartOptions must be an object or null, got $x")
         }
-        Patch(typeId, mapping, aggregation, chartOptions)
+        // Absent = leave unchanged; null/empty/whitespace = clear; non-blank = set.
+        val annotation = fields.get("annotation") match {
+          case None                                 => None
+          case Some(JsNull)                         => Some(None)
+          case Some(JsString(s)) if s.trim.nonEmpty => Some(Some(s))
+          case Some(JsString(_))                    => Some(None)
+          case Some(x)                              => deserializationError(s"annotation must be a string or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation, chartOptions, annotation)
       case _ => Empty
     }
   }
@@ -296,7 +314,8 @@ final case class ChartPanel(
       dataTypeId   = patch.dataTypeId.fold(config.dataTypeId)(_.getOrElse(DataTypeId(""))),
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
       aggregation  = patch.aggregation.fold(config.aggregation)(identity),
-      chartOptions = patch.chartOptions.fold(config.chartOptions)(identity)
+      chartOptions = patch.chartOptions.fold(config.chartOptions)(identity),
+      annotation   = patch.annotation.fold(config.annotation)(identity)
     )
   )
 }

@@ -162,6 +162,9 @@ export interface ChartPanelConfig {
   /** Per-chart-type display options. Absent falls back to prior rendering;
    *  entries under a non-active type are preserved across type switches. */
   chartOptions?: ChartTypeOptionsMap | null;
+  /** Optional static subtitle/footnote rendered beneath the chart title.
+   *  Absent/blank hides it; send `null` to clear. HEL-318. */
+  annotation?: string | null;
 }
 
 export interface TablePanelConfig {
@@ -193,6 +196,9 @@ export interface MarkdownPanelConfig {
 export interface ImagePanelConfig {
   imageUrl: string;
   imageFit: string;
+  /** Optional static caption rendered as a strip beneath the image.
+   *  Absent/blank hides it; send `null` to clear. HEL-318. */
+  caption?: string | null;
 }
 
 export interface DividerPanelConfig {

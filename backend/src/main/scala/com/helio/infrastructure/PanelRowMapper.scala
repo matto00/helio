@@ -79,16 +79,18 @@ object PanelRowMapper extends PanelProtocol {
       columnOrder        = None,
       chartOptions       = None,
       collectionOptions  = None,
-      timelineOptions    = None
+      timelineOptions    = None,
+      imageCaption       = None,
+      chartAnnotation    = None
     )
 
     p match {
       case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
-      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions))
+      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions), chartAnnotation = cp.config.annotation)
       case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder))
       case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
-      case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
+      case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
       case c: CollectionPanel => base.copy(typeId = optString(c.config.dataTypeId.value), fieldMapping = jsObjectColumn(c.config.fieldMapping), collectionOptions = collectionOptionsColumn(c.config))
       case tl: TimelinePanel  => base.copy(typeId = optString(tl.config.dataTypeId.value), fieldMapping = jsObjectColumn(tl.config.fieldMapping), timelineOptions = timelineOptionsColumn(tl.config))
@@ -112,7 +114,8 @@ object PanelRowMapper extends PanelProtocol {
       dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
       aggregation  = row.aggregation.flatMap(parseJsObject),
-      chartOptions = row.chartOptions.flatMap(parseChartOptions)
+      chartOptions = row.chartOptions.flatMap(parseChartOptions),
+      annotation   = row.chartAnnotation.flatMap(normalizeText)
     )
 
   private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =
@@ -141,7 +144,8 @@ object PanelRowMapper extends PanelProtocol {
   private def imageConfig(row: PanelRepository.PanelRow): ImagePanelConfig =
     ImagePanelConfig(
       imageUrl = row.imageUrl.getOrElse(""),
-      imageFit = row.imageFit.getOrElse(ImagePanelConfig.DefaultFit)
+      imageFit = row.imageFit.getOrElse(ImagePanelConfig.DefaultFit),
+      caption  = row.imageCaption.flatMap(normalizeText)
     )
 
   private def dividerConfig(row: PanelRepository.PanelRow): DividerPanelConfig =
@@ -191,6 +195,12 @@ object PanelRowMapper extends PanelProtocol {
 
   private def optString(s: String): Option[String] =
     if (s.isEmpty) None else Some(s)
+
+  /** Read-path tolerance for the caption/annotation text columns: a legacy
+   *  empty/whitespace-only stored value normalizes to `None` so it is omitted
+   *  from the wire config rather than surfacing as a blank strip. */
+  private def normalizeText(s: String): Option[String] =
+    if (s.trim.isEmpty) None else Some(s)
 
   private def jsObjectColumn(o: JsObject): Option[String] =
     if (o.fields.isEmpty) None else Some(o.compactPrint)

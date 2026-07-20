@@ -102,6 +102,35 @@
 
 .panel-content--chart {
   padding: 0;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Canvas area fills the remaining height so the ECharts (height:100%) resolves
+ * against it; the annotation footnote takes its own clamped height beneath. */
+.chart-panel__canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Static subtitle/footnote beneath the chart (HEL-318). Clamped to two lines
+ * with an ellipsis so a long annotation never collapses the chart canvas. */
+.chart-panel__annotation {
+  margin: 0;
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  color: var(--app-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-word;
 }
 
 /* State overlays: loading, error, no-data */

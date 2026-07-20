@@ -96,6 +96,7 @@ export function PanelContent({
         fieldMapping={panel.config.fieldMapping}
         chartAggregate={chartAggregate}
         chartOptions={panel.config.chartOptions}
+        annotation={panel.config.annotation}
         compact={compact}
       />
     );

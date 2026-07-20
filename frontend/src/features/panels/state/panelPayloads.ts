@@ -199,6 +199,10 @@ export function buildBindingPatch(args: {
    *  PATCH. `undefined` omits the key (untouched → persist nothing); `null`
    *  clears all stored options; an object replaces the keyed map. */
   chartOptions?: ChartTypeOptionsMap | null;
+  /** HEL-318 Chart static annotation, folded into the same single Save PATCH.
+   *  `undefined` omits the key (leave unchanged); `null` clears it; a non-blank
+   *  string sets it. */
+  annotation?: string | null;
 }): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
@@ -224,6 +228,9 @@ export function buildBindingPatch(args: {
   }
   if (args.chartOptions !== undefined) {
     patch.chartOptions = args.chartOptions;
+  }
+  if (args.annotation !== undefined) {
+    patch.annotation = args.annotation;
   }
   return patch;
 }
@@ -321,9 +328,15 @@ export function buildContentBindingPatch(args: {
   };
 }
 
-/** Build the typed `config` PATCH for an image edit. */
-export function buildImagePatch(args: { imageUrl: string; imageFit: ImageFit }): ImagePanelConfig {
-  return { imageUrl: args.imageUrl, imageFit: args.imageFit };
+/** Build the typed `config` PATCH for an image edit. `caption` follows the
+ *  absent-vs-null convention (HEL-318): a non-blank string sets it; `null`
+ *  clears the stored caption (the editor maps an empty control to `null`). */
+export function buildImagePatch(args: {
+  imageUrl: string;
+  imageFit: ImageFit;
+  caption: string | null;
+}): ImagePanelConfig {
+  return { imageUrl: args.imageUrl, imageFit: args.imageFit, caption: args.caption };
 }
 
 /** Build the typed `config` PATCH for a divider edit. */

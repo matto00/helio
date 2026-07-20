@@ -234,7 +234,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "• chart — `chartOptions` keyed by chart type (line {smooth,showPoints,areaFill}; " +
         "bar {orientation:vertical|horizontal, stacking:none|stacked|normalized, barGapPct:0-100}; " +
         "pie {donutHolePct:0-90, showPercentLabels}; scatter {sizeField,colorField}). Set the " +
-        "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config.\n" +
+        "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config. " +
+        "Optional `annotation` (static string) renders as a subtitle/footnote beneath the chart; " +
+        "omit it for no annotation.\n" +
         "• table — `density` (condensed|normal|spacious) and `columnOrder` (string[] of visible " +
         "column keys, in order).\n" +
         "• collection — `baseType` (metric) and `layout` (grid|list); set these here at create " +
@@ -245,7 +247,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "• text/markdown — `content` (literal/static text). In markdown `content`, reference an " +
         "uploaded image with the `helio://uploads/image/<id>` scheme (get <id> from upload_image).\n" +
         "• image — `imageUrl` (use an uploaded image's served `url`, or its " +
-        "`helio://uploads/image/<id>` ref) and optional `imageFit` (contain|cover|fill).\n" +
+        "`helio://uploads/image/<id>` ref), optional `imageFit` (contain|cover|fill), and optional " +
+        "`caption` (static string) rendered as a strip beneath the image; omit it for no caption.\n" +
         "`appearance` is an optional passthrough (same shape as update_panel_appearance); its " +
         "`chart.chartType` is the create-time channel for a bar/pie/scatter chart. Returns the " +
         "panel id.",

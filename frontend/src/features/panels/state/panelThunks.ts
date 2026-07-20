@@ -183,6 +183,9 @@ export const updatePanelBinding = createAsyncThunk<
      *  Save PATCH. `undefined` = leave unchanged, `null` = clear, object =
      *  replace. See `buildBindingPatch`. */
     chartOptions?: ChartTypeOptionsMap | null;
+    /** HEL-318: Chart static annotation, folded into the same single Save
+     *  PATCH. `undefined` = leave unchanged, `null` = clear, string = set. */
+    annotation?: string | null;
   },
   { rejectValue: string }
 >(
@@ -198,14 +201,15 @@ export const updatePanelBinding = createAsyncThunk<
       unit,
       tableDisplay,
       chartOptions,
+      annotation,
     },
     { rejectWithValue },
   ) => {
     try {
-      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions` are optional
-      // trailing params on `updatePanelBindingRequest`; passing them as
-      // `undefined` when the caller didn't supply one is behaviorally identical
-      // to omitting the argument.
+      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions`/`annotation`
+      // are optional trailing params on `updatePanelBindingRequest`; passing
+      // them as `undefined` when the caller didn't supply one is behaviorally
+      // identical to omitting the argument.
       return await updatePanelBindingRequest(
         panelId,
         typeId,
@@ -216,6 +220,7 @@ export const updatePanelBinding = createAsyncThunk<
         unit,
         tableDisplay,
         chartOptions,
+        annotation,
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");
@@ -353,15 +358,18 @@ export const updatePanelMarkdownBinding = createAsyncThunk<
 
 export const updatePanelImage = createAsyncThunk<
   Panel,
-  { panelId: string; imageUrl: string; imageFit: ImageFit },
+  { panelId: string; imageUrl: string; imageFit: ImageFit; caption: string | null },
   { rejectValue: string }
->("panels/updatePanelImage", async ({ panelId, imageUrl, imageFit }, { rejectWithValue }) => {
-  try {
-    return await updatePanelImageRequest(panelId, imageUrl, imageFit);
-  } catch {
-    return rejectWithValue("Failed to update panel image.");
-  }
-});
+>(
+  "panels/updatePanelImage",
+  async ({ panelId, imageUrl, imageFit, caption }, { rejectWithValue }) => {
+    try {
+      return await updatePanelImageRequest(panelId, imageUrl, imageFit, caption);
+    } catch {
+      return rejectWithValue("Failed to update panel image.");
+    }
+  },
+);
 
 export const updatePanelDivider = createAsyncThunk<
   Panel,
