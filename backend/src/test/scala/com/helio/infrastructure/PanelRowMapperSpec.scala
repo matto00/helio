@@ -231,5 +231,46 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       val decoded = PanelRowMapper.rowToDomain(PanelRowMapper.domainToRow(panel)).asInstanceOf[CollectionPanel]
       decoded.config.itemOptions shouldBe Some(items)
     }
+
+    // HEL-317: guard BOTH mapper directions for a Timeline panel — the binding
+    // rides type_id/field_mapping while timelineOptions.sort rides the
+    // timeline_options JSONB blob. A missed write arm would silently drop the
+    // config on dashboard duplicate/snapshot (the HEL-245/247/248 sibling-bug
+    // class), so this exercises the full create→duplicate→read round-trip.
+    "round-trip a Timeline panel with timelineOptions.sort set" in {
+      val panel = TimelinePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        TimelinePanelConfig(
+          DataTypeId("dt1"),
+          JsObject("time" -> JsString("when"), "event" -> JsString("what")),
+          TimelineOptions("desc")
+        )
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.panelType shouldBe TimelinePanel.Kind
+      row.typeId shouldBe Some("dt1")
+      row.fieldMapping shouldBe Some(JsObject("time" -> JsString("when"), "event" -> JsString("what")).compactPrint)
+      row.timelineOptions shouldBe defined
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[TimelinePanel]
+      decoded.config.dataTypeId shouldBe DataTypeId("dt1")
+      decoded.config.fieldMapping shouldBe JsObject("time" -> JsString("when"), "event" -> JsString("what"))
+      decoded.config.timelineOptions shouldBe TimelineOptions("desc")
+    }
+
+    "round-trip a Timeline panel with a NULL timeline_options column → defaults" in {
+      // Simulate a legacy/mid-edit row: binding present, timeline_options NULL.
+      val panel = TimelinePanel(
+        id, dashboardId, "t", meta, appearance, owner,
+        TimelinePanelConfig(DataTypeId("dt1"), JsObject.empty, TimelineOptions("desc"))
+      )
+
+      val row = PanelRowMapper.domainToRow(panel)
+      val rowNulled = row.copy(timelineOptions = None)
+
+      val decoded = PanelRowMapper.rowToDomain(rowNulled).asInstanceOf[TimelinePanel]
+      decoded.config.timelineOptions shouldBe TimelineOptions("asc")
+    }
   }
 }

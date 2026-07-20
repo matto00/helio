@@ -25,12 +25,21 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 160 },
         "type": {
           "type": "string",
-          "enum": ["metric", "chart", "table", "text", "markdown", "image", "collection"],
+          "enum": [
+            "metric",
+            "chart",
+            "table",
+            "text",
+            "markdown",
+            "image",
+            "collection",
+            "timeline"
+          ],
           "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths."
         },
         "dataTypeId": {
           "type": "string",
-          "description": "Required for metric/chart/table/collection panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
+          "description": "Required for metric/chart/table/collection/timeline panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
         },
         "fieldMapping": {
           "type": "object",
@@ -82,7 +91,7 @@
         "layout": { "$ref": "#/$defs/ProposalPanelLayout" },
         "config": {
           "type": "object",
-          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Makes every v1.5 config surface expressible: collection {baseType,layout}; chart {chartOptions}; table {density,columnOrder}; text/markdown {content, dataTypeId, fieldMapping}. On key conflict this wins over a derived flat field, EXCEPT a metric/chart/table/collection panel's dataTypeId, which always stays the flat-field value. A text/markdown config.dataTypeId is a real binding attempt (HEL-244) and is validated against the same pipeline-only rule as any other panel's binding — a source-companion or non-owned DataType is rejected (400); a valid pipeline-output DataType succeeds."
+          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Makes every v1.5 config surface expressible: collection {baseType,layout}; timeline {timelineOptions:{sort}}; chart {chartOptions}; table {density,columnOrder}; text/markdown {content, dataTypeId, fieldMapping}. On key conflict this wins over a derived flat field, EXCEPT a metric/chart/table/collection/timeline panel's dataTypeId, which always stays the flat-field value. A text/markdown config.dataTypeId is a real binding attempt (HEL-244) and is validated against the same pipeline-only rule as any other panel's binding — a source-companion or non-owned DataType is rejected (400); a valid pipeline-output DataType succeeds."
         }
       },
       "additionalProperties": false

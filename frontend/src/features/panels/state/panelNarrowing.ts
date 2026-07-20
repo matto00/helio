@@ -25,6 +25,7 @@ import type {
   Panel,
   TablePanel,
   TextPanel,
+  TimelinePanel,
 } from "../types/panel";
 
 // ── Narrowing predicates ────────────────────────────────────────────────────
@@ -37,17 +38,26 @@ export const isMarkdownPanel = (p: Panel): p is MarkdownPanel => p.type === "mar
 export const isImagePanel = (p: Panel): p is ImagePanel => p.type === "image";
 export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divider";
 export const isCollectionPanel = (p: Panel): p is CollectionPanel => p.type === "collection";
+export const isTimelinePanel = (p: Panel): p is TimelinePanel => p.type === "timeline";
 
 /** True when the subtype carries a `dataTypeId` / `fieldMapping` binding pair. */
 export const isBoundCapablePanel = (
   p: Panel,
-): p is MetricPanel | ChartPanel | TablePanel | TextPanel | MarkdownPanel | CollectionPanel =>
+): p is
+  | MetricPanel
+  | ChartPanel
+  | TablePanel
+  | TextPanel
+  | MarkdownPanel
+  | CollectionPanel
+  | TimelinePanel =>
   p.type === "metric" ||
   p.type === "chart" ||
   p.type === "table" ||
   p.type === "text" ||
   p.type === "markdown" ||
-  p.type === "collection";
+  p.type === "collection" ||
+  p.type === "timeline";
 
 // ── Read-only accessors ─────────────────────────────────────────────────────
 //

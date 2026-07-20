@@ -1,0 +1,119 @@
+/* Timeline panel body (HEL-317). A vertical, ordered event list — marker +
+   connector + time + description per entry — visually distinct from a
+   line/bar chart. Overrides the base `.panel-content` centering so entries
+   flow from the top and the body scrolls vertically inside the panel
+   (collection/table precedent). */
+
+.panel-content--timeline {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.panel-content__timeline-list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.panel-content__timeline-entry {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  /* The connector is a continuation of the row grid's own left column, drawn
+     via the marker's own vertical border below — padding on the entry
+     reserves room for the connector to run the full row height. */
+  padding-bottom: var(--space-3);
+}
+
+.panel-content__timeline-entry--last {
+  padding-bottom: 0;
+}
+
+.panel-content__timeline-marker {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-accent);
+  flex-shrink: 0;
+}
+
+/* Connector line joining consecutive entries — drawn from the marker down to
+   the next entry's marker. Suppressed on the last entry (no dangling line to
+   a non-existent next entry). */
+.panel-content__timeline-entry:not(.panel-content__timeline-entry--last)
+  .panel-content__timeline-marker::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  bottom: calc(-1 * var(--space-3));
+  background: var(--app-border-subtle);
+}
+
+.panel-content__timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.panel-content__timeline-time {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.panel-content__timeline-event {
+  font-size: var(--text-sm);
+  color: inherit;
+  /* Long descriptions wrap within the entry rather than overflowing the
+     panel bounds. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Container Query: compact height — tighten spacing and text. */
+@container panel-card (max-height: 179px) {
+  .panel-content__timeline-entry {
+    padding-bottom: var(--space-2);
+  }
+
+  .panel-content__timeline-entry:not(.panel-content__timeline-entry--last)
+    .panel-content__timeline-marker::after {
+    bottom: calc(-1 * var(--space-2));
+  }
+
+  .panel-content__timeline-event {
+    font-size: var(--text-xs);
+  }
+}
+
+/* Container Query: spacious height — roomier spacing and text. */
+@container panel-card (min-height: 280px) {
+  .panel-content__timeline-entry {
+    padding-bottom: var(--space-4);
+  }
+
+  .panel-content__timeline-entry:not(.panel-content__timeline-entry--last)
+    .panel-content__timeline-marker::after {
+    bottom: calc(-1 * var(--space-4));
+  }
+
+  .panel-content__timeline-time {
+    font-size: var(--text-xs);
+  }
+
+  .panel-content__timeline-event {
+    font-size: var(--text-base);
+  }
+}

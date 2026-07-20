@@ -120,6 +120,7 @@ object PanelServiceHelpers {
     case PanelConfigCodec.ImageCreate(c)    => ImagePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.DividerCreate(c)  => DividerPanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.CollectionCreate(c) => CollectionPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.TimelineCreate(c)   => TimelinePanel(id, dashboardId, title, meta, appearance, ownerId, c)
   }
 
   private[services] def validateCreatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
@@ -141,8 +142,8 @@ object PanelServiceHelpers {
     }
 
   /** Extract the bound `dataTypeId` a create-side config targets, if any.
-   *  The "bound trio" (Metric / Chart / Table), Collection, and — since
-   *  HEL-244 gave them their own optional `dataTypeId` binding field —
+   *  The "bound trio" (Metric / Chart / Table), Collection, Timeline, and —
+   *  since HEL-244 gave them their own optional `dataTypeId` binding field —
    *  Text / Markdown all carry a binding; the empty-string sentinel
    *  (`decodeCreate` default) means "not set" and is treated as unbound,
    *  mirroring `Panel.dataTypeId`'s own convention.
@@ -155,7 +156,9 @@ object PanelServiceHelpers {
    *  `POST /api/panels`, `create_panel`, or — newly reachable with
    *  attacker-supplied content via this ticket's `config` passthrough —
    *  `apply_proposal`), bypassing the V41 pipeline-only-binding rule. Adding
-   *  them here closes the gap at its root for every caller of `create`. */
+   *  them here closes the gap at its root for every caller of `create`.
+   *  HEL-317: Timeline is added here at creation time (not omitted) for the
+   *  same reason — every new bound kind must be covered on day one. */
   private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
     config match {
       case PanelConfigCodec.MetricCreate(c)     => Option(c.dataTypeId).filter(_.value.nonEmpty)
@@ -164,6 +167,7 @@ object PanelServiceHelpers {
       case PanelConfigCodec.CollectionCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.TextCreate(c)       => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.MarkdownCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.TimelineCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case _                                    => None
     }
 

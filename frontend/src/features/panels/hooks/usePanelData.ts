@@ -103,7 +103,9 @@ export function usePanelData(panel: Panel): PanelDataResult {
           : // HEL-247 (skeptic CR2) — a collection renders one item per row, so
             // it needs table-parity page size (50), NOT the silent 10-row `else`
             // bucket, which would cap a "one metric per region" collection.
-            panel.type === "collection"
+            // HEL-317 — a timeline is the same shape (one entry per row), so it
+            // gets the same table-parity page size.
+            panel.type === "collection" || panel.type === "timeline"
             ? 50
             : 10;
     const keyAtDispatch = currentFetchKey;

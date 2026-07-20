@@ -255,9 +255,10 @@ object PanelRepository {
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths, r.tableDensity, r.columnOrder, r.chartOptions, r.collectionOptions)
+    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths, r.tableDensity, r.columnOrder, r.chartOptions, r.collectionOptions, r.timelineOptions)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
@@ -275,9 +276,10 @@ object PanelRepository {
       Option[String],
       Option[String],
       Option[String],
+      Option[String],
       Option[String]
   ) =
-    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths, row.tableDensity, row.columnOrder, row.chartOptions, row.collectionOptions)
+    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths, row.tableDensity, row.columnOrder, row.chartOptions, row.collectionOptions, row.timelineOptions)
 
   case class PanelRow(
       id: String,
@@ -304,7 +306,8 @@ object PanelRepository {
       tableDensity: Option[String],
       columnOrder: Option[String],
       chartOptions: Option[String],
-      collectionOptions: Option[String]
+      collectionOptions: Option[String],
+      timelineOptions: Option[String]
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -333,14 +336,15 @@ object PanelRepository {
     def columnOrder         = column[Option[String]]("column_order")
     def chartOptions        = column[Option[String]]("chart_options")
     def collectionOptions   = column[Option[String]]("collection_options")
+    def timelineOptions     = column[Option[String]]("timeline_options")
 
-    // 25 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
+    // 26 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
     // a Slick HList (see `slick.collection.heterogeneous`) rather than a tuple.
     def * =
       (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
         panelType :: typeId :: fieldMapping :: ownerId :: content :: imageUrl :: imageFit ::
         dividerOrientation :: dividerWeight :: dividerColor :: aggregation :: metricLabel ::
         metricUnit :: columnWidths :: tableDensity :: columnOrder :: chartOptions ::
-        collectionOptions :: HNil).mapTo[PanelRow]
+        collectionOptions :: timelineOptions :: HNil).mapTo[PanelRow]
   }
 }

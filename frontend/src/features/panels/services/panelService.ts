@@ -8,6 +8,7 @@ import type {
   PanelAppearance,
   PanelType,
   TableDensity,
+  TimelineSort,
   TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
@@ -22,6 +23,7 @@ import {
   buildImagePatch,
   buildTableWidthsPatch,
   buildContentBindingPatch,
+  buildTimelinePatch,
 } from "../state/panelPayloads";
 import { httpClient } from "../../../services/httpClient";
 
@@ -156,6 +158,23 @@ export async function updatePanelCollection(
   },
 ): Promise<Panel> {
   const config = buildCollectionPatch(args);
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
+  return response.data;
+}
+
+/** PATCH a Timeline panel's editor save (HEL-317). The binding
+ *  (`dataTypeId`/`fieldMapping`) plus `timelineOptions.sort` ride a single
+ *  config PATCH so the whole editor persists atomically; each field follows
+ *  the absent-vs-null convention (see `buildTimelinePatch`). */
+export async function updatePanelTimeline(
+  panelId: string,
+  args: {
+    typeId: string | null;
+    fieldMapping: Record<string, string> | null;
+    sort?: TimelineSort;
+  },
+): Promise<Panel> {
+  const config = buildTimelinePatch(args);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

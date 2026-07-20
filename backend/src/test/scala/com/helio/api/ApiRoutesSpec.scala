@@ -335,6 +335,48 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-317: contract-level coverage for `type: "timeline"` — mirrors the
+    // HEL-310 collection coverage above.
+    "create a timeline panel and return 201 with type echoed (HEL-317)" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Story Chronology"), Some("timeline"), None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val response = responseAs[PanelResponse]
+        response.dashboardId shouldBe dashboardId
+        response.title shouldBe "Story Chronology"
+        response.`type` shouldBe "timeline"
+        response.id should not be empty
+        assertResourceMeta(response.meta)
+        assertPanelAppearance(response.appearance)
+      }
+    }
+
+    "reject creating a timeline panel with an invalid sort value (HEL-317)" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      val badConfig = JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways")))
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Story Chronology"), Some("timeline"), Some(badConfig))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
     "return dashboards sorted by lastUpdated descending" in {
       cleanDb()
 
@@ -2117,6 +2159,38 @@ class ApiRoutesSpec
         // layout should use the new panel ID (remapped from snapshotId)
         result.dashboard.layout.lg should have size 1
         result.dashboard.layout.lg.head.panelId shouldBe importedPanel.id
+      }
+    }
+
+    // HEL-317: a timeline panel's config (timelineOptions.sort) must survive the
+    // dashboard export→import round trip — exercises the
+    // DashboardServiceValidation.validatePanelEntries / PanelType.fromString
+    // import path (distinct from POST /api/panels/:id/duplicate).
+    "import a snapshot containing a timeline panel and preserve its timelineOptions" in {
+      cleanDb()
+      var dashboardId = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Story"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      val timelineConfig = JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc")))
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Chronology"), Some("timeline"), Some(timelineConfig))
+      ) ~> routes() ~> check { status shouldBe StatusCodes.Created }
+
+      var snapshot: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        snapshot = responseAs[DashboardSnapshotPayload]
+      }
+
+      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.panels should have size 1
+        val importedPanel = result.panels.head
+        importedPanel.`type` shouldBe "timeline"
+        importedPanel.config.asJsObject.fields("timelineOptions").asJsObject.fields("sort") shouldBe JsString("desc")
       }
     }
 

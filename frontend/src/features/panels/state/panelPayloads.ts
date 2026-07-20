@@ -27,6 +27,8 @@ import type {
   PanelKind,
   TableDensity,
   TextPanelConfig,
+  TimelinePanelConfig,
+  TimelineSort,
   TypeConfig,
 } from "../types/panel";
 import { emptyConfigForKind } from "../types/panel";
@@ -152,6 +154,13 @@ function seedCreateConfig(
         ...(base as CollectionPanelConfig),
         dataTypeId: dataTypeId ?? "",
       };
+    case "timeline":
+      // HEL-317 — `timelineOptions` comes from `emptyTimelineConfig` (sort:
+      // "asc"); the binding is seeded from the DataType step.
+      return {
+        ...(base as TimelinePanelConfig),
+        dataTypeId: dataTypeId ?? "",
+      };
   }
 }
 
@@ -245,6 +254,28 @@ export function buildCollectionPatch(args: {
   }
   if (args.itemOptions !== undefined) {
     patch.itemOptions = args.itemOptions;
+  }
+  return patch;
+}
+
+/** Build the typed `config` PATCH for a Timeline panel's editor save
+ *  (HEL-317). Follows the same absent-vs-null convention as
+ *  `buildCollectionPatch`: `undefined` omits the key (leave unchanged);
+ *  `null` clears to default; a value sets it. The editor always resends
+ *  `dataTypeId`/`fieldMapping` (the backend patch replaces `fieldMapping`
+ *  wholesale), while `sort` rides the same single PATCH so the whole editor
+ *  persists atomically. */
+export function buildTimelinePatch(args: {
+  typeId: string | null;
+  fieldMapping: Record<string, string> | null;
+  sort?: TimelineSort;
+}): Record<string, unknown> {
+  const patch: Record<string, unknown> = {
+    dataTypeId: args.typeId,
+    fieldMapping: args.fieldMapping,
+  };
+  if (args.sort !== undefined) {
+    patch.timelineOptions = { sort: args.sort };
   }
   return patch;
 }

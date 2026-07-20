@@ -216,12 +216,13 @@ export interface ChartAggregationSpec {
  *  from the flat fields above, then decoded by the same panel-create path as
  *  create_panel's `config` — the escape hatch for v1.5 surfaces with no flat
  *  field: collection `{baseType,layout}`, chart `{chartOptions}`, table
- *  `{density,columnOrder}`, text/markdown `{dataTypeId,fieldMapping}`
- *  (HEL-244 binding). A metric/chart/table/collection panel's flat
- *  `dataTypeId` always stays authoritative over `config`; a text/markdown
- *  panel's `config.dataTypeId` is a real binding attempt and is validated
- *  against the same pipeline-only rule (V41) as any other binding — a
- *  source-companion or non-owned DataType is rejected. */
+ *  `{density,columnOrder}`, timeline `{timelineOptions:{sort}}` (HEL-317),
+ *  text/markdown `{dataTypeId,fieldMapping}` (HEL-244 binding). A
+ *  metric/chart/table/collection/timeline panel's flat `dataTypeId` always
+ *  stays authoritative over `config`; a text/markdown panel's
+ *  `config.dataTypeId` is a real binding attempt and is validated against the
+ *  same pipeline-only rule (V41) as any other binding — a source-companion or
+ *  non-owned DataType is rejected. */
 export interface ProposalPanel {
   title: string;
   type: string;

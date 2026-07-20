@@ -32,7 +32,8 @@
               "markdown",
               "image",
               "divider",
-              "collection"
+              "collection",
+              "timeline"
             ]
           },
           "appearance": { "$ref": "panel-appearance.schema.json" },

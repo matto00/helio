@@ -65,6 +65,7 @@ object PanelType {
   case object Image      extends PanelType
   case object Divider    extends PanelType
   case object Collection extends PanelType
+  case object Timeline   extends PanelType
 
   val Default: PanelType = Metric
 
@@ -77,7 +78,8 @@ object PanelType {
     case "image"      => Right(Image)
     case "divider"    => Right(Divider)
     case "collection" => Right(Collection)
-    case other        => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider, collection")
+    case "timeline"   => Right(Timeline)
+    case other        => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider, collection, timeline")
   }
 
   def asString(t: PanelType): String = t match {
@@ -89,6 +91,7 @@ object PanelType {
     case Image      => "image"
     case Divider    => "divider"
     case Collection => "collection"
+    case Timeline   => "timeline"
   }
 }
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)

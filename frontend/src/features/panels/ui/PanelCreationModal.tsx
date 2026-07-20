@@ -49,6 +49,7 @@ const DATA_BOUND_TYPES: PanelType[] = [
   "table",
   "markdown",
   "collection",
+  "timeline",
 ];
 
 function isDataBound(type: PanelType | null): boolean {
