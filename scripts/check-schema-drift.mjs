@@ -189,6 +189,13 @@ if (canonicalPanelTypes.length < 8) {
   process.exit(1);
 }
 
+// Agent-facing surfaces (HEL-249/HEL-315/HEL-316) intentionally narrow the
+// wire-tolerant backend set by dropping `divider` — mirroring create_panel's
+// type enum in helio-mcp/src/tools/write.ts (not schema-checked). These
+// surfaces are compared against this carve-out set instead of the full
+// backend-canonical set.
+const agentFacingPanelTypes = canonicalPanelTypes.filter((t) => t !== "divider");
+
 const proposalServiceSrc = readFileSync(proposalServiceScala, "utf8");
 const dataPanelKindsMatch = proposalServiceSrc.match(
   /DataPanelKinds:\s*Set\[String\]\s*=\s*Set\(([^)]*)\)/,
@@ -230,7 +237,7 @@ const panelTypeSurfaces = [
   },
   {
     label: "schemas/dashboard-proposal.schema.json $defs.ProposalPanel.properties.type.enum",
-    canonical: canonicalPanelTypes,
+    canonical: agentFacingPanelTypes,
     actual: getEnumAt(
       JSON.parse(readFileSync(join(schemasDir, "dashboard-proposal.schema.json"), "utf8")),
       ["$defs", "ProposalPanel", "properties", "type", "enum"],
@@ -248,7 +255,7 @@ const panelTypesBody = extractBetween(
 );
 panelTypeSurfaces.push({
   label: "helio-mcp/src/tools/proposal.ts PANEL_TYPES",
-  canonical: canonicalPanelTypes,
+  canonical: agentFacingPanelTypes,
   actual: extractQuoted(panelTypesBody),
 });
 

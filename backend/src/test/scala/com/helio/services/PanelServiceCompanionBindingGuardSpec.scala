@@ -116,6 +116,56 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
       result.isRight shouldBe true
       verifyNoInteractions(dtRepo)
     }
+
+    // ── HEL-316 round-2 (skeptic-refuted V41 gap): text/markdown panels have
+    // no flat `dataTypeId` field — their binding lives ONLY inside `config`
+    // (HEL-244) — so `dataTypeIdFromCreateConfig` previously fell through to
+    // `case _ => None` for them and `rejectCompanionBinding` never saw their
+    // binding target at all. Fixed by extending `dataTypeIdFromCreateConfig`
+    // to cover `TextCreate`/`MarkdownCreate`; these mirror the metric
+    // companion-binding tests above but for a text panel, proving the guard
+    // now covers every panel type on every `PanelService.create` caller
+    // (direct POST /api/panels, create_panel, AND apply_proposal).
+
+    "reject with 400 when a TEXT panel's config.dataTypeId resolves to a companion DataType" in {
+      val dtRepo    = mock(classOf[DataTypeRepository])
+      val panelRepo = mock(classOf[PanelRepository])
+      when(dtRepo.findByIdOwned(companionTypeId, user))
+        .thenReturn(Future.successful(Some(companionDataType(companionTypeId))))
+
+      val request = CreatePanelRequest(
+        dashboardId = Some(dashId.value),
+        title       = Some("Rogue Text"),
+        `type`      = Some(TextPanel.Kind),
+        config      = Some(JsObject("dataTypeId" -> JsString(companionTypeId.value)))
+      )
+
+      val result = await(newService(dtRepo, panelRepo).create(request, user))
+
+      result shouldBe Left(ServiceError.BadRequest("Panels can only bind to pipeline-output data types"))
+      verify(panelRepo, never()).insert(any[Panel])
+    }
+
+    "succeed when a TEXT panel's config.dataTypeId resolves to a pipeline-output DataType" in {
+      val dtRepo    = mock(classOf[DataTypeRepository])
+      val panelRepo = mock(classOf[PanelRepository])
+      when(dtRepo.findByIdOwned(outputTypeId, user))
+        .thenReturn(Future.successful(Some(pipelineOutputDataType(outputTypeId))))
+      when(panelRepo.insert(any[Panel])).thenAnswer(inv => Future.successful(inv.getArgument(0, classOf[Panel])))
+
+      val request = CreatePanelRequest(
+        dashboardId = Some(dashId.value),
+        title       = Some("Bound Text"),
+        `type`      = Some(TextPanel.Kind),
+        config      = Some(JsObject("dataTypeId" -> JsString(outputTypeId.value)))
+      )
+
+      val result = await(newService(dtRepo, panelRepo).create(request, user))
+
+      result.isRight shouldBe true
+      result.map(_.dataTypeId) shouldBe Right(Some(outputTypeId))
+      verify(panelRepo, times(1)).insert(any[Panel])
+    }
   }
 
   // ── PATCH /api/panels/:id ────────────────────────────────────────────────

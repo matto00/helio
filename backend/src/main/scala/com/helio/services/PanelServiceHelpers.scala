@@ -141,15 +141,29 @@ object PanelServiceHelpers {
     }
 
   /** Extract the bound `dataTypeId` a create-side config targets, if any.
-   *  Only the "bound trio" (Metric / Chart / Table) carry a binding; the
-   *  empty-string sentinel (`decodeCreate` default) means "not set" and is
-   *  treated as unbound, mirroring `Panel.dataTypeId`'s own convention. */
+   *  The "bound trio" (Metric / Chart / Table), Collection, and — since
+   *  HEL-244 gave them their own optional `dataTypeId` binding field —
+   *  Text / Markdown all carry a binding; the empty-string sentinel
+   *  (`decodeCreate` default) means "not set" and is treated as unbound,
+   *  mirroring `Panel.dataTypeId`'s own convention.
+   *
+   *  HEL-316: Text/Markdown were originally omitted here (falling through to
+   *  `case _ => None`), which meant `PanelService.create`'s
+   *  `rejectCompanionBinding` never checked their `dataTypeId` — a
+   *  source-companion (non-pipeline-output) DataType could be bound to a
+   *  text/markdown panel's `config.dataTypeId` on ANY create path (direct
+   *  `POST /api/panels`, `create_panel`, or — newly reachable with
+   *  attacker-supplied content via this ticket's `config` passthrough —
+   *  `apply_proposal`), bypassing the V41 pipeline-only-binding rule. Adding
+   *  them here closes the gap at its root for every caller of `create`. */
   private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
     config match {
       case PanelConfigCodec.MetricCreate(c)     => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.ChartCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.TableCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.CollectionCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.TextCreate(c)       => Option(c.dataTypeId).filter(_.value.nonEmpty)
+      case PanelConfigCodec.MarkdownCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case _                                    => None
     }
 

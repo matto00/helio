@@ -27,7 +27,14 @@ final case class ProposalPanel(
     seriesColors: Option[Vector[String]],
     label: Option[String],
     unit: Option[String],
-    layout: Option[ProposalPanelLayout]
+    layout: Option[ProposalPanelLayout],
+    // HEL-316: generic passthrough merged (over the flat-field-derived config)
+    // by `DashboardProposalService.buildCreateRequest`, mirroring the MCP
+    // `create_panel` `config` passthrough. Makes every v1.5 panel-config
+    // surface (collection baseType/layout, chart chartOptions, table
+    // density/columnOrder) expressible via a proposal without a new flat
+    // field per surface. See openspec/changes/mcp-proposal-panel-parity.
+    config: Option[JsObject]
 )
 
 final case class DashboardProposal(dashboardName: String, panels: Vector[ProposalPanel])
@@ -59,6 +66,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
       p.label.foreach(v => fields("label") = JsString(v))
       p.unit.foreach(v => fields("unit") = JsString(v))
       p.layout.foreach(v => fields("layout") = v.toJson)
+      p.config.foreach(v => fields("config") = v)
       JsObject(fields.toMap)
     }
 
@@ -79,7 +87,8 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         seriesColors = obj.fields.get("seriesColors").map(_.convertTo[Vector[String]]),
         label        = obj.fields.get("label").map(_.convertTo[String]),
         unit         = obj.fields.get("unit").map(_.convertTo[String]),
-        layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout])
+        layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout]),
+        config       = obj.fields.get("config").map(_.asJsObject)
       )
     }
   }
