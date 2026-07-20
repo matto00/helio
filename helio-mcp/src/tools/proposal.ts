@@ -20,6 +20,9 @@ import { HelioApiError } from "../httpClient.js";
 import type { DashboardProposal, ProposalPanel } from "../types.js";
 
 const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection"]);
+// No `divider`: dropped from the proposal flow's type set for parity with
+// create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
+// on other paths, this tool just no longer offers it.
 const PANEL_TYPES = [
   "metric",
   "chart",
@@ -27,7 +30,6 @@ const PANEL_TYPES = [
   "text",
   "markdown",
   "image",
-  "divider",
   "collection",
 ] as const;
 
@@ -72,6 +74,11 @@ const panelSchema = z.object({
   label: z.string().optional(),
   unit: z.string().optional(),
   layout: layoutSchema.optional(),
+  // Generic passthrough merged over the config derived from the flat fields
+  // above, then decoded by the same panel-create path as create_panel's
+  // `config` (HEL-316) — see the propose_dashboard/apply_proposal
+  // descriptions below for the per-type v1.5 shapes this unlocks.
+  config: z.record(z.unknown()).optional(),
 });
 
 function jsonResult(value: unknown): CallToolResult {
@@ -97,9 +104,38 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       title: "Propose a dashboard (no writes)",
       description:
         "Assemble a dashboard proposal (name + panels) and return it as JSON WITHOUT writing " +
-        "anything. Validates the shape and read-only-checks that each metric/chart/table panel " +
-        "binds to a real pipeline-output DataType, returning { proposal, warnings }. Review the " +
-        "proposal (in-app or by inspection), then apply it with apply_proposal.",
+        "anything. Validates the shape and read-only-checks that each metric/chart/table/collection " +
+        "panel binds to a real pipeline-output DataType, returning { proposal, warnings }. Review " +
+        "the proposal (in-app or by inspection), then apply it with apply_proposal.\n" +
+        "`type` ∈ metric/chart/table/text/markdown/image/collection (there is no `divider`: " +
+        "dropped for agent/UI parity, mirroring create_panel — the backend wire still accepts it " +
+        "on other paths). Each panel accepts a generic `config` passthrough on top of the flat " +
+        "fields below, merged over the config those fields derive and decoded by the same " +
+        "panel-create path create_panel uses — use it for any v1.5 surface with no flat field:\n" +
+        "• metric — bind with dataTypeId/fieldMapping; literal `label`/`unit` overrides " +
+        "optional.\n" +
+        "• chart — bind with dataTypeId/fieldMapping; config.chartOptions keyed by chart " +
+        "type (line {smooth,showPoints,areaFill}; bar {orientation:vertical|horizontal, " +
+        "stacking:none|stacked|normalized, barGapPct:0-100}; pie {donutHolePct:0-90, " +
+        "showPercentLabels}; scatter {sizeField,colorField}). Set the chart's TYPE via the " +
+        "top-level `chartType` field (applied as a best-effort follow-up appearance update), not " +
+        "config.\n" +
+        "• table — bind with dataTypeId/fieldMapping; config.density " +
+        "(condensed|normal|spacious) and config.columnOrder (string[] of visible column keys, in " +
+        "order).\n" +
+        "• collection — bind with dataTypeId/fieldMapping (base-type slots, e.g. baseType " +
+        "metric → {value,label?,unit?}); config.baseType (metric) and config.layout " +
+        "(grid|list). One bound row = one rendered item.\n" +
+        "• text/markdown — `content` (literal/static text) seeds the initial body; optionally bind " +
+        "to a pipeline-output DataType via config.dataTypeId/config.fieldMapping (Source mode — " +
+        "the DataType column named by fieldMapping.content fills the body instead of the literal " +
+        "`content`).\n" +
+        "• image — `url` seeds the initial imageUrl (imageFit defaults to contain; use " +
+        "config.imageFit to override).\n" +
+        "A metric/chart/table/collection panel's dataTypeId always stays authoritative over " +
+        "anything `config` supplies. A text/markdown panel's config.dataTypeId IS a real binding " +
+        "attempt and is validated against the same pipeline-only rule (V41) as any other binding — " +
+        "a source-companion or non-owned DataType 400s; a valid pipeline-output DataType succeeds.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),
@@ -144,7 +180,11 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       description:
         "Apply an accepted proposal via POST /api/dashboards/apply-proposal — the server validates " +
         "and creates the dashboard + panels atomically through the existing services (RLS + V41 " +
-        "enforced; nothing is created if any panel is invalid). Returns the created dashboard + panels.",
+        "enforced for every panel's binding, flat OR via config; nothing is created if any panel is " +
+        "invalid). Each panel's `config` (if any) is merged over the config derived from its flat " +
+        "fields and decoded by the same panel-create path create_panel uses (see " +
+        "propose_dashboard's description for the per-type v1.5 config shapes, including " +
+        "text/markdown's config.dataTypeId binding). Returns the created dashboard + panels.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),

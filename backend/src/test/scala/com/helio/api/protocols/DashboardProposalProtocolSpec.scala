@@ -21,7 +21,8 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
       yAxisLabel: Option[String] = None,
       seriesColors: Option[Vector[String]] = None,
       label: Option[String] = None,
-      unit: Option[String] = None
+      unit: Option[String] = None,
+      config: Option[JsObject] = None
   ): ProposalPanel = ProposalPanel(
     title        = "Avg rating",
     `type`       = "metric",
@@ -37,7 +38,8 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     seriesColors = seriesColors,
     label        = label,
     unit         = unit,
-    layout       = None
+    layout       = None,
+    config       = config
   )
 
   "ProposalPanel.write" should {
@@ -133,6 +135,32 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
         "seriesColors" -> JsArray(JsString("#abc123"), JsString("#def456"))
       )
       json.convertTo[ProposalPanel].seriesColors shouldBe Some(Vector("#abc123", "#def456"))
+    }
+  }
+
+  // ── HEL-316: generic `config` passthrough ─────────────────────────────────
+
+  "ProposalPanel.write/read — config" should {
+    "omit the config key when absent" in {
+      val json = panel().toJson.asJsObject
+      json.fields.keySet should not contain "config"
+    }
+
+    "emit the config object when present" in {
+      val config = JsObject("chartOptions" -> JsObject("line" -> JsObject("smooth" -> JsBoolean(true))))
+      val json   = panel(config = Some(config)).toJson.asJsObject
+      json.fields("config") shouldBe config
+    }
+
+    "tolerate an absent config field" in {
+      val json = JsObject("title" -> JsString("X"), "type" -> JsString("metric"))
+      json.convertTo[ProposalPanel].config shouldBe None
+    }
+
+    "round-trip a config object" in {
+      val config = JsObject("baseType" -> JsString("metric"), "layout" -> JsString("list"))
+      val p      = panel(config = Some(config))
+      p.toJson.convertTo[ProposalPanel] shouldBe p
     }
   }
 }

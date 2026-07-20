@@ -210,7 +210,18 @@ export interface ChartAggregationSpec {
  *  `xAxisLabel`/`yAxisLabel`/`seriesColors` apply as a best-effort follow-up
  *  appearance update for chart panels. `label`/`unit` are a literal
  *  metric-panel display override — distinct from `fieldMapping.label`/
- *  `fieldMapping.unit`, which bind to a data column. All HEL-293. */
+ *  `fieldMapping.unit`, which bind to a data column. All HEL-293.
+ *
+ *  `config` (HEL-316) is a generic passthrough merged over the config derived
+ *  from the flat fields above, then decoded by the same panel-create path as
+ *  create_panel's `config` — the escape hatch for v1.5 surfaces with no flat
+ *  field: collection `{baseType,layout}`, chart `{chartOptions}`, table
+ *  `{density,columnOrder}`, text/markdown `{dataTypeId,fieldMapping}`
+ *  (HEL-244 binding). A metric/chart/table/collection panel's flat
+ *  `dataTypeId` always stays authoritative over `config`; a text/markdown
+ *  panel's `config.dataTypeId` is a real binding attempt and is validated
+ *  against the same pipeline-only rule (V41) as any other binding — a
+ *  source-companion or non-owned DataType is rejected. */
 export interface ProposalPanel {
   title: string;
   type: string;
@@ -227,6 +238,7 @@ export interface ProposalPanel {
   label?: string;
   unit?: string;
   layout?: ProposalPanelLayout;
+  config?: Record<string, unknown>;
 }
 
 /** A dashboard proposal — the shared Proposal → Review → Apply artifact. */

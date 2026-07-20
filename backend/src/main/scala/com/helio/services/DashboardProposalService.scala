@@ -84,9 +84,12 @@ final class DashboardProposalService(
            else Right(())
     } yield ()
 
-  /** Verify every data panel's `dataTypeId` resolves to a pipeline-output
-   *  DataType owned by the caller — the same rule `PanelService` enforces, run
-   *  first so nothing is created when a binding is invalid. */
+  /** Verify every panel's actual binding target — the flat `dataTypeId` for
+   *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
+   *  `config.dataTypeId` — resolves to a pipeline-output DataType owned by
+   *  the caller, the same rule `PanelService` enforces, run first so nothing
+   *  is created when a binding is invalid (rather than relying on
+   *  `createAll`'s mid-create rollback to catch it). */
   private def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser
@@ -95,7 +98,7 @@ final class DashboardProposalService(
       (accF, panel) =>
         accF.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  => panel.dataTypeId match {
+          case Right(_)  => bindingCandidate(panel) match {
             case None => Future.successful(Right(()))
             case Some(id) =>
               dataTypeRepo.findByIdOwned(DataTypeId(id), user).map {
@@ -110,6 +113,27 @@ final class DashboardProposalService(
           }
         }
     }
+
+  /** The dataTypeId that will ACTUALLY end up bound on the created panel, for
+   *  pre-validation purposes: the flat field when present (it is always
+   *  re-applied over `config` by `mergeConfig`, so it is authoritative
+   *  whenever set — including for a non-`DataPanelKinds` panel that happens
+   *  to carry a flat `dataTypeId`); otherwise, for a panel type OUTSIDE
+   *  `DataPanelKinds` only, a `config.dataTypeId` — HEL-244's optional
+   *  text/markdown binding surface, reachable via the HEL-316 `config`
+   *  passthrough. `DataPanelKinds` panels are excluded from the `config`
+   *  fallback because `validatePanel` already requires their flat
+   *  `dataTypeId` to be set, so a `config.dataTypeId` on those types can
+   *  never reach `PanelService.create` un-overridden (D2). */
+  private def bindingCandidate(panel: ProposalPanel): Option[String] =
+    panel.dataTypeId.orElse(nonFlatConfigDataTypeId(panel))
+
+  private def nonFlatConfigDataTypeId(panel: ProposalPanel): Option[String] =
+    if (DataPanelKinds.contains(panel.`type`)) None
+    else
+      panel.config.flatMap(_.fields.get("dataTypeId")).collect {
+        case JsString(s) if s.nonEmpty => s
+      }
 
   private def createAll(
       proposal: DashboardProposal,
@@ -151,18 +175,65 @@ final class DashboardProposalService(
    *  configs have no such fields). Non-data panels build their per-type
    *  config straight from the proposal's `content`/`url`/`orientation`
    *  (Decision 1) via the EXISTING `PanelConfigCodec.decodeCreateConfig`
-   *  tolerant decoders — no domain/config changes needed. */
+   *  tolerant decoders — no domain/config changes needed.
+   *
+   *  HEL-316 (D2/D3): the panel's generic `config` passthrough is then merged
+   *  OVER this derived config (`mergeConfig`) so every v1.5 config surface the
+   *  create decoder already accepts — collection `baseType`/`layout`, chart
+   *  `chartOptions`, table `density`/`columnOrder` — becomes expressible via a
+   *  proposal. A `DataPanelKinds` panel's flat `dataTypeId` stays
+   *  authoritative over `config` (re-applied after the merge). A non-
+   *  `DataPanelKinds` panel (text/markdown) has no flat field to re-apply, so
+   *  its `config.dataTypeId` passes through as the actual binding — the V41
+   *  pipeline-only rule is enforced for it separately, both up front
+   *  (`preValidateBindings`/`bindingCandidate`) and at create time
+   *  (`PanelService.create`'s `rejectCompanionBinding`, which now also reads
+   *  Text/Markdown's `dataTypeId` — see `PanelServiceHelpers
+   *  .dataTypeIdFromCreateConfig`), so `config` can never bypass V41 for any
+   *  panel type, just via two different enforcement points. */
   private def buildCreateRequest(dashboardId: DashboardId, panel: ProposalPanel): CreatePanelRequest = {
-    val configOpt: Option[JsValue] = panel.dataTypeId match {
+    val derived: Option[JsObject] = panel.dataTypeId match {
       case Some(id) => Some(buildDataConfig(id, panel))
-      case None     => buildNonDataConfig(panel)
+      case None     => buildNonDataConfig(panel).map(_.asJsObject)
     }
+    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.dataTypeId)
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
       title       = Some(panel.title),
       `type`      = Some(panel.`type`),
       config      = configOpt
     )
+  }
+
+  /** Merge the passthrough `config` (D1) over the derived flat-field config
+   *  (D2): on key conflict the explicit `config` wins — EXCEPT a
+   *  `DataPanelKinds` panel's flat `dataTypeId` is re-applied after the merge
+   *  so it remains authoritative no matter what `config` supplies (D2). For a
+   *  panel type with no flat `dataTypeId` (text/markdown), `dataTypeId` is
+   *  `None` here and this merge does NOT re-apply anything — `config`'s value
+   *  (if any) passes through as-is. That is safe ONLY because
+   *  `preValidateBindings`/`bindingCandidate` and `PanelService.create`'s
+   *  `rejectCompanionBinding` independently validate that value against the
+   *  V41 pipeline-only rule before/at creation (HEL-316) — this method itself
+   *  makes no binding-safety guarantee for those panel types. When `derived`
+   *  is empty/absent (a non-data panel with no flat fields set), `config`
+   *  alone forms the payload (D3). A proposal with no `config` at all yields
+   *  byte-for-byte the same result as before this change. */
+  private def mergeConfig(
+      derived: Option[JsObject],
+      passthrough: Option[JsObject],
+      dataTypeId: Option[String]
+  ): Option[JsObject] = {
+    val merged = (derived, passthrough) match {
+      case (Some(d), Some(c)) => Some(JsObject(d.fields ++ c.fields))
+      case (Some(d), None)    => Some(d)
+      case (None, Some(c))    => Some(c)
+      case (None, None)       => None
+    }
+    dataTypeId match {
+      case Some(id) => merged.map(m => JsObject(m.fields + ("dataTypeId" -> JsString(id))))
+      case None     => merged
+    }
   }
 
   private def buildDataConfig(dataTypeId: String, panel: ProposalPanel): JsObject = {
