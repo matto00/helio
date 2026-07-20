@@ -38,7 +38,10 @@ describe("MobilePanelStack.css — intrinsic-height items vs. container-type: si
   // so no `--mobile-panel-height`), so — like table/markdown/text/image — it
   // must override `.panel-grid-card`'s `container-type: size` or it collapses
   // to ~0 content height in the stack.
-  const intrinsicKinds = ["table", "markdown", "text", "image", "collection"] as const;
+  // HEL-317: `timeline` is the same intrinsic shape as `collection` — added
+  // here after the cycle-1 evaluator caught it missing from this override
+  // (the panel collapsed to 0px visible height at the 390×844 breakpoint).
+  const intrinsicKinds = ["table", "markdown", "text", "image", "collection", "timeline"] as const;
 
   it.each(intrinsicKinds)("the --%s stack-item rule does not set container-type: size", (kind) => {
     const body = findRuleBody(css, `.mobile-panel-stack__item--${kind}`);
@@ -69,6 +72,16 @@ describe("MobilePanelStack.css — intrinsic-height items vs. container-type: si
       css,
       ".mobile-panel-stack__item--collection .panel-content--collection",
     );
+    expect(body).toMatch(/height:\s*auto\s*;/);
+    expect(body).toMatch(/overflow:\s*visible\s*;/);
+  });
+
+  it("timeline restores intrinsic sizing on its content body (no nested scroller)", () => {
+    // TimelineRenderer.css sets `overflow-y: auto` for desktop's fixed-height
+    // card; the stack must restore intrinsic height + visible overflow so
+    // timeline has no internal scroller — mirrors the collection guard above
+    // (HEL-317 cycle-1 evaluator fix).
+    const body = findRuleBody(css, ".mobile-panel-stack__item--timeline .panel-content--timeline");
     expect(body).toMatch(/height:\s*auto\s*;/);
     expect(body).toMatch(/overflow:\s*visible\s*;/);
   });

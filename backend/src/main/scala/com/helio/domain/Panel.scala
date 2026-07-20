@@ -117,7 +117,8 @@ object Panel {
     MarkdownPanel.Kind   -> MarkdownPanel.companion,
     ImagePanel.Kind      -> ImagePanel.companion,
     DividerPanel.Kind    -> DividerPanel.companion,
-    CollectionPanel.Kind -> CollectionPanel.companion
+    CollectionPanel.Kind -> CollectionPanel.companion,
+    TimelinePanel.Kind   -> TimelinePanel.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -151,6 +152,7 @@ object PanelKind {
   val Image: String      = ImagePanel.Kind
   val Divider: String    = DividerPanel.Kind
   val Collection: String = CollectionPanel.Kind
+  val Timeline: String   = TimelinePanel.Kind
 
   val Default: String = Metric
 

@@ -11,7 +11,17 @@
     "title": { "type": "string", "minLength": 1, "maxLength": 160 },
     "type": {
       "type": "string",
-      "enum": ["metric", "chart", "text", "table", "markdown", "image", "divider", "collection"]
+      "enum": [
+        "metric",
+        "chart",
+        "text",
+        "table",
+        "markdown",
+        "image",
+        "divider",
+        "collection",
+        "timeline"
+      ]
     },
     "meta": { "$ref": "https://helio.local/schemas/resource-meta.schema.json" },
     "appearance": { "$ref": "https://helio.local/schemas/panel-appearance.schema.json" },
@@ -48,6 +58,12 @@
       "properties": {
         "type": { "const": "collection" },
         "config": { "$ref": "#/$defs/CollectionConfig" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "timeline" },
+        "config": { "$ref": "#/$defs/TimelineConfig" }
       }
     }
   ],
@@ -181,6 +197,34 @@
       "properties": {
         "label": { "type": "string" },
         "unit": { "type": "string" }
+      }
+    },
+    "TimelineConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Timeline panel config (HEL-317). Binding reuses dataTypeId/fieldMapping with two slots (time, event); timelineOptions.sort is the timeline-specific concern.",
+      "properties": {
+        "dataTypeId": { "type": "string" },
+        "fieldMapping": {
+          "type": "object",
+          "description": "Binds the time (timestamp/order) and event (text) slots."
+        },
+        "timelineOptions": {
+          "$ref": "#/$defs/TimelineOptions",
+          "description": "Timeline-specific display options. Absent falls back to sort: asc."
+        }
+      }
+    },
+    "TimelineOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Timeline-specific display options.",
+      "properties": {
+        "sort": {
+          "type": "string",
+          "enum": ["asc", "desc"],
+          "description": "Chronological order. Absent falls back to asc."
+        }
       }
     },
     "MetricAggregation": {

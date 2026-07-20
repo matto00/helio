@@ -224,10 +224,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Create panel",
       description:
         "Create a panel on a dashboard. `type` ∈ " +
-        "metric/chart/table/text/markdown/image/collection (there is no `divider`: divider " +
-        "creation was dropped for agent/UI parity, mirroring the human app — the backend wire " +
-        "still accepts it on other paths, the MCP just no longer offers it). Data panels " +
-        "(metric/chart/table/collection) are created then bound with bind_panel to a " +
+        "metric/chart/table/text/markdown/image/collection/timeline (there is no `divider`: " +
+        "divider creation was dropped for agent/UI parity, mirroring the human app — the backend " +
+        "wire still accepts it on other paths, the MCP just no longer offers it). Data panels " +
+        "(metric/chart/table/collection/timeline) are created then bound with bind_panel to a " +
         "pipeline-output DataType.\n" +
         "config by type:\n" +
         "• metric — bind later; literal `label`/`unit` overrides optional.\n" +
@@ -239,6 +239,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "column keys, in order).\n" +
         "• collection — `baseType` (metric) and `layout` (grid|list); set these here at create " +
         "time (they survive a later bind_panel merge-patch). One bound row = one rendered item.\n" +
+        "• timeline — `timelineOptions.sort` (asc|desc, default asc); set here at create time (it " +
+        "survives a later bind_panel merge-patch). Renders a vertical chronological event list, " +
+        "one bound row = one rendered event.\n" +
         "• text/markdown — `content` (literal/static text). In markdown `content`, reference an " +
         "uploaded image with the `helio://uploads/image/<id>` scheme (get <id> from upload_image).\n" +
         "• image — `imageUrl` (use an uploaded image's served `url`, or its " +
@@ -250,7 +253,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         dashboardId: z.string().min(1),
         title: z.string().optional(),
         type: z
-          .enum(["metric", "chart", "table", "text", "markdown", "image", "collection"])
+          .enum(["metric", "chart", "table", "text", "markdown", "image", "collection", "timeline"])
           .optional(),
         config: z.record(z.unknown()).optional(),
         appearance: z.record(z.unknown()).optional(),
@@ -270,9 +273,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "chart → {xAxis, yAxis, series?}; text/markdown → {content} (the DataType column whose " +
         "value fills the text/markdown body in Source mode); collection → the base-type slots, " +
         "i.e. for baseType metric {value, label?, unit?} applied to every row/item; " +
+        "timeline → {time, event} (time is a timestamp/order column, event is the text " +
+        "description) applied to every row/entry; " +
         "table → no fieldMapping needed (omit it — the old `columns` slot is vestigial; visible " +
         "columns come from config.columnOrder set on create_panel). A collection's " +
-        "baseType/layout are set on create_panel and preserved by this bind (merge-patch). " +
+        "baseType/layout and a timeline's timelineOptions.sort are set on create_panel and " +
+        "preserved by this bind (merge-patch). " +
         "The DataType MUST be a pipeline output (sourceId null); binding a source companion is " +
         "rejected with 400 (V41). Pass panelType to match the panel's type.",
       inputSchema: {
@@ -280,7 +286,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         dataTypeId: z.string().min(1),
         fieldMapping: z.record(z.string()).optional(),
         panelType: z
-          .enum(["metric", "chart", "table", "text", "markdown", "collection"])
+          .enum(["metric", "chart", "table", "text", "markdown", "collection", "timeline"])
           .optional(),
       },
     },

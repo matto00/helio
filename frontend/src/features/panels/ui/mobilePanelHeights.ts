@@ -110,5 +110,10 @@ export function computeMobilePanelHeight(
       // intrinsic with no internal scroller — deliberately NOT the "only table
       // gets a nested scroller" bucket, and never a silent fall-through default.
       return { height: null, scrollsInternally: false };
+    case "timeline":
+      // HEL-317 — a timeline is intrinsic list content like collection: it
+      // sizes to its content (the vertical event list) and never gets a
+      // nested scroller in the phone stack.
+      return { height: null, scrollsInternally: false };
   }
 }

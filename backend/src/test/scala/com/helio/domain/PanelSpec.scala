@@ -40,9 +40,11 @@ class PanelSpec extends AnyWordSpec with Matchers {
     DividerPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def collection(cfg: CollectionPanelConfig = CollectionPanelConfig.Empty): CollectionPanel =
     CollectionPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+  private def timeline(cfg: TimelinePanelConfig = TimelinePanelConfig.Empty): TimelinePanel =
+    TimelinePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 8 panel kinds" in {
+    "be the single source of truth for all 9 panel kinds" in {
       Panel.Registry.keySet shouldBe Set(
         MetricPanel.Kind,
         ChartPanel.Kind,
@@ -51,7 +53,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
         MarkdownPanel.Kind,
         ImagePanel.Kind,
         DividerPanel.Kind,
-        CollectionPanel.Kind
+        CollectionPanel.Kind,
+        TimelinePanel.Kind
       )
     }
 
@@ -64,6 +67,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
       ImagePanel.Kind      shouldBe "image"
       DividerPanel.Kind    shouldBe "divider"
       CollectionPanel.Kind shouldBe "collection"
+      TimelinePanel.Kind   shouldBe "timeline"
     }
   }
 
@@ -836,8 +840,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
   // build's `-Xfatal-warnings` if enabled, else a runtime MatchError surfaces
   // in the test). Mirrors the CS2c-3a `PipelineStepSpec` exhaustiveness check.
   "Exhaustiveness over Panel subtypes" should {
-    "cover all 8 kinds in a closed match" in {
-      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider(), collection())
+    "cover all 9 kinds in a closed match" in {
+      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider(), collection(), timeline())
       all.foreach {
         case _: MetricPanel     => succeed
         case _: ChartPanel      => succeed
@@ -847,6 +851,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
         case _: ImagePanel      => succeed
         case _: DividerPanel    => succeed
         case _: CollectionPanel => succeed
+        case _: TimelinePanel   => succeed
       }
     }
   }
@@ -971,6 +976,116 @@ class PanelSpec extends AnyWordSpec with Matchers {
       val json = PanelConfigCodec.encodeConfig(panel).asJsObject
       json.fields("layout") shouldBe JsString("list")
       json.fields("baseType") shouldBe JsString("metric")
+    }
+  }
+
+  // ── HEL-317: TimelinePanelConfig — tolerant decode, absent-vs-null patch,
+  //    and codec dispatch (mirrors the HEL-247 CollectionPanelConfig block) ──
+  "TimelinePanelConfig.decode" should {
+    "default sort=asc when timelineOptions is absent" in {
+      // spray-json omits None on the wire — the field is ABSENT, not null.
+      val cfg = TimelinePanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
+      cfg.timelineOptions.sort shouldBe "asc"
+      cfg.dataTypeId shouldBe DataTypeId("dt1")
+    }
+
+    "decode an empty object to Empty (all defaults)" in {
+      TimelinePanelConfig.decode(JsObject.empty) shouldBe TimelinePanelConfig.Empty
+    }
+
+    "decode present dataTypeId/fieldMapping/timelineOptions" in {
+      val cfg = TimelinePanelConfig.decode(JsObject(
+        "dataTypeId"      -> JsString("dt1"),
+        "fieldMapping"    -> JsObject("time" -> JsString("when"), "event" -> JsString("what")),
+        "timelineOptions" -> JsObject("sort" -> JsString("desc"))
+      ))
+      cfg.timelineOptions.sort shouldBe "desc"
+      cfg.fieldMapping shouldBe JsObject("time" -> JsString("when"), "event" -> JsString("what"))
+    }
+
+    "tolerate a malformed/unknown sort on the read path (defaults to asc, never throws)" in {
+      val cfg = TimelinePanelConfig.decode(JsObject(
+        "timelineOptions" -> JsObject("sort" -> JsString("sideways"))
+      ))
+      cfg.timelineOptions.sort shouldBe "asc"
+    }
+
+    "round-trip via the per-subtype format" in {
+      val cfg = TimelinePanelConfig(
+        DataTypeId("dt1"),
+        JsObject("time" -> JsString("when"), "event" -> JsString("what")),
+        TimelineOptions("desc")
+      )
+      TimelinePanelConfig.decode(cfg.toJson) shouldBe cfg
+    }
+  }
+
+  "TimelinePanelConfig.decodeCreate" should {
+    "reject an invalid sort enum with a deserialization error (400)" in {
+      an[DeserializationException] should be thrownBy
+        TimelinePanelConfig.decodeCreate(JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways"))))
+    }
+  }
+
+  "TimelinePanelConfig.Patch" should {
+    "leave timelineOptions untouched when absent (outer None)" in {
+      TimelinePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).timelineOptions shouldBe None
+    }
+
+    "carry a timelineOptions-only patch without clearing other concerns" in {
+      val patch = TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc"))))
+      patch.timelineOptions shouldBe Some(Some(TimelineOptions("desc")))
+      patch.dataTypeId shouldBe None
+      patch.fieldMapping shouldBe None
+    }
+
+    "treat explicit null timelineOptions as clear (Some(None))" in {
+      TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsNull)).timelineOptions shouldBe Some(None)
+    }
+
+    "reject an invalid sort enum in a patch (400)" in {
+      an[DeserializationException] should be thrownBy
+        TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways"))))
+    }
+
+    "applyPatch: a timelineOptions-only patch leaves the binding intact" in {
+      val existing = timeline(TimelinePanelConfig(
+        DataTypeId("dt1"),
+        JsObject("time" -> JsString("when"), "event" -> JsString("what")),
+        TimelineOptions("asc")
+      ))
+      val patched = existing.applyPatch(
+        TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc"))))
+      )
+      patched.config.timelineOptions.sort shouldBe "desc"
+      patched.config.dataTypeId shouldBe DataTypeId("dt1")
+      patched.config.fieldMapping shouldBe JsObject("time" -> JsString("when"), "event" -> JsString("what"))
+    }
+
+    "applyPatch: explicit null clears timelineOptions to defaults" in {
+      val existing = timeline(TimelinePanelConfig(
+        DataTypeId("dt1"), JsObject.empty, TimelineOptions("desc")
+      ))
+      val patched = existing.applyPatch(TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsNull)))
+      patched.config.timelineOptions.sort shouldBe "asc"
+    }
+  }
+
+  "PanelConfigCodec (timeline dispatch)" should {
+    "decode a create-side timeline config" in {
+      val created = PanelConfigCodec.decodeCreateConfig(
+        TimelinePanel.Kind,
+        Some(JsObject("dataTypeId" -> JsString("dt1")))
+      )
+      created shouldBe Right(PanelConfigCodec.TimelineCreate(
+        TimelinePanelConfig(DataTypeId("dt1"), JsObject.empty, TimelineOptions("asc"))
+      ))
+    }
+
+    "encode a timeline panel's config" in {
+      val panel = timeline(TimelinePanelConfig(DataTypeId("dt1"), JsObject.empty, TimelineOptions("desc")))
+      val json = PanelConfigCodec.encodeConfig(panel).asJsObject
+      json.fields("timelineOptions").asJsObject.fields("sort") shouldBe JsString("desc")
     }
   }
 }

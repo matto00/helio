@@ -42,6 +42,8 @@ object PanelRowMapper extends PanelProtocol {
         DividerPanel(id, dashboardId, row.title, meta, appearance, ownerId, dividerConfig(row))
       case CollectionPanel.Kind =>
         CollectionPanel(id, dashboardId, row.title, meta, appearance, ownerId, collectionConfig(row))
+      case TimelinePanel.Kind =>
+        TimelinePanel(id, dashboardId, row.title, meta, appearance, ownerId, timelineConfig(row))
       case _ =>
         // Unknown kind on disk — fall back to PanelType.Default (Metric) per the
         // pre-CS2c-3b behaviour. The wide-flat case class did this via
@@ -76,7 +78,8 @@ object PanelRowMapper extends PanelProtocol {
       tableDensity       = None,
       columnOrder        = None,
       chartOptions       = None,
-      collectionOptions  = None
+      collectionOptions  = None,
+      timelineOptions    = None
     )
 
     p match {
@@ -88,6 +91,7 @@ object PanelRowMapper extends PanelProtocol {
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit))
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
       case c: CollectionPanel => base.copy(typeId = optString(c.config.dataTypeId.value), fieldMapping = jsObjectColumn(c.config.fieldMapping), collectionOptions = collectionOptionsColumn(c.config))
+      case tl: TimelinePanel  => base.copy(typeId = optString(tl.config.dataTypeId.value), fieldMapping = jsObjectColumn(tl.config.fieldMapping), timelineOptions = timelineOptionsColumn(tl.config))
       case _                  => base
     }
   }
@@ -162,6 +166,27 @@ object PanelRowMapper extends PanelProtocol {
     CollectionPanelConfig.decode(merged)
   }
 
+  /** Rebuild a timeline config from the binding columns (`type_id` /
+   *  `field_mapping`) plus the `timeline_options` JSONB blob (which holds
+   *  exactly the `{ sort }` object — the same shape as the config's
+   *  `timelineOptions` field). Tolerant: a malformed/legacy blob decodes to
+   *  defaults via `TimelinePanelConfig.decode` (sort=asc) rather than
+   *  throwing. */
+  private def timelineConfig(row: PanelRepository.PanelRow): TimelinePanelConfig = {
+    val optionsField: Map[String, JsValue] =
+      row.timelineOptions.flatMap(parseJsObject) match {
+        case Some(o) => Map("timelineOptions" -> o)
+        case None    => Map.empty
+      }
+    val merged = JsObject(
+      optionsField ++ Map[String, JsValue](
+        "dataTypeId"   -> JsString(row.typeId.getOrElse("")),
+        "fieldMapping" -> row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      )
+    )
+    TimelinePanelConfig.decode(merged)
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def optString(s: String): Option[String] =
@@ -211,4 +236,12 @@ object PanelRowMapper extends PanelProtocol {
     val withItems = config.itemOptions.fold(base)(o => base + ("itemOptions" -> o))
     Some(JsObject(withItems).compactPrint)
   }
+
+  // HEL-317 — serialize the Timeline panel's `{ sort }` options into the
+  // `timeline_options` JSONB column — exactly the config's `timelineOptions`
+  // field value, always written (it always has a value, defaulted to "asc").
+  // The binding (`dataTypeId` / `fieldMapping`) lives in `type_id` /
+  // `field_mapping`, NOT here.
+  private def timelineOptionsColumn(config: TimelinePanelConfig): Option[String] =
+    Some(config.timelineOptions.toJson.compactPrint)
 }

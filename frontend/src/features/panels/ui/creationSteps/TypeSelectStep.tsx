@@ -13,6 +13,7 @@ import {
   faImage,
   faLayerGroup,
   faTable as faTableIcon,
+  faTimeline,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { faMarkdown as faMarkdownBrand } from "@fortawesome/free-brands-svg-icons";
@@ -56,6 +57,12 @@ const PANEL_TYPES: {
     label: "Collection",
     icon: faLayerGroup,
     description: "Render one tile per row of a data type",
+  },
+  {
+    value: "timeline",
+    label: "Timeline",
+    icon: faTimeline,
+    description: "Show a chronological sequence of time-stamped events",
   },
 ];
 

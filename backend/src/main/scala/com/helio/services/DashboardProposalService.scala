@@ -339,6 +339,6 @@ final class DashboardProposalService(
 }
 
 object DashboardProposalService {
-  private val DataPanelKinds: Set[String] = Set("metric", "chart", "table", "collection")
+  private val DataPanelKinds: Set[String] = Set("metric", "chart", "table", "collection", "timeline")
   private val MetricKind: String          = "metric"
 }

@@ -44,7 +44,8 @@
 .mobile-panel-stack__item.mobile-panel-stack__item--markdown,
 .mobile-panel-stack__item.mobile-panel-stack__item--text,
 .mobile-panel-stack__item.mobile-panel-stack__item--image,
-.mobile-panel-stack__item.mobile-panel-stack__item--collection {
+.mobile-panel-stack__item.mobile-panel-stack__item--collection,
+.mobile-panel-stack__item.mobile-panel-stack__item--timeline {
   container-type: inline-size;
   height: auto;
   flex-shrink: 0;
@@ -83,6 +84,16 @@
    auto-fill `minmax(min(140px, 100%), 1fr)` grid wraps to the stack content
    width — no horizontal body scroll — per the mobile-panel-sizing spec. */
 .mobile-panel-stack__item--collection .panel-content--collection {
+  height: auto;
+  overflow: visible;
+}
+
+/* Timeline (HEL-317): fully intrinsic in the stack — same rationale as
+   Collection above. `.panel-content--timeline` (TimelineRenderer.css) sets
+   `overflow-y: auto` so desktop can scroll entries inside a fixed
+   `h × rowHeight` card; the stack has no such fixed height, so restore
+   intrinsic sizing here too. */
+.mobile-panel-stack__item--timeline .panel-content--timeline {
   height: auto;
   overflow: visible;
 }

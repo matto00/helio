@@ -358,11 +358,12 @@ export class HelioApi {
   }
 
   /** Create a panel. `type` ∈
-   *  metric/chart/table/text/markdown/image/collection (the MCP no longer
-   *  offers `divider`; the backend wire still accepts it on other paths).
-   *  `config` is the subtype's create-time config (e.g. collection
+   *  metric/chart/table/text/markdown/image/collection/timeline (the MCP no
+   *  longer offers `divider`; the backend wire still accepts it on other
+   *  paths). `config` is the subtype's create-time config (e.g. collection
    *  `{ baseType, layout }`, chart `{ chartOptions }`, table
-   *  `{ density, columnOrder }`, text/markdown `{ content }`).
+   *  `{ density, columnOrder }`, timeline `{ timelineOptions: { sort } }`,
+   *  text/markdown `{ content }`).
    *
    *  `appearance` (HEL-305 create channel) is an optional passthrough with the
    *  same wire shape as `update_panel_appearance`. When it carries a `chart`
@@ -413,14 +414,15 @@ export class HelioApi {
     return { ...result, markdownRef: `helio://uploads/image/${result.id}` };
   }
 
-  /** Bind a panel (metric/chart/table/text/markdown/collection) to a
+  /** Bind a panel (metric/chart/table/text/markdown/collection/timeline) to a
    *  pipeline-output DataType. PATCHes `config: { dataTypeId, fieldMapping }`;
    *  the PATCH is a per-field merge, so a collection's create-time
-   *  `baseType`/`layout` survive this bind (design D3). `fieldMapping` is
-   *  optional — a table binds with no mapping (columns are a vestigial slot;
-   *  visible columns come from `config.columnOrder`, HEL-255). The backend
-   *  rejects a companion-DataType binding with 400 (V41 pipeline-only rule) —
-   *  that error is surfaced to the caller, never worked around. */
+   *  `baseType`/`layout` (or a timeline's `timelineOptions.sort`) survive this
+   *  bind (design D3). `fieldMapping` is optional — a table binds with no
+   *  mapping (columns are a vestigial slot; visible columns come from
+   *  `config.columnOrder`, HEL-255). The backend rejects a companion-DataType
+   *  binding with 400 (V41 pipeline-only rule) — that error is surfaced to
+   *  the caller, never worked around. */
   bindPanel(
     panelId: string,
     binding: { dataTypeId: string; fieldMapping?: Record<string, string>; panelType?: string },

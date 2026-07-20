@@ -18,6 +18,7 @@ import {
   updatePanelsBatch,
   updatePanelMarkdownBinding,
   updatePanelTextBinding,
+  updatePanelTimeline,
   updatePanelTitle,
 } from "./panelThunks";
 import type {
@@ -142,6 +143,11 @@ const panelsSlice = createSlice({
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
+      .addCase(updatePanelTimeline.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
       // HEL-255 — keep the stored panel's config.columnWidths in sync after a
       // debounced grid resize so the edit pane's Reset button reflects reality
       // without a reload.
@@ -249,6 +255,7 @@ export {
   updatePanelsBatch,
   updatePanelMarkdownBinding,
   updatePanelTextBinding,
+  updatePanelTimeline,
   updatePanelTitle,
 } from "./panelThunks";
 export { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";

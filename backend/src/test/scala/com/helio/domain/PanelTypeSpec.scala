@@ -32,6 +32,10 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
     "parse \"collection\" as Collection" in {
       PanelType.fromString("collection") shouldBe Right(PanelType.Collection)
     }
+
+    "parse \"timeline\" as Timeline" in {
+      PanelType.fromString("timeline") shouldBe Right(PanelType.Timeline)
+    }
   }
 
   "PanelType.asString" should {
@@ -51,8 +55,12 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.asString(PanelType.Collection) shouldBe "collection"
     }
 
+    "serialise Timeline as \"timeline\"" in {
+      PanelType.asString(PanelType.Timeline) shouldBe "timeline"
+    }
+
     "round-trip all types" in {
-      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Collection)
+      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Collection, PanelType.Timeline)
       all.foreach { t =>
         PanelType.fromString(PanelType.asString(t)) shouldBe Right(t)
       }

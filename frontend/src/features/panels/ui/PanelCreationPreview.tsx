@@ -94,6 +94,19 @@ function buildPreviewPanel(type: PanelType, typeConfig: TypeConfig | null | unde
           layout: "grid" | "list";
         },
       };
+    case "timeline":
+      // HEL-317 — the preview is unbound (IDs are placeholders), so
+      // TimelineRenderer shows its "bind a data type" placeholder.
+      // timelineOptions comes from `emptyTimelineConfig` (sort: "asc").
+      return {
+        ...base,
+        type: "timeline",
+        config: config as {
+          dataTypeId: string;
+          fieldMapping: Record<string, string>;
+          timelineOptions: { sort: "asc" | "desc" };
+        },
+      };
   }
 }
 

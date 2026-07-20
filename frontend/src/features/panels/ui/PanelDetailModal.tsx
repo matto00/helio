@@ -19,6 +19,7 @@ import {
   isTablePanel,
   isMetricPanel,
   isTextPanel,
+  isTimelinePanel,
 } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelData } from "../hooks/usePanelData";
@@ -39,6 +40,7 @@ import { DividerEditor } from "./editors/DividerEditor";
 import { ImageEditor } from "./editors/ImageEditor";
 import { MarkdownEditor } from "./editors/MarkdownEditor";
 import { TextContentEditor } from "./editors/TextContentEditor";
+import { TimelineEditor } from "./editors/TimelineEditor";
 import type { PanelEditorHandle } from "./editors/editorTypes";
 
 function padSeriesColors(colors: string[]): string[] {
@@ -97,6 +99,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
   const collectionEditorRef = useRef<PanelEditorHandle | null>(null);
+  const timelineEditorRef = useRef<PanelEditorHandle | null>(null);
 
   function activeEditorRef(): RefObject<PanelEditorHandle | null> | null {
     if (isMetricPanel(panel) || isChartPanel(panel) || isTablePanel(panel)) {
@@ -107,6 +110,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
     if (isCollectionPanel(panel)) return collectionEditorRef;
+    if (isTimelinePanel(panel)) return timelineEditorRef;
     return null;
   }
 
@@ -276,6 +280,15 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
       return (
         <CollectionEditor
           ref={collectionEditorRef}
+          panel={panel}
+          onDirtyChange={handleSubtypeDirtyChange}
+        />
+      );
+    }
+    if (isTimelinePanel(panel)) {
+      return (
+        <TimelineEditor
+          ref={timelineEditorRef}
           panel={panel}
           onDirtyChange={handleSubtypeDirtyChange}
         />

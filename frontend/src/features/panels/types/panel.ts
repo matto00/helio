@@ -57,7 +57,8 @@ export type PanelKind =
   | "markdown"
   | "image"
   | "divider"
-  | "collection";
+  | "collection"
+  | "timeline";
 
 export type ImageFit = "contain" | "cover" | "fill";
 
@@ -237,6 +238,29 @@ export interface CollectionPanelConfig {
   itemOptions?: CollectionItemOptions | null;
 }
 
+// ── Timeline panel (HEL-317) ────────────────────────────────────────────────
+//
+// Mirrors backend `domain/panels/TimelinePanel.scala` and
+// `schemas/panel.schema.json` `$defs.TimelineConfig`. A Timeline renders the
+// bound DataType's rows as a vertical chronological event list — one row =
+// one entry — using two field-mapping slots (`time`, `event`). Binding
+// reuses `dataTypeId`/`fieldMapping` (the bound-trio shape); `timelineOptions`
+// is the timeline-specific concern.
+
+export type TimelineSort = "asc" | "desc";
+
+export interface TimelineOptions {
+  /** Chronological order. Absent/legacy falls back to "asc". */
+  sort: TimelineSort;
+}
+
+export interface TimelinePanelConfig {
+  dataTypeId: string;
+  /** Binds the `time` (timestamp/order) and `event` (text) slots. */
+  fieldMapping: Record<string, string>;
+  timelineOptions: TimelineOptions;
+}
+
 export type PanelConfig =
   | MetricPanelConfig
   | ChartPanelConfig
@@ -245,7 +269,8 @@ export type PanelConfig =
   | MarkdownPanelConfig
   | ImagePanelConfig
   | DividerPanelConfig
-  | CollectionPanelConfig;
+  | CollectionPanelConfig
+  | TimelinePanelConfig;
 
 // ── Discriminated union ─────────────────────────────────────────────────────
 //
@@ -310,6 +335,11 @@ export interface CollectionPanel extends PanelBase {
   config: CollectionPanelConfig;
 }
 
+export interface TimelinePanel extends PanelBase {
+  type: "timeline";
+  config: TimelinePanelConfig;
+}
+
 export type Panel =
   | MetricPanel
   | ChartPanel
@@ -318,7 +348,8 @@ export type Panel =
   | MarkdownPanel
   | ImagePanel
   | DividerPanel
-  | CollectionPanel;
+  | CollectionPanel
+  | TimelinePanel;
 
 // Legacy alias — `PanelType` was the discriminator string literal union under
 // the pre-CS2c-3c flat shape. Same set as `PanelKind`; kept as an alias so
@@ -375,6 +406,12 @@ export const emptyCollectionConfig = (): CollectionPanelConfig => ({
   layout: "grid",
 });
 
+export const emptyTimelineConfig = (): TimelinePanelConfig => ({
+  dataTypeId: "",
+  fieldMapping: {},
+  timelineOptions: { sort: "asc" },
+});
+
 export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   switch (kind) {
     case "metric":
@@ -393,6 +430,8 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
       return emptyDividerConfig();
     case "collection":
       return emptyCollectionConfig();
+    case "timeline":
+      return emptyTimelineConfig();
   }
 }
 

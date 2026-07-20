@@ -10,6 +10,7 @@ import {
   isMetricPanel,
   isTablePanel,
   isTextPanel,
+  isTimelinePanel,
 } from "../state/panelNarrowing";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
@@ -19,6 +20,7 @@ import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricRenderer } from "./renderers/MetricRenderer";
 import { TableRenderer } from "./renderers/TableRenderer";
 import { TextRenderer } from "./renderers/TextRenderer";
+import { TimelineRenderer } from "./renderers/TimelineRenderer";
 
 export interface PanelContentProps {
   panel: Panel;
@@ -122,6 +124,11 @@ export function PanelContent({
   // row expands to one metric item.
   if (isCollectionPanel(panel)) {
     return <CollectionRenderer panel={panel} rawRows={rawRows} headers={headers} />;
+  }
+  // HEL-317 — timeline uses the same table fetch path as collection: one
+  // bound row expands to one timeline entry.
+  if (isTimelinePanel(panel)) {
+    return <TimelineRenderer panel={panel} rawRows={rawRows} headers={headers} />;
   }
 
   // Exhaustiveness fallback — the union is closed so this is unreachable.

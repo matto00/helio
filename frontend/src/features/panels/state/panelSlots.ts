@@ -26,4 +26,10 @@ export const PANEL_SLOTS: Record<PanelType, PanelSlot[]> = {
   // shared item slots from `PANEL_SLOTS[baseType]` (e.g. `PANEL_SLOTS.metric`)
   // instead, so a new base type never needs an entry here.
   collection: [],
+  // HEL-317: two bound slots — a time/order field and a text/event field —
+  // both read directly by `TimelineRenderer` per entry.
+  timeline: [
+    { key: "time", label: "Time" },
+    { key: "event", label: "Event" },
+  ],
 };

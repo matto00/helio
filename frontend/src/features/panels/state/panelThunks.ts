@@ -22,6 +22,7 @@ import {
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest,
   updatePanelTextBinding as updatePanelTextBindingRequest,
+  updatePanelTimeline as updatePanelTimelineRequest,
   updatePanelTitle as updatePanelTitleRequest,
   type TableDisplayPatch,
 } from "../services/panelService";
@@ -38,6 +39,7 @@ import type {
   Panel,
   PanelAppearance,
   PanelType,
+  TimelineSort,
   TypeConfig,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
@@ -247,6 +249,28 @@ export const updatePanelCollection = createAsyncThunk<
       });
     } catch {
       return rejectWithValue("Failed to update collection panel.");
+    }
+  },
+);
+
+/** HEL-317: PATCH a Timeline panel's editor save — binding + `sort` in a
+ *  single config PATCH. */
+export const updatePanelTimeline = createAsyncThunk<
+  Panel,
+  {
+    panelId: string;
+    typeId: string | null;
+    fieldMapping: Record<string, string> | null;
+    sort?: TimelineSort;
+  },
+  { rejectValue: string }
+>(
+  "panels/updatePanelTimeline",
+  async ({ panelId, typeId, fieldMapping, sort }, { rejectWithValue }) => {
+    try {
+      return await updatePanelTimelineRequest(panelId, { typeId, fieldMapping, sort });
+    } catch {
+      return rejectWithValue("Failed to update timeline panel.");
     }
   },
 );
