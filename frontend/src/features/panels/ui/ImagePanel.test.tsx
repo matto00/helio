@@ -76,3 +76,53 @@ describe("ImagePanel — without imageUrl", () => {
     expect(screen.getByText(/No image URL set/)).toBeInTheDocument();
   });
 });
+
+describe("ImagePanel — caption strip (HEL-318)", () => {
+  it("renders the caption beneath the image when set", () => {
+    render(
+      <ImagePanel
+        imageUrl="https://example.com/logo.png"
+        imageFit={null}
+        caption="Hero photo — Reuters"
+      />,
+    );
+    expect(screen.getByText("Hero photo — Reuters")).toBeInTheDocument();
+  });
+
+  it("renders no caption strip when caption is absent", () => {
+    const { container } = render(
+      <ImagePanel imageUrl="https://example.com/logo.png" imageFit={null} />,
+    );
+    expect(container.querySelector(".image-panel__caption")).not.toBeInTheDocument();
+  });
+
+  it("renders no caption strip when caption is blank/whitespace-only", () => {
+    const { container } = render(
+      <ImagePanel imageUrl="https://example.com/logo.png" imageFit={null} caption="   " />,
+    );
+    expect(container.querySelector(".image-panel__caption")).not.toBeInTheDocument();
+  });
+
+  it("shows the caption even for a placeholder (null imageUrl)", () => {
+    const { container } = render(
+      <ImagePanel imageUrl={null} imageFit={null} caption="Pending upload" />,
+    );
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(screen.getByText("Pending upload")).toBeInTheDocument();
+  });
+
+  it("trims surrounding whitespace and exposes the full text via title for long captions", () => {
+    const long = "A very long caption ".repeat(20).trim();
+    const { container } = render(
+      <ImagePanel
+        imageUrl="https://example.com/logo.png"
+        imageFit={null}
+        caption={`  ${long}  `}
+      />,
+    );
+    const strip = container.querySelector(".image-panel__caption");
+    expect(strip).toHaveTextContent(long);
+    // The clamped strip carries the full text in `title` so truncation stays readable.
+    expect(strip).toHaveAttribute("title", long);
+  });
+});

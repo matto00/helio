@@ -124,6 +124,9 @@ export async function updatePanelBinding(
   /** HEL-248: Chart per-type display options folded into the same single Save
    *  PATCH — `undefined` = leave unchanged, `null` = clear, object = replace. */
   chartOptions?: ChartTypeOptionsMap | null,
+  /** HEL-318: Chart static annotation folded into the same single Save PATCH —
+   *  `undefined` = leave unchanged, `null` = clear, string = set. */
+  annotation?: string | null,
 ): Promise<Panel> {
   // refreshInterval is intentionally dropped at the network boundary — the
   // backend has no schema or column for it. The slice mirrors it into Redux
@@ -138,6 +141,7 @@ export async function updatePanelBinding(
     columnOrder: tableDisplay?.columnOrder,
     columnWidths: tableDisplay?.columnWidths,
     chartOptions,
+    annotation,
   });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
@@ -217,8 +221,9 @@ export async function updatePanelImage(
   panelId: string,
   imageUrl: string,
   imageFit: ImageFit,
+  caption: string | null,
 ): Promise<Panel> {
-  const config = buildImagePatch({ imageUrl, imageFit });
+  const config = buildImagePatch({ imageUrl, imageFit, caption });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }

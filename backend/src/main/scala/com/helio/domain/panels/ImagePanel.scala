@@ -6,16 +6,28 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 /** Typed config for an [[ImagePanel]] — unbound content panel rendering a
- *  remote image with a fit mode. */
-final case class ImagePanelConfig(imageUrl: String, imageFit: String)
+ *  remote image with a fit mode.
+ *
+ *  `caption` (HEL-318) is optional static literal text rendered as a strip
+ *  beneath the image; `None` (unset) is omitted from the wire `config` by
+ *  `DefaultJsonProtocol`, never emitted as `null`. */
+final case class ImagePanelConfig(imageUrl: String, imageFit: String, caption: Option[String] = None)
 
 object ImagePanelConfig {
   /** Default `imageFit` matches the pre-CS2c-3b behaviour and the value
    *  `RequestValidation.validateImageFit` accepts. */
   val DefaultFit: String = "contain"
-  val Empty: ImagePanelConfig = ImagePanelConfig("", DefaultFit)
+  val Empty: ImagePanelConfig = ImagePanelConfig("", DefaultFit, None)
 
-  implicit val format: RootJsonFormat[ImagePanelConfig] = jsonFormat2(ImagePanelConfig.apply)
+  implicit val format: RootJsonFormat[ImagePanelConfig] = jsonFormat3(ImagePanelConfig.apply)
+
+  /** Normalize a caption input to the cleared/set state: absent, null, empty,
+   *  and whitespace-only all collapse to `None` so a blank caption round-trips
+   *  as an omitted field, never a stored `""`. */
+  private def normalizeCaption(value: Option[JsValue]): Option[String] = value match {
+    case Some(JsString(s)) if s.trim.nonEmpty => Some(s)
+    case _                                    => None
+  }
 
   def decode(json: JsValue): ImagePanelConfig = json match {
     case JsObject(fields) =>
@@ -27,20 +39,27 @@ object ImagePanelConfig {
         case Some(JsString(s)) => s
         case _                 => DefaultFit
       }
-      ImagePanelConfig(imageUrl, imageFit)
+      ImagePanelConfig(imageUrl, imageFit, normalizeCaption(fields.get("caption")))
     case _ => Empty
   }
 
   def decodeCreate(json: JsValue): ImagePanelConfig = decode(json)
 
   /** Update patch — `imageFit` is validated against the allow-list at
-   *  decode time to surface 400s before reaching the service. */
-  final case class Patch(imageUrl: Option[String], imageFit: Option[String]) {
-    def isEmpty: Boolean = imageUrl.isEmpty && imageFit.isEmpty
+   *  decode time to surface 400s before reaching the service. `caption` is a
+   *  two-level patch (`Option[Option[String]]`): absent = leave unchanged;
+   *  null/empty/whitespace = clear; non-blank = set — mirroring
+   *  `ChartPanelConfig.Patch.aggregation`, not the single-level `imageUrl`. */
+  final case class Patch(
+      imageUrl: Option[String],
+      imageFit: Option[String],
+      caption: Option[Option[String]]
+  ) {
+    def isEmpty: Boolean = imageUrl.isEmpty && imageFit.isEmpty && caption.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None)
+    val Empty: Patch = Patch(None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -60,7 +79,14 @@ object ImagePanelConfig {
             }
           case Some(x)           => deserializationError(s"imageFit must be a string or null, got $x")
         }
-        Patch(url, fit)
+        val caption = fields.get("caption") match {
+          case None                                 => None
+          case Some(JsNull)                         => Some(None)
+          case Some(JsString(s)) if s.trim.nonEmpty => Some(Some(s))
+          case Some(JsString(_))                    => Some(None)
+          case Some(x)                              => deserializationError(s"caption must be a string or null, got $x")
+        }
+        Patch(url, fit, caption)
       case _ => Empty
     }
   }
@@ -87,7 +113,8 @@ final case class ImagePanel(
   def applyPatch(patch: ImagePanelConfig.Patch): ImagePanel = copy(
     config = ImagePanelConfig(
       imageUrl = patch.imageUrl.getOrElse(config.imageUrl),
-      imageFit = patch.imageFit.getOrElse(config.imageFit)
+      imageFit = patch.imageFit.getOrElse(config.imageFit),
+      caption  = patch.caption.fold(config.caption)(identity)
     )
   )
 }

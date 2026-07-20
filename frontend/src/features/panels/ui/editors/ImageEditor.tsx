@@ -39,14 +39,17 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
   const dispatch = useAppDispatch();
   const initialImageUrl = panel.config.imageUrl;
   const initialImageFit: ImageFit = coerceFit(panel.config.imageFit);
+  const initialCaption = panel.config.caption ?? "";
   const [imageUrl, setImageUrl] = useState(initialImageUrl);
   const [imageFit, setImageFit] = useState<ImageFit>(initialImageFit);
+  const [caption, setCaption] = useState(initialCaption);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const dirty = imageUrl !== initialImageUrl || imageFit !== initialImageFit;
+  const dirty =
+    imageUrl !== initialImageUrl || imageFit !== initialImageFit || caption !== initialCaption;
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -81,13 +84,19 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
       reset: () => {
         setImageUrl(initialImageUrl);
         setImageFit(initialImageFit);
+        setCaption(initialCaption);
         setSaveError(null);
         setUploadError(null);
       },
       save: async () => {
         if (!dirty) return { ok: true };
+        // Map an empty/whitespace-only caption control to `null` so the PATCH
+        // clears the stored caption (absent-vs-null convention, HEL-318).
+        const captionPayload = caption.trim() ? caption : null;
         try {
-          await dispatch(updatePanelImage({ panelId: panel.id, imageUrl, imageFit })).unwrap();
+          await dispatch(
+            updatePanelImage({ panelId: panel.id, imageUrl, imageFit, caption: captionPayload }),
+          ).unwrap();
           return { ok: true };
         } catch {
           const error = "Failed to save image settings.";
@@ -96,7 +105,17 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
         }
       },
     }),
-    [dirty, dispatch, imageFit, imageUrl, initialImageFit, initialImageUrl, panel.id],
+    [
+      caption,
+      dirty,
+      dispatch,
+      imageFit,
+      imageUrl,
+      initialCaption,
+      initialImageFit,
+      initialImageUrl,
+      panel.id,
+    ],
   );
 
   return (
@@ -147,6 +166,19 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
             { value: "cover", label: "Cover" },
             { value: "fill", label: "Fill" },
           ]}
+        />
+      </div>
+      <div className="panel-detail-modal__data-section">
+        <label className="panel-detail-modal__data-label" htmlFor="image-caption">
+          Caption
+        </label>
+        <TextField
+          id="image-caption"
+          type="text"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          aria-label="Caption"
+          placeholder="Optional caption shown beneath the image"
         />
       </div>
       <InlineError error={saveError} />

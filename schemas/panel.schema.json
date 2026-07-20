@@ -95,6 +95,10 @@
         "chartOptions": {
           "$ref": "#/$defs/ChartOptions",
           "description": "Per-chart-type display options keyed by chart type. Absent falls back to the pre-HEL-248 rendering. Options stored under a non-active type are ignored on render but preserved across type switches."
+        },
+        "annotation": {
+          "type": ["string", "null"],
+          "description": "Optional static subtitle/footnote rendered beneath the chart title (HEL-318). Absent leaves it unchanged on PATCH; null/empty/whitespace clears it. Omitted from the response config when unset."
         }
       }
     },
@@ -144,7 +148,11 @@
       "additionalProperties": false,
       "properties": {
         "imageUrl": { "type": "string" },
-        "imageFit": { "type": "string", "enum": ["contain", "cover", "fill"] }
+        "imageFit": { "type": "string", "enum": ["contain", "cover", "fill"] },
+        "caption": {
+          "type": ["string", "null"],
+          "description": "Optional static caption rendered as a strip beneath the image (HEL-318). Absent leaves it unchanged on PATCH; null/empty/whitespace clears it. Omitted from the response config when unset."
+        }
       }
     },
     "DividerConfig": {

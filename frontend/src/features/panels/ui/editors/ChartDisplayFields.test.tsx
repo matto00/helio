@@ -1,11 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { ChartDisplayFields } from "./ChartDisplayFields";
 import type { ChartType } from "../../../../utils/chartAppearance";
 
 const noop = () => {};
 
-function renderFields(overrides: { chartType: ChartType; isBound?: boolean }) {
+function renderFields(overrides: {
+  chartType: ChartType;
+  isBound?: boolean;
+  annotation?: string;
+  onAnnotationChange?: (value: string) => void;
+}) {
   return render(
     <ChartDisplayFields
       chartType={overrides.chartType}
@@ -22,6 +27,8 @@ function renderFields(overrides: { chartType: ChartType; isBound?: boolean }) {
         { value: "region", label: "region" },
       ]}
       isBound={overrides.isBound ?? true}
+      annotation={overrides.annotation ?? ""}
+      onAnnotationChange={overrides.onAnnotationChange ?? noop}
     />,
   );
 }
@@ -69,5 +76,31 @@ describe("ChartDisplayFields (HEL-248) — controls swap per chart type", () => 
   it("always renders the Display section heading", () => {
     renderFields({ chartType: "line" });
     expect(screen.getByRole("heading", { name: "Display" })).toBeInTheDocument();
+  });
+});
+
+describe("ChartDisplayFields — annotation control (HEL-318)", () => {
+  it("renders the annotation field for every chart type with the current value", () => {
+    renderFields({ chartType: "line", annotation: "Source: internal" });
+    const input = screen.getByRole("textbox", { name: "Annotation" });
+    expect(input).toHaveValue("Source: internal");
+  });
+
+  it("fires onAnnotationChange with the typed value", () => {
+    const onAnnotationChange = jest.fn();
+    renderFields({ chartType: "bar", annotation: "", onAnnotationChange });
+    fireEvent.change(screen.getByRole("textbox", { name: "Annotation" }), {
+      target: { value: "Preliminary data" },
+    });
+    expect(onAnnotationChange).toHaveBeenCalledWith("Preliminary data");
+  });
+
+  it("fires onAnnotationChange with empty string when the control is cleared", () => {
+    const onAnnotationChange = jest.fn();
+    renderFields({ chartType: "pie", annotation: "Old note", onAnnotationChange });
+    fireEvent.change(screen.getByRole("textbox", { name: "Annotation" }), {
+      target: { value: "" },
+    });
+    expect(onAnnotationChange).toHaveBeenCalledWith("");
   });
 });

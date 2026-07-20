@@ -353,13 +353,13 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
     "applyPatch: explicit null clears a previously-set aggregation" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None), None))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None), None, None))
       patched.config.aggregation shouldBe None
     }
 
     "applyPatch: present object sets aggregation" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg)), None))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg)), None, None))
       patched.config.aggregation shouldBe Some(agg)
     }
   }
@@ -450,20 +450,20 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
     "applyPatch: absent key preserves existing chartOptions" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None))
       patched.config.chartOptions shouldBe Some(opts)
     }
 
     "applyPatch: explicit null clears a previously-set chartOptions" in {
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(None)))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(None), None))
       patched.config.chartOptions shouldBe None
     }
 
     "applyPatch: a chartOptions-only patch leaves dataTypeId/fieldMapping/aggregation untouched" in {
       val mapping  = JsObject("xAxis" -> JsString("colA"))
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), mapping, None, None))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(Some(opts))))
+      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(Some(opts)), None))
       patched.config.dataTypeId shouldBe DataTypeId("dt1")
       patched.config.fieldMapping shouldBe mapping
       patched.config.chartOptions shouldBe Some(opts)
@@ -474,12 +474,113 @@ class PanelSpec extends AnyWordSpec with Matchers {
       val barOnly = ChartOptions(bar = Some(BarChartOptions(stacking = Some("normalized"))))
       val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
       val patched  = existing.applyPatch(
-        ChartPanelConfig.Patch(None, None, None, Some(Some(opts.copy(bar = barOnly.bar))))
+        ChartPanelConfig.Patch(None, None, None, Some(Some(opts.copy(bar = barOnly.bar))), None)
       )
       patched.config.chartOptions.flatMap(_.line) shouldBe opts.line
       patched.config.chartOptions.flatMap(_.pie) shouldBe opts.pie
       patched.config.chartOptions.flatMap(_.scatter) shouldBe opts.scatter
       patched.config.chartOptions.flatMap(_.bar).flatMap(_.stacking) shouldBe Some("normalized")
+    }
+  }
+
+  // ── HEL-318: ImagePanelConfig.caption / ChartPanelConfig.annotation ────────
+
+  "ImagePanelConfig.caption" should {
+    "default to None when absent" in {
+      ImagePanelConfig.decode(JsObject("imageUrl" -> JsString("http://x/y.png"))).caption shouldBe None
+    }
+
+    "normalize null/empty/whitespace to None at decode" in {
+      ImagePanelConfig.decode(JsObject("caption" -> JsNull)).caption shouldBe None
+      ImagePanelConfig.decode(JsObject("caption" -> JsString(""))).caption shouldBe None
+      ImagePanelConfig.decode(JsObject("caption" -> JsString("   "))).caption shouldBe None
+    }
+
+    "decode a non-blank caption" in {
+      ImagePanelConfig.decode(JsObject("caption" -> JsString("Hero photo"))).caption shouldBe Some("Hero photo")
+    }
+
+    "omit caption from the wire when None (spray-json None-omission)" in {
+      val fields = ImagePanelConfig("http://x/y.png", "cover", None).toJson.asJsObject.fields
+      fields.contains("caption") shouldBe false
+    }
+
+    "include caption on the wire when set" in {
+      val fields = ImagePanelConfig("http://x/y.png", "cover", Some("Fig. 1")).toJson.asJsObject.fields
+      fields.get("caption") shouldBe Some(JsString("Fig. 1"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat3)" in {
+      val cfg = ImagePanelConfig("http://x/y.png", "cover", Some("Cap"))
+      ImagePanelConfig.decode(cfg.toJson) shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves caption untouched (outer None)" in {
+      ImagePanelConfig.Patch.decode(JsObject("imageUrl" -> JsString("u"))).caption shouldBe None
+    }
+
+    "Patch.decode: null/empty/whitespace clears caption (Some(None))" in {
+      ImagePanelConfig.Patch.decode(JsObject("caption" -> JsNull)).caption shouldBe Some(None)
+      ImagePanelConfig.Patch.decode(JsObject("caption" -> JsString(""))).caption shouldBe Some(None)
+      ImagePanelConfig.Patch.decode(JsObject("caption" -> JsString("  "))).caption shouldBe Some(None)
+    }
+
+    "Patch.decode: non-blank string sets caption (Some(Some(v)))" in {
+      ImagePanelConfig.Patch.decode(JsObject("caption" -> JsString("New"))).caption shouldBe Some(Some("New"))
+    }
+
+    "applyPatch: absent leaves the existing caption, null clears it, value sets it" in {
+      val existing = img(ImagePanelConfig("u", "cover", Some("Old")))
+      existing.applyPatch(ImagePanelConfig.Patch(None, None, None)).config.caption shouldBe Some("Old")
+      existing.applyPatch(ImagePanelConfig.Patch(None, None, Some(None))).config.caption shouldBe None
+      existing.applyPatch(ImagePanelConfig.Patch(None, None, Some(Some("New")))).config.caption shouldBe Some("New")
+    }
+  }
+
+  "ChartPanelConfig.annotation" should {
+    "default to None when absent" in {
+      ChartPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1"))).annotation shouldBe None
+    }
+
+    "normalize null/empty/whitespace to None at decode" in {
+      ChartPanelConfig.decode(JsObject("annotation" -> JsNull)).annotation shouldBe None
+      ChartPanelConfig.decode(JsObject("annotation" -> JsString(""))).annotation shouldBe None
+      ChartPanelConfig.decode(JsObject("annotation" -> JsString("  "))).annotation shouldBe None
+    }
+
+    "decode a non-blank annotation" in {
+      ChartPanelConfig.decode(JsObject("annotation" -> JsString("Source: BLS"))).annotation shouldBe Some("Source: BLS")
+    }
+
+    "omit annotation from the wire when None" in {
+      val fields = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject.fields
+      fields.contains("annotation") shouldBe false
+    }
+
+    "include annotation on the wire when set" in {
+      val fields = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, Some("Fig. 2")).toJson.asJsObject.fields
+      fields.get("annotation") shouldBe Some(JsString("Fig. 2"))
+    }
+
+    "Patch.decode: absent key leaves annotation untouched (outer None)" in {
+      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).annotation shouldBe None
+    }
+
+    "Patch.decode: null/empty/whitespace clears annotation (Some(None))" in {
+      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsNull)).annotation shouldBe Some(None)
+      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString(""))).annotation shouldBe Some(None)
+      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString(" "))).annotation shouldBe Some(None)
+    }
+
+    "Patch.decode: non-blank string sets annotation (Some(Some(v)))" in {
+      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString("Note"))).annotation shouldBe Some(Some("Note"))
+    }
+
+    "applyPatch: absent leaves the existing annotation, null clears it, value sets it" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, Some("Old")))
+      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None)).config.annotation shouldBe Some("Old")
+      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, Some(None))).config.annotation shouldBe None
+      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, Some(Some("New")))).config.annotation shouldBe Some("New")
     }
   }
 

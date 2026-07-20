@@ -3,9 +3,11 @@
 // `buildCreatePanelBody`).
 
 import {
+  buildBindingPatch,
   buildCollectionPatch,
   buildCreatePanelBody,
   buildContentBindingPatch,
+  buildImagePatch,
 } from "./panelPayloads";
 
 describe("buildContentBindingPatch", () => {
@@ -51,6 +53,56 @@ describe("buildContentBindingPatch", () => {
     expect(patch.content).toBe("New literal text");
     expect(patch.dataTypeId).toBeNull();
     expect(patch.fieldMapping).toBeNull();
+  });
+});
+
+describe("buildImagePatch — caption (HEL-318)", () => {
+  it("includes a non-blank caption in the PATCH config", () => {
+    const patch = buildImagePatch({
+      imageUrl: "https://x/y.png",
+      imageFit: "cover",
+      caption: "Source: NASA",
+    });
+    expect(patch).toEqual({
+      imageUrl: "https://x/y.png",
+      imageFit: "cover",
+      caption: "Source: NASA",
+    });
+  });
+
+  it("sends caption: null to clear a previously-set caption", () => {
+    const patch = buildImagePatch({
+      imageUrl: "https://x/y.png",
+      imageFit: "cover",
+      caption: null,
+    });
+    expect(patch.caption).toBeNull();
+  });
+});
+
+describe("buildBindingPatch — chart annotation (HEL-318)", () => {
+  it("omits annotation entirely when undefined (leave unchanged)", () => {
+    const patch = buildBindingPatch({ typeId: "dt-1", fieldMapping: { xAxis: "a" } });
+    expect("annotation" in patch).toBe(false);
+  });
+
+  it("includes a non-blank annotation when set", () => {
+    const patch = buildBindingPatch({
+      typeId: "dt-1",
+      fieldMapping: { xAxis: "a" },
+      annotation: "Source: BLS",
+    });
+    expect(patch.annotation).toBe("Source: BLS");
+  });
+
+  it("sends annotation: null to clear a previously-set annotation", () => {
+    const patch = buildBindingPatch({
+      typeId: "dt-1",
+      fieldMapping: { xAxis: "a" },
+      annotation: null,
+    });
+    expect("annotation" in patch).toBe(true);
+    expect(patch.annotation).toBeNull();
   });
 });
 

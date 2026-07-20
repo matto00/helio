@@ -1,10 +1,40 @@
+/* Column frame: the visual (image or placeholder) fills the remaining space
+ * while the caption strip takes its own clamped height beneath it. */
+.image-panel-frame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: var(--space-2);
+}
+
 .image-panel {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* Caption strip beneath the image. Clamped to two lines with an ellipsis so a
+ * long caption never pushes the image out of the panel body. */
+.image-panel__caption {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--app-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-word;
 }
 
 .image-panel__img {

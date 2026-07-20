@@ -10,6 +10,7 @@ export function ImageRenderer({ panel }: ImageRendererProps) {
     <ImagePanelView
       imageUrl={panel.config.imageUrl || null}
       imageFit={panel.config.imageFit || null}
+      caption={panel.config.caption ?? null}
     />
   );
 }

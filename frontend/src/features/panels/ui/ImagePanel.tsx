@@ -7,6 +7,7 @@ import "./ImagePanel.css";
 interface ImagePanelProps {
   imageUrl: string | null;
   imageFit: string | null;
+  caption?: string | null;
 }
 
 // HEL-246: a root-relative internal upload path (`/api/uploads/image/<id>`,
@@ -41,26 +42,34 @@ function sanitizeImageUrl(url: string): string | null {
   }
 }
 
-export function ImagePanel({ imageUrl, imageFit }: ImagePanelProps) {
+export function ImagePanel({ imageUrl, imageFit, caption }: ImagePanelProps) {
   const safeUrl = imageUrl ? sanitizeImageUrl(imageUrl) : null;
-  if (!safeUrl) {
-    return (
-      <div className="image-panel image-panel--empty">
-        <span className="image-panel__placeholder-icon" aria-hidden="true">
-          <FontAwesomeIcon icon={faImage} />
-        </span>
-        <span className="image-panel__placeholder-text">
-          No image URL set. Open panel settings to configure.
-        </span>
-      </div>
-    );
-  }
-
+  const trimmedCaption = caption?.trim();
   const objectFit = (imageFit ?? "contain") as CSSProperties["objectFit"];
 
-  return (
+  const visual = safeUrl ? (
     <div className="image-panel">
       <img className="image-panel__img" src={safeUrl} alt="" style={{ objectFit }} />
+    </div>
+  ) : (
+    <div className="image-panel image-panel--empty">
+      <span className="image-panel__placeholder-icon" aria-hidden="true">
+        <FontAwesomeIcon icon={faImage} />
+      </span>
+      <span className="image-panel__placeholder-text">
+        No image URL set. Open panel settings to configure.
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="image-panel-frame">
+      {visual}
+      {trimmedCaption ? (
+        <p className="image-panel__caption" title={trimmedCaption}>
+          {trimmedCaption}
+        </p>
+      ) : null}
     </div>
   );
 }
