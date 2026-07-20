@@ -1,13 +1,36 @@
 <configuration>
   <property name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}" />
 
-  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+  <!-- Human-readable plain-text output (dev/local default). -->
+  <appender name="plain" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
+  <!-- Structured JSON output for production (Cloud Logging). LogstashEncoder
+       includes MDC entries by default. The level field is renamed to a
+       top-level `severity` field so Cloud Logging classifies entries. -->
+  <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <fieldNames>
+        <level>severity</level>
+      </fieldNames>
+    </encoder>
+  </appender>
+
+  <!-- Select the appender at startup from LOG_FORMAT. True equality means any
+       non-`json` value (including typos) resolves to plain text, never a
+       dangling ref that would leave the root with no appender. Requires Janino
+       on the classpath. -->
   <root level="${LOG_LEVEL}">
-    <appender-ref ref="STDOUT" />
+    <if condition='p("LOG_FORMAT").equalsIgnoreCase("json")'>
+      <then>
+        <appender-ref ref="json" />
+      </then>
+      <else>
+        <appender-ref ref="plain" />
+      </else>
+    </if>
   </root>
 </configuration>
