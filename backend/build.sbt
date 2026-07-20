@@ -88,6 +88,12 @@ lazy val root = (project in file("."))
       "org.apache.pekko" %% "pekko-slf4j" % "1.1.3",
       "org.apache.pekko" %% "pekko-stream" % "1.1.3",
       "ch.qos.logback" % "logback-classic" % "1.5.18",
+      // Structured JSON log encoder for Cloud Logging (HEL-115). 7.4 declares
+      // Jackson 2.15.2, matching the Spark-forced 2.15.4 dependencyOverrides pin.
+      "net.logstash.logback" % "logstash-logback-encoder" % "7.4",
+      // Enables logback <if>/<then>/<else> conditional config in logback.xml
+      // (self-contained, no transitive deps).
+      "org.codehaus.janino" % "janino" % "3.1.12",
       "com.typesafe.slick" %% "slick" % "3.5.2",
       "com.typesafe.slick" %% "slick-hikaricp" % "3.5.2",
       "org.postgresql" % "postgresql" % "42.7.4",
