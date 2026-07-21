@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.3
+# concertino:sync v0.1.4
 name: concertino-evaluator
 description: >-
   Code-review agent for the helio ticket-delivery workflow. Three-phase review (spec/code/UI), re-runs gates, writes a structured report. Resumable across cycles. Invoked only by the orchestrator.
@@ -203,4 +203,7 @@ recommendation for the human.
 - Phase 3 is mandatory when its triggers match — not optional.
 - Non-blocking suggestions don't cause FAIL — a PASS with suggestions is still a PASS.
 - `BLOCKER` is for environmental failures only — code issues go in Change Requests.
+- **Never invoke `scripts/concertino/cleanup.sh`** (or any teardown of the worktree).
+  It is a Phase-4 orchestrator-only, post-merge teardown; running it mid-review
+  destroys the live worktree (git-admin metadata + checkout) you are evaluating.
 - On resume, do NOT re-read stable context (ticket/artifacts).

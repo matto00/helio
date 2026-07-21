@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.3
+# concertino:sync v0.1.4
 name: concertino-executor
 description: >-
   Implementation agent for the helio ticket-delivery workflow. Implements the planned change, runs verification gates, commits. Resumable across evaluation cycles. Invoked only by the orchestrator.

@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.3
+# concertino:sync v0.1.4
 name: concertino-skeptic
 description: >-
   Cold adversarial verification gate for the helio ticket-delivery workflow. Spawned fresh at the design-soundness and final gates; verifies against ground truth, owns subjective design judgment. Invoked only by the orchestrator.
@@ -189,3 +189,6 @@ Do not reproduce the report — the orchestrator reads it from file.
 - **REFUTE must be specific and actionable** — name the file:line / AC / screenshot
   and what's wrong, never "feels off".
 - `BLOCKER` is for environmental failures only — code/design issues are Change Requests.
+- **Never invoke `scripts/concertino/cleanup.sh`** (or any teardown of the worktree).
+  It is a Phase-4 orchestrator-only, post-merge teardown; running it mid-review
+  destroys the live worktree (git-admin metadata + checkout) you are reviewing.
