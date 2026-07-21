@@ -3,7 +3,7 @@
 ## Source changes
 
 - `backend/src/main/scala/com/helio/api/TraceContextDirective.scala` — new request-boundary directive: extracts the trace id from `X-Cloud-Trace-Context` (substring before `/`, blank/absent = no trace), formats the MDC value under `logging.googleapis.com/trace` (`projects/$PROJECT_ID/traces/$id` when `GOOGLE_CLOUD_PROJECT` is set, else the bare id), sets it on the route-evaluation thread, swaps in the propagating EC for async logs, and removes the key on every exit path.
-- `backend/src/main/scala/com/helio/infrastructure/MdcPropagatingExecutionContext.scala` — new `ExecutionContextExecutor` that installs a fixed MDC snapshot (captured at route-evaluation time) around every task it runs and restores the thread's prior MDC afterwards. This is the async-propagation mechanism the probe selected.
+- `backend/src/main/scala/com/helio/infrastructure/MdcPropagatingExecutionContext.scala` — new `ExecutionContextExecutor` that installs a fixed MDC snapshot (captured at route-evaluation time) around every task it runs and restores the thread's prior MDC afterwards. This is the async-propagation mechanism the probe selected. (Cycle-1 skeptic fix: the `snapshot` constructor param now uses a top-of-file `import java.util.Map` instead of an inline `java.util.Map[String, String]` FQN, per CONTRIBUTING.md's Imports & Qualifiers rule — zero functional change; the scala-quality gate had missed it because `java.util.Map` isn't in its FQN prefix list.)
 - `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — construct `TraceContextDirective` and wrap the route tree (`health.routes ~ pathPrefix("api")`) with `withTraceContext`, inside `cors` so health probes are traced too. (The inner block was left at its original indentation to keep the wrap diff minimal; no logic changed.)
 - `backend/src/test/scala/com/helio/api/TraceContextDirectiveSpec.scala` — new spec: trace-id extraction, MDC value formatting (project-id set/unset), synchronous MDC presence + cleanup, the probe control (naive boundary MDC.put LOSES the async log), the fix (trace present on the async `onComplete` JSON line via `LogstashEncoder`), and the no-leak-across-requests case.
 
@@ -22,8 +22,8 @@
 
 ## Gate evidence
 
-- `cd backend && sbt test` → `Total number of tests run: 1486 / Suites: completed 78, aborted 0 / Tests: succeeded 1486, failed 0`. `[success]`.
-- `node scripts/check-scala-quality.mjs` → `Scala code-quality check: clean (45 soft warning(s))`, exit 0 (no warnings for the new files).
+- `cd backend && sbt test` → `Total number of tests run: 1486 / Suites: completed 78, aborted 0 / Tests: succeeded 1486, failed 0`. `[success]`. (Re-run fresh after the cycle-1 FQN fix — still 1486/1486.)
+- `node scripts/check-scala-quality.mjs` → `Scala code-quality check: clean (45 soft warning(s))`, exit 0 (no warnings for the new files; re-run fresh after the FQN fix).
 - `node scripts/check-schema-drift.mjs` → `schemas in sync with JsonProtocols (10 checked across 18 protocol files)`, exit 0.
 - `node scripts/check-openspec-hygiene.mjs` → exit 0 (only the expected "complete but not archived" reminder, which archival handles later).
 - Prettier check of the change's markdown → `All matched files use Prettier code style!`, exit 0.

@@ -2,6 +2,7 @@ package com.helio.infrastructure
 
 import org.slf4j.MDC
 
+import java.util.Map
 import scala.concurrent.ExecutionContextExecutor
 
 /** An [[ExecutionContextExecutor]] that restores a fixed SLF4J MDC snapshot
@@ -27,7 +28,7 @@ import scala.concurrent.ExecutionContextExecutor
  */
 final class MdcPropagatingExecutionContext(
     delegate: ExecutionContextExecutor,
-    snapshot: java.util.Map[String, String]
+    snapshot: Map[String, String]
 ) extends ExecutionContextExecutor {
 
   override def execute(runnable: Runnable): Unit =
