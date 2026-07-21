@@ -12,7 +12,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.MDC
+import org.slf4j.{Logger, MDC}
 import spray.json._
 
 import java.io.ByteArrayOutputStream
@@ -44,7 +44,7 @@ class TraceContextDirectiveSpec extends AnyWordSpec with Matchers with Scalatest
    *  `body` with that logger's SLF4J handle, and return everything written. The
    *  LoggerContext reuses the global MDC adapter so `MDC.setContextMap` from the
    *  propagating EC is visible to emitted events (mirrors StructuredJsonLoggingSpec). */
-  private def captureJson(loggerName: String)(body: org.slf4j.Logger => Unit): String = {
+  private def captureJson(loggerName: String)(body: Logger => Unit): String = {
     val context = new LoggerContext()
     context.setMDCAdapter(MDC.getMDCAdapter)
     val out     = new ByteArrayOutputStream()
@@ -146,7 +146,7 @@ class TraceContextDirectiveSpec extends AnyWordSpec with Matchers with Scalatest
 
   /** Builds a route that logs an ERROR from an onComplete callback whose upstream
    *  future completes on the foreign (empty-MDC) executor. */
-  private def asyncLoggingRoute(logger: org.slf4j.Logger): Route = {
+  private def asyncLoggingRoute(logger: Logger): Route = {
     val slow: Future[String] = Future { Thread.sleep(20); "done" }(foreignEc)
     onComplete(slow) { _ =>
       logger.error("async failure-path log")
