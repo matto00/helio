@@ -1,5 +1,7 @@
 package com.helio.api
 
+import com.helio.domain.panels.TimelineOptions
+
 object RequestValidation {
 
   private val EmailRegex = """^[^@]+@[^@]+\.[^@]+$""".r
@@ -94,6 +96,14 @@ object RequestValidation {
       case None                                            => Right(None)
       case Some(d) if ValidTableDensityValues.contains(d)  => Right(Some(d))
       case Some(d) => Left(s"Invalid density value: '$d'. Valid values: condensed, normal, spacious")
+    }
+
+  def validateTimelineSort(sort: Option[String]): Either[String, Option[String]] =
+    sort match {
+      case None                                                    => Right(None)
+      case Some(s) if TimelineOptions.ValidSorts.contains(s)       => Right(Some(s))
+      case Some(s) =>
+        Left(s"Invalid sort value: '$s'. Valid values: ${TimelineOptions.ValidSorts.toSeq.sorted.mkString(", ")}")
     }
 
   val MaxApiTokenNameLength = 100

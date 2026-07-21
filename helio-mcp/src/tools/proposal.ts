@@ -74,6 +74,9 @@ const panelSchema = z.object({
   // fieldMapping.unit, which bind to a data column (HEL-293).
   label: z.string().optional(),
   unit: z.string().optional(),
+  // Flat timeline sort (HEL-321) — derived server-side into
+  // config.timelineOptions.sort; an explicit config.timelineOptions overrides.
+  sort: z.enum(["asc", "desc"]).optional(),
   layout: layoutSchema.optional(),
   // Generic passthrough merged over the config derived from the flat fields
   // above, then decoded by the same panel-create path as create_panel's
@@ -129,8 +132,9 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "metric → {value,label?,unit?}); config.baseType (metric) and config.layout " +
         "(grid|list). One bound row = one rendered item.\n" +
         "• timeline — bind with dataTypeId/fieldMapping ({time, event} slots — time is a " +
-        "timestamp/order column, event is the text description); config.timelineOptions.sort " +
-        "(asc|desc, default asc) sets chronological order. One bound row = one rendered event.\n" +
+        "timestamp/order column, event is the text description); flat `sort` field (asc|desc, " +
+        "default asc) sets chronological order (config.timelineOptions.sort still overrides it). " +
+        "One bound row = one rendered event.\n" +
         "• text/markdown — `content` (literal/static text) seeds the initial body; optionally bind " +
         "to a pipeline-output DataType via config.dataTypeId/config.fieldMapping (Source mode — " +
         "the DataType column named by fieldMapping.content fills the body instead of the literal " +

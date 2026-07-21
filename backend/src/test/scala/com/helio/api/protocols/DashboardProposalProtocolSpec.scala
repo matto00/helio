@@ -22,6 +22,7 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
       seriesColors: Option[Vector[String]] = None,
       label: Option[String] = None,
       unit: Option[String] = None,
+      sort: Option[String] = None,
       config: Option[JsObject] = None
   ): ProposalPanel = ProposalPanel(
     title        = "Avg rating",
@@ -38,6 +39,7 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     seriesColors = seriesColors,
     label        = label,
     unit         = unit,
+    sort         = sort,
     layout       = None,
     config       = config
   )
@@ -135,6 +137,39 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
         "seriesColors" -> JsArray(JsString("#abc123"), JsString("#def456"))
       )
       json.convertTo[ProposalPanel].seriesColors shouldBe Some(Vector("#abc123", "#def456"))
+    }
+  }
+
+  // ── HEL-321: flat timeline `sort` ─────────────────────────────────────────
+
+  "ProposalPanel.write/read — sort" should {
+    "omit the sort key when absent" in {
+      val json = panel().toJson.asJsObject
+      json.fields.keySet should not contain "sort"
+    }
+
+    "emit the sort value when present" in {
+      val json = panel(sort = Some("desc")).toJson.asJsObject
+      json.fields("sort") shouldBe JsString("desc")
+    }
+
+    "tolerate an absent sort field" in {
+      val json = JsObject("title" -> JsString("X"), "type" -> JsString("timeline"))
+      json.convertTo[ProposalPanel].sort shouldBe None
+    }
+
+    "read a present sort field" in {
+      val json = JsObject(
+        "title" -> JsString("X"),
+        "type"  -> JsString("timeline"),
+        "sort"  -> JsString("asc")
+      )
+      json.convertTo[ProposalPanel].sort shouldBe Some("asc")
+    }
+
+    "round-trip a timeline sort field" in {
+      val p = panel(sort = Some("desc"))
+      p.toJson.convertTo[ProposalPanel] shouldBe p
     }
   }
 
