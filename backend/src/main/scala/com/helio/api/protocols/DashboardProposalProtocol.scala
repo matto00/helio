@@ -27,6 +27,10 @@ final case class ProposalPanel(
     seriesColors: Option[Vector[String]],
     label: Option[String],
     unit: Option[String],
+    // HEL-321: flat timeline `sort` (`asc`/`desc`) derived into the created
+    // panel's `config.timelineOptions.sort` by `DashboardProposalService`, at
+    // flat-binding parity with metric's `label`/`unit`.
+    sort: Option[String],
     layout: Option[ProposalPanelLayout],
     // HEL-316: generic passthrough merged (over the flat-field-derived config)
     // by `DashboardProposalService.buildCreateRequest`, mirroring the MCP
@@ -65,6 +69,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
       p.seriesColors.foreach(v => fields("seriesColors") = JsArray(v.map(JsString(_))))
       p.label.foreach(v => fields("label") = JsString(v))
       p.unit.foreach(v => fields("unit") = JsString(v))
+      p.sort.foreach(v => fields("sort") = JsString(v))
       p.layout.foreach(v => fields("layout") = v.toJson)
       p.config.foreach(v => fields("config") = v)
       JsObject(fields.toMap)
@@ -87,6 +92,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         seriesColors = obj.fields.get("seriesColors").map(_.convertTo[Vector[String]]),
         label        = obj.fields.get("label").map(_.convertTo[String]),
         unit         = obj.fields.get("unit").map(_.convertTo[String]),
+        sort         = obj.fields.get("sort").map(_.convertTo[String]),
         layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout]),
         config       = obj.fields.get("config").map(_.asJsObject)
       )

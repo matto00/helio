@@ -82,6 +82,9 @@ final class DashboardProposalService(
       _ <- if (panel.`type` == "divider")
              RequestValidation.validateDividerOrientation(panel.orientation).left.map(msg => s"$where: $msg")
            else Right(())
+      _ <- if (panel.`type` == TimelineKind)
+             RequestValidation.validateTimelineSort(panel.sort).left.map(msg => s"$where: $msg")
+           else Right(())
     } yield ()
 
   /** Verify every panel's actual binding target — the flat `dataTypeId` for
@@ -246,7 +249,17 @@ final class DashboardProposalService(
       if (panel.`type` == MetricKind)
         withAggregation ++ panel.label.map("label" -> JsString(_)) ++ panel.unit.map("unit" -> JsString(_))
       else withAggregation
-    JsObject(withMetricLiteral)
+    // HEL-321: fold the flat timeline `sort` into a NESTED `timelineOptions`
+    // object — `TimelinePanelConfig.decodeCreate` reads `sort` only from there,
+    // never a flat top-level key. An explicit `config.timelineOptions` still
+    // wins via `mergeConfig` (D3).
+    val withTimelineSort =
+      if (panel.`type` == TimelineKind)
+        withMetricLiteral ++ panel.sort.map(s =>
+          "timelineOptions" -> JsObject("sort" -> JsString(s))
+        )
+      else withMetricLiteral
+    JsObject(withTimelineSort)
   }
 
   private def buildNonDataConfig(panel: ProposalPanel): Option[JsValue] =
@@ -341,4 +354,5 @@ final class DashboardProposalService(
 object DashboardProposalService {
   private val DataPanelKinds: Set[String] = Set("metric", "chart", "table", "collection", "timeline")
   private val MetricKind: String          = "metric"
+  private val TimelineKind: String        = "timeline"
 }

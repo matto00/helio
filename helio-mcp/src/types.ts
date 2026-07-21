@@ -238,6 +238,8 @@ export interface ProposalPanel {
   seriesColors?: string[];
   label?: string;
   unit?: string;
+  /** Timeline event ordering (HEL-321) — derived into config.timelineOptions.sort. */
+  sort?: "asc" | "desc";
   layout?: ProposalPanelLayout;
   config?: Record<string, unknown>;
 }
