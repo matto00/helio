@@ -236,7 +236,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "pie {donutHolePct:0-90, showPercentLabels}; scatter {sizeField,colorField}). Set the " +
         "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config. " +
         "Optional `annotation` (static string) renders as a subtitle/footnote beneath the chart; " +
-        "omit it for no annotation.\n" +
+        "omit it for no annotation. To source the annotation dynamically from a bound DataType " +
+        "column instead, set the reserved `fieldMapping.annotation` slot (see bind_panel) rather " +
+        "than the static `annotation` string — the static literal wins if both are set.\n" +
         "• table — `density` (condensed|normal|spacious) and `columnOrder` (string[] of visible " +
         "column keys, in order).\n" +
         "• collection — `baseType` (metric) and `layout` (grid|list); set these here at create " +
@@ -273,7 +275,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Bind a panel to a pipeline-output DataType and set its field mapping. " +
         "fieldMapping keys by panel type: metric → {value, label?, unit?}; " +
-        "chart → {xAxis, yAxis, series?}; text/markdown → {content} (the DataType column whose " +
+        "chart → {xAxis, yAxis, series?, annotation?} (annotation binds the chart's subtitle/" +
+        "footnote to a DataType column — first-row value; omit to keep a static config.annotation); " +
+        "text/markdown → {content} (the DataType column whose " +
         "value fills the text/markdown body in Source mode); collection → the base-type slots, " +
         "i.e. for baseType metric {value, label?, unit?} applied to every row/item; " +
         "timeline → {time, event} (time is a timestamp/order column, event is the text " +

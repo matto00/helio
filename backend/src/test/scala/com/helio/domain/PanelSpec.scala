@@ -584,6 +584,62 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ── HEL-323: bound annotation via the reserved fieldMapping.annotation slot ─
+  //
+  // No new column or domain field — the bound annotation lives in the existing
+  // free-form `fieldMapping` JsObject. These specs pin that the reserved slot
+  // is accepted on decode/patch, round-trips (and so duplicates) verbatim, and
+  // is picked up by the panel query's selected fields.
+
+  "ChartPanelConfig fieldMapping.annotation (HEL-323)" should {
+    "decode a fieldMapping carrying the reserved annotation slot" in {
+      val decoded = ChartPanelConfig.decode(JsObject(
+        "dataTypeId"   -> JsString("dt1"),
+        "fieldMapping" -> JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
+      ))
+      decoded.fieldMapping.fields.get("annotation") shouldBe Some(JsString("note"))
+    }
+
+    "round-trip a bound annotation through the per-subtype format (and so duplication)" in {
+      val cfg = ChartPanelConfig(
+        DataTypeId("dt1"),
+        JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
+      )
+      ChartPanelConfig.decode(cfg.toJson).fieldMapping shouldBe cfg.fieldMapping
+    }
+
+    "Patch.decode: fieldMapping including annotation replaces the mapping wholesale" in {
+      val patch = ChartPanelConfig.Patch.decode(JsObject(
+        "fieldMapping" -> JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
+      ))
+      patch.fieldMapping shouldBe Some(Some(JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))))
+    }
+
+    "applyPatch: a fieldMapping patch persists the annotation slot" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject("xAxis" -> JsString("date"))))
+      val patched  = existing.applyPatch(
+        ChartPanelConfig.Patch(
+          None,
+          Some(Some(JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note")))),
+          None,
+          None,
+          None
+        )
+      )
+      patched.config.fieldMapping.fields.get("annotation") shouldBe Some(JsString("note"))
+    }
+
+    "include the bound annotation column in the query's selected fields" in {
+      val cfg = ChartPanelConfig(
+        DataTypeId("dt1"),
+        JsObject("xAxis" -> JsString("date"), "yAxis" -> JsString("price"), "annotation" -> JsString("note"))
+      )
+      val q = chart(cfg).buildQuery.get
+      q.selectedFields should contain("note")
+      q.selectedFields should contain theSameElementsAs List("date", "price", "note")
+    }
+  }
+
   // ── HEL-253: TablePanelConfig.columnWidths persistence ─────────────────────
 
   "TablePanelConfig.columnWidths" should {

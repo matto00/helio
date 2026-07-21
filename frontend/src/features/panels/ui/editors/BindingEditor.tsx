@@ -107,9 +107,18 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const initialUnitField = initialFieldMapping.unit ?? "";
     const initialLabelLiteral = panel.type === "metric" ? (panel.config.label ?? "") : "";
     const initialUnitLiteral = panel.type === "metric" ? (panel.config.unit ?? "") : "";
-    // HEL-318 — chart static annotation (subtitle/footnote). Chart-only; empty
-    // string for other subtypes so the control/dirty check stay inert.
-    const initialAnnotation = panel.type === "chart" ? (panel.config.annotation ?? "") : "";
+    // HEL-318 / HEL-323 — chart annotation is a field-or-literal slot: fixed
+    // text lives in `config.annotation`, a bound source in
+    // `fieldMapping.annotation`. Mode defaults to "literal" when a static
+    // annotation is set (literal-wins, mirroring Metric label/unit), else
+    // "field" from any existing binding. Chart-only; inert for other subtypes.
+    const initialAnnotationMode: BoundOrLiteralMode =
+      panel.type === "chart"
+        ? defaultBoundOrLiteralMode(panel.config.annotation !== undefined)
+        : "field";
+    const initialAnnotationField =
+      panel.type === "chart" ? (initialFieldMapping.annotation ?? "") : "";
+    const initialAnnotationLiteral = panel.type === "chart" ? (panel.config.annotation ?? "") : "";
 
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialTypeId);
     const [fieldMapping, setFieldMapping] = useState<Record<string, string>>(initialFieldMapping);
@@ -119,13 +128,17 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     const [aggField, setAggField] = useState<string>(initialAggField);
     const [aggFn, setAggFn] = useState<string>(initialAggFn);
     const [aggYField, setAggYField] = useState<string>(initialAggYField);
-    const [annotation, setAnnotation] = useState<string>(initialAnnotation);
     const labelState = useBoundOrLiteralState(
       initialLabelMode,
       initialLabelField,
       initialLabelLiteral,
     );
     const unitState = useBoundOrLiteralState(initialUnitMode, initialUnitField, initialUnitLiteral);
+    const annotationState = useBoundOrLiteralState(
+      initialAnnotationMode,
+      initialAnnotationField,
+      initialAnnotationLiteral,
+    );
 
     // Bound DataType currently selected + its field keys (natural order) —
     // needed by the Table display-config hook, so derived before it. HEL-255.
@@ -164,8 +177,6 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       aggFn !== initialAggFn ||
       (panel.type === "chart" && aggYField !== initialAggYField);
 
-    const annotationDirty = panel.type === "chart" && annotation !== initialAnnotation;
-
     const dataDirty =
       selectedTypeId !== initialTypeId ||
       refreshInterval !== initialRefreshInterval ||
@@ -173,7 +184,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       aggregationDirty ||
       (panel.type === "metric" && (labelState.dirty || unitState.dirty)) ||
       (panel.type === "table" && tableDisplay.dirty) ||
-      (panel.type === "chart" && (chartDisplay.dirty || annotationDirty));
+      (panel.type === "chart" && (chartDisplay.dirty || annotationState.dirty));
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -195,9 +206,9 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           setAggField(initialAggField);
           setAggFn(initialAggFn);
           setAggYField(initialAggYField);
-          setAnnotation(initialAnnotation);
           labelState.reset();
           unitState.reset();
+          annotationState.reset();
           tableDisplay.reset();
           chartDisplay.reset();
           setSaveError(null);
@@ -211,6 +222,17 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             // pre-existing chart/table behavior of resending the whole
             // `fieldMapping` object, since the backend patch replaces it
             // entirely rather than merging — see `MetricPanel.applyPatch`).
+            // HEL-323 — a chart annotation is bound only when a DataType is
+            // selected AND the control is in "field" mode; otherwise it's a
+            // fixed-text literal (or unset). Gating on `selectedTypeId` (the
+            // binding intent) rather than the loaded `selectedType` object
+            // avoids dropping an existing binding while the DataType list is
+            // still loading.
+            const annotationBound =
+              panel.type === "chart" &&
+              selectedTypeId !== null &&
+              annotationState.mode === "field" &&
+              annotationState.fieldValue.length > 0;
             const outgoingFieldMapping: Record<string, string> =
               panel.type === "metric"
                 ? {
@@ -220,7 +242,21 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                       : {}),
                     ...(unitState.fieldMappingValue ? { unit: unitState.fieldMappingValue } : {}),
                   }
-                : fieldMapping;
+                : panel.type === "chart"
+                  ? // Merge the reserved `annotation` slot per-key into the
+                    // chart's axis mapping (mirrors Metric's label/unit merge):
+                    // "field" mode sets it, any other mode removes it so a
+                    // stale binding never lingers alongside a fixed-text value.
+                    (() => {
+                      const merged = { ...fieldMapping };
+                      if (annotationBound) {
+                        merged.annotation = annotationState.fieldValue;
+                      } else {
+                        delete merged.annotation;
+                      }
+                      return merged;
+                    })()
+                  : fieldMapping;
             await dispatch(
               updatePanelBinding({
                 panelId: panel.id,
@@ -242,10 +278,20 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                 // PATCH; `undefined` when the Display section was untouched, so
                 // an untouched chart panel persists nothing extra.
                 chartOptions: panel.type === "chart" ? chartDisplay.patch : undefined,
-                // HEL-318 — Chart annotation rides the same single PATCH.
-                // `undefined` when untouched; an empty/whitespace-only value
-                // clears (maps to `null`), a non-blank value sets it.
-                annotation: annotationDirty ? (annotation.trim() ? annotation : null) : undefined,
+                // HEL-318 / HEL-323 — Chart static annotation rides the same
+                // single PATCH. `undefined` when untouched. When the user binds
+                // the annotation to a field (`annotationBound`), the static
+                // literal is cleared to `null` (Bind-to-field wins the slot).
+                // Otherwise an empty/whitespace-only literal clears (`null`) and
+                // a non-blank literal sets it.
+                annotation:
+                  panel.type === "chart" && annotationState.dirty
+                    ? annotationBound
+                      ? null
+                      : annotationState.literalValue.trim()
+                        ? annotationState.literalValue
+                        : null
+                    : undefined,
               }),
             ).unwrap();
             return { ok: true };
@@ -260,8 +306,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         aggField,
         aggFn,
         aggregationDirty,
-        annotation,
-        annotationDirty,
+        annotationState,
         chartDisplay,
         currentAggregation,
         dataDirty,
@@ -269,7 +314,6 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         fieldMapping,
         initialAggField,
         initialAggFn,
-        initialAnnotation,
         initialFieldMapping,
         initialRefreshInterval,
         initialTypeId,
@@ -370,8 +414,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onScatterChange={chartDisplay.setScatter}
             fieldOptions={selectedType ? fieldOptions(selectedType) : []}
             isBound={selectedType !== null}
-            annotation={annotation}
-            onAnnotationChange={setAnnotation}
+            annotationState={annotationState}
           />
         )}
 
