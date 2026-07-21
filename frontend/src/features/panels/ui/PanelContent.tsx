@@ -96,7 +96,11 @@ export function PanelContent({
         fieldMapping={panel.config.fieldMapping}
         chartAggregate={chartAggregate}
         chartOptions={panel.config.chartOptions}
-        annotation={panel.config.annotation}
+        // HEL-323 — literal-wins: the static `config.annotation` takes
+        // precedence; otherwise fall back to the bound annotation resolved
+        // from the first row (`data.annotation`, the value of
+        // `fieldMapping.annotation` computed by `usePanelData`).
+        annotation={panel.config.annotation ?? data?.annotation ?? null}
         compact={compact}
       />
     );

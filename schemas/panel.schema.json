@@ -90,7 +90,10 @@
       "additionalProperties": false,
       "properties": {
         "dataTypeId": { "type": "string" },
-        "fieldMapping": { "type": "object" },
+        "fieldMapping": {
+          "type": "object",
+          "description": "Column bindings keyed by slot: {xAxis, yAxis, series?} feed the chart axes. The reserved `annotation` slot (HEL-323) binds the annotation to a DataType column instead of static text — its first-row value renders as the annotation. Bound `fieldMapping.annotation` and static `config.annotation` are mutually exclusive (the editor clears the other on mode switch); if both are somehow set, the static `annotation` literal wins."
+        },
         "aggregation": { "$ref": "#/$defs/ChartAggregation" },
         "chartOptions": {
           "$ref": "#/$defs/ChartOptions",
@@ -98,7 +101,7 @@
         },
         "annotation": {
           "type": ["string", "null"],
-          "description": "Optional static subtitle/footnote rendered beneath the chart title (HEL-318). Absent leaves it unchanged on PATCH; null/empty/whitespace clears it. Omitted from the response config when unset."
+          "description": "Optional static subtitle/footnote rendered beneath the chart title (HEL-318). Absent leaves it unchanged on PATCH; null/empty/whitespace clears it. Omitted from the response config when unset. The dynamic alternative is the reserved `fieldMapping.annotation` slot (HEL-323), which sources the annotation from a bound DataType column; this static literal wins when both are set."
         }
       }
     },

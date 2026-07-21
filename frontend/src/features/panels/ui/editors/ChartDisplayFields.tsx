@@ -16,6 +16,8 @@ import type {
   ScatterChartOptions,
 } from "../../types/panel";
 import type { ChartType } from "../../../../utils/chartAppearance";
+import { BoundOrLiteralField } from "./BoundOrLiteralField";
+import type { BoundOrLiteralState } from "./useBoundOrLiteralState";
 
 const ORIENTATION_OPTIONS: SelectOption[] = [
   { value: "vertical", label: "Vertical" },
@@ -44,11 +46,14 @@ interface ChartDisplayFieldsProps {
    *  added here). Empty when no DataType is bound. */
   fieldOptions: SelectOption[];
   /** True when a DataType is bound — scatter field selects are only meaningful
-   *  once columns exist. */
+   *  once columns exist, and the annotation's "Bind to field" mode is only
+   *  offered once a DataType is bound (HEL-323). */
   isBound: boolean;
-  /** HEL-318: static subtitle/footnote text. Empty string when unset. */
-  annotation: string;
-  onAnnotationChange: (value: string) => void;
+  /** HEL-318 / HEL-323: the annotation source (static subtitle/footnote text
+   *  OR a bound DataType column). Driven by a `useBoundOrLiteralState` instance
+   *  owned by `BindingEditor`: "Fixed text" persists `config.annotation`,
+   *  "Bind to field" persists `fieldMapping.annotation`. */
+  annotationState: BoundOrLiteralState;
 }
 
 function isBarOrientation(value: string): value is NonNullable<BarChartOptions["orientation"]> {
@@ -93,8 +98,7 @@ export function ChartDisplayFields({
   onScatterChange,
   fieldOptions,
   isBound,
-  annotation,
-  onAnnotationChange,
+  annotationState,
 }: ChartDisplayFieldsProps) {
   const fieldSelectOptions: SelectOption[] = [{ value: "", label: "— None —" }, ...fieldOptions];
 
@@ -102,19 +106,41 @@ export function ChartDisplayFields({
     <>
       <h3 className="panel-detail-modal__edit-section-heading">Display</h3>
 
-      <div className="panel-detail-modal__data-section">
-        <label className="panel-detail-modal__data-label" htmlFor="chart-annotation">
-          Annotation
-        </label>
-        <TextField
-          id="chart-annotation"
-          type="text"
-          value={annotation}
-          onChange={(e) => onAnnotationChange(e.target.value)}
-          aria-label="Annotation"
-          placeholder="Optional subtitle shown beneath the chart"
-        />
-      </div>
+      {/* HEL-323 — "Bind to field" is only offered once a DataType is bound
+          (mirroring the scatter field gating below); an unbound chart keeps the
+          fixed-text-only control it had since HEL-318. The bound branch lets
+          `BoundOrLiteralField` own the single "Annotation" label (its own
+          `mapping-label`), so the section renders no separate outer label — the
+          unbound branch keeps its own `<label>` for the plain TextField. */}
+      {isBound ? (
+        <div className="panel-detail-modal__data-section">
+          <BoundOrLiteralField
+            label="Annotation"
+            mode={annotationState.mode}
+            onModeChange={annotationState.setMode}
+            fieldOptions={fieldOptions}
+            fieldValue={annotationState.fieldValue}
+            onFieldChange={annotationState.setFieldValue}
+            literalValue={annotationState.literalValue}
+            onLiteralChange={annotationState.setLiteralValue}
+            literalPlaceholder="Optional subtitle shown beneath the chart"
+          />
+        </div>
+      ) : (
+        <div className="panel-detail-modal__data-section">
+          <label className="panel-detail-modal__data-label" htmlFor="chart-annotation">
+            Annotation
+          </label>
+          <TextField
+            id="chart-annotation"
+            type="text"
+            value={annotationState.literalValue}
+            onChange={(e) => annotationState.setLiteralValue(e.target.value)}
+            aria-label="Annotation"
+            placeholder="Optional subtitle shown beneath the chart"
+          />
+        </div>
+      )}
 
       {chartType === "line" && (
         <>

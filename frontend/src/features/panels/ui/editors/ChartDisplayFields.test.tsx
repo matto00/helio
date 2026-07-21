@@ -1,15 +1,32 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { ChartDisplayFields } from "./ChartDisplayFields";
+import type { BoundOrLiteralState } from "./useBoundOrLiteralState";
 import type { ChartType } from "../../../../utils/chartAppearance";
 
 const noop = () => {};
 
+/** Minimal `BoundOrLiteralState` stub for driving the annotation control. */
+function makeAnnotationState(overrides: Partial<BoundOrLiteralState> = {}): BoundOrLiteralState {
+  return {
+    mode: "literal",
+    setMode: jest.fn(),
+    fieldValue: "",
+    setFieldValue: jest.fn(),
+    literalValue: "",
+    setLiteralValue: jest.fn(),
+    dirty: false,
+    reset: jest.fn(),
+    patchValue: undefined,
+    fieldMappingValue: undefined,
+    ...overrides,
+  };
+}
+
 function renderFields(overrides: {
   chartType: ChartType;
   isBound?: boolean;
-  annotation?: string;
-  onAnnotationChange?: (value: string) => void;
+  annotationState?: BoundOrLiteralState;
 }) {
   return render(
     <ChartDisplayFields
@@ -27,8 +44,7 @@ function renderFields(overrides: {
         { value: "region", label: "region" },
       ]}
       isBound={overrides.isBound ?? true}
-      annotation={overrides.annotation ?? ""}
-      onAnnotationChange={overrides.onAnnotationChange ?? noop}
+      annotationState={overrides.annotationState ?? makeAnnotationState()}
     />,
   );
 }
@@ -79,28 +95,83 @@ describe("ChartDisplayFields (HEL-248) — controls swap per chart type", () => 
   });
 });
 
-describe("ChartDisplayFields — annotation control (HEL-318)", () => {
-  it("renders the annotation field for every chart type with the current value", () => {
-    renderFields({ chartType: "line", annotation: "Source: internal" });
+describe("ChartDisplayFields — annotation control (HEL-318 / HEL-323)", () => {
+  it("renders a fixed-text-only input (no mode toggle) when unbound", () => {
+    renderFields({
+      chartType: "line",
+      isBound: false,
+      annotationState: makeAnnotationState({ literalValue: "Source: internal" }),
+    });
     const input = screen.getByRole("textbox", { name: "Annotation" });
     expect(input).toHaveValue("Source: internal");
+    // The Bind-to-field mode toggle is not offered without a bound DataType.
+    expect(screen.queryByRole("button", { name: "Bind to field" })).not.toBeInTheDocument();
   });
 
-  it("fires onAnnotationChange with the typed value", () => {
-    const onAnnotationChange = jest.fn();
-    renderFields({ chartType: "bar", annotation: "", onAnnotationChange });
+  it("edits the fixed-text literal via setLiteralValue when unbound", () => {
+    const setLiteralValue = jest.fn();
+    renderFields({
+      chartType: "bar",
+      isBound: false,
+      annotationState: makeAnnotationState({ setLiteralValue }),
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Annotation" }), {
       target: { value: "Preliminary data" },
     });
-    expect(onAnnotationChange).toHaveBeenCalledWith("Preliminary data");
+    expect(setLiteralValue).toHaveBeenCalledWith("Preliminary data");
   });
 
-  it("fires onAnnotationChange with empty string when the control is cleared", () => {
-    const onAnnotationChange = jest.fn();
-    renderFields({ chartType: "pie", annotation: "Old note", onAnnotationChange });
-    fireEvent.change(screen.getByRole("textbox", { name: "Annotation" }), {
-      target: { value: "" },
+  it("offers the Fixed text / Bind to field mode toggle when bound", () => {
+    renderFields({
+      chartType: "line",
+      isBound: true,
+      annotationState: makeAnnotationState({ mode: "literal", literalValue: "Note" }),
     });
-    expect(onAnnotationChange).toHaveBeenCalledWith("");
+    expect(screen.getByRole("button", { name: "Fixed text" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bind to field" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Annotation text" })).toHaveValue("Note");
+  });
+
+  it("shows the field dropdown with the bound column selected in field mode", () => {
+    renderFields({
+      chartType: "pie",
+      isBound: true,
+      annotationState: makeAnnotationState({ mode: "field", fieldValue: "region" }),
+    });
+    const select = screen.getByRole("combobox", { name: "Annotation field" });
+    expect(select).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Annotation text" })).not.toBeInTheDocument();
+  });
+
+  it("switches mode via the toggle buttons", () => {
+    const setMode = jest.fn();
+    renderFields({
+      chartType: "line",
+      isBound: true,
+      annotationState: makeAnnotationState({ mode: "literal", setMode }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Bind to field" }));
+    expect(setMode).toHaveBeenCalledWith("field");
+  });
+
+  // Regression guard (HEL-323 cycle-2, skeptic CR1): the bound branch must not
+  // stack an outer "Annotation" section label above BoundOrLiteralField's own
+  // "Annotation" mapping-label — the word must appear exactly once.
+  it("renders the 'Annotation' label exactly once when bound", () => {
+    renderFields({
+      chartType: "line",
+      isBound: true,
+      annotationState: makeAnnotationState({ mode: "literal", literalValue: "Note" }),
+    });
+    expect(screen.getAllByText("Annotation")).toHaveLength(1);
+  });
+
+  it("renders the 'Annotation' label exactly once when unbound", () => {
+    renderFields({
+      chartType: "line",
+      isBound: false,
+      annotationState: makeAnnotationState({ literalValue: "Note" }),
+    });
+    expect(screen.getAllByText("Annotation")).toHaveLength(1);
   });
 });

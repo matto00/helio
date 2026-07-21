@@ -151,6 +151,44 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   });
 });
 
+// HEL-323 — the chart annotation may be static (`config.annotation`) or bound
+// (`data.annotation`, resolved by usePanelData from `fieldMapping.annotation`).
+// PanelContent resolves the effective annotation literal-wins and passes it to
+// ChartRenderer (real here; only ChartPanel is mocked), which renders the
+// `.chart-panel__annotation` element.
+describe("PanelContent — chart annotation resolution (HEL-323)", () => {
+  it("renders the static config.annotation when set", () => {
+    const panel = makeChartPanel({ config: { annotation: "Fixed note" } });
+    const { container } = render(<PanelContent panel={panel} />);
+    expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
+  });
+
+  it("renders the bound annotation from data when no static annotation is set", () => {
+    const panel = makeChartPanel({ config: { fieldMapping: { annotation: "note" } } });
+    const { container } = render(
+      <PanelContent panel={panel} data={{ annotation: "Preliminary — revised weekly" }} />,
+    );
+    expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent(
+      "Preliminary — revised weekly",
+    );
+  });
+
+  it("static config.annotation wins over a bound data.annotation when both are present", () => {
+    const panel = makeChartPanel({
+      config: { annotation: "Fixed note", fieldMapping: { annotation: "note" } },
+    });
+    const { container } = render(
+      <PanelContent panel={panel} data={{ annotation: "Bound value" }} />,
+    );
+    expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
+  });
+
+  it("renders no annotation element when neither static nor bound is set", () => {
+    const { container } = render(<PanelContent panel={makeChartPanel()} data={{}} />);
+    expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
+  });
+});
+
 describe("PanelContent — live table data", () => {
   it("renders live rows and headers", () => {
     const { container } = renderWithStore(

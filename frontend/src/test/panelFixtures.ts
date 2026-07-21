@@ -90,6 +90,7 @@ export function makeChartPanel(
     fieldMapping: overrides.config?.fieldMapping ?? {},
     aggregation: overrides.config?.aggregation,
     chartOptions: overrides.config?.chartOptions,
+    annotation: overrides.config?.annotation,
   };
   return applyBase<ChartPanel>(overrides, "chart", config);
 }
