@@ -91,6 +91,12 @@ final class ApiRoutes(
   private val aclDirective   = new AclDirective(permissionRepo, registry)
   private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
+  // HEL-116: propagates the Cloud Run trace id (X-Cloud-Trace-Context) into the
+  // MDC for every request handled below, including the async onComplete error
+  // logs in this file. Wrapped inside `cors` so it covers `health.routes` too
+  // (Cloud Run tags health probes with a trace as well); one header read plus an
+  // MDC put/remove is negligible and keeps the traced scope uniform.
+  private val traceContext = new TraceContextDirective()
 
   // Services
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
@@ -124,6 +130,7 @@ final class ApiRoutes(
 
   val routes: Route =
     cors(corsSettings) {
+      traceContext.withTraceContext {
       health.routes ~
         pathPrefix("api") {
           // HEL-287 D4: custom-header CSRF check for every non-GET request
@@ -229,5 +236,6 @@ final class ApiRoutes(
             )
           }
         }
+      }
     }
 }
