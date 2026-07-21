@@ -23,6 +23,7 @@
       "backendBase": 8080
     },
     "envFiles": ["backend/.env"],
+    "linkModules": ["frontend/node_modules"],
     "hooks": ["npx husky install"]
   },
   "devServers": {
