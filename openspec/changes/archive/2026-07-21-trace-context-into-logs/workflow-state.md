@@ -4,8 +4,10 @@ TICKET_ID: HEL-116
 CHANGE_NAME: trace-context-into-logs
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/trace-context-logs/HEL-116
 BRANCH: feature/trace-context-logs/HEL-116
-PHASE: Evaluation (final gate — budget exhausted after r2 REFUTE; escalated)
+PHASE: Delivery (PR opened #262 — awaiting CI + merge; Cleanup pending human confirm)
 CYCLE: 1
+PR_URL: https://github.com/matto00/helio/pull/262
+LAST_COMMIT: c9b81b51
 EVALUATOR_AGENT_ID: ae62c4a79833c4a1e
 LAST_EVAL_VERDICT: PASS
 SKEPTIC_CYCLE: 2
