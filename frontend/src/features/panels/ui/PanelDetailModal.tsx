@@ -77,12 +77,16 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
 
   // ── Appearance state (common to every subtype) ──────────────────────────
+  // Background / color hold the RAW appearance value — which may be a sentinel
+  // (`"transparent"` / `"inherit"`), not the display-fallback hex. They are only
+  // resolved to a color-input-safe hex at the `<AppearanceEditor>` prop boundary.
+  // The native `<input type="color">` onChange always emits a 6-digit hex, so an
+  // untouched field keeps its raw sentinel while an edited field is overwritten
+  // with the chosen hex — and the save payload is built from state directly. This
+  // preserves an untouched sentinel through save (HEL-322).
   const initialTitle = panel.title;
-  const initialBackground = getColorInputValue(
-    panel.appearance.background,
-    panelAppearanceEditorFallback,
-  );
-  const initialColor = getColorInputValue(panel.appearance.color, panelTextEditorFallback);
+  const initialBackground = panel.appearance.background;
+  const initialColor = panel.appearance.color;
   const initialTransparency = Math.round(clampTransparency(panel.appearance.transparency) * 100);
   const initialChart = useMemo(() => buildInitialChart(panel), [panel]);
 
@@ -135,8 +139,8 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
 
   const resetFormToPanel = useCallback(() => {
     setTitle(panel.title);
-    setBackground(getColorInputValue(panel.appearance.background, panelAppearanceEditorFallback));
-    setColor(getColorInputValue(panel.appearance.color, panelTextEditorFallback));
+    setBackground(panel.appearance.background);
+    setColor(panel.appearance.color);
     setTransparency(Math.round(clampTransparency(panel.appearance.transparency) * 100));
     setChartAppearance(buildInitialChart(panel));
     activeEditorRef()?.current?.reset();
@@ -355,9 +359,9 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                 panelTitle={panel.title}
                 title={title}
                 setTitle={setTitle}
-                background={background}
+                background={getColorInputValue(background, panelAppearanceEditorFallback)}
                 setBackground={setBackground}
-                color={color}
+                color={getColorInputValue(color, panelTextEditorFallback)}
                 setColor={setColor}
                 transparency={transparency}
                 setTransparency={setTransparency}
