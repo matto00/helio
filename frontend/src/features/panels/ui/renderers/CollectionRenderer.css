@@ -38,11 +38,25 @@
 
 /* Each item reuses `MetricRenderer` (`.panel-content--metric`). Inside a
    collection tile the standalone metric's 3xl value is oversized, so scale it
-   to the tile density while keeping the mono tabular-numeral treatment. */
+   to the tile density while keeping the mono tabular-numeral treatment.
+   `min-width: 0` lets the metric shrink with its grid track instead of
+   dictating the track's minimum via its content. */
 .panel-content__collection-item .panel-content--metric {
   padding: var(--space-2) var(--space-3);
+  min-width: 0;
+  text-align: center;
 }
 
+/* Values bound in a collection are often text phrases, not short numerals, so
+   the standalone metric's `white-space: nowrap` (W4.4 — sized for a one-line
+   numeric band) would overflow the tile and overlap its neighbors. Wrap
+   instead: the collection body scrolls vertically, so extra lines are safe.
+   `overflow-wrap: anywhere` guards a single unbreakable token; the tightened
+   line-height replaces the standalone metric's `line-height: 1`, which would
+   collide wrapped lines. */
 .panel-content__collection-item .panel-content__metric-value {
   font-size: var(--text-2xl);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
 }
