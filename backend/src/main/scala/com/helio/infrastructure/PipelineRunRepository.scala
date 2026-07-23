@@ -186,6 +186,17 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .sortBy(_.startedAt.desc)
         .result
     ).map(_.toVector)
+
+  /** ACL-bypassing check for an in-flight run (`completed_at IS NULL`) for a
+    * pipeline — the persisted half of `PipelineSchedulerService`'s overlap
+    * guard (HEL-415). Catches a still-running run across a scheduler
+    * restart (the in-memory guard is lost) or a manually-submitted run in
+    * flight when a schedule comes due. System context: the scheduler
+    * background job has no request-bound user. */
+  def hasActiveRunInternal(pipelineId: PipelineId): Future[Boolean] =
+    ctx.withSystemContext(
+      runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).exists.result
+    )
 }
 
 object PipelineRunRepository {

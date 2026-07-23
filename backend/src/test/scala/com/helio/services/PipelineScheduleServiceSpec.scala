@@ -10,6 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -21,9 +22,13 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var service: PipelineScheduleService   = _
+  private var embeddedPostgres: EmbeddedPostgres     = _
+  private var db: JdbcBackend.Database               = _
+  private var service: PipelineScheduleService       = _
+  // HEL-415: exposed (not local to beforeAll) so cycle-6.3 tests can seed a
+  // scheduler-computed next_run_at directly — `put` itself never computes
+  // one (that's the scheduler's tick()).
+  private var scheduleRepo: PipelineScheduleRepository = _
 
   private val owner1Id = UUID.randomUUID().toString
   private val owner2Id = UUID.randomUUID().toString
@@ -45,7 +50,7 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
     val dataSourceRepo = new DataSourceRepository(ctx)
     val dataTypeRepo   = new DataTypeRepository(ctx)
     val pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
-    val scheduleRepo   = new PipelineScheduleRepository(ctx)
+    scheduleRepo = new PipelineScheduleRepository(ctx)
     service = new PipelineScheduleService(scheduleRepo, pipelineRepo)
   }
 
@@ -257,6 +262,76 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
       result shouldBe Left(ServiceError.NotFound("Pipeline not found"))
 
       await(service.find(pid, user1)) shouldBe Left(ServiceError.NotFound("Pipeline schedule not found"))
+    }
+
+    // ── HEL-415 design-gate finding: reset next_run_at on cadence change ──
+
+    "reset next_run_at to unset when the expression changes on an existing schedule" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      await(service.put(pid, putReq(expression = "0 * * * *"), user1))
+      // Simulate the scheduler having already computed a next_run_at for the
+      // original cadence (put itself never computes one — HEL-415's tick()
+      // does).
+      await(scheduleRepo.updateAfterTickInternal(
+        await(service.find(pid, user1)).getOrElse(fail("expected Right")).id,
+        nextRunAt = Some(Instant.parse("2026-06-01T00:00:00Z")),
+        lastRunAt = None
+      ))
+
+      val edited = await(service.put(pid, putReq(expression = "0 0 * * *"), user1)).getOrElse(fail("expected Right"))
+
+      edited.expression shouldBe "0 0 * * *"
+      edited.nextRunAt shouldBe None
+    }
+
+    "reset next_run_at to unset when the kind changes on an existing schedule" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      await(service.put(pid, putReq(kind = "cron", expression = "0 * * * *"), user1))
+      await(scheduleRepo.updateAfterTickInternal(
+        await(service.find(pid, user1)).getOrElse(fail("expected Right")).id,
+        nextRunAt = Some(Instant.parse("2026-06-01T00:00:00Z")),
+        lastRunAt = None
+      ))
+
+      val edited = await(service.put(pid, putReq(kind = "interval", expression = "30m"), user1)).getOrElse(fail("expected Right"))
+
+      edited.kind shouldBe ScheduleKind.Interval
+      edited.nextRunAt shouldBe None
+    }
+
+    "reset next_run_at to unset when the timezone changes on an existing schedule" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      await(service.put(pid, putReq(timezone = "UTC"), user1))
+      await(scheduleRepo.updateAfterTickInternal(
+        await(service.find(pid, user1)).getOrElse(fail("expected Right")).id,
+        nextRunAt = Some(Instant.parse("2026-06-01T00:00:00Z")),
+        lastRunAt = None
+      ))
+
+      val edited = await(service.put(pid, putReq(timezone = "America/New_York"), user1)).getOrElse(fail("expected Right"))
+
+      edited.timezone shouldBe "America/New_York"
+      edited.nextRunAt shouldBe None
+    }
+
+    "preserve an already-computed next_run_at when only unrelated fields (e.g. enabled) change" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      await(service.put(pid, putReq(expression = "0 * * * *", enabled = Some(true)), user1))
+      val computedNext = Instant.parse("2026-06-01T00:00:00Z")
+      await(scheduleRepo.updateAfterTickInternal(
+        await(service.find(pid, user1)).getOrElse(fail("expected Right")).id,
+        nextRunAt = Some(computedNext),
+        lastRunAt = None
+      ))
+
+      val edited = await(service.put(pid, putReq(expression = "0 * * * *", enabled = Some(false)), user1)).getOrElse(fail("expected Right"))
+
+      edited.enabled shouldBe false
+      edited.nextRunAt shouldBe Some(computedNext)
     }
   }
 

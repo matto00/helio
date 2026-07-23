@@ -5,8 +5,9 @@ import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.{ApiRoutes, CookieConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.domain.RestApiConnector
+import com.helio.domain.{RestApiConnector, SystemClock}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.services.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -136,6 +137,19 @@ object Main {
         alertEventRepo = alertEventRepo,
         pipelineScheduleRepo = pipelineScheduleRepo
       )
+
+      // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so
+      // scheduled runs share the manual-run path's PipelineRunCache/
+      // PipelineRunRegistry (design.md Decision 5).
+      val schedulerTickInterval = config.getInt("helio.scheduler.tick-interval-seconds").seconds
+      val pipelineSchedulerService = new PipelineSchedulerService(
+        pipelineScheduleRepo,
+        pipelineRepo,
+        pipelineRunRepo,
+        apiRoutes.pipelineRunService,
+        SystemClock
+      )
+      context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {
         case Success(binding) =>
