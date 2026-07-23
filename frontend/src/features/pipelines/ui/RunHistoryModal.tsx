@@ -30,6 +30,24 @@ function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
   );
 }
 
+const TRIGGER_SOURCE_LABELS: Record<PipelineRunRecord["triggerSource"], string> = {
+  manual: "Manual",
+  scheduled: "Scheduled",
+  external: "External",
+};
+
+function TriggerSourceBadge({
+  triggerSource,
+}: {
+  triggerSource: PipelineRunRecord["triggerSource"];
+}) {
+  return (
+    <span className={`run-history-modal__trigger run-history-modal__trigger--${triggerSource}`}>
+      {TRIGGER_SOURCE_LABELS[triggerSource]}
+    </span>
+  );
+}
+
 function RunRow({ run }: { run: PipelineRunRecord }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -45,6 +63,7 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
           {run.rowCount != null ? `${run.rowCount.toLocaleString()} rows` : "—"}
         </span>
         <StatusBadge status={run.status} />
+        <TriggerSourceBadge triggerSource={run.triggerSource} />
         {run.status === "failed" && run.errorLog && (
           <button
             type="button"

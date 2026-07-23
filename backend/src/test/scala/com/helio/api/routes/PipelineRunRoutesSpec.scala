@@ -293,9 +293,10 @@ class PipelineRunRoutesSpec
         status shouldBe StatusCodes.OK
         val records = responseAs[Vector[PipelineRunRecord]]
         records should have size 1
-        records.head.id       shouldBe runId.value
-        records.head.status   shouldBe "succeeded"
-        records.head.rowCount shouldBe Some(5)
+        records.head.id            shouldBe runId.value
+        records.head.status        shouldBe "succeeded"
+        records.head.rowCount      shouldBe Some(5)
+        records.head.triggerSource shouldBe "manual"
       }
     }
 
@@ -409,10 +410,14 @@ class PipelineRunRoutesSpec
       }
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs should have size 1
-      runs.head.pipelineId shouldBe pid.value
-      runs.head.status     shouldBe "succeeded"
-      runs.head.rowCount   shouldBe Some(2)
-      runs.head.errorLog   shouldBe None
+      runs.head.pipelineId    shouldBe pid.value
+      runs.head.status        shouldBe "succeeded"
+      runs.head.rowCount      shouldBe Some(2)
+      runs.head.errorLog      shouldBe None
+      // HEL-417: PipelineRunService.submit's default triggerSource ("manual")
+      // applies end to end for the manual API path — no explicit argument
+      // is passed by PipelineRunSubmitRoutes.
+      runs.head.triggerSource shouldBe "manual"
     }
 
     // HEL-311: fan-out surface (c) — the persisted `PipelineRunRecord.errorLog`
@@ -449,10 +454,11 @@ class PipelineRunRoutesSpec
       }
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs should have size 1
-      runs.head.pipelineId  shouldBe pid.value
-      runs.head.status      shouldBe "dry_run"
-      runs.head.completedAt shouldBe defined
-      runs.head.rowCount    shouldBe Some(2)
+      runs.head.pipelineId    shouldBe pid.value
+      runs.head.status        shouldBe "dry_run"
+      runs.head.completedAt   shouldBe defined
+      runs.head.rowCount      shouldBe Some(2)
+      runs.head.triggerSource shouldBe "manual"
     }
 
     "POST /pipelines/:id/run (non-dry) stores rows in data_type_rows after success" in {

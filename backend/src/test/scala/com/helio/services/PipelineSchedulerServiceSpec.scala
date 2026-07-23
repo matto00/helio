@@ -203,7 +203,9 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
 
       val runs = await(runRepo.listByPipelineInternal(pid))
       runs should have size 1
-      runs.head.status shouldBe "succeeded"
+      runs.head.status        shouldBe "succeeded"
+      // HEL-417: the scheduler-fired run must persist trigger_source = 'scheduled'.
+      runs.head.triggerSource shouldBe "scheduled"
 
       val updated = await(scheduleRepo.findByPipelineId(pid, user)).get
       updated.lastRunAt shouldBe Some(fakeClock.now())
@@ -265,6 +267,9 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       runs.head.status shouldBe "failed"
       runs.head.errorLog shouldBe defined
       runs.head.errorLog.get should not be empty
+      // HEL-417: trigger_source is set at insert time (submit), independent
+      // of the terminal outcome.
+      runs.head.triggerSource shouldBe "scheduled"
 
       val updated = await(scheduleRepo.findByPipelineId(pid, user)).get
       updated.lastRunAt shouldBe Some(fakeClock.now())

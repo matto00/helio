@@ -7,7 +7,8 @@ In-process, restart-safe firing of due `pipeline_schedules` through the existing
 ### Requirement: Due schedules fire runs through the existing run-submission path
 The system SHALL periodically identify enabled pipeline schedules whose `next_run_at` is at or
 before the current time and submit a run for each via the existing pipeline run-submission service,
-executed as the pipeline's owner.
+executed as the pipeline's owner. Runs submitted by the scheduler SHALL persist
+`trigger_source = 'scheduled'`.
 
 #### Scenario: Due cron schedule fires a run
 - **WHEN** an enabled cron schedule's `next_run_at` is at or before the current tick's time
@@ -21,6 +22,10 @@ executed as the pipeline's owner.
 #### Scenario: Pipeline without a schedule is never auto-run
 - **WHEN** a pipeline has no `pipeline_schedules` row
 - **THEN** the system never submits a run for that pipeline on its own initiative
+
+#### Scenario: Scheduler-fired run is recorded as scheduled
+- **WHEN** the scheduler submits a run for a due schedule
+- **THEN** the resulting `pipeline_runs` row has `trigger_source = 'scheduled'`
 
 ### Requirement: No overlapping runs of the same pipeline from the scheduler
 The system SHALL NOT submit a new scheduled run for a pipeline while a previous run of that same

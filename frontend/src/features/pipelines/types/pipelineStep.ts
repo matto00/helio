@@ -305,6 +305,7 @@ export interface PipelineRunRecord {
   completedAt: string | null;
   rowCount: number | null;
   errorLog: string | null;
+  triggerSource: "manual" | "scheduled" | "external";
 }
 
 // ── Pipeline sharing types ────────────────────────────────────────────────────
