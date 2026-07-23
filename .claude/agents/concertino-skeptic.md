@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.4
+# concertino:sync v0.1.5
 name: concertino-skeptic
 description: >-
   Cold adversarial verification gate for the helio ticket-delivery workflow. Spawned fresh at the design-soundness and final gates; verifies against ground truth, owns subjective design judgment. Invoked only by the orchestrator.
