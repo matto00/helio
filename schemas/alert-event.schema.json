@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/alert-event.schema.json",
+  "title": "AlertEventResponse",
+  "description": "A durable, de-duplicated alert event as returned by /api/alerts. At most one active (non-resolved) event exists per alertRuleId at a time. `value` is the evaluated value that triggered/most-recently-updated the event.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "alertRuleId": { "type": "string" },
+    "ownerId": { "type": "string", "format": "uuid" },
+    "targetDataTypeId": { "type": "string" },
+    "value": {},
+    "pipelineRunId": { "type": ["string", "null"] },
+    "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+    "state": { "type": "string", "enum": ["firing", "resolved", "acknowledged", "snoozed"] },
+    "firstFiredAt": { "type": "string", "format": "date-time" },
+    "lastEvaluatedAt": { "type": "string", "format": "date-time" },
+    "resolvedAt": { "type": ["string", "null"], "format": "date-time" },
+    "acknowledgedAt": { "type": ["string", "null"], "format": "date-time" },
+    "snoozedUntil": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": [
+    "id",
+    "alertRuleId",
+    "ownerId",
+    "targetDataTypeId",
+    "value",
+    "pipelineRunId",
+    "severity",
+    "state",
+    "firstFiredAt",
+    "lastEvaluatedAt",
+    "resolvedAt",
+    "acknowledgedAt",
+    "snoozedUntil"
+  ],
+  "additionalProperties": false
+}
