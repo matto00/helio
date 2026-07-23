@@ -1,0 +1,79 @@
+/* ── Schedule bar ──
+ * Same shape as the source-bar / type-bar rules in PipelineDetailPage.css
+ * (label + value + right-aligned action button); the __edit-btn recipe is
+ * shared from there since all three bars render on the same page. */
+.pipeline-detail-page__schedule-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__schedule-bar-label {
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__schedule-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-detail-page__schedule-empty {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__schedule-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pipeline-detail-page__schedule-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--app-accent);
+}
+
+.pipeline-detail-page__schedule-expression {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pipeline-detail-page__schedule-next-run {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  white-space: nowrap;
+}
+
+.pipeline-detail-page__schedule-disabled-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  padding: 2px 6px;
+  border-radius: var(--app-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -24,6 +24,9 @@ import {
   deletePipelineStep,
   analyzePipeline,
   fetchStepPreview,
+  getPipelineSchedule,
+  putPipelineSchedule,
+  deletePipelineSchedule,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -31,6 +34,7 @@ import type {
   PipelineStep,
   PipelineSummary,
 } from "../types/pipelineStep";
+import type { PipelineSchedule } from "../types/pipelineSchedule";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -44,6 +48,9 @@ jest.mock("../services/pipelineService", () => ({
   deletePipelineStep: jest.fn(),
   analyzePipeline: jest.fn(),
   fetchStepPreview: jest.fn(),
+  getPipelineSchedule: jest.fn(),
+  putPipelineSchedule: jest.fn(),
+  deletePipelineSchedule: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -56,6 +63,22 @@ const createPipelineStepMock = jest.mocked(createPipelineStep);
 const deletePipelineStepMock = jest.mocked(deletePipelineStep);
 const analyzePipelineMock = jest.mocked(analyzePipeline);
 const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
+const getPipelineScheduleMock = jest.mocked(getPipelineSchedule);
+const putPipelineScheduleMock = jest.mocked(putPipelineSchedule);
+const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
+
+/** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
+ *  `isAxiosError` guard (design D4/D5). */
+function axiosError(status: number, message?: string) {
+  return {
+    isAxiosError: true,
+    response: { status, data: message !== undefined ? { message } : undefined },
+  };
+}
+
+// Default across the whole file: no schedule set (404), mirroring the common
+// case — individual tests override with mockResolvedValueOnce/mockRejectedValueOnce.
+getPipelineScheduleMock.mockRejectedValue(axiosError(404));
 
 const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "pipe-1",
@@ -95,6 +118,7 @@ type PipelinesPreloadedState = {
   currentPipelineError?: string | null;
   updateStatus?: "idle" | "loading" | "succeeded" | "failed";
   updateError?: string | null;
+  schedule?: Record<string, PipelineSchedule | null>;
 };
 
 function makeStore(
@@ -148,6 +172,11 @@ function makeStore(
         analyzeResult: {},
         analyzeStatus: {},
         analyzeError: {},
+        schedule: pipelinesState.schedule ?? {},
+        scheduleStatus: {},
+        scheduleError: {},
+        scheduleSaveStatus: "idle" as const,
+        scheduleSaveError: null,
       },
     } as never,
   });
@@ -1563,5 +1592,90 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     renderDetailPage("pipe-1", store);
     expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
+  });
+});
+
+// ── Task 4.4 — schedule bar (HEL-416) ────────────────────────────────────────
+
+describe("PipelineDetailPage schedule bar (HEL-416)", () => {
+  const sampleSchedule: PipelineSchedule = {
+    id: "sched-1",
+    pipelineId: "pipe-1",
+    kind: "interval",
+    expression: "15m",
+    enabled: true,
+    timezone: "UTC",
+    nextRunAt: "2026-05-01T11:00:00Z",
+    lastRunAt: null,
+    createdAt: "2026-05-01T10:00:00Z",
+    updatedAt: "2026-05-01T10:00:00Z",
+  };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    getPipelineScheduleMock.mockRejectedValue(axiosError(404));
+  });
+
+  it("shows 'No schedule set' for a pipeline with no schedule — existing layout unaffected", async () => {
+    getPipelineScheduleMock.mockRejectedValueOnce(axiosError(404));
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByText("No schedule set")).toBeInTheDocument();
+    });
+    // The rest of the editor still renders exactly as before.
+    expect(screen.getByText("Test Source")).toBeInTheDocument();
+    expect(screen.getByText("Run pipeline")).toBeInTheDocument();
+  });
+
+  it("shows the schedule's expression and next-run time for a pipeline with a schedule", async () => {
+    getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Every 15m")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Edit schedule" })).toBeInTheDocument();
+  });
+
+  it("dispatches fetchPipelineSchedule on mount", async () => {
+    renderDetailPage("pipe-1");
+    await waitFor(() => {
+      expect(getPipelineScheduleMock).toHaveBeenCalledWith("pipe-1");
+    });
+  });
+
+  it("toggling enabled from the bar calls PUT with the unchanged kind/expression/timezone", async () => {
+    getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
+    putPipelineScheduleMock.mockResolvedValueOnce({ ...sampleSchedule, enabled: false });
+    renderDetailPage("pipe-1");
+
+    const toggle = await screen.findByRole("checkbox", { name: "Disable schedule" });
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(putPipelineScheduleMock).toHaveBeenCalledWith("pipe-1", {
+        kind: "interval",
+        expression: "15m",
+        enabled: false,
+        timezone: "UTC",
+      });
+    });
+  });
+
+  it("clicking 'Set schedule' opens the schedule dialog", async () => {
+    renderDetailPage("pipe-1");
+
+    const setScheduleBtn = await screen.findByRole("button", { name: "Set schedule" });
+    fireEvent.click(setScheduleBtn);
+
+    expect(screen.getByRole("dialog", { name: "Pipeline schedule" })).toBeInTheDocument();
   });
 });

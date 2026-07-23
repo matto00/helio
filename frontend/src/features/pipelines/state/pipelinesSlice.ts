@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSelector, createSlice } from "@reduxjs/toolkit";
+import { isAxiosError } from "axios";
 
 import type { RootState } from "../../../store/store";
 import {
@@ -11,6 +12,9 @@ import {
   getPipelineSteps,
   updatePipeline as updatePipelineRequest,
   analyzePipeline as analyzePipelineRequest,
+  getPipelineSchedule,
+  putPipelineSchedule,
+  deletePipelineSchedule as deletePipelineScheduleRequest,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -19,6 +23,17 @@ import type {
   PipelineSummary,
   RunStatus,
 } from "../types/pipelineStep";
+import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
+
+/** Matches `dashboardsSlice.ts` / `sourcesSlice.ts`'s existing error-extraction
+ *  pattern (design D4): the backend's `ErrorResponse(message)` always uses the
+ *  `message` field name. */
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err) && typeof err.response?.data?.message === "string") {
+    return err.response.data.message;
+  }
+  return fallback;
+}
 
 interface PipelinesState {
   items: PipelineSummary[];
@@ -55,6 +70,16 @@ interface PipelinesState {
   /** Open/closed state for CreatePipelineModal — controlled from the sidebar's
    * + button so the page itself doesn't need to own modal state. */
   createModalOpen: boolean;
+  // Per-pipeline schedule (HEL-416). `null` means "no schedule set" — a
+  // domain state, not an error (design D5, mirrors dataTypesSlice's
+  // 409-branching precedent for expected non-2xx responses).
+  schedule: Record<string, PipelineSchedule | null>;
+  scheduleStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  scheduleError: Record<string, string | null>;
+  // Save/delete get their own status/error so a failed save doesn't clobber
+  // the last-loaded schedule shown in the bar (design D5).
+  scheduleSaveStatus: "idle" | "loading" | "succeeded" | "failed";
+  scheduleSaveError: string | null;
 }
 
 const initialState: PipelinesState = {
@@ -83,6 +108,11 @@ const initialState: PipelinesState = {
   analyzeStatus: {},
   analyzeError: {},
   createModalOpen: false,
+  schedule: {},
+  scheduleStatus: {},
+  scheduleError: {},
+  scheduleSaveStatus: "idle",
+  scheduleSaveError: null,
 };
 
 export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
@@ -196,6 +226,56 @@ export const analyzePipeline = createAsyncThunk<
     return { pipelineId, result };
   } catch {
     return rejectWithValue("Failed to analyze pipeline.");
+  }
+});
+
+// ── Pipeline schedule (HEL-416) ─────────────────────────────────────────────
+
+/** GET the pipeline's schedule. A 404 ("no schedule set") is an expected
+ *  domain state, not a failure — it resolves `fulfilled` with `schedule: null`
+ *  (design D5, mirrors `dataTypesSlice.ts`'s 409-branching precedent). Any
+ *  other error rejects normally. */
+export const fetchPipelineSchedule = createAsyncThunk<
+  { pipelineId: string; schedule: PipelineSchedule | null },
+  string,
+  { rejectValue: string }
+>("pipelines/fetchPipelineSchedule", async (pipelineId, { rejectWithValue }) => {
+  try {
+    const schedule = await getPipelineSchedule(pipelineId);
+    return { pipelineId, schedule };
+  } catch (err: unknown) {
+    if (isAxiosError(err) && err.response?.status === 404) {
+      return { pipelineId, schedule: null };
+    }
+    return rejectWithValue(extractErrorMessage(err, "Failed to load pipeline schedule."));
+  }
+});
+
+/** PUT the pipeline's schedule (upsert). */
+export const savePipelineSchedule = createAsyncThunk<
+  { pipelineId: string; schedule: PipelineSchedule },
+  { pipelineId: string; request: PutPipelineScheduleRequest },
+  { rejectValue: string }
+>("pipelines/savePipelineSchedule", async ({ pipelineId, request }, { rejectWithValue }) => {
+  try {
+    const schedule = await putPipelineSchedule(pipelineId, request);
+    return { pipelineId, schedule };
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to save pipeline schedule."));
+  }
+});
+
+/** DELETE the pipeline's schedule ("Clear schedule"). */
+export const deletePipelineSchedule = createAsyncThunk<
+  { pipelineId: string },
+  string,
+  { rejectValue: string }
+>("pipelines/deletePipelineSchedule", async (pipelineId, { rejectWithValue }) => {
+  try {
+    await deletePipelineScheduleRequest(pipelineId);
+    return { pipelineId };
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to clear pipeline schedule."));
   }
 });
 
@@ -349,6 +429,57 @@ const pipelinesSlice = createSlice({
         const pid = action.meta.arg;
         state.analyzeStatus[pid] = "failed";
         state.analyzeError[pid] = action.payload ?? "Failed to analyze pipeline.";
+      })
+      // fetchPipelineSchedule
+      .addCase(fetchPipelineSchedule.pending, (state, action) => {
+        const pid = action.meta.arg;
+        state.scheduleStatus[pid] = "loading";
+        state.scheduleError[pid] = null;
+      })
+      .addCase(fetchPipelineSchedule.fulfilled, (state, action) => {
+        const { pipelineId, schedule } = action.payload;
+        state.schedule[pipelineId] = schedule;
+        state.scheduleStatus[pipelineId] = "succeeded";
+        state.scheduleError[pipelineId] = null;
+      })
+      .addCase(fetchPipelineSchedule.rejected, (state, action) => {
+        const pid = action.meta.arg;
+        state.scheduleStatus[pid] = "failed";
+        state.scheduleError[pid] = action.payload ?? "Failed to load pipeline schedule.";
+      })
+      // savePipelineSchedule
+      .addCase(savePipelineSchedule.pending, (state) => {
+        state.scheduleSaveStatus = "loading";
+        state.scheduleSaveError = null;
+      })
+      .addCase(savePipelineSchedule.fulfilled, (state, action) => {
+        const { pipelineId, schedule } = action.payload;
+        state.schedule[pipelineId] = schedule;
+        state.scheduleStatus[pipelineId] = "succeeded";
+        state.scheduleError[pipelineId] = null;
+        state.scheduleSaveStatus = "succeeded";
+        state.scheduleSaveError = null;
+      })
+      .addCase(savePipelineSchedule.rejected, (state, action) => {
+        state.scheduleSaveStatus = "failed";
+        state.scheduleSaveError = action.payload ?? "Failed to save pipeline schedule.";
+      })
+      // deletePipelineSchedule
+      .addCase(deletePipelineSchedule.pending, (state) => {
+        state.scheduleSaveStatus = "loading";
+        state.scheduleSaveError = null;
+      })
+      .addCase(deletePipelineSchedule.fulfilled, (state, action) => {
+        const { pipelineId } = action.payload;
+        state.schedule[pipelineId] = null;
+        state.scheduleStatus[pipelineId] = "succeeded";
+        state.scheduleError[pipelineId] = null;
+        state.scheduleSaveStatus = "succeeded";
+        state.scheduleSaveError = null;
+      })
+      .addCase(deletePipelineSchedule.rejected, (state, action) => {
+        state.scheduleSaveStatus = "failed";
+        state.scheduleSaveError = action.payload ?? "Failed to clear pipeline schedule.";
       });
   },
 });
