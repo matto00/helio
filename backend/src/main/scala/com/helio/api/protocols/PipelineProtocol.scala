@@ -37,7 +37,8 @@ final case class PipelineRunRecord(
     startedAt: String,
     completedAt: Option[String],
     rowCount: Option[Int],
-    errorLog: Option[String]
+    errorLog: Option[String],
+    triggerSource: String
 )
 final case class RunResultResponse(
     rows: Vector[JsObject],
@@ -66,7 +67,7 @@ trait PipelineProtocol
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat10(PipelineSummaryResponse.apply)
 
   // Run formats
-  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat7(PipelineRunRecord.apply)
+  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat8(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {

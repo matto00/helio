@@ -68,23 +68,39 @@ final class PipelineRunService(
    *  viewer grantees receive 403 (resource visible, mutation blocked).
    *  The source lookup uses `DataSourceRepository.findByIdInternal` (privileged)
    *  because the pipeline could legitimately reference a join-target source the
-   *  caller does not own; the pipeline ACL gated entry. */
-  def submit(pipelineId: PipelineId, isDry: Boolean, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+   *  caller does not own; the pipeline ACL gated entry.
+   *
+   *  HEL-417: `triggerSource` defaults to `TriggerSource.Manual` so the
+   *  existing manual-API callsite (`PipelineRunSubmitRoutes`) is unaffected;
+   *  `PipelineSchedulerService.fire` passes `TriggerSource.Scheduled`
+   *  explicitly. */
+  def submit(
+      pipelineId: PipelineId,
+      isDry: Boolean,
+      user: AuthenticatedUser,
+      triggerSource: String = TriggerSource.Manual
+  ): Future[Either[ServiceError, RunResultResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
         // Grantee — only editor grantees may trigger runs; viewers get 403.
         pipelineRepo.findGrantRole(pipelineId, user).flatMap {
-          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user)
+          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user, triggerSource)
           case _              => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
         }
       case Some(pipeline) =>
         // Owner path — always permitted.
-        runPipeline(pipeline, pipelineId, isDry, user)
+        runPipeline(pipeline, pipelineId, isDry, user, triggerSource)
     }
 
-  private def runPipeline(pipeline: Pipeline, pipelineId: PipelineId, isDry: Boolean, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+  private def runPipeline(
+      pipeline: Pipeline,
+      pipelineId: PipelineId,
+      isDry: Boolean,
+      user: AuthenticatedUser,
+      triggerSource: String
+  ): Future[Either[ServiceError, RunResultResponse]] =
     // Privileged: pipeline ACL is the authoritative gate; source is part of the
     // pipeline definition. findByIdInternal is correct here.
     dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
@@ -104,7 +120,7 @@ final class PipelineRunService(
             // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
             pipelineStepRepo
               .listByPipelineInternal(pipelineId)
-              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user))
+              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user, triggerSource))
         }
     }
 
@@ -187,13 +203,14 @@ final class PipelineRunService(
           pipelineRunRepo.listByPipelineInternal(pipelineId).map { rows =>
             Right(rows.map { r =>
               PipelineRunRecord(
-                id          = r.id,
-                pipelineId  = r.pipelineId,
-                status      = r.status,
-                startedAt   = r.startedAt.toString,
-                completedAt = r.completedAt.map(_.toString),
-                rowCount    = r.rowCount,
-                errorLog    = r.errorLog
+                id            = r.id,
+                pipelineId    = r.pipelineId,
+                status        = r.status,
+                startedAt     = r.startedAt.toString,
+                completedAt   = r.completedAt.map(_.toString),
+                rowCount      = r.rowCount,
+                errorLog      = r.errorLog,
+                triggerSource = r.triggerSource
               )
             })
           }
@@ -222,11 +239,12 @@ final class PipelineRunService(
    *  → publish SSE events → handle success/failure. Extracted from `submit`
    *  to flatten the nested flatMap chain. Behaviour-preserving. */
   private def executeRun(
-      pipeline:   Pipeline,
-      dataSource: DataSource,
-      steps:      Vector[PipelineStep],
-      isDry:      Boolean,
-      user:       AuthenticatedUser
+      pipeline:      Pipeline,
+      dataSource:    DataSource,
+      steps:         Vector[PipelineStep],
+      isDry:         Boolean,
+      user:          AuthenticatedUser,
+      triggerSource: String
   ): Future[Either[ServiceError, RunResultResponse]] = {
     val pipelineId = pipeline.id
     val runId      = PipelineRunId(UUID.randomUUID().toString)
@@ -238,7 +256,7 @@ final class PipelineRunService(
     val preExec: Future[Unit] =
       if (!isDry && pipelineRunRepo != null)
         pipelineRunRepo
-          .insertRun(runId, pipelineId, startAt, user)
+          .insertRun(runId, pipelineId, startAt, user, triggerSource)
           .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10))
           .recoverWith { case _ => Future.successful(()) }
       else Future.successful(())
@@ -438,3 +456,14 @@ final case class CachedRunStatus(
     error:    Option[String],
     rowCount: Option[Int]
 )
+
+/** The three `pipeline_runs.trigger_source` literals (HEL-417). Modeled as a
+ *  plain-`String` constants holder rather than a sealed domain type — mirrors
+ *  the existing bare-`String` convention `PipelineRunRow`/`PipelineRunRecord`
+ *  already use for `status` (see design.md Decision 1). `External` is
+ *  reserved for HEL-369; no caller passes it yet. */
+object TriggerSource {
+  val Manual: String    = "manual"
+  val Scheduled: String = "scheduled"
+  val External: String  = "external"
+}

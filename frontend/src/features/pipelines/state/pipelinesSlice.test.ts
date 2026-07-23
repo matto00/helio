@@ -345,6 +345,7 @@ describe("fetchPipelineRunHistory", () => {
     completedAt: "2026-05-01T10:01:00Z",
     rowCount: 42,
     errorLog: null,
+    triggerSource: "manual" as const,
   };
 
   beforeEach(() => {

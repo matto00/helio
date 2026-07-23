@@ -110,7 +110,7 @@ final class PipelineSchedulerService(
         // path (e.g. a pre-submit DB lookup failure), so bookkeeping below
         // still runs either way.
         pipelineRunService
-          .submit(schedule.pipelineId, isDry = false, owner)
+          .submit(schedule.pipelineId, isDry = false, owner, triggerSource = TriggerSource.Scheduled)
           .transform {
             case Success(result) => Success(result)
             case Failure(ex) =>

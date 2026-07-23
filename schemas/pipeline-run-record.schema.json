@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipeline-run-record.schema.json",
+  "title": "PipelineRunRecord",
+  "description": "A single persisted pipeline run as returned by GET /api/pipelines/:id/run-history. `triggerSource` records how the run was started (HEL-417): `manual` (user-submitted via the run API, including dry runs), `scheduled` (fired by the scheduler runtime, HEL-415), or `external` (reserved for HEL-369; no caller yet).",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "pipelineId": { "type": "string" },
+    "status": { "type": "string", "enum": ["queued", "running", "succeeded", "failed", "dry_run"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": ["string", "null"], "format": "date-time" },
+    "rowCount": { "type": ["integer", "null"] },
+    "errorLog": { "type": ["string", "null"] },
+    "triggerSource": { "type": "string", "enum": ["manual", "scheduled", "external"] }
+  },
+  "required": [
+    "id",
+    "pipelineId",
+    "status",
+    "startedAt",
+    "completedAt",
+    "rowCount",
+    "errorLog",
+    "triggerSource"
+  ],
+  "additionalProperties": false
+}

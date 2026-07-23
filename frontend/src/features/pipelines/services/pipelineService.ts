@@ -107,11 +107,24 @@ export async function fetchRunStatus(
   return response.data;
 }
 
+/** HEL-417: `triggerSource` is server-side-defaulted and non-optional in the
+ *  Scala wire shape, so a compliant backend always sends it — but normalize
+ *  defensively at this boundary anyway (a legacy/mocked response omitting the
+ *  field would otherwise surface as `undefined` in the UI) rather than trust
+ *  every caller to special-case it, mirroring `normalizeSchedule`'s
+ *  Option=None-omission precedent above. */
+function normalizeRunRecord(run: PipelineRunRecord): PipelineRunRecord {
+  return {
+    ...run,
+    triggerSource: run.triggerSource ?? "manual",
+  };
+}
+
 export async function fetchRunHistory(pipelineId: string): Promise<PipelineRunRecord[]> {
   const response = await httpClient.get<PipelineRunRecord[]>(
     `/api/pipelines/${pipelineId}/run-history`,
   );
-  return response.data;
+  return response.data.map(normalizeRunRecord);
 }
 
 export async function analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {

@@ -34,23 +34,27 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** Owner-scoped insert. Silent no-op when the caller does not own the
-    * parent pipeline. */
-  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, user: AuthenticatedUser): Future[Unit] =
+    * parent pipeline. `triggerSource` defaults to `"manual"` (rather than
+    * requiring every test/caller to pass the literal) -- the real callers
+    * that care (`PipelineRunService.executeRun`, the HEL-415 scheduler path)
+    * always pass it explicitly. */
+  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, user: AuthenticatedUser, triggerSource: String = "manual"): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
-      case true  => insertRunInternal(runId, pipelineId, startedAt)
+      case true  => insertRunInternal(runId, pipelineId, startedAt, triggerSource)
     }
 
   /** ACL-bypassing insertRun for the privileged Spark driver path. */
-  def insertRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant): Future[Unit] = {
+  def insertRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, triggerSource: String = "manual"): Future[Unit] = {
     val row = PipelineRunRow(
-      id          = runId.value,
-      pipelineId  = pipelineId.value,
-      status      = "queued",
-      startedAt   = startedAt,
-      completedAt = None,
-      rowCount    = None,
-      errorLog    = None
+      id            = runId.value,
+      pipelineId    = pipelineId.value,
+      status        = "queued",
+      startedAt     = startedAt,
+      completedAt   = None,
+      rowCount      = None,
+      errorLog      = None,
+      triggerSource = triggerSource
     )
     ctx.withSystemContext(runsTable += row).map(_ => ())
   }
@@ -92,7 +96,9 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_ => ())
 
   /** Owner-scoped dry-run insert. Silent no-op when the caller does not own
-    * the parent pipeline. */
+    * the parent pipeline. Dry runs are always triggered interactively (the
+    * scheduler never dry-runs), so `triggerSource` is always `"manual"` --
+    * no caller-supplied parameter. */
   def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
@@ -102,13 +108,14 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing dry-run insert for the privileged Spark driver path. */
   def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int): Future[Unit] = {
     val row = PipelineRunRow(
-      id          = runId.value,
-      pipelineId  = pipelineId.value,
-      status      = "dry_run",
-      startedAt   = startedAt,
-      completedAt = Some(startedAt),
-      rowCount    = Some(rowCount),
-      errorLog    = None
+      id            = runId.value,
+      pipelineId    = pipelineId.value,
+      status        = "dry_run",
+      startedAt     = startedAt,
+      completedAt   = Some(startedAt),
+      rowCount      = Some(rowCount),
+      errorLog      = None,
+      triggerSource = "manual"
     )
     ctx.withSystemContext(runsTable += row).map(_ => ())
   }
@@ -208,18 +215,20 @@ object PipelineRunRepository {
       startedAt: Instant,
       completedAt: Option[Instant],
       rowCount: Option[Int],
-      errorLog: Option[String]
+      errorLog: Option[String],
+      triggerSource: String
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
-    def id          = column[String]("id", O.PrimaryKey)
-    def pipelineId  = column[String]("pipeline_id")
-    def status      = column[String]("status")
-    def startedAt   = column[Instant]("started_at")
-    def completedAt = column[Option[Instant]]("completed_at")
-    def rowCount    = column[Option[Int]]("row_count")
-    def errorLog    = column[Option[String]]("error_log")
+    def id            = column[String]("id", O.PrimaryKey)
+    def pipelineId    = column[String]("pipeline_id")
+    def status        = column[String]("status")
+    def startedAt     = column[Instant]("started_at")
+    def completedAt   = column[Option[Instant]]("completed_at")
+    def rowCount      = column[Option[Int]]("row_count")
+    def errorLog      = column[Option[String]]("error_log")
+    def triggerSource = column[String]("trigger_source")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog).mapTo[PipelineRunRow]
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource).mapTo[PipelineRunRow]
   }
 }

@@ -8,7 +8,7 @@
 // `dataTypeService.test.ts` for the same class of bug.
 
 import { httpClient } from "../../../services/httpClient";
-import { getPipelineSchedule, putPipelineSchedule } from "./pipelineService";
+import { fetchRunHistory, getPipelineSchedule, putPipelineSchedule } from "./pipelineService";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), put: jest.fn() },
@@ -67,5 +67,49 @@ describe("pipelineService schedule timestamp normalization", () => {
 
     expect(result.nextRunAt).toBeNull();
     expect(result.lastRunAt).toBeNull();
+  });
+});
+
+// HEL-417: `triggerSource` is server-side-defaulted and non-optional on the
+// Scala wire shape, so a compliant backend always sends it -- but
+// `fetchRunHistory` normalizes defensively at the boundary anyway (same
+// discipline as the schedule-timestamp normalization above) in case a
+// legacy/mocked response omits the field.
+describe("pipelineService run history triggerSource normalization", () => {
+  it("fetchRunHistory defaults a missing triggerSource to manual", async () => {
+    const wireRunMissingTriggerSource = {
+      id: "run-1",
+      pipelineId: "p-1",
+      status: "succeeded",
+      startedAt: "2026-07-01T00:00:00Z",
+      completedAt: "2026-07-01T00:01:00Z",
+      rowCount: 5,
+      errorLog: null,
+    };
+    mockedHttpClient.get.mockResolvedValueOnce({ data: [wireRunMissingTriggerSource] });
+
+    const result = await fetchRunHistory("p-1");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].triggerSource).toBe("manual");
+    expect("triggerSource" in wireRunMissingTriggerSource).toBe(false);
+  });
+
+  it("fetchRunHistory preserves a present triggerSource value", async () => {
+    const wireRunWithTriggerSource = {
+      id: "run-2",
+      pipelineId: "p-1",
+      status: "succeeded",
+      startedAt: "2026-07-01T00:00:00Z",
+      completedAt: "2026-07-01T00:01:00Z",
+      rowCount: 5,
+      errorLog: null,
+      triggerSource: "scheduled",
+    };
+    mockedHttpClient.get.mockResolvedValueOnce({ data: [wireRunWithTriggerSource] });
+
+    const result = await fetchRunHistory("p-1");
+
+    expect(result[0].triggerSource).toBe("scheduled");
   });
 });

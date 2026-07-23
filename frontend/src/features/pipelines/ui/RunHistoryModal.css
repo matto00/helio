@@ -72,6 +72,28 @@
   border-style: dashed;
 }
 
+.run-history-modal__trigger {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border-subtle);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: capitalize;
+  color: var(--app-text-muted);
+}
+
+.run-history-modal__trigger--scheduled {
+  color: var(--app-accent);
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  background: var(--app-accent-surface);
+}
+
+.run-history-modal__trigger--external {
+  color: var(--app-warning);
+  border-color: color-mix(in srgb, var(--app-warning) 40%, transparent);
+  background: var(--app-warning-surface);
+}
+
 .run-history-modal__row-toggle {
   margin-left: auto;
   height: 22px;

@@ -480,11 +480,46 @@ describe("PipelineDetailPage", () => {
       completedAt: "2026-05-01T10:01:00Z",
       rowCount: 42,
       errorLog: null,
+      triggerSource: "manual",
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
     fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
     expect(screen.getByText("42 rows")).toBeInTheDocument();
+  });
+
+  it("run history modal shows a Manual badge for a manual run", () => {
+    const run: PipelineRunRecord = {
+      id: "run-manual-1",
+      pipelineId: "pipe-1",
+      status: "succeeded",
+      startedAt: "2026-05-01T10:00:00Z",
+      completedAt: "2026-05-01T10:01:00Z",
+      rowCount: 10,
+      errorLog: null,
+      triggerSource: "manual",
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+  });
+
+  it("run history modal shows a Scheduled badge for a scheduled run", () => {
+    const run: PipelineRunRecord = {
+      id: "run-scheduled-1",
+      pipelineId: "pipe-1",
+      status: "succeeded",
+      startedAt: "2026-05-01T10:00:00Z",
+      completedAt: "2026-05-01T10:01:00Z",
+      rowCount: 10,
+      errorLog: null,
+      triggerSource: "scheduled",
+    };
+    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
+    renderDetailPage("pipe-1", store);
+    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 
   it("failed run shows a Show log toggle in the run history modal", async () => {
@@ -496,6 +531,7 @@ describe("PipelineDetailPage", () => {
       completedAt: "2026-05-01T11:00:05Z",
       rowCount: null,
       errorLog: "out of memory error",
+      triggerSource: "scheduled",
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -1329,6 +1365,7 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
       completedAt: "2026-05-01T12:00:01Z",
       rowCount: 5,
       errorLog: null,
+      triggerSource: "manual",
     };
     const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
     renderDetailPage("pipe-1", store);
@@ -1458,6 +1495,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       completedAt: null,
       rowCount: null,
       errorLog: null,
+      triggerSource: "manual" as const,
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -1476,6 +1514,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       completedAt: null,
       rowCount: null,
       errorLog: null,
+      triggerSource: "manual" as const,
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);

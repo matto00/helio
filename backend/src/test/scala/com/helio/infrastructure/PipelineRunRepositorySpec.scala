@@ -76,6 +76,45 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       runs.head.completedAt shouldBe None
       runs.head.rowCount    shouldBe None
       runs.head.errorLog    shouldBe None
+      runs.head.triggerSource shouldBe "manual"
+    }
+
+    // ── HEL-417: trigger_source persistence ─────────────────────────────────
+
+    "insertRun persists the passed triggerSource (scheduled)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser, triggerSource = "scheduled"))
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      runs.head.triggerSource shouldBe "scheduled"
+    }
+
+    "insertRunInternal persists the passed triggerSource (external)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now(), triggerSource = "external"))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.triggerSource shouldBe "external"
+    }
+
+    "insertDryRun persists triggerSource manual" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 1, systemUser))
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      runs.head.triggerSource shouldBe "manual"
+    }
+
+    "insertDryRunInternal persists triggerSource manual" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertDryRunInternal(runId, pid, Instant.now(), rowCount = 1))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.triggerSource shouldBe "manual"
     }
 
     "updateRunTerminal sets succeeded status with rowCount" in {

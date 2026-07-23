@@ -21,6 +21,7 @@ import com.helio.domain.{
 }
 import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
+import com.helio.services.TriggerSource
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
@@ -73,8 +74,13 @@ class SparkJobSubmitter(
     // `PipelineRunService.submit` (owner-scoped `pipelineRepo.findById`);
     // these post-execution writes use the explicit `*Internal` variants the
     // repos expose for this exact privileged-driver use case.
+    // HEL-417: this path has no caller in the route tree yet (HEL-202,
+    // dormant) and carries no `triggerSource` parameter of its own; default
+    // to manual so it stays consistent with PipelineRunService.submit's
+    // default until HEL-202 wires a real callsite (and threads a
+    // triggerSource through if a scheduler ever targets the Spark path).
     if (pipelineRunRepo != null) {
-      pipelineRunRepo.insertRunInternal(runId, pipeline.id, startedAt)
+      pipelineRunRepo.insertRunInternal(runId, pipeline.id, startedAt, TriggerSource.Manual)
       pipelineRunRepo.deleteOldRunsInternal(pipeline.id)
     }
 
