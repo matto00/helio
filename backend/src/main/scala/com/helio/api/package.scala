@@ -225,4 +225,12 @@ package object api {
   val CreateAlertRuleRequest: protocols.CreateAlertRuleRequest.type = protocols.CreateAlertRuleRequest
   type UpdateAlertRuleRequest = protocols.UpdateAlertRuleRequest
   val UpdateAlertRuleRequest: protocols.UpdateAlertRuleRequest.type = protocols.UpdateAlertRuleRequest
+
+  // AlertEvent (HEL-455)
+  type AlertEventResponse = protocols.AlertEventResponse
+  val AlertEventResponse: protocols.AlertEventResponse.type = protocols.AlertEventResponse
+  type AlertEventsResponse = protocols.AlertEventsResponse
+  val AlertEventsResponse: protocols.AlertEventsResponse.type = protocols.AlertEventsResponse
+  type SnoozeAlertEventRequest = protocols.SnoozeAlertEventRequest
+  val SnoozeAlertEventRequest: protocols.SnoozeAlertEventRequest.type = protocols.SnoozeAlertEventRequest
 }

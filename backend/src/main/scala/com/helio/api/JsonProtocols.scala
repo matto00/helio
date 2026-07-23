@@ -18,6 +18,7 @@ import com.helio.api.protocols._
  *  - `PipelineProtocol   extends DataTypeProtocol`     (PipelineAnalyzeResponse uses SchemaFieldResponse)
  *  - `DataSourceProtocol extends DataTypeProtocol`     (CreateSourceResponse carries DataTypeResponse)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
+ *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *
  *  All re-exports for backward compatibility happen via `package object protocols`
  *  / wildcard import below: every case class and companion is in
@@ -38,3 +39,4 @@ trait JsonProtocols
     with PaginationProtocol
     with ImageUploadProtocol
     with AlertRuleProtocol
+    with AlertEventProtocol

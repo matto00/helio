@@ -11,9 +11,9 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -74,7 +74,12 @@ final class ApiRoutes(
     // (alertRuleServiceOpt.fold(reject)). Appended last (rather than beside
     // the other nullable repos) so it stays purely additive for every
     // existing positional caller of this constructor.
-    alertRuleRepo: AlertRuleRepository = null
+    alertRuleRepo: AlertRuleRepository = null,
+    // HEL-455: same nullable-optional wiring pattern as alertRuleRepo above —
+    // fixtures that don't pass an AlertEventRepository simply don't get the
+    // /api/alerts routes mounted (alertEventServiceOpt.fold(reject)).
+    // Appended last for the same purely-additive reason.
+    alertEventRepo: AlertEventRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -130,6 +135,9 @@ final class ApiRoutes(
   // HEL-447: same optional-wiring pattern — fixtures that don't pass an
   // AlertRuleRepository simply don't get the /api/alert-rules routes.
   private val alertRuleServiceOpt         = Option(alertRuleRepo).map(new AlertRuleService(_, dataTypeRepo))
+  // HEL-455: same optional-wiring pattern — fixtures that don't pass an
+  // AlertEventRepository simply don't get the /api/alerts routes.
+  private val alertEventServiceOpt        = Option(alertEventRepo).map(new AlertEventService(_))
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -241,7 +249,8 @@ final class ApiRoutes(
                   new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
                   apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
                   imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes),
-                  alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes)
+                  alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
+                  alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes)
                 )
               }
             )

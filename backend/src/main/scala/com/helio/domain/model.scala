@@ -456,3 +456,68 @@ final case class AlertRule(
     createdAt: Instant,
     updatedAt: Instant
 )
+
+final case class AlertEventId(value: String) extends AnyVal
+
+/** Lifecycle state of an [[AlertEvent]] — see `AlertEventStateMachine` for the
+ *  single source of truth on legal transitions between these values. */
+sealed trait AlertEventState
+object AlertEventState {
+  case object Firing       extends AlertEventState
+  case object Resolved     extends AlertEventState
+  case object Acknowledged extends AlertEventState
+  case object Snoozed      extends AlertEventState
+
+  def fromString(s: String): Either[String, AlertEventState] = s match {
+    case "firing"       => Right(Firing)
+    case "resolved"     => Right(Resolved)
+    case "acknowledged" => Right(Acknowledged)
+    case "snoozed"       => Right(Snoozed)
+    case other          => Left(s"Unknown alert event state: '$other'. Valid values: firing, resolved, acknowledged, snoozed")
+  }
+
+  def asString(s: AlertEventState): String = s match {
+    case Firing       => "firing"
+    case Resolved     => "resolved"
+    case Acknowledged => "acknowledged"
+    case Snoozed      => "snoozed"
+  }
+}
+
+/** Closed set of actions accepted by `AlertEventStateMachine.transition`.
+ *  `ReFire` models a breach re-observed against an event that is already
+ *  active (not `resolved`) — see design.md's "ReFire is legal from every
+ *  active state" decision for the full rationale on each of its four
+ *  branches (`firing`/`acknowledged`/unexpired-`snoozed` refresh in place;
+ *  expired-`snoozed` additionally flips to `firing`). */
+sealed trait AlertEventAction
+object AlertEventAction {
+  case object Acknowledge                                                              extends AlertEventAction
+  final case class Snooze(until: Instant)                                              extends AlertEventAction
+  case object Resolve                                                                  extends AlertEventAction
+  final case class ReFire(value: JsValue, severity: Severity, pipelineRunId: Option[String]) extends AlertEventAction
+}
+
+/** Durable, de-duplicated alert event (HEL-455). At most one *active*
+ *  (non-resolved) event exists per `alertRuleId` at any time — see
+ *  `AlertEventRepository.upsertFiringInternal` for the dedup/upsert path and
+ *  `AlertEventStateMachine` for the single-source-of-truth transition
+ *  function every mutation (user-driven or engine-driven) goes through.
+ *  `ownerId`/`targetDataTypeId` are denormalized from the parent `AlertRule`
+ *  at creation (design.md Decision: "Table shape"). `pipelineRunId` is
+ *  unenforced (no FK) — pipeline runs are ephemeral execution records. */
+final case class AlertEvent(
+    id: AlertEventId,
+    alertRuleId: AlertRuleId,
+    ownerId: UserId,
+    targetDataTypeId: DataTypeId,
+    value: JsValue,
+    pipelineRunId: Option[String],
+    severity: Severity,
+    state: AlertEventState,
+    firstFiredAt: Instant,
+    lastEvaluatedAt: Instant,
+    resolvedAt: Option[Instant],
+    acknowledgedAt: Option[Instant],
+    snoozedUntil: Option[Instant]
+)

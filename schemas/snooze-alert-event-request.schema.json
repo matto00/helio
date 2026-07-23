@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/snooze-alert-event-request.schema.json",
+  "title": "SnoozeAlertEventRequest",
+  "description": "Request body for POST /api/alerts/:id/snooze.",
+  "type": "object",
+  "properties": {
+    "snoozedUntil": { "type": "string", "format": "date-time" }
+  },
+  "required": ["snoozedUntil"],
+  "additionalProperties": false
+}
