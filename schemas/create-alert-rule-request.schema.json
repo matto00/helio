@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/create-alert-rule-request.schema.json",
+  "title": "CreateAlertRuleRequest",
+  "description": "POST /api/alert-rules body. `enabled` is optional — spray-json omits `None` on the wire, and the service normalizes an absent value to `true`.",
+  "type": "object",
+  "properties": {
+    "targetDataTypeId": { "type": "string", "minLength": 1 },
+    "metric": { "type": "string", "minLength": 1 },
+    "condition": {
+      "type": "object",
+      "description": "Opaque JSON object; the service validates only `comparator` and `threshold` and passes the rest through unchanged.",
+      "properties": {
+        "comparator": { "type": "string", "enum": ["gt", "gte", "lt", "lte", "eq", "neq"] },
+        "threshold": { "type": "number" },
+        "window": { "type": "string" }
+      },
+      "required": ["comparator", "threshold"]
+    },
+    "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+    "enabled": { "type": "boolean" },
+    "name": { "type": "string", "minLength": 1 }
+  },
+  "required": ["targetDataTypeId", "metric", "condition", "severity", "name"],
+  "additionalProperties": false
+}

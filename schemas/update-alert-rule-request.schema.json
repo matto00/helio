@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/update-alert-rule-request.schema.json",
+  "title": "UpdateAlertRuleRequest",
+  "description": "PATCH /api/alert-rules/:id body. Every field is optional — only the provided fields are applied; owner-scoped.",
+  "type": "object",
+  "properties": {
+    "metric": { "type": "string", "minLength": 1 },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "comparator": { "type": "string", "enum": ["gt", "gte", "lt", "lte", "eq", "neq"] },
+        "threshold": { "type": "number" },
+        "window": { "type": "string" }
+      },
+      "required": ["comparator", "threshold"]
+    },
+    "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+    "enabled": { "type": "boolean" },
+    "name": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

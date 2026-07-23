@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.{ApiRoutes, CookieConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -60,6 +60,7 @@ object Main {
       val apiTokenRepo       = new ApiTokenRepository(ctx)
       val binaryRefRepo      = new BinaryRefRepository(ctx)
       val imageUploadRepo    = new ImageUploadRepository(ctx)
+      val alertRuleRepo      = new AlertRuleRepository(ctx)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()
@@ -125,7 +126,8 @@ object Main {
         googleClientSecret,
         googleRedirectUri,
         corsAllowedOrigins,
-        cookieConfig
+        cookieConfig,
+        alertRuleRepo = alertRuleRepo
       )
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {

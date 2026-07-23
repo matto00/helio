@@ -9,6 +9,7 @@ final case class DataSourceId(value: String) extends AnyVal
 final case class DataTypeId(value: String) extends AnyVal
 final case class UserId(value: String) extends AnyVal
 final case class PipelineId(value: String) extends AnyVal
+final case class AlertRuleId(value: String) extends AnyVal
 
 final case class User(
     id: UserId,
@@ -379,4 +380,79 @@ final case class ImageUpload(
     filename: String,
     sizeBytes: Long,
     createdAt: Instant
+)
+
+/** HEL-447 — alerting persistence foundation (no evaluation logic here; that
+ *  is the engine ticket, HEL-455). Mirrors the `Role` enum pattern. */
+sealed trait Severity
+object Severity {
+  case object Info     extends Severity
+  case object Warning  extends Severity
+  case object Critical extends Severity
+
+  def fromString(s: String): Either[String, Severity] = s match {
+    case "info"     => Right(Info)
+    case "warning"  => Right(Warning)
+    case "critical" => Right(Critical)
+    case other      => Left(s"Unknown severity: '$other'. Valid values: info, warning, critical")
+  }
+
+  def asString(s: Severity): String = s match {
+    case Info     => "info"
+    case Warning  => "warning"
+    case Critical => "critical"
+  }
+}
+
+/** Comparator kinds understood inside an `AlertRule.condition` jsonb blob.
+ *  Not a DB column of its own — `condition` stays an opaque `JsValue` at the
+ *  domain layer (design.md Decision: "condition representation") so future
+ *  condition kinds don't require a migration. This enum exists purely so the
+ *  service layer can validate the `comparator` key's value on write. */
+sealed trait Comparator
+object Comparator {
+  case object Gt  extends Comparator
+  case object Gte extends Comparator
+  case object Lt  extends Comparator
+  case object Lte extends Comparator
+  case object Eq  extends Comparator
+  case object Neq extends Comparator
+
+  def fromString(s: String): Either[String, Comparator] = s match {
+    case "gt"  => Right(Gt)
+    case "gte" => Right(Gte)
+    case "lt"  => Right(Lt)
+    case "lte" => Right(Lte)
+    case "eq"  => Right(Eq)
+    case "neq" => Right(Neq)
+    case other => Left(s"Unknown comparator: '$other'. Valid values: gt, gte, lt, lte, eq, neq")
+  }
+
+  def asString(c: Comparator): String = c match {
+    case Gt  => "gt"
+    case Gte => "gte"
+    case Lt  => "lt"
+    case Lte => "lte"
+    case Eq  => "eq"
+    case Neq => "neq"
+  }
+}
+
+/** Durable alert rule definition. Storage-only (HEL-447) — evaluation
+ *  (HEL-455) and event/state persistence (HEL-466) are later tickets in the
+ *  chain. `condition` is opaque `jsonb` (comparator + threshold + optional
+ *  window params) so richer condition kinds can be added without a
+ *  migration; the service validates only the `comparator`/`threshold` keys
+ *  on write and passes the rest through unchanged. */
+final case class AlertRule(
+    id: AlertRuleId,
+    ownerId: UserId,
+    targetDataTypeId: DataTypeId,
+    metric: String,
+    condition: JsValue,
+    name: String,
+    enabled: Boolean,
+    severity: Severity,
+    createdAt: Instant,
+    updatedAt: Instant
 )
