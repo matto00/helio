@@ -98,6 +98,7 @@ Key endpoints:
 - `GET/PATCH/DELETE /api/types/:id`
 - `GET /api/types/:id/rows` — latest pipeline-run row snapshot
 - `GET/POST /api/pipelines`, `GET /api/pipelines/:id/analyze`, plus step/run/status sub-routes — pipelines are the only path that produces panel-bindable data types (source → pipeline → type → panel)
+- `GET/PUT/DELETE /api/pipelines/:id/schedule` — per-pipeline cron/interval schedule (data model + CRUD only; `PUT` upserts). No runtime firing yet — that's the sibling scheduler-runtime ticket (HEL-415)
 - `GET/POST /api/data-sources`
 - `GET/DELETE /api/data-sources/:id`
 - `GET /health`

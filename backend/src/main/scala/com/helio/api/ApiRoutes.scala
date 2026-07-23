@@ -11,9 +11,9 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -79,7 +79,14 @@ final class ApiRoutes(
     // fixtures that don't pass an AlertEventRepository simply don't get the
     // /api/alerts routes mounted (alertEventServiceOpt.fold(reject)).
     // Appended last for the same purely-additive reason.
-    alertEventRepo: AlertEventRepository = null
+    alertEventRepo: AlertEventRepository = null,
+    // HEL-414: same nullable-optional wiring pattern as alertRuleRepo/
+    // alertEventRepo above — fixtures that don't pass a
+    // PipelineScheduleRepository simply don't get the
+    // /api/pipelines/:id/schedule routes mounted
+    // (pipelineScheduleServiceOpt.fold(reject)). Appended last for the same
+    // purely-additive reason.
+    pipelineScheduleRepo: PipelineScheduleRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -149,6 +156,10 @@ final class ApiRoutes(
   // HEL-455: same optional-wiring pattern — fixtures that don't pass an
   // AlertEventRepository simply don't get the /api/alerts routes.
   private val alertEventServiceOpt        = Option(alertEventRepo).map(new AlertEventService(_))
+  // HEL-414: same optional-wiring pattern — fixtures that don't pass a
+  // PipelineScheduleRepository simply don't get the
+  // /api/pipelines/:id/schedule routes.
+  private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo))
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -261,7 +272,8 @@ final class ApiRoutes(
                   apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
                   imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes),
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
-                  alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes)
+                  alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
+                  pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes)
                 )
               }
             )
