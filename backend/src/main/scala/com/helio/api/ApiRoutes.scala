@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
@@ -120,9 +120,20 @@ final class ApiRoutes(
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+  // HEL-466: only build the evaluation engine when both privileged repos it
+  // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
+  // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
+  // nullable constructor param so fixtures that pass neither repo simply
+  // skip the onRunSuccess evaluation hook.
+  private val alertEvaluationServiceOpt: Option[AlertEvaluationService] =
+    for {
+      ruleRepo  <- Option(alertRuleRepo)
+      eventRepo <- Option(alertEventRepo)
+    } yield new AlertEvaluationService(ruleRepo, eventRepo)
   private val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo
+    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
+    alertEvaluationServiceOpt.orNull
   )
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)

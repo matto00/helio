@@ -49,7 +49,11 @@ final class PipelineRunService(
     cache:            PipelineRunCache,
     registry:         PipelineRunRegistry,
     fileSystem:       FileSystem,
-    binaryRefRepo:    BinaryRefRepository = null
+    binaryRefRepo:    BinaryRefRepository = null,
+    // HEL-466: nullable default mirrors binaryRefRepo above — fixtures/
+    // callers that don't pass an AlertEvaluationService simply skip the
+    // post-run evaluation hook in onRunSuccess.
+    alertEvaluationService: AlertEvaluationService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -328,6 +332,21 @@ final class PipelineRunService(
       if (binaryRefRepo != null)
         binaryRefRepo.overwriteForDataType(outputDataTypeId.value, extractBinaryRefs(outputDataTypeId, resultRows))
       else Future.successful(())
+    // HEL-466: fire alert-rule evaluation against the rows just written.
+    // Wrapped in recoverWith (matching the file's existing discipline at
+    // updateRunTerminal's preExec/insertRun handling) so an evaluation
+    // failure is logged inside AlertEvaluationService and never fails or
+    // rolls back this run — see design.md "Per-rule isolation"/"Hook
+    // placement".
+    val alertEvaluation =
+      if (alertEvaluationService != null)
+        alertEvaluationService
+          .evaluateForDataType(outputDataTypeId, resultRows, Some(runId.value))
+          .recoverWith { case ex =>
+            log.error(s"AlertEvaluationService.evaluateForDataType failed for dataType ${outputDataTypeId.value}, run ${runId.value}", ex)
+            Future.successful(())
+          }
+      else Future.successful(())
     val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
     val updateRun =
       if (pipelineRunRepo != null)
@@ -337,6 +356,7 @@ final class PipelineRunService(
       _ <- schemaUpsert
       _ <- rowsUpsert
       _ <- binaryRefsUpsert
+      _ <- alertEvaluation
       _ <- updateMeta
       _ <- updateRun
     } yield ()

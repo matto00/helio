@@ -10,8 +10,8 @@ import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{BinaryRefRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
-import com.helio.services.PipelineRunService
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, BinaryRefRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.services.{AlertEvaluationService, PipelineRunService}
 import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -19,6 +19,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json.{JsNumber, JsObject, JsString}
 
 import java.nio.file.Paths
 import java.time.Instant
@@ -49,6 +50,8 @@ class PipelineRunRoutesSpec
   private var pipelineRunRepo: PipelineRunRepository    = _
   private var dataTypeRowRepo: DataTypeRowRepository    = _
   private var binaryRefRepo: BinaryRefRepository        = _
+  private var alertRuleRepo: AlertRuleRepository        = _
+  private var alertEventRepo: AlertEventRepository      = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -65,6 +68,8 @@ class PipelineRunRoutesSpec
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
     binaryRefRepo    = new BinaryRefRepository(ctx)(routeEc)
+    alertRuleRepo    = new AlertRuleRepository(ctx)(routeEc)
+    alertEventRepo   = new AlertEventRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -146,6 +151,25 @@ class PipelineRunRoutesSpec
     dsId
   }
 
+  /** HEL-466: seed an enabled `AlertRule` targeting `dataTypeId`, for the
+   *  onRunSuccess -> AlertEvaluationService hook tests below. */
+  private def seedAlertRule(dataTypeId: String, metric: String, comparator: String, threshold: Double): AlertRuleId = {
+    val now = Instant.now()
+    val rule = AlertRule(
+      id               = AlertRuleId(UUID.randomUUID().toString),
+      ownerId          = dummyUser.id,
+      targetDataTypeId = DataTypeId(dataTypeId),
+      metric           = metric,
+      condition        = JsObject("comparator" -> JsString(comparator), "threshold" -> JsNumber(threshold)),
+      name             = "HEL-466 test rule",
+      enabled          = true,
+      severity         = Severity.Warning,
+      createdAt        = now,
+      updatedAt        = now
+    )
+    await(alertRuleRepo.insert(rule, dummyUser)).id
+  }
+
   // ── Test fixture helpers ──────────────────────────────────────────────────
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
@@ -160,11 +184,12 @@ class PipelineRunRoutesSpec
       rowRepo: DataTypeRowRepository = null,
       registry: PipelineRunRegistry = null,
       user: AuthenticatedUser = dummyUser,
-      binRefRepo: BinaryRefRepository = null
+      binRefRepo: BinaryRefRepository = null,
+      alertEvalSvc: AlertEvaluationService = null
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
@@ -689,5 +714,66 @@ class PipelineRunRoutesSpec
       await(binaryRefRepo.findByDataTypeId(dtId)) shouldBe empty
     }
 
+    // ── HEL-466: onRunSuccess -> AlertEvaluationService hook ────────────────
+
+    "POST /pipelines/:id/run (non-dry, failure) invokes no alert evaluation and creates no events" in {
+      val cache            = new PipelineRunCache()
+      val dsId             = seedDsWithData()
+      val (pid, dtId)      = seedPipelineWithDtId(dsId)
+      val ruleId           = seedAlertRule(dtId, "score", "gt", 0)
+      val missingSourceId = "00000000-0000-0000-0000-000000000099"
+      await(stepRepo.insert(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+      val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, alertEvalSvc = alertEvalSvc) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      await(alertEventRepo.findActiveByRule(ruleId)) shouldBe None
+    }
+
+    "POST /pipelines/:id/run (non-dry, success) invokes evaluation and fires a breaching rule" in {
+      val cache        = new PipelineRunCache()
+      val dsId         = seedDsWithData()
+      val (pid, dtId)  = seedPipelineWithDtId(dsId)
+      val ruleId       = seedAlertRule(dtId, "score", "gt", 50) // sum(42.0, 37.0) = 79 > 50
+      val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo, alertEvalSvc = alertEvalSvc) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val active = await(alertEventRepo.findActiveByRule(ruleId))
+      active shouldBe defined
+      active.get.state shouldBe AlertEventState.Firing
+    }
+
+    // HEL-466 acceptance criterion: "evaluation raising an exception logs and
+    // never fails or rolls back the run" — a failing AlertRuleRepository
+    // (not a mocked AlertEvaluationService, which is `final`) drives a real
+    // `evaluateForDataType` failure, exercising onRunSuccess's `recoverWith`.
+    "POST /pipelines/:id/run (non-dry, success) still succeeds and records the run as succeeded when evaluation fails" in {
+      import PostgresProfile.api._
+      val cache       = new PipelineRunCache()
+      val dsId        = seedDsWithData()
+      val (pid, dtId) = seedPipelineWithDtId(dsId)
+      val failingRuleRepo = new AlertRuleRepository(ctx)(routeEc) {
+        override def listEnabledByDataTypeInternal(dataTypeId: DataTypeId): Future[Vector[AlertRule]] =
+          Future.failed(new RuntimeException("boom: evaluation should never fail the run"))
+      }
+      val alertEvalSvc = new AlertEvaluationService(failingRuleRepo, alertEventRepo)(routeEc)
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo, rowRepo = dataTypeRowRepo, alertEvalSvc = alertEvalSvc) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 2
+      }
+      val statusOpt = await(db.run(
+        sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
+      ))
+      statusOpt shouldBe Some("succeeded")
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.head.status shouldBe "succeeded"
+    }
   }
 }

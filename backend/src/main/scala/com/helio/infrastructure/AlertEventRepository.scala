@@ -179,6 +179,52 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(dbio)
   }
 
+  /** Privileged internal resolve — no ACL check, RLS-bypassing via the
+   *  privileged pool.
+   *
+   *  Reserved for HEL-466's evaluation engine: auto-resolves the active
+   *  (non-resolved) event for `ruleId` when a rule's condition no longer
+   *  breaches. `findActiveByRule`'s `state =!= "resolved"` predicate returns
+   *  `firing`, `acknowledged`, *and* `snoozed` rows — it does not exclude
+   *  `Snoozed`, and `AlertEventStateMachine.transition` does not accept
+   *  `Resolve` from `Snoozed` (only from `Firing`/`Acknowledged`). This
+   *  method therefore branches explicitly on the active event's state before
+   *  calling `transition`, rather than assuming every active row is
+   *  resolvable (design.md "Auto-resolve on clear"):
+   *    - `Firing`/`Acknowledged` -> `transition(existing, Resolve)`, persist,
+   *      return `Some(resolved)`.
+   *    - `Snoozed` -> left unmodified (no write, no illegal-transition
+   *      attempt); auto-resolving a snoozed event would defeat the user's
+   *      snooze. Returns `None`.
+   *    - No active event -> `None`, no write. */
+  def resolveInternal(ruleId: AlertRuleId): Future[Option[AlertEvent]] = {
+    val dbio: DBIO[Option[AlertEvent]] =
+      table.filter(r => r.alertRuleId === ruleId.value && r.state =!= "resolved").result.headOption.flatMap {
+        case None =>
+          DBIO.successful(None)
+        case Some(row) =>
+          val existing = rowToDomain(row)
+          existing.state match {
+            case AlertEventState.Snoozed =>
+              DBIO.successful(None)
+            case _ =>
+              AlertEventStateMachine.transition(existing, AlertEventAction.Resolve) match {
+                case Right(updated) =>
+                  updateAction(updated).map(_ => Some(updated))
+                case Left(err) =>
+                  // Unreachable in practice: `Resolve` is legal from every
+                  // non-Snoozed active state (Firing/Acknowledged), and
+                  // `existing` was just selected with `state != 'resolved'`
+                  // and matched away from Snoozed above. Fails loudly rather
+                  // than silently dropping the resolve if that invariant
+                  // ever regresses.
+                  DBIO.failed(new IllegalStateException(s"resolveInternal: unexpected illegal Resolve transition: ${err.message}"))
+              }
+          }
+      }
+    ctx.withSystemContext(dbio)
+  }
+
   /** Writes every field `transition`/`ReFire` can mutate. Never called with
    *  anything other than the output of `AlertEventStateMachine.transition` —
    *  see design.md's "no raw-field-update bypass anywhere" guarantee. */
