@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/put-pipeline-schedule-request.schema.json",
+  "title": "PutPipelineScheduleRequest",
+  "description": "PUT /api/pipelines/:id/schedule body. Creates the pipeline's schedule if none exists, or replaces the existing one (a pipeline has at most one schedule). `enabled` is optional -- spray-json omits `None` on the wire, and the service normalizes an absent value to `true`. `kind: \"cron\"` expects a standard 5-field cron expression; `kind: \"interval\"` expects a `<n><unit>` token (unit one of s/m/h/d).",
+  "type": "object",
+  "properties": {
+    "kind": { "type": "string", "enum": ["cron", "interval"] },
+    "expression": { "type": "string", "minLength": 1 },
+    "enabled": { "type": "boolean" },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "IANA zone id, e.g. 'America/Los_Angeles' or 'UTC'."
+    }
+  },
+  "required": ["kind", "expression", "timezone"],
+  "additionalProperties": false
+}

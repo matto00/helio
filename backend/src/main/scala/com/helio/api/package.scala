@@ -233,4 +233,10 @@ package object api {
   val AlertEventsResponse: protocols.AlertEventsResponse.type = protocols.AlertEventsResponse
   type SnoozeAlertEventRequest = protocols.SnoozeAlertEventRequest
   val SnoozeAlertEventRequest: protocols.SnoozeAlertEventRequest.type = protocols.SnoozeAlertEventRequest
+
+  // PipelineSchedule (HEL-414)
+  type PipelineScheduleResponse = protocols.PipelineScheduleResponse
+  val PipelineScheduleResponse: protocols.PipelineScheduleResponse.type = protocols.PipelineScheduleResponse
+  type PutPipelineScheduleRequest = protocols.PutPipelineScheduleRequest
+  val PutPipelineScheduleRequest: protocols.PutPipelineScheduleRequest.type = protocols.PutPipelineScheduleRequest
 }

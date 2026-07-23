@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.{ApiRoutes, CookieConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -65,6 +65,7 @@ object Main {
       // evaluation engine were both unreachable in production — fixes that
       // pre-existing gap (see proposal.md "Gap found during planning").
       val alertEventRepo     = new AlertEventRepository(ctx)
+      val pipelineScheduleRepo = new PipelineScheduleRepository(ctx)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()
@@ -132,7 +133,8 @@ object Main {
         corsAllowedOrigins,
         cookieConfig,
         alertRuleRepo = alertRuleRepo,
-        alertEventRepo = alertEventRepo
+        alertEventRepo = alertEventRepo,
+        pipelineScheduleRepo = pipelineScheduleRepo
       )
 
       HttpServer.start(apiRoutes.routes, host, port).onComplete {

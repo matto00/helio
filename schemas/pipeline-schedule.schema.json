@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipeline-schedule.schema.json",
+  "title": "PipelineScheduleResponse",
+  "description": "A pipeline's schedule as returned by GET/PUT /api/pipelines/:id/schedule. `nextRunAt`/`lastRunAt` are persisted but not computed by this ticket (HEL-414) -- populating them is owned by the scheduler runtime (HEL-415).",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "pipelineId": { "type": "string" },
+    "kind": { "type": "string", "enum": ["cron", "interval"] },
+    "expression": { "type": "string" },
+    "enabled": { "type": "boolean" },
+    "timezone": { "type": "string" },
+    "nextRunAt": { "type": ["string", "null"], "format": "date-time" },
+    "lastRunAt": { "type": ["string", "null"], "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "id",
+    "pipelineId",
+    "kind",
+    "expression",
+    "enabled",
+    "timezone",
+    "nextRunAt",
+    "lastRunAt",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false
+}

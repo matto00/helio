@@ -10,6 +10,7 @@ final case class DataTypeId(value: String) extends AnyVal
 final case class UserId(value: String) extends AnyVal
 final case class PipelineId(value: String) extends AnyVal
 final case class AlertRuleId(value: String) extends AnyVal
+final case class PipelineScheduleId(value: String) extends AnyVal
 
 final case class User(
     id: UserId,
@@ -453,6 +454,45 @@ final case class AlertRule(
     name: String,
     enabled: Boolean,
     severity: Severity,
+    createdAt: Instant,
+    updatedAt: Instant
+)
+
+/** HEL-414 — scheduled-runs data model foundation (no runtime firing here;
+ *  that is the sibling poller ticket, HEL-415). Mirrors the `Severity` enum
+ *  pattern. */
+sealed trait ScheduleKind
+object ScheduleKind {
+  case object Cron     extends ScheduleKind
+  case object Interval extends ScheduleKind
+
+  def fromString(s: String): Either[String, ScheduleKind] = s match {
+    case "cron"     => Right(Cron)
+    case "interval" => Right(Interval)
+    case other      => Left(s"Unknown schedule kind: '$other'. Valid values: cron, interval")
+  }
+
+  def asString(k: ScheduleKind): String = k match {
+    case Cron     => "cron"
+    case Interval => "interval"
+  }
+}
+
+/** Durable per-pipeline schedule (cron or interval), at most one per
+ *  pipeline. Storage-only (HEL-414) — `nextRunAt`/`lastRunAt` are persisted
+ *  as nullable, caller-supplied fields but never computed here; that is
+ *  HEL-415's poller. Owner-scoped indirectly via `pipelineId` (V62's RLS
+ *  joins to `pipelines.owner_id`) — no `ownerId` field of its own, mirroring
+ *  `pipeline_steps`/`pipeline_runs`. */
+final case class PipelineSchedule(
+    id: PipelineScheduleId,
+    pipelineId: PipelineId,
+    kind: ScheduleKind,
+    expression: String,
+    enabled: Boolean,
+    timezone: String,
+    nextRunAt: Option[Instant],
+    lastRunAt: Option[Instant],
     createdAt: Instant,
     updatedAt: Instant
 )
