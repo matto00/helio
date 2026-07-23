@@ -257,6 +257,58 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     }
   }
 
+  "AlertEventRepository.resolveInternal" should {
+
+    "resolve an active firing event" in {
+      cleanDb(); seedUsers()
+      val rule = seedRule(owner1)
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+
+      val result = await(aeRepo.resolveInternal(rule.id))
+
+      result shouldBe defined
+      result.get.id shouldBe fired.id
+      result.get.state shouldBe AlertEventState.Resolved
+      result.get.resolvedAt shouldBe defined
+    }
+
+    "resolve an active acknowledged event" in {
+      cleanDb(); seedUsers()
+      val rule = seedRule(owner1)
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      await(aeRepo.applyTransition(fired.id, AlertEventAction.Acknowledge, user1))
+
+      val result = await(aeRepo.resolveInternal(rule.id))
+
+      result shouldBe defined
+      result.get.id shouldBe fired.id
+      result.get.state shouldBe AlertEventState.Resolved
+      result.get.resolvedAt shouldBe defined
+    }
+
+    "leave an active snoozed event untouched and return None (no illegal transition attempted)" in {
+      cleanDb(); seedUsers()
+      val rule = seedRule(owner1)
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val until = Instant.now().plusSeconds(3600)
+      await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(until), user1))
+
+      val result = await(aeRepo.resolveInternal(rule.id))
+
+      result shouldBe None
+      val persisted = await(aeRepo.findByIdOwned(fired.id, user1)).getOrElse(fail("expected Some"))
+      persisted.state shouldBe AlertEventState.Snoozed
+      persisted.snoozedUntil shouldBe defined
+    }
+
+    "no-op (return None, no write) when no active event exists" in {
+      cleanDb(); seedUsers()
+      val rule = seedRule(owner1)
+
+      await(aeRepo.resolveInternal(rule.id)) shouldBe None
+    }
+  }
+
   "AlertEventRepository owner scoping (RLS)" should {
 
     "findByIdOwned excludes non-owned rows" in {
