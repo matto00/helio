@@ -7,6 +7,8 @@ import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
 import { BoundSourceBar } from "./BoundSourceBar";
 import { BoundTypeBar } from "./BoundTypeBar";
+import { PipelineScheduleBar } from "./PipelineScheduleBar";
+import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
@@ -20,7 +22,9 @@ import {
   clearRunState,
   fetchPipelineById,
   fetchPipelineRunHistory,
+  fetchPipelineSchedule,
   fetchPipelineSteps,
+  savePipelineSchedule,
   submitPipelineRun,
   updatePipeline,
 } from "../state/pipelinesSlice";
@@ -67,6 +71,12 @@ export function PipelineDetailPage() {
     id ? (state.pipelines.analyzeResult?.[id] ?? null) : null,
   );
 
+  // Per-pipeline schedule (HEL-416) — `undefined` while not yet fetched,
+  // `null` once fetched and confirmed absent.
+  const pipelineSchedule = useAppSelector((state) =>
+    id ? (state.pipelines.schedule?.[id] ?? null) : null,
+  );
+
   const runs = id ? (runHistory[id] ?? []) : [];
   const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
 
@@ -79,6 +89,7 @@ export function PipelineDetailPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
   const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
   // Inline discard-confirm state (replaces window.confirm on dirty cancel).
@@ -132,6 +143,7 @@ export function PipelineDetailPage() {
     void dispatch(fetchPipelineById(id));
     void dispatch(fetchPipelineSteps(id));
     void dispatch(analyzePipeline(id));
+    void dispatch(fetchPipelineSchedule(id));
   }, [dispatch, id, currentPipelineStatus, currentPipelineId]);
 
   // ── Sources ──
@@ -245,6 +257,23 @@ export function PipelineDetailPage() {
     if (!currentPipeline?.outputDataTypeId) return;
     dispatch(setSelectedTypeId(currentPipeline.outputDataTypeId));
     void navigate("/registry");
+  }
+
+  // Toggles `enabled` from the bar without opening the dialog — persists the
+  // same kind/expression/timezone (spec: "Disabling from the bar").
+  function handleToggleScheduleEnabled(nextEnabled: boolean) {
+    if (!id || !pipelineSchedule) return;
+    void dispatch(
+      savePipelineSchedule({
+        pipelineId: id,
+        request: {
+          kind: pipelineSchedule.kind,
+          expression: pipelineSchedule.expression,
+          enabled: nextEnabled,
+          timezone: pipelineSchedule.timezone,
+        },
+      }),
+    );
   }
 
   async function handleAddStep(opType: OpType) {
@@ -372,6 +401,13 @@ export function PipelineDetailPage() {
         onEditType={handleEditType}
       />
 
+      {/* ── Schedule bar ── */}
+      <PipelineScheduleBar
+        schedule={pipelineSchedule}
+        onEditSchedule={() => setScheduleOpen(true)}
+        onToggleEnabled={handleToggleScheduleEnabled}
+      />
+
       {/* ── River view ── */}
       <PipelineRiverView
         steps={steps}
@@ -440,6 +476,16 @@ export function PipelineDetailPage() {
           pipelineName={pipelineName}
           open={shareOpen}
           onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {/* ── Schedule dialog ── */}
+      {id && (
+        <PipelineScheduleDialog
+          pipelineId={id}
+          schedule={pipelineSchedule}
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
         />
       )}
 

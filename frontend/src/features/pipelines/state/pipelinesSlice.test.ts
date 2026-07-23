@@ -1,17 +1,21 @@
 import {
   analyzePipeline,
   createPipeline,
+  deletePipelineSchedule,
   fetchPipelineById,
   fetchPipelines,
   fetchPipelineRunHistory,
+  fetchPipelineSchedule,
   fetchPipelineSteps,
   pipelinesReducer,
+  savePipelineSchedule,
   selectPipelineNameByOutputTypeId,
   submitPipelineRun,
   updatePipeline,
 } from "./pipelinesSlice";
 import * as pipelineService from "../services/pipelineService";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
+import type { PipelineSchedule } from "../types/pipelineSchedule";
 import type { RootState } from "../../../store/store";
 
 jest.mock("../services/pipelineService", () => ({
@@ -23,6 +27,9 @@ jest.mock("../services/pipelineService", () => ({
   getPipelineSteps: jest.fn(),
   updatePipeline: jest.fn(),
   analyzePipeline: jest.fn(),
+  getPipelineSchedule: jest.fn(),
+  putPipelineSchedule: jest.fn(),
+  deletePipelineSchedule: jest.fn(),
 }));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
@@ -33,6 +40,9 @@ const getPipelineByIdMock = jest.mocked(pipelineService.getPipelineById);
 const getPipelineStepsMock = jest.mocked(pipelineService.getPipelineSteps);
 const updatePipelineMock = jest.mocked(pipelineService.updatePipeline);
 const analyzePipelineMock = jest.mocked(pipelineService.analyzePipeline);
+const getPipelineScheduleMock = jest.mocked(pipelineService.getPipelineSchedule);
+const putPipelineScheduleMock = jest.mocked(pipelineService.putPipelineSchedule);
+const deletePipelineScheduleMock = jest.mocked(pipelineService.deletePipelineSchedule);
 
 const testPipeline = {
   id: "p-1",
@@ -112,6 +122,11 @@ describe("pipelinesSlice", () => {
       analyzeStatus: {},
       analyzeError: {},
       createModalOpen: false,
+      schedule: {},
+      scheduleStatus: {},
+      scheduleError: {},
+      scheduleSaveStatus: "idle" as const,
+      scheduleSaveError: null,
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
@@ -803,6 +818,221 @@ describe("analyzePipeline thunk", () => {
       ([action]) => action.type === "pipelines/analyzePipeline/rejected",
     );
     expect(rejectedCall).toBeDefined();
+  });
+});
+
+// ── Task 4.1 — pipeline schedule thunks (HEL-416) ────────────────────────────
+
+const sampleSchedule: PipelineSchedule = {
+  id: "sched-1",
+  pipelineId: "p-1",
+  kind: "interval",
+  expression: "15m",
+  enabled: true,
+  timezone: "UTC",
+  nextRunAt: "2026-05-01T11:00:00Z",
+  lastRunAt: null,
+  createdAt: "2026-05-01T10:00:00Z",
+  updatedAt: "2026-05-01T10:00:00Z",
+};
+
+/** Minimal AxiosError-shaped rejection — axios's `isAxiosError` narrows on
+ *  `isAxiosError === true`, matching the guard used by `extractErrorMessage`
+ *  in `pipelinesSlice.ts` (design D4). */
+function axiosError(status: number, message?: string) {
+  return {
+    isAxiosError: true,
+    response: { status, data: message !== undefined ? { message } : undefined },
+  };
+}
+
+describe("fetchPipelineSchedule thunk", () => {
+  beforeEach(() => {
+    getPipelineScheduleMock.mockReset();
+  });
+
+  it("dispatches fulfilled with the schedule when found", async () => {
+    getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
+
+    const dispatch = jest.fn();
+    const thunk = fetchPipelineSchedule("p-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSchedule/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", schedule: sampleSchedule });
+  });
+
+  it("dispatches fulfilled with schedule: null on a 404 (no schedule set)", async () => {
+    getPipelineScheduleMock.mockRejectedValueOnce(axiosError(404));
+
+    const dispatch = jest.fn();
+    const thunk = fetchPipelineSchedule("p-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSchedule/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", schedule: null });
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSchedule/rejected",
+    );
+    expect(rejectedCall).toBeUndefined();
+  });
+
+  it("dispatches rejected on a non-404 error", async () => {
+    getPipelineScheduleMock.mockRejectedValueOnce(axiosError(500, "Internal error"));
+
+    const dispatch = jest.fn();
+    const thunk = fetchPipelineSchedule("p-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelineSchedule/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toBe("Internal error");
+  });
+});
+
+describe("savePipelineSchedule thunk", () => {
+  beforeEach(() => {
+    putPipelineScheduleMock.mockReset();
+  });
+
+  it("dispatches fulfilled with the saved schedule on success", async () => {
+    putPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
+
+    const dispatch = jest.fn();
+    const thunk = savePipelineSchedule({
+      pipelineId: "p-1",
+      request: { kind: "interval", expression: "15m", enabled: true, timezone: "UTC" },
+    });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/savePipelineSchedule/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", schedule: sampleSchedule });
+  });
+
+  it("surfaces the backend's 400 message on rejected", async () => {
+    putPipelineScheduleMock.mockRejectedValueOnce(axiosError(400, "field 2 ('99') is malformed"));
+
+    const dispatch = jest.fn();
+    const thunk = savePipelineSchedule({
+      pipelineId: "p-1",
+      request: { kind: "cron", expression: "0 99 * * *", enabled: true, timezone: "UTC" },
+    });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/savePipelineSchedule/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toBe("field 2 ('99') is malformed");
+  });
+});
+
+describe("deletePipelineSchedule thunk", () => {
+  beforeEach(() => {
+    deletePipelineScheduleMock.mockReset();
+  });
+
+  it("dispatches fulfilled with the pipelineId on success", async () => {
+    deletePipelineScheduleMock.mockResolvedValueOnce(undefined);
+
+    const dispatch = jest.fn();
+    const thunk = deletePipelineSchedule("p-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/deletePipelineSchedule/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1" });
+  });
+
+  it("dispatches rejected on service error", async () => {
+    deletePipelineScheduleMock.mockRejectedValueOnce(axiosError(500));
+
+    const dispatch = jest.fn();
+    const thunk = deletePipelineSchedule("p-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/deletePipelineSchedule/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toBe("Failed to clear pipeline schedule.");
+  });
+});
+
+describe("pipelineSchedule reducers", () => {
+  it("stores the schedule on fetchPipelineSchedule.fulfilled", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineSchedule.fulfilled(
+        { pipelineId: "p-1", schedule: sampleSchedule },
+        "req-1",
+        "p-1",
+      ),
+    );
+    expect(nextState.schedule["p-1"]).toEqual(sampleSchedule);
+    expect(nextState.scheduleStatus["p-1"]).toBe("succeeded");
+  });
+
+  it("stores null on fetchPipelineSchedule.fulfilled with no schedule", () => {
+    const nextState = pipelinesReducer(
+      undefined,
+      fetchPipelineSchedule.fulfilled({ pipelineId: "p-1", schedule: null }, "req-1", "p-1"),
+    );
+    expect(nextState.schedule["p-1"]).toBeNull();
+    expect(nextState.scheduleStatus["p-1"]).toBe("succeeded");
+  });
+
+  it("sets scheduleSaveError (not scheduleError) on savePipelineSchedule.rejected, leaving the last-loaded schedule intact", () => {
+    const loaded = pipelinesReducer(
+      undefined,
+      fetchPipelineSchedule.fulfilled(
+        { pipelineId: "p-1", schedule: sampleSchedule },
+        "req-1",
+        "p-1",
+      ),
+    );
+    const nextState = pipelinesReducer(
+      loaded,
+      savePipelineSchedule.rejected(
+        null,
+        "req-2",
+        { pipelineId: "p-1", request: { kind: "cron", expression: "bad", timezone: "UTC" } },
+        "Invalid cron expression.",
+      ),
+    );
+    expect(nextState.scheduleSaveError).toBe("Invalid cron expression.");
+    expect(nextState.scheduleError["p-1"]).toBeNull();
+    // The last-loaded schedule shown in the bar is untouched by the failed save.
+    expect(nextState.schedule["p-1"]).toEqual(sampleSchedule);
+  });
+
+  it("clears the schedule to null on deletePipelineSchedule.fulfilled", () => {
+    const loaded = pipelinesReducer(
+      undefined,
+      fetchPipelineSchedule.fulfilled(
+        { pipelineId: "p-1", schedule: sampleSchedule },
+        "req-1",
+        "p-1",
+      ),
+    );
+    const nextState = pipelinesReducer(
+      loaded,
+      deletePipelineSchedule.fulfilled({ pipelineId: "p-1" }, "req-2", "p-1"),
+    );
+    expect(nextState.schedule["p-1"]).toBeNull();
   });
 });
 

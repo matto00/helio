@@ -10,6 +10,7 @@ import type {
   PipelineSummary,
   RunStatusResponse,
 } from "../types/pipelineStep";
+import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
 import { httpClient } from "../../../services/httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {
@@ -164,4 +165,46 @@ export async function revokePipelinePermission(
   granteeId: string,
 ): Promise<void> {
   await httpClient.delete(`/api/pipelines/${pipelineId}/permissions/${granteeId}`);
+}
+
+// ── Pipeline schedule (HEL-414 routes) ────────────────────────────────────────
+
+/** spray-json's default `Option` formatter omits `None` fields from the wire
+ *  entirely rather than serializing `null` (documented codebase gotcha) — the
+ *  backend's `nextRunAt`/`lastRunAt` are `Option[String]`, so an unset value
+ *  deserializes as `undefined`, not `null`. Normalize both to `string | null`
+ *  here, at the service boundary, so no caller has to special-case
+ *  `undefined` vs `null` (and the declared `PipelineSchedule` type stays
+ *  accurate to what callers actually receive). */
+function normalizeSchedule(schedule: PipelineSchedule): PipelineSchedule {
+  return {
+    ...schedule,
+    nextRunAt: schedule.nextRunAt ?? null,
+    lastRunAt: schedule.lastRunAt ?? null,
+  };
+}
+
+/** GET /api/pipelines/:id/schedule. Callers handle the 404 "no schedule" case
+ *  (see `fetchPipelineSchedule` thunk in `pipelinesSlice.ts`) — this function
+ *  lets the axios rejection propagate rather than swallowing it here. */
+export async function getPipelineSchedule(pipelineId: string): Promise<PipelineSchedule> {
+  const response = await httpClient.get<PipelineSchedule>(`/api/pipelines/${pipelineId}/schedule`);
+  return normalizeSchedule(response.data);
+}
+
+/** PUT /api/pipelines/:id/schedule — creates or replaces the pipeline's schedule (upsert). */
+export async function putPipelineSchedule(
+  pipelineId: string,
+  request: PutPipelineScheduleRequest,
+): Promise<PipelineSchedule> {
+  const response = await httpClient.put<PipelineSchedule>(
+    `/api/pipelines/${pipelineId}/schedule`,
+    request,
+  );
+  return normalizeSchedule(response.data);
+}
+
+/** DELETE /api/pipelines/:id/schedule. */
+export async function deletePipelineSchedule(pipelineId: string): Promise<void> {
+  await httpClient.delete(`/api/pipelines/${pipelineId}/schedule`);
 }

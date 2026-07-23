@@ -1,0 +1,129 @@
+/* ── PipelineScheduleDialog ──────────────────────────────────────────────── */
+
+.pipeline-schedule-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pipeline-schedule-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pipeline-schedule-dialog__field--row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.pipeline-schedule-dialog__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+}
+
+.pipeline-schedule-dialog__interval-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.pipeline-schedule-dialog__interval-row .ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-schedule-dialog__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.pipeline-schedule-dialog__enabled-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.pipeline-schedule-dialog__enabled-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--app-accent);
+}
+
+/* ── Footer actions ──────────────────────────────────────────────────────── */
+
+.pipeline-schedule-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.pipeline-schedule-dialog__footer-spacer {
+  flex: 1;
+}
+
+.pipeline-schedule-dialog__clear-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--app-error) 60%, transparent);
+  border-radius: var(--app-radius-md);
+  color: var(--app-error);
+  cursor: pointer;
+}
+
+.pipeline-schedule-dialog__clear-btn:hover:not(:disabled) {
+  background: var(--app-error-surface);
+}
+
+.pipeline-schedule-dialog__clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipeline-schedule-dialog__cancel-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.pipeline-schedule-dialog__cancel-btn:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+}
+
+.pipeline-schedule-dialog__cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipeline-schedule-dialog__save-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  border: none;
+  border-radius: var(--app-radius-md);
+  cursor: pointer;
+  font-weight: var(--weight-medium);
+}
+
+.pipeline-schedule-dialog__save-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.pipeline-schedule-dialog__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
