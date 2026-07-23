@@ -50,17 +50,29 @@ final class PipelineScheduleService(
             // with the pipeline_id UNIQUE constraint via a fresh id.
             scheduleRepo.findByPipelineId(pipelineId, user).flatMap { existingOpt =>
               val now = Instant.now()
+              val trimmedExpression = req.expression.trim
+              // HEL-415 design-gate finding: an edited cadence (kind/
+              // expression/timezone) must not keep firing on the stale
+              // pre-edit nextRunAt until that one occurrence naturally
+              // elapses. Resetting to unset routes the edit through the
+              // scheduler's existing "recompute forward, don't fire"
+              // catch-up path on its very next tick. Unrelated edits (e.g.
+              // toggling `enabled` only) still preserve nextRunAt.
+              val cadenceChanged = existingOpt.exists { existing =>
+                existing.kind != kind || existing.expression != trimmedExpression || existing.timezone != timezone
+              }
+              val nextRunAt = if (cadenceChanged) None else existingOpt.flatMap(_.nextRunAt)
               val schedule = PipelineSchedule(
                 id         = existingOpt.map(_.id).getOrElse(PipelineScheduleId(UUID.randomUUID().toString)),
                 pipelineId = pipelineId,
                 kind       = kind,
-                expression = req.expression.trim,
+                expression = trimmedExpression,
                 // spray-json omits `None` on the wire — `enabled` defaults to
                 // `true` when absent (AC: "Absent optional fields normalize
                 // at the boundary").
                 enabled    = req.enabled.getOrElse(true),
                 timezone   = timezone,
-                nextRunAt  = existingOpt.flatMap(_.nextRunAt),
+                nextRunAt  = nextRunAt,
                 lastRunAt  = existingOpt.flatMap(_.lastRunAt),
                 createdAt  = existingOpt.map(_.createdAt).getOrElse(now),
                 updatedAt  = now

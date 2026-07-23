@@ -79,6 +79,23 @@ class PipelineScheduleRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
     ctx.withUserContext(user.id.value)(
       table.filter(_.pipelineId === pipelineId.value).delete
     ).map(_ > 0)
+
+  /** ACL-bypassing read of every enabled schedule due for a tick — either
+   *  never-yet-computed (`nextRunAt` unset, e.g. fresh from `put`) or
+   *  actually due (`nextRunAt <= now`). System context: the scheduler
+   *  background job has no request-bound user (HEL-415). */
+  def listTickCandidatesInternal(now: Instant): Future[Vector[PipelineSchedule]] =
+    ctx.withSystemContext(
+      table.filter(s => s.enabled && (s.nextRunAt.isEmpty || s.nextRunAt <= now)).result
+    ).map(_.map(rowToDomain).toVector)
+
+  /** ACL-bypassing bookkeeping update after a tick — either a bare
+   *  recompute (no fire) or post-fire bookkeeping. System context: same
+   *  privileged background-job callsite as [[listTickCandidatesInternal]]. */
+  def updateAfterTickInternal(id: PipelineScheduleId, nextRunAt: Option[Instant], lastRunAt: Option[Instant]): Future[Unit] =
+    ctx.withSystemContext(
+      table.filter(_.id === id.value).map(s => (s.nextRunAt, s.lastRunAt)).update((nextRunAt, lastRunAt))
+    ).map(_ => ())
 }
 
 object PipelineScheduleRepository {
