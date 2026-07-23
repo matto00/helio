@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/alert-rule.schema.json",
+  "title": "AlertRuleResponse",
+  "description": "An alert rule as returned by GET/POST/PATCH /api/alert-rules. `condition` is an opaque JSON object (comparator + threshold + optional window params) — unknown/extra keys survive a round-trip unchanged so future condition kinds don't require a schema change.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "ownerId": { "type": "string", "format": "uuid" },
+    "targetDataTypeId": { "type": "string" },
+    "metric": { "type": "string" },
+    "condition": { "type": "object" },
+    "name": { "type": "string" },
+    "enabled": { "type": "boolean" },
+    "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "id",
+    "ownerId",
+    "targetDataTypeId",
+    "metric",
+    "condition",
+    "name",
+    "enabled",
+    "severity",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false
+}

@@ -215,4 +215,14 @@ package object api {
   val PermissionResponse: protocols.PermissionResponse.type = protocols.PermissionResponse
   type PermissionsResponse = protocols.PermissionsResponse
   val PermissionsResponse: protocols.PermissionsResponse.type = protocols.PermissionsResponse
+
+  // AlertRule (HEL-447)
+  type AlertRuleResponse = protocols.AlertRuleResponse
+  val AlertRuleResponse: protocols.AlertRuleResponse.type = protocols.AlertRuleResponse
+  type AlertRulesResponse = protocols.AlertRulesResponse
+  val AlertRulesResponse: protocols.AlertRulesResponse.type = protocols.AlertRulesResponse
+  type CreateAlertRuleRequest = protocols.CreateAlertRuleRequest
+  val CreateAlertRuleRequest: protocols.CreateAlertRuleRequest.type = protocols.CreateAlertRuleRequest
+  type UpdateAlertRuleRequest = protocols.UpdateAlertRuleRequest
+  val UpdateAlertRuleRequest: protocols.UpdateAlertRuleRequest.type = protocols.UpdateAlertRuleRequest
 }

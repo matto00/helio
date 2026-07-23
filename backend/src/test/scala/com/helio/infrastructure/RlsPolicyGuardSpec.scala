@@ -67,7 +67,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V46 — binary_refs, indirect owner via data_type_id -> data_types (HEL-217)
     "binary_refs",
     // V54 — image_uploads, direct owner (HEL-246)
-    "image_uploads"
+    "image_uploads",
+    // V60 — alert_rules, direct owner (HEL-447)
+    "alert_rules"
   )
 
   override def beforeAll(): Unit = {
