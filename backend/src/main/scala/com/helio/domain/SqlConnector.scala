@@ -106,11 +106,10 @@ object SqlConnector extends Connector[SqlSourceConfig] {
 
   // ── Schema inference ──────────────────────────────────────────────────────
 
-  /** Converts rows to a JsArray and runs schema inference via SchemaInferenceEngine. */
-  def inferSchema(rows: Seq[Map[String, JsValue]]): InferredSchema = {
-    val jsArray = JsArray(rows.map(row => JsObject(row)).toVector)
-    SchemaInferenceEngine.fromJson(jsArray)
-  }
+  /** Converts rows to the shared row shape and runs schema inference via the
+   *  `SchemaInferenceEngine.inferSchemaFromRows` facade (HEL-473). */
+  def inferSchema(rows: Seq[Map[String, JsValue]]): InferredSchema =
+    SchemaInferenceEngine.inferSchemaFromRows(toRows(rows))
 
   /** Converts rows to a JsArray (used for preview responses). */
   def toRows(rows: Seq[Map[String, JsValue]]): Vector[JsValue] =

@@ -114,11 +114,13 @@ class RestApiConnector(
       }
   }
 
-  /** Forwards to the existing `fetch`/`toRows` methods, matching `SourceService.inferRest`'s use of
-   *  `SchemaInferenceEngine.fromJson` directly on the raw response (not the row-shaped `toRows`
-   *  output — inference wants the whole payload's shape, `fetch`/`toRows` wants per-row shaping). */
+  /** Forwards to the existing `fetch`/`toRows` methods, routing through the shared
+   *  `SchemaInferenceEngine.inferSchemaFromRows` facade (HEL-473) instead of calling `fromJson`
+   *  directly on the raw response. `toRows` case-matches the same three response shapes `fromJson`
+   *  handles (JSON array, single object, non-object scalar), so this produces byte-for-byte
+   *  identical output to the pre-change `fromJson(json)` call (design.md Decision 1). */
   def inferSchema(config: RestApiConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config).map(_.map(json => SchemaInferenceEngine.fromJson(json)))
+    fetch(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
 
   /** Forwards to the existing `fetch`/`toRows` methods, truncating to `maxRows` — matching
    *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. */
