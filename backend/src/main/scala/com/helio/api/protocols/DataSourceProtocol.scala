@@ -157,6 +157,11 @@ final case class CreateSourceResponse(
 final case class SqlCreateSourceRequest(name: String, `type`: String, config: SqlSourceConfigPayload)
 final case class SqlInferRequest(`type`: String, config: SqlSourceConfigPayload)
 
+/** Response body for `POST /api/sources/test` (HEL-480). `error` is `None` on success and omitted
+ *  from the wire entirely by spray-json (not `null`) — callers must not assume the key is always
+ *  present. Carries no field derived from the request's `config` beyond this curated message. */
+final case class TestConnectionResponse(ok: Boolean, error: Option[String])
+
 // ── Static connector API types ───────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
@@ -421,6 +426,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   // SQL connector formats
   implicit val sqlCreateSourceRequestFormat: RootJsonFormat[SqlCreateSourceRequest] = jsonFormat3(SqlCreateSourceRequest.apply)
   implicit val sqlInferRequestFormat: RootJsonFormat[SqlInferRequest]               = jsonFormat2(SqlInferRequest.apply)
+  implicit val testConnectionResponseFormat: RootJsonFormat[TestConnectionResponse] = jsonFormat2(TestConnectionResponse.apply)
 
   // REST connector formats
   implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest]   = jsonFormat4(CreateSourceRequest.apply)

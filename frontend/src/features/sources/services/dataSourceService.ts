@@ -204,6 +204,34 @@ export async function createSqlSource(
   return response.data;
 }
 
+export interface TestConnectionResult {
+  ok: boolean;
+  error: string | null;
+}
+
+// Wire response for POST /api/sources/test — spray-json omits `error` from the
+// body entirely (not `null`) when the backend's `Option[String]` is `None`, so
+// `error` must be read as possibly-absent here rather than assumed present.
+interface TestConnectionWireResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/** HEL-480: cheap pre-flight connectivity check, backed by `POST /api/sources/test`. Mirrors
+ *  `inferSqlSource`/`inferFromJson`'s existing, deliberately asymmetric request-body shapes: the
+ *  SQL config is nested under `{ type: "sql", config }`; the REST config is posted flat, as the
+ *  request body itself, with no wrapper and no `type` field (the route falls back to `rest_api`
+ *  for an absent/unrecognized `type`). Normalizes the response's possibly-absent `error` key to
+ *  `null` so callers never have to distinguish "key omitted" from "key null". */
+export async function testConnection(
+  type: "sql" | "rest_api",
+  config: SqlSourceConfig | RestApiConfigBody,
+): Promise<TestConnectionResult> {
+  const body = type === "sql" ? { type: "sql", config } : config;
+  const response = await httpClient.post<TestConnectionWireResponse>("/api/sources/test", body);
+  return { ok: response.data.ok, error: response.data.error ?? null };
+}
+
 export interface CsvPreviewResponse {
   headers: string[];
   rows: string[][];

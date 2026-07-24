@@ -9,7 +9,8 @@ import com.helio.api.protocols.{
   RestApiConfigPayload,
   SqlCreateSourceRequest,
   SqlInferRequest,
-  SqlSourceConfigPayload
+  SqlSourceConfigPayload,
+  TestConnectionResponse
 }
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}
@@ -107,6 +108,22 @@ final class SourceService(
           case Left(err)     => Left(ServiceError.BadGateway(err))
           case Right(schema) => Right(toInferredSchema(schema))
         }
+    }
+
+  // ── Test connection ──────────────────────────────────────────────────────
+
+  def testSql(request: SqlInferRequest): Future[Either[ServiceError, TestConnectionResponse]] = {
+    val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
+    SqlConnector.checkQuery(sqlConfig.query) match {
+      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right(_)  => ConnectionTest.run(SqlConnector, sqlConfig).map(Right(_))
+    }
+  }
+
+  def testRest(payload: RestApiConfigPayload): Future[Either[ServiceError, TestConnectionResponse]] =
+    RestApiConfigPayload.toDomain(payload) match {
+      case Left(err)         => Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right(restConfig) => ConnectionTest.run(connector, restConfig).map(Right(_))
     }
 
   // ── Refresh ───────────────────────────────────────────────────────────────
