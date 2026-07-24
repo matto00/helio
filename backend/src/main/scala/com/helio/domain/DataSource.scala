@@ -162,7 +162,11 @@ object DataSourceKind {
   val Pdf: String     = "pdf"
   val Image: String   = "image"
 
-  val All: Set[String] = Set(Csv, RestApi, Sql, Static, Text, Pdf, Image)
+  // HEL-484: derived from the connector registry rather than a literal Set —
+  // adding a connector kind requires only a ConnectorRegistry registration.
+  // See ConnectorRegistrySpec for the drift-detection test that fails if this
+  // set and the registry's kinds ever diverge.
+  val All: Set[String] = ConnectorRegistry.all.map(_.kind).toSet
 
   def parseKind(s: String): Either[String, String] =
     if (All.contains(s)) Right(s)

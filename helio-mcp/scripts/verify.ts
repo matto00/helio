@@ -61,6 +61,19 @@ async function main(): Promise<void> {
     const { resources } = await client.listResources();
     for (const r of resources) process.stdout.write(`  • ${r.uri} (${r.name})\n`);
 
+    section("list_connectors");
+    const connectors = parse<
+      Array<{
+        kind: string;
+        displayName: string;
+        requiredFields: Array<{ name: string; secret: boolean }>;
+      }>
+    >(await client.callTool({ name: "list_connectors", arguments: {} }));
+    for (const c of connectors)
+      process.stdout.write(
+        `  • ${c.displayName} (${c.kind}) requiredFields=${c.requiredFields.map((f) => f.name).join(",")}\n`,
+      );
+
     section("list_data_sources");
     const sources = parse<{
       items: Array<{ id: string; name: string; type: string }>;

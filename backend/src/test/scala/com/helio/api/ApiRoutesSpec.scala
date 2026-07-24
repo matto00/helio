@@ -2764,6 +2764,13 @@ class ApiRoutesSpec
       }
     }
 
+    "return 401 for GET /api/connectors without Authorization (HEL-484)" in {
+      Get("/api/connectors") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
     "POST /api/dashboards with valid token sets createdBy to the authenticated user ID" in {
       cleanDb()
       Post("/api/dashboards", CreateDashboardRequest(Some("Auth Dashboard"))) ~> routes() ~> check {

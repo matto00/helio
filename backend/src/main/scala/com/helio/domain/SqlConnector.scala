@@ -15,7 +15,18 @@ object SqlConnector extends Connector[SqlSourceConfig] {
     kind = "sql",
     displayName = "SQL Database",
     supportsIncremental = false,
-    authKind = "basic"
+    authKind = "basic",
+    // Matches SqlSourceConfigPayload's fields (DataSourceProtocol.scala) — all
+    // seven are required on that payload; `password` is the one secret field.
+    requiredFields = Vector(
+      ConnectorFieldDescriptor(name = "dialect", label = "Dialect", secret = false),
+      ConnectorFieldDescriptor(name = "host", label = "Host", secret = false),
+      ConnectorFieldDescriptor(name = "port", label = "Port", secret = false),
+      ConnectorFieldDescriptor(name = "database", label = "Database", secret = false),
+      ConnectorFieldDescriptor(name = "user", label = "User", secret = false),
+      ConnectorFieldDescriptor(name = "password", label = "Password", secret = true),
+      ConnectorFieldDescriptor(name = "query", label = "Query", secret = false)
+    )
   )
 
   // ── DDL/DML keyword check ─────────────────────────────────────────────────
