@@ -7,6 +7,8 @@ import {
   createTextSourceUrl as createTextSourceUrlRequest,
   createPdfSourceUpload as createPdfSourceUploadRequest,
   createPdfSourceUrl as createPdfSourceUrlRequest,
+  inferFromJson as inferFromJsonRequest,
+  testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { renderWithStore } from "../../../test/renderWithStore";
@@ -27,6 +29,7 @@ jest.mock("../services/dataSourceService", () => ({
   inferSqlSource: jest.fn(),
   inferFromCsv: jest.fn(),
   inferFromJson: jest.fn(),
+  testConnection: jest.fn(),
   updateSource: jest.fn(),
   deleteSource: jest.fn(),
   refreshSource: jest.fn(),
@@ -45,6 +48,8 @@ const createPdfSourceUrlMock = jest.mocked(createPdfSourceUrlRequest);
 const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
 const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
+const inferFromJsonMock = jest.mocked(inferFromJsonRequest);
+const testConnectionMock = jest.mocked(testConnectionRequest);
 
 describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
   beforeEach(() => {
@@ -334,5 +339,68 @@ describe("AddSourceModal — image source (HEL-216)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
     expect(createImageSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("AddSourceModal — REST API connection test (HEL-480)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchDataTypesMock.mockResolvedValue([]);
+    // jsdom does not implement showModal/close natively (Modal.tsx uses a
+    // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    });
+  });
+
+  // REST API is the modal's default source type, so RestApiForm — and its
+  // new TestConnectionAffordance — render without any tab switch.
+
+  it("renders a 'Test connection' affordance alongside the URL/JSON path fields", () => {
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Test connection" })).toBeInTheDocument();
+  });
+
+  // Design Decision 5a regression: TestConnectionAffordance's button MUST be
+  // type="button" — AddSourceModal wraps RestApiForm in one native
+  // <form onSubmit={handlePreview}> (configure step), so a submit-typed
+  // button would fire handlePreview -> inferFromJson and silently advance
+  // the modal to the preview step instead of just triggering the test.
+  it("clicking 'Test connection' does not submit the configure form or advance past the configure step", async () => {
+    testConnectionMock.mockResolvedValue({ ok: true, error: null });
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://api.example.com/data" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+
+    await waitFor(() => expect(testConnectionMock).toHaveBeenCalled());
+
+    expect(inferFromJsonMock).not.toHaveBeenCalled();
+    // Still on the configure step: "Preview schema" (the configure-step
+    // submit button) is present; "Create source" only exists once `step`
+    // has advanced to "preview", so its absence proves it never did.
+    expect(screen.getByRole("button", { name: /preview schema/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create source/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a success indicator after a successful test", async () => {
+    testConnectionMock.mockResolvedValue({ ok: true, error: null });
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://api.example.com/data" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Connected/)).toBeInTheDocument();
+    });
   });
 });

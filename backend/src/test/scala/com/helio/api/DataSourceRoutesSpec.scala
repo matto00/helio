@@ -119,6 +119,15 @@ class DataSourceRoutesSpec
         },
         path("missing.png") {
           get { complete(StatusCodes.NotFound) }
+        },
+        // HEL-480: connection-test route tests — a 2xx target with a
+        // deliberately non-JSON body (testConnection must not parse it) and a
+        // non-2xx target to exercise the failure branch.
+        path("test-ok") {
+          get { complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, "not json, just a health check")) }
+        },
+        path("test-fail") {
+          get { complete(StatusCodes.ServiceUnavailable -> "down for maintenance") }
         }
       )
     testServerBinding = Await.result(Http(typedSystem.classicSystem).newServerAt("localhost", 0).bind(testRoutes), 10.seconds)
@@ -841,6 +850,134 @@ class DataSourceRoutesSpec
       ) ~> routesWith(errorConnector("connection refused")) ~> check {
         status shouldBe StatusCodes.BadGateway
         responseAs[ErrorResponse].message should include("connection refused")
+      }
+    }
+  }
+
+  // HEL-480: connection-test endpoint. `SqlConnector.testConnection`/
+  // `RestApiConnector.testConnection` are exercised for real here (not via
+  // `fetchOverride`, which only affects `fetch`/`inferSchema`) — SQL tests hit
+  // the suite's own embedded Postgres instance, REST tests hit the suite's
+  // local `testServerBinding` test server (test-ok / test-fail routes above).
+  "POST /api/sources/test" should {
+
+    def sqlBody(port: Int, query: String = "NOT VALID SQL AT ALL", password: String = "postgres"): String =
+      s"""{"type": "sql", "config": {"dialect": "postgresql", "host": "localhost", "port": $port,
+         |"database": "postgres", "user": "postgres", "password": "$password", "query": "$query"}}""".stripMargin
+
+    "return 200 with ok=true and no 'error' key on the wire for a successful SQL connection" in {
+      // The query is deliberately invalid SQL — testConnection only opens+closes the
+      // connection and must never execute it (mirrors SqlConnectorSpec.liveConfig).
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(embeddedPostgres.getPort))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val raw = responseAs[String]
+        raw should not include "\"error\""
+        raw.parseJson.asJsObject.fields.get("ok") shouldBe Some(JsBoolean(true))
+      }
+    }
+
+    "return 200 with the curated 'SQL connection failed' message (not raw driver text) for an unreachable host" in {
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(port = 1))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[TestConnectionResponse]
+        resp.ok    shouldBe false
+        resp.error shouldBe Some("SQL connection failed")
+      }
+    }
+
+    "return 400 and never invoke the connector when the SQL query contains DDL/DML" in {
+      // Deliberately paired with an unreachable port: if the pre-check were
+      // skipped and the connector actually invoked, the result would still be
+      // 200 (ok=false, "SQL connection failed") rather than 400 — so a 400
+      // here proves `checkQuery` short-circuited before dispatch.
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(port = 1, query = "DROP TABLE users"))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "return 200 with ok=true for a REST target responding 2xx with a non-JSON body" in {
+      val body = s"""{"url": "${textUrlFor("test-ok")}"}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[TestConnectionResponse].ok shouldBe true
+      }
+    }
+
+    "return 200 with ok=false for a REST target responding with a non-2xx status" in {
+      val body = s"""{"url": "${textUrlFor("test-fail")}"}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[TestConnectionResponse]
+        resp.ok shouldBe false
+        resp.error.getOrElse("") should include("503")
+      }
+    }
+
+    "return 400 and never invoke the connector when the REST auth payload is structurally invalid" in {
+      val body = """{"url": "http://example.invalid", "auth": {"type": "bearer"}}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "accept the same nested-SQL / flat-REST request-body shapes /api/sources/infer already accepts" in {
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(embeddedPostgres.getPort))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val restBody = s"""{"url": "${textUrlFor("test-ok")}"}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, restBody)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+
+    "never echo the config or its credentials in the response, for either SQL outcome" in {
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(embeddedPostgres.getPort, password = "s3cr3t-pw"))
+      ) ~> routes() ~> check {
+        val raw = responseAs[String]
+        raw should not include "s3cr3t-pw"
+        raw should not include "password"
+        raw should not include "config"
+      }
+
+      Post(
+        "/api/sources/test",
+        HttpEntity(ContentTypes.`application/json`, sqlBody(port = 1, password = "s3cr3t-pw"))
+      ) ~> routes() ~> check {
+        val raw = responseAs[String]
+        raw should not include "s3cr3t-pw"
+        raw should not include "password"
+        raw should not include "config"
+      }
+    }
+
+    "never echo the config or its credentials in the response, for either REST outcome" in {
+      val successBody = s"""{"url": "${textUrlFor("test-ok")}", "auth": {"type": "bearer", "token": "sekret-token"}}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, successBody)) ~> routes() ~> check {
+        val raw = responseAs[String]
+        raw should not include "sekret-token"
+        raw should not include "config"
+      }
+
+      val failBody = s"""{"url": "${textUrlFor("test-fail")}", "auth": {"type": "bearer", "token": "sekret-token"}}"""
+      Post("/api/sources/test", HttpEntity(ContentTypes.`application/json`, failBody)) ~> routes() ~> check {
+        val raw = responseAs[String]
+        raw should not include "sekret-token"
+        raw should not include "config"
       }
     }
   }

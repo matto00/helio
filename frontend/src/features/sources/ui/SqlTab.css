@@ -1,0 +1,27 @@
+/* Groups "Infer schema" (existing) with the new TestConnectionAffordance
+   (HEL-480) so both sit together on the left of the actions row, opposite
+   "Create source". */
+.sql-tab__actions-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* At the mobile-PWA phone breakpoint (DESIGN.md §4's canonical 430px), three
+   controls ("Infer schema", "Test connection", "Create source") no longer
+   fit one row without their labels wrapping mid-button — let the row (and
+   the "Infer schema" / "Test connection" pairing within it) wrap onto
+   multiple lines instead, scoped to this component only via the `.sql-tab`
+   ancestor so the shared `.add-source-modal__actions` row keeps its default
+   single-line layout everywhere else it's used. */
+@media (max-width: 430px) {
+  .sql-tab .add-source-modal__actions {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .sql-tab__actions-group {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+}

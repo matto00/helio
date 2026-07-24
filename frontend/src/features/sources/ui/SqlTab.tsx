@@ -1,11 +1,13 @@
 import { useState } from "react";
 
+import "./SqlTab.css";
 import { DataGrid, TextField, Textarea } from "../../../shared/ui/index";
 import type { ColumnDef } from "../../../shared/ui/index";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { inferSqlSource } from "../state/sourcesSlice";
 import type { InferredField } from "../types/dataSource";
 import type { SqlSourceConfig } from "../services/dataSourceService";
+import { TestConnectionAffordance } from "./TestConnectionAffordance";
 
 const INFERRED_FIELD_COLUMNS: ColumnDef[] = [
   { key: "name", header: "Field name" },
@@ -183,14 +185,18 @@ export function SqlTab({ onSave, isSaving, name }: SqlTabProps) {
       </div>
 
       <div className="add-source-modal__actions add-source-modal__actions--between">
-        <button
-          type="button"
-          className="add-source-modal__btn add-source-modal__btn--secondary"
-          onClick={() => void handleTestConnection()}
-          disabled={isTesting || isSaving}
-        >
-          {isTesting ? "Testing…" : "Test connection"}
-        </button>
+        <div className="sql-tab__actions-group">
+          <button
+            type="button"
+            className="add-source-modal__btn add-source-modal__btn--secondary"
+            onClick={() => void handleTestConnection()}
+            disabled={isTesting || isSaving}
+          >
+            {isTesting ? "Testing…" : "Infer schema"}
+          </button>
+
+          <TestConnectionAffordance type="sql" buildConfig={buildConfig} />
+        </div>
 
         <button
           type="button"

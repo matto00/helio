@@ -4,6 +4,8 @@
 // Extracted from AddSourceModal.tsx in CS3 cycle 2 (behavior-preserving).
 
 import { TextField } from "../../../shared/ui/TextField";
+import { TestConnectionAffordance } from "./TestConnectionAffordance";
+import type { RestApiConfigBody } from "../services/dataSourceService";
 
 interface RestApiFormProps {
   url: string;
@@ -13,6 +15,16 @@ interface RestApiFormProps {
 }
 
 export function RestApiForm({ url, jsonPath, onUrlChange, onJsonPathChange }: RestApiFormProps) {
+  // Mirrors AddSourceModal.handlePreview's REST config-building exactly, so a
+  // successful connection test reflects the same shape "Preview schema" uses.
+  function buildConfig(): RestApiConfigBody {
+    return {
+      url: url.trim(),
+      method: "GET",
+      ...(jsonPath.trim() ? { jsonPath: jsonPath.trim() } : {}),
+    };
+  }
+
   return (
     <>
       <div className="add-source-modal__field">
@@ -40,6 +52,7 @@ export function RestApiForm({ url, jsonPath, onUrlChange, onJsonPathChange }: Re
           aria-label="JSON path"
         />
       </div>
+      <TestConnectionAffordance type="rest_api" buildConfig={buildConfig} />
     </>
   );
 }

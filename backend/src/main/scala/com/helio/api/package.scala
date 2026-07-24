@@ -137,6 +137,8 @@ package object api {
   val SqlCreateSourceRequest: protocols.SqlCreateSourceRequest.type = protocols.SqlCreateSourceRequest
   type SqlInferRequest = protocols.SqlInferRequest
   val SqlInferRequest: protocols.SqlInferRequest.type = protocols.SqlInferRequest
+  type TestConnectionResponse = protocols.TestConnectionResponse
+  val TestConnectionResponse: protocols.TestConnectionResponse.type = protocols.TestConnectionResponse
   type RestApiConfigPayload = protocols.RestApiConfigPayload
   val RestApiConfigPayload: protocols.RestApiConfigPayload.type = protocols.RestApiConfigPayload
   type FieldOverridePayload = protocols.FieldOverridePayload
