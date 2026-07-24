@@ -175,4 +175,48 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       resp.config.password shouldBe ""
     }
   }
+
+  // HEL-460: assertions against the *actual serialized JSON* of a response, not merely a helper's
+  // return value — this is the check that would fail if the redaction seam were wired but bypassed
+  // at the response boundary (e.g. a future `fromDomain` case that forgets to call
+  // `SecretRedaction.redact`).
+  "DataSourceResponse.fromDomain serialized JSON never leaks raw secrets" should {
+    import com.helio.domain.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
+    import java.time.Instant
+
+    val now   = Instant.parse("2026-05-14T00:00:00Z")
+    val owner = UserId("00000000-0000-0000-0000-000000000001")
+    val id    = DataSourceId("ds-redact-json")
+
+    "never contain the raw bearer token in the serialized JSON" in {
+      val rawToken = "super-secret-bearer-token-xyz"
+      val src = RestSource(id, "rest", owner, now, now,
+        RestApiConfig(url = "https://example.com", method = "GET",
+          auth = RestApiAuth.BearerAuth(rawToken)))
+      val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
+      text should not include rawToken
+      text should include(""""token":"***"""")
+    }
+
+    "never contain the raw api-key value in the serialized JSON" in {
+      val rawValue = "super-secret-api-key-value-xyz"
+      val src = RestSource(id, "rest", owner, now, now,
+        RestApiConfig(url = "https://example.com", method = "GET",
+          auth = RestApiAuth.ApiKeyAuth("X-Api-Key", rawValue, ApiKeyPlacement.Header)))
+      val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
+      text should not include rawValue
+      text should include(""""value":"***"""")
+      // The key name (non-credential) is still present verbatim.
+      text should include(""""name":"X-Api-Key"""")
+    }
+
+    "never contain the raw SQL password in the serialized JSON" in {
+      val rawPassword = "super-secret-db-password-xyz"
+      val src = SqlSource(id, "sql", owner, now, now,
+        SqlSourceConfig("postgresql", "host", 5432, "db", "user", rawPassword, "SELECT 1"))
+      val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
+      text should not include rawPassword
+      text should include(""""password":"***"""")
+    }
+  }
 }

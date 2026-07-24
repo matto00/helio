@@ -59,6 +59,15 @@ final case class ConnectorMetadata(
  *  `dataType = Some(...)` with `fetchError = None`. `err` is forwarded unmodified — the helper never
  *  re-wraps, re-prefixes, or re-derives the HEL-311 curated category message an implementation's
  *  `inferSchema` already produced.
+ *
+ *  '''Secret redaction''' (HEL-460): a connector whose wire payload carries secret fields (a
+ *  password, a bearer token, an API key) declares a `HasSecrets[Payload]` instance in that payload
+ *  type's own companion object — see `SqlSourceConfigPayload`/`RestApiConfigPayload` for the
+ *  existing examples. `DataSourceResponse.fromDomain` calls `SecretRedaction.redact` on the payload
+ *  before it is returned, which masks every declared field automatically; a connector never writes
+ *  its own per-field redaction code at the response boundary. This is not a method on `Connector[Config]`
+ *  itself — `Config` here is the domain config, while the seam operates one level up, on the wire
+ *  payload type that already carries the same fields.
  */
 trait Connector[Config] {
 
