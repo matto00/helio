@@ -30,7 +30,8 @@ class PipelineStepProtocolSpec extends AnyWordSpec with Matchers with JsonProtoc
     ChunkByTokenCountStepResponse("s", "p", 0, now, now, ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount")),
     DateBucketStepResponse("s", "p", 0, now, now, DateBucketConfig("ts", "month", Some("ts_month"))),
     PivotStepResponse("s", "p", 0, now, now, PivotConfig(Vector("region"), "product", "revenue", "sum")),
-    WindowStepResponse("s", "p", 0, now, now, WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None))
+    WindowStepResponse("s", "p", 0, now, now, WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None)),
+    UnpivotStepResponse("s", "p", 0, now, now, UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"))
   )
 
   "PipelineStepResponse discriminated-union format" should {

@@ -155,8 +155,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Add pipeline step",
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
-        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window; `config` shape is keyed " +
-        "by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
+        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot; `config` shape is " +
+        "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
         "`outputColumn` if given, else overwriting `field` in place; " +
@@ -172,7 +172,14 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "`field` is required by running_sum/lag/lead (ignored by the rank family); `offset` " +
         "(default 1) is used by lag/lead only. `outputColumn`'s type is statically knowable and " +
         "DOES appear in analyze_pipeline's output schema — integer for row_number/rank/dense_rank, " +
-        "number for running_sum, same type as `field` for lag/lead). Use analyze_pipeline to " +
+        "number for running_sum, same type as `field` for lag/lead); " +
+        "unpivot → {idVars: string[], valueVars: string[], varName?, valueName?} — the inverse of " +
+        "pivot: for each input row, emits one output row per `valueVars` entry, carrying `idVars` " +
+        "unchanged plus `varName` (default 'variable') = the source column's name and `valueName` " +
+        "(default 'value') = that column's cell value. Row count multiplies: (input rows) * " +
+        "(valueVars length). Unlike pivot, unpivot's output schema is fully static and DOES appear " +
+        "in analyze_pipeline's output schema — idVars (types carried through) + varName (string) + " +
+        "valueName (the common type of valueVars if uniform, else string). Use analyze_pipeline to " +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),

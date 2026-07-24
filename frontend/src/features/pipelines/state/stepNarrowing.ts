@@ -21,6 +21,7 @@ import {
   faRightLeft,
   faSquareCheck,
   faTableCells,
+  faTableList,
 } from "@fortawesome/free-solid-svg-icons";
 
 import type {
@@ -39,6 +40,7 @@ import type {
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
   SplitTextConfig as SplitTextConfigType,
+  UnpivotConfig as UnpivotConfigType,
   WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
@@ -51,6 +53,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded until
@@ -71,6 +74,7 @@ export const OP_TYPES: OpType[] = [
   { id: "datebucket", label: "Date bucket", icon: faCalendarWeek },
   { id: "pivot", label: "Pivot (long → wide)", icon: faTableCells },
   { id: "window", label: "Window (rank / running total)", icon: faRankingStar },
+  { id: "unpivot", label: "Unpivot (wide → long)", icon: faTableList },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -136,6 +140,13 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         function: "row_number",
         outputColumn: "",
       } as WindowConfigType;
+    case "unpivot":
+      return {
+        idVars: [],
+        valueVars: [],
+        varName: "variable",
+        valueName: "value",
+      } as UnpivotConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -303,6 +314,23 @@ export function pivotConfigOf(step: Step): PivotConfigValue {
     column: cfg.column ?? "",
     values: cfg.values ?? "",
     agg,
+  };
+}
+
+export function unpivotConfigOf(step: Step): UnpivotConfigValue {
+  const empty: UnpivotConfigValue = {
+    idVars: [],
+    valueVars: [],
+    varName: "variable",
+    valueName: "value",
+  };
+  if (step.opType.id !== "unpivot") return empty;
+  const cfg = step.config as UnpivotConfigType;
+  return {
+    idVars: Array.isArray(cfg.idVars) ? cfg.idVars : [],
+    valueVars: Array.isArray(cfg.valueVars) ? cfg.valueVars : [],
+    varName: cfg.varName ?? "variable",
+    valueName: cfg.valueName ?? "value",
   };
 }
 

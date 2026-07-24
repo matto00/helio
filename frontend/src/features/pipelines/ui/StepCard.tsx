@@ -25,6 +25,7 @@ import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 import { SplitTextConfig } from "./SplitTextConfig";
+import { UnpivotConfig } from "./UnpivotConfig";
 import { WindowConfig } from "./WindowConfig";
 
 interface StepCardProps {
@@ -96,6 +97,7 @@ export function StepCard({
     dateBucketConfig,
     pivotConfig,
     windowConfig,
+    unpivotConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -110,6 +112,7 @@ export function StepCard({
     onDateBucketChange,
     onPivotChange,
     onWindowChange,
+    onUnpivotChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -216,6 +219,12 @@ export function StepCard({
               analyzeSchema={analyzeSchema}
               analyzeColumns={analyzeColumns}
               onChange={onWindowChange}
+            />
+          ) : step.opType.id === "unpivot" ? (
+            <UnpivotConfig
+              config={unpivotConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onUnpivotChange}
             />
           ) : (
             <>
