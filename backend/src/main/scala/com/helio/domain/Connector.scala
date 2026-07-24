@@ -40,6 +40,14 @@ final case class ConnectorMetadata(
  *  work depends on running on the caller-supplied EC to avoid starving the Pekko dispatcher (see
  *  CLAUDE.md's "Avoid blocking operations in actor execution paths" rule). Every sibling connector
  *  (424-428) and every polymorphic caller (HEL-473, HEL-480) must follow the same rule.
+ *
+ *  '''Schema inference''' (HEL-473): any implementation's `fetch` output — `Vector[JsValue]`, one
+ *  `JsObject` per row — funnels directly into `SchemaInferenceEngine.inferSchemaFromRows` to produce
+ *  a correct `InferredSchema`. A connector never needs its own inference logic; it only needs to
+ *  shape its native rows into that `Vector[JsValue]` (see `SqlConnector.toRows`,
+ *  `RestApiConnector.toRows` for the existing examples). This is why `inferSchema`'s default
+ *  implementation pattern is "fetch, then hand the rows to `inferSchemaFromRows`" rather than a
+ *  connector-specific JSON-shape-aware inference step.
  */
 trait Connector[Config] {
 

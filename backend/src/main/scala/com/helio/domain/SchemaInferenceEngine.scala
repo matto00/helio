@@ -25,6 +25,13 @@ object SchemaInferenceEngine {
       InferredSchema(Seq.empty)
   }
 
+  /** Shared "rows in → InferredSchema out" facade (HEL-473): every `Connector[Config]`'s `fetch`
+   *  returns `Vector[JsValue]` (one `JsObject` per row) — this wraps that row shape into the
+   *  `JsArray` `fromJson` expects, so new connectors get correct inference without hand-rolling the
+   *  wrap themselves. A thin delegate, not a new inference path: identical output to
+   *  `fromJson(JsArray(rows))` for any input. */
+  def inferSchemaFromRows(rows: Vector[JsValue]): InferredSchema = fromJson(JsArray(rows))
+
   def fromCsv(csv: String): InferredSchema = {
     val lines = splitCsvLines(csv)
     if (lines.isEmpty || lines.head.trim.isEmpty) return InferredSchema(Seq.empty)

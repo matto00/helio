@@ -80,6 +80,57 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
   }
 
   // ---------------------------------------------------------------------------
+  // inferSchemaFromRows (HEL-473 facade)
+  // ---------------------------------------------------------------------------
+
+  "SchemaInferenceEngine.inferSchemaFromRows" should {
+
+    "produce output identical to fromJson(JsArray(rows)) for a Vector of row objects" in {
+      val rows = Vector(
+        """{"id": 1, "name": "Alice"}""".parseJson,
+        """{"id": 2, "name": "Bob", "active": true}""".parseJson
+      )
+      inferSchemaFromRows(rows) shouldBe fromJson(JsArray(rows))
+    }
+
+    "produce output identical to fromJson(JsArray(rows)) for an empty Vector" in {
+      inferSchemaFromRows(Vector.empty) shouldBe fromJson(JsArray(Vector.empty))
+      inferSchemaFromRows(Vector.empty).fields shouldBe empty
+    }
+
+    "produce output identical to fromJson(JsArray(rows)) when rows contain non-object elements" in {
+      val rows = Vector(JsString("not an object"), JsNumber(42))
+      inferSchemaFromRows(rows) shouldBe fromJson(JsArray(rows))
+      inferSchemaFromRows(rows).fields shouldBe empty
+    }
+
+    "produce output identical to fromJson(JsArray(rows)) for a single-row Vector (mirrors a JsObject root)" in {
+      val rows = Vector("""{"address": {"city": "London", "zip": "EC1"}}""".parseJson)
+      inferSchemaFromRows(rows) shouldBe fromJson(JsArray(rows))
+      inferSchemaFromRows(rows).fields.map(_.name) should contain allOf ("address.city", "address.zip")
+    }
+
+    "derive field names, types, and nullability from arbitrary supplied rows (HEL-473 task 4.4)" in {
+      // Mirrors a new connector's `fetch` output funnelled straight into the facade, per
+      // Connector.scala's '''Schema inference''' doc block.
+      val rows: Vector[JsValue] = Vector(
+        JsObject("sku" -> JsString("A1"), "qty" -> JsNumber(5), "note" -> JsNull),
+        JsObject("sku" -> JsString("A2"), "qty" -> JsNumber(7), "note" -> JsString("low stock"))
+      )
+      val schema = inferSchemaFromRows(rows)
+      val byName = schema.fields.map(f => f.name -> f).toMap
+
+      byName.keySet shouldBe Set("sku", "qty", "note")
+      byName("sku").dataType  shouldBe StringType
+      byName("sku").nullable  shouldBe false
+      byName("qty").dataType  shouldBe IntegerType
+      byName("qty").nullable  shouldBe false
+      byName("note").dataType shouldBe StringType
+      byName("note").nullable shouldBe true
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // CSV tests
   // ---------------------------------------------------------------------------
 

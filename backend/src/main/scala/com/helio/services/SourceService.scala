@@ -26,7 +26,13 @@ import scala.concurrent.{ExecutionContext, Future}
  *  CRUD for `/api/sources` plus connector preview / infer / refresh. CSV +
  *  Static live in [[DataSourceService]] (the route surfaces are also split
  *  along that boundary). Connector primitives (`RestApiConnector.fetch`,
- *  `SqlConnector.execute`) stay in `domain/`; the service just orchestrates. */
+ *  `SqlConnector.execute`) stay in `domain/`; the service just orchestrates.
+ *
+ *  Create/infer/refresh dispatch through each connector's `Connector[Config].inferSchema`
+ *  SPI method (HEL-449/HEL-473) rather than hand-rolling `execute`/`fetch` + inline inference;
+ *  `SchemaInferenceFacade.toDataFields` is the single `InferredField` → `DataField` projection
+ *  they all share. `preview*` is the one path that still calls `execute`/`fetch` directly — it
+ *  needs raw rows for computed-field evaluation, not an inferred schema. */
 final class SourceService(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo:   DataTypeRepository,
@@ -51,18 +57,15 @@ final class SourceService(
           config    = sqlConfig
         )
         dataSourceRepo.insert(source, user).flatMap { inserted =>
-          SqlConnector.execute(sqlConfig, maxRows = 100).flatMap {
+          SqlConnector.inferSchema(sqlConfig).flatMap {
             case Left(err) =>
               Future.successful(Right(CreateSourceResponse(
                 source     = DataSourceResponse.fromDomain(inserted),
                 dataType   = None,
                 fetchError = Some(err)
               )))
-            case Right(rows) =>
-              val schema = SqlConnector.inferSchema(rows)
-              val fields = schema.fields.map(f =>
-                DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-              ).toVector
+            case Right(schema) =>
+              val fields = SchemaInferenceFacade.toDataFields(schema)
               val dt = DataType(
                 id        = DataTypeId(UUID.randomUUID().toString),
                 sourceId  = Some(inserted.id),
@@ -103,25 +106,16 @@ final class SourceService(
             config    = restConfig
           )
           dataSourceRepo.insert(source, user).flatMap { inserted =>
-            connector.fetch(restConfig).flatMap {
+            connector.inferSchema(restConfig).flatMap {
               case Left(err) =>
                 Future.successful(Right(CreateSourceResponse(
                   source     = DataSourceResponse.fromDomain(inserted),
                   dataType   = None,
                   fetchError = Some(err)
                 )))
-              case Right(json) =>
-                val schema       = SchemaInferenceEngine.fromJson(json)
+              case Right(schema) =>
                 val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-                val fields = schema.fields.map { f =>
-                  val ov = overridesMap.get(f.name)
-                  DataField(
-                    f.name,
-                    ov.map(_.displayName).getOrElse(f.displayName),
-                    ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
-                    f.nullable
-                  )
-                }.toVector
+                val fields = SchemaInferenceFacade.toDataFields(schema, overridesMap)
                 val dt = DataType(
                   id        = DataTypeId(UUID.randomUUID().toString),
                   sourceId  = Some(inserted.id),
@@ -151,9 +145,9 @@ final class SourceService(
     SqlConnector.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        SqlConnector.execute(sqlConfig, maxRows = 100).map {
-          case Left(err)   => Left(ServiceError.BadGateway(err))
-          case Right(rows) => Right(toInferredSchema(SqlConnector.inferSchema(rows)))
+        SqlConnector.inferSchema(sqlConfig).map {
+          case Left(err)     => Left(ServiceError.BadGateway(err))
+          case Right(schema) => Right(toInferredSchema(schema))
         }
     }
   }
@@ -163,9 +157,9 @@ final class SourceService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(restConfig) =>
-        connector.fetch(restConfig).map {
-          case Left(err)   => Left(ServiceError.BadGateway(err))
-          case Right(json) => Right(toInferredSchema(SchemaInferenceEngine.fromJson(json)))
+        connector.inferSchema(restConfig).map {
+          case Left(err)     => Left(ServiceError.BadGateway(err))
+          case Right(schema) => Right(toInferredSchema(schema))
         }
     }
 
@@ -184,18 +178,15 @@ final class SourceService(
     }
 
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    SqlConnector.execute(source.config, maxRows = 100).flatMap {
+    SqlConnector.inferSchema(source.config).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (SqlConnector logs the raw JDBC cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
-      case Right(rows) =>
+      case Right(schema) =>
         val now    = Instant.now()
-        val schema = SqlConnector.inferSchema(rows)
-        val fields = schema.fields.map(f =>
-          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-        ).toVector
+        val fields = SchemaInferenceFacade.toDataFields(schema)
         upsertDataType(source, fields, now, bumpVersion = true, user).map {
           case Some(dt) => Right(dt)
           case None     => Left(ServiceError.NotFound("DataType not found"))
@@ -203,18 +194,15 @@ final class SourceService(
     }
 
   private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    connector.fetch(source.config).flatMap {
+    connector.inferSchema(source.config).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (RestApiConnector logs the raw cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
-      case Right(json) =>
+      case Right(schema) =>
         val now    = Instant.now()
-        val schema = SchemaInferenceEngine.fromJson(json)
-        val fields = schema.fields.map(f =>
-          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-        ).toVector
+        val fields = SchemaInferenceFacade.toDataFields(schema)
         upsertDataType(source, fields, now, bumpVersion = false, user).map {
           case Some(dt) => Right(dt)
           case None     => Left(ServiceError.NotFound("DataType not found"))
