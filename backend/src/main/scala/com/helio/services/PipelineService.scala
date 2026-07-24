@@ -11,6 +11,7 @@ import com.helio.api.protocols.{
   DateBucketAnalyzeStepResponse,
   DedupeAnalyzeStepResponse,
   ExtractHeadingsAnalyzeStepResponse,
+  FillNullAnalyzeStepResponse,
   FilterAnalyzeStepResponse,
   GroupByAnalyzeStepResponse,
   JoinAnalyzeStepResponse,
@@ -40,6 +41,7 @@ import com.helio.domain.{
   DateBucketConfig,
   DedupeConfig,
   ExtractHeadingsConfig,
+  FillNullConfig,
   FilterConfig,
   GroupByConfig,
   JoinConfig,
@@ -216,6 +218,7 @@ final class PipelineService(
       case Success(cfg: WindowConfig) => WindowAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: UnpivotConfig) => UnpivotAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: DedupeConfig) => DedupeAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: FillNullConfig) => FillNullAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"

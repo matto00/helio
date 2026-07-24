@@ -19,6 +19,7 @@ import { ComputeFieldConfig } from "./ComputeFieldConfig";
 import { DateBucketConfig } from "./DateBucketConfig";
 import { DedupeConfig } from "./DedupeConfig";
 import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
+import { FillNullConfig } from "./FillNullConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
 import { PivotConfig } from "./PivotConfig";
@@ -100,6 +101,7 @@ export function StepCard({
     windowConfig,
     unpivotConfig,
     dedupeConfig,
+    fillNullConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -116,6 +118,7 @@ export function StepCard({
     onWindowChange,
     onUnpivotChange,
     onDedupeChange,
+    onFillNullChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -234,6 +237,12 @@ export function StepCard({
               config={dedupeConfig}
               analyzeColumns={analyzeColumns}
               onChange={onDedupeChange}
+            />
+          ) : step.opType.id === "fillnull" ? (
+            <FillNullConfig
+              config={fillNullConfig}
+              analyzeColumns={analyzeColumns}
+              onChange={onFillNullChange}
             />
           ) : (
             <>

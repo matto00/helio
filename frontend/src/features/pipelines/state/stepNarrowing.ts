@@ -14,6 +14,7 @@ import {
   faChartColumn,
   faClone,
   faFilter,
+  faFillDrip,
   faHeading,
   faLayerGroup,
   faLink,
@@ -33,6 +34,7 @@ import type {
   DateBucketConfig as DateBucketConfigType,
   DedupeConfig as DedupeConfigType,
   ExtractHeadingsConfig as ExtractHeadingsConfigType,
+  FillNullConfig as FillNullConfigType,
   FilterConfig as FilterConfigType,
   LimitConfig as LimitConfigType,
   PipelineStep,
@@ -52,6 +54,7 @@ import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
+import { FILL_NULL_STRATEGIES, type FillNullConfigValue } from "../ui/FillNullConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
@@ -79,6 +82,7 @@ export const OP_TYPES: OpType[] = [
   { id: "window", label: "Window (rank / running total)", icon: faRankingStar },
   { id: "unpivot", label: "Unpivot (wide → long)", icon: faTableList },
   { id: "dedupe", label: "Dedupe rows", icon: faClone },
+  { id: "fillnull", label: "Fill null / impute", icon: faFillDrip },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -153,6 +157,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       } as UnpivotConfigType;
     case "dedupe":
       return { keys: [], keep: "first" } as DedupeConfigType;
+    case "fillnull":
+      return { columns: [], strategy: "constant", value: null } as FillNullConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -347,6 +353,20 @@ export function dedupeConfigOf(step: Step): DedupeConfigValue {
   return {
     keys: Array.isArray(cfg.keys) ? cfg.keys : [],
     keep: cfg.keep === "last" ? "last" : "first",
+  };
+}
+
+export function fillNullConfigOf(step: Step): FillNullConfigValue {
+  const empty: FillNullConfigValue = { columns: [], strategy: "constant", value: null };
+  if (step.opType.id !== "fillnull") return empty;
+  const cfg = step.config as FillNullConfigType;
+  const strategy = (FILL_NULL_STRATEGIES as readonly string[]).includes(cfg.strategy)
+    ? cfg.strategy
+    : "constant";
+  return {
+    columns: Array.isArray(cfg.columns) ? cfg.columns : [],
+    strategy,
+    value: cfg.value ?? null,
   };
 }
 

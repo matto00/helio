@@ -155,7 +155,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Add pipeline step",
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
-        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe; `config` shape is " +
+        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -185,7 +185,17 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "values. `keep` (default 'first') selects which occurrence survives — 'first' or 'last' by " +
         "original row order; only the literal 'last' selects last-occurrence, anything else falls " +
         "back to 'first'. Output preserves the relative order of kept rows. Pure row filter — output " +
-        "schema equals input schema (identity, like limit). Use analyze_pipeline to " +
+        "schema equals input schema (identity, like limit); " +
+        "fillnull → {columns: string[], strategy: 'constant'|'forwardFill'|'mean'|'median'|'mode', " +
+        "value?: string} — replaces only null cells (missing key or explicit null) in `columns`; " +
+        "non-null cells and unlisted columns pass through unchanged. `constant` fills with `value` " +
+        "(required for this strategy, fails otherwise); `forwardFill` carries the last non-null " +
+        "value seen so far per column in original row order (a leading null run stays null); " +
+        "`mean`/`median`/`mode` compute one value per column over the batch's non-null values " +
+        "(mean/median coerce numerically, non-numeric values excluded; mode uses raw values, ties " +
+        "broken by first-encountered order) and use it to fill every null cell in that column — an " +
+        "all-null column stays null, never a hard failure. Schema-preserving — output schema equals " +
+        "input schema (identity, like cast). Use analyze_pipeline to " +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),

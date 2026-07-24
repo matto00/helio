@@ -19,6 +19,7 @@ import {
   dateBucketConfigOf,
   dedupeConfigOf,
   extractHeadingsConfigOf,
+  fillNullConfigOf,
   filterConfigOf,
   limitCountOf,
   pivotConfigOf,
@@ -37,6 +38,7 @@ import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
+import type { FillNullConfigValue } from "../ui/FillNullConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
@@ -61,6 +63,7 @@ export interface StepCardStateHandlers {
   windowConfig: WindowConfigValue;
   unpivotConfig: UnpivotConfigValue;
   dedupeConfig: DedupeConfigValue;
+  fillNullConfig: FillNullConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -77,6 +80,7 @@ export interface StepCardStateHandlers {
   onWindowChange: (config: WindowConfigValue) => void;
   onUnpivotChange: (config: UnpivotConfigValue) => void;
   onDedupeChange: (config: DedupeConfigValue) => void;
+  onFillNullChange: (config: FillNullConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -119,6 +123,9 @@ export function useStepCardState(
     unpivotConfigOf(step),
   );
   const [dedupeConfig, setDedupeConfig] = useState<DedupeConfigValue>(() => dedupeConfigOf(step));
+  const [fillNullConfig, setFillNullConfig] = useState<FillNullConfigValue>(() =>
+    fillNullConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -138,6 +145,7 @@ export function useStepCardState(
     setWindowConfig(windowConfigOf(step));
     setUnpivotConfig(unpivotConfigOf(step));
     setDedupeConfig(dedupeConfigOf(step));
+    setFillNullConfig(fillNullConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -266,6 +274,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onFillNullChange(newConfig: FillNullConfigValue) {
+    setFillNullConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -283,6 +296,7 @@ export function useStepCardState(
     windowConfig,
     unpivotConfig,
     dedupeConfig,
+    fillNullConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -299,5 +313,6 @@ export function useStepCardState(
     onWindowChange,
     onUnpivotChange,
     onDedupeChange,
+    onFillNullChange,
   };
 }

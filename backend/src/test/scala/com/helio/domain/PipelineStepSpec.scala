@@ -33,16 +33,17 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val window = WindowStep(id, pid, 0, WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None), now, now)
   private val unpivot = UnpivotStep(id, pid, 0, UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"), now, now)
   private val dedupe = DedupeStep(id, pid, 0, DedupeConfig(Vector("id"), "first"), now, now)
+  private val fillNull = FillNullStep(id, pid, 0, FillNullConfig(Vector("price"), "mean", None), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
-        "datebucket", "pivot", "window", "unpivot", "dedupe"
+        "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull"
       )
     }
 
@@ -80,6 +81,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       window.kind shouldBe PipelineStepKind.Window
       unpivot.kind shouldBe PipelineStepKind.Unpivot
       dedupe.kind shouldBe PipelineStepKind.Dedupe
+      fillNull.kind shouldBe PipelineStepKind.FillNull
     }
 
     "every subtype carries the common base fields" in {
@@ -120,6 +122,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: WindowStep     => PipelineStepKind.Window
           case _: UnpivotStep    => PipelineStepKind.Unpivot
           case _: DedupeStep     => PipelineStepKind.Dedupe
+          case _: FillNullStep   => PipelineStepKind.FillNull
         }
         tag shouldBe s.kind
       }

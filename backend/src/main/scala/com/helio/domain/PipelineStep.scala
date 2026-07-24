@@ -116,7 +116,8 @@ object PipelineStep {
     PivotStep.Kind -> PivotStep.companion,
     WindowStep.Kind -> WindowStep.companion,
     UnpivotStep.Kind -> UnpivotStep.companion,
-    DedupeStep.Kind -> DedupeStep.companion
+    DedupeStep.Kind -> DedupeStep.companion,
+    FillNullStep.Kind -> FillNullStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -153,6 +154,7 @@ object PipelineStepKind {
   val Window: String     = WindowStep.Kind
   val Unpivot: String    = UnpivotStep.Kind
   val Dedupe: String     = DedupeStep.Kind
+  val FillNull: String   = FillNullStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

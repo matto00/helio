@@ -64,7 +64,7 @@ object PipelineAnalyzeService {
       inputSchema: Vector[SchemaField]
   ): (Vector[SchemaField], Option[String]) =
     op match {
-      case "filter" | "limit" | "sort" | "dedupe" => (inputSchema, None)
+      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" => (inputSchema, None)
       case "select"                     => inferSelect(config, inputSchema)
       case "rename"                     => inferRename(config, inputSchema)
       case "cast"                       => inferCast(config, inputSchema)
