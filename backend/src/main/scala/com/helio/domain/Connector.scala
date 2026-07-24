@@ -48,6 +48,17 @@ final case class ConnectorMetadata(
  *  `RestApiConnector.toRows` for the existing examples). This is why `inferSchema`'s default
  *  implementation pattern is "fetch, then hand the rows to `inferSchemaFromRows`" rather than a
  *  connector-specific JSON-shape-aware inference step.
+ *
+ *  '''Fetch-error envelope''' (HEL-468): any implementation gets a diagnosable create-time envelope
+ *  for free via `CreateSourceEnvelope.build` — a connector never needs its own envelope-construction
+ *  code. Given a `Connector[Config]` instance and its config, the helper calls
+ *  `inferSchema` and, on `Left(err)`, returns a `CreateSourceResponse` with `dataType = None` and
+ *  `fetchError = Some(err)` (the caller's create request still succeeds at the HTTP level — a bad
+ *  URL/credential is diagnosable and retryable rather than a hard failure); on `Right(schema)`, it
+ *  projects fields via `SchemaInferenceFacade.toDataFields`, persists a new `DataType`, and returns
+ *  `dataType = Some(...)` with `fetchError = None`. `err` is forwarded unmodified — the helper never
+ *  re-wraps, re-prefixes, or re-derives the HEL-311 curated category message an implementation's
+ *  `inferSchema` already produced.
  */
 trait Connector[Config] {
 

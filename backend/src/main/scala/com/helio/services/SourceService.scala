@@ -3,8 +3,6 @@ package com.helio.services
 import com.helio.api.protocols.{
   CreateSourceRequest,
   CreateSourceResponse,
-  DataSourceResponse,
-  DataTypeResponse,
   InferredFieldResponse,
   InferredSchemaResponse,
   PreviewSourceResponse,
@@ -57,33 +55,7 @@ final class SourceService(
           config    = sqlConfig
         )
         dataSourceRepo.insert(source, user).flatMap { inserted =>
-          SqlConnector.inferSchema(sqlConfig).flatMap {
-            case Left(err) =>
-              Future.successful(Right(CreateSourceResponse(
-                source     = DataSourceResponse.fromDomain(inserted),
-                dataType   = None,
-                fetchError = Some(err)
-              )))
-            case Right(schema) =>
-              val fields = SchemaInferenceFacade.toDataFields(schema)
-              val dt = DataType(
-                id        = DataTypeId(UUID.randomUUID().toString),
-                sourceId  = Some(inserted.id),
-                name      = inserted.name,
-                fields    = fields,
-                version   = 1,
-                createdAt = now,
-                updatedAt = now,
-                ownerId   = user.id
-              )
-              dataTypeRepo.insert(dt, user).map { createdDt =>
-                Right(CreateSourceResponse(
-                  source     = DataSourceResponse.fromDomain(inserted),
-                  dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
-                  fetchError = None
-                ))
-              }
-          }
+          CreateSourceEnvelope.build(SqlConnector, sqlConfig, inserted, now, dataTypeRepo, user).map(Right(_))
         }
     }
   }
@@ -106,34 +78,8 @@ final class SourceService(
             config    = restConfig
           )
           dataSourceRepo.insert(source, user).flatMap { inserted =>
-            connector.inferSchema(restConfig).flatMap {
-              case Left(err) =>
-                Future.successful(Right(CreateSourceResponse(
-                  source     = DataSourceResponse.fromDomain(inserted),
-                  dataType   = None,
-                  fetchError = Some(err)
-                )))
-              case Right(schema) =>
-                val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-                val fields = SchemaInferenceFacade.toDataFields(schema, overridesMap)
-                val dt = DataType(
-                  id        = DataTypeId(UUID.randomUUID().toString),
-                  sourceId  = Some(inserted.id),
-                  name      = inserted.name,
-                  fields    = fields,
-                  version   = 1,
-                  createdAt = now,
-                  updatedAt = now,
-                  ownerId   = user.id
-                )
-                dataTypeRepo.insert(dt, user).map { createdDt =>
-                  Right(CreateSourceResponse(
-                    source     = DataSourceResponse.fromDomain(inserted),
-                    dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
-                    fetchError = None
-                  ))
-                }
-            }
+            val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
+            CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map(Right(_))
           }
         }
     }
