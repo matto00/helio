@@ -9,6 +9,7 @@ import com.helio.domain.{
   DateBucketConfig,
   DedupeConfig,
   ExtractHeadingsConfig,
+  FillNullConfig,
   FilterConfig,
   GroupByConfig,
   JoinConfig,
@@ -150,6 +151,12 @@ final case class DedupeAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Dedupe }
 
+final case class FillNullAnalyzeStepResponse(
+    id: String, position: Int, config: FillNullConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.FillNull }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -190,6 +197,7 @@ trait PipelineAnalyzeProtocol
   private val windowAnalyzeFormat: RootJsonFormat[WindowAnalyzeStepResponse] = jsonFormat6(WindowAnalyzeStepResponse.apply)
   private val unpivotAnalyzeFormat: RootJsonFormat[UnpivotAnalyzeStepResponse] = jsonFormat6(UnpivotAnalyzeStepResponse.apply)
   private val dedupeAnalyzeFormat: RootJsonFormat[DedupeAnalyzeStepResponse] = jsonFormat6(DedupeAnalyzeStepResponse.apply)
+  private val fillNullAnalyzeFormat: RootJsonFormat[FillNullAnalyzeStepResponse] = jsonFormat6(FillNullAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -212,6 +220,7 @@ trait PipelineAnalyzeProtocol
         case w: WindowAnalyzeStepResponse => windowAnalyzeFormat.write(w).asJsObject
         case u: UnpivotAnalyzeStepResponse => unpivotAnalyzeFormat.write(u).asJsObject
         case d: DedupeAnalyzeStepResponse => dedupeAnalyzeFormat.write(d).asJsObject
+        case n: FillNullAnalyzeStepResponse => fillNullAnalyzeFormat.write(n).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -235,6 +244,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.Window))     => windowAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Unpivot))    => unpivotAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Dedupe))     => dedupeAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.FillNull))   => fillNullAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

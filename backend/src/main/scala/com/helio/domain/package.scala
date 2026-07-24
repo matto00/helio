@@ -44,6 +44,8 @@ package object domain {
   val  UnpivotStep    = steps.UnpivotStep
   type DedupeStep     = steps.DedupeStep
   val  DedupeStep     = steps.DedupeStep
+  type FillNullStep   = steps.FillNullStep
+  val  FillNullStep   = steps.FillNullStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -90,4 +92,6 @@ package object domain {
   val  UnpivotConfig    = steps.UnpivotConfig
   type DedupeConfig     = steps.DedupeConfig
   val  DedupeConfig     = steps.DedupeConfig
+  type FillNullConfig   = steps.FillNullConfig
+  val  FillNullConfig   = steps.FillNullConfig
 }

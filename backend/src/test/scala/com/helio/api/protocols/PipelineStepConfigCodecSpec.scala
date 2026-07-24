@@ -127,6 +127,18 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("dedupe", raw).get shouldBe
         DedupeConfig(Vector("id", "region"), "last")
     }
+
+    "preserve fillnull config" in {
+      val raw = """{"columns":["price"],"strategy":"mean","value":null}"""
+      PipelineStepConfigCodec.decode("fillnull", raw).get shouldBe
+        FillNullConfig(Vector("price"), "mean", None)
+    }
+
+    "preserve fillnull config with a constant value" in {
+      val raw = """{"columns":["region"],"strategy":"constant","value":"unknown"}"""
+      PipelineStepConfigCodec.decode("fillnull", raw).get shouldBe
+        FillNullConfig(Vector("region"), "constant", Some("unknown"))
+    }
   }
 
   "tolerance" should {
@@ -215,6 +227,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         DedupeConfig(Vector("id"), "first")
     }
 
+    "fillnull — decode({}) yields empty columns, empty strategy, and no value default" in {
+      PipelineStepConfigCodec.decode("fillnull", "{}").get shouldBe
+        FillNullConfig(Vector.empty, "", None)
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -258,7 +275,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "pivot"      -> PivotConfig(Vector("region"), "product", "revenue", "sum"),
         "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None),
         "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"),
-        "dedupe"     -> DedupeConfig(Vector("id"), "last")
+        "dedupe"     -> DedupeConfig(Vector("id"), "last"),
+        "fillnull"   -> FillNullConfig(Vector("price"), "mean", None)
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

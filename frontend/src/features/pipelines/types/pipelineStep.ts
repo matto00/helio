@@ -109,6 +109,12 @@ export interface DedupeConfig {
   keys: string[];
   keep: "first" | "last";
 }
+export type FillNullStrategy = "constant" | "forwardFill" | "mean" | "median" | "mode";
+export interface FillNullConfig {
+  columns: string[];
+  strategy: FillNullStrategy;
+  value?: string | null;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -190,6 +196,10 @@ export interface DedupeStep extends BasePipelineStep {
   type: "dedupe";
   config: DedupeConfig;
 }
+export interface FillNullStep extends BasePipelineStep {
+  type: "fillnull";
+  config: FillNullConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -209,7 +219,8 @@ export type PipelineStep =
   | PivotStep
   | WindowStep
   | UnpivotStep
-  | DedupeStep;
+  | DedupeStep
+  | FillNullStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -229,7 +240,8 @@ export type PipelineStepConfig =
   | PivotConfig
   | WindowConfig
   | UnpivotConfig
-  | DedupeConfig;
+  | DedupeConfig
+  | FillNullConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -320,6 +332,10 @@ export interface DedupeAnalyzeStep extends BaseAnalyzeStep {
   type: "dedupe";
   config: DedupeConfig;
 }
+export interface FillNullAnalyzeStep extends BaseAnalyzeStep {
+  type: "fillnull";
+  config: FillNullConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -339,7 +355,8 @@ export type AnalyzeStepResult =
   | PivotAnalyzeStep
   | WindowAnalyzeStep
   | UnpivotAnalyzeStep
-  | DedupeAnalyzeStep;
+  | DedupeAnalyzeStep
+  | FillNullAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

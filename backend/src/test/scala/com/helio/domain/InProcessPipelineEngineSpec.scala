@@ -48,6 +48,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: WindowConfig    => WindowStep(id, pid, 0, c, now, now)
       case c: UnpivotConfig   => UnpivotStep(id, pid, 0, c, now, now)
       case c: DedupeConfig    => DedupeStep(id, pid, 0, c, now, now)
+      case c: FillNullConfig  => FillNullStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -1181,6 +1182,127 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val step = makeStep("dedupe", cfg)
       val result = run(rows, step)
       result.map(_("id")) shouldBe Seq(3.0, 1.0, 2.0)
+    }
+
+    // ── fillnull op (HEL-388) ──────────────────────────────────────────────────
+
+    "fillnull: constant strategy fills only null cells" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> null, "v" -> 1.0),
+        Map[String, Any]("region" -> "east", "v" -> 2.0)
+      )
+      val cfg  = """{ "columns": ["region"], "strategy": "constant", "value": "unknown" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(
+        Map[String, Any]("region" -> "unknown", "v" -> 1.0),
+        Map[String, Any]("region" -> "east", "v" -> 2.0)
+      )
+    }
+
+    "fillnull: constant strategy treats a missing key as null" in {
+      val rows = Seq(Map[String, Any]("v" -> 1.0))
+      val cfg  = """{ "columns": ["region"], "strategy": "constant", "value": "unknown" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("region" -> "unknown", "v" -> 1.0))
+    }
+
+    "fillnull: constant strategy without a value fails with a descriptive error" in {
+      val rows = Seq(Map[String, Any]("region" -> null))
+      val cfg  = """{ "columns": ["region"], "strategy": "constant" }"""
+      val step = makeStep("fillnull", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("value")
+    }
+
+    "fillnull: columns not listed are untouched" in {
+      val rows = Seq(Map[String, Any]("region" -> null, "other" -> null))
+      val cfg  = """{ "columns": ["region"], "strategy": "constant", "value": "x" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("region" -> "x", "other" -> null))
+    }
+
+    "fillnull: forwardFill carries the last non-null value in original row order" in {
+      val rows = Seq(
+        Map[String, Any]("price" -> 10.0),
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> 20.0)
+      )
+      val cfg  = """{ "columns": ["price"], "strategy": "forwardFill" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("price")) shouldBe Seq(10.0, 10.0, 10.0, 20.0)
+    }
+
+    "fillnull: forwardFill leaves a leading null region null" in {
+      val rows = Seq(
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> 5.0)
+      )
+      val cfg  = """{ "columns": ["price"], "strategy": "forwardFill" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("price")) shouldBe Seq(null, null, 5.0)
+    }
+
+    "fillnull: mean strategy imputes the column mean of non-null values" in {
+      val rows = Seq(
+        Map[String, Any]("price" -> 10.0),
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> 20.0)
+      )
+      val cfg  = """{ "columns": ["price"], "strategy": "mean" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("price")) shouldBe Seq(10.0, 15.0, 20.0)
+    }
+
+    "fillnull: median strategy imputes the column median of non-null values" in {
+      val rows = Seq(
+        Map[String, Any]("price" -> 1.0),
+        Map[String, Any]("price" -> 3.0),
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> 100.0)
+      )
+      val cfg  = """{ "columns": ["price"], "strategy": "median" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("price")) shouldBe Seq(1.0, 3.0, 3.0, 100.0)
+    }
+
+    "fillnull: mode strategy imputes the most frequent value, ties broken by first-encountered" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "east"),
+        Map[String, Any]("region" -> "west"),
+        Map[String, Any]("region" -> null)
+      )
+      val cfg  = """{ "columns": ["region"], "strategy": "mode" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("region")) shouldBe Seq("east", "west", "east")
+    }
+
+    "fillnull: all-null column stays null under a statistic strategy" in {
+      val rows = Seq(
+        Map[String, Any]("price" -> null),
+        Map[String, Any]("price" -> null)
+      )
+      val cfg  = """{ "columns": ["price"], "strategy": "mean" }"""
+      val step = makeStep("fillnull", cfg)
+      val result = run(rows, step)
+      result.map(_("price")) shouldBe Seq(null, null)
+    }
+
+    "fillnull: unsupported strategy fails with a descriptive error naming the invalid value" in {
+      val rows = Seq(Map[String, Any]("a" -> null))
+      val cfg  = """{ "columns": ["a"], "strategy": "bogus" }"""
+      val step = makeStep("fillnull", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("bogus")
     }
 
     // ── splittext op (HEL-219) ─────────────────────────────────────────────────
