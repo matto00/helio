@@ -121,6 +121,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("unpivot", raw).get shouldBe
         UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount")
     }
+
+    "preserve dedupe config" in {
+      val raw = """{"keys":["id","region"],"keep":"last"}"""
+      PipelineStepConfigCodec.decode("dedupe", raw).get shouldBe
+        DedupeConfig(Vector("id", "region"), "last")
+    }
   }
 
   "tolerance" should {
@@ -199,6 +205,16 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         UnpivotConfig(Vector.empty, Vector.empty, "variable", "value")
     }
 
+    "dedupe — decode({}) yields empty keys and keep=first default" in {
+      PipelineStepConfigCodec.decode("dedupe", "{}").get shouldBe
+        DedupeConfig(Vector.empty, "first")
+    }
+
+    "dedupe — malformed keep value falls back to first (only the literal 'last' selects last-occurrence)" in {
+      PipelineStepConfigCodec.decode("dedupe", """{"keys":["id"],"keep":"bogus"}""").get shouldBe
+        DedupeConfig(Vector("id"), "first")
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -241,7 +257,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "datebucket" -> DateBucketConfig("ts", "month", Some("ts_month")),
         "pivot"      -> PivotConfig(Vector("region"), "product", "revenue", "sum"),
         "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None),
-        "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount")
+        "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"),
+        "dedupe"     -> DedupeConfig(Vector("id"), "last")
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

@@ -17,6 +17,7 @@ import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ChunkByTokenCountConfig } from "./ChunkByTokenCountConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
 import { DateBucketConfig } from "./DateBucketConfig";
+import { DedupeConfig } from "./DedupeConfig";
 import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
@@ -98,6 +99,7 @@ export function StepCard({
     pivotConfig,
     windowConfig,
     unpivotConfig,
+    dedupeConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -113,6 +115,7 @@ export function StepCard({
     onPivotChange,
     onWindowChange,
     onUnpivotChange,
+    onDedupeChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -225,6 +228,12 @@ export function StepCard({
               config={unpivotConfig}
               analyzeSchema={analyzeSchema}
               onChange={onUnpivotChange}
+            />
+          ) : step.opType.id === "dedupe" ? (
+            <DedupeConfig
+              config={dedupeConfig}
+              analyzeColumns={analyzeColumns}
+              onChange={onDedupeChange}
             />
           ) : (
             <>

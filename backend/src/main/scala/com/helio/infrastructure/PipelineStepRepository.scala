@@ -216,6 +216,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
+      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"

@@ -108,6 +108,11 @@ final case class UnpivotStepResponse(
     createdAt: String, updatedAt: String, config: UnpivotConfig
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Unpivot }
 
+final case class DedupeStepResponse(
+    id: String, pipelineId: String, position: Int,
+    createdAt: String, updatedAt: String, config: DedupeConfig
+) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Dedupe }
+
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
@@ -136,6 +141,7 @@ object PipelineStepResponse {
     case s: PivotStep      => PivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: WindowStep     => WindowStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: UnpivotStep    => UnpivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
+    case s: DedupeStep     => DedupeStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
   }
 }
 
@@ -172,6 +178,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val pivotConfigFormat: RootJsonFormat[PivotConfig] = PivotConfig.format
   implicit val windowConfigFormat: RootJsonFormat[WindowConfig] = WindowConfig.format
   implicit val unpivotConfigFormat: RootJsonFormat[UnpivotConfig] = UnpivotConfig.format
+  implicit val dedupeConfigFormat: RootJsonFormat[DedupeConfig] = DedupeConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
@@ -191,6 +198,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val pivotStepResponseFormat: RootJsonFormat[PivotStepResponse] = jsonFormat6(PivotStepResponse.apply)
   private val windowStepResponseFormat: RootJsonFormat[WindowStepResponse] = jsonFormat6(WindowStepResponse.apply)
   private val unpivotStepResponseFormat: RootJsonFormat[UnpivotStepResponse] = jsonFormat6(UnpivotStepResponse.apply)
+  private val dedupeStepResponseFormat: RootJsonFormat[DedupeStepResponse] = jsonFormat6(DedupeStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -215,6 +223,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case p: PivotStepResponse      => pivotStepResponseFormat.write(p).asJsObject
         case w: WindowStepResponse     => windowStepResponseFormat.write(w).asJsObject
         case u: UnpivotStepResponse    => unpivotStepResponseFormat.write(u).asJsObject
+        case d: DedupeStepResponse     => dedupeStepResponseFormat.write(d).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -238,6 +247,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case Some(JsString(PipelineStepKind.Pivot))      => pivotStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Window))     => windowStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Unpivot))    => unpivotStepResponseFormat.read(json)
+        case Some(JsString(PipelineStepKind.Dedupe))     => dedupeStepResponseFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown PipelineStep type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on PipelineStep")
       }

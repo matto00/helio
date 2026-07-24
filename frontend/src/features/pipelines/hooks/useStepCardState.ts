@@ -17,6 +17,7 @@ import {
   chunkByTokenCountConfigOf,
   computeConfigOf,
   dateBucketConfigOf,
+  dedupeConfigOf,
   extractHeadingsConfigOf,
   filterConfigOf,
   limitCountOf,
@@ -34,6 +35,7 @@ import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
+import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
@@ -58,6 +60,7 @@ export interface StepCardStateHandlers {
   pivotConfig: PivotConfigValue;
   windowConfig: WindowConfigValue;
   unpivotConfig: UnpivotConfigValue;
+  dedupeConfig: DedupeConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -73,6 +76,7 @@ export interface StepCardStateHandlers {
   onPivotChange: (config: PivotConfigValue) => void;
   onWindowChange: (config: WindowConfigValue) => void;
   onUnpivotChange: (config: UnpivotConfigValue) => void;
+  onDedupeChange: (config: DedupeConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -114,6 +118,7 @@ export function useStepCardState(
   const [unpivotConfig, setUnpivotConfig] = useState<UnpivotConfigValue>(() =>
     unpivotConfigOf(step),
   );
+  const [dedupeConfig, setDedupeConfig] = useState<DedupeConfigValue>(() => dedupeConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -132,6 +137,7 @@ export function useStepCardState(
     setPivotConfig(pivotConfigOf(step));
     setWindowConfig(windowConfigOf(step));
     setUnpivotConfig(unpivotConfigOf(step));
+    setDedupeConfig(dedupeConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -255,6 +261,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onDedupeChange(newConfig: DedupeConfigValue) {
+    setDedupeConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -271,6 +282,7 @@ export function useStepCardState(
     pivotConfig,
     windowConfig,
     unpivotConfig,
+    dedupeConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -286,5 +298,6 @@ export function useStepCardState(
     onPivotChange,
     onWindowChange,
     onUnpivotChange,
+    onDedupeChange,
   };
 }

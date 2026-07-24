@@ -32,16 +32,17 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val pivot = PivotStep(id, pid, 0, PivotConfig(Vector("region"), "product", "revenue", "sum"), now, now)
   private val window = WindowStep(id, pid, 0, WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None), now, now)
   private val unpivot = UnpivotStep(id, pid, 0, UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"), now, now)
+  private val dedupe = DedupeStep(id, pid, 0, DedupeConfig(Vector("id"), "first"), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
-        "datebucket", "pivot", "window", "unpivot"
+        "datebucket", "pivot", "window", "unpivot", "dedupe"
       )
     }
 
@@ -78,6 +79,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       pivot.kind shouldBe PipelineStepKind.Pivot
       window.kind shouldBe PipelineStepKind.Window
       unpivot.kind shouldBe PipelineStepKind.Unpivot
+      dedupe.kind shouldBe PipelineStepKind.Dedupe
     }
 
     "every subtype carries the common base fields" in {
@@ -117,6 +119,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: PivotStep      => PipelineStepKind.Pivot
           case _: WindowStep     => PipelineStepKind.Window
           case _: UnpivotStep    => PipelineStepKind.Unpivot
+          case _: DedupeStep     => PipelineStepKind.Dedupe
         }
         tag shouldBe s.kind
       }

@@ -10,6 +10,8 @@ import com.helio.domain.{
   ComputeConfig,
   ComputeStep,
   DateBucketConfig,
+  DedupeConfig,
+  DedupeStep,
   DateBucketStep,
   ExtractHeadingsConfig,
   ExtractHeadingsStep,
@@ -101,6 +103,7 @@ object PipelineStepConfigCodec {
     case c: PivotConfig      => PipelineStep.Registry(PipelineStepKind.Pivot).encodeConfig(c)
     case c: WindowConfig     => PipelineStep.Registry(PipelineStepKind.Window).encodeConfig(c)
     case c: UnpivotConfig    => PipelineStep.Registry(PipelineStepKind.Unpivot).encodeConfig(c)
+    case c: DedupeConfig     => PipelineStep.Registry(PipelineStepKind.Dedupe).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -138,6 +141,7 @@ object PipelineStepConfigCodec {
     case s: PivotStep      => s.config
     case s: WindowStep     => s.config
     case s: UnpivotStep    => s.config
+    case s: DedupeStep     => s.config
   }
 
 }
