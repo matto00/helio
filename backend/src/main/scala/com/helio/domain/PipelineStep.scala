@@ -112,7 +112,8 @@ object PipelineStep {
     SplitTextStep.Kind -> SplitTextStep.companion,
     ExtractHeadingsStep.Kind -> ExtractHeadingsStep.companion,
     ChunkByTokenCountStep.Kind -> ChunkByTokenCountStep.companion,
-    DateBucketStep.Kind -> DateBucketStep.companion
+    DateBucketStep.Kind -> DateBucketStep.companion,
+    PivotStep.Kind -> PivotStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -145,6 +146,7 @@ object PipelineStepKind {
   val ExtractHeadings: String = ExtractHeadingsStep.Kind
   val ChunkByTokenCount: String = ChunkByTokenCountStep.Kind
   val DateBucket: String = DateBucketStep.Kind
+  val Pivot: String      = PivotStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

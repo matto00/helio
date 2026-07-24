@@ -36,6 +36,8 @@ package object domain {
   val  ChunkByTokenCountStep = steps.ChunkByTokenCountStep
   type DateBucketStep = steps.DateBucketStep
   val  DateBucketStep = steps.DateBucketStep
+  type PivotStep      = steps.PivotStep
+  val  PivotStep      = steps.PivotStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -74,4 +76,6 @@ package object domain {
   val  ChunkByTokenCountConfig = steps.ChunkByTokenCountConfig
   type DateBucketConfig = steps.DateBucketConfig
   val  DateBucketConfig = steps.DateBucketConfig
+  type PivotConfig      = steps.PivotConfig
+  val  PivotConfig      = steps.PivotConfig
 }

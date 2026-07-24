@@ -20,6 +20,7 @@ import {
   extractHeadingsConfigOf,
   filterConfigOf,
   limitCountOf,
+  pivotConfigOf,
   renamesOf,
   selectedFieldsOf,
   sortConfigOf,
@@ -33,6 +34,7 @@ import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
+import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 
@@ -49,6 +51,7 @@ export interface StepCardStateHandlers {
   extractHeadingsConfig: ExtractHeadingsConfigValue;
   chunkByTokenCountConfig: ChunkByTokenCountConfigValue;
   dateBucketConfig: DateBucketConfigValue;
+  pivotConfig: PivotConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -61,6 +64,7 @@ export interface StepCardStateHandlers {
   onExtractHeadingsChange: (config: ExtractHeadingsConfigValue) => void;
   onChunkByTokenCountChange: (config: ChunkByTokenCountConfigValue) => void;
   onDateBucketChange: (config: DateBucketConfigValue) => void;
+  onPivotChange: (config: PivotConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -97,6 +101,7 @@ export function useStepCardState(
   const [dateBucketConfig, setDateBucketConfig] = useState<DateBucketConfigValue>(() =>
     dateBucketConfigOf(step),
   );
+  const [pivotConfig, setPivotConfig] = useState<PivotConfigValue>(() => pivotConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -112,6 +117,7 @@ export function useStepCardState(
     setExtractHeadingsConfig(extractHeadingsConfigOf(step));
     setChunkByTokenCountConfig(chunkByTokenCountConfigOf(step));
     setDateBucketConfig(dateBucketConfigOf(step));
+    setPivotConfig(pivotConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -204,6 +210,11 @@ export function useStepCardState(
     });
   }
 
+  function onPivotChange(newConfig: PivotConfigValue) {
+    setPivotConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -217,6 +228,7 @@ export function useStepCardState(
     extractHeadingsConfig,
     chunkByTokenCountConfig,
     dateBucketConfig,
+    pivotConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -229,5 +241,6 @@ export function useStepCardState(
     onExtractHeadingsChange,
     onChunkByTokenCountChange,
     onDateBucketChange,
+    onPivotChange,
   };
 }
