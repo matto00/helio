@@ -157,6 +157,20 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "list_connectors",
+    {
+      title: "List connectors",
+      description:
+        "List every registered connector kind (csv/rest_api/sql/static/text/pdf/image) with its " +
+        "capability metadata: displayName, whether it supports incremental refresh, its auth model, " +
+        "and requiredFields (name/label/secret descriptors, no values). Call this before a " +
+        "create_*_data_source tool to learn what a connector kind needs.",
+      inputSchema: {},
+    },
+    () => guarded(() => api.listConnectors()),
+  );
+
+  server.registerTool(
     "get_workspace_context",
     {
       title: "Get workspace context",

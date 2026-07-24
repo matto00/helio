@@ -4,6 +4,18 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Describes a single required config field for a connector kind — name/label/secret-flag only,
+ *  never a value. Consumed by the HEL-484 connector registry to tell a caller (frontend or agent)
+ *  what a connector needs before it constructs a create request.
+ *
+ *  @param name   the config field's wire key, e.g. `"password"`, `"url"`
+ *  @param label  human-readable label, e.g. `"Password"`, `"URL"`
+ *  @param secret whether the field's value is a credential (password/token/api-key) that should
+ *                never be echoed back once set — mirrors the `HasSecrets`/`SecretField` seam
+ *                (HEL-460) that redacts these same fields at the response boundary
+ */
+final case class ConnectorFieldDescriptor(name: String, label: String, secret: Boolean)
+
 /** Static capability metadata for a `Connector[Config]` implementation.
  *  Describes properties of the connector kind itself (not a specific config
  *  instance) — consumed by the HEL-484 connector registry for aggregation.
@@ -15,19 +27,25 @@ import scala.concurrent.{ExecutionContext, Future}
  *  @param authKind            coarse auth model descriptor, e.g. `"basic"`, `"configurable"` —
  *                             kept as a plain `String` here; HEL-484 may widen this to a sealed
  *                             trait once the full set of connector auth needs is known
+ *  @param requiredFields      the connector kind's required config fields (HEL-484) — descriptors
+ *                             only, never values; defaults to `Vector.empty` so every pre-HEL-484
+ *                             4-arg construction site keeps compiling unchanged
  */
 final case class ConnectorMetadata(
     kind: String,
     displayName: String,
     supportsIncremental: Boolean,
-    authKind: String
+    authKind: String,
+    requiredFields: Vector[ConnectorFieldDescriptor] = Vector.empty
 )
 
 /** Shared lifecycle contract every v1.9 connector implements, generic over the connector's own
  *  config type (`Config`) rather than a common config supertype — each implementation keeps
  *  compile-time-checked access to its own config shape while still exposing a uniform method
- *  surface once callers hold a concrete `Connector[X]`. Registry aggregation (HEL-484) works
- *  against `Connector[_]` existentials for enumeration/metadata, which don't need the config type.
+ *  surface once callers hold a concrete `Connector[X]`. Registry aggregation (HEL-484) does NOT
+ *  hold `Connector[_]` existentials — it aggregates dependency-free static `ConnectorMetadata`
+ *  values instead (an `object`'s member, or a class's companion-object `val`), so enumerating
+ *  every kind never requires constructing an instance (`ActorSystem`, credentials, or otherwise).
  *
  *  '''Refresh semantics''': there is no distinct `refresh` method on this trait. The default
  *  refresh behavior for every connector is a full re-fetch via `fetch` — that's what

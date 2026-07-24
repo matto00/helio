@@ -167,13 +167,24 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
   // ── SqlConnector as Connector[SqlSourceConfig] (HEL-449 task 4.2) ─────────
 
   "SqlConnector.metadata" should {
-    "expose kind=sql, displayName=SQL Database, supportsIncremental=false, authKind=basic" in {
+    // HEL-484: requiredFields now non-empty (design.md Decision 2) — a
+    // behavior-driven update, the production value genuinely changed.
+    "expose kind=sql, displayName=SQL Database, supportsIncremental=false, authKind=basic, requiredFields matching SqlSourceConfigPayload" in {
       val asConnector: Connector[SqlSourceConfig] = SqlConnector
       asConnector.metadata shouldBe ConnectorMetadata(
         kind = "sql",
         displayName = "SQL Database",
         supportsIncremental = false,
-        authKind = "basic"
+        authKind = "basic",
+        requiredFields = Vector(
+          ConnectorFieldDescriptor(name = "dialect", label = "Dialect", secret = false),
+          ConnectorFieldDescriptor(name = "host", label = "Host", secret = false),
+          ConnectorFieldDescriptor(name = "port", label = "Port", secret = false),
+          ConnectorFieldDescriptor(name = "database", label = "Database", secret = false),
+          ConnectorFieldDescriptor(name = "user", label = "User", secret = false),
+          ConnectorFieldDescriptor(name = "password", label = "Password", secret = true),
+          ConnectorFieldDescriptor(name = "query", label = "Query", secret = false)
+        )
       )
     }
   }

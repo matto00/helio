@@ -13,6 +13,27 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
+/** Dependency-free companion object — see design.md Decision 1. `RestApiConnector` (the class)
+ *  requires an `ActorSystem` to construct, so its `ConnectorMetadata` value lives here instead,
+ *  reachable from `ConnectorRegistry`/`DataSourceKind.All`'s static call sites without
+ *  constructing an instance. */
+object RestApiConnector {
+  val metadata: ConnectorMetadata = ConnectorMetadata(
+    kind = "rest_api",
+    displayName = "REST API",
+    supportsIncremental = false,
+    authKind = "configurable",
+    // Matches RestApiConfigPayload's fields (DataSourceProtocol.scala) — only
+    // `url` is required; `method`/`auth`/`headers` are all `Option`. Auth
+    // credential fields (bearer token, api-key value) live inside the
+    // optional `auth` object, so they're not enumerated as top-level
+    // required fields here.
+    requiredFields = Vector(
+      ConnectorFieldDescriptor(name = "url", label = "URL", secret = false)
+    )
+  )
+}
+
 class RestApiConnector(
     fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None
 )(implicit system: ActorSystem[_])
@@ -20,12 +41,7 @@ class RestApiConnector(
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  val metadata: ConnectorMetadata = ConnectorMetadata(
-    kind = "rest_api",
-    displayName = "REST API",
-    supportsIncremental = false,
-    authKind = "configurable"
-  )
+  override val metadata: ConnectorMetadata = RestApiConnector.metadata
 
   private implicit val ec: ExecutionContext = system.executionContext
   private implicit val mat: Materializer    = Materializer(system)

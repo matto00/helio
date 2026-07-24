@@ -14,6 +14,64 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/service
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
 
+// HEL-484: SourceTypeToggle fetches GET /api/connectors on mount. Resolve
+// with the same 7-kind/order/label set the pre-registry hardcoded toggle
+// rendered, so every existing assertion here (which locates buttons by their
+// pre-registry labels) keeps passing unchanged.
+jest.mock("../services/connectorService", () => ({
+  listConnectors: jest.fn().mockResolvedValue([
+    {
+      kind: "rest_api",
+      displayName: "REST API",
+      supportsIncremental: false,
+      authKind: "configurable",
+      requiredFields: [{ name: "url", label: "URL", secret: false }],
+    },
+    {
+      kind: "csv",
+      displayName: "CSV File",
+      supportsIncremental: false,
+      authKind: "none",
+      requiredFields: [{ name: "path", label: "Path", secret: false }],
+    },
+    {
+      kind: "static",
+      displayName: "Manual",
+      supportsIncremental: false,
+      authKind: "none",
+      requiredFields: [],
+    },
+    {
+      kind: "sql",
+      displayName: "SQL Database",
+      supportsIncremental: false,
+      authKind: "basic",
+      requiredFields: [],
+    },
+    {
+      kind: "text",
+      displayName: "Text/Markdown",
+      supportsIncremental: false,
+      authKind: "none",
+      requiredFields: [],
+    },
+    {
+      kind: "pdf",
+      displayName: "PDF",
+      supportsIncremental: false,
+      authKind: "none",
+      requiredFields: [],
+    },
+    {
+      kind: "image",
+      displayName: "Image",
+      supportsIncremental: false,
+      authKind: "none",
+      requiredFields: [],
+    },
+  ]),
+}));
+
 jest.mock("../services/dataSourceService", () => ({
   fetchSources: jest.fn().mockResolvedValue([]),
   createCsvSource: jest.fn(),

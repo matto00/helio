@@ -19,6 +19,7 @@
 
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
+  ConnectorMetadataResponse,
   CreateSourceResult,
   CsvPreview,
   DashboardProposal,
@@ -218,6 +219,13 @@ export class HelioApi {
 
   analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
     return this.http.get<PipelineAnalyzeResponse>(`/api/pipelines/${pipelineId}/analyze`);
+  }
+
+  /** List every registered connector kind with its capability metadata (HEL-484) — what an agent
+   *  can connect to and what each kind needs (`requiredFields`), before calling a `create_*`
+   *  tool. No credential/secret values are ever included, only field descriptors. */
+  listConnectors(): Promise<ConnectorMetadataResponse[]> {
+    return this.http.get<ConnectorMetadataResponse[]>("/api/connectors");
   }
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────

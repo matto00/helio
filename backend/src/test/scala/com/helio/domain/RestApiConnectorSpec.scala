@@ -72,12 +72,15 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
   private val connector: Connector[RestApiConfig] = new RestApiConnector()
 
   "RestApiConnector.metadata" should {
-    "expose kind=rest_api, displayName=REST API, supportsIncremental=false, authKind=configurable" in {
+    // HEL-484: requiredFields now non-empty (design.md Decision 2) — a
+    // behavior-driven update, the production value genuinely changed.
+    "expose kind=rest_api, displayName=REST API, supportsIncremental=false, authKind=configurable, requiredFields=[url]" in {
       connector.metadata shouldBe ConnectorMetadata(
         kind = "rest_api",
         displayName = "REST API",
         supportsIncremental = false,
-        authKind = "configurable"
+        authKind = "configurable",
+        requiredFields = Vector(ConnectorFieldDescriptor(name = "url", label = "URL", secret = false))
       )
     }
   }

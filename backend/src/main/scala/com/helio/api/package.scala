@@ -241,4 +241,10 @@ package object api {
   val PipelineScheduleResponse: protocols.PipelineScheduleResponse.type = protocols.PipelineScheduleResponse
   type PutPipelineScheduleRequest = protocols.PutPipelineScheduleRequest
   val PutPipelineScheduleRequest: protocols.PutPipelineScheduleRequest.type = protocols.PutPipelineScheduleRequest
+
+  // Connector registry (HEL-484)
+  type ConnectorFieldDescriptorResponse = protocols.ConnectorFieldDescriptorResponse
+  val ConnectorFieldDescriptorResponse: protocols.ConnectorFieldDescriptorResponse.type = protocols.ConnectorFieldDescriptorResponse
+  type ConnectorMetadataResponse = protocols.ConnectorMetadataResponse
+  val ConnectorMetadataResponse: protocols.ConnectorMetadataResponse.type = protocols.ConnectorMetadataResponse
 }
