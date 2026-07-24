@@ -139,6 +139,18 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("fillnull", raw).get shouldBe
         FillNullConfig(Vector("region"), "constant", Some("unknown"))
     }
+
+    "preserve stringops config for split" in {
+      val raw = """{"operation":"split","field":"path","outputColumn":"segment","pattern":null,"separator":"/","index":1,"fields":null}"""
+      PipelineStepConfigCodec.decode("stringops", raw).get shouldBe
+        StringOpsConfig("split", "path", "segment", None, Some("/"), Some(1), None)
+    }
+
+    "preserve stringops config for concat" in {
+      val raw = """{"operation":"concat","field":"","outputColumn":"fullName","pattern":null,"separator":" ","index":null,"fields":["first","last"]}"""
+      PipelineStepConfigCodec.decode("stringops", raw).get shouldBe
+        StringOpsConfig("concat", "", "fullName", None, Some(" "), None, Some(Vector("first", "last")))
+    }
   }
 
   "tolerance" should {
@@ -232,6 +244,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         FillNullConfig(Vector.empty, "", None)
     }
 
+    "stringops — decode({}) yields empty operation/field/outputColumn and no optional params (tolerant decode; fails at execute time per the standard contract)" in {
+      PipelineStepConfigCodec.decode("stringops", "{}").get shouldBe
+        StringOpsConfig("", "", "", None, None, None, None)
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -276,7 +293,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None),
         "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"),
         "dedupe"     -> DedupeConfig(Vector("id"), "last"),
-        "fillnull"   -> FillNullConfig(Vector("price"), "mean", None)
+        "fillnull"   -> FillNullConfig(Vector("price"), "mean", None),
+        "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None)
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

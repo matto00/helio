@@ -155,7 +155,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Add pipeline step",
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
-        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull; `config` shape is " +
+        "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
+        "stringops; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -195,7 +196,21 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "(mean/median coerce numerically, non-numeric values excluded; mode uses raw values, ties " +
         "broken by first-encountered order) and use it to fill every null cell in that column — an " +
         "all-null column stays null, never a hard failure. Schema-preserving — output schema equals " +
-        "input schema (identity, like cast). Use analyze_pipeline to " +
+        "input schema (identity, like cast); " +
+        "stringops → {operation: 'trim'|'upper'|'lower'|'split'|'extractRegex'|'concat', field, " +
+        "outputColumn, pattern?, separator?, index?, fields?} — a per-value column transform " +
+        "writing a derived string to `outputColumn` (row count unchanged; distinct from the " +
+        "row-exploding `splittext` op). `outputColumn` equal to `field` overwrites the source " +
+        "column in place, otherwise appends a distinct column — and DOES appear in " +
+        "analyze_pipeline's output schema, typed string. `trim`/`upper`/`lower` transform `field`'s " +
+        "value directly (null/absent `field` yields null). `split` splits `field`'s value by the " +
+        "literal (non-regex) `separator` and takes the `index`-th segment (both required; an " +
+        "out-of-bounds `index` yields null for that row). `extractRegex` extracts `pattern`'s first " +
+        "capturing group from `field`'s value (`pattern` MUST contain a capturing group — fails at " +
+        "execute time otherwise; no match yields null). `concat` joins `fields` (string[]) with " +
+        "`separator`, treating a null/missing field as an empty string (never whole-output null) — " +
+        "`field` is unused by concat. An unsupported `operation` fails at execute time naming the " +
+        "six supported values. Use analyze_pipeline to " +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),

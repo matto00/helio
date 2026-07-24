@@ -37,6 +37,8 @@ import com.helio.domain.{
   SortStep,
   SplitTextConfig,
   SplitTextStep,
+  StringOpsConfig,
+  StringOpsStep,
   UnpivotConfig,
   UnpivotStep,
   WindowConfig,
@@ -107,6 +109,7 @@ object PipelineStepConfigCodec {
     case c: UnpivotConfig    => PipelineStep.Registry(PipelineStepKind.Unpivot).encodeConfig(c)
     case c: DedupeConfig     => PipelineStep.Registry(PipelineStepKind.Dedupe).encodeConfig(c)
     case c: FillNullConfig   => PipelineStep.Registry(PipelineStepKind.FillNull).encodeConfig(c)
+    case c: StringOpsConfig  => PipelineStep.Registry(PipelineStepKind.StringOps).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -146,6 +149,7 @@ object PipelineStepConfigCodec {
     case s: UnpivotStep    => s.config
     case s: DedupeStep     => s.config
     case s: FillNullStep   => s.config
+    case s: StringOpsStep  => s.config
   }
 
 }

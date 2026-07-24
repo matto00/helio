@@ -77,6 +77,7 @@ object PipelineAnalyzeService {
       case "pivot"                      => inferPivot(config, inputSchema)
       case "window"                     => inferWindow(config, inputSchema)
       case "unpivot"                    => inferUnpivot(config, inputSchema)
+      case "stringops"                  => inferStringOps(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -392,6 +393,23 @@ object PipelineAnalyzeService {
         log.warn("unpivot config error", ex)
         (inputSchema, Some("unpivot config error"))
     }
+
+  /** stringops (HEL-389) — design.md decision 8: joins the append-or-replace
+   *  family (`datebucket`/`window`) rather than the identity-passthrough
+   *  group, since `stringops` always types `outputColumn` as `string`.
+   *  Output schema = input schema with `outputColumn` typed `string`:
+   *  replace-in-place if `outputColumn` already exists in `inputSchema`
+   *  (including the `outputColumn == field` overwrite case), append if new
+   *  (`filterNot` + `:+`, the same collision-safe shape `inferDateBucket`/
+   *  `inferWindow` use). No field-existence validation is performed on
+   *  `field`/`fields` at analyze time — like `datebucket`, `stringops`
+   *  accepts any scalar field and null-coerces unparseable/missing values at
+   *  execute time rather than rejecting at analyze time. */
+  private def inferStringOps(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    parseConfig("stringops", config) { json =>
+      val outputColumn = json.fields("outputColumn").convertTo[String]
+      inputSchema.filterNot(_.name == outputColumn) :+ SchemaField(name = outputColumn, `type` = "string")
+    } (inputSchema)
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

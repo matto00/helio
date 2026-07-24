@@ -27,6 +27,7 @@ import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 import { SplitTextConfig } from "./SplitTextConfig";
+import { StringOpsConfig } from "./StringOpsConfig";
 import { UnpivotConfig } from "./UnpivotConfig";
 import { WindowConfig } from "./WindowConfig";
 
@@ -102,6 +103,7 @@ export function StepCard({
     unpivotConfig,
     dedupeConfig,
     fillNullConfig,
+    stringOpsConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -119,6 +121,7 @@ export function StepCard({
     onUnpivotChange,
     onDedupeChange,
     onFillNullChange,
+    onStringOpsChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -243,6 +246,13 @@ export function StepCard({
               config={fillNullConfig}
               analyzeColumns={analyzeColumns}
               onChange={onFillNullChange}
+            />
+          ) : step.opType.id === "stringops" ? (
+            <StringOpsConfig
+              config={stringOpsConfig}
+              analyzeSchema={analyzeSchema}
+              analyzeColumns={analyzeColumns}
+              onChange={onStringOpsChange}
             />
           ) : (
             <>

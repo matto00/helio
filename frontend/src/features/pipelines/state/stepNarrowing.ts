@@ -15,6 +15,7 @@ import {
   faClone,
   faFilter,
   faFillDrip,
+  faFont,
   faHeading,
   faLayerGroup,
   faLink,
@@ -44,6 +45,7 @@ import type {
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
   SplitTextConfig as SplitTextConfigType,
+  StringOpsConfig as StringOpsConfigType,
   UnpivotConfig as UnpivotConfigType,
   WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
@@ -59,6 +61,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import { STRING_OPS_OPERATIONS, type StringOpsConfigValue } from "../ui/StringOpsConfig";
 import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 
@@ -83,6 +86,7 @@ export const OP_TYPES: OpType[] = [
   { id: "unpivot", label: "Unpivot (wide → long)", icon: faTableList },
   { id: "dedupe", label: "Dedupe rows", icon: faClone },
   { id: "fillnull", label: "Fill null / impute", icon: faFillDrip },
+  { id: "stringops", label: "String operation", icon: faFont },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -159,6 +163,16 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       return { keys: [], keep: "first" } as DedupeConfigType;
     case "fillnull":
       return { columns: [], strategy: "constant", value: null } as FillNullConfigType;
+    case "stringops":
+      return {
+        operation: "trim",
+        field: "",
+        outputColumn: "",
+        pattern: null,
+        separator: null,
+        index: null,
+        fields: null,
+      } as StringOpsConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -367,6 +381,32 @@ export function fillNullConfigOf(step: Step): FillNullConfigValue {
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],
     strategy,
     value: cfg.value ?? null,
+  };
+}
+
+export function stringOpsConfigOf(step: Step): StringOpsConfigValue {
+  const empty: StringOpsConfigValue = {
+    operation: "trim",
+    field: "",
+    outputColumn: "",
+    pattern: "",
+    separator: "",
+    index: 0,
+    fields: [],
+  };
+  if (step.opType.id !== "stringops") return empty;
+  const cfg = step.config as StringOpsConfigType;
+  const operation = (STRING_OPS_OPERATIONS as readonly string[]).includes(cfg.operation)
+    ? cfg.operation
+    : "trim";
+  return {
+    operation,
+    field: cfg.field ?? "",
+    outputColumn: cfg.outputColumn ?? "",
+    pattern: cfg.pattern ?? "",
+    separator: cfg.separator ?? "",
+    index: typeof cfg.index === "number" ? cfg.index : 0,
+    fields: Array.isArray(cfg.fields) ? cfg.fields : [],
   };
 }
 
