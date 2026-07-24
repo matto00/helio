@@ -20,6 +20,7 @@ import { DateBucketConfig } from "./DateBucketConfig";
 import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
+import { PivotConfig } from "./PivotConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
@@ -92,6 +93,7 @@ export function StepCard({
     extractHeadingsConfig,
     chunkByTokenCountConfig,
     dateBucketConfig,
+    pivotConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -104,6 +106,7 @@ export function StepCard({
     onExtractHeadingsChange,
     onChunkByTokenCountChange,
     onDateBucketChange,
+    onPivotChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -196,6 +199,13 @@ export function StepCard({
               config={dateBucketConfig}
               analyzeColumns={analyzeColumns}
               onChange={onDateBucketChange}
+            />
+          ) : step.opType.id === "pivot" ? (
+            <PivotConfig
+              config={pivotConfig}
+              analyzeSchema={analyzeSchema}
+              analyzeColumns={analyzeColumns}
+              onChange={onPivotChange}
             />
           ) : (
             <>

@@ -74,6 +74,7 @@ object PipelineAnalyzeService {
       case "extractheadings"            => inferExtractHeadings(config, inputSchema)
       case "chunkbytokencount"          => inferChunkByTokenCount(config, inputSchema)
       case "datebucket"                 => inferDateBucket(config, inputSchema)
+      case "pivot"                      => inferPivot(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -278,6 +279,44 @@ object PipelineAnalyzeService {
       val resolvedName = outputColumn.getOrElse(field)
       inputSchema.filterNot(_.name == resolvedName) :+ SchemaField(name = resolvedName, `type` = "date")
     } (inputSchema)
+
+  /** pivot (HEL-375) — design.md decision 5: the output schema is *only* the
+   *  `index` fields (types looked up by name in `inputSchema`); the dynamic
+   *  `<values>_<v>` columns are NOT enumerated because their names depend on
+   *  runtime data, which this schema-only pass never accesses. This is
+   *  expected behavior, not an error — `validationError` stays `None` as
+   *  long as `index`/`column`/`values` all name fields present in
+   *  `inputSchema`.
+   *
+   *  If any `index` field, or `column`, or `values` names a field absent
+   *  from `inputSchema`, a real `validationError` identifies the missing
+   *  field(s) and the output schema falls back to `inputSchema` unchanged
+   *  (identity fallback, matching every other op's failure contract — same
+   *  pattern as `inferSplitText`'s unknown-field check). */
+  private def inferPivot(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json   = config.parseJson.asJsObject
+      val index  = json.fields.get("index").map(_.convertTo[Vector[String]]).getOrElse(Vector.empty[String])
+      val column = json.fields.get("column").map(_.convertTo[String]).getOrElse("")
+      val values = json.fields.get("values").map(_.convertTo[String]).getOrElse("")
+
+      val schemaByName = inputSchema.map(f => f.name -> f).toMap
+      val missing = index.filterNot(schemaByName.contains) ++
+        Vector(column).filterNot(schemaByName.contains) ++
+        Vector(values).filterNot(schemaByName.contains)
+
+      if (missing.nonEmpty) {
+        (inputSchema, Some(s"Unknown field(s): ${missing.map(m => s"'$m'").mkString(", ")}"))
+      } else {
+        (index.map(name => SchemaField(name = name, `type` = schemaByName(name).`type`)), None)
+      }
+    } catch {
+      case ex: Exception =>
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("pivot config error", ex)
+        (inputSchema, Some("pivot config error"))
+    }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

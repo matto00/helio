@@ -19,6 +19,7 @@ import {
   faPencil,
   faRightLeft,
   faSquareCheck,
+  faTableCells,
 } from "@fortawesome/free-solid-svg-icons";
 
 import type {
@@ -32,6 +33,7 @@ import type {
   LimitConfig as LimitConfigType,
   PipelineStep,
   PipelineStepConfig,
+  PivotConfig as PivotConfigType,
   RenameConfig as RenameConfigType,
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
@@ -44,6 +46,7 @@ import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
+import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 
@@ -63,6 +66,7 @@ export const OP_TYPES: OpType[] = [
   { id: "extractheadings", label: "Extract headings", icon: faHeading },
   { id: "chunkbytokencount", label: "Chunk by token count", icon: faLayerGroup },
   { id: "datebucket", label: "Date bucket", icon: faCalendarWeek },
+  { id: "pivot", label: "Pivot (long → wide)", icon: faTableCells },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -119,6 +123,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       } as ChunkByTokenCountConfigType;
     case "datebucket":
       return { field: "", granularity: "day" } as DateBucketConfigType;
+    case "pivot":
+      return { index: [], column: "", values: "", agg: "sum" } as PivotConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -273,5 +279,18 @@ export function dateBucketConfigOf(step: Step): DateBucketConfigValue {
     field: cfg.field ?? "",
     granularity,
     outputColumn: cfg.outputColumn ?? "",
+  };
+}
+
+export function pivotConfigOf(step: Step): PivotConfigValue {
+  const empty: PivotConfigValue = { index: [], column: "", values: "", agg: "sum" };
+  if (step.opType.id !== "pivot") return empty;
+  const cfg = step.config as PivotConfigType;
+  const agg = (PIVOT_AGG_FNS as readonly string[]).includes(cfg.agg) ? cfg.agg : "sum";
+  return {
+    index: Array.isArray(cfg.index) ? cfg.index : [],
+    column: cfg.column ?? "",
+    values: cfg.values ?? "",
+    agg,
   };
 }

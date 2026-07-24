@@ -23,6 +23,8 @@ import com.helio.domain.{
   LimitStep,
   PipelineStep,
   PipelineStepKind,
+  PivotConfig,
+  PivotStep,
   RenameConfig,
   RenameStep,
   SelectConfig,
@@ -92,6 +94,7 @@ object PipelineStepConfigCodec {
     case c: ExtractHeadingsConfig => PipelineStep.Registry(PipelineStepKind.ExtractHeadings).encodeConfig(c)
     case c: ChunkByTokenCountConfig => PipelineStep.Registry(PipelineStepKind.ChunkByTokenCount).encodeConfig(c)
     case c: DateBucketConfig => PipelineStep.Registry(PipelineStepKind.DateBucket).encodeConfig(c)
+    case c: PivotConfig      => PipelineStep.Registry(PipelineStepKind.Pivot).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -126,6 +129,7 @@ object PipelineStepConfigCodec {
     case s: ExtractHeadingsStep => s.config
     case s: ChunkByTokenCountStep => s.config
     case s: DateBucketStep => s.config
+    case s: PivotStep      => s.config
   }
 
 }

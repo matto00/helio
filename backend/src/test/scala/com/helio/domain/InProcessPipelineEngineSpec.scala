@@ -44,6 +44,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: ExtractHeadingsConfig => ExtractHeadingsStep(id, pid, 0, c, now, now)
       case c: ChunkByTokenCountConfig => ChunkByTokenCountStep(id, pid, 0, c, now, now)
       case c: DateBucketConfig => DateBucketStep(id, pid, 0, c, now, now)
+      case c: PivotConfig     => PivotStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -437,6 +438,128 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       ex.getMessage should include ("month")
       ex.getMessage should include ("quarter")
       ex.getMessage should include ("year")
+    }
+
+    // HEL-375: pivot — reshapes long rows into wide rows grouped by index.
+    // See spec.md for the exact scenarios these mirror.
+
+    "pivot: basic pivot with sum" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0),
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 5.0),
+        Map[String, Any]("region" -> "west", "product" -> "gadgets", "revenue" -> 7.0),
+        Map[String, Any]("region" -> "east", "product" -> "widgets", "revenue" -> 3.0)
+      )
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"sum"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 2
+      val west = result.find(_("region") == "west").get
+      west("revenue_widgets") shouldBe 15.0
+      west("revenue_gadgets") shouldBe 7.0
+      val east = result.find(_("region") == "east").get
+      east("revenue_widgets") shouldBe 3.0
+      east.keys should not contain "revenue_gadgets"
+    }
+
+    "pivot: count agg counts non-null values cells" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0),
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> null)
+      )
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"count"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("revenue_widgets") shouldBe 1L
+    }
+
+    "pivot: avg agg averages numeric values" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0),
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 20.0)
+      )
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"avg"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("revenue_widgets") shouldBe 15.0
+    }
+
+    "pivot: min agg returns the minimum numeric value" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0),
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 3.0)
+      )
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"min"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("revenue_widgets") shouldBe 3.0
+    }
+
+    "pivot: max agg returns the maximum numeric value" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0),
+        Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 3.0)
+      )
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"max"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("revenue_widgets") shouldBe 10.0
+    }
+
+    "pivot: first agg returns the raw (un-coerced) values cell of the first matching row" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> "west", "status" -> "open", "label" -> "Needs Review"),
+        Map[String, Any]("region" -> "west", "status" -> "open", "label" -> "Second Label")
+      )
+      val cfg  = """{"index":["region"],"column":"status","values":"label","agg":"first"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("label_open") shouldBe "Needs Review"
+    }
+
+    "pivot: rows with a null column value don't block their index group's output row" in {
+      val rows = Seq(Map[String, Any]("region" -> "west", "product" -> null, "revenue" -> 10.0))
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"sum"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 1
+      result.head("region") shouldBe "west"
+      result.head.keys.count(_.startsWith("revenue_")) shouldBe 0
+    }
+
+    "pivot: unsupported agg fails at execute time with a descriptive error" in {
+      val rows = Seq(Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0))
+      val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"median"}"""
+      val step = makeStep("pivot", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include ("median")
+      ex.getMessage should include ("sum")
+      ex.getMessage should include ("count")
+      ex.getMessage should include ("avg")
+      ex.getMessage should include ("min")
+      ex.getMessage should include ("max")
+      ex.getMessage should include ("first")
+    }
+
+    "pivot: value column wins on collision with an index field name" in {
+      // Index field is literally named "revenue_west"; pivoting product="west"
+      // on values="revenue" also produces a "revenue_west" value column —
+      // design.md decision 2: the later-computed value column wins.
+      val rows = Seq(
+        Map[String, Any]("revenue_west" -> "placeholder", "product" -> "west", "revenue" -> 10.0)
+      )
+      val cfg  = """{"index":["revenue_west"],"column":"product","values":"revenue","agg":"sum"}"""
+      val step = makeStep("pivot", cfg)
+      val result = run(rows, step)
+
+      result.head("revenue_west") shouldBe 10.0
     }
 
     "join op: performs inner join on joinKey" in {

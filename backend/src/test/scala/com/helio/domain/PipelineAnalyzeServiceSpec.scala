@@ -471,6 +471,59 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── pivot inference (HEL-375) ────────────────────────────────────────────
+
+    "pivot — output schema is index-only, no false validation error" in {
+      val steps  = Vector(step("pivot", """{"index":["order_id"],"column":"created_at","values":"amount","agg":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"))
+    }
+
+    "pivot — unknown index field yields a real validation error" in {
+      val steps  = Vector(step("pivot", """{"index":["nonexistent"],"column":"created_at","values":"amount","agg":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).validationError.get should include ("nonexistent")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "pivot — unknown column field yields a real validation error" in {
+      val steps  = Vector(step("pivot", """{"index":["order_id"],"column":"missingCol","values":"amount","agg":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).validationError.get should include ("missingCol")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "pivot — unknown values field yields a real validation error" in {
+      val steps  = Vector(step("pivot", """{"index":["order_id"],"column":"created_at","values":"missingVals","agg":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).validationError.get should include ("missingVals")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "pivot — multiple index fields all carry their looked-up types" in {
+      val steps  = Vector(step("pivot", """{"index":["order_id","amount"],"column":"created_at","values":"amount","agg":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("amount", "number"))
+    }
+
+    "pivot — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("pivot", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {

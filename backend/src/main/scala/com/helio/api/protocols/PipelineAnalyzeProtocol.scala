@@ -13,6 +13,7 @@ import com.helio.domain.{
   JoinConfig,
   LimitConfig,
   PipelineStepKind,
+  PivotConfig,
   RenameConfig,
   SelectConfig,
   SortConfig,
@@ -122,6 +123,12 @@ final case class DateBucketAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.DateBucket }
 
+final case class PivotAnalyzeStepResponse(
+    id: String, position: Int, config: PivotConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Pivot }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -158,6 +165,7 @@ trait PipelineAnalyzeProtocol
   private val extractHeadingsAnalyzeFormat: RootJsonFormat[ExtractHeadingsAnalyzeStepResponse] = jsonFormat6(ExtractHeadingsAnalyzeStepResponse.apply)
   private val chunkByTokenCountAnalyzeFormat: RootJsonFormat[ChunkByTokenCountAnalyzeStepResponse] = jsonFormat6(ChunkByTokenCountAnalyzeStepResponse.apply)
   private val dateBucketAnalyzeFormat: RootJsonFormat[DateBucketAnalyzeStepResponse] = jsonFormat6(DateBucketAnalyzeStepResponse.apply)
+  private val pivotAnalyzeFormat: RootJsonFormat[PivotAnalyzeStepResponse] = jsonFormat6(PivotAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -176,6 +184,7 @@ trait PipelineAnalyzeProtocol
         case e: ExtractHeadingsAnalyzeStepResponse => extractHeadingsAnalyzeFormat.write(e).asJsObject
         case k: ChunkByTokenCountAnalyzeStepResponse => chunkByTokenCountAnalyzeFormat.write(k).asJsObject
         case d: DateBucketAnalyzeStepResponse => dateBucketAnalyzeFormat.write(d).asJsObject
+        case p: PivotAnalyzeStepResponse => pivotAnalyzeFormat.write(p).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -195,6 +204,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.ExtractHeadings)) => extractHeadingsAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.ChunkByTokenCount)) => chunkByTokenCountAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.DateBucket)) => dateBucketAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.Pivot))      => pivotAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }
