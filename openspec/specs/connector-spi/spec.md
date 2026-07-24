@@ -47,16 +47,21 @@ or their behavior.
 
 ### Requirement: Connector capability metadata
 Every `Connector[Config]` implementation SHALL expose a `metadata: ConnectorMetadata` value with
-fields `kind: String`, `displayName: String`, `supportsIncremental: Boolean`, and `authKind: String`,
-describing static capabilities of the connector (not a specific config instance).
+fields `kind: String`, `displayName: String`, `supportsIncremental: Boolean`, `authKind: String`, and
+`requiredFields: Vector[ConnectorFieldDescriptor]` (each descriptor carrying `name: String`,
+`label: String`, `secret: Boolean`, describing a required config field with no value), describing
+static capabilities of the connector (not a specific config instance).
 
 #### Scenario: SqlConnector exposes metadata
 - **WHEN** `SqlConnector.metadata` is read
-- **THEN** it returns a `ConnectorMetadata` with `kind == "sql"`, `supportsIncremental == false`
+- **THEN** it returns a `ConnectorMetadata` with `kind == "sql"`, `supportsIncremental == false`, and
+  `requiredFields` containing an entry named `password` with `secret == true`
 
 #### Scenario: RestApiConnector exposes metadata
-- **WHEN** a `RestApiConnector` instance's `metadata` is read
-- **THEN** it returns a `ConnectorMetadata` with `kind == "rest_api"`, `supportsIncremental == false`
+- **WHEN** `RestApiConnector.metadata` (the companion object's dependency-free `val`) or a
+  `RestApiConnector` instance's `metadata` member (which delegates to it) is read
+- **THEN** it returns a `ConnectorMetadata` with `kind == "rest_api"`, `supportsIncremental == false`,
+  and `requiredFields` containing an entry named `url` with `secret == false`
 
 ### Requirement: testConnection is a cheap reachability check
 `testConnection` SHALL NOT perform a full data fetch. For SQL, it SHALL open and close a JDBC
