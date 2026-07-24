@@ -43,6 +43,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: SplitTextConfig => SplitTextStep(id, pid, 0, c, now, now)
       case c: ExtractHeadingsConfig => ExtractHeadingsStep(id, pid, 0, c, now, now)
       case c: ChunkByTokenCountConfig => ChunkByTokenCountStep(id, pid, 0, c, now, now)
+      case c: DateBucketConfig => DateBucketStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -345,6 +346,97 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val step = makeStep("cast", cfg)
       val result = run(rows, step)
       result.head("flag") shouldBe true
+    }
+
+    // HEL-378: datebucket — floors a timestamp field to the start of a
+    // granularity bucket. See spec.md for the exact scenarios these mirror.
+
+    "datebucket: floors to day" in {
+      val rows = Seq(Map("ts" -> "2026-03-17T14:32:00Z".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "day" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-03-17"
+    }
+
+    "datebucket: floors to the Monday of the ISO week (week boundary policy: Monday, not Sunday)" in {
+      val rows = Seq(Map("ts" -> "2026-03-19".asInstanceOf[Any])) // a Thursday
+      val cfg  = """{ "field": "ts", "granularity": "week" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-03-16"
+    }
+
+    "datebucket: floors to the first of the month" in {
+      val rows = Seq(Map("ts" -> "2026-03-17".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "month" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-03-01"
+    }
+
+    "datebucket: floors to the start of the quarter" in {
+      val rows = Seq(Map("ts" -> "2026-08-05".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "quarter" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-07-01"
+    }
+
+    "datebucket: floors to the start of the year" in {
+      val rows = Seq(Map("ts" -> "2026-08-05".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "year" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-01-01"
+    }
+
+    "datebucket: parses epoch-seconds input" in {
+      val rows = Seq(Map("ts" -> "1771286400".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "day" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe a [String]
+      result.head("ts").asInstanceOf[String] should fullyMatch regex """\d{4}-\d{2}-\d{2}"""
+    }
+
+    "datebucket: parses epoch-milliseconds input (magnitude > 10 digits)" in {
+      val rows = Seq(Map("ts" -> "1771286400000".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "day" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts") shouldBe "2026-02-17"
+    }
+
+    "datebucket: outputColumn writes to a new field, preserving the source field" in {
+      val rows = Seq(Map("ts" -> "2026-03-17T00:00:00Z".asInstanceOf[Any], "name" -> "foo"))
+      val cfg  = """{ "field": "ts", "granularity": "month", "outputColumn": "ts_month" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts")       shouldBe "2026-03-17T00:00:00Z"
+      result.head("ts_month") shouldBe "2026-03-01"
+      result.head("name")     shouldBe "foo"
+    }
+
+    "datebucket: unparseable value yields null" in {
+      val rows = Seq(Map("ts" -> "not-a-date".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "day" }"""
+      val step = makeStep("datebucket", cfg)
+      val result = run(rows, step)
+      result.head("ts").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "datebucket: unsupported granularity fails at execute time with a descriptive error" in {
+      val rows = Seq(Map("ts" -> "2026-03-17".asInstanceOf[Any]))
+      val cfg  = """{ "field": "ts", "granularity": "fortnight" }"""
+      val step = makeStep("datebucket", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include ("fortnight")
+      ex.getMessage should include ("day")
+      ex.getMessage should include ("week")
+      ex.getMessage should include ("month")
+      ex.getMessage should include ("quarter")
+      ex.getMessage should include ("year")
     }
 
     "join op: performs inner join on joinKey" in {

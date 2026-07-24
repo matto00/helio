@@ -79,6 +79,11 @@ export interface ChunkByTokenCountConfig {
   indexField: string;
   tokenCountField: string;
 }
+export interface DateBucketConfig {
+  field: string;
+  granularity: "day" | "week" | "month" | "quarter" | "year";
+  outputColumn?: string | null;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -140,6 +145,10 @@ export interface ChunkByTokenCountStep extends BasePipelineStep {
   type: "chunkbytokencount";
   config: ChunkByTokenCountConfig;
 }
+export interface DateBucketStep extends BasePipelineStep {
+  type: "datebucket";
+  config: DateBucketConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -154,7 +163,8 @@ export type PipelineStep =
   | AggregateStep
   | SplitTextStep
   | ExtractHeadingsStep
-  | ChunkByTokenCountStep;
+  | ChunkByTokenCountStep
+  | DateBucketStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -169,7 +179,8 @@ export type PipelineStepConfig =
   | AggregateConfig
   | SplitTextConfig
   | ExtractHeadingsConfig
-  | ChunkByTokenCountConfig;
+  | ChunkByTokenCountConfig
+  | DateBucketConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -240,6 +251,10 @@ export interface ChunkByTokenCountAnalyzeStep extends BaseAnalyzeStep {
   type: "chunkbytokencount";
   config: ChunkByTokenCountConfig;
 }
+export interface DateBucketAnalyzeStep extends BaseAnalyzeStep {
+  type: "datebucket";
+  config: DateBucketConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -254,7 +269,8 @@ export type AnalyzeStepResult =
   | AggregateAnalyzeStep
   | SplitTextAnalyzeStep
   | ExtractHeadingsAnalyzeStep
-  | ChunkByTokenCountAnalyzeStep;
+  | ChunkByTokenCountAnalyzeStep
+  | DateBucketAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

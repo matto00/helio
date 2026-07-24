@@ -10,6 +10,7 @@ import {
   faArrowsUpDown,
   faArrowUp,
   faCalculator,
+  faCalendarWeek,
   faChartColumn,
   faFilter,
   faHeading,
@@ -25,6 +26,7 @@ import type {
   CastConfig as CastConfigType,
   ChunkByTokenCountConfig as ChunkByTokenCountConfigType,
   ComputeConfig as ComputeConfigType,
+  DateBucketConfig as DateBucketConfigType,
   ExtractHeadingsConfig as ExtractHeadingsConfigType,
   FilterConfig as FilterConfigType,
   LimitConfig as LimitConfigType,
@@ -39,6 +41,7 @@ import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
+import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
@@ -59,6 +62,7 @@ export const OP_TYPES: OpType[] = [
   { id: "splittext", label: "Split text", icon: faAlignLeft },
   { id: "extractheadings", label: "Extract headings", icon: faHeading },
   { id: "chunkbytokencount", label: "Chunk by token count", icon: faLayerGroup },
+  { id: "datebucket", label: "Date bucket", icon: faCalendarWeek },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -113,6 +117,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         indexField: "chunkIndex",
         tokenCountField: "tokenCount",
       } as ChunkByTokenCountConfigType;
+    case "datebucket":
+      return { field: "", granularity: "day" } as DateBucketConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -253,5 +259,19 @@ export function chunkByTokenCountConfigOf(step: Step): ChunkByTokenCountConfigVa
     encoding: cfg.encoding === "cl100k_base" ? "cl100k_base" : "o200k_base",
     indexField: cfg.indexField ?? "chunkIndex",
     tokenCountField: cfg.tokenCountField ?? "tokenCount",
+  };
+}
+
+export function dateBucketConfigOf(step: Step): DateBucketConfigValue {
+  const empty: DateBucketConfigValue = { field: "", granularity: "day", outputColumn: "" };
+  if (step.opType.id !== "datebucket") return empty;
+  const cfg = step.config as DateBucketConfigType;
+  const granularity = (DATE_BUCKET_GRANULARITIES as readonly string[]).includes(cfg.granularity)
+    ? cfg.granularity
+    : "day";
+  return {
+    field: cfg.field ?? "",
+    granularity,
+    outputColumn: cfg.outputColumn ?? "",
   };
 }

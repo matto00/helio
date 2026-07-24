@@ -155,9 +155,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Add pipeline step",
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
-        "groupBy/cast/select/limit/sort/aggregate; `config` shape is keyed by `type` (e.g. " +
-        "limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}). Use " +
-        "analyze_pipeline to see each step's resulting output columns.",
+        "groupBy/cast/select/limit/sort/aggregate/datebucket; `config` shape is keyed by `type` " +
+        "(e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
+        "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
+        "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
+        "`outputColumn` if given, else overwriting `field` in place). Use analyze_pipeline to see " +
+        "each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),
