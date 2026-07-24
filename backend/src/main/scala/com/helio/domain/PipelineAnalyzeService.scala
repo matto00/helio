@@ -73,6 +73,7 @@ object PipelineAnalyzeService {
       case "splittext"                  => inferSplitText(config, inputSchema)
       case "extractheadings"            => inferExtractHeadings(config, inputSchema)
       case "chunkbytokencount"          => inferChunkByTokenCount(config, inputSchema)
+      case "datebucket"                 => inferDateBucket(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -260,6 +261,23 @@ object PipelineAnalyzeService {
         log.warn("chunkbytokencount config error", ex)
         (inputSchema, Some("chunkbytokencount config error"))
     }
+
+  /** datebucket (HEL-378) — output schema = input schema with the resolved
+   *  output field (`outputColumn` if present and non-blank, else `field`)
+   *  typed `date`: replace-in-place if the resolved name already exists in
+   *  `inputSchema`, append if new (design.md decision 4 — `filterNot` + `:+`,
+   *  the same collision-safe shape `inferSplitText`/`inferExtractHeadings`/
+   *  `inferChunkByTokenCount` use, not `inferCompute`'s unconditional
+   *  append). No field-existence/type validation is performed on `field`
+   *  itself — `datebucket` (unlike the string-body text ops) accepts any
+   *  scalar field and null-coerces unparseable values at execute time. */
+  private def inferDateBucket(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    parseConfig("datebucket", config) { json =>
+      val field        = json.fields("field").convertTo[String]
+      val outputColumn = json.fields.get("outputColumn").collect { case JsString(s) if s.nonEmpty => s }
+      val resolvedName = outputColumn.getOrElse(field)
+      inputSchema.filterNot(_.name == resolvedName) :+ SchemaField(name = resolvedName, `type` = "date")
+    } (inputSchema)
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

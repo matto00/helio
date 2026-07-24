@@ -9,6 +9,8 @@ import com.helio.domain.{
   ChunkByTokenCountStep,
   ComputeConfig,
   ComputeStep,
+  DateBucketConfig,
+  DateBucketStep,
   ExtractHeadingsConfig,
   ExtractHeadingsStep,
   FilterConfig,
@@ -89,6 +91,7 @@ object PipelineStepConfigCodec {
     case c: SplitTextConfig => PipelineStep.Registry(PipelineStepKind.SplitText).encodeConfig(c)
     case c: ExtractHeadingsConfig => PipelineStep.Registry(PipelineStepKind.ExtractHeadings).encodeConfig(c)
     case c: ChunkByTokenCountConfig => PipelineStep.Registry(PipelineStepKind.ChunkByTokenCount).encodeConfig(c)
+    case c: DateBucketConfig => PipelineStep.Registry(PipelineStepKind.DateBucket).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -122,6 +125,7 @@ object PipelineStepConfigCodec {
     case s: SplitTextStep => s.config
     case s: ExtractHeadingsStep => s.config
     case s: ChunkByTokenCountStep => s.config
+    case s: DateBucketStep => s.config
   }
 
 }

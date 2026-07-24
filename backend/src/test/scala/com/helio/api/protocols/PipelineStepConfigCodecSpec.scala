@@ -85,6 +85,18 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("chunkbytokencount", raw).get shouldBe
         ChunkByTokenCountConfig("content", 250, "cl100k_base", "idx", "cnt")
     }
+
+    "preserve datebucket config with outputColumn" in {
+      val raw = """{"field":"ts","granularity":"month","outputColumn":"ts_month"}"""
+      PipelineStepConfigCodec.decode("datebucket", raw).get shouldBe
+        DateBucketConfig("ts", "month", Some("ts_month"))
+    }
+
+    "preserve datebucket config without outputColumn" in {
+      val raw = """{"field":"ts","granularity":"day"}"""
+      PipelineStepConfigCodec.decode("datebucket", raw).get shouldBe
+        DateBucketConfig("ts", "day", None)
+    }
   }
 
   "tolerance" should {
@@ -145,6 +157,10 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("sort", "{}").get shouldBe SortConfig(Vector.empty)
     }
 
+    "datebucket — decode({}) yields empty field/granularity and no outputColumn (tolerant decode; fails at execute time per the standard contract)" in {
+      PipelineStepConfigCodec.decode("datebucket", "{}").get shouldBe DateBucketConfig("", "", None)
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -183,7 +199,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "aggregate" -> AggregateConfig(Vector(AggregateField("g", "string")), Vector(Aggregation("a", "sum", "x"))),
         "splittext" -> SplitTextConfig("content", "paragraph", 1, "segmentIndex"),
         "extractheadings" -> ExtractHeadingsConfig("content", "headingIndex", "headingLevel"),
-        "chunkbytokencount" -> ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount")
+        "chunkbytokencount" -> ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount"),
+        "datebucket" -> DateBucketConfig("ts", "month", Some("ts_month"))
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

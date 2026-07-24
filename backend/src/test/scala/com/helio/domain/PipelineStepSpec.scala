@@ -28,15 +28,17 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val splitText = SplitTextStep(id, pid, 0, SplitTextConfig("content", "paragraph"), now, now)
   private val extractHeadings = ExtractHeadingsStep(id, pid, 0, ExtractHeadingsConfig("content"), now, now)
   private val chunkByTokenCount = ChunkByTokenCountStep(id, pid, 0, ChunkByTokenCountConfig("content"), now, now)
+  private val dateBucket = DateBucketStep(id, pid, 0, DateBucketConfig("ts", "day", None), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
-        "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount"
+        "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
+        "datebucket"
       )
     }
 
@@ -69,6 +71,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       splitText.kind shouldBe PipelineStepKind.SplitText
       extractHeadings.kind shouldBe PipelineStepKind.ExtractHeadings
       chunkByTokenCount.kind shouldBe PipelineStepKind.ChunkByTokenCount
+      dateBucket.kind shouldBe PipelineStepKind.DateBucket
     }
 
     "every subtype carries the common base fields" in {
@@ -104,6 +107,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: SplitTextStep => PipelineStepKind.SplitText
           case _: ExtractHeadingsStep => PipelineStepKind.ExtractHeadings
           case _: ChunkByTokenCountStep => PipelineStepKind.ChunkByTokenCount
+          case _: DateBucketStep => PipelineStepKind.DateBucket
         }
         tag shouldBe s.kind
       }

@@ -16,6 +16,7 @@ import { AggregateConfig } from "./AggregateConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ChunkByTokenCountConfig } from "./ChunkByTokenCountConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
+import { DateBucketConfig } from "./DateBucketConfig";
 import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
@@ -90,6 +91,7 @@ export function StepCard({
     splitTextConfig,
     extractHeadingsConfig,
     chunkByTokenCountConfig,
+    dateBucketConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -101,6 +103,7 @@ export function StepCard({
     onSplitTextChange,
     onExtractHeadingsChange,
     onChunkByTokenCountChange,
+    onDateBucketChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -187,6 +190,12 @@ export function StepCard({
               config={chunkByTokenCountConfig}
               analyzeSchema={analyzeSchema}
               onChange={onChunkByTokenCountChange}
+            />
+          ) : step.opType.id === "datebucket" ? (
+            <DateBucketConfig
+              config={dateBucketConfig}
+              analyzeColumns={analyzeColumns}
+              onChange={onDateBucketChange}
             />
           ) : (
             <>

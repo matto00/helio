@@ -34,6 +34,8 @@ package object domain {
   val  ExtractHeadingsStep = steps.ExtractHeadingsStep
   type ChunkByTokenCountStep = steps.ChunkByTokenCountStep
   val  ChunkByTokenCountStep = steps.ChunkByTokenCountStep
+  type DateBucketStep = steps.DateBucketStep
+  val  DateBucketStep = steps.DateBucketStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -70,4 +72,6 @@ package object domain {
   val  ExtractHeadingsConfig = steps.ExtractHeadingsConfig
   type ChunkByTokenCountConfig = steps.ChunkByTokenCountConfig
   val  ChunkByTokenCountConfig = steps.ChunkByTokenCountConfig
+  type DateBucketConfig = steps.DateBucketConfig
+  val  DateBucketConfig = steps.DateBucketConfig
 }

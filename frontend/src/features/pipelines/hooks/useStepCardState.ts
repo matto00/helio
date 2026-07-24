@@ -16,6 +16,7 @@ import {
   castsOf,
   chunkByTokenCountConfigOf,
   computeConfigOf,
+  dateBucketConfigOf,
   extractHeadingsConfigOf,
   filterConfigOf,
   limitCountOf,
@@ -29,6 +30,7 @@ import type { Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
+import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { SortKey } from "../ui/SortConfig";
@@ -46,6 +48,7 @@ export interface StepCardStateHandlers {
   splitTextConfig: SplitTextConfigValue;
   extractHeadingsConfig: ExtractHeadingsConfigValue;
   chunkByTokenCountConfig: ChunkByTokenCountConfigValue;
+  dateBucketConfig: DateBucketConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -57,6 +60,7 @@ export interface StepCardStateHandlers {
   onSplitTextChange: (config: SplitTextConfigValue) => void;
   onExtractHeadingsChange: (config: ExtractHeadingsConfigValue) => void;
   onChunkByTokenCountChange: (config: ChunkByTokenCountConfigValue) => void;
+  onDateBucketChange: (config: DateBucketConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -90,6 +94,9 @@ export function useStepCardState(
   );
   const [chunkByTokenCountConfig, setChunkByTokenCountConfig] =
     useState<ChunkByTokenCountConfigValue>(() => chunkByTokenCountConfigOf(step));
+  const [dateBucketConfig, setDateBucketConfig] = useState<DateBucketConfigValue>(() =>
+    dateBucketConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -104,6 +111,7 @@ export function useStepCardState(
     setSplitTextConfig(splitTextConfigOf(step));
     setExtractHeadingsConfig(extractHeadingsConfigOf(step));
     setChunkByTokenCountConfig(chunkByTokenCountConfigOf(step));
+    setDateBucketConfig(dateBucketConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -184,6 +192,18 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onDateBucketChange(newConfig: DateBucketConfigValue) {
+    setDateBucketConfig(newConfig);
+    // Blank outputColumn means "overwrite field in place" — omit the key
+    // entirely rather than persisting an empty string (acceptance criterion:
+    // "Leaving outputColumn blank omits it from the config").
+    persist({
+      field: newConfig.field,
+      granularity: newConfig.granularity,
+      outputColumn: newConfig.outputColumn ? newConfig.outputColumn : undefined,
+    });
+  }
+
   return {
     selectedFields,
     renames,
@@ -196,6 +216,7 @@ export function useStepCardState(
     splitTextConfig,
     extractHeadingsConfig,
     chunkByTokenCountConfig,
+    dateBucketConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -207,5 +228,6 @@ export function useStepCardState(
     onSplitTextChange,
     onExtractHeadingsChange,
     onChunkByTokenCountChange,
+    onDateBucketChange,
   };
 }

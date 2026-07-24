@@ -440,6 +440,37 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── datebucket inference (HEL-378) ────────────────────────────────────────
+
+    "datebucket — overwrite case: resolved output field is retyped date, no duplicate" in {
+      val steps  = Vector(step("datebucket", """{"field":"created_at","granularity":"day"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.count(_.name == "created_at") shouldBe 1
+      result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("date")
+      // other fields pass through unchanged
+      result(0).outputSchema.find(_.name == "order_id").map(_.`type`) shouldBe Some("string")
+      result(0).outputSchema.find(_.name == "amount").map(_.`type`) shouldBe Some("number")
+    }
+
+    "datebucket — new outputColumn is appended, source field type unchanged" in {
+      val steps  = Vector(step("datebucket", """{"field":"created_at","granularity":"month","outputColumn":"created_month"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("created_month", "date")
+      result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("string")
+    }
+
+    "datebucket — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("datebucket", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {
