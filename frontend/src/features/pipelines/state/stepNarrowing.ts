@@ -12,6 +12,7 @@ import {
   faCalculator,
   faCalendarWeek,
   faChartColumn,
+  faClone,
   faFilter,
   faHeading,
   faLayerGroup,
@@ -30,6 +31,7 @@ import type {
   ChunkByTokenCountConfig as ChunkByTokenCountConfigType,
   ComputeConfig as ComputeConfigType,
   DateBucketConfig as DateBucketConfigType,
+  DedupeConfig as DedupeConfigType,
   ExtractHeadingsConfig as ExtractHeadingsConfigType,
   FilterConfig as FilterConfigType,
   LimitConfig as LimitConfigType,
@@ -48,6 +50,7 @@ import type { AggregateConfigValue } from "../ui/AggregateConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
+import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
@@ -75,6 +78,7 @@ export const OP_TYPES: OpType[] = [
   { id: "pivot", label: "Pivot (long → wide)", icon: faTableCells },
   { id: "window", label: "Window (rank / running total)", icon: faRankingStar },
   { id: "unpivot", label: "Unpivot (wide → long)", icon: faTableList },
+  { id: "dedupe", label: "Dedupe rows", icon: faClone },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -147,6 +151,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         varName: "variable",
         valueName: "value",
       } as UnpivotConfigType;
+    case "dedupe":
+      return { keys: [], keep: "first" } as DedupeConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -331,6 +337,16 @@ export function unpivotConfigOf(step: Step): UnpivotConfigValue {
     valueVars: Array.isArray(cfg.valueVars) ? cfg.valueVars : [],
     varName: cfg.varName ?? "variable",
     valueName: cfg.valueName ?? "value",
+  };
+}
+
+export function dedupeConfigOf(step: Step): DedupeConfigValue {
+  const empty: DedupeConfigValue = { keys: [], keep: "first" };
+  if (step.opType.id !== "dedupe") return empty;
+  const cfg = step.config as DedupeConfigType;
+  return {
+    keys: Array.isArray(cfg.keys) ? cfg.keys : [],
+    keep: cfg.keep === "last" ? "last" : "first",
   };
 }
 

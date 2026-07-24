@@ -47,6 +47,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: PivotConfig     => PivotStep(id, pid, 0, c, now, now)
       case c: WindowConfig    => WindowStep(id, pid, 0, c, now, now)
       case c: UnpivotConfig   => UnpivotStep(id, pid, 0, c, now, now)
+      case c: DedupeConfig    => DedupeStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -1098,6 +1099,88 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val result = run(sampleRows, step)
       result should have size sampleRows.size
       result.map(_("name")) shouldBe sampleRows.map(_("name"))
+    }
+
+    // ── dedupe op (HEL-382) ────────────────────────────────────────────────────
+
+    "dedupe: whole-row distinct removes exact-duplicate rows, preserving first-seen order" in {
+      val rows = Seq(
+        Map[String, Any]("a" -> 1.0, "b" -> 2.0),
+        Map[String, Any]("a" -> 1.0, "b" -> 2.0),
+        Map[String, Any]("a" -> 1.0, "b" -> 3.0)
+      )
+      val cfg  = """{ "keys": [], "keep": "first" }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(
+        Map[String, Any]("a" -> 1.0, "b" -> 2.0),
+        Map[String, Any]("a" -> 1.0, "b" -> 3.0)
+      )
+    }
+
+    "dedupe: key-set dedupe with keep=first keeps the first occurrence per key" in {
+      val rows = Seq(
+        Map[String, Any]("id" -> 1.0, "v" -> "a"),
+        Map[String, Any]("id" -> 2.0, "v" -> "b"),
+        Map[String, Any]("id" -> 1.0, "v" -> "c")
+      )
+      val cfg  = """{ "keys": ["id"], "keep": "first" }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(
+        Map[String, Any]("id" -> 1.0, "v" -> "a"),
+        Map[String, Any]("id" -> 2.0, "v" -> "b")
+      )
+    }
+
+    "dedupe: key-set dedupe with keep=last keeps the last occurrence per key, at its original position" in {
+      val rows = Seq(
+        Map[String, Any]("id" -> 1.0, "v" -> "a"),
+        Map[String, Any]("id" -> 2.0, "v" -> "b"),
+        Map[String, Any]("id" -> 1.0, "v" -> "c")
+      )
+      val cfg  = """{ "keys": ["id"], "keep": "last" }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(
+        Map[String, Any]("id" -> 2.0, "v" -> "b"),
+        Map[String, Any]("id" -> 1.0, "v" -> "c")
+      )
+    }
+
+    "dedupe: null values for a key field collapse together" in {
+      val rows = Seq(
+        Map[String, Any]("region" -> null, "v" -> 1.0),
+        Map[String, Any]("region" -> null, "v" -> 2.0)
+      )
+      val cfg  = """{ "keys": ["region"], "keep": "first" }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("region" -> null, "v" -> 1.0))
+    }
+
+    "dedupe: missing keep field defaults to first" in {
+      val rows = Seq(
+        Map[String, Any]("id" -> 1.0, "v" -> "a"),
+        Map[String, Any]("id" -> 1.0, "v" -> "b")
+      )
+      val cfg  = """{ "keys": ["id"] }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("id" -> 1.0, "v" -> "a"))
+    }
+
+    "dedupe: preserves the relative order of surviving rows (stable filter)" in {
+      val rows = Seq(
+        Map[String, Any]("id" -> 3.0, "v" -> "x"),
+        Map[String, Any]("id" -> 1.0, "v" -> "y"),
+        Map[String, Any]("id" -> 2.0, "v" -> "z"),
+        Map[String, Any]("id" -> 1.0, "v" -> "w")
+      )
+      val cfg  = """{ "keys": ["id"], "keep": "first" }"""
+      val step = makeStep("dedupe", cfg)
+      val result = run(rows, step)
+      result.map(_("id")) shouldBe Seq(3.0, 1.0, 2.0)
     }
 
     // ── splittext op (HEL-219) ─────────────────────────────────────────────────

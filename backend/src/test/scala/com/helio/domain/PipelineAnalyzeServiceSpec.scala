@@ -121,6 +121,13 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
+    "dedupe — identity: outputSchema equals inputSchema" in {
+      val steps  = Vector(step("dedupe", """{"keys":["order_id"],"keep":"first"}"""))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe baseSchema
+      result(0).validationError shouldBe None
+    }
+
     // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {

@@ -105,6 +105,10 @@ export interface UnpivotConfig {
   varName: string;
   valueName: string;
 }
+export interface DedupeConfig {
+  keys: string[];
+  keep: "first" | "last";
+}
 
 interface BasePipelineStep {
   id: string;
@@ -182,6 +186,10 @@ export interface UnpivotStep extends BasePipelineStep {
   type: "unpivot";
   config: UnpivotConfig;
 }
+export interface DedupeStep extends BasePipelineStep {
+  type: "dedupe";
+  config: DedupeConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -200,7 +208,8 @@ export type PipelineStep =
   | DateBucketStep
   | PivotStep
   | WindowStep
-  | UnpivotStep;
+  | UnpivotStep
+  | DedupeStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -219,7 +228,8 @@ export type PipelineStepConfig =
   | DateBucketConfig
   | PivotConfig
   | WindowConfig
-  | UnpivotConfig;
+  | UnpivotConfig
+  | DedupeConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -306,6 +316,10 @@ export interface UnpivotAnalyzeStep extends BaseAnalyzeStep {
   type: "unpivot";
   config: UnpivotConfig;
 }
+export interface DedupeAnalyzeStep extends BaseAnalyzeStep {
+  type: "dedupe";
+  config: DedupeConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -324,7 +338,8 @@ export type AnalyzeStepResult =
   | DateBucketAnalyzeStep
   | PivotAnalyzeStep
   | WindowAnalyzeStep
-  | UnpivotAnalyzeStep;
+  | UnpivotAnalyzeStep
+  | DedupeAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;
