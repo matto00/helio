@@ -46,6 +46,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: DateBucketConfig => DateBucketStep(id, pid, 0, c, now, now)
       case c: PivotConfig     => PivotStep(id, pid, 0, c, now, now)
       case c: WindowConfig    => WindowStep(id, pid, 0, c, now, now)
+      case c: UnpivotConfig   => UnpivotStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -725,6 +726,77 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       )
       val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"asc"}],"function":"row_number","outputColumn":"rn"}"""
       run(rows, makeStep("window", cfg)).map(_("rn")) shouldBe Seq(1, 2)
+    }
+
+    // HEL-380: unpivot — reshapes wide rows into long rows, one output row
+    // per (input row, valueVar). See spec.md for the exact scenarios these
+    // mirror.
+
+    "unpivot: basic unpivot with two value columns" in {
+      val rows = Seq(Map[String, Any]("region" -> "west", "jan" -> 10, "feb" -> 20))
+      val cfg  = """{"idVars":["region"],"valueVars":["jan","feb"],"varName":"month","valueName":"amount"}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 2
+      result(0) shouldBe Map("region" -> "west", "month" -> "jan", "amount" -> 10)
+      result(1) shouldBe Map("region" -> "west", "month" -> "feb", "amount" -> 20)
+    }
+
+    "unpivot: row count multiplies by the number of valueVars" in {
+      val rows = Seq(
+        Map[String, Any]("id" -> 1, "a" -> 1, "b" -> 2, "c" -> 3),
+        Map[String, Any]("id" -> 2, "a" -> 4, "b" -> 5, "c" -> 6)
+      )
+      val cfg  = """{"idVars":["id"],"valueVars":["a","b","c"],"varName":"variable","valueName":"value"}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 6
+    }
+
+    "unpivot: default varName/valueName apply when omitted from config" in {
+      val rows = Seq(Map[String, Any]("id" -> 1, "a" -> 5))
+      val cfg  = """{"idVars":["id"],"valueVars":["a"]}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 1
+      result.head shouldBe Map("id" -> 1, "variable" -> "a", "value" -> 5)
+    }
+
+    "unpivot: missing idVars or valueVars field yields null, not a dropped row" in {
+      val rows = Seq(Map[String, Any]("id" -> 1))
+      val cfg  = """{"idVars":["id","missingId"],"valueVars":["missingValue"],"varName":"variable","valueName":"value"}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result should have size 1
+      result.head shouldBe Map("id" -> 1, "missingId" -> null, "variable" -> "missingValue", "value" -> null)
+    }
+
+    "unpivot: valueName collides with an idVars field name — valueName wins" in {
+      val rows = Seq(Map[String, Any]("value" -> "keep-me", "a" -> 5))
+      val cfg  = """{"idVars":["value"],"valueVars":["a"],"varName":"variable","valueName":"value"}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result.head("value") shouldBe 5
+    }
+
+    "unpivot: empty valueVars produces zero output rows per input row" in {
+      // Design.md's row-multiplication formula (N input rows * len(valueVars))
+      // degrades to zero when valueVars is empty — no special-casing in the
+      // engine, just an inner loop with nothing to iterate.
+      val rows = Seq(
+        Map[String, Any]("id" -> 1, "a" -> 5),
+        Map[String, Any]("id" -> 2, "a" -> 6)
+      )
+      val cfg  = """{"idVars":["id"],"valueVars":[],"varName":"variable","valueName":"value"}"""
+      val step = makeStep("unpivot", cfg)
+      val result = run(rows, step)
+
+      result shouldBe empty
     }
 
     "join op: performs inner join on joinKey" in {

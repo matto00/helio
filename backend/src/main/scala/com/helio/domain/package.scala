@@ -40,6 +40,8 @@ package object domain {
   val  PivotStep      = steps.PivotStep
   type WindowStep     = steps.WindowStep
   val  WindowStep     = steps.WindowStep
+  type UnpivotStep    = steps.UnpivotStep
+  val  UnpivotStep    = steps.UnpivotStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -82,4 +84,6 @@ package object domain {
   val  PivotConfig      = steps.PivotConfig
   type WindowConfig     = steps.WindowConfig
   val  WindowConfig     = steps.WindowConfig
+  type UnpivotConfig    = steps.UnpivotConfig
+  val  UnpivotConfig    = steps.UnpivotConfig
 }

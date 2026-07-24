@@ -76,6 +76,7 @@ object PipelineAnalyzeService {
       case "datebucket"                 => inferDateBucket(config, inputSchema)
       case "pivot"                      => inferPivot(config, inputSchema)
       case "window"                     => inferWindow(config, inputSchema)
+      case "unpivot"                    => inferUnpivot(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -344,6 +345,53 @@ object PipelineAnalyzeService {
       }
       inputSchema.filterNot(_.name == outputColumn) :+ SchemaField(name = outputColumn, `type` = outputType)
     } (inputSchema)
+
+  /** unpivot (HEL-380) — design.md decisions 6-8: unlike `pivot`, the output
+   *  schema is fully static (no data sampling) — exactly `idVars` (types
+   *  looked up in `inputSchema`), followed by `varName` typed `string`,
+   *  followed by `valueName` typed per the common-type rule below, each
+   *  append replacing an existing same-named field in place rather than
+   *  duplicating it (`filterNot` + `:+`, the same collision-safe shape
+   *  `inferDateBucket`/`inferSplitText` use — the `Vector[SchemaField]`
+   *  equivalent of the execution path's `Map ++`).
+   *
+   *  `valueName`'s type is the shared declared type of every `valueVars`
+   *  field if all identical; otherwise (including the empty-`valueVars`
+   *  case) it falls back to `"string"`.
+   *
+   *  If any `idVars` or `valueVars` field name is absent from `inputSchema`,
+   *  a real `validationError` identifies the missing field(s) and the output
+   *  schema falls back to `inputSchema` unchanged (identity fallback, same
+   *  pattern as `inferPivot`'s `index`/`column`/`values` existence check). */
+  private def inferUnpivot(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json      = config.parseJson.asJsObject
+      val idVars    = json.fields.get("idVars").map(_.convertTo[Vector[String]]).getOrElse(Vector.empty[String])
+      val valueVars = json.fields.get("valueVars").map(_.convertTo[Vector[String]]).getOrElse(Vector.empty[String])
+      val varName   = json.fields.get("varName").collect { case JsString(s) => s }.getOrElse("variable")
+      val valueName = json.fields.get("valueName").collect { case JsString(s) => s }.getOrElse("value")
+
+      val schemaByName = inputSchema.map(f => f.name -> f).toMap
+      val missing      = (idVars ++ valueVars).filterNot(schemaByName.contains)
+
+      if (missing.nonEmpty) {
+        (inputSchema, Some(s"Unknown field(s): ${missing.map(m => s"'$m'").mkString(", ")}"))
+      } else {
+        val idFields   = idVars.map(name => SchemaField(name = name, `type` = schemaByName(name).`type`))
+        val valueTypes = valueVars.map(v => schemaByName(v).`type`).distinct
+        val valueType  = if (valueTypes.size == 1) valueTypes.head else "string"
+
+        val withVar   = idFields.filterNot(_.name == varName) :+ SchemaField(name = varName, `type` = "string")
+        val withValue = withVar.filterNot(_.name == valueName) :+ SchemaField(name = valueName, `type` = valueType)
+        (withValue, None)
+      }
+    } catch {
+      case ex: Exception =>
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("unpivot config error", ex)
+        (inputSchema, Some("unpivot config error"))
+    }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

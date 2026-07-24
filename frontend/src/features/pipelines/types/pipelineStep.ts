@@ -99,6 +99,12 @@ export interface WindowConfig {
   outputColumn: string;
   offset?: number | null;
 }
+export interface UnpivotConfig {
+  idVars: string[];
+  valueVars: string[];
+  varName: string;
+  valueName: string;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -172,6 +178,10 @@ export interface WindowStep extends BasePipelineStep {
   type: "window";
   config: WindowConfig;
 }
+export interface UnpivotStep extends BasePipelineStep {
+  type: "unpivot";
+  config: UnpivotConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -189,7 +199,8 @@ export type PipelineStep =
   | ChunkByTokenCountStep
   | DateBucketStep
   | PivotStep
-  | WindowStep;
+  | WindowStep
+  | UnpivotStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -207,7 +218,8 @@ export type PipelineStepConfig =
   | ChunkByTokenCountConfig
   | DateBucketConfig
   | PivotConfig
-  | WindowConfig;
+  | WindowConfig
+  | UnpivotConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -290,6 +302,10 @@ export interface WindowAnalyzeStep extends BaseAnalyzeStep {
   type: "window";
   config: WindowConfig;
 }
+export interface UnpivotAnalyzeStep extends BaseAnalyzeStep {
+  type: "unpivot";
+  config: UnpivotConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -307,7 +323,8 @@ export type AnalyzeStepResult =
   | ChunkByTokenCountAnalyzeStep
   | DateBucketAnalyzeStep
   | PivotAnalyzeStep
-  | WindowAnalyzeStep;
+  | WindowAnalyzeStep
+  | UnpivotAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

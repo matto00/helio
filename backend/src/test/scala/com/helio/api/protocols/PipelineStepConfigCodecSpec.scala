@@ -115,6 +115,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("window", raw).get shouldBe
         WindowConfig(Vector("category"), Vector(SortKey("day", "asc")), "lag", Some("amount"), "prev", Some(2))
     }
+
+    "preserve unpivot config" in {
+      val raw = """{"idVars":["region"],"valueVars":["jan","feb"],"varName":"month","valueName":"amount"}"""
+      PipelineStepConfigCodec.decode("unpivot", raw).get shouldBe
+        UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount")
+    }
   }
 
   "tolerance" should {
@@ -188,6 +194,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         WindowConfig(Vector.empty, Vector.empty, "", None, "", None)
     }
 
+    "unpivot — decode({}) yields empty idVars/valueVars and default varName/valueName" in {
+      PipelineStepConfigCodec.decode("unpivot", "{}").get shouldBe
+        UnpivotConfig(Vector.empty, Vector.empty, "variable", "value")
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -229,7 +240,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "chunkbytokencount" -> ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount"),
         "datebucket" -> DateBucketConfig("ts", "month", Some("ts_month")),
         "pivot"      -> PivotConfig(Vector("region"), "product", "revenue", "sum"),
-        "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None)
+        "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None),
+        "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount")
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

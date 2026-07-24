@@ -25,6 +25,7 @@ import {
   selectedFieldsOf,
   sortConfigOf,
   splitTextConfigOf,
+  unpivotConfigOf,
   windowConfigOf,
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
@@ -38,6 +39,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import type { WindowConfigValue } from "../ui/WindowConfig";
 
 export interface StepCardStateHandlers {
@@ -55,6 +57,7 @@ export interface StepCardStateHandlers {
   dateBucketConfig: DateBucketConfigValue;
   pivotConfig: PivotConfigValue;
   windowConfig: WindowConfigValue;
+  unpivotConfig: UnpivotConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -69,6 +72,7 @@ export interface StepCardStateHandlers {
   onDateBucketChange: (config: DateBucketConfigValue) => void;
   onPivotChange: (config: PivotConfigValue) => void;
   onWindowChange: (config: WindowConfigValue) => void;
+  onUnpivotChange: (config: UnpivotConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -107,6 +111,9 @@ export function useStepCardState(
   );
   const [pivotConfig, setPivotConfig] = useState<PivotConfigValue>(() => pivotConfigOf(step));
   const [windowConfig, setWindowConfig] = useState<WindowConfigValue>(() => windowConfigOf(step));
+  const [unpivotConfig, setUnpivotConfig] = useState<UnpivotConfigValue>(() =>
+    unpivotConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -124,6 +131,7 @@ export function useStepCardState(
     setDateBucketConfig(dateBucketConfigOf(step));
     setPivotConfig(pivotConfigOf(step));
     setWindowConfig(windowConfigOf(step));
+    setUnpivotConfig(unpivotConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -242,6 +250,11 @@ export function useStepCardState(
     });
   }
 
+  function onUnpivotChange(newConfig: UnpivotConfigValue) {
+    setUnpivotConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -257,6 +270,7 @@ export function useStepCardState(
     dateBucketConfig,
     pivotConfig,
     windowConfig,
+    unpivotConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -271,5 +285,6 @@ export function useStepCardState(
     onDateBucketChange,
     onPivotChange,
     onWindowChange,
+    onUnpivotChange,
   };
 }

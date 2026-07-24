@@ -18,6 +18,7 @@ import com.helio.domain.{
   SelectConfig,
   SortConfig,
   SplitTextConfig,
+  UnpivotConfig,
   WindowConfig
 }
 import spray.json._
@@ -136,6 +137,12 @@ final case class WindowAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Window }
 
+final case class UnpivotAnalyzeStepResponse(
+    id: String, position: Int, config: UnpivotConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Unpivot }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -174,6 +181,7 @@ trait PipelineAnalyzeProtocol
   private val dateBucketAnalyzeFormat: RootJsonFormat[DateBucketAnalyzeStepResponse] = jsonFormat6(DateBucketAnalyzeStepResponse.apply)
   private val pivotAnalyzeFormat: RootJsonFormat[PivotAnalyzeStepResponse] = jsonFormat6(PivotAnalyzeStepResponse.apply)
   private val windowAnalyzeFormat: RootJsonFormat[WindowAnalyzeStepResponse] = jsonFormat6(WindowAnalyzeStepResponse.apply)
+  private val unpivotAnalyzeFormat: RootJsonFormat[UnpivotAnalyzeStepResponse] = jsonFormat6(UnpivotAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -194,6 +202,7 @@ trait PipelineAnalyzeProtocol
         case d: DateBucketAnalyzeStepResponse => dateBucketAnalyzeFormat.write(d).asJsObject
         case p: PivotAnalyzeStepResponse => pivotAnalyzeFormat.write(p).asJsObject
         case w: WindowAnalyzeStepResponse => windowAnalyzeFormat.write(w).asJsObject
+        case u: UnpivotAnalyzeStepResponse => unpivotAnalyzeFormat.write(u).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -215,6 +224,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.DateBucket)) => dateBucketAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Pivot))      => pivotAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Window))     => windowAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.Unpivot))    => unpivotAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

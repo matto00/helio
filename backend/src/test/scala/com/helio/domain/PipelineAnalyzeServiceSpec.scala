@@ -582,6 +582,50 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── unpivot inference (HEL-380) ───────────────────────────────────────────
+
+    "unpivot — output schema is idVars + varName(string) + valueName(common type), no false validation error" in {
+      val steps  = Vector(step("unpivot", """{"idVars":["order_id"],"valueVars":["amount"],"varName":"month","valueName":"value"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("month", "string"), field("value", "number"))
+    }
+
+    "unpivot — mixed valueVars types fall back to string for valueName" in {
+      val steps  = Vector(step("unpivot", """{"idVars":[],"valueVars":["amount","created_at"],"varName":"variable","valueName":"value"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("variable", "string"), field("value", "string"))
+    }
+
+    "unpivot — unknown idVars field yields a real validation error" in {
+      val steps  = Vector(step("unpivot", """{"idVars":["nonexistent"],"valueVars":["amount"],"varName":"variable","valueName":"value"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).validationError.get should include ("nonexistent")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "unpivot — unknown valueVars field yields a real validation error" in {
+      val steps  = Vector(step("unpivot", """{"idVars":[],"valueVars":["missingCol"],"varName":"variable","valueName":"value"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).validationError.get should include ("missingCol")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "unpivot — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("unpivot", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {
