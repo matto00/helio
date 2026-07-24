@@ -103,6 +103,18 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("pivot", raw).get shouldBe
         PivotConfig(Vector("region"), "product", "revenue", "sum")
     }
+
+    "preserve window config" in {
+      val raw = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"rank","field":null,"outputColumn":"rnk","offset":null}"""
+      PipelineStepConfigCodec.decode("window", raw).get shouldBe
+        WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None)
+    }
+
+    "preserve window config with field and offset for lag" in {
+      val raw = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lag","field":"amount","outputColumn":"prev","offset":2}"""
+      PipelineStepConfigCodec.decode("window", raw).get shouldBe
+        WindowConfig(Vector("category"), Vector(SortKey("day", "asc")), "lag", Some("amount"), "prev", Some(2))
+    }
   }
 
   "tolerance" should {
@@ -171,6 +183,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("pivot", "{}").get shouldBe PivotConfig(Vector.empty, "", "", "")
     }
 
+    "window — decode({}) yields empty partitionBy/orderBy/function/outputColumn and no field/offset (tolerant decode; fails at execute time per the standard contract)" in {
+      PipelineStepConfigCodec.decode("window", "{}").get shouldBe
+        WindowConfig(Vector.empty, Vector.empty, "", None, "", None)
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -211,7 +228,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "extractheadings" -> ExtractHeadingsConfig("content", "headingIndex", "headingLevel"),
         "chunkbytokencount" -> ChunkByTokenCountConfig("content", 500, "o200k_base", "chunkIndex", "tokenCount"),
         "datebucket" -> DateBucketConfig("ts", "month", Some("ts_month")),
-        "pivot"      -> PivotConfig(Vector("region"), "product", "revenue", "sum")
+        "pivot"      -> PivotConfig(Vector("region"), "product", "revenue", "sum"),
+        "window"     -> WindowConfig(Vector("category"), Vector(SortKey("amount", "desc")), "rank", None, "rnk", None)
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

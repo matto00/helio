@@ -25,7 +25,8 @@ import com.helio.api.protocols.{
   SortAnalyzeStepResponse,
   SplitTextAnalyzeStepResponse,
   UpdatePipelineRequest,
-  UpdatePipelineStepRequest
+  UpdatePipelineStepRequest,
+  WindowAnalyzeStepResponse
 }
 import com.helio.domain.{
   AggregateConfig,
@@ -49,7 +50,8 @@ import com.helio.domain.{
   SchemaField,
   SelectConfig,
   SortConfig,
-  SplitTextConfig
+  SplitTextConfig,
+  WindowConfig
 }
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
@@ -207,6 +209,7 @@ final class PipelineService(
       case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: DateBucketConfig) => DateBucketAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: PivotConfig) => PivotAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: WindowConfig) => WindowAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"

@@ -45,6 +45,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: ChunkByTokenCountConfig => ChunkByTokenCountStep(id, pid, 0, c, now, now)
       case c: DateBucketConfig => DateBucketStep(id, pid, 0, c, now, now)
       case c: PivotConfig     => PivotStep(id, pid, 0, c, now, now)
+      case c: WindowConfig    => WindowStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -560,6 +561,170 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val result = run(rows, step)
 
       result.head("revenue_west") shouldBe 10.0
+    }
+
+    // HEL-376: window — partitions + orders rows, appending one derived
+    // column per row while preserving row count and original row order.
+    // See spec.md for the exact scenarios these mirror.
+
+    "window: row_number assigns 1-based sequential positions per partition, preserving original row order" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "amount" -> 10.0),
+        Map[String, Any]("category" -> "b", "amount" -> 5.0),
+        Map[String, Any]("category" -> "a", "amount" -> 30.0),
+        Map[String, Any]("category" -> "a", "amount" -> 20.0),
+        Map[String, Any]("category" -> "b", "amount" -> 15.0)
+      )
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"row_number","outputColumn":"rn"}"""
+      val step = makeStep("window", cfg)
+      val result = run(rows, step)
+
+      // Output row order matches the original input row order (design.md decision 3).
+      result.map(_("category")) shouldBe Seq("a", "b", "a", "a", "b")
+
+      // Partition "a": amounts 10, 30, 20 → desc order 30 (rn 1), 20 (rn 2), 10 (rn 3).
+      result(0)("rn") shouldBe 3 // amount 10
+      result(2)("rn") shouldBe 1 // amount 30
+      result(3)("rn") shouldBe 2 // amount 20
+
+      // Partition "b": amounts 5, 15 → desc order 15 (rn 1), 5 (rn 2).
+      result(1)("rn") shouldBe 2 // amount 5
+      result(4)("rn") shouldBe 1 // amount 15
+    }
+
+    "window: rank and dense_rank handle ties per standard SQL semantics" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "amount" -> 30.0),
+        Map[String, Any]("category" -> "a", "amount" -> 30.0),
+        Map[String, Any]("category" -> "a", "amount" -> 20.0),
+        Map[String, Any]("category" -> "a", "amount" -> 10.0)
+      )
+
+      val rankCfg = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"rank","outputColumn":"r"}"""
+      val rankResult = run(rows, makeStep("window", rankCfg))
+      // Two tied rows share rank 1; the next distinct value's rank skips to 3.
+      rankResult.map(_("r")) shouldBe Seq(1, 1, 3, 4)
+
+      val denseCfg = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"dense_rank","outputColumn":"dr"}"""
+      val denseResult = run(rows, makeStep("window", denseCfg))
+      // Two tied rows share rank 1; the next distinct value's rank increments by exactly 1.
+      denseResult.map(_("dr")) shouldBe Seq(1, 1, 2, 3)
+    }
+
+    "window: running_sum accumulates numeric values in partition order" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "day" -> 1, "amount" -> 10.0),
+        Map[String, Any]("category" -> "a", "day" -> 2, "amount" -> 5.0),
+        Map[String, Any]("category" -> "a", "day" -> 3, "amount" -> 20.0),
+        Map[String, Any]("category" -> "b", "day" -> 1, "amount" -> 100.0)
+      )
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"running_sum","field":"amount","outputColumn":"cum"}"""
+      val result = run(rows, makeStep("window", cfg))
+
+      result(0)("cum") shouldBe 10.0
+      result(1)("cum") shouldBe 15.0
+      result(2)("cum") shouldBe 35.0
+      result(3)("cum") shouldBe 100.0
+    }
+
+    "window: running_sum's non-numeric or absent field values contribute 0 (parity with aggregate's sum)" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "day" -> 1, "amount" -> "not-a-number"),
+        Map[String, Any]("category" -> "a", "day" -> 2, "amount" -> 5.0)
+      )
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"running_sum","field":"amount","outputColumn":"cum"}"""
+      val result = run(rows, makeStep("window", cfg))
+
+      result(0)("cum") shouldBe 0.0
+      result(1)("cum") shouldBe 5.0
+    }
+
+    "window: running_sum without a field fails with a descriptive error" in {
+      val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
+      val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"running_sum","outputColumn":"cum"}"""
+      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      ex.getMessage should include ("running_sum")
+      ex.getMessage should include ("field")
+    }
+
+    "window: lag and lead read a neighboring row's field value within the partition" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "day" -> 1, "amount" -> 10.0),
+        Map[String, Any]("category" -> "a", "day" -> 2, "amount" -> 20.0),
+        Map[String, Any]("category" -> "a", "day" -> 3, "amount" -> 30.0)
+      )
+      val lagCfg = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lag","field":"amount","offset":1,"outputColumn":"prev"}"""
+      run(rows, makeStep("window", lagCfg)).map(_("prev")) shouldBe Seq(null, 10.0, 20.0)
+
+      val leadCfg = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lead","field":"amount","offset":1,"outputColumn":"next"}"""
+      run(rows, makeStep("window", leadCfg)).map(_("next")) shouldBe Seq(20.0, 30.0, null)
+    }
+
+    "window: lag and lead at partition edges emit null" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "day" -> 1, "amount" -> 10.0),
+        Map[String, Any]("category" -> "a", "day" -> 2, "amount" -> 20.0)
+      )
+      // offset 5 exceeds the partition size in both directions.
+      val lagCfg = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lag","field":"amount","offset":5,"outputColumn":"prev"}"""
+      run(rows, makeStep("window", lagCfg)).map(_("prev")) shouldBe Seq(null, null)
+
+      val leadCfg = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lead","field":"amount","offset":5,"outputColumn":"next"}"""
+      run(rows, makeStep("window", leadCfg)).map(_("next")) shouldBe Seq(null, null)
+    }
+
+    "window: lag/lead offset defaults to 1 when absent" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> "a", "day" -> 1, "amount" -> 10.0),
+        Map[String, Any]("category" -> "a", "day" -> 2, "amount" -> 20.0)
+      )
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"day","direction":"asc"}],"function":"lag","field":"amount","outputColumn":"prev"}"""
+      run(rows, makeStep("window", cfg)).map(_("prev")) shouldBe Seq(null, 10.0)
+    }
+
+    "window: non-positive offset fails with a descriptive error" in {
+      val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
+      val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"lag","field":"amount","offset":0,"outputColumn":"prev"}"""
+      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      ex.getMessage should include ("offset")
+    }
+
+    "window: unsupported function fails at execute time with a descriptive error" in {
+      val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
+      val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"median","outputColumn":"m"}"""
+      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      ex.getMessage should include ("median")
+      ex.getMessage should include ("row_number")
+      ex.getMessage should include ("rank")
+      ex.getMessage should include ("dense_rank")
+      ex.getMessage should include ("running_sum")
+      ex.getMessage should include ("lag")
+      ex.getMessage should include ("lead")
+    }
+
+    "window: outputColumn overwrites an existing field of the same name" in {
+      val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0, "rn" -> "placeholder"))
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"asc"}],"function":"row_number","outputColumn":"rn"}"""
+      run(rows, makeStep("window", cfg)).head("rn") shouldBe 1
+    }
+
+    "window: empty partitionBy collapses all rows into a single partition" in {
+      val rows = Seq(
+        Map[String, Any]("amount" -> 10.0),
+        Map[String, Any]("amount" -> 30.0),
+        Map[String, Any]("amount" -> 20.0)
+      )
+      val cfg  = """{"partitionBy":[],"orderBy":[{"field":"amount","direction":"desc"}],"function":"row_number","outputColumn":"rn"}"""
+      run(rows, makeStep("window", cfg)).map(_("rn")) shouldBe Seq(3, 1, 2)
+    }
+
+    "window: a null partitionBy field value is a valid partition key" in {
+      val rows = Seq(
+        Map[String, Any]("category" -> null, "amount" -> 10.0),
+        Map[String, Any]("category" -> null, "amount" -> 20.0)
+      )
+      val cfg  = """{"partitionBy":["category"],"orderBy":[{"field":"amount","direction":"asc"}],"function":"row_number","outputColumn":"rn"}"""
+      run(rows, makeStep("window", cfg)).map(_("rn")) shouldBe Seq(1, 2)
     }
 
     "join op: performs inner join on joinKey" in {

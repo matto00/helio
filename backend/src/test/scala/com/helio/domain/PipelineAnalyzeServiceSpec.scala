@@ -524,6 +524,64 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── window inference (HEL-376) ────────────────────────────────────────────
+
+    "window — appends outputColumn with integer type for row_number/rank/dense_rank" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"rank","outputColumn":"category_rank"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("category_rank", "integer")
+    }
+
+    "window — appends outputColumn with number type for running_sum" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"running_sum","field":"amount","outputColumn":"cum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("cum", "number")
+    }
+
+    "window — infers lag/lead output type from field's declared type in the input schema" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"lag","field":"amount","outputColumn":"prev_amount"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("prev_amount", "number")
+    }
+
+    "window — lag/lead falls back to string type when field is absent from the input schema" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"lag","field":"nonexistent","outputColumn":"prev"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("prev", "string")
+    }
+
+    "window — an unrecognized function degrades gracefully to string type (mirrors aggResultType's catch-all)" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"median","outputColumn":"m"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("m", "string")
+    }
+
+    "window — outputColumn replaces an existing field of the same name (collision rule)" in {
+      val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"rank","outputColumn":"amount"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("created_at", "string"), field("amount", "integer"))
+    }
+
+    "window — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("window", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {

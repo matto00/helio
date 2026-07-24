@@ -17,6 +17,7 @@ import {
   faLayerGroup,
   faLink,
   faPencil,
+  faRankingStar,
   faRightLeft,
   faSquareCheck,
   faTableCells,
@@ -38,6 +39,7 @@ import type {
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
   SplitTextConfig as SplitTextConfigType,
+  WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
@@ -49,6 +51,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded until
 // full join semantics ship (re-expose when HEL-278 is resolved and the
@@ -67,6 +70,7 @@ export const OP_TYPES: OpType[] = [
   { id: "chunkbytokencount", label: "Chunk by token count", icon: faLayerGroup },
   { id: "datebucket", label: "Date bucket", icon: faCalendarWeek },
   { id: "pivot", label: "Pivot (long → wide)", icon: faTableCells },
+  { id: "window", label: "Window (rank / running total)", icon: faRankingStar },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -125,6 +129,13 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       return { field: "", granularity: "day" } as DateBucketConfigType;
     case "pivot":
       return { index: [], column: "", values: "", agg: "sum" } as PivotConfigType;
+    case "window":
+      return {
+        partitionBy: [],
+        orderBy: [],
+        function: "row_number",
+        outputColumn: "",
+      } as WindowConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -292,5 +303,29 @@ export function pivotConfigOf(step: Step): PivotConfigValue {
     column: cfg.column ?? "",
     values: cfg.values ?? "",
     agg,
+  };
+}
+
+export function windowConfigOf(step: Step): WindowConfigValue {
+  const empty: WindowConfigValue = {
+    partitionBy: [],
+    orderBy: [],
+    function: "row_number",
+    field: "",
+    outputColumn: "",
+    offset: 1,
+  };
+  if (step.opType.id !== "window") return empty;
+  const cfg = step.config as WindowConfigType;
+  const fn = (WINDOW_FUNCTIONS as readonly string[]).includes(cfg.function)
+    ? cfg.function
+    : "row_number";
+  return {
+    partitionBy: Array.isArray(cfg.partitionBy) ? cfg.partitionBy : [],
+    orderBy: Array.isArray(cfg.orderBy) ? (cfg.orderBy as SortKey[]) : [],
+    function: fn,
+    field: cfg.field ?? "",
+    outputColumn: cfg.outputColumn ?? "",
+    offset: typeof cfg.offset === "number" && cfg.offset > 0 ? cfg.offset : 1,
   };
 }

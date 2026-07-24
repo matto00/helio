@@ -25,6 +25,7 @@ import {
   selectedFieldsOf,
   sortConfigOf,
   splitTextConfigOf,
+  windowConfigOf,
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
@@ -37,6 +38,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import type { WindowConfigValue } from "../ui/WindowConfig";
 
 export interface StepCardStateHandlers {
   selectedFields: string[];
@@ -52,6 +54,7 @@ export interface StepCardStateHandlers {
   chunkByTokenCountConfig: ChunkByTokenCountConfigValue;
   dateBucketConfig: DateBucketConfigValue;
   pivotConfig: PivotConfigValue;
+  windowConfig: WindowConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -65,6 +68,7 @@ export interface StepCardStateHandlers {
   onChunkByTokenCountChange: (config: ChunkByTokenCountConfigValue) => void;
   onDateBucketChange: (config: DateBucketConfigValue) => void;
   onPivotChange: (config: PivotConfigValue) => void;
+  onWindowChange: (config: WindowConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -102,6 +106,7 @@ export function useStepCardState(
     dateBucketConfigOf(step),
   );
   const [pivotConfig, setPivotConfig] = useState<PivotConfigValue>(() => pivotConfigOf(step));
+  const [windowConfig, setWindowConfig] = useState<WindowConfigValue>(() => windowConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -118,6 +123,7 @@ export function useStepCardState(
     setChunkByTokenCountConfig(chunkByTokenCountConfigOf(step));
     setDateBucketConfig(dateBucketConfigOf(step));
     setPivotConfig(pivotConfigOf(step));
+    setWindowConfig(windowConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -215,6 +221,27 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onWindowChange(newConfig: WindowConfigValue) {
+    setWindowConfig(newConfig);
+    // `field` is only meaningful for running_sum/lag/lead (ignored by the
+    // rank family); `offset` only for lag/lead. Omit them from the
+    // persisted config when the selected function doesn't use them, rather
+    // than persisting a stale value from a previously-selected function.
+    const usesField =
+      newConfig.function === "running_sum" ||
+      newConfig.function === "lag" ||
+      newConfig.function === "lead";
+    const usesOffset = newConfig.function === "lag" || newConfig.function === "lead";
+    persist({
+      partitionBy: newConfig.partitionBy,
+      orderBy: newConfig.orderBy,
+      function: newConfig.function,
+      field: usesField && newConfig.field ? newConfig.field : undefined,
+      outputColumn: newConfig.outputColumn,
+      offset: usesOffset ? newConfig.offset : undefined,
+    });
+  }
+
   return {
     selectedFields,
     renames,
@@ -229,6 +256,7 @@ export function useStepCardState(
     chunkByTokenCountConfig,
     dateBucketConfig,
     pivotConfig,
+    windowConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -242,5 +270,6 @@ export function useStepCardState(
     onChunkByTokenCountChange,
     onDateBucketChange,
     onPivotChange,
+    onWindowChange,
   };
 }

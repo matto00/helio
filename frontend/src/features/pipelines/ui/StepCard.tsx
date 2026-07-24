@@ -25,6 +25,7 @@ import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 import { SplitTextConfig } from "./SplitTextConfig";
+import { WindowConfig } from "./WindowConfig";
 
 interface StepCardProps {
   step: Step;
@@ -94,6 +95,7 @@ export function StepCard({
     chunkByTokenCountConfig,
     dateBucketConfig,
     pivotConfig,
+    windowConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -107,6 +109,7 @@ export function StepCard({
     onChunkByTokenCountChange,
     onDateBucketChange,
     onPivotChange,
+    onWindowChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -206,6 +209,13 @@ export function StepCard({
               analyzeSchema={analyzeSchema}
               analyzeColumns={analyzeColumns}
               onChange={onPivotChange}
+            />
+          ) : step.opType.id === "window" ? (
+            <WindowConfig
+              config={windowConfig}
+              analyzeSchema={analyzeSchema}
+              analyzeColumns={analyzeColumns}
+              onChange={onWindowChange}
             />
           ) : (
             <>

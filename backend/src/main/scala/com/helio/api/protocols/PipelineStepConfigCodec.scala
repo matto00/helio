@@ -32,7 +32,9 @@ import com.helio.domain.{
   SortConfig,
   SortStep,
   SplitTextConfig,
-  SplitTextStep
+  SplitTextStep,
+  WindowConfig,
+  WindowStep
 }
 import spray.json._
 
@@ -95,6 +97,7 @@ object PipelineStepConfigCodec {
     case c: ChunkByTokenCountConfig => PipelineStep.Registry(PipelineStepKind.ChunkByTokenCount).encodeConfig(c)
     case c: DateBucketConfig => PipelineStep.Registry(PipelineStepKind.DateBucket).encodeConfig(c)
     case c: PivotConfig      => PipelineStep.Registry(PipelineStepKind.Pivot).encodeConfig(c)
+    case c: WindowConfig     => PipelineStep.Registry(PipelineStepKind.Window).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -130,6 +133,7 @@ object PipelineStepConfigCodec {
     case s: ChunkByTokenCountStep => s.config
     case s: DateBucketStep => s.config
     case s: PivotStep      => s.config
+    case s: WindowStep     => s.config
   }
 
 }

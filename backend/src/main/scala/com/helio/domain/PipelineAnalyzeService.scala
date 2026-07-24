@@ -75,6 +75,7 @@ object PipelineAnalyzeService {
       case "chunkbytokencount"          => inferChunkByTokenCount(config, inputSchema)
       case "datebucket"                 => inferDateBucket(config, inputSchema)
       case "pivot"                      => inferPivot(config, inputSchema)
+      case "window"                     => inferWindow(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -317,6 +318,32 @@ object PipelineAnalyzeService {
         log.warn("pivot config error", ex)
         (inputSchema, Some("pivot config error"))
     }
+
+  /** window (HEL-376) — design.md decision 6: output schema = input schema
+   *  with `outputColumn` appended (or replaced in place if it collides with
+   *  an existing field name — same collision rule `datebucket`/`splittext`
+   *  apply, `filterNot` + `:+`). The output type is fully determined by
+   *  `function` + the input schema, with no data sampling: `integer` for the
+   *  rank family, `number` for `running_sum`, the same declared type as
+   *  `field`'s entry in `inputSchema` for `lag`/`lead` (falling back to
+   *  `string` if `field` is absent from `inputSchema`). An unrecognized
+   *  `function` string degrades gracefully rather than erroring, falling
+   *  back to `string` — the same catch-all precedent `aggResultType` uses
+   *  for an unrecognized aggregation function below. */
+  private def inferWindow(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    parseConfig("window", config) { json =>
+      val function     = json.fields("function").convertTo[String]
+      val field        = json.fields.get("field").collect { case JsString(s) => s }
+      val outputColumn = json.fields("outputColumn").convertTo[String]
+      val outputType = function match {
+        case "row_number" | "rank" | "dense_rank" => "integer"
+        case "running_sum"                        => "number"
+        case "lag" | "lead" =>
+          field.flatMap(f => inputSchema.find(_.name == f)).map(_.`type`).getOrElse("string")
+        case _ => "string"
+      }
+      inputSchema.filterNot(_.name == outputColumn) :+ SchemaField(name = outputColumn, `type` = outputType)
+    } (inputSchema)
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

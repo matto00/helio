@@ -38,6 +38,8 @@ package object domain {
   val  DateBucketStep = steps.DateBucketStep
   type PivotStep      = steps.PivotStep
   val  PivotStep      = steps.PivotStep
+  type WindowStep     = steps.WindowStep
+  val  WindowStep     = steps.WindowStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -78,4 +80,6 @@ package object domain {
   val  DateBucketConfig = steps.DateBucketConfig
   type PivotConfig      = steps.PivotConfig
   val  PivotConfig      = steps.PivotConfig
+  type WindowConfig     = steps.WindowConfig
+  val  WindowConfig     = steps.WindowConfig
 }
