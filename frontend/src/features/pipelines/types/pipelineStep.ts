@@ -90,6 +90,15 @@ export interface PivotConfig {
   values: string;
   agg: "sum" | "count" | "avg" | "min" | "max" | "first";
 }
+export type WindowFunction = "row_number" | "rank" | "dense_rank" | "running_sum" | "lag" | "lead";
+export interface WindowConfig {
+  partitionBy: string[];
+  orderBy: SortKey[];
+  function: WindowFunction;
+  field?: string | null;
+  outputColumn: string;
+  offset?: number | null;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -159,6 +168,10 @@ export interface PivotStep extends BasePipelineStep {
   type: "pivot";
   config: PivotConfig;
 }
+export interface WindowStep extends BasePipelineStep {
+  type: "window";
+  config: WindowConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -175,7 +188,8 @@ export type PipelineStep =
   | ExtractHeadingsStep
   | ChunkByTokenCountStep
   | DateBucketStep
-  | PivotStep;
+  | PivotStep
+  | WindowStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -192,7 +206,8 @@ export type PipelineStepConfig =
   | ExtractHeadingsConfig
   | ChunkByTokenCountConfig
   | DateBucketConfig
-  | PivotConfig;
+  | PivotConfig
+  | WindowConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -271,6 +286,10 @@ export interface PivotAnalyzeStep extends BaseAnalyzeStep {
   type: "pivot";
   config: PivotConfig;
 }
+export interface WindowAnalyzeStep extends BaseAnalyzeStep {
+  type: "window";
+  config: WindowConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -287,7 +306,8 @@ export type AnalyzeStepResult =
   | ExtractHeadingsAnalyzeStep
   | ChunkByTokenCountAnalyzeStep
   | DateBucketAnalyzeStep
-  | PivotAnalyzeStep;
+  | PivotAnalyzeStep
+  | WindowAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;
