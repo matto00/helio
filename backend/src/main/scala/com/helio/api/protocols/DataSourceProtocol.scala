@@ -2,6 +2,7 @@ package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain._
+import com.helio.services.{HasSecrets, SecretField, SecretRedaction}
 import spray.json._
 
 // ── DataSource API types ─────────────────────────────────────────────────────
@@ -192,7 +193,7 @@ object DataSourceResponse {
         name      = r.name,
         createdAt = r.createdAt.toString,
         updatedAt = r.updatedAt.toString,
-        config    = redactRestPayload(RestApiConfigPayload.fromDomain(r.config))
+        config    = SecretRedaction.redact(RestApiConfigPayload.fromDomain(r.config))
       )
     case s: SqlSource =>
       SqlSourceResponse(
@@ -200,7 +201,7 @@ object DataSourceResponse {
         name      = s.name,
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
-        config    = redactSqlPayload(SqlSourceConfigPayload.fromDomain(s.config))
+        config    = SecretRedaction.redact(SqlSourceConfigPayload.fromDomain(s.config))
       )
     case s: StaticSource =>
       StaticSourceResponse(
@@ -234,23 +235,6 @@ object DataSourceResponse {
         config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl)
       )
   }
-
-  /** Strip bearer tokens and api-key values from REST auth payloads before
-   *  returning them on the wire. The `auth.type` discriminator is preserved
-   *  so the UI can render "Auth: bearer" without leaking the token. */
-  private def redactRestPayload(p: RestApiConfigPayload): RestApiConfigPayload =
-    p.copy(auth = p.auth.map(redactRestAuth))
-
-  private def redactRestAuth(a: RestApiAuthPayload): RestApiAuthPayload = a.`type` match {
-    case "bearer"  => a.copy(token = a.token.map(_ => "***"))
-    case "api_key" => a.copy(value = a.value.map(_ => "***"))
-    case _         => a
-  }
-
-  /** Strip SQL passwords. The other fields (dialect, host, database, user,
-   *  query) are non-credential and shown in the UI. */
-  private def redactSqlPayload(p: SqlSourceConfigPayload): SqlSourceConfigPayload =
-    if (p.password.isEmpty) p else p.copy(password = "***")
 }
 
 object SqlSourceConfigPayload {
@@ -275,6 +259,19 @@ object SqlSourceConfigPayload {
       password = c.password,
       query    = c.query
     )
+
+  /** Declares `password` as the one secret field on this payload — `get` returns `None` for an
+   *  empty password (preserving the existing "no spurious redaction of an unset password"
+   *  exemption) and `Some(value)` otherwise. */
+  implicit val hasSecrets: HasSecrets[SqlSourceConfigPayload] = HasSecrets(
+    Set(
+      SecretField[SqlSourceConfigPayload](
+        name = "password",
+        get  = p => if (p.password.isEmpty) None else Some(p.password),
+        set  = (p, v) => p.copy(password = v)
+      )
+    )
+  )
 }
 
 object RestApiConfigPayload {
@@ -327,6 +324,26 @@ object RestApiConfigPayload {
       headers = if (c.headers.isEmpty) None else Some(c.headers)
     )
   }
+
+  /** Declares the two credential-bearing fields on this payload — the bearer `auth.token` and the
+   *  api-key `auth.value` — each gated on `auth` being present *and* its `type` discriminator
+   *  matching (only one kind of auth is ever active on a given config, matching the existing
+   *  `case "bearer" =>` / `case "api_key" =>` split). Both fields mask whenever `Some(_)`, empty
+   *  string or not — unlike SQL's password, REST auth has no emptiness exemption. */
+  implicit val hasSecrets: HasSecrets[RestApiConfigPayload] = HasSecrets(
+    Set(
+      SecretField[RestApiConfigPayload](
+        name = "auth.token",
+        get  = p => p.auth.filter(_.`type` == "bearer").flatMap(_.token),
+        set  = (p, v) => p.copy(auth = p.auth.map(_.copy(token = Some(v))))
+      ),
+      SecretField[RestApiConfigPayload](
+        name = "auth.value",
+        get  = p => p.auth.filter(_.`type` == "api_key").flatMap(_.value),
+        set  = (p, v) => p.copy(auth = p.auth.map(_.copy(value = Some(v))))
+      )
+    )
+  )
 }
 
 // `DataSourceConfigCodec` lives in `DataSourceConfigCodec.scala` — used by
