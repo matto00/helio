@@ -15,9 +15,17 @@ import scala.util.Try
 
 class RestApiConnector(
     fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None
-)(implicit system: ActorSystem[_]) {
+)(implicit system: ActorSystem[_])
+    extends Connector[RestApiConfig] {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  val metadata: ConnectorMetadata = ConnectorMetadata(
+    kind = "rest_api",
+    displayName = "REST API",
+    supportsIncremental = false,
+    authKind = "configurable"
+  )
 
   private implicit val ec: ExecutionContext = system.executionContext
   private implicit val mat: Materializer    = Materializer(system)
@@ -39,7 +47,9 @@ class RestApiConnector(
     case other             => Vector(other)
   }
 
-  private def doFetch(config: RestApiConfig): Future[Either[String, JsValue]] = {
+  /** Builds the request shared by `doFetch` and `testConnection` — same URI/query-param injection,
+   *  method, and auth/header pipeline for both, so "auth is valid" means the same thing in each. */
+  private def buildRequest(config: RestApiConfig): HttpRequest = {
     val baseUri = Uri(config.url)
     val uri     = injectQueryParam(baseUri, config.auth)
     val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
@@ -48,7 +58,11 @@ class RestApiConnector(
     val authHeaders: List[HttpHeader] = buildAuthHeaders(config.auth)
     val allHeaders = authHeaders ++ baseHeaders
 
-    val request = HttpRequest(method = method, uri = uri, headers = allHeaders)
+    HttpRequest(method = method, uri = uri, headers = allHeaders)
+  }
+
+  private def doFetch(config: RestApiConfig): Future[Either[String, JsValue]] = {
+    val request = buildRequest(config)
 
     Http(system.classicSystem)
       .singleRequest(request, settings = poolSettings)
@@ -74,6 +88,42 @@ class RestApiConnector(
         Left("Request failed")
       }
   }
+
+  // ── Connector[RestApiConfig] ──────────────────────────────────────────────
+
+  /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
+   *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */
+  def testConnection(config: RestApiConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
+    val request = buildRequest(config)
+
+    Http(system.classicSystem)
+      .singleRequest(request, settings = poolSettings)
+      .flatMap { response =>
+        response.entity.toStrict(30.seconds).map { entity =>
+          if (response.status.isSuccess())
+            Right(())
+          else
+            Left(s"HTTP ${response.status.intValue()}: ${entity.data.utf8String}")
+        }
+      }
+      .recover { case e =>
+        // HEL-311: keep the "Request failed" category prefix, drop the raw
+        // exception tail; log the cause.
+        log.error("REST source request failed", e)
+        Left("Request failed")
+      }
+  }
+
+  /** Forwards to the existing `fetch`/`toRows` methods, matching `SourceService.inferRest`'s use of
+   *  `SchemaInferenceEngine.fromJson` directly on the raw response (not the row-shaped `toRows`
+   *  output — inference wants the whole payload's shape, `fetch`/`toRows` wants per-row shaping). */
+  def inferSchema(config: RestApiConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+    fetch(config).map(_.map(json => SchemaInferenceEngine.fromJson(json)))
+
+  /** Forwards to the existing `fetch`/`toRows` methods, truncating to `maxRows` — matching
+   *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. */
+  def fetch(config: RestApiConfig, maxRows: Int)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
+    fetch(config).map(_.map(json => toRows(json).take(maxRows)))
 
   private def buildAuthHeaders(auth: RestApiAuth): List[HttpHeader] = auth match {
     case RestApiAuth.NoAuth                          => Nil

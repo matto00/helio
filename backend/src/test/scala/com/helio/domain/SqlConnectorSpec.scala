@@ -1,10 +1,41 @@
 package com.helio.domain
 
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
-class SqlConnectorSpec extends AnyWordSpec with Matchers {
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
+
+class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+
+  private implicit val ec: ExecutionContext = ExecutionContext.global
+
+  private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+
+  private var embeddedPostgres: EmbeddedPostgres = _
+
+  override def beforeAll(): Unit =
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+
+  override def afterAll(): Unit =
+    embeddedPostgres.close()
+
+  /** A config that opens successfully against the embedded Postgres instance. `query` is
+   *  deliberately invalid SQL — `testConnection` must never send it (Scenario: "SQL testConnection
+   *  does not execute the query", spec.md). */
+  private def liveConfig(query: String = "NOT VALID SQL AT ALL"): SqlSourceConfig =
+    SqlSourceConfig(
+      dialect  = "postgresql",
+      host     = "localhost",
+      port     = embeddedPostgres.getPort,
+      database = "postgres",
+      user     = "postgres",
+      password = "postgres",
+      query    = query
+    )
 
   private def config(dialect: String, host: String = "localhost", port: Int = 5432) =
     SqlSourceConfig(
@@ -130,6 +161,57 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers {
 
     "return empty schema for an empty row set" in {
       SqlConnector.inferSchema(Seq.empty).fields shouldBe empty
+    }
+  }
+
+  // ── SqlConnector as Connector[SqlSourceConfig] (HEL-449 task 4.2) ─────────
+
+  "SqlConnector.metadata" should {
+    "expose kind=sql, displayName=SQL Database, supportsIncremental=false, authKind=basic" in {
+      val asConnector: Connector[SqlSourceConfig] = SqlConnector
+      asConnector.metadata shouldBe ConnectorMetadata(
+        kind = "sql",
+        displayName = "SQL Database",
+        supportsIncremental = false,
+        authKind = "basic"
+      )
+    }
+  }
+
+  "SqlConnector.testConnection" should {
+
+    "succeed (open+close only) against a reachable database, even with an unexecutable query" in {
+      // liveConfig's query is invalid SQL — if testConnection executed it, this would fail.
+      await(SqlConnector.testConnection(liveConfig())) shouldBe Right(())
+    }
+
+    "fail with a distinct 'SQL connection failed' message when the database is unreachable" in {
+      val unreachable = liveConfig().copy(port = 1)
+      await(SqlConnector.testConnection(unreachable)) shouldBe Left("SQL connection failed")
+    }
+  }
+
+  "SqlConnector.fetch(config, maxRows) via the Connector trait" should {
+
+    "match SqlConnector.toRows(SqlConnector.execute(config, maxRows)) for a real query" in {
+      val runnable = liveConfig(query = "SELECT 1 AS one")
+      val expected = await(SqlConnector.execute(runnable, maxRows = 100)).map(SqlConnector.toRows)
+
+      val viaTrait = await(SqlConnector.fetch(runnable, maxRows = 100))
+      viaTrait shouldBe expected
+      viaTrait shouldBe Right(Vector(JsObject("one" -> JsNumber(1))))
+    }
+  }
+
+  "SqlConnector.inferSchema(config) via the Connector trait" should {
+
+    "derive the same fields SourceService.inferSql would derive from the same query" in {
+      val runnable = liveConfig(query = "SELECT 1 AS one, 'x' AS label")
+      val rows      = await(SqlConnector.execute(runnable, maxRows = 100)).getOrElse(fail("expected Right"))
+      val expected  = SqlConnector.inferSchema(rows)
+
+      val result = await(SqlConnector.inferSchema(runnable))
+      result.map(_.fields.map(_.name)) shouldBe Right(expected.fields.map(_.name))
     }
   }
 }

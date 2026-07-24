@@ -7,9 +7,16 @@ import java.sql.{Connection, DriverManager, Types}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
 
-object SqlConnector {
+object SqlConnector extends Connector[SqlSourceConfig] {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  val metadata: ConnectorMetadata = ConnectorMetadata(
+    kind = "sql",
+    displayName = "SQL Database",
+    supportsIncremental = false,
+    authKind = "basic"
+  )
 
   // ── DDL/DML keyword check ─────────────────────────────────────────────────
 
@@ -108,4 +115,31 @@ object SqlConnector {
   /** Converts rows to a JsArray (used for preview responses). */
   def toRows(rows: Seq[Map[String, JsValue]]): Vector[JsValue] =
     rows.map(row => JsObject(row)).toVector
+
+  // ── Connector[SqlSourceConfig] ────────────────────────────────────────────
+
+  /** Opens and immediately closes a JDBC connection — no query is executed.
+   *  Uses `scala.concurrent.blocking` on the caller-supplied `ec`, matching `execute`. */
+  def testConnection(config: SqlSourceConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+    Future {
+      blocking {
+        Try {
+          connect(config).close()
+        }.toEither.left.map { e =>
+          // Distinct category prefix from `execute`'s "SQL execution failed" so
+          // log/test consumers can't confuse a connection failure with a query failure.
+          log.error("SQL connection failed", e)
+          "SQL connection failed"
+        }
+      }
+    }
+
+  /** Forwards to the existing `execute`/`inferSchema(rows)` methods on the caller-supplied `ec`,
+   *  matching `SourceService.inferSql`'s existing `maxRows = 100` sample size. */
+  def inferSchema(config: SqlSourceConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+    execute(config, maxRows = 100).map(_.map(rows => inferSchema(rows)))
+
+  def fetch(config: SqlSourceConfig, maxRows: Int)(implicit ec: ExecutionContext)
+      : Future[Either[String, Vector[JsValue]]] =
+    execute(config, maxRows).map(_.map(rows => toRows(rows)))
 }
