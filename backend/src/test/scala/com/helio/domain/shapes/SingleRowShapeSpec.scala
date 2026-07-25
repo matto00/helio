@@ -53,6 +53,18 @@ class SingleRowShapeSpec extends AnyWordSpec with Matchers {
       SingleRowShape.expand(params).isLeft shouldBe true
     }
 
+    "return Right when a measure's \"fn\" is uppercase (case-insensitive validation, HEL-394)" in {
+      val params = JsObject(
+        "mode"     -> JsString("aggregate"),
+        "measures" -> JsArray(JsObject("fn" -> JsString("SUM"), "field" -> JsString("amount"), "alias" -> JsString("total")))
+      )
+      val result = SingleRowShape.expand(params)
+      result.isRight shouldBe true
+      val expansions = result.getOrElse(Vector.empty)
+      expansions.head.config.convertTo[AggregateConfig] shouldBe
+        AggregateConfig(Vector.empty, Vector(Aggregation("total", "SUM", "amount")))
+    }
+
     "return Left when a measure's \"fn\" is not a supported aggregation function" in {
       val params = JsObject(
         "mode"     -> JsString("aggregate"),

@@ -127,7 +127,7 @@ object SingleRowShape extends PipelineShape {
     }
 
   private def validateMeasures(measures: Vector[Aggregation]): Either[String, Vector[Aggregation]] =
-    measures.find(m => !SupportedFns.contains(m.fn)) match {
+    measures.find(m => !SupportedFns.contains(m.fn.toLowerCase)) match {
       case Some(bad) =>
         Left(
           s"single-row shape: unsupported aggregation function '${bad.fn}'. " +
