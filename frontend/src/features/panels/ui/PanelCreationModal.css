@@ -483,3 +483,56 @@ select.panel-creation-modal__input {
   color: var(--app-text-muted);
   font-size: var(--text-sm);
 }
+
+/* "Start from a shape" cards (HEL-399) */
+.panel-creation-modal__shape-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel-creation-modal__shape-eyebrow {
+  margin: 0;
+}
+
+.panel-creation-modal__shape-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel-creation-modal__shape-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.panel-creation-modal__shape-card:hover,
+.panel-creation-modal__shape-card:focus-visible {
+  border-color: var(--app-accent-mid);
+  background: var(--app-accent-surface);
+  outline: none;
+}
+
+.panel-creation-modal__shape-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+}
+
+.panel-creation-modal__shape-desc {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
