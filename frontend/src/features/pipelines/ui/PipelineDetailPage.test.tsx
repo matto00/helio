@@ -28,6 +28,8 @@ import {
   getPipelineSchedule,
   putPipelineSchedule,
   deletePipelineSchedule,
+  getPipelineShapeCatalog,
+  expandPipelineShape,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -36,6 +38,7 @@ import type {
   PipelineSummary,
 } from "../types/pipelineStep";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
+import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../types/pipelineShape";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -52,6 +55,8 @@ jest.mock("../services/pipelineService", () => ({
   getPipelineSchedule: jest.fn(),
   putPipelineSchedule: jest.fn(),
   deletePipelineSchedule: jest.fn(),
+  getPipelineShapeCatalog: jest.fn(),
+  expandPipelineShape: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -67,6 +72,8 @@ const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
 const getPipelineScheduleMock = jest.mocked(getPipelineSchedule);
 const putPipelineScheduleMock = jest.mocked(putPipelineSchedule);
 const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
+const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
+const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
  *  `isAxiosError` guard (design D4/D5). */
@@ -1737,5 +1744,238 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     fireEvent.click(setScheduleBtn);
 
     expect(screen.getByRole("dialog", { name: "Pipeline schedule" })).toBeInTheDocument();
+  });
+});
+
+// ── HEL-402: "Start from a shape" affordance + instantiation flow ───────────
+
+const singleRowCatalogEntry: PipelineShapeCatalogEntry = {
+  id: "single-row",
+  label: "Single row",
+  description: "Reduces a source to exactly one row.",
+  paramsSchema: [
+    {
+      name: "mode",
+      label: "Mode",
+      dataType: "string",
+      required: true,
+      description: 'Either "aggregate" or "filter".',
+    },
+  ],
+  outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+};
+
+describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
+  beforeAll(() => {
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    getPipelineShapeCatalogMock.mockResolvedValue([singleRowCatalogEntry]);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("empty-state offers 'Start from a shape' alongside '+ Add step'", async () => {
+    getPipelineStepsMock.mockResolvedValue([]);
+    renderDetailPage();
+
+    expect(await screen.findByText("Add your first transformation step")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Add step" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start from a shape" })).toBeInTheDocument();
+  });
+
+  it("the add-step row offers 'Start from a shape' alongside the op picker once steps exist", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "step-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "select",
+        config: { fields: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    renderDetailPage();
+
+    expect(
+      await screen.findByRole("button", { name: "+ Add transformation step" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start from a shape" })).toBeInTheDocument();
+  });
+
+  it("selecting a shape, filling params, and submitting seeds a step card", async () => {
+    getPipelineStepsMock.mockResolvedValue([]);
+    const expansions: ShapeStepExpansion[] = [
+      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
+    ];
+    expandPipelineShapeMock.mockResolvedValueOnce(expansions);
+    createPipelineStepMock.mockResolvedValueOnce({
+      id: "seeded-step-1",
+      pipelineId: "pipe-1",
+      position: 0,
+      type: "aggregate",
+      config: { groupBy: [], aggregations: [] },
+      createdAt: "",
+      updatedAt: "",
+    });
+    renderDetailPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByText("Single row"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
+      target: { value: "aggregate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
+
+    await waitFor(() => {
+      expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "aggregate", {
+        groupBy: [],
+        aggregations: [],
+      });
+    });
+    // Seeded step renders through the unmodified StepCard/OP_TYPES machinery —
+    // "Group & aggregate" is OP_TYPES' label for the "aggregate" kind.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
+    });
+    // Modal closes on success.
+    expect(screen.queryByRole("dialog", { name: "Start from a shape" })).not.toBeInTheDocument();
+  });
+
+  it("appends seeded steps after an existing hand-authored step", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "existing-step",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "select",
+        config: { fields: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    const expansions: ShapeStepExpansion[] = [
+      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
+    ];
+    expandPipelineShapeMock.mockResolvedValueOnce(expansions);
+    createPipelineStepMock.mockResolvedValueOnce({
+      id: "seeded-step-1",
+      pipelineId: "pipe-1",
+      position: 1,
+      type: "aggregate",
+      config: { groupBy: [], aggregations: [] },
+      createdAt: "",
+      updatedAt: "",
+    });
+    renderDetailPage();
+
+    // Wait for the pre-existing step to render first — this ensures the
+    // river view has settled into its non-empty layout before interacting
+    // with it, avoiding a race with the async step-load re-render.
+    await screen.findByRole("button", { name: /Select fields/i });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByText("Single row"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
+      target: { value: "aggregate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
+
+    // Both the pre-existing step and the newly seeded step are present —
+    // the existing step is not replaced (design.md Decision 3: append).
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
+    });
+  });
+
+  // HEL-336 defect guard, at the page level: a mid-loop per-step create
+  // failure stops the loop, keeps the already-created step, closes the
+  // picker, and surfaces a visible toast naming the partial count — never a
+  // silent drop.
+  it("a mid-loop step-create failure keeps already-created steps and pushes a partial-apply toast", async () => {
+    getPipelineStepsMock.mockResolvedValue([]);
+    const expansions: ShapeStepExpansion[] = [
+      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
+      { kind: "limit", config: { count: 1 } },
+    ];
+    expandPipelineShapeMock.mockResolvedValueOnce(expansions);
+    createPipelineStepMock
+      .mockResolvedValueOnce({
+        id: "seeded-step-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "aggregate",
+        config: { groupBy: [], aggregations: [] },
+        createdAt: "",
+        updatedAt: "",
+      })
+      .mockRejectedValueOnce(new Error("Request failed with status code 500"));
+
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByText("Single row"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
+      target: { value: "aggregate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
+
+    // Only the first step is created — the second (limit) is never attempted.
+    await waitFor(() => {
+      expect(createPipelineStepMock).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
+
+    // A visible toast reports the partial application.
+    await waitFor(() => {
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].variant).toBe("error");
+      expect(toasts[0].message).toMatch(/1 of 2 steps were added/i);
+    });
+
+    // The picker closes even on a partial failure (design.md Decision 6).
+    expect(screen.queryByRole("dialog", { name: "Start from a shape" })).not.toBeInTheDocument();
+  });
+
+  it("a 422 from expand is shown inline and the picker stays open with no steps created", async () => {
+    getPipelineStepsMock.mockResolvedValue([]);
+    expandPipelineShapeMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: { message: "single-row shape: missing required field 'measures'" },
+      },
+    });
+    renderDetailPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByText("Single row"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
+      target: { value: "aggregate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("single-row shape: missing required field 'measures'"),
+      ).toBeInTheDocument();
+    });
+    expect(createPipelineStepMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Start from a shape" })).toBeInTheDocument();
   });
 });

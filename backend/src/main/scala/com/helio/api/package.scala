@@ -255,4 +255,10 @@ package object api {
   val OutputContractResponse: protocols.OutputContractResponse.type = protocols.OutputContractResponse
   type PipelineShapeCatalogEntryResponse = protocols.PipelineShapeCatalogEntryResponse
   val PipelineShapeCatalogEntryResponse: protocols.PipelineShapeCatalogEntryResponse.type = protocols.PipelineShapeCatalogEntryResponse
+
+  // Pipeline shape expand (HEL-402)
+  type ExpandPipelineShapeRequest = protocols.ExpandPipelineShapeRequest
+  val ExpandPipelineShapeRequest: protocols.ExpandPipelineShapeRequest.type = protocols.ExpandPipelineShapeRequest
+  type ShapeStepExpansionResponse = protocols.ShapeStepExpansionResponse
+  val ShapeStepExpansionResponse: protocols.ShapeStepExpansionResponse.type = protocols.ShapeStepExpansionResponse
 }

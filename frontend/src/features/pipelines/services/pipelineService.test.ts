@@ -8,10 +8,16 @@
 // `dataTypeService.test.ts` for the same class of bug.
 
 import { httpClient } from "../../../services/httpClient";
-import { fetchRunHistory, getPipelineSchedule, putPipelineSchedule } from "./pipelineService";
+import {
+  expandPipelineShape,
+  fetchRunHistory,
+  getPipelineSchedule,
+  getPipelineShapeCatalog,
+  putPipelineSchedule,
+} from "./pipelineService";
 
 jest.mock("../../../services/httpClient", () => ({
-  httpClient: { get: jest.fn(), put: jest.fn() },
+  httpClient: { get: jest.fn(), put: jest.fn(), post: jest.fn() },
 }));
 
 const mockedHttpClient = jest.mocked(httpClient);
@@ -111,5 +117,55 @@ describe("pipelineService run history triggerSource normalization", () => {
     const result = await fetchRunHistory("p-1");
 
     expect(result[0].triggerSource).toBe("scheduled");
+  });
+});
+
+// HEL-402: pipeline shape catalog + expand service calls.
+describe("pipelineService shape catalog + expand", () => {
+  it("getPipelineShapeCatalog GETs /api/pipeline-shapes and returns the response data", async () => {
+    const catalog = [
+      {
+        id: "single-row",
+        label: "Single row",
+        description: "Reduces a source to exactly one row.",
+        paramsSchema: [],
+        outputContract: {
+          rowCount: { kind: "exactly-one" },
+          fields: [],
+          description: "",
+        },
+      },
+    ];
+    mockedHttpClient.get.mockResolvedValueOnce({ data: catalog });
+
+    const result = await getPipelineShapeCatalog();
+
+    expect(mockedHttpClient.get).toHaveBeenCalledWith("/api/pipeline-shapes");
+    expect(result).toEqual(catalog);
+  });
+
+  it("expandPipelineShape POSTs params wrapped in {params} and returns the expansions", async () => {
+    const expansions = [{ kind: "aggregate", config: { groupBy: [], aggregations: [] } }];
+    mockedHttpClient.post.mockResolvedValueOnce({ data: expansions });
+
+    const result = await expandPipelineShape("single-row", {
+      mode: "aggregate",
+      measures: [{ fn: "sum", field: "amount", alias: "total" }],
+    });
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith("/api/pipeline-shapes/single-row/expand", {
+      params: { mode: "aggregate", measures: [{ fn: "sum", field: "amount", alias: "total" }] },
+    });
+    expect(result).toEqual(expansions);
+  });
+
+  it("expandPipelineShape lets a non-2xx rejection propagate (caller surfaces the message)", async () => {
+    const rejection = {
+      isAxiosError: true,
+      response: { status: 422, data: { message: "single-row shape: missing required field" } },
+    };
+    mockedHttpClient.post.mockRejectedValueOnce(rejection);
+
+    await expect(expandPipelineShape("single-row", { mode: "aggregate" })).rejects.toBe(rejection);
   });
 });

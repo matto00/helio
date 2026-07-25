@@ -4,13 +4,15 @@
 // otherwise). Extracted from PipelineDetailPage.tsx in CS3 cycle 2 to keep
 // the parent under the 400L hard cap.
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
+import { ShapePickerModal } from "./ShapePickerModal";
 import { StepCard } from "./StepCard";
 import type { OpType, Step } from "../types/step";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
+import type { ShapeStepExpansion } from "../types/pipelineShape";
 
 interface PipelineRiverViewProps {
   steps: Step[];
@@ -25,6 +27,9 @@ interface PipelineRiverViewProps {
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   onStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
+  /** HEL-402 — performs the sequential per-step create loop for a shape's
+   *  expanded steps; see `PipelineDetailPage.handleInstantiateShape`. */
+  onInstantiateShape: (expansions: ShapeStepExpansion[]) => Promise<void>;
 }
 
 export function PipelineRiverView({
@@ -40,10 +45,12 @@ export function PipelineRiverView({
   getAnalyzeValidationError,
   onStepConfigChange,
   runStepRowCounts,
+  onInstantiateShape,
 }: PipelineRiverViewProps) {
   // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
   // single ref anchors the portalled OpDropdown to whichever button is showing.
   const addStepButtonRef = useRef<HTMLButtonElement>(null);
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
 
   return (
     <div className="pipeline-detail-page__river">
@@ -53,14 +60,23 @@ export function PipelineRiverView({
             <p className="pipeline-detail-page__empty-state-text">
               Add your first transformation step
             </p>
-            <button
-              ref={addStepButtonRef}
-              type="button"
-              className="pipeline-detail-page__add-step-btn"
-              onClick={openDropdown}
-            >
-              + Add step
-            </button>
+            <div className="pipeline-detail-page__empty-state-actions">
+              <button
+                ref={addStepButtonRef}
+                type="button"
+                className="pipeline-detail-page__add-step-btn"
+                onClick={openDropdown}
+              >
+                + Add step
+              </button>
+              <button
+                type="button"
+                className="pipeline-detail-page__shape-picker-btn"
+                onClick={() => setShapePickerOpen(true)}
+              >
+                Start from a shape
+              </button>
+            </div>
             {dropdownOpen && (
               <OpDropdown
                 anchorRef={addStepButtonRef}
@@ -96,6 +112,13 @@ export function PipelineRiverView({
               >
                 + Add transformation step
               </button>
+              <button
+                type="button"
+                className="pipeline-detail-page__shape-picker-btn pipeline-detail-page__shape-picker-btn--dashed"
+                onClick={() => setShapePickerOpen(true)}
+              >
+                Start from a shape
+              </button>
               {dropdownOpen && (
                 <OpDropdown
                   anchorRef={addStepButtonRef}
@@ -107,6 +130,13 @@ export function PipelineRiverView({
           </>
         )}
       </div>
+
+      {shapePickerOpen && (
+        <ShapePickerModal
+          onClose={() => setShapePickerOpen(false)}
+          onSeedSteps={onInstantiateShape}
+        />
+      )}
     </div>
   );
 }

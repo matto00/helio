@@ -2,7 +2,7 @@ package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.DataFieldType
-import com.helio.domain.shapes.{OutputContract, OutputFieldContract, RowCountContract, ShapeParamDescriptor}
+import com.helio.domain.shapes.{OutputContract, OutputFieldContract, RowCountContract, ShapeParamDescriptor, ShapeStepExpansion}
 import com.helio.services.PipelineShapeCatalogEntry
 import spray.json._
 
@@ -66,6 +66,23 @@ object PipelineShapeCatalogEntryResponse {
     )
 }
 
+// ── POST /api/pipeline-shapes/:id/expand wire shapes (HEL-402) ──────────────
+
+/** Request body for `POST /api/pipeline-shapes/:id/expand` — the caller-supplied params passed
+ *  straight through to [[com.helio.domain.shapes.PipelineShape.expand]] without server-side
+ *  reshaping (the shape itself owns all params validation). */
+final case class ExpandPipelineShapeRequest(params: JsObject)
+
+/** Wire shape for one [[ShapeStepExpansion]] entry in the `expand` response array — a 1:1 mirror of
+ *  `CreatePipelineStepRequest`'s `{type, config}` shape (`kind` here, not `` `type` ``, matching the
+ *  domain field name directly since this isn't itself a create request). */
+final case class ShapeStepExpansionResponse(kind: String, config: JsObject)
+
+object ShapeStepExpansionResponse {
+  def fromDomain(expansion: ShapeStepExpansion): ShapeStepExpansionResponse =
+    ShapeStepExpansionResponse(kind = expansion.kind, config = expansion.config)
+}
+
 trait PipelineShapeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit val shapeParamDescriptorFormat: RootJsonFormat[ShapeParamDescriptor] =
@@ -101,4 +118,9 @@ trait PipelineShapeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     jsonFormat3(OutputContractResponse.apply)
   implicit val pipelineShapeCatalogEntryResponseFormat: RootJsonFormat[PipelineShapeCatalogEntryResponse] =
     jsonFormat5(PipelineShapeCatalogEntryResponse.apply)
+
+  implicit val expandPipelineShapeRequestFormat: RootJsonFormat[ExpandPipelineShapeRequest] =
+    jsonFormat1(ExpandPipelineShapeRequest.apply)
+  implicit val shapeStepExpansionResponseFormat: RootJsonFormat[ShapeStepExpansionResponse] =
+    jsonFormat2(ShapeStepExpansionResponse.apply)
 }

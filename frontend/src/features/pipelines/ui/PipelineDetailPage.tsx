@@ -40,6 +40,7 @@ import type {
   PipelineStepKind,
   SchemaField,
 } from "../types/pipelineStep";
+import type { ShapeStepExpansion } from "../types/pipelineShape";
 import type { OpType, Step } from "../types/step";
 
 // ── Main page ────────────────────────────────────────────────────────────────
@@ -301,6 +302,34 @@ export function PipelineDetailPage() {
     }
   }
 
+  // HEL-402 — "Start from a shape": sequentially persists each of a shape's
+  // expanded steps, appending after any steps already present (design.md
+  // Decision 3). Mirrors `handleAddStep`'s single-step persistence, extended
+  // to a loop: on a mid-loop failure, stop (no further steps attempted),
+  // keep whatever already succeeded (no compensating delete — matches
+  // `handleRemoveStep`'s existing no-rollback semantics), and surface a
+  // visible toast naming how many of N steps were added (design.md Decision
+  // 6) — never a silent partial application.
+  async function handleInstantiateShape(expansions: ShapeStepExpansion[]) {
+    if (!id) return;
+    setStepsInitialized(true);
+    let createdCount = 0;
+    for (const expansion of expansions) {
+      try {
+        const persisted = await createPipelineStep(id, expansion.kind, expansion.config);
+        setSteps((prev) => [...prev, pipelineStepToStep(persisted)]);
+        createdCount += 1;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to create step.";
+        pushToast({
+          variant: "error",
+          message: `Shape only partially applied: ${createdCount} of ${expansions.length} steps were added (${message}).`,
+        });
+        return;
+      }
+    }
+  }
+
   function handleStepConfigChange(stepId: string, config: PipelineStepConfig) {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
   }
@@ -431,6 +460,7 @@ export function PipelineDetailPage() {
         getAnalyzeValidationError={getAnalyzeValidationError}
         onStepConfigChange={handleStepConfigChange}
         runStepRowCounts={runStepRowCounts}
+        onInstantiateShape={handleInstantiateShape}
       />
 
       {/* ── Footer bar ── */}
