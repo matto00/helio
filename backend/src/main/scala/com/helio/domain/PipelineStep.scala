@@ -49,10 +49,11 @@ trait PipelineStep {
    *
    *  Polymorphic per kind — pure-sync steps wrap their result in
    *  `Future.successful` and ignore `ctx`; async / repo-touching steps
-   *  (currently only [[steps.JoinStep]]) consume `ctx.dataSourceRepo` to load
-   *  the right-side rows. The uniform `Future` return shape is the cost of
-   *  the polymorphic interface and the trade-off the cycle-3 refactor
-   *  accepted to land the per-step-file structure. */
+   *  (currently [[steps.JoinStep]] and [[steps.UnionStep]]) consume
+   *  `ctx.dataSourceRepo` to load a second source's rows. The uniform
+   *  `Future` return shape is the cost of the polymorphic interface and the
+   *  trade-off the cycle-3 refactor accepted to land the per-step-file
+   *  structure. */
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]]
@@ -62,9 +63,9 @@ trait PipelineStep {
  *  here only when a future step kind actually needs them. */
 final case class PipelineExecutionContext(
     dataSourceRepo: DataSourceRepository,
-    /** Loader for a [[DataSource]]'s rows. Today only [[steps.JoinStep]] uses
-     *  it (to pull the right-side rows of a static / csv source). Lives on the
-     *  context so the engine can decide the loader implementation without
+    /** Loader for a [[DataSource]]'s rows. Used by [[steps.JoinStep]] and
+     *  [[steps.UnionStep]] (to pull a second source's rows — static / csv).
+     *  Lives on the context so the engine can decide the loader implementation without
      *  every step file needing to know about it. */
     loadSource: DataSource => Future[Seq[Map[String, Any]]]
 )
@@ -118,7 +119,8 @@ object PipelineStep {
     UnpivotStep.Kind -> UnpivotStep.companion,
     DedupeStep.Kind -> DedupeStep.companion,
     FillNullStep.Kind -> FillNullStep.companion,
-    StringOpsStep.Kind -> StringOpsStep.companion
+    StringOpsStep.Kind -> StringOpsStep.companion,
+    UnionStep.Kind -> UnionStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -157,6 +159,7 @@ object PipelineStepKind {
   val Dedupe: String     = DedupeStep.Kind
   val FillNull: String   = FillNullStep.Kind
   val StringOps: String  = StringOpsStep.Kind
+  val Union: String      = UnionStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

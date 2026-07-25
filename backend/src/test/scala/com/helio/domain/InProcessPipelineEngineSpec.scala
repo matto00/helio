@@ -50,6 +50,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: DedupeConfig    => DedupeStep(id, pid, 0, c, now, now)
       case c: FillNullConfig  => FillNullStep(id, pid, 0, c, now, now)
       case c: StringOpsConfig => StringOpsStep(id, pid, 0, c, now, now)
+      case c: UnionConfig    => UnionStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -867,6 +868,148 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
 
       result should have size 2  // orphan row retained
       result.map(_("left_val")) should contain ("orphan")
+    }
+
+    // HEL-384 — union op: byPosition/byName execution, error paths.
+
+    "union op: byPosition appends rows with no column reconciliation" in {
+      val currentRows = Seq(Map[String, Any]("a" -> 1, "b" -> 2))
+      val otherConfig = buildStaticConfig(
+        Seq("a", "b"),
+        Seq(Map[String, Any]("a" -> 3, "b" -> 4))
+      )
+      val otherDs = StaticSource(
+        id        = DataSourceId("ds-union-position"),
+        name      = "other",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val otherConfigJson = otherConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-union-position") Some(otherDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-union-position") Some(otherConfigJson) else None)
+      }
+      val step = makeStep("union",
+        """{ "otherDataSourceId": "ds-union-position", "mode": "byPosition" }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(
+        Map[String, Any]("a" -> 1, "b" -> 2),
+        Map[String, Any]("a" -> 3, "b" -> 4)
+      )
+    }
+
+    "union op: byName aligns on column names and backfills missing columns with null" in {
+      val currentRows = Seq(Map[String, Any]("a" -> 1, "b" -> 2))
+      val otherConfig = buildStaticConfig(
+        Seq("a", "c"),
+        Seq(Map[String, Any]("a" -> 3, "c" -> 5))
+      )
+      val otherDs = StaticSource(
+        id        = DataSourceId("ds-union-name"),
+        name      = "other",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val otherConfigJson = otherConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-union-name") Some(otherDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-union-name") Some(otherConfigJson) else None)
+      }
+      val step = makeStep("union",
+        """{ "otherDataSourceId": "ds-union-name", "mode": "byName" }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(
+        Map[String, Any]("a" -> 1, "b" -> 2, "c" -> null),
+        Map[String, Any]("a" -> 3, "b" -> null, "c" -> 5)
+      )
+    }
+
+    "union op: byName with identical column sets behaves like byPosition (no null backfill)" in {
+      val currentRows = Seq(Map[String, Any]("a" -> 1, "b" -> 2))
+      val otherConfig = buildStaticConfig(
+        Seq("a", "b"),
+        Seq(Map[String, Any]("a" -> 3, "b" -> 4))
+      )
+      val otherDs = StaticSource(
+        id        = DataSourceId("ds-union-name-same"),
+        name      = "other",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val otherConfigJson = otherConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-union-name-same") Some(otherDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-union-name-same") Some(otherConfigJson) else None)
+      }
+      val step = makeStep("union",
+        """{ "otherDataSourceId": "ds-union-name-same", "mode": "byName" }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(
+        Map[String, Any]("a" -> 1, "b" -> 2),
+        Map[String, Any]("a" -> 3, "b" -> 4)
+      )
+    }
+
+    "union op: missing otherDataSourceId fails at execute time" in {
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(None)
+      }
+      val step = makeStep("union", """{ "mode": "byPosition" }""")
+      val ex = intercept[IllegalArgumentException] {
+        Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
+      }
+      ex.getMessage should include ("DataSource not found for union")
+    }
+
+    "union op: unresolvable otherDataSourceId fails at execute time, naming the id" in {
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(None)
+      }
+      val step = makeStep("union",
+        """{ "otherDataSourceId": "does-not-exist", "mode": "byPosition" }""")
+      val ex = intercept[IllegalArgumentException] {
+        Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
+      }
+      ex.getMessage should include ("does-not-exist")
+    }
+
+    "union op: unsupported mode fails at execute time, naming the value and supported modes" in {
+      val otherDs = StaticSource(
+        id        = DataSourceId("ds-union-badmode"),
+        name      = "other",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val otherConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1))).compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-union-badmode") Some(otherDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-union-badmode") Some(otherConfigJson) else None)
+      }
+      val step = makeStep("union",
+        """{ "otherDataSourceId": "ds-union-badmode", "mode": "byColumn" }""")
+      val ex = intercept[IllegalArgumentException] {
+        Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
+      }
+      ex.getMessage should include ("byColumn")
+      ex.getMessage should include ("byPosition")
+      ex.getMessage should include ("byName")
     }
 
         // 6.2 Multi-step pipeline test

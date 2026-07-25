@@ -28,6 +28,7 @@ import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 import { SplitTextConfig } from "./SplitTextConfig";
 import { StringOpsConfig } from "./StringOpsConfig";
+import { UnionConfig } from "./UnionConfig";
 import { UnpivotConfig } from "./UnpivotConfig";
 import { WindowConfig } from "./WindowConfig";
 
@@ -104,6 +105,7 @@ export function StepCard({
     dedupeConfig,
     fillNullConfig,
     stringOpsConfig,
+    unionConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -122,6 +124,7 @@ export function StepCard({
     onDedupeChange,
     onFillNullChange,
     onStringOpsChange,
+    onUnionChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -254,6 +257,8 @@ export function StepCard({
               analyzeColumns={analyzeColumns}
               onChange={onStringOpsChange}
             />
+          ) : step.opType.id === "union" ? (
+            <UnionConfig config={unionConfig} onChange={onUnionChange} />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">

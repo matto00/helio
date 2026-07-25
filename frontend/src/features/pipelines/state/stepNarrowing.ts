@@ -19,6 +19,7 @@ import {
   faHeading,
   faLayerGroup,
   faLink,
+  faObjectGroup,
   faPencil,
   faRankingStar,
   faRightLeft,
@@ -46,6 +47,7 @@ import type {
   SortConfig as SortConfigType,
   SplitTextConfig as SplitTextConfigType,
   StringOpsConfig as StringOpsConfigType,
+  UnionConfig as UnionConfigType,
   UnpivotConfig as UnpivotConfigType,
   WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
@@ -62,12 +64,17 @@ import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 import { STRING_OPS_OPERATIONS, type StringOpsConfigValue } from "../ui/StringOpsConfig";
+import type { UnionConfigValue } from "../ui/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 
-// OP_TYPES drives the picker dropdown — join is intentionally excluded until
-// full join semantics ship (re-expose when HEL-278 is resolved and the
-// backend implementation is complete).
+// OP_TYPES drives the picker dropdown — join is intentionally excluded: no
+// `JoinConfig.tsx` editor exists (HEL-264's original rationale — showing an
+// unconfigurable op led to confusion), not the now-resolved HEL-278 ACL gap.
+// `union` (HEL-384) is the async/repo-touching sibling of join, but ships
+// both a full editor (UnionConfig.tsx) and its own ACL check (design.md
+// Decision 9), so it does NOT mirror join's exclusion — see design.md
+// Decision 7.
 export const OP_TYPES: OpType[] = [
   { id: "select", label: "Select fields", icon: faSquareCheck },
   { id: "rename", label: "Rename column", icon: faPencil },
@@ -87,6 +94,7 @@ export const OP_TYPES: OpType[] = [
   { id: "dedupe", label: "Dedupe rows", icon: faClone },
   { id: "fillnull", label: "Fill null / impute", icon: faFillDrip },
   { id: "stringops", label: "String operation", icon: faFont },
+  { id: "union", label: "Union / append rows", icon: faObjectGroup },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -173,6 +181,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         index: null,
         fields: null,
       } as StringOpsConfigType;
+    case "union":
+      return { otherDataSourceId: "", mode: "byPosition" } as UnionConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -431,5 +441,15 @@ export function windowConfigOf(step: Step): WindowConfigValue {
     field: cfg.field ?? "",
     outputColumn: cfg.outputColumn ?? "",
     offset: typeof cfg.offset === "number" && cfg.offset > 0 ? cfg.offset : 1,
+  };
+}
+
+export function unionConfigOf(step: Step): UnionConfigValue {
+  const empty: UnionConfigValue = { otherDataSourceId: "", mode: "byPosition" };
+  if (step.opType.id !== "union") return empty;
+  const cfg = step.config as UnionConfigType;
+  return {
+    otherDataSourceId: cfg.otherDataSourceId ?? "",
+    mode: cfg.mode === "byName" ? "byName" : "byPosition",
   };
 }

@@ -156,7 +156,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
-        "stringops; `config` shape is " +
+        "stringops/union; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -210,7 +210,18 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "execute time otherwise; no match yields null). `concat` joins `fields` (string[]) with " +
         "`separator`, treating a null/missing field as an empty string (never whole-output null) — " +
         "`field` is unused by concat. An unsupported `operation` fails at execute time naming the " +
-        "six supported values. Use analyze_pipeline to " +
+        "six supported values; " +
+        "union → {otherDataSourceId, mode: 'byPosition'|'byName'} — the second async/repo-touching " +
+        "op (like join): resolves `otherDataSourceId` as a second DataSource (pipeline ACL is the " +
+        "gate, mirroring join) and stacks its rows onto the current row set. `byPosition` (default) " +
+        "appends rows as-is with no column reconciliation — use when both sources share identical " +
+        "columns. `byName` unions the two sides' column sets (derived from each side's first row) " +
+        "and backfills a column missing on either side with null for that side's rows. Row count is " +
+        "additive (current rows + other source's rows); output schema is a best-effort passthrough " +
+        "of the input schema (the other source's schema isn't resolved by analyze_pipeline) — " +
+        "verify the union's actual shape with preview/run rather than trusting the analyzed schema. " +
+        "A missing/unresolvable `otherDataSourceId` or an unrecognized `mode` fails at execute time " +
+        "naming the problem. Use analyze_pipeline to " +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),

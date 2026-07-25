@@ -21,6 +21,7 @@ import com.helio.domain.{
   SortConfig,
   SplitTextConfig,
   StringOpsConfig,
+  UnionConfig,
   UnpivotConfig,
   WindowConfig
 }
@@ -164,6 +165,12 @@ final case class StringOpsAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.StringOps }
 
+final case class UnionAnalyzeStepResponse(
+    id: String, position: Int, config: UnionConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Union }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -206,6 +213,7 @@ trait PipelineAnalyzeProtocol
   private val dedupeAnalyzeFormat: RootJsonFormat[DedupeAnalyzeStepResponse] = jsonFormat6(DedupeAnalyzeStepResponse.apply)
   private val fillNullAnalyzeFormat: RootJsonFormat[FillNullAnalyzeStepResponse] = jsonFormat6(FillNullAnalyzeStepResponse.apply)
   private val stringOpsAnalyzeFormat: RootJsonFormat[StringOpsAnalyzeStepResponse] = jsonFormat6(StringOpsAnalyzeStepResponse.apply)
+  private val unionAnalyzeFormat: RootJsonFormat[UnionAnalyzeStepResponse] = jsonFormat6(UnionAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -230,6 +238,7 @@ trait PipelineAnalyzeProtocol
         case d: DedupeAnalyzeStepResponse => dedupeAnalyzeFormat.write(d).asJsObject
         case n: FillNullAnalyzeStepResponse => fillNullAnalyzeFormat.write(n).asJsObject
         case o: StringOpsAnalyzeStepResponse => stringOpsAnalyzeFormat.write(o).asJsObject
+        case u: UnionAnalyzeStepResponse => unionAnalyzeFormat.write(u).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -255,6 +264,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.Dedupe))     => dedupeAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.FillNull))   => fillNullAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.StringOps))  => stringOpsAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.Union))      => unionAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

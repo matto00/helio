@@ -35,16 +35,17 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val dedupe = DedupeStep(id, pid, 0, DedupeConfig(Vector("id"), "first"), now, now)
   private val fillNull = FillNullStep(id, pid, 0, FillNullConfig(Vector("price"), "mean", None), now, now)
   private val stringOps = StringOpsStep(id, pid, 0, StringOpsConfig("trim", "name", "name", None, None, None, None), now, now)
+  private val union = UnionStep(id, pid, 0, UnionConfig("ds-2", "byPosition"), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
-        "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops"
+        "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops", "union"
       )
     }
 
@@ -84,6 +85,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       dedupe.kind shouldBe PipelineStepKind.Dedupe
       fillNull.kind shouldBe PipelineStepKind.FillNull
       stringOps.kind shouldBe PipelineStepKind.StringOps
+      union.kind shouldBe PipelineStepKind.Union
     }
 
     "every subtype carries the common base fields" in {
@@ -126,6 +128,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: DedupeStep     => PipelineStepKind.Dedupe
           case _: FillNullStep   => PipelineStepKind.FillNull
           case _: StringOpsStep  => PipelineStepKind.StringOps
+          case _: UnionStep      => PipelineStepKind.Union
         }
         tag shouldBe s.kind
       }

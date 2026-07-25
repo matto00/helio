@@ -64,7 +64,13 @@ object PipelineAnalyzeService {
       inputSchema: Vector[SchemaField]
   ): (Vector[SchemaField], Option[String]) =
     op match {
-      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" => (inputSchema, None)
+      // "union" (HEL-384, design.md Decision 6): documented best-effort
+      // passthrough — the other source's schema isn't resolvable here (this
+      // layer has no repo access), so output schema = input schema
+      // unchanged. A real dispatch case, not the unknown-op fallback below,
+      // so analyze_pipeline never emits a false validationError for a union
+      // step (unlike JoinStep, which has no case here at all).
+      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" | "union" => (inputSchema, None)
       case "select"                     => inferSelect(config, inputSchema)
       case "rename"                     => inferRename(config, inputSchema)
       case "cast"                       => inferCast(config, inputSchema)

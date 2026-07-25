@@ -125,6 +125,11 @@ export interface StringOpsConfig {
   index?: number | null;
   fields?: string[] | null;
 }
+export type UnionMode = "byPosition" | "byName";
+export interface UnionConfig {
+  otherDataSourceId: string;
+  mode: UnionMode;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -214,6 +219,10 @@ export interface StringOpsStep extends BasePipelineStep {
   type: "stringops";
   config: StringOpsConfig;
 }
+export interface UnionStep extends BasePipelineStep {
+  type: "union";
+  config: UnionConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -235,7 +244,8 @@ export type PipelineStep =
   | UnpivotStep
   | DedupeStep
   | FillNullStep
-  | StringOpsStep;
+  | StringOpsStep
+  | UnionStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -257,7 +267,8 @@ export type PipelineStepConfig =
   | UnpivotConfig
   | DedupeConfig
   | FillNullConfig
-  | StringOpsConfig;
+  | StringOpsConfig
+  | UnionConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -356,6 +367,10 @@ export interface StringOpsAnalyzeStep extends BaseAnalyzeStep {
   type: "stringops";
   config: StringOpsConfig;
 }
+export interface UnionAnalyzeStep extends BaseAnalyzeStep {
+  type: "union";
+  config: UnionConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -377,7 +392,8 @@ export type AnalyzeStepResult =
   | UnpivotAnalyzeStep
   | DedupeAnalyzeStep
   | FillNullAnalyzeStep
-  | StringOpsAnalyzeStep;
+  | StringOpsAnalyzeStep
+  | UnionAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

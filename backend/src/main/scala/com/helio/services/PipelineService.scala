@@ -27,6 +27,7 @@ import com.helio.api.protocols.{
   SortAnalyzeStepResponse,
   SplitTextAnalyzeStepResponse,
   StringOpsAnalyzeStepResponse,
+  UnionAnalyzeStepResponse,
   UnpivotAnalyzeStepResponse,
   UpdatePipelineRequest,
   UpdatePipelineStepRequest,
@@ -58,6 +59,7 @@ import com.helio.domain.{
   SortConfig,
   SplitTextConfig,
   StringOpsConfig,
+  UnionConfig,
   UnpivotConfig,
   WindowConfig
 }
@@ -222,6 +224,7 @@ final class PipelineService(
       case Success(cfg: DedupeConfig) => DedupeAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: FillNullConfig) => FillNullAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: StringOpsConfig) => StringOpsAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: UnionConfig) => UnionAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
@@ -273,7 +276,22 @@ final class PipelineService(
               }
             case _ => Future.successful(Right(()))
           }
-          joinCheckF.flatMap {
+          // Pre-flight ACL: UnionStep other-source must be caller-owned (HEL-384,
+          // design.md Decision 9 — symmetric with joinCheckF above).
+          val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+            case uc: UnionConfig =>
+              dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
+                case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
+                case Some(_) => Right(())
+              }
+            case _ => Future.successful(Right(()))
+          }
+          val aclCheckF: Future[Either[ServiceError, Unit]] =
+            joinCheckF.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  => unionCheckF
+            }
+          aclCheckF.flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(_)  =>
               pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
@@ -356,7 +374,22 @@ final class PipelineService(
                                 }
                               case _ => Future.successful(Right(()))
                             }
-                            joinCheckF.flatMap {
+                            // Pre-flight ACL: UnionStep other-source must be caller-owned
+                            // (HEL-384, design.md Decision 9 — symmetric with joinCheckF above).
+                            val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+                              case uc: UnionConfig =>
+                                dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
+                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
+                                  case Some(_) => Right(())
+                                }
+                              case _ => Future.successful(Right(()))
+                            }
+                            val aclCheckF: Future[Either[ServiceError, Unit]] =
+                              joinCheckF.flatMap {
+                                case Left(err) => Future.successful(Left(err))
+                                case Right(_)  => unionCheckF
+                              }
+                            aclCheckF.flatMap {
                               case Left(err) => Future.successful(Left(err))
                               case Right(_)  =>
                                 // Safe: editor/owner access confirmed. Use internal update.

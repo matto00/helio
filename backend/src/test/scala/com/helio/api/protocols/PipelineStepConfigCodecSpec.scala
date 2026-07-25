@@ -151,6 +151,18 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("stringops", raw).get shouldBe
         StringOpsConfig("concat", "", "fullName", None, Some(" "), None, Some(Vector("first", "last")))
     }
+
+    "preserve union config for byPosition" in {
+      val raw = """{"otherDataSourceId":"ds-2","mode":"byPosition"}"""
+      PipelineStepConfigCodec.decode("union", raw).get shouldBe
+        UnionConfig("ds-2", "byPosition")
+    }
+
+    "preserve union config for byName" in {
+      val raw = """{"otherDataSourceId":"ds-2","mode":"byName"}"""
+      PipelineStepConfigCodec.decode("union", raw).get shouldBe
+        UnionConfig("ds-2", "byName")
+    }
   }
 
   "tolerance" should {
@@ -249,6 +261,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         StringOpsConfig("", "", "", None, None, None, None)
     }
 
+    "union — decode({}) yields empty otherDataSourceId and byPosition default" in {
+      PipelineStepConfigCodec.decode("union", "{}").get shouldBe
+        UnionConfig("", "byPosition")
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -294,7 +311,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "unpivot"    -> UnpivotConfig(Vector("region"), Vector("jan", "feb"), "month", "amount"),
         "dedupe"     -> DedupeConfig(Vector("id"), "last"),
         "fillnull"   -> FillNullConfig(Vector("price"), "mean", None),
-        "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None)
+        "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None),
+        "union"      -> UnionConfig("ds-2", "byName")
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

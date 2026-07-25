@@ -28,6 +28,7 @@ import {
   sortConfigOf,
   splitTextConfigOf,
   stringOpsConfigOf,
+  unionConfigOf,
   unpivotConfigOf,
   windowConfigOf,
 } from "../state/stepNarrowing";
@@ -45,6 +46,7 @@ import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
 import type { StringOpsConfigValue } from "../ui/StringOpsConfig";
+import type { UnionConfigValue } from "../ui/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import type { WindowConfigValue } from "../ui/WindowConfig";
 
@@ -67,6 +69,7 @@ export interface StepCardStateHandlers {
   dedupeConfig: DedupeConfigValue;
   fillNullConfig: FillNullConfigValue;
   stringOpsConfig: StringOpsConfigValue;
+  unionConfig: UnionConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -85,6 +88,7 @@ export interface StepCardStateHandlers {
   onDedupeChange: (config: DedupeConfigValue) => void;
   onFillNullChange: (config: FillNullConfigValue) => void;
   onStringOpsChange: (config: StringOpsConfigValue) => void;
+  onUnionChange: (config: UnionConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -133,6 +137,7 @@ export function useStepCardState(
   const [stringOpsConfig, setStringOpsConfig] = useState<StringOpsConfigValue>(() =>
     stringOpsConfigOf(step),
   );
+  const [unionConfig, setUnionConfig] = useState<UnionConfigValue>(() => unionConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -154,6 +159,7 @@ export function useStepCardState(
     setDedupeConfig(dedupeConfigOf(step));
     setFillNullConfig(fillNullConfigOf(step));
     setStringOpsConfig(stringOpsConfigOf(step));
+    setUnionConfig(unionConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -308,6 +314,11 @@ export function useStepCardState(
     });
   }
 
+  function onUnionChange(newConfig: UnionConfigValue) {
+    setUnionConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -327,6 +338,7 @@ export function useStepCardState(
     dedupeConfig,
     fillNullConfig,
     stringOpsConfig,
+    unionConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -345,5 +357,6 @@ export function useStepCardState(
     onDedupeChange,
     onFillNullChange,
     onStringOpsChange,
+    onUnionChange,
   };
 }
