@@ -11,12 +11,26 @@
  * brief's guidance to start simple and only add a backend `/api/context`
  * aggregation if fan-out proves too chatty. Call budget:
  *   3 list calls (sources, types, dashboards) + 1 pipelines list + 1 analyze
- *   per pipeline = 4 + N(pipelines).
+ *   per pipeline + 1 pipeline-shapes catalog call = 5 + N(pipelines).
  * For workspace-sized data (handfuls of each) this is well within reason; see
  * README "Context serializer" for the measured cost and the escalation trigger.
  */
 
 import type { HelioApi } from "./helioApi.js";
+import type { RowCountContractResponse } from "./types.js";
+
+/** Flatten a `RowCountContractResponse` discriminated union to a display string (HEL-400
+ *  design.md Decision 5): `"exactly-one"`, `"at-most-param:<paramName>"`, or `"unbounded"`. */
+function flattenRowCount(rowCount: RowCountContractResponse): string {
+  switch (rowCount.kind) {
+    case "exactly-one":
+      return "exactly-one";
+    case "at-most-param":
+      return `at-most-param:${rowCount.paramName}`;
+    case "unbounded":
+      return "unbounded";
+  }
+}
 
 export interface WorkspaceContext {
   generatedAt: string;
@@ -57,6 +71,23 @@ export interface WorkspaceContext {
     stepsError?: string;
   }>;
   dashboards: Array<{ id: string; name: string; panelCount: number }>;
+  /** Smart pipeline shape catalog (HEL-391/402) — the shape vocabulary a planning agent can pick
+   *  from via create_pipeline_from_shape, rather than inventing shape ids. `fields` is dropped
+   *  (always `[]` today, per HEL-402); `outputRowCount` flattens `RowCountContract` to a string. */
+  pipelineShapes: Array<{
+    id: string;
+    label: string;
+    description: string;
+    paramsSchema: Array<{
+      name: string;
+      label: string;
+      dataType: string;
+      required: boolean;
+      description: string;
+    }>;
+    outputRowCount: string;
+    outputDescription: string;
+  }>;
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -74,12 +105,14 @@ function panelCount(layout: {
 }
 
 export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceContext> {
-  const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries] = await Promise.all([
-    api.listDataSources(),
-    api.listDataTypes(),
-    api.listDashboards(),
-    api.listPipelines(),
-  ]);
+  const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes] =
+    await Promise.all([
+      api.listDataSources(),
+      api.listDataTypes(),
+      api.listDashboards(),
+      api.listPipelines(),
+      api.listPipelineShapes(),
+    ]);
 
   // Fan out one analyze per pipeline for steps + per-step output columns.
   const pipelines = await Promise.all(
@@ -149,6 +182,14 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
       id: d.id,
       name: d.name,
       panelCount: panelCount(d.layout),
+    })),
+    pipelineShapes: pipelineShapes.map((s) => ({
+      id: s.id,
+      label: s.label,
+      description: s.description,
+      paramsSchema: s.paramsSchema,
+      outputRowCount: flattenRowCount(s.outputContract.rowCount),
+      outputDescription: s.outputContract.description,
     })),
   };
 }

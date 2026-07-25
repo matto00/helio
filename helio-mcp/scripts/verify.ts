@@ -168,9 +168,164 @@ async function main(): Promise<void> {
       );
     }
 
+    section("list_pipeline_shapes");
+    const shapes = parse<
+      Array<{ id: string; label: string; outputContract: { rowCount: unknown; fields: unknown[] } }>
+    >(await client.callTool({ name: "list_pipeline_shapes", arguments: {} }));
+    for (const s of shapes)
+      process.stdout.write(
+        `  • ${s.label} (${s.id}) rowCount=${JSON.stringify(s.outputContract.rowCount)} ` +
+          `fields=${JSON.stringify(s.outputContract.fields)}\n`,
+      );
+    const expectedShapeIds = ["passthrough", "single-row", "top-n", "time-series", "pivot-matrix"];
+    const actualShapeIds = shapes.map((s) => s.id).sort();
+    if (JSON.stringify(actualShapeIds) !== JSON.stringify([...expectedShapeIds].sort())) {
+      throw new Error(
+        `expected shape ids ${JSON.stringify(expectedShapeIds)}, got ${JSON.stringify(actualShapeIds)}`,
+      );
+    }
+
+    section("create_pipeline_from_shape — setup: a dedicated static source");
+    const shapeSource = parse<{ id: string }>(
+      await client.callTool({
+        name: "create_data_source",
+        arguments: {
+          name: `HEL-400 verify source ${Date.now()}`,
+          columns: [
+            { name: "region", type: "string" },
+            { name: "revenue", type: "integer" },
+          ],
+          rows: [
+            ["North", 320],
+            ["South", 210],
+            ["East", 265],
+            ["West", 180],
+          ],
+        },
+      }),
+    );
+    const pipelinesBeforeFailures = parse<Array<{ id: string }>>(
+      await client.callTool({ name: "list_pipelines", arguments: {} }),
+    );
+
+    section("create_pipeline_from_shape — valid top-n params succeed");
+    const shapeResult = parse<{
+      id: string;
+      outputDataTypeId: string;
+      steps: Array<{ type: string }>;
+    }>(
+      await client.callTool({
+        name: "create_pipeline_from_shape",
+        arguments: {
+          name: `HEL-400 verify top-n ${Date.now()}`,
+          sourceDataSourceId: shapeSource.id,
+          outputDataTypeName: `HEL-400 verify top-n output ${Date.now()}`,
+          shapeId: "top-n",
+          params: { measure: "revenue", direction: "desc", n: 2 },
+        },
+      }),
+    );
+    process.stdout.write(
+      `  • pipeline ${shapeResult.id} steps=${shapeResult.steps.map((s) => s.type).join(",")}\n`,
+    );
+    const expandedTypes = shapeResult.steps.map((s) => s.type);
+    if (JSON.stringify(expandedTypes) !== JSON.stringify(["sort", "limit"])) {
+      throw new Error(
+        `expected top-n to expand to [sort, limit], got ${JSON.stringify(expandedTypes)}`,
+      );
+    }
+
+    section(
+      "create_pipeline_from_shape — invalid params (missing 'n') surface expand's message, no pipeline created",
+    );
+    const invalidParamsResult = await client.callTool({
+      name: "create_pipeline_from_shape",
+      arguments: {
+        name: "HEL-400 verify should-not-exist (invalid params)",
+        sourceDataSourceId: shapeSource.id,
+        outputDataTypeName: "HEL-400 verify should-not-exist output (invalid params)",
+        shapeId: "top-n",
+        params: { measure: "revenue", direction: "desc" },
+      },
+    });
+    process.stdout.write(
+      `  • isError=${invalidParamsResult.isError} text=${textOf(invalidParamsResult)}\n`,
+    );
+    if (!invalidParamsResult.isError) {
+      throw new Error("expected create_pipeline_from_shape to fail on missing 'n'");
+    }
+    if (!textOf(invalidParamsResult).includes("missing required field 'n'")) {
+      throw new Error(
+        `expected the shape's own validation message verbatim, got: ${textOf(invalidParamsResult)}`,
+      );
+    }
+
+    section(
+      "create_pipeline_from_shape — unknown shape id surfaces 404 message, no pipeline created",
+    );
+    const unknownShapeResult = await client.callTool({
+      name: "create_pipeline_from_shape",
+      arguments: {
+        name: "HEL-400 verify should-not-exist (unknown shape)",
+        sourceDataSourceId: shapeSource.id,
+        outputDataTypeName: "HEL-400 verify should-not-exist output (unknown shape)",
+        shapeId: "not-a-real-shape",
+        params: {},
+      },
+    });
+    process.stdout.write(
+      `  • isError=${unknownShapeResult.isError} text=${textOf(unknownShapeResult)}\n`,
+    );
+    if (!unknownShapeResult.isError) {
+      throw new Error("expected create_pipeline_from_shape to fail on an unknown shape id");
+    }
+    if (!textOf(unknownShapeResult).includes("Unknown pipeline shape")) {
+      throw new Error(
+        `expected the backend's 404 message verbatim, got: ${textOf(unknownShapeResult)}`,
+      );
+    }
+
+    section(
+      "create_pipeline_from_shape — confirm no orphan pipeline was created by the two failures",
+    );
+    const pipelinesAfterFailures = parse<Array<{ id: string }>>(
+      await client.callTool({ name: "list_pipelines", arguments: {} }),
+    );
+    // Exactly one new pipeline should exist relative to before the failures: the successful top-n one.
+    const expectedCount = pipelinesBeforeFailures.length + 1;
+    if (pipelinesAfterFailures.length !== expectedCount) {
+      throw new Error(
+        `expected ${expectedCount} pipelines after the valid call + two failed calls, got ` +
+          `${pipelinesAfterFailures.length} (before=${pipelinesBeforeFailures.length})`,
+      );
+    }
+    process.stdout.write(
+      `  • pipeline count before=${pipelinesBeforeFailures.length} after=${pipelinesAfterFailures.length} (unchanged by the two failures)\n`,
+    );
+
     section("resource read: helio://workspace/context");
     const ctx = await client.readResource({ uri: "helio://workspace/context" });
-    process.stdout.write((ctx.contents[0]?.text ?? "") + "\n");
+    const ctxText = ctx.contents[0]?.text ?? "";
+    process.stdout.write(ctxText + "\n");
+    const ctxParsed = JSON.parse(ctxText) as { pipelineShapes?: Array<{ id: string }> };
+    if (!Array.isArray(ctxParsed.pipelineShapes) || ctxParsed.pipelineShapes.length !== 5) {
+      throw new Error(
+        `expected get_workspace_context/resource to include a 5-entry pipelineShapes array, got: ` +
+          `${JSON.stringify(ctxParsed.pipelineShapes)}`,
+      );
+    }
+
+    section("get_workspace_context tool — confirm it also includes pipelineShapes");
+    const toolCtx = parse<{ pipelineShapes: Array<{ id: string }> }>(
+      await client.callTool({ name: "get_workspace_context", arguments: {} }),
+    );
+    if (toolCtx.pipelineShapes.length !== 5) {
+      throw new Error(
+        `expected get_workspace_context tool's pipelineShapes to have 5 entries, got ` +
+          `${toolCtx.pipelineShapes.length}`,
+      );
+    }
+    process.stdout.write(`  • pipelineShapes entries=${toolCtx.pipelineShapes.length}\n`);
 
     section("VERIFY OK");
   } finally {

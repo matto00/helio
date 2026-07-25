@@ -171,14 +171,49 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "list_pipeline_shapes",
+    {
+      title: "List pipeline shapes",
+      description:
+        "List every registered smart pipeline shape (GET /api/pipeline-shapes; thin pass-through). " +
+        "A shape is a named, parameterized pipeline template that expands into an ordered list of " +
+        "ordinary pipeline steps via create_pipeline_from_shape, instead of hand-assembling them " +
+        "with add_pipeline_step. Each catalog entry carries id/label/description/paramsSchema " +
+        "(descriptive only — NOT a validating JSON Schema; real validation happens inside " +
+        "create_pipeline_from_shape's expand call, whose message is returned verbatim on failure) " +
+        "and outputContract (rowCount + description; outputContract.fields is currently ALWAYS an " +
+        "empty array for every shape — do not treat that as an error, the rowCount/description " +
+        "text carries the real signal). Registered shape ids on `main`: " +
+        "`passthrough` (params: fields: string[] — selects those fields, one `select` step), " +
+        '`single-row` (params: mode: "aggregate"|"filter", plus measures: {fn,field,alias}[] ' +
+        "for aggregate mode or conditions: {field,operator,value}[] + optional combinator for " +
+        "filter mode — reduces to exactly one row), " +
+        '`top-n` (params: measure: string, direction: "asc"|"desc", n: integer, optional ' +
+        "ties — sorts by measure and keeps the top/bottom N rows via sort + limit), " +
+        '`time-series` (params: timeField: string, granularity: "day"|"week"|"month"|' +
+        '"quarter"|"year", measures: {fn,field,alias}[] — buckets timeField and aggregates ' +
+        "measures per bucket via datebucket + aggregate + sort), " +
+        "`pivot-matrix` (params: index: string[], column: string, values: string, agg: " +
+        '"sum"|"count"|"avg"|"min"|"max"|"first" — reshapes into a crosstab via an ' +
+        "optional pre-aggregate then pivot). Call create_pipeline_from_shape with one of these ids " +
+        "to instantiate it.",
+      inputSchema: {},
+    },
+    () => guarded(() => api.listPipelineShapes()),
+  );
+
+  server.registerTool(
     "get_workspace_context",
     {
       title: "Get workspace context",
       description:
         "One compact snapshot of the whole workspace: data sources, DataTypes (with columns), " +
-        "pipelines (with steps and per-step output columns), and dashboards. Read this first to " +
-        "reason about what exists (e.g. which DataType is a single-row pipeline output) instead of " +
-        "fanning out many calls yourself. Same payload as the helio://workspace/context resource.",
+        "pipelines (with steps and per-step output columns), dashboards, and the pipelineShapes " +
+        "catalog (id/label/description/paramsSchema/outputRowCount/outputDescription for every " +
+        "registered smart pipeline shape — see list_pipeline_shapes / create_pipeline_from_shape). " +
+        "Read this first to reason about what exists (e.g. which DataType is a single-row pipeline " +
+        "output, or which shape ids are available) instead of fanning out many calls yourself. Same " +
+        "payload as the helio://workspace/context resource.",
       inputSchema: {},
     },
     () => guarded(() => buildWorkspaceContext(api)),
