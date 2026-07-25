@@ -21,6 +21,7 @@ import com.helio.api.protocols._
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `PipelineScheduleProtocol` has no cross-domain dependency
  *  - `ConnectorProtocol` has no cross-domain dependency
+ *  - `PipelineShapeProtocol` has no cross-domain dependency
  *
  *  All re-exports for backward compatibility happen via `package object protocols`
  *  / wildcard import below: every case class and companion is in
@@ -44,3 +45,4 @@ trait JsonProtocols
     with AlertEventProtocol
     with PipelineScheduleProtocol
     with ConnectorProtocol
+    with PipelineShapeProtocol

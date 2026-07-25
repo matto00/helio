@@ -2771,6 +2771,27 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-391: composed-route-tree coverage for GET /api/pipeline-shapes. This is the test that
+    // would have caught the round-1 design-gate routing collision (design.md Risks;
+    // skeptic-design-1.md change request 2) — it drives the request through the fully composed
+    // `ApiRoutes` tree (not the isolated `PipelineShapeRoutes` route object covered by
+    // `PipelineShapeRoutesSpec`), so a future mounting mistake that let `PipelineRoutes`'s
+    // `path(PipelineIdSegment)` catch-all swallow `/api/pipeline-shapes` would fail here.
+    "return 401 for GET /api/pipeline-shapes without Authorization (HEL-391)" in {
+      Get("/api/pipeline-shapes") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 200 with the real shape catalog for GET /api/pipeline-shapes when authenticated (HEL-391)" in {
+      Get("/api/pipeline-shapes") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val entries = responseAs[Vector[PipelineShapeCatalogEntryResponse]]
+        entries.map(_.id) should contain("passthrough")
+      }
+    }
+
     "POST /api/dashboards with valid token sets createdBy to the authenticated user ID" in {
       cleanDb()
       Post("/api/dashboards", CreateDashboardRequest(Some("Auth Dashboard"))) ~> routes() ~> check {
