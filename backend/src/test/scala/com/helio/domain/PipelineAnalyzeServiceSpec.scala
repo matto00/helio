@@ -135,6 +135,18 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
+    // HEL-384 — union: documented best-effort passthrough (design.md Decision
+    // 6). The other source's schema isn't resolved at analyze time, so the
+    // output schema is exactly the input schema unchanged, and — unlike
+    // JoinStep, which has no case here at all — this is a real dispatch case,
+    // so no validationError is emitted.
+    "union — identity passthrough: outputSchema equals inputSchema, no validationError" in {
+      val steps  = Vector(step("union", """{"otherDataSourceId":"ds-2","mode":"byName"}"""))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe baseSchema
+      result(0).validationError shouldBe None
+    }
+
     // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {

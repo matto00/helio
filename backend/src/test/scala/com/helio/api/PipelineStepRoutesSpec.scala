@@ -12,7 +12,8 @@ import com.helio.api.protocols.{
   FilterStepResponse,
   PipelineStepResponse,
   RenameStepResponse,
-  SelectStepResponse
+  SelectStepResponse,
+  UnionStepResponse
 }
 import com.helio.api.routes.PipelineStepRoutes
 import com.helio.services.PipelineService
@@ -105,6 +106,13 @@ class PipelineStepRoutesSpec
       "rightDataSourceId" -> JsString(rightDsId),
       "joinKey"           -> JsString("id"),
       "joinType"          -> JsString("inner")
+    )
+  )
+  private def unionReq(otherDsId: String): JsObject = JsObject(
+    "type" -> JsString("union"),
+    "config" -> JsObject(
+      "otherDataSourceId" -> JsString(otherDsId),
+      "mode"              -> JsString("byPosition")
     )
   )
 
@@ -274,6 +282,61 @@ class PipelineStepRoutesSpec
         val resp = responseAs[PipelineStepResponse]
         resp.pipelineId shouldBe pid
         resp.`type` shouldBe "join"
+      }
+    }
+
+    // HEL-384 (design.md Decision 9): cross-user UnionStep other-source must return 404
+    "POST with union type and cross-user other-source returns 404" in {
+      cleanSteps(); val pid = seedPipeline()
+      // Seed a data source owned by a different user (user 2)
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      Post(s"/pipelines/${pid}/steps", unionReq(otherUserDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-384 (design.md Decision 9): owner UnionStep with own source must return 201
+    "POST with union type and own other-source returns 201" in {
+      cleanSteps(); val pid = seedPipeline()
+      // Seed a data source owned by the request user (user 1)
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      Post(s"/pipelines/${pid}/steps", unionReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "union"
+      }
+    }
+
+    // HEL-384 (design.md Decision 9): cross-user UnionStep other-source on PATCH must return
+    // 404 with the persisted config left unchanged — the updateStep half of the ACL check that
+    // the POST pair above doesn't reach (no join equivalent exists for this scenario).
+    "PATCH union step config to cross-user other-source returns 404 and leaves config unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", unionReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "otherDataSourceId" -> JsString(otherUserDsId),
+          "mode"              -> JsString("byPosition")
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        val union = steps.collectFirst { case u: UnionStepResponse => u }
+        union should not be empty
+        union.get.config.otherDataSourceId shouldBe ownDsId
       }
     }
 

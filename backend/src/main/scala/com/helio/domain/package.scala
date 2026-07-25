@@ -48,6 +48,8 @@ package object domain {
   val  FillNullStep   = steps.FillNullStep
   type StringOpsStep  = steps.StringOpsStep
   val  StringOpsStep  = steps.StringOpsStep
+  type UnionStep      = steps.UnionStep
+  val  UnionStep      = steps.UnionStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -98,4 +100,6 @@ package object domain {
   val  FillNullConfig   = steps.FillNullConfig
   type StringOpsConfig  = steps.StringOpsConfig
   val  StringOpsConfig  = steps.StringOpsConfig
+  type UnionConfig      = steps.UnionConfig
+  val  UnionConfig      = steps.UnionConfig
 }
