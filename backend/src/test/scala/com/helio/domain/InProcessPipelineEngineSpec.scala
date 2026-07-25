@@ -49,6 +49,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: UnpivotConfig   => UnpivotStep(id, pid, 0, c, now, now)
       case c: DedupeConfig    => DedupeStep(id, pid, 0, c, now, now)
       case c: FillNullConfig  => FillNullStep(id, pid, 0, c, now, now)
+      case c: StringOpsConfig => StringOpsStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -1303,6 +1304,150 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       val step = makeStep("fillnull", cfg)
       val ex = intercept[IllegalArgumentException](run(rows, step))
       ex.getMessage should include("bogus")
+    }
+
+    // ── stringops op (HEL-389) ──────────────────────────────────────────────────
+
+    "stringops: trim removes leading/trailing whitespace" in {
+      val rows = Seq(Map[String, Any]("name" -> "  Ada  "))
+      val cfg  = """{ "operation": "trim", "field": "name", "outputColumn": "name" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("name" -> "Ada"))
+    }
+
+    "stringops: upper converts to uppercase" in {
+      val rows = Seq(Map[String, Any]("code" -> "ab-12"))
+      val cfg  = """{ "operation": "upper", "field": "code", "outputColumn": "code" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("code" -> "AB-12"))
+    }
+
+    "stringops: lower converts to lowercase" in {
+      val rows = Seq(Map[String, Any]("code" -> "AB-12"))
+      val cfg  = """{ "operation": "lower", "field": "code", "outputColumn": "code" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("code" -> "ab-12"))
+    }
+
+    "stringops: split takes an indexed segment" in {
+      val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
+      val cfg  = """{ "operation": "split", "field": "path", "separator": "/", "index": 1, "outputColumn": "segment" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("path" -> "a/b/c", "segment" -> "b"))
+    }
+
+    "stringops: split with an out-of-bounds index yields null" in {
+      val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
+      val cfg  = """{ "operation": "split", "field": "path", "separator": "/", "index": 5, "outputColumn": "segment" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result.head("segment").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "stringops: split with a negative index yields null" in {
+      val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
+      val cfg  = """{ "operation": "split", "field": "path", "separator": "/", "index": -1, "outputColumn": "segment" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result.head("segment").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "stringops: split missing separator fails at execute time before any row is processed" in {
+      val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
+      val cfg  = """{ "operation": "split", "field": "path", "index": 1, "outputColumn": "segment" }"""
+      val step = makeStep("stringops", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("separator")
+    }
+
+    "stringops: split missing index fails at execute time before any row is processed" in {
+      val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
+      val cfg  = """{ "operation": "split", "field": "path", "separator": "/", "outputColumn": "segment" }"""
+      val step = makeStep("stringops", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("index")
+    }
+
+    "stringops: extractRegex extracts the first capturing group" in {
+      val rows = Seq(Map[String, Any]("email" -> "ada@example.com"))
+      val cfg  = """{ "operation": "extractRegex", "field": "email", "pattern": "^([^@]+)@", "outputColumn": "localPart" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("email" -> "ada@example.com", "localPart" -> "ada"))
+    }
+
+    "stringops: extractRegex with no match yields null" in {
+      val rows = Seq(Map[String, Any]("email" -> "not-an-email"))
+      val cfg  = """{ "operation": "extractRegex", "field": "email", "pattern": "^([^@]+)@", "outputColumn": "localPart" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result.head("localPart").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "stringops: extractRegex pattern without a capturing group fails at execute time" in {
+      val rows = Seq(Map[String, Any]("email" -> "ada@example.com"))
+      val cfg  = """{ "operation": "extractRegex", "field": "email", "pattern": "[^@]+", "outputColumn": "localPart" }"""
+      val step = makeStep("stringops", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("[^@]+")
+      ex.getMessage should include("capturing group")
+    }
+
+    "stringops: concat joins named fields with a separator" in {
+      val rows = Seq(Map[String, Any]("first" -> "Ada", "last" -> "Lovelace"))
+      val cfg  = """{ "operation": "concat", "fields": ["first", "last"], "separator": " ", "outputColumn": "fullName" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("first" -> "Ada", "last" -> "Lovelace", "fullName" -> "Ada Lovelace"))
+    }
+
+    "stringops: concat treats a missing/null field as an empty string, not whole-output null" in {
+      val rows = Seq(Map[String, Any]("first" -> "Ada", "last" -> "Lovelace"))
+      val cfg  = """{ "operation": "concat", "fields": ["first", "middle", "last"], "separator": " ", "outputColumn": "fullName" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result.head("fullName") shouldBe "Ada  Lovelace"
+    }
+
+    "stringops: a null/missing source field yields null for single-field operations" in {
+      val rows = Seq(Map[String, Any]("name" -> null))
+      val cfg  = """{ "operation": "trim", "field": "name", "outputColumn": "name" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result.head("name").asInstanceOf[AnyRef] shouldBe null
+    }
+
+    "stringops: outputColumn distinct from field appends a new column, preserving the source field" in {
+      val rows = Seq(Map[String, Any]("code" -> "ab-12", "name" -> "foo"))
+      val cfg  = """{ "operation": "upper", "field": "code", "outputColumn": "codeUpper" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result shouldBe Seq(Map[String, Any]("code" -> "ab-12", "codeUpper" -> "AB-12", "name" -> "foo"))
+    }
+
+    "stringops: row count is unchanged by the op" in {
+      val rows = Seq(
+        Map[String, Any]("name" -> "a"),
+        Map[String, Any]("name" -> "b"),
+        Map[String, Any]("name" -> "c")
+      )
+      val cfg  = """{ "operation": "upper", "field": "name", "outputColumn": "name" }"""
+      val step = makeStep("stringops", cfg)
+      val result = run(rows, step)
+      result should have size 3
+    }
+
+    "stringops: unsupported operation fails at execute time" in {
+      val rows = Seq(Map[String, Any]("code" -> "ab-12"))
+      val cfg  = """{ "operation": "reverse", "field": "code", "outputColumn": "code" }"""
+      val step = makeStep("stringops", cfg)
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include("reverse")
+      ex.getMessage should include("trim")
     }
 
     // ── splittext op (HEL-219) ─────────────────────────────────────────────────

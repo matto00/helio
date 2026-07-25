@@ -46,6 +46,8 @@ package object domain {
   val  DedupeStep     = steps.DedupeStep
   type FillNullStep   = steps.FillNullStep
   val  FillNullStep   = steps.FillNullStep
+  type StringOpsStep  = steps.StringOpsStep
+  val  StringOpsStep  = steps.StringOpsStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -94,4 +96,6 @@ package object domain {
   val  DedupeConfig     = steps.DedupeConfig
   type FillNullConfig   = steps.FillNullConfig
   val  FillNullConfig   = steps.FillNullConfig
+  type StringOpsConfig  = steps.StringOpsConfig
+  val  StringOpsConfig  = steps.StringOpsConfig
 }

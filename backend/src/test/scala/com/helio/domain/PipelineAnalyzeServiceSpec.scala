@@ -640,6 +640,41 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // ── stringops inference (HEL-389) ─────────────────────────────────────────
+
+    "stringops — overwrite case: outputColumn == field retypes in place, no duplicate" in {
+      val steps  = Vector(step("stringops", """{"operation":"trim","field":"order_id","outputColumn":"order_id"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("amount", "number"), field("created_at", "string"), field("order_id", "string"))
+      result(0).outputSchema.count(_.name == "order_id") shouldBe 1
+    }
+
+    "stringops — new outputColumn is appended, typed string" in {
+      val steps  = Vector(step("stringops", """{"operation":"concat","fields":["order_id","created_at"],"separator":" ","outputColumn":"fullName"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("fullName", "string")
+    }
+
+    "stringops — outputColumn replaces an existing field of a different name (collision rule)" in {
+      val steps  = Vector(step("stringops", """{"operation":"upper","field":"order_id","outputColumn":"amount"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("created_at", "string"), field("amount", "string"))
+    }
+
+    "stringops — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("stringops", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {

@@ -115,6 +115,16 @@ export interface FillNullConfig {
   strategy: FillNullStrategy;
   value?: string | null;
 }
+export type StringOpsOperation = "trim" | "upper" | "lower" | "split" | "extractRegex" | "concat";
+export interface StringOpsConfig {
+  operation: StringOpsOperation;
+  field: string;
+  outputColumn: string;
+  pattern?: string | null;
+  separator?: string | null;
+  index?: number | null;
+  fields?: string[] | null;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -200,6 +210,10 @@ export interface FillNullStep extends BasePipelineStep {
   type: "fillnull";
   config: FillNullConfig;
 }
+export interface StringOpsStep extends BasePipelineStep {
+  type: "stringops";
+  config: StringOpsConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -220,7 +234,8 @@ export type PipelineStep =
   | WindowStep
   | UnpivotStep
   | DedupeStep
-  | FillNullStep;
+  | FillNullStep
+  | StringOpsStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -241,7 +256,8 @@ export type PipelineStepConfig =
   | WindowConfig
   | UnpivotConfig
   | DedupeConfig
-  | FillNullConfig;
+  | FillNullConfig
+  | StringOpsConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -336,6 +352,10 @@ export interface FillNullAnalyzeStep extends BaseAnalyzeStep {
   type: "fillnull";
   config: FillNullConfig;
 }
+export interface StringOpsAnalyzeStep extends BaseAnalyzeStep {
+  type: "stringops";
+  config: StringOpsConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -356,7 +376,8 @@ export type AnalyzeStepResult =
   | WindowAnalyzeStep
   | UnpivotAnalyzeStep
   | DedupeAnalyzeStep
-  | FillNullAnalyzeStep;
+  | FillNullAnalyzeStep
+  | StringOpsAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

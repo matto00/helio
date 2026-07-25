@@ -27,6 +27,7 @@ import {
   selectedFieldsOf,
   sortConfigOf,
   splitTextConfigOf,
+  stringOpsConfigOf,
   unpivotConfigOf,
   windowConfigOf,
 } from "../state/stepNarrowing";
@@ -43,6 +44,7 @@ import type { FilterConfigValue } from "../ui/FilterConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
+import type { StringOpsConfigValue } from "../ui/StringOpsConfig";
 import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import type { WindowConfigValue } from "../ui/WindowConfig";
 
@@ -64,6 +66,7 @@ export interface StepCardStateHandlers {
   unpivotConfig: UnpivotConfigValue;
   dedupeConfig: DedupeConfigValue;
   fillNullConfig: FillNullConfigValue;
+  stringOpsConfig: StringOpsConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -81,6 +84,7 @@ export interface StepCardStateHandlers {
   onUnpivotChange: (config: UnpivotConfigValue) => void;
   onDedupeChange: (config: DedupeConfigValue) => void;
   onFillNullChange: (config: FillNullConfigValue) => void;
+  onStringOpsChange: (config: StringOpsConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -126,6 +130,9 @@ export function useStepCardState(
   const [fillNullConfig, setFillNullConfig] = useState<FillNullConfigValue>(() =>
     fillNullConfigOf(step),
   );
+  const [stringOpsConfig, setStringOpsConfig] = useState<StringOpsConfigValue>(() =>
+    stringOpsConfigOf(step),
+  );
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -146,6 +153,7 @@ export function useStepCardState(
     setUnpivotConfig(unpivotConfigOf(step));
     setDedupeConfig(dedupeConfigOf(step));
     setFillNullConfig(fillNullConfigOf(step));
+    setStringOpsConfig(stringOpsConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -279,6 +287,27 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onStringOpsChange(newConfig: StringOpsConfigValue) {
+    setStringOpsConfig(newConfig);
+    // Each operation only reads a subset of the params — omit the ones the
+    // selected operation doesn't use rather than persisting a stale value
+    // left over from a previously-selected operation (mirrors
+    // onWindowChange's usesField/usesOffset omission pattern above).
+    const isConcat = newConfig.operation === "concat";
+    const usesSeparator = newConfig.operation === "split" || isConcat;
+    const usesIndex = newConfig.operation === "split";
+    const usesPattern = newConfig.operation === "extractRegex";
+    persist({
+      operation: newConfig.operation,
+      field: isConcat ? "" : newConfig.field,
+      outputColumn: newConfig.outputColumn,
+      pattern: usesPattern && newConfig.pattern ? newConfig.pattern : undefined,
+      separator: usesSeparator && newConfig.separator ? newConfig.separator : undefined,
+      index: usesIndex ? newConfig.index : undefined,
+      fields: isConcat ? newConfig.fields : undefined,
+    });
+  }
+
   return {
     selectedFields,
     renames,
@@ -297,6 +326,7 @@ export function useStepCardState(
     unpivotConfig,
     dedupeConfig,
     fillNullConfig,
+    stringOpsConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -314,5 +344,6 @@ export function useStepCardState(
     onUnpivotChange,
     onDedupeChange,
     onFillNullChange,
+    onStringOpsChange,
   };
 }
