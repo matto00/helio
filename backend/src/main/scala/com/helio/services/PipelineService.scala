@@ -16,6 +16,7 @@ import com.helio.api.protocols.{
   GroupByAnalyzeStepResponse,
   JoinAnalyzeStepResponse,
   LimitAnalyzeStepResponse,
+  LookupAnalyzeStepResponse,
   PipelineAnalyzeResponse,
   PipelineStepConfigCodec,
   PipelineStepResponse,
@@ -48,6 +49,7 @@ import com.helio.domain.{
   GroupByConfig,
   JoinConfig,
   LimitConfig,
+  LookupConfig,
   PipelineAnalyzeService,
   PipelineId,
   PipelineStepId,
@@ -225,6 +227,7 @@ final class PipelineService(
       case Success(cfg: FillNullConfig) => FillNullAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: StringOpsConfig) => StringOpsAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: UnionConfig) => UnionAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: LookupConfig) => LookupAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
@@ -286,10 +289,31 @@ final class PipelineService(
               }
             case _ => Future.successful(Right(()))
           }
+          // Pre-flight ACL: LookupStep reference-source must be caller-owned
+          // (HEL-386, design.md Decision 9 — symmetric with joinCheckF/unionCheckF above).
+          // Empty referenceDataSourceId (the picker's own defaultConfigFor("lookup")
+          // seed value) is an incomplete draft, not a security violation — nothing
+          // to leak against an unset id. Only run the ownership check once a real
+          // id is present; the empty case falls through to the same allow-path as
+          // "no LookupConfig at all" (design.md Decision 1's "empty is a no-op, not
+          // an error" philosophy, extended to referenceDataSourceId; Decision 6
+          // already scopes the "missing/invalid reference id" failure to execute
+          // time via LookupStep.evaluate's None case).
+          val lookupCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+            case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty =>
+              dataSourceRepo.findByIdOwned(DataSourceId(lc.referenceDataSourceId), user).map {
+                case None    => Left(ServiceError.NotFound(s"Data source not found: ${lc.referenceDataSourceId}"))
+                case Some(_) => Right(())
+              }
+            case _ => Future.successful(Right(()))
+          }
           val aclCheckF: Future[Either[ServiceError, Unit]] =
             joinCheckF.flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => unionCheckF
+            }.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  => lookupCheckF
             }
           aclCheckF.flatMap {
             case Left(err) => Future.successful(Left(err))
@@ -384,10 +408,25 @@ final class PipelineService(
                                 }
                               case _ => Future.successful(Right(()))
                             }
+                            // Pre-flight ACL: LookupStep reference-source must be caller-owned
+                            // (HEL-386, design.md Decision 9 — symmetric with joinCheckF/unionCheckF above).
+                            // Empty referenceDataSourceId is an incomplete draft, not a security
+                            // violation — see the identical guard + rationale in addStep above.
+                            val lookupCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
+                              case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty =>
+                                dataSourceRepo.findByIdOwned(DataSourceId(lc.referenceDataSourceId), user).map {
+                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${lc.referenceDataSourceId}"))
+                                  case Some(_) => Right(())
+                                }
+                              case _ => Future.successful(Right(()))
+                            }
                             val aclCheckF: Future[Either[ServiceError, Unit]] =
                               joinCheckF.flatMap {
                                 case Left(err) => Future.successful(Left(err))
                                 case Right(_)  => unionCheckF
+                              }.flatMap {
+                                case Left(err) => Future.successful(Left(err))
+                                case Right(_)  => lookupCheckF
                               }
                             aclCheckF.flatMap {
                               case Left(err) => Future.successful(Left(err))

@@ -25,6 +25,8 @@ import com.helio.domain.{
   JoinStep,
   LimitConfig,
   LimitStep,
+  LookupConfig,
+  LookupStep,
   PipelineStep,
   PipelineStepKind,
   PivotConfig,
@@ -113,6 +115,7 @@ object PipelineStepConfigCodec {
     case c: FillNullConfig   => PipelineStep.Registry(PipelineStepKind.FillNull).encodeConfig(c)
     case c: StringOpsConfig  => PipelineStep.Registry(PipelineStepKind.StringOps).encodeConfig(c)
     case c: UnionConfig      => PipelineStep.Registry(PipelineStepKind.Union).encodeConfig(c)
+    case c: LookupConfig     => PipelineStep.Registry(PipelineStepKind.Lookup).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -154,6 +157,7 @@ object PipelineStepConfigCodec {
     case s: FillNullStep   => s.config
     case s: StringOpsStep  => s.config
     case s: UnionStep      => s.config
+    case s: LookupStep     => s.config
   }
 
 }

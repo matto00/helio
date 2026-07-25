@@ -26,6 +26,7 @@ import {
   faSquareCheck,
   faTableCells,
   faTableList,
+  faTags,
 } from "@fortawesome/free-solid-svg-icons";
 
 import type {
@@ -39,6 +40,7 @@ import type {
   FillNullConfig as FillNullConfigType,
   FilterConfig as FilterConfigType,
   LimitConfig as LimitConfigType,
+  LookupConfig as LookupConfigType,
   PipelineStep,
   PipelineStepConfig,
   PivotConfig as PivotConfigType,
@@ -60,6 +62,7 @@ import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import { FILL_NULL_STRATEGIES, type FillNullConfigValue } from "../ui/FillNullConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
+import type { LookupConfigValue } from "../ui/LookupConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
@@ -75,6 +78,10 @@ import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 // both a full editor (UnionConfig.tsx) and its own ACL check (design.md
 // Decision 9), so it does NOT mirror join's exclusion — see design.md
 // Decision 7.
+// `lookup` (HEL-386) is the third async/repo-touching op — like `union`, it
+// ships both a full editor (LookupConfig.tsx) and its own ACL check
+// (design.md Decision 9 there / Decision 9 here), so it also does NOT
+// mirror join's exclusion.
 export const OP_TYPES: OpType[] = [
   { id: "select", label: "Select fields", icon: faSquareCheck },
   { id: "rename", label: "Rename column", icon: faPencil },
@@ -95,6 +102,7 @@ export const OP_TYPES: OpType[] = [
   { id: "fillnull", label: "Fill null / impute", icon: faFillDrip },
   { id: "stringops", label: "String operation", icon: faFont },
   { id: "union", label: "Union / append rows", icon: faObjectGroup },
+  { id: "lookup", label: "Lookup / enrich", icon: faTags },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -183,6 +191,13 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       } as StringOpsConfigType;
     case "union":
       return { otherDataSourceId: "", mode: "byPosition" } as UnionConfigType;
+    case "lookup":
+      return {
+        referenceDataSourceId: "",
+        sourceKey: "",
+        lookupKey: "",
+        columns: [],
+      } as LookupConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -451,5 +466,22 @@ export function unionConfigOf(step: Step): UnionConfigValue {
   return {
     otherDataSourceId: cfg.otherDataSourceId ?? "",
     mode: cfg.mode === "byName" ? "byName" : "byPosition",
+  };
+}
+
+export function lookupConfigOf(step: Step): LookupConfigValue {
+  const empty: LookupConfigValue = {
+    referenceDataSourceId: "",
+    sourceKey: "",
+    lookupKey: "",
+    columns: [],
+  };
+  if (step.opType.id !== "lookup") return empty;
+  const cfg = step.config as LookupConfigType;
+  return {
+    referenceDataSourceId: cfg.referenceDataSourceId ?? "",
+    sourceKey: cfg.sourceKey ?? "",
+    lookupKey: cfg.lookupKey ?? "",
+    columns: Array.isArray(cfg.columns) ? cfg.columns : [],
   };
 }

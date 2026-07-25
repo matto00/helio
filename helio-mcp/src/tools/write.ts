@@ -156,7 +156,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
-        "stringops/union; `config` shape is " +
+        "stringops/union/lookup; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -221,7 +221,19 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "of the input schema (the other source's schema isn't resolved by analyze_pipeline) — " +
         "verify the union's actual shape with preview/run rather than trusting the analyzed schema. " +
         "A missing/unresolvable `otherDataSourceId` or an unrecognized `mode` fails at execute time " +
-        "naming the problem. Use analyze_pipeline to " +
+        "naming the problem; " +
+        "lookup → {referenceDataSourceId, sourceKey, lookupKey, columns: string[]} — a constrained " +
+        "single-key left-join against a reference DataSource (pipeline ACL is the gate, mirroring " +
+        "join/union), bringing in only the named `columns` (every other reference-row field is " +
+        "dropped). For each row, `sourceKey`'s value is matched against `lookupKey` on the " +
+        "reference source's rows; a match brings in `columns`' values, overwriting any " +
+        "colliding field on the current row; multiple reference matches use only the first " +
+        "(no row multiplication); no match null-fills `columns` (row preserved — a true left " +
+        "join, row count never changes). `columns` DOES appear in analyze_pipeline's output " +
+        "schema, appended typed string as a documented best-effort (the reference source's real " +
+        "schema isn't resolved by analyze_pipeline — verify actual types with preview/run). A " +
+        "missing/unresolvable `referenceDataSourceId` fails at execute time naming the problem. " +
+        "Use analyze_pipeline to " +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),

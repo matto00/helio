@@ -130,6 +130,12 @@ export interface UnionConfig {
   otherDataSourceId: string;
   mode: UnionMode;
 }
+export interface LookupConfig {
+  referenceDataSourceId: string;
+  sourceKey: string;
+  lookupKey: string;
+  columns: string[];
+}
 
 interface BasePipelineStep {
   id: string;
@@ -223,6 +229,10 @@ export interface UnionStep extends BasePipelineStep {
   type: "union";
   config: UnionConfig;
 }
+export interface LookupStep extends BasePipelineStep {
+  type: "lookup";
+  config: LookupConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -245,7 +255,8 @@ export type PipelineStep =
   | DedupeStep
   | FillNullStep
   | StringOpsStep
-  | UnionStep;
+  | UnionStep
+  | LookupStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -268,7 +279,8 @@ export type PipelineStepConfig =
   | DedupeConfig
   | FillNullConfig
   | StringOpsConfig
-  | UnionConfig;
+  | UnionConfig
+  | LookupConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -371,6 +383,10 @@ export interface UnionAnalyzeStep extends BaseAnalyzeStep {
   type: "union";
   config: UnionConfig;
 }
+export interface LookupAnalyzeStep extends BaseAnalyzeStep {
+  type: "lookup";
+  config: LookupConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -393,7 +409,8 @@ export type AnalyzeStepResult =
   | DedupeAnalyzeStep
   | FillNullAnalyzeStep
   | StringOpsAnalyzeStep
-  | UnionAnalyzeStep;
+  | UnionAnalyzeStep
+  | LookupAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

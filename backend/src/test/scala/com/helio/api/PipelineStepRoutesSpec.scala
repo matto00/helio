@@ -10,6 +10,7 @@ import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbCon
 import com.helio.api.protocols.{
   CastStepResponse,
   FilterStepResponse,
+  LookupStepResponse,
   PipelineStepResponse,
   RenameStepResponse,
   SelectStepResponse,
@@ -113,6 +114,27 @@ class PipelineStepRoutesSpec
     "config" -> JsObject(
       "otherDataSourceId" -> JsString(otherDsId),
       "mode"              -> JsString("byPosition")
+    )
+  )
+  private def lookupReq(referenceDsId: String): JsObject = JsObject(
+    "type" -> JsString("lookup"),
+    "config" -> JsObject(
+      "referenceDataSourceId" -> JsString(referenceDsId),
+      "sourceKey"             -> JsString("code"),
+      "lookupKey"             -> JsString("code"),
+      "columns"               -> JsArray(JsString("label"))
+    )
+  )
+  // Exact request body the "+ Add transformation step" picker sends on lookup-step
+  // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
+  // defaultConfigFor("lookup"). HEL-386 change request 2 regression coverage.
+  private def lookupDefaultReq(): JsObject = JsObject(
+    "type" -> JsString("lookup"),
+    "config" -> JsObject(
+      "referenceDataSourceId" -> JsString(""),
+      "sourceKey"             -> JsString(""),
+      "lookupKey"             -> JsString(""),
+      "columns"               -> JsArray()
     )
   )
 
@@ -337,6 +359,109 @@ class PipelineStepRoutesSpec
         val union = steps.collectFirst { case u: UnionStepResponse => u }
         union should not be empty
         union.get.config.otherDataSourceId shouldBe ownDsId
+      }
+    }
+
+    // HEL-386 (design.md Decision 9): cross-user LookupStep reference-source must return 404
+    "POST with lookup type and cross-user reference-source returns 404" in {
+      cleanSteps(); val pid = seedPipeline()
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      Post(s"/pipelines/${pid}/steps", lookupReq(otherUserDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-386 (design.md Decision 9): owner LookupStep with own source must return 201
+    "POST with lookup type and own reference-source returns 201" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      Post(s"/pipelines/${pid}/steps", lookupReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "lookup"
+      }
+    }
+
+    // HEL-386 (design.md Decision 9): cross-user LookupStep reference-source on PATCH must
+    // return 404 with the persisted config left unchanged — the updateStep half of the ACL
+    // check, mirroring union's task 6.8 (no join equivalent exists for this scenario).
+    "PATCH lookup step config to cross-user reference-source returns 404 and leaves config unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", lookupReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "referenceDataSourceId" -> JsString(otherUserDsId),
+          "sourceKey"             -> JsString("code"),
+          "lookupKey"             -> JsString("code"),
+          "columns"               -> JsArray(JsString("label"))
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        val lookup = steps.collectFirst { case l: LookupStepResponse => l }
+        lookup should not be empty
+        lookup.get.config.referenceDataSourceId shouldBe ownDsId
+      }
+    }
+
+    // HEL-386 evaluation-1.md change request 1+2 (regression): the "+ Add transformation
+    // step" picker POSTs defaultConfigFor("lookup") — an entirely empty config, including
+    // referenceDataSourceId: "". This MUST succeed (201) with the reference source left
+    // unset — an empty/unselected reference id is an incomplete draft, not a security
+    // violation (nothing to leak against an unset id), matching design.md Decision 1's
+    // "empty is a no-op, not an error" philosophy and Decision 6's execute-time-only
+    // failure scoping. Before the fix, lookupCheckF unconditionally called
+    // findByIdOwned(DataSourceId(""), user) => None => 404, so a lookup step could never
+    // be created via the primary UI flow.
+    "POST with lookup type and the picker's exact empty-default config succeeds (201), reference source unset" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/${pid}/steps", lookupDefaultReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "lookup"
+        val lookup = resp.asInstanceOf[LookupStepResponse]
+        lookup.config.referenceDataSourceId shouldBe ""
+      }
+    }
+
+    // Same regression, PATCH half: clearing an already-set reference source back to "" must
+    // stay allowed (it's un-setting a draft, not referencing a cross-user source).
+    "PATCH lookup step config to an empty referenceDataSourceId stays allowed (200)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", lookupReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "referenceDataSourceId" -> JsString(""),
+          "sourceKey"             -> JsString("code"),
+          "lookupKey"             -> JsString("code"),
+          "columns"               -> JsArray(JsString("label"))
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineStepResponse]
+        val lookup = resp.asInstanceOf[LookupStepResponse]
+        lookup.config.referenceDataSourceId shouldBe ""
       }
     }
 

@@ -10,6 +10,7 @@ import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../layout/state/layoutHistorySlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
 import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
+import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { pipelinesReducer } from "../state/pipelinesSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
@@ -135,6 +136,7 @@ function makeStore(
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      toasts: toastsReducer,
     } as never,
     preloadedState: {
       sources: {
@@ -345,6 +347,25 @@ describe("PipelineDetailPage", () => {
 
     expect(screen.getByText("Filter rows")).toBeInTheDocument();
     expect(screen.queryByText("Add your first transformation step")).not.toBeInTheDocument();
+  });
+
+  // HEL-386 evaluation-1.md change request 3 regression: a failed step-creation
+  // POST must surface an error toast rather than silently keeping an
+  // unpersisted temp step with no user feedback.
+  it("a failed add-step POST pushes an error toast", async () => {
+    createPipelineStepMock.mockRejectedValueOnce(new Error("Request failed with status code 404"));
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Filter rows/i }));
+
+    await waitFor(() => {
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].variant).toBe("error");
+      expect(toasts[0].message).toMatch(/failed to add filter rows step/i);
+    });
   });
 
   it("removing a step removes its card", () => {

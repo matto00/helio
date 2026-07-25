@@ -84,6 +84,7 @@ object PipelineAnalyzeService {
       case "window"                     => inferWindow(config, inputSchema)
       case "unpivot"                    => inferUnpivot(config, inputSchema)
       case "stringops"                  => inferStringOps(config, inputSchema)
+      case "lookup"                     => inferLookup(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -415,6 +416,26 @@ object PipelineAnalyzeService {
     parseConfig("stringops", config) { json =>
       val outputColumn = json.fields("outputColumn").convertTo[String]
       inputSchema.filterNot(_.name == outputColumn) :+ SchemaField(name = outputColumn, `type` = "string")
+    } (inputSchema)
+
+  /** lookup (HEL-386) — design.md Decision 7: additive, family-(b) best-effort
+   *  typing (like `stringops`/`window`'s fallback case) rather than the
+   *  identity-passthrough group `join`/`union` belong to. The reference
+   *  source's schema isn't resolvable at this layer (no repo access, same
+   *  limitation `union` already documents), so each name in `config.columns`
+   *  is appended typed `string`, replacing any existing same-named field in
+   *  place (`filterNot` + `:+` per column, generalizing the single-output-
+   *  column collision-safe shape `inferStringOps`/`inferWindow` use to a
+   *  `Vector[String]` of output columns). No field-existence validation is
+   *  performed on `sourceKey` — like `stringops`/`datebucket`, `lookup`
+   *  accepts any field name and null-coerces at execute time — so this
+   *  dedicated dispatch case never emits a false `validationError`. */
+  private def inferLookup(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    parseConfig("lookup", config) { json =>
+      val columns = json.fields.get("columns").map(_.convertTo[Vector[String]]).getOrElse(Vector.empty[String])
+      columns.foldLeft(inputSchema) { (schema, col) =>
+        schema.filterNot(_.name == col) :+ SchemaField(name = col, `type` = "string")
+      }
     } (inputSchema)
 
   // ── Helpers ───────────────────────────────────────────────────────────────

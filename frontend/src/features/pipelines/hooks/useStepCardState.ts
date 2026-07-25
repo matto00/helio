@@ -22,6 +22,7 @@ import {
   fillNullConfigOf,
   filterConfigOf,
   limitCountOf,
+  lookupConfigOf,
   pivotConfigOf,
   renamesOf,
   selectedFieldsOf,
@@ -42,6 +43,7 @@ import type { DedupeConfigValue } from "../ui/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
 import type { FillNullConfigValue } from "../ui/FillNullConfig";
 import type { FilterConfigValue } from "../ui/FilterConfig";
+import type { LookupConfigValue } from "../ui/LookupConfig";
 import type { PivotConfigValue } from "../ui/PivotConfig";
 import type { SortKey } from "../ui/SortConfig";
 import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
@@ -70,6 +72,7 @@ export interface StepCardStateHandlers {
   fillNullConfig: FillNullConfigValue;
   stringOpsConfig: StringOpsConfigValue;
   unionConfig: UnionConfigValue;
+  lookupConfig: LookupConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -89,6 +92,7 @@ export interface StepCardStateHandlers {
   onFillNullChange: (config: FillNullConfigValue) => void;
   onStringOpsChange: (config: StringOpsConfigValue) => void;
   onUnionChange: (config: UnionConfigValue) => void;
+  onLookupChange: (config: LookupConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -138,6 +142,7 @@ export function useStepCardState(
     stringOpsConfigOf(step),
   );
   const [unionConfig, setUnionConfig] = useState<UnionConfigValue>(() => unionConfigOf(step));
+  const [lookupConfig, setLookupConfig] = useState<LookupConfigValue>(() => lookupConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -160,6 +165,7 @@ export function useStepCardState(
     setFillNullConfig(fillNullConfigOf(step));
     setStringOpsConfig(stringOpsConfigOf(step));
     setUnionConfig(unionConfigOf(step));
+    setLookupConfig(lookupConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -319,6 +325,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onLookupChange(newConfig: LookupConfigValue) {
+    setLookupConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -339,6 +350,7 @@ export function useStepCardState(
     fillNullConfig,
     stringOpsConfig,
     unionConfig,
+    lookupConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -358,5 +370,6 @@ export function useStepCardState(
     onFillNullChange,
     onStringOpsChange,
     onUnionChange,
+    onLookupChange,
   };
 }

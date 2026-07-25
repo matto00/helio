@@ -33,6 +33,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "../hooks/usePipelineRunEvents";
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import { createPipelineStep, deletePipelineStep } from "../services/pipelineService";
+import { useToast } from "../../toasts/hooks/useToast";
 import type {
   AnalyzeStepResult,
   PipelineStepConfig,
@@ -47,6 +48,7 @@ export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { push: pushToast } = useToast();
 
   const { items: sources, status: sourcesStatus } = useAppSelector((state) => state.sources);
   const { items: dataTypes, status: dataTypesStatus } = useAppSelector((state) => state.dataTypes);
@@ -287,8 +289,15 @@ export function PipelineDetailPage() {
       setSteps((prev) =>
         prev.map((s) => (s.id === tempStep.id ? pipelineStepToStep(persisted) : s)),
       );
-    } catch {
+    } catch (err: unknown) {
       // Keep temp step if POST fails; PATCH calls will be no-ops until ID is real.
+      // Surface the failure — a silent catch here previously let a step creation
+      // 404 vanish with no user feedback (evaluation-1.md change request 3).
+      const message = err instanceof Error ? err.message : "Failed to add step.";
+      pushToast({
+        variant: "error",
+        message: `Failed to add ${opType.label.toLowerCase()} step: ${message}`,
+      });
     }
   }
 

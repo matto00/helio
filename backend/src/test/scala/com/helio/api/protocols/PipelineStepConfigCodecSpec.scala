@@ -163,6 +163,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("union", raw).get shouldBe
         UnionConfig("ds-2", "byName")
     }
+
+    "preserve lookup config" in {
+      val raw = """{"referenceDataSourceId":"ds-2","sourceKey":"code","lookupKey":"code","columns":["label","price"]}"""
+      PipelineStepConfigCodec.decode("lookup", raw).get shouldBe
+        LookupConfig("ds-2", "code", "code", Vector("label", "price"))
+    }
   }
 
   "tolerance" should {
@@ -266,6 +272,11 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         UnionConfig("", "byPosition")
     }
 
+    "lookup — decode({}) yields empty ids/keys and an empty columns vector" in {
+      PipelineStepConfigCodec.decode("lookup", "{}").get shouldBe
+        LookupConfig("", "", "", Vector.empty)
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -312,7 +323,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "dedupe"     -> DedupeConfig(Vector("id"), "last"),
         "fillnull"   -> FillNullConfig(Vector("price"), "mean", None),
         "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None),
-        "union"      -> UnionConfig("ds-2", "byName")
+        "union"      -> UnionConfig("ds-2", "byName"),
+        "lookup"     -> LookupConfig("ds-2", "code", "code", Vector("label"))
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)
