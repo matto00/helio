@@ -76,34 +76,36 @@ protocol stream.
 
 ## Tool catalog
 
-| Tool                    | Endpoint(s) used                                                  | Purpose                                                                      |
-| ----------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `list_dashboards`       | `GET /api/dashboards`                                             | Paginated dashboard list                                                     |
-| `get_dashboard`         | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                     |
-| `list_data_sources`     | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                       |
-| `list_source_objects`   | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                              |
-| `list_data_types`       | `GET /api/types`                                                  | DataTypes with columns; flags pipeline-output (bindable) vs source-companion |
-| `get_data_type_rows`    | `GET /api/types/:id/rows`                                         | Latest pipeline-run row snapshot                                             |
-| `list_pipelines`        | `GET /api/pipelines`                                              | Pipeline summaries                                                           |
-| `get_pipeline`          | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                   |
-| `analyze_pipeline`      | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                 |
-| `get_workspace_context` | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**)                    |
+| Tool                    | Endpoint(s) used                                                  | Purpose                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `list_dashboards`       | `GET /api/dashboards`                                             | Paginated dashboard list                                                                                |
+| `get_dashboard`         | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                                                |
+| `list_data_sources`     | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                                                  |
+| `list_source_objects`   | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                                                         |
+| `list_data_types`       | `GET /api/types`                                                  | DataTypes with columns; flags pipeline-output (bindable) vs source-companion                            |
+| `get_data_type_rows`    | `GET /api/types/:id/rows`                                         | Latest pipeline-run row snapshot                                                                        |
+| `list_pipelines`        | `GET /api/pipelines`                                              | Pipeline summaries                                                                                      |
+| `get_pipeline`          | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                                              |
+| `analyze_pipeline`      | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                                            |
+| `list_pipeline_shapes`  | `GET /api/pipeline-shapes`                                        | Smart pipeline shape catalog (id/label/description/paramsSchema/outputContract, **HEL-400**)            |
+| `get_workspace_context` | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**), now including `pipelineShapes` (**HEL-400**) |
 
 ### Write / composition tools
 
-| Tool                      | Endpoint                                  | Purpose                                                                    |
-| ------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `create_data_source`      | `POST /api/data-sources` (static)         | Create a static source from inline columns + rows                          |
-| `create_csv_data_source`  | `POST /api/data-sources` (multipart, csv) | Create a CSV source from inline text content — no filesystem access needed |
-| `create_rest_data_source` | `POST /api/sources` (`type: rest_api`)    | Create a REST API source; returns the companion DataType or a `fetchError` |
-| `create_sql_data_source`  | `POST /api/sources` (`type: sql`)         | Create a SQL source; returns the companion DataType or a `fetchError`      |
-| `create_pipeline`         | `POST /api/pipelines`                     | Create a pipeline → a new panel-bindable output DataType                   |
-| `add_pipeline_step`       | `POST /api/pipelines/:id/steps`           | Append a transform step (config keyed by step type)                        |
-| `run_pipeline`            | `POST /api/pipelines/:id/run`             | Run to completion (synchronous — rows exist on return, no polling)         |
-| `create_dashboard`        | `POST /api/dashboards`                    | Create an empty dashboard                                                  |
-| `create_panel`            | `POST /api/panels`                        | Create a panel on a dashboard                                              |
-| `bind_panel`              | `PATCH /api/panels/:id`                   | Bind metric/chart/table to a pipeline-output DataType + mapping            |
-| `update_panel_appearance` | `PATCH /api/panels/:id`                   | Update panel appearance (partial)                                          |
+| Tool                         | Endpoint                                                                                            | Purpose                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `create_data_source`         | `POST /api/data-sources` (static)                                                                   | Create a static source from inline columns + rows                          |
+| `create_csv_data_source`     | `POST /api/data-sources` (multipart, csv)                                                           | Create a CSV source from inline text content — no filesystem access needed |
+| `create_rest_data_source`    | `POST /api/sources` (`type: rest_api`)                                                              | Create a REST API source; returns the companion DataType or a `fetchError` |
+| `create_sql_data_source`     | `POST /api/sources` (`type: sql`)                                                                   | Create a SQL source; returns the companion DataType or a `fetchError`      |
+| `create_pipeline`            | `POST /api/pipelines`                                                                               | Create a pipeline → a new panel-bindable output DataType                   |
+| `add_pipeline_step`          | `POST /api/pipelines/:id/steps`                                                                     | Append a transform step (config keyed by step type)                        |
+| `create_pipeline_from_shape` | `POST /api/pipeline-shapes/:id/expand` then `POST /api/pipelines` + `POST /api/pipelines/:id/steps` | Instantiate a smart shape into a new pipeline in one call (**HEL-400**)    |
+| `run_pipeline`               | `POST /api/pipelines/:id/run`                                                                       | Run to completion (synchronous — rows exist on return, no polling)         |
+| `create_dashboard`           | `POST /api/dashboards`                                                                              | Create an empty dashboard                                                  |
+| `create_panel`               | `POST /api/panels`                                                                                  | Create a panel on a dashboard                                              |
+| `bind_panel`                 | `PATCH /api/panels/:id`                                                                             | Bind metric/chart/table to a pipeline-output DataType + mapping            |
+| `update_panel_appearance`    | `PATCH /api/panels/:id`                                                                             | Update panel appearance (partial)                                          |
 
 Each write tool returns the created resource's id so an agent can chain the
 canonical path without re-listing. `bind_panel` field-mapping keys by type:

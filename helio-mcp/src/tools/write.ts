@@ -246,6 +246,51 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "create_pipeline_from_shape",
+    {
+      title: "Create pipeline from a smart shape",
+      description:
+        "Instantiate a smart pipeline shape into a NEW pipeline in one call, instead of hand-" +
+        "assembling steps with create_pipeline + add_pipeline_step. Validates `params` against the " +
+        "shape's own expand FIRST (POST /api/pipeline-shapes/:shapeId/expand) — if that fails " +
+        "(unknown shapeId, or params rejected), NO pipeline is created and the tool returns an " +
+        "error whose message is the backend's 404/422 message verbatim (an unknown shapeId's " +
+        "message lists every registered id). Only once expand succeeds does it create the pipeline " +
+        "(new panel-bindable output DataType named outputDataTypeName) and add each expanded step " +
+        "in order, the same way add_pipeline_step would. Does NOT run the pipeline — call " +
+        "run_pipeline afterward (you may also add further non-shape steps first, e.g. a rename). " +
+        "Call list_pipeline_shapes first to see every registered shapeId + its params shape. " +
+        "Registered shape ids + params: " +
+        "`passthrough` {fields: string[]}; " +
+        '`single-row` {mode:"aggregate"|"filter", measures?:{fn,field,alias}[], ' +
+        "conditions?:{field,operator,value}[], combinator?}; " +
+        '`top-n` {measure, direction:"asc"|"desc", n, ties?}; ' +
+        '`time-series` {timeField, granularity:"day"|"week"|"month"|"quarter"|"year", ' +
+        "measures:{fn,field,alias}[]}; " +
+        '`pivot-matrix` {index:string[], column, values, agg:"sum"|"count"|"avg"|"min"|' +
+        '"max"|"first"}. Returns the created pipeline summary plus the ordered list of created ' +
+        "steps.",
+      inputSchema: {
+        name: z.string().min(1),
+        sourceDataSourceId: z.string().min(1),
+        outputDataTypeName: z.string().min(1),
+        shapeId: z.string().min(1),
+        params: z.record(z.unknown()).default({}),
+      },
+    },
+    ({ name, sourceDataSourceId, outputDataTypeName, shapeId, params }) =>
+      guarded(() =>
+        api.createPipelineFromShape({
+          name,
+          sourceDataSourceId,
+          outputDataTypeName,
+          shapeId,
+          params,
+        }),
+      ),
+  );
+
+  server.registerTool(
     "run_pipeline",
     {
       title: "Run pipeline",

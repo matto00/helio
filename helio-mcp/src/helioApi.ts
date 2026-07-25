@@ -31,11 +31,13 @@ import type {
   Paged,
   PanelResponse,
   PipelineAnalyzeResponse,
+  PipelineShapeCatalogEntryResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
   RestAuthInput,
   RowsPreview,
   RunResultResponse,
+  ShapeStepExpansionResponse,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -125,6 +127,12 @@ function withCompleteChartAppearance(appearance: Record<string, unknown>): Recor
 export interface PipelineWithSteps extends PipelineSummaryResponse {
   steps: PipelineStepResponse[];
 }
+
+/** Result of `createPipelineFromShape` — mirrors `PipelineWithSteps`'s
+ *  `{...summary, steps}` shape (design.md Planner Notes), the steps here being
+ *  the ones actually created (each `add_pipeline_step`-equivalent call's own
+ *  response), not the raw `expand` expansion payloads. */
+export type PipelineFromShapeResult = PipelineWithSteps;
 
 /** Source preview, tagged with which endpoint produced it. */
 export interface SourceObjects {
@@ -226,6 +234,14 @@ export class HelioApi {
    *  tool. No credential/secret values are ever included, only field descriptors. */
   listConnectors(): Promise<ConnectorMetadataResponse[]> {
     return this.http.get<ConnectorMetadataResponse[]>("/api/connectors");
+  }
+
+  /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —
+   *  id/label/description/paramsSchema/outputContract, sorted by id. `outputContract.fields` is
+   *  `[]` for every shape currently registered on `main`; `outputContract.rowCount`/`description`
+   *  carry the real signal. Thin pass-through, no reshaping. */
+  listPipelineShapes(): Promise<PipelineShapeCatalogEntryResponse[]> {
+    return this.http.get<PipelineShapeCatalogEntryResponse[]>("/api/pipeline-shapes");
   }
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────
@@ -339,6 +355,48 @@ export class HelioApi {
     step: { type: string; config: Record<string, unknown> },
   ): Promise<PipelineStepResponse> {
     return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
+  }
+
+  /** Expand a shape's params into an ordered list of step create-payloads (HEL-402, the first
+   *  HTTP caller of `PipelineShape.expand`). Pure — no persistence. A 404 (unknown shapeId) or 422
+   *  (the shape's own params-validation failure, message verbatim) surfaces as a `HelioApiError`
+   *  via the shared `describeError`/`guarded` path — never swallowed. */
+  expandPipelineShape(
+    shapeId: string,
+    params: Record<string, unknown>,
+  ): Promise<ShapeStepExpansionResponse[]> {
+    return this.http.post<ShapeStepExpansionResponse[]>(`/api/pipeline-shapes/${shapeId}/expand`, {
+      params,
+    });
+  }
+
+  /** Instantiate a shape into a new pipeline (design.md Decision 2 — validate before writing).
+   *  Calls `expandPipelineShape` FIRST; if it fails (unknown shape id / invalid params) this
+   *  rejects with that error and creates NOTHING (no orphan empty pipeline). Only once `expand`
+   *  succeeds does it create the pipeline, then add each returned `{kind, config}` expansion as a
+   *  step, in order, via the same call `addPipelineStep` uses. Does NOT run the pipeline —
+   *  `runPipeline` stays a separate, explicit call. Returns `{...summary, steps}`, mirroring
+   *  `getPipeline`'s `PipelineWithSteps`. */
+  async createPipelineFromShape(input: {
+    name: string;
+    sourceDataSourceId: string;
+    outputDataTypeName: string;
+    shapeId: string;
+    params: Record<string, unknown>;
+  }): Promise<PipelineFromShapeResult> {
+    const expansions = await this.expandPipelineShape(input.shapeId, input.params);
+    const summary = await this.createPipeline({
+      name: input.name,
+      sourceDataSourceId: input.sourceDataSourceId,
+      outputDataTypeName: input.outputDataTypeName,
+    });
+    const steps: PipelineStepResponse[] = [];
+    for (const expansion of expansions) {
+      steps.push(
+        await this.addPipelineStep(summary.id, { type: expansion.kind, config: expansion.config }),
+      );
+    }
+    return { ...summary, steps };
   }
 
   /** Run a pipeline to completion. Synchronous on `main`: the POST returns only

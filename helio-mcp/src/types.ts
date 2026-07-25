@@ -301,3 +301,62 @@ export interface ConnectorMetadataResponse {
   authKind: string;
   requiredFields: ConnectorFieldDescriptorResponse[];
 }
+
+// ── Pipeline shape catalog (HEL-391/402) — mirrors
+// `backend/.../api/protocols/PipelineShapeProtocol.scala` ──────────────────
+
+/** Descriptive metadata for one `expand` param — never a validating JSON
+ *  Schema; real validation happens server-side inside `expand`. Mirrors the
+ *  backend's `ShapeParamDescriptor` (reused directly on the wire there). */
+export interface ShapeParamDescriptorResponse {
+  name: string;
+  label: string;
+  dataType: string;
+  required: boolean;
+  description: string;
+}
+
+/** Discriminated union mirroring the backend's `RowCountContract` wire format
+ *  (`PipelineShapeProtocol.rowCountContractFormat`): `{"kind":"exactly-one"}`,
+ *  `{"kind":"at-most-param","paramName":"..."}`, `{"kind":"unbounded"}`. */
+export type RowCountContractResponse =
+  | { kind: "exactly-one" }
+  | { kind: "at-most-param"; paramName: string }
+  | { kind: "unbounded" };
+
+/** One statically-known output field a shape guarantees. Mirrors the
+ *  backend's `OutputFieldContractResponse`. */
+export interface OutputFieldContractResponse {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+}
+
+/** A shape's guaranteed output shape. `fields` is `[]` for every shape
+ *  currently registered on `main` — do not build anything that depends on it
+ *  being populated; `rowCount`/`description` carry the real signal. Mirrors
+ *  the backend's `OutputContractResponse`. */
+export interface OutputContractResponse {
+  rowCount: RowCountContractResponse;
+  fields: OutputFieldContractResponse[];
+  description: string;
+}
+
+/** One `GET /api/pipeline-shapes` catalog entry. Mirrors the backend's
+ *  `PipelineShapeCatalogEntryResponse`. */
+export interface PipelineShapeCatalogEntryResponse {
+  id: string;
+  label: string;
+  description: string;
+  paramsSchema: ShapeParamDescriptorResponse[];
+  outputContract: OutputContractResponse;
+}
+
+/** One entry in `POST /api/pipeline-shapes/:id/expand`'s response array —
+ *  a `{kind, config}` step create-payload, 1:1 with `add_pipeline_step`'s
+ *  `{type, config}` shape (`kind` here, matching the domain field name
+ *  directly). Mirrors the backend's `ShapeStepExpansionResponse`. */
+export interface ShapeStepExpansionResponse {
+  kind: string;
+  config: Record<string, unknown>;
+}
