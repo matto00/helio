@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
@@ -163,6 +163,9 @@ final class ApiRoutes(
   // PipelineScheduleRepository simply don't get the
   // /api/pipelines/:id/schedule routes.
   private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo))
+  // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
+  // repository, so no nullable-optional wiring needed.
+  private val pipelineShapeService        = new PipelineShapeService()
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -266,6 +269,10 @@ final class ApiRoutes(
                   new SourceRoutes(sourceService, authenticatedUser).routes,
                   new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
                   new ConnectorRoutes(authenticatedUser).routes,
+                  // HEL-391: distinct top-level `pipeline-shapes` prefix, NOT nested under
+                  // `pipelines` — mount order relative to PipelineRoutes doesn't matter (design.md
+                  // Decision 6).
+                  new PipelineShapeRoutes(pipelineShapeService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
