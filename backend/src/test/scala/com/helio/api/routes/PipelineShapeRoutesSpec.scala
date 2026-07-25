@@ -41,7 +41,7 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
       }
     }
 
-    "include named entries for single-row, top-n, and time-series, each with a non-empty paramsSchema" in {
+    "include named entries for single-row, top-n, time-series, and pivot-matrix, each with a non-empty paramsSchema" in {
       Get("/pipeline-shapes") ~> routes ~> check {
         val entries = responseAs[Vector[PipelineShapeCatalogEntryResponse]]
 
@@ -53,6 +53,9 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
 
         val timeSeries = entries.find(_.id == "time-series").getOrElse(fail("time-series entry missing"))
         timeSeries.paramsSchema shouldNot be(empty)
+
+        val pivotMatrix = entries.find(_.id == "pivot-matrix").getOrElse(fail("pivot-matrix entry missing"))
+        pivotMatrix.paramsSchema shouldNot be(empty)
       }
     }
   }
