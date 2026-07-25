@@ -41,7 +41,8 @@ object PipelineShape {
    *  one line here (mirrors [[com.helio.domain.PipelineStep.Registry]]'s per-kind-line pattern). */
   val Registry: Map[String, PipelineShape] = Map(
     PassthroughShape.id -> PassthroughShape,
-    SingleRowShape.id   -> SingleRowShape
+    SingleRowShape.id   -> SingleRowShape,
+    TopNShape.id        -> TopNShape
   )
 
   /** Look up a shape by id, or `Left` with a message listing the registered ids. */

@@ -40,5 +40,17 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
         passthrough.outputContract.fields shouldBe empty
       }
     }
+
+    "include named entries for both single-row and top-n, each with a non-empty paramsSchema" in {
+      Get("/pipeline-shapes") ~> routes ~> check {
+        val entries = responseAs[Vector[PipelineShapeCatalogEntryResponse]]
+
+        val singleRow = entries.find(_.id == "single-row").getOrElse(fail("single-row entry missing"))
+        singleRow.paramsSchema shouldNot be(empty)
+
+        val topN = entries.find(_.id == "top-n").getOrElse(fail("top-n entry missing"))
+        topN.paramsSchema shouldNot be(empty)
+      }
+    }
   }
 }
