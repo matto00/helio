@@ -42,7 +42,8 @@ object PipelineShape {
   val Registry: Map[String, PipelineShape] = Map(
     PassthroughShape.id -> PassthroughShape,
     SingleRowShape.id   -> SingleRowShape,
-    TopNShape.id        -> TopNShape
+    TopNShape.id        -> TopNShape,
+    TimeSeriesShape.id  -> TimeSeriesShape
   )
 
   /** Look up a shape by id, or `Left` with a message listing the registered ids. */
