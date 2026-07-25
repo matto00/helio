@@ -1,6 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/shapes/TimeSeriesShape.scala` — new `TimeSeriesShape` object; `expand` validates `timeField`/`granularity`/`measures` and builds the three-step `datebucket` + `aggregate` + `sort` expansion; declares `RowCountContract.Unbounded`.
-- `backend/src/main/scala/com/helio/domain/shapes/PipelineShape.scala` — registers `TimeSeriesShape` in `PipelineShape.Registry` under id `"time-series"`.
-- `backend/src/test/scala/com/helio/domain/shapes/TimeSeriesShapeSpec.scala` — new domain unit tests for `TimeSeriesShape.expand` (valid expansion, granularity/fn case-insensitivity, all rejection paths, alias/timeField collision) and `outputContract`.
-- `backend/src/test/scala/com/helio/domain/TimeSeriesShapeEngineSpec.scala` — new end-to-end test running the expansion through the real `InProcessPipelineEngine` over a shuffled, multi-month dated fixture, asserting one row per month in chronological order with correct sums.
-- `backend/src/test/scala/com/helio/domain/shapes/PipelineShapeSpec.scala` — extended registry-parity test (independently-authored id set, `Registry` equality, size) to include `"time-series"`.
-- `backend/src/test/scala/com/helio/api/routes/PipelineShapeRoutesSpec.scala` — extended named-shape catalog HTTP assertion to also check for a `"time-series"` entry with a non-empty `paramsSchema`.
