@@ -12,7 +12,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAut
 import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, User, UserId, UserSession}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import spray.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
+import spray.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -2789,6 +2789,29 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val entries = responseAs[Vector[PipelineShapeCatalogEntryResponse]]
         entries.map(_.id) should contain("passthrough")
+      }
+    }
+
+    // HEL-402: composed-route-tree coverage for POST /api/pipeline-shapes/:id/expand — the same
+    // routing-collision guard as the GET catalog test above, but for the new expand endpoint.
+    "return 401 for POST /api/pipeline-shapes/single-row/expand without Authorization (HEL-402)" in {
+      Post("/api/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(JsObject.empty)) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 200 and expand a real shape via POST /api/pipeline-shapes/:id/expand when authenticated (HEL-402)" in {
+      val params = JsObject(
+        "mode"     -> JsString("aggregate"),
+        "measures" -> JsArray(
+          JsObject("fn" -> JsString("sum"), "field" -> JsString("amount"), "alias" -> JsString("total"))
+        )
+      )
+      Post("/api/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(params)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val expansions = responseAs[Vector[ShapeStepExpansionResponse]]
+        expansions.map(_.kind) shouldBe Vector("aggregate")
       }
     }
 

@@ -11,6 +11,7 @@ import type {
   RunStatusResponse,
 } from "../types/pipelineStep";
 import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
+import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../types/pipelineShape";
 import { httpClient } from "../../../services/httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {
@@ -220,4 +221,33 @@ export async function putPipelineSchedule(
 /** DELETE /api/pipelines/:id/schedule. */
 export async function deletePipelineSchedule(pipelineId: string): Promise<void> {
   await httpClient.delete(`/api/pipelines/${pipelineId}/schedule`);
+}
+
+// ── Pipeline shape catalog + instantiation (HEL-391 / HEL-402) ───────────────
+
+/** GET /api/pipeline-shapes — the registry of smart-pipeline-shape kinds
+ *  (`passthrough`, `single-row`, `top-n`, `time-series`, `pivot-matrix` at
+ *  time of writing). Registry-style reference data, not app state — mirrors
+ *  `connectorService.listConnectors()`'s direct-service-call pattern (no
+ *  Redux slice). */
+export async function getPipelineShapeCatalog(): Promise<PipelineShapeCatalogEntry[]> {
+  const response = await httpClient.get<PipelineShapeCatalogEntry[]>("/api/pipeline-shapes");
+  return response.data;
+}
+
+/** POST /api/pipeline-shapes/:id/expand — turns a shape id + params into an
+ *  ordered list of step create-payloads. Lets a non-2xx response (422 invalid
+ *  params, 404 unknown shape id) propagate as an axios rejection rather than
+ *  swallowing it here, matching `getPipelineSchedule`'s "callers handle it"
+ *  precedent — `ShapePickerModal` surfaces the message inline (design.md
+ *  Decision 6 / HEL-336 defect guard). */
+export async function expandPipelineShape(
+  shapeId: string,
+  params: Record<string, unknown>,
+): Promise<ShapeStepExpansion[]> {
+  const response = await httpClient.post<ShapeStepExpansion[]>(
+    `/api/pipeline-shapes/${shapeId}/expand`,
+    { params },
+  );
+  return response.data;
 }

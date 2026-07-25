@@ -1,6 +1,9 @@
 package com.helio.services
 
-import com.helio.domain.shapes.{OutputContract, PipelineShape, ShapeParamDescriptor}
+import com.helio.domain.shapes.{OutputContract, PipelineShape, ShapeParamDescriptor, ShapeStepExpansion}
+import spray.json.JsObject
+
+import scala.concurrent.Future
 
 /** One [[PipelineShape]] projected for catalog display — id/label/description/paramsSchema/
  *  outputContract, dropping the shape's `expand` behavior. Kept distinct from [[PipelineShape]]
@@ -37,4 +40,18 @@ final class PipelineShapeService {
     PipelineShape.Registry.values.toVector
       .sortBy(_.id)
       .map(PipelineShapeCatalogEntry.fromShape)
+
+  /** Backing logic for `POST /api/pipeline-shapes/:id/expand` (HEL-402 design.md Decision 4) — the
+   *  first HTTP caller of [[PipelineShape.expand]]. `expand` itself is pure/synchronous; the result
+   *  is wrapped in `Future.successful` purely to match [[ServiceResponse.run]]'s
+   *  `Future[Either[ServiceError, A]]` call shape, the same as every other route in this tree. An
+   *  unknown shape id maps to `ServiceError.NotFound`; a params-validation failure from the shape's
+   *  own `expand` maps to `ServiceError.UnprocessableEntity` with the shape's message verbatim. */
+  def expand(id: String, params: JsObject): Future[Either[ServiceError, Vector[ShapeStepExpansion]]] =
+    Future.successful {
+      for {
+        shape      <- PipelineShape.shapeFor(id).left.map(ServiceError.NotFound(_))
+        expansions <- shape.expand(params).left.map(ServiceError.UnprocessableEntity(_))
+      } yield expansions
+    }
 }

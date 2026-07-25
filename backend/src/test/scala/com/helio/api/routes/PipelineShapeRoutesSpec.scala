@@ -2,11 +2,18 @@ package com.helio.api.routes
 
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{JsonProtocols, PipelineShapeCatalogEntryResponse}
+import com.helio.api.{
+  ErrorResponse,
+  ExpandPipelineShapeRequest,
+  JsonProtocols,
+  PipelineShapeCatalogEntryResponse,
+  ShapeStepExpansionResponse
+}
 import com.helio.domain.{AuthenticatedUser, UserId}
 import com.helio.services.PipelineShapeService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import spray.json.{JsArray, JsObject, JsString}
 
 import java.util.UUID
 
@@ -56,6 +63,41 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
 
         val pivotMatrix = entries.find(_.id == "pivot-matrix").getOrElse(fail("pivot-matrix entry missing"))
         pivotMatrix.paramsSchema shouldNot be(empty)
+      }
+    }
+  }
+
+  "POST /pipeline-shapes/:id/expand" should {
+
+    "return 200 with the expanded steps for a registered shape and valid params (HEL-402)" in {
+      val params = JsObject(
+        "mode"     -> JsString("aggregate"),
+        "measures" -> JsArray(
+          JsObject("fn" -> JsString("sum"), "field" -> JsString("amount"), "alias" -> JsString("total"))
+        )
+      )
+      Post("/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(params)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val expansions = responseAs[Vector[ShapeStepExpansionResponse]]
+        expansions should have size 1
+        expansions.head.kind shouldBe "aggregate"
+      }
+    }
+
+    "return 404 for an unknown shape id (HEL-402)" in {
+      Post("/pipeline-shapes/does-not-exist/expand", ExpandPipelineShapeRequest(JsObject.empty)) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse].message should include("does-not-exist")
+      }
+    }
+
+    "return 422 with the shape's own message for invalid params (HEL-402)" in {
+      val params = JsObject("mode" -> JsString("aggregate"))
+      Post("/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(params)) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[ErrorResponse].message shouldBe
+          "single-row shape: missing required field 'measures' (expected a non-empty array of " +
+            "{ fn, field, alias } objects) when mode is \"aggregate\""
       }
     }
   }

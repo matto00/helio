@@ -233,6 +233,12 @@
   margin: 0;
 }
 
+.pipeline-detail-page__empty-state-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .pipeline-detail-page__add-step-btn {
   padding: 8px 18px;
   border: 1px solid var(--app-accent-mid);
@@ -249,10 +255,40 @@
   border-color: var(--app-accent);
 }
 
+/* ── Start from a shape (HEL-402) — secondary recipe, sits alongside the
+ * accent "+ Add step" / "+ Add transformation step" controls in both the
+ * empty-state and the add-step row. ── */
+.pipeline-detail-page__shape-picker-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__shape-picker-btn:hover {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__shape-picker-btn--dashed {
+  border-style: dashed;
+}
+
 /* ── Add step row (below steps) ── */
 .pipeline-detail-page__add-step-row {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
   padding: 12px 0;
   position: relative;
 }
