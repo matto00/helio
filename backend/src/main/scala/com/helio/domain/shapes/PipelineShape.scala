@@ -40,7 +40,8 @@ object PipelineShape {
    *  `shapeFor` lookup and the `GET /api/pipeline-shapes` catalog. Adding a new shape means adding
    *  one line here (mirrors [[com.helio.domain.PipelineStep.Registry]]'s per-kind-line pattern). */
   val Registry: Map[String, PipelineShape] = Map(
-    PassthroughShape.id -> PassthroughShape
+    PassthroughShape.id -> PassthroughShape,
+    SingleRowShape.id   -> SingleRowShape
   )
 
   /** Look up a shape by id, or `Left` with a message listing the registered ids. */

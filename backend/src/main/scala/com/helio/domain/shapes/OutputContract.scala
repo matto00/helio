@@ -3,10 +3,11 @@ package com.helio.domain.shapes
 import com.helio.domain.DataFieldType
 
 /** The row-count guarantee a [[PipelineShape]] declares for its output — shape-level (declared once
- *  on the trait), not computed per-invocation (HEL-391 design.md Decision 2). A small, non-`sealed`
- *  closed set: `sealed` would block a sibling shape ticket from proposing a genuinely new case in a
- *  follow-up PR to this same file, but every consumer today (this file's tests, the catalog
- *  protocol) is expected to match exhaustively over the three known cases.
+ *  on the trait), not computed per-invocation (HEL-391 design.md Decision 2). A small, `sealed`
+ *  closed set (confirmed as the right call in HEL-393 design.md Decision 6 — `single-row` is the
+ *  first real consumer of the `ExactlyOne` case below): every consumer (this file's tests, the
+ *  catalog protocol) matches exhaustively over the three known cases, and a genuinely new case can
+ *  only be added in a follow-up PR to this same file.
  *
  *    - `ExactlyOne`: the shape always produces exactly one row (e.g. a future single-row shape).
  *    - `AtMostParam(paramName)`: bounded by a caller-supplied param whose value isn't known until

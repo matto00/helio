@@ -4,13 +4,23 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 /** HEL-391 — registry lookup coverage (spec.md "PipelineShape.Registry enumerates every registered
- *  shape"). */
+ *  shape"). HEL-393 adds the registry-parity drift test HEL-391 deferred until a second shape
+ *  existed (mirrors `ConnectorRegistrySpec`'s pattern). */
 class PipelineShapeSpec extends AnyWordSpec with Matchers {
+
+  // Independently authored — NOT derived from PipelineShape.Registry. If a shape is added to the
+  // Registry without a matching literal here (or vice versa, e.g. a typo'd `id`), one of the
+  // assertions below fails.
+  private val expectedIds: Set[String] = Set("passthrough", "single-row")
 
   "PipelineShape.shapeFor" should {
 
     "return Right with the registered PassthroughShape instance for \"passthrough\"" in {
       PipelineShape.shapeFor("passthrough") shouldBe Right(PassthroughShape)
+    }
+
+    "return Right with the registered SingleRowShape instance for \"single-row\"" in {
+      PipelineShape.shapeFor("single-row") shouldBe Right(SingleRowShape)
     }
 
     "return Left with a message listing the registered shape ids for an unknown id" in {
@@ -24,8 +34,13 @@ class PipelineShapeSpec extends AnyWordSpec with Matchers {
 
   "PipelineShape.Registry" should {
 
-    "contain exactly the passthrough shape, keyed by its id" in {
-      PipelineShape.Registry shouldBe Map("passthrough" -> PassthroughShape)
+    "contain exactly the passthrough and single-row shapes, keyed by their ids" in {
+      PipelineShape.Registry shouldBe Map("passthrough" -> PassthroughShape, "single-row" -> SingleRowShape)
+    }
+
+    "match the independently-authored id set, with no drift between Registry and the literal set" in {
+      PipelineShape.Registry.keySet shouldBe expectedIds
+      PipelineShape.Registry should have size 2
     }
   }
 }
