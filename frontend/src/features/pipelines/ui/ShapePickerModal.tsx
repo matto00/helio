@@ -1,10 +1,11 @@
 // ShapePickerModal — "Start from a shape" flow (HEL-402). Two steps in one
 // dialog: pick a shape from the live `GET /api/pipeline-shapes` catalog, then
 // fill a generic params form driven by that shape's `paramsSchema` (design.md
-// Decision 5 — one widget per `dataType`, no per-shape hardcoding). Submitting
-// calls `POST /api/pipeline-shapes/:id/expand`; a non-2xx response is shown
-// inline and the modal stays open (never silently swallowed — the direct
-// design-against for the HEL-336 lookup-picker defect). On a 200, the
+// Decision 5 — one widget per `dataType`, no per-shape hardcoding), rendered
+// by the shared `ShapeParamsFields` (HEL-399 design.md Decision 6 extraction).
+// Submitting calls `POST /api/pipeline-shapes/:id/expand`; a non-2xx response
+// is shown inline and the modal stays open (never silently swallowed — the
+// direct design-against for the HEL-336 lookup-picker defect). On a 200, the
 // expansions are handed to the caller-supplied `onSeedSteps`, which owns the
 // sequential per-step `createPipelineStep` loop and its own mid-loop failure
 // toast (design.md Decision 6) — this component closes only after that
@@ -14,10 +15,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 
 import { Modal } from "../../../shared/ui/Modal";
-import { TextField } from "../../../shared/ui/TextField";
-import { Textarea } from "../../../shared/ui/Textarea";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { getPipelineShapeCatalog, expandPipelineShape } from "../services/pipelineService";
+import { buildShapeParams, ShapeParamsFields } from "./ShapeParamsFields";
 import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../types/pipelineShape";
 
 import "./ShapePickerModal.css";
@@ -36,18 +36,6 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     return err.response.data.message;
   }
   return fallback;
-}
-
-/** One widget per `dataType`, per design.md Decision 5 — never per-shape. */
-function widgetFor(dataType: string): "string" | "string[]" | "integer" | "object[]" {
-  switch (dataType) {
-    case "string[]":
-    case "integer":
-    case "object[]":
-      return dataType;
-    default:
-      return "string"; // fallback for "string" and any unrecognized dataType
-  }
 }
 
 export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps) {
@@ -100,35 +88,16 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
     // Client-side JSON-parse for object[] fields — a parse failure is an
     // inline error that blocks the request entirely (spec: "does not call
     // the endpoint").
-    const params: Record<string, unknown> = {};
-    for (const field of selectedShape.paramsSchema) {
-      const raw = paramValues[field.name] ?? "";
-      if (raw.trim() === "") continue;
-      const widget = widgetFor(field.dataType);
-      if (widget === "object[]") {
-        try {
-          params[field.name] = JSON.parse(raw);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Invalid JSON.";
-          setFormError(`Field "${field.label}" must be valid JSON: ${message}`);
-          return;
-        }
-      } else if (widget === "string[]") {
-        params[field.name] = raw
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s !== "");
-      } else if (widget === "integer") {
-        params[field.name] = Number.parseInt(raw, 10);
-      } else {
-        params[field.name] = raw;
-      }
+    const built = buildShapeParams(selectedShape.paramsSchema, paramValues);
+    if ("fieldError" in built) {
+      setFormError(built.fieldError);
+      return;
     }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
-      const expansions = await expandPipelineShape(selectedShape.id, params);
+      const expansions = await expandPipelineShape(selectedShape.id, built.params);
       // Expand succeeded — hand off to the caller's step-create loop, then
       // close regardless of whether that loop fully or partially succeeds
       // (design.md Decision 6: the loop's own toast reports partial failure).
@@ -206,40 +175,12 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
           className="shape-picker-modal__form"
           onSubmit={(e) => void handleSubmit(e)}
         >
-          {selectedShape.paramsSchema.map((field) => {
-            const widget = widgetFor(field.dataType);
-            const value = paramValues[field.name] ?? "";
-            return (
-              <div className="shape-picker-modal__field" key={field.name}>
-                <label className="shape-picker-modal__label" htmlFor={`shape-param-${field.name}`}>
-                  {field.label}
-                  {field.required && <span className="shape-picker-modal__required"> *</span>}
-                </label>
-                {widget === "object[]" ? (
-                  <Textarea
-                    id={`shape-param-${field.name}`}
-                    mono
-                    rows={4}
-                    value={value}
-                    onChange={(e) => setParam(field.name, e.target.value)}
-                    aria-label={field.label}
-                  />
-                ) : (
-                  <TextField
-                    id={`shape-param-${field.name}`}
-                    type={widget === "integer" ? "number" : "text"}
-                    value={value}
-                    onChange={(e) => setParam(field.name, e.target.value)}
-                    aria-label={field.label}
-                    placeholder={widget === "string[]" ? "comma-separated values" : undefined}
-                  />
-                )}
-                {field.description && (
-                  <p className="shape-picker-modal__hint">{field.description}</p>
-                )}
-              </div>
-            );
-          })}
+          <ShapeParamsFields
+            paramsSchema={selectedShape.paramsSchema}
+            values={paramValues}
+            onChange={setParam}
+            idPrefix="shape-param"
+          />
 
           <InlineError error={formError} />
         </form>

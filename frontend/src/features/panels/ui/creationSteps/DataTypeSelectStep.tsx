@@ -2,12 +2,21 @@
 // that have a registered pipeline producing them. Required for data-bound
 // panel types (metric / chart / text / table).
 //
+// HEL-399: for metric/chart/table panel types, also offers "start from a
+// shape" cards (filtered from the live shape catalog via `PANEL_TYPE_SHAPES`
+// — see `panelShapes.ts`), alongside the existing DataType list. Selecting a
+// shape card diverges entirely from the existing-DataType path: it does not
+// select a DataType and advances the modal to the shape-instantiate step
+// instead of enabling "Next".
+//
 // Pure presentational. The shell owns the pipelines + dataTypes slice
 // reads and computes the filtered registry list before passing it in.
 
 import { Link } from "react-router-dom";
 
+import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DataType } from "../../../dataTypes/types/dataType";
+import type { PipelineShapeCatalogEntry } from "../../../pipelines/types/pipelineShape";
 
 interface DataTypeSelectStepProps {
   /** True when either pipelines or data-types slice is still resolving. */
@@ -21,6 +30,17 @@ interface DataTypeSelectStepProps {
   onEmptyStateNavigate: () => void;
   onBack: () => void;
   onNext: () => void;
+  /** Shape catalog entries matching this panel type's `PANEL_TYPE_SHAPES`
+   *  mapping, already filtered by the shell. Empty for panel types that
+   *  offer no shapes (e.g. `text`, `markdown`) — no cards render then. */
+  offeredShapes: readonly PipelineShapeCatalogEntry[];
+  /** Set when this panel type maps to at least one shape but the catalog
+   *  fetch itself failed — shown inline rather than silently omitting the
+   *  shape section with no explanation. */
+  shapeCatalogError?: string | null;
+  /** Called when a shape card is clicked; diverges from `onSelect`
+   *  entirely — see file header. */
+  onSelectShape: (shape: PipelineShapeCatalogEntry) => void;
 }
 
 export function DataTypeSelectStep({
@@ -31,9 +51,38 @@ export function DataTypeSelectStep({
   onEmptyStateNavigate,
   onBack,
   onNext,
+  offeredShapes,
+  shapeCatalogError,
+  onSelectShape,
 }: DataTypeSelectStepProps) {
   return (
     <div className="panel-creation-modal__datatype-step">
+      {(offeredShapes.length > 0 || shapeCatalogError) && (
+        <div className="panel-creation-modal__shape-section">
+          <p className="panel-creation-modal__shape-eyebrow eyebrow">Start from a shape</p>
+          {shapeCatalogError ? (
+            <InlineError error={shapeCatalogError} />
+          ) : (
+            <div
+              className="panel-creation-modal__shape-list"
+              role="group"
+              aria-label="Start from a shape"
+            >
+              {offeredShapes.map((shape) => (
+                <button
+                  key={shape.id}
+                  type="button"
+                  className="panel-creation-modal__shape-card"
+                  onClick={() => onSelectShape(shape)}
+                >
+                  <span className="panel-creation-modal__shape-label">{shape.label}</span>
+                  <span className="panel-creation-modal__shape-desc">{shape.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {loading ? (
         // Loading state: show indicator while fetching pipelines or data types.
         <div className="panel-creation-modal__datatype-loading">

@@ -21,7 +21,9 @@ import {
 } from "../../dataTypes/state/dataTypesSlice";
 import { PANEL_TEMPLATES } from "../state/panelTemplates";
 import type { PanelTemplate } from "../state/panelTemplates";
+import { useShapeOffering } from "../state/useShapeOffering";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import type { PipelineShapeCatalogEntry } from "../../pipelines/types/pipelineShape";
 import type {
   ChartTypeConfig,
   ImageTypeConfig,
@@ -32,6 +34,7 @@ import type {
 import { hasNonEmptyTypeConfig } from "./creators/creatorTypes";
 import { DataTypeSelectStep } from "./creationSteps/DataTypeSelectStep";
 import { NameEntryStep } from "./creationSteps/NameEntryStep";
+import { ShapeInstantiateStep } from "./creationSteps/ShapeInstantiateStep";
 import { TemplateSelectStep } from "./creationSteps/TemplateSelectStep";
 import { TypeSelectStep } from "./creationSteps/TypeSelectStep";
 
@@ -39,7 +42,12 @@ import { TypeSelectStep } from "./creationSteps/TypeSelectStep";
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-type Step = "type-select" | "template-select" | "datatype-select" | "name-entry";
+type Step =
+  | "type-select"
+  | "template-select"
+  | "datatype-select"
+  | "shape-instantiate"
+  | "name-entry";
 
 // 3.2 — Data-bound panel types require a DataType selection before creation.
 const DATA_BOUND_TYPES: PanelType[] = [
@@ -76,6 +84,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [typeConfig, setTypeConfig] = useState<TypeConfig | null>(null);
   // 3.3 — DataType selection for data-bound panel types.
   const [selectedDataTypeId, setSelectedDataTypeId] = useState<string | null>(null);
+  // HEL-399 — the shape selected on datatype-select, driving the
+  // shape-instantiate step; catalog fetch/filter lives in `useShapeOffering`.
+  const [selectedShape, setSelectedShape] = useState<PipelineShapeCatalogEntry | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   // Inline discard confirmation banner (replaces window.confirm for dirty dismiss).
@@ -99,6 +110,13 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
       void dispatch(fetchDataTypes());
     }
   }, [dispatch, dataTypes.status]);
+
+  // HEL-399 — Shape cards offered for the current panel type, fetched
+  // lazily once this step is reached (see `useShapeOffering`).
+  const { offeredShapes, shapeCatalogError } = useShapeOffering(
+    step === "datatype-select",
+    selectedType,
+  );
 
   // 1.6 / 1.7 — Focus trap: Tab/Shift+Tab cycle only through modal-internal focusable elements.
   useEffect(() => {
@@ -205,6 +223,33 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     setCreateError(null);
   }
 
+  // HEL-399 — Selecting a shape card diverges entirely from the existing-
+  // DataType path (spec: "SHALL NOT select an existing DataType").
+  function handleSelectShape(shape: PipelineShapeCatalogEntry) {
+    setSelectedShape(shape);
+    setStep("shape-instantiate");
+  }
+
+  // 3.4 — Back from shape-instantiate returns to datatype-select and clears
+  // the in-progress shape selection.
+  function handleBackFromShapeInstantiate() {
+    setStep("datatype-select");
+    setSelectedShape(null);
+  }
+
+  // 3.3 — Only `run` succeeding reaches here; binds dataTypeId only, exactly
+  // matching the existing DataType-select step's behavior (no fieldMapping).
+  function handleShapeInstantiateComplete({
+    dataTypeId,
+  }: {
+    dataTypeId: string;
+    pipelineId: string;
+  }) {
+    setSelectedDataTypeId(dataTypeId);
+    setSelectedShape(null);
+    setStep("name-entry");
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (selectedDashboardId === null || selectedType === null) {
@@ -250,6 +295,8 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     if (step === "template-select") return "Choose a template";
     // 3.11 — DataType picker step title.
     if (step === "datatype-select") return "Choose a data type";
+    // HEL-399 — Shape-instantiate step title.
+    if (step === "shape-instantiate") return `Start from a shape — ${selectedShape?.label ?? ""}`;
     return "Name your panel";
   }
 
@@ -343,6 +390,18 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             onEmptyStateNavigate={handleClose}
             onBack={handleBackFromDataType}
             onNext={() => setStep("name-entry")}
+            offeredShapes={offeredShapes}
+            shapeCatalogError={shapeCatalogError}
+            onSelectShape={handleSelectShape}
+          />
+        )}
+
+        {/* HEL-399 — Shape-instantiate step: instantiate + run the selected shape, binding dataTypeId on success only. */}
+        {step === "shape-instantiate" && selectedShape && (
+          <ShapeInstantiateStep
+            shape={selectedShape}
+            onBack={handleBackFromShapeInstantiate}
+            onComplete={handleShapeInstantiateComplete}
           />
         )}
 

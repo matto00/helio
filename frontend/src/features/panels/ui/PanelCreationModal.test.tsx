@@ -3,6 +3,17 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createPanel as createPanelRequest } from "../services/panelService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
+import {
+  createPipeline,
+  createPipelineStep,
+  expandPipelineShape,
+  getPipelineShapeCatalog,
+  runPipeline,
+} from "../../pipelines/services/pipelineService";
+import type {
+  PipelineShapeCatalogEntry,
+  ShapeStepExpansion,
+} from "../../pipelines/types/pipelineShape";
 import type { Panel } from "../types/panel";
 import { PanelCreationModal } from "./PanelCreationModal";
 import type { PanelContentProps } from "./PanelContent";
@@ -21,7 +32,24 @@ jest.mock("../services/panelService", () => ({
   updatePanelAppearance: jest.fn(),
 }));
 
+// HEL-399 — the shape catalog is fetched lazily once the modal reaches
+// datatype-select for metric/chart/table; mocking it here (default: empty
+// catalog) keeps the pre-existing tests below free of real network calls,
+// since none of them assert on shape-card behavior.
+jest.mock("../../pipelines/services/pipelineService", () => ({
+  getPipelineShapeCatalog: jest.fn(),
+  expandPipelineShape: jest.fn(),
+  createPipeline: jest.fn(),
+  createPipelineStep: jest.fn(),
+  runPipeline: jest.fn(),
+}));
+
 const createPanelMock = jest.mocked(createPanelRequest);
+const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
+const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
+const createPipelineMock = jest.mocked(createPipeline);
+const createPipelineStepMock = jest.mocked(createPipelineStep);
+const runPipelineMock = jest.mocked(runPipeline);
 
 const defaultMeta = {
   createdBy: "system",
@@ -46,6 +74,14 @@ const defaultPanelAppearance = {
   color: "inherit",
   transparency: 0,
 };
+
+// HEL-399 — every test in this file re-mounts the modal; default the shape
+// catalog to empty so pre-existing tests see no shape cards (opt in per-test
+// via `getPipelineShapeCatalogMock.mockResolvedValueOnce(...)` instead).
+beforeEach(() => {
+  jest.clearAllMocks();
+  getPipelineShapeCatalogMock.mockResolvedValue([]);
+});
 
 const baseStore = {
   dashboards: {
@@ -784,6 +820,162 @@ describe("PanelCreationModal — DataType picker step", () => {
 
     expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Source Companion" })).not.toBeInTheDocument();
+  });
+});
+
+// HEL-399 — panel creation's "start from a shape" flow: shape offering on
+// datatype-select, the shape-instantiate step, and binding on success only.
+describe("PanelCreationModal — shape flow", () => {
+  const singleRowShape: PipelineShapeCatalogEntry = {
+    id: "single-row",
+    label: "Single row",
+    description: "Reduces a source to exactly one row.",
+    paramsSchema: [
+      { name: "mode", label: "Mode", dataType: "string", required: true, description: "" },
+    ],
+    outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+  };
+
+  const expansions: ShapeStepExpansion[] = [
+    { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
+  ];
+
+  const storeWithSources = {
+    ...storeWithDataTypes,
+    sources: {
+      items: [
+        {
+          id: "ds-1",
+          name: "Sales API",
+          type: "rest_api" as const,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          config: { url: "https://example.com/api" },
+        },
+      ],
+      status: "succeeded" as const,
+    },
+  };
+
+  beforeEach(() => {
+    createPanelMock.mockReset();
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+  });
+
+  it("offers the single-row shape card for a metric panel, alongside the DataType list", async () => {
+    getPipelineShapeCatalogMock.mockResolvedValueOnce([singleRowShape]);
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, storeWithSources);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(await screen.findByText("Single row")).toBeInTheDocument();
+    // The existing DataType list is unaffected.
+    expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
+  });
+
+  it("does not offer any shape card for a text panel", async () => {
+    getPipelineShapeCatalogMock.mockResolvedValueOnce([singleRowShape]);
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, storeWithSources);
+
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    // Give the (unused, for text) catalog fetch a tick to resolve if it were
+    // ever triggered — it should not be.
+    await Promise.resolve();
+    expect(screen.queryByRole("group", { name: "Start from a shape" })).not.toBeInTheDocument();
+    expect(getPipelineShapeCatalogMock).not.toHaveBeenCalled();
+  });
+
+  it("selecting a shape card advances to the shape-instantiate step, not name-entry", async () => {
+    getPipelineShapeCatalogMock.mockResolvedValueOnce([singleRowShape]);
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, storeWithSources);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(await screen.findByText("Single row"));
+
+    expect(screen.getByLabelText("Pipeline name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
+  });
+
+  it("Back from shape-instantiate returns to datatype-select", async () => {
+    getPipelineShapeCatalogMock.mockResolvedValueOnce([singleRowShape]);
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, storeWithSources);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(await screen.findByText("Single row"));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByText("Choose a data type")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pipeline name")).not.toBeInTheDocument();
+  });
+
+  it("completing the shape chain results in createPanel with dataTypeId set and no fieldMapping", async () => {
+    getPipelineShapeCatalogMock.mockResolvedValueOnce([singleRowShape]);
+    expandPipelineShapeMock.mockResolvedValueOnce(expansions);
+    createPipelineMock.mockResolvedValueOnce({
+      id: "p-1",
+      name: "Sales ETL",
+      sourceDataSourceId: "ds-1",
+      sourceDataSourceName: "Sales API",
+      outputDataTypeName: "SalesMetrics",
+      outputDataTypeId: "dt-new",
+      lastRunStatus: null,
+      lastRunAt: null,
+      lastRunRowCount: null,
+    });
+    createPipelineStepMock.mockResolvedValueOnce({
+      id: "step-1",
+      kind: "aggregate",
+      config: { groupBy: [], aggregations: [] },
+    } as never);
+    runPipelineMock.mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 10,
+    });
+    createPanelMock.mockResolvedValue(mockPanel({ type: "metric", title: "From Shape" }));
+
+    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, storeWithSources);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.click(await screen.findByText("Single row"));
+
+    fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "Sales ETL" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
+    fireEvent.click(screen.getByRole("option", { name: "Sales API" }));
+    fireEvent.change(screen.getByLabelText("Output type name"), {
+      target: { value: "SalesMetrics" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
+      target: { value: "aggregate" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create and bind" }));
+
+    // Only run succeeding advances to name-entry.
+    await screen.findByLabelText("Panel title");
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "From Shape" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "From Shape",
+        "metric",
+        undefined,
+        "dt-new",
+      ),
+    );
   });
 });
 
