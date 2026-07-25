@@ -22,6 +22,7 @@ import { ExtractHeadingsConfig } from "./ExtractHeadingsConfig";
 import { FillNullConfig } from "./FillNullConfig";
 import { FilterConfig } from "./FilterConfig";
 import { LimitConfig } from "./LimitConfig";
+import { LookupConfig } from "./LookupConfig";
 import { PivotConfig } from "./PivotConfig";
 import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
@@ -106,6 +107,7 @@ export function StepCard({
     fillNullConfig,
     stringOpsConfig,
     unionConfig,
+    lookupConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -125,6 +127,7 @@ export function StepCard({
     onFillNullChange,
     onStringOpsChange,
     onUnionChange,
+    onLookupChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -259,6 +262,12 @@ export function StepCard({
             />
           ) : step.opType.id === "union" ? (
             <UnionConfig config={unionConfig} onChange={onUnionChange} />
+          ) : step.opType.id === "lookup" ? (
+            <LookupConfig
+              config={lookupConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onLookupChange}
+            />
           ) : (
             <>
               <p className="pipeline-detail-page__step-card-desc">

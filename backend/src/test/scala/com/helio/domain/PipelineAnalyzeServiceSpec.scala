@@ -147,6 +147,36 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
+    // HEL-386 — lookup: additive best-effort typing (design.md Decision 7).
+    // The reference source's schema isn't resolved at analyze time, so each
+    // requested `columns` entry is appended typed string, and this is a real
+    // dispatch case — no validationError is emitted.
+    "lookup — appends the requested columns typed string, no validationError" in {
+      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":["label","category"]}"""
+      val steps  = Vector(step("lookup", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe (baseSchema :+ field("label", "string") :+ field("category", "string"))
+      result(0).validationError shouldBe None
+    }
+
+    "lookup — replaces an existing same-named field in place rather than duplicating it" in {
+      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":["amount"]}"""
+      val steps  = Vector(step("lookup", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe Vector(
+        field("order_id", "string"), field("created_at", "string"), field("amount", "string")
+      )
+      result(0).validationError shouldBe None
+    }
+
+    "lookup — empty columns is a no-op, outputSchema equals inputSchema" in {
+      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":[]}"""
+      val steps  = Vector(step("lookup", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe baseSchema
+      result(0).validationError shouldBe None
+    }
+
     // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {

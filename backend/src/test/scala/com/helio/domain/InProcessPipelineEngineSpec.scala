@@ -51,6 +51,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: FillNullConfig  => FillNullStep(id, pid, 0, c, now, now)
       case c: StringOpsConfig => StringOpsStep(id, pid, 0, c, now, now)
       case c: UnionConfig    => UnionStep(id, pid, 0, c, now, now)
+      case c: LookupConfig   => LookupStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -1010,6 +1011,173 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       ex.getMessage should include ("byColumn")
       ex.getMessage should include ("byPosition")
       ex.getMessage should include ("byName")
+    }
+
+    // HEL-386 — lookup op: single-key left-join match/no-match/multi-match/
+    // collision behavior, plus error paths.
+
+    "lookup op: matching row is enriched with only the named columns" in {
+      val currentRows = Seq(Map[String, Any]("code" -> "A", "qty" -> 5))
+      val refConfig = buildStaticConfig(
+        Seq("code", "label", "price"),
+        Seq(Map[String, Any]("code" -> "A", "label" -> "Apple", "price" -> 1.5))
+      )
+      val refDs = StaticSource(
+        id        = DataSourceId("ds-lookup-match"),
+        name      = "reference",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val refConfigJson = refConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-lookup-match") Some(refDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-lookup-match") Some(refConfigJson) else None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "ds-lookup-match", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 5, "label" -> "Apple"))
+    }
+
+    "lookup op: unmatched row is null-filled, not dropped (left join)" in {
+      val currentRows = Seq(Map[String, Any]("code" -> "B", "qty" -> 2))
+      val refConfig = buildStaticConfig(
+        Seq("code", "label"),
+        Seq(Map[String, Any]("code" -> "A", "label" -> "Apple"))
+      )
+      val refDs = StaticSource(
+        id        = DataSourceId("ds-lookup-nomatch"),
+        name      = "reference",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val refConfigJson = refConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-lookup-nomatch") Some(refDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-lookup-nomatch") Some(refConfigJson) else None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "ds-lookup-nomatch", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(Map[String, Any]("code" -> "B", "qty" -> 2, "label" -> null))
+    }
+
+    "lookup op: duplicate reference keys use the first match, row count unchanged" in {
+      val currentRows = Seq(Map[String, Any]("code" -> "A"))
+      val refConfig = buildStaticConfig(
+        Seq("code", "label"),
+        Seq(
+          Map[String, Any]("code" -> "A", "label" -> "First"),
+          Map[String, Any]("code" -> "A", "label" -> "Second")
+        )
+      )
+      val refDs = StaticSource(
+        id        = DataSourceId("ds-lookup-multi"),
+        name      = "reference",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val refConfigJson = refConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-lookup-multi") Some(refDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-lookup-multi") Some(refConfigJson) else None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "ds-lookup-multi", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result should have size 1
+      result shouldBe Seq(Map[String, Any]("code" -> "A", "label" -> "First"))
+    }
+
+    "lookup op: column collision — reference value overwrites the left row's value" in {
+      val currentRows = Seq(Map[String, Any]("code" -> "A", "qty" -> 5))
+      val refConfig = buildStaticConfig(
+        Seq("code", "qty"),
+        Seq(Map[String, Any]("code" -> "A", "qty" -> 99))
+      )
+      val refDs = StaticSource(
+        id        = DataSourceId("ds-lookup-collision"),
+        name      = "reference",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val refConfigJson = refConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-lookup-collision") Some(refDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-lookup-collision") Some(refConfigJson) else None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "ds-lookup-collision", "sourceKey": "code", "lookupKey": "code", "columns": ["qty"] }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 99))
+    }
+
+    "lookup op: only named columns are brought in, other reference fields dropped" in {
+      val currentRows = Seq(Map[String, Any]("code" -> "A", "qty" -> 5))
+      val refConfig = buildStaticConfig(
+        Seq("code", "label", "price"),
+        Seq(Map[String, Any]("code" -> "A", "label" -> "Apple", "price" -> 1.5))
+      )
+      val refDs = StaticSource(
+        id        = DataSourceId("ds-lookup-onlynamed"),
+        name      = "reference",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val refConfigJson = refConfig.compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-lookup-onlynamed") Some(refDs) else None)
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(if (dsId.value == "ds-lookup-onlynamed") Some(refConfigJson) else None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "ds-lookup-onlynamed", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
+
+      result.head.keys should not contain "price"
+    }
+
+    "lookup op: missing referenceDataSourceId fails at execute time" in {
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(None)
+      }
+      val step = makeStep("lookup", """{ "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val ex = intercept[IllegalArgumentException] {
+        Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
+      }
+      ex.getMessage should include ("DataSource not found for lookup")
+    }
+
+    "lookup op: unresolvable referenceDataSourceId fails at execute time, naming the id" in {
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(None)
+      }
+      val step = makeStep("lookup",
+        """{ "referenceDataSourceId": "does-not-exist", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+      val ex = intercept[IllegalArgumentException] {
+        Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
+      }
+      ex.getMessage should include ("does-not-exist")
     }
 
         // 6.2 Multi-step pipeline test
