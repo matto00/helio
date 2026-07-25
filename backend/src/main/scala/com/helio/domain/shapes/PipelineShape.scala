@@ -43,7 +43,8 @@ object PipelineShape {
     PassthroughShape.id -> PassthroughShape,
     SingleRowShape.id   -> SingleRowShape,
     TopNShape.id        -> TopNShape,
-    TimeSeriesShape.id  -> TimeSeriesShape
+    TimeSeriesShape.id  -> TimeSeriesShape,
+    PivotMatrixShape.id -> PivotMatrixShape
   )
 
   /** Look up a shape by id, or `Left` with a message listing the registered ids. */
