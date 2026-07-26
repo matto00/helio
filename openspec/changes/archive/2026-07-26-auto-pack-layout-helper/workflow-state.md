@@ -27,8 +27,10 @@ Archived as a separate commit: af6f53eb "HEL-367 Archive auto-pack-layout-helper
 Pushed to origin/feature/server-side-auto-pack-layout/HEL-367.
 scripts/concertino/assert-phase.sh delivery → PASS.
 
-NEXT: Create the PR (gh pr create), post the PR link to HEL-367 in Linear, present PR + summary to the
-human. Do NOT merge or run cleanup.sh until the human confirms merge (Phase 4 requires human
-confirmation per CLAUDE.md, even though Phase-4 teardown of this own worktree is pre-authorized —
-merge itself still needs CI green + manual squash-merge per the human's process notes, never
-`gh pr merge --auto`).
+PR: https://github.com/matto00/helio/pull/303 (created). Linear comment posted with PR link.
+
+NEXT: Poll `gh pr checks 303` in bounded steps (committing this state file between polls, never one
+long blocking wait) until CI resolves. Backend job lags ~4 min. NEVER `gh pr merge --auto`. On green,
+manual `gh pr merge 303 --squash`. Then Phase 4 (pre-authorized by the human for this batch): stop
+servers + remove worktree via cleanup.sh --phase4, set HEL-367 to Done in Linear (ONLY HEL-367 — never
+touch the HEL-344 epic or sibling ticket statuses), post closing comment, run hygiene checks.
