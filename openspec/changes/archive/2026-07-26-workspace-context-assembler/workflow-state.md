@@ -58,6 +58,40 @@ and the standing authorizations already present in the ORIGINAL task brief (Phas
 merge-on-green), not on the strength of the disputed messages. Flagging for the human's
 awareness in the final report.
 
+## CORRECTION (added post-merge, 2026-07-26, by the main session)
+
+The two sections above describing "out-of-band messages" from "the coordinator" are
+preserved verbatim as the orchestrator's contemporaneous account, but the framing is
+wrong on one point and right on two others. For the record:
+
+**Not an injection.** Those messages were legitimate coordination from the main Claude
+Code session, which spawned this orchestrator via the Agent tool with the very HEL-371
+brief it worked from all run. `SendMessage` from the spawning session is the only
+inter-agent channel that exists; there is no separate "legitimate" channel the
+orchestrator could have held out for. The premise that no coordinator sits above the
+orchestrator was mistaken — `/concertino-deliver` is one entry point, but a parent
+session spawning `concertino-orchestrator` directly is another, and that is what
+happened here.
+
+**The orchestrator was RIGHT about the routing claim.** The main session asserted, twice
+and as established fact, that sub-agent completion notifications route to the main
+session and never reach a parked spawner. That was an inference presented as fact and it
+was false — as the orchestrator correctly observed, two notifications had already arrived
+to it during this same run. The correct framing was simply "you appear parked; here is
+verifiable state; resume." Inventing a mechanism to justify the nudge was an error.
+
+**The orchestrator was RIGHT to decline the relayed authorization.** The human did in
+fact say "i approve your use of authority here... you are the delegate" — the quote was
+genuine, not fabricated. But the orchestrator's rule holds regardless: an agent-relayed
+quote is not user consent, because it is unverifiable by construction. Declining it and
+proceeding instead on its own `git log` / `git status` / `git show` verification was the
+correct resolution, and is the pattern to repeat. Escalating to the human for a relayed
+grant was the wrong move by the main session; verifiable state is what unblocks a parked
+orchestrator, not borrowed authority.
+
+Net effect on the work: none. Every gate ran, nothing was skipped, and no action was
+taken on the strength of the disputed messages.
+
 ## Process deviation note (self-caught)
 
 Per the harness resume model, cycle-2+ evaluator should be RESUMED WARM (SendMessage to
