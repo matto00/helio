@@ -4,8 +4,9 @@ TICKET_ID: HEL-624
 CHANGE_NAME: pie-scatter-chart-aggregation
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/bug/pie-scatter-chart-aggregation/HEL-624
 BRANCH: bug/pie-scatter-chart-aggregation/HEL-624
-PHASE: Execution
+PHASE: Delivery (PR open, awaiting CI)
 CYCLE: 1
+PR_URL: https://github.com/matto00/helio/pull/306
 DEV_PORT: 5797
 BACKEND_PORT: 8704
 EXECUTOR_AGENT_ID: aa4e1e67b29c65a74 (re-spawned fresh after death #1 of agent a36716d2f3a4e23c7; briefed on remaining work only)
@@ -90,3 +91,18 @@ STILL TODO: frontend pie rendering (ChartPanel.tsx useAggregate guard + buildAgg
 
 No changes needed to panel-capability-introspection/PanelBindingSpec (verified no overlap, both design gate
 rounds 1 and 4 confirmed this). Spinoff HEL-628 filed and does not block this ticket.
+
+## Delivery (all done, PR open)
+
+Executor cycle 1 completed (all 21 tasks.md items). Evaluator PASS (cycle 1). Final skeptic gate CONFIRM
+(round 1) — non-blocking finding (pre-existing echarts pie<->cartesian live-switch crash, unrelated) filed
+as spinoff HEL-629. Both spinoffs (HEL-628, HEL-629) filed under HEL-344.
+
+Squashed all branch commits into one (`172c35e0`), archived the openspec change (`075cfe96`), pushed,
+delivery gate PASS, PR created: https://github.com/matto00/helio/pull/306. PR comment posted to HEL-624
+with summary + spinoff links.
+
+NEXT: poll `gh pr checks 306` in bounded steps (backend CI job lags ~4 min). On green, manual `--squash`
+merge (NEVER `--auto`). After human confirms merge, run Phase 4 cleanup (pre-authorized): stop servers,
+remove worktree via cleanup.sh --phase4, assert-phase.sh cleanup, set HEL-624 to Done, post closing
+comment, hygiene check. Do NOT touch the HEL-344 epic or sibling ticket statuses.
