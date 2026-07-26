@@ -39,7 +39,7 @@ const singleRowShape: PipelineShapeCatalogEntry = {
       description: "Non-empty array of { fn, field, alias }.",
     },
   ],
-  outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+  outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
 };
 
 const topNShape: PipelineShapeCatalogEntry = {
@@ -54,7 +54,6 @@ const topNShape: PipelineShapeCatalogEntry = {
   ],
   outputContract: {
     rowCount: { kind: "at-most-param", paramName: "n" },
-    fields: [],
     description: "",
   },
 };

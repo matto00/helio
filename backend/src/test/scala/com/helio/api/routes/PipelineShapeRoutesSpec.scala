@@ -44,7 +44,6 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
         val passthrough = entries.find(_.id == "passthrough").getOrElse(fail("passthrough entry missing"))
         passthrough.paramsSchema.map(_.name) shouldBe Vector("fields")
         passthrough.outputContract.description shouldNot be(empty)
-        passthrough.outputContract.fields shouldBe empty
       }
     }
 

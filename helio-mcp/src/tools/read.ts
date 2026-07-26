@@ -181,9 +181,8 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "with add_pipeline_step. Each catalog entry carries id/label/description/paramsSchema " +
         "(descriptive only — NOT a validating JSON Schema; real validation happens inside " +
         "create_pipeline_from_shape's expand call, whose message is returned verbatim on failure) " +
-        "and outputContract (rowCount + description; outputContract.fields is currently ALWAYS an " +
-        "empty array for every shape — do not treat that as an error, the rowCount/description " +
-        "text carries the real signal). Registered shape ids on `main`: " +
+        "and outputContract (rowCount + description; the rowCount/description text carries the " +
+        "real signal about the shape's output). Registered shape ids on `main`: " +
         "`passthrough` (params: fields: string[] — selects those fields, one `select` step), " +
         '`single-row` (params: mode: "aggregate"|"filter", plus measures: {fn,field,alias}[] ' +
         "for aggregate mode or conditions: {field,operator,value}[] + optional combinator for " +

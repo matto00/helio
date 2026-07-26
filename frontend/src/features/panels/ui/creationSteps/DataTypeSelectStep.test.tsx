@@ -13,7 +13,7 @@ const singleRowShape: PipelineShapeCatalogEntry = {
   label: "Single row",
   description: "Reduces a source to exactly one row.",
   paramsSchema: [],
-  outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+  outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
 };
 
 const topNShape: PipelineShapeCatalogEntry = {
@@ -23,7 +23,6 @@ const topNShape: PipelineShapeCatalogEntry = {
   paramsSchema: [],
   outputContract: {
     rowCount: { kind: "at-most-param", paramName: "n" },
-    fields: [],
     description: "",
   },
 };

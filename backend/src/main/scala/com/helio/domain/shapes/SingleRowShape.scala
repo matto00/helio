@@ -86,7 +86,6 @@ object SingleRowShape extends PipelineShape {
 
   val outputContract: OutputContract = OutputContract(
     rowCount    = RowCountContract.ExactlyOne,
-    fields      = Vector.empty,
     description = "Reduces the source to exactly one row, via an empty-groupBy aggregate or a filter+limit-1."
   )
 

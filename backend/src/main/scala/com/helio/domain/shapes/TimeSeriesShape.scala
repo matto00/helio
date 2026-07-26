@@ -75,7 +75,6 @@ object TimeSeriesShape extends PipelineShape {
 
   val outputContract: OutputContract = OutputContract(
     rowCount = RowCountContract.Unbounded,
-    fields   = Vector.empty,
     description =
       "One row per distinct time bucket present in the source, ordered chronologically ascending; " +
         "columns are the bucket column (named after 'timeField') and the measure aliases."

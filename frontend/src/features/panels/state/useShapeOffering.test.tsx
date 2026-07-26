@@ -19,14 +19,14 @@ const catalog: PipelineShapeCatalogEntry[] = [
     label: "Single row",
     description: "Reduces a source to exactly one row.",
     paramsSchema: [],
-    outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+    outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
   },
   {
     id: "passthrough",
     label: "Passthrough",
     description: "No reduction.",
     paramsSchema: [],
-    outputContract: { rowCount: { kind: "unbounded" }, fields: [], description: "" },
+    outputContract: { rowCount: { kind: "unbounded" }, description: "" },
   },
 ];
 

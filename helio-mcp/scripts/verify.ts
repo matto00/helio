@@ -170,12 +170,11 @@ async function main(): Promise<void> {
 
     section("list_pipeline_shapes");
     const shapes = parse<
-      Array<{ id: string; label: string; outputContract: { rowCount: unknown; fields: unknown[] } }>
+      Array<{ id: string; label: string; outputContract: { rowCount: unknown } }>
     >(await client.callTool({ name: "list_pipeline_shapes", arguments: {} }));
     for (const s of shapes)
       process.stdout.write(
-        `  • ${s.label} (${s.id}) rowCount=${JSON.stringify(s.outputContract.rowCount)} ` +
-          `fields=${JSON.stringify(s.outputContract.fields)}\n`,
+        `  • ${s.label} (${s.id}) rowCount=${JSON.stringify(s.outputContract.rowCount)}\n`,
       );
     const expectedShapeIds = ["passthrough", "single-row", "top-n", "time-series", "pivot-matrix"];
     const actualShapeIds = shapes.map((s) => s.id).sort();

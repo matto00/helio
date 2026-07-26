@@ -104,9 +104,8 @@ class TopNShapeSpec extends AnyWordSpec with Matchers {
 
   "TopNShape.outputContract" should {
 
-    "declare AtMostParam(\"n\") row count with empty fields" in {
+    "declare AtMostParam(\"n\") row count" in {
       TopNShape.outputContract.rowCount shouldBe RowCountContract.AtMostParam("n")
-      TopNShape.outputContract.fields shouldBe empty
     }
   }
 

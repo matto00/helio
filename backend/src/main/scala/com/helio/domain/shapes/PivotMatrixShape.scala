@@ -76,7 +76,6 @@ object PivotMatrixShape extends PipelineShape {
 
   val outputContract: OutputContract = OutputContract(
     rowCount = RowCountContract.Unbounded,
-    fields   = Vector.empty,
     description =
       "One row per distinct 'index' tuple present in the source; value-column names " +
         "('<values>_<column-value>') are data-dependent and never statically enumerated, mirroring " +

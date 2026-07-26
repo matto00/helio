@@ -61,7 +61,6 @@ object TopNShape extends PipelineShape {
 
   val outputContract: OutputContract = OutputContract(
     rowCount    = RowCountContract.AtMostParam("n"),
-    fields      = Vector.empty,
     description = "Sorts by a measure and keeps at most N rows; columns mirror the source unchanged."
   )
 

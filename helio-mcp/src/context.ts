@@ -72,8 +72,8 @@ export interface WorkspaceContext {
   }>;
   dashboards: Array<{ id: string; name: string; panelCount: number }>;
   /** Smart pipeline shape catalog (HEL-391/402) — the shape vocabulary a planning agent can pick
-   *  from via create_pipeline_from_shape, rather than inventing shape ids. `fields` is dropped
-   *  (always `[]` today, per HEL-402); `outputRowCount` flattens `RowCountContract` to a string. */
+   *  from via create_pipeline_from_shape, rather than inventing shape ids. `outputRowCount` flattens
+   *  `RowCountContract` to a string. */
   pipelineShapes: Array<{
     id: string;
     label: string;

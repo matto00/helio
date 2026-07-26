@@ -171,9 +171,8 @@ class PivotMatrixShapeSpec extends AnyWordSpec with Matchers {
 
   "PivotMatrixShape.outputContract" should {
 
-    "declare Unbounded row count with empty fields and a description noting data-dependent value columns" in {
+    "declare Unbounded row count and a description noting data-dependent value columns" in {
       PivotMatrixShape.outputContract.rowCount shouldBe RowCountContract.Unbounded
-      PivotMatrixShape.outputContract.fields shouldBe empty
       PivotMatrixShape.outputContract.description should include("data-dependent")
     }
   }

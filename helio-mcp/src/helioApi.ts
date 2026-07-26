@@ -237,9 +237,8 @@ export class HelioApi {
   }
 
   /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —
-   *  id/label/description/paramsSchema/outputContract, sorted by id. `outputContract.fields` is
-   *  `[]` for every shape currently registered on `main`; `outputContract.rowCount`/`description`
-   *  carry the real signal. Thin pass-through, no reshaping. */
+   *  id/label/description/paramsSchema/outputContract, sorted by id. `outputContract.rowCount`/
+   *  `description` carry the real signal. Thin pass-through, no reshaping. */
   listPipelineShapes(): Promise<PipelineShapeCatalogEntryResponse[]> {
     return this.http.get<PipelineShapeCatalogEntryResponse[]>("/api/pipeline-shapes");
   }

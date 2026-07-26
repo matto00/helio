@@ -38,23 +38,9 @@
           "required": ["kind"],
           "additionalProperties": false
         },
-        "fields": {
-          "type": "array",
-          "description": "Statically-known output fields. Empty when the field set is fully determined by caller-supplied params.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "dataType": { "type": "string" },
-              "nullable": { "type": "boolean" }
-            },
-            "required": ["name", "dataType", "nullable"],
-            "additionalProperties": false
-          }
-        },
         "description": { "type": "string" }
       },
-      "required": ["rowCount", "fields", "description"],
+      "required": ["rowCount", "description"],
       "additionalProperties": false
     }
   },

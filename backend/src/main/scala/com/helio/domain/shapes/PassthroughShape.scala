@@ -10,9 +10,9 @@ import spray.json._
  *  or foreclose any sibling shape's design.
  *
  *  Params: `fields: Vector[String]`, required and non-empty. Expands to exactly one `select` step.
- *  Output contract: `Unbounded` row count (row count is whatever the source produced) with an empty
- *  `fields` list, since the output field set is exactly whatever the caller passed in
- *  `params.fields` — fully param-driven, not fixed by the shape itself. */
+ *  Output contract: `Unbounded` row count (row count is whatever the source produced); the output
+ *  field set is exactly whatever the caller passed in `params.fields` — fully param-driven, not
+ *  fixed by the shape itself. */
 object PassthroughShape extends PipelineShape {
 
   val id: String          = "passthrough"
@@ -31,7 +31,6 @@ object PassthroughShape extends PipelineShape {
 
   val outputContract: OutputContract = OutputContract(
     rowCount    = RowCountContract.Unbounded,
-    fields      = Vector.empty,
     description = "Passes source rows through, narrowed to the selected fields"
   )
 

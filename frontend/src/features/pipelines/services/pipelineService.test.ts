@@ -131,7 +131,6 @@ describe("pipelineService shape catalog + expand", () => {
         paramsSchema: [],
         outputContract: {
           rowCount: { kind: "exactly-one" },
-          fields: [],
           description: "",
         },
       },

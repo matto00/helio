@@ -833,7 +833,7 @@ describe("PanelCreationModal — shape flow", () => {
     paramsSchema: [
       { name: "mode", label: "Mode", dataType: "string", required: true, description: "" },
     ],
-    outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+    outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
   };
 
   const expansions: ShapeStepExpansion[] = [

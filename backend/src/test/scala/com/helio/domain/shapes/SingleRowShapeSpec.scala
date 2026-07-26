@@ -178,9 +178,8 @@ class SingleRowShapeSpec extends AnyWordSpec with Matchers {
 
   "SingleRowShape.outputContract" should {
 
-    "declare ExactlyOne row count with empty fields" in {
+    "declare ExactlyOne row count" in {
       SingleRowShape.outputContract.rowCount shouldBe RowCountContract.ExactlyOne
-      SingleRowShape.outputContract.fields shouldBe empty
     }
   }
 
