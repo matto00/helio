@@ -23,6 +23,9 @@ import com.helio.api.protocols._
  *  - `ConnectorProtocol` has no cross-domain dependency
  *  - `PipelineShapeProtocol` has no cross-domain dependency
  *  - `PanelCapabilityProtocol` has no cross-domain dependency
+ *  - `BoundPanelProtocol extends PanelProtocol with DataSourceProtocol with PipelineProtocol`
+ *    (BoundPanelRequest/Response carry PanelResponse, StaticColumnPayload, and
+ *    CreatePipelineStepRequest)
  *
  *  All re-exports for backward compatibility happen via `package object protocols`
  *  / wildcard import below: every case class and companion is in
@@ -48,3 +51,4 @@ trait JsonProtocols
     with ConnectorProtocol
     with PipelineShapeProtocol
     with PanelCapabilityProtocol
+    with BoundPanelProtocol

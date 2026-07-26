@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
@@ -151,6 +151,15 @@ final class ApiRoutes(
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
     alertEvaluationServiceOpt.orNull
   )
+  // HEL-364: compound POST /api/panels/bound — composes the four services
+  // above (constructed after all of them, same DI-ordering convention this
+  // file already follows) plus the repos it needs directly (dataSourceRepo
+  // for the owner-scoped sourceDataSourceId re-verify, panelRepo to persist
+  // the panel PanelService.buildForCreate only builds — design.md D1).
+  private val boundPanelService = new BoundPanelService(
+    dataSourceService, pipelineService, pipelineRunService, panelService,
+    dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker
+  )
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
@@ -268,6 +277,14 @@ final class ApiRoutes(
                   new DashboardContentsRoutes(dashboardContentsService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
+                  // HEL-364: mounted ahead of PanelRoutes so the literal
+                  // "/panels/bound" path is never shadowed by PanelRoutes'
+                  // `path(PanelIdSegment)` (which would otherwise treat
+                  // "bound" as a panel id — Pekko's rejection/backtracking
+                  // happens to make either order work today since that
+                  // branch only defines delete/patch, but explicit ordering
+                  // doesn't depend on that staying true).
+                  new BoundPanelRoutes(boundPanelService, authenticatedUser).routes,
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
                   new DataTypeRoutes(dataTypeService, panelCapabilityService, authenticatedUser).routes,

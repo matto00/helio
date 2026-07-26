@@ -19,6 +19,7 @@
 
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
+  BoundPanelResponse,
   ConnectorMetadataResponse,
   CreateSourceResult,
   CsvPreview,
@@ -539,6 +540,54 @@ export class HelioApi {
     appearance: Record<string, unknown>,
   ): Promise<PanelResponse> {
     return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, { appearance });
+  }
+
+  /** Create one bound panel in a single call (HEL-364, `POST /api/panels/bound`) — collapses the
+   *  6-call chain `createDataSource`/`createPipeline` → `addPipelineStep`* → `runPipeline` →
+   *  `createPanel` → `bindPanel` → `updatePanelAppearance` into one server-side, single-HTTP-request
+   *  op. NO client-side composition here (contrast with `createPipelineFromShape`, which makes 1 +
+   *  N + 1 calls itself) — this is a genuinely single `POST`. The backend validates the panel/
+   *  DataType binding BEFORE creating anything (an unsatisfiable `fieldMapping` or a non-data-
+   *  bindable `panel.type` 400s with nothing created), runs the pipeline synchronously, and returns
+   *  the bound panel with rows already present. On any post-validation failure the backend cleans up
+   *  everything it created for THIS call (never a reused `sourceDataSourceId`) and the error message
+   *  names the failed stage (`source`/`pipeline`/`steps`/`run`/`panel`) — surfaced verbatim, never
+   *  retried or swallowed. Exactly one of `source` (inline `{name,columns,rows}` — same shape as
+   *  `createDataSource`) or `sourceDataSourceId` (an existing, caller-owned DataSource) must be
+   *  given. `panel.appearance` (if given) is completed the same way `createPanel`'s is. */
+  createBoundPanel(input: {
+    dashboardId: string;
+    source?: { name: string; columns: StaticColumn[]; rows: unknown[][] };
+    sourceDataSourceId?: string;
+    pipeline: {
+      name?: string;
+      outputDataTypeName: string;
+      steps: { type: string; config: Record<string, unknown> }[];
+    };
+    panel: {
+      type: string;
+      title: string;
+      config?: Record<string, unknown>;
+      appearance?: Record<string, unknown>;
+    };
+    fieldMapping?: Record<string, string>;
+  }): Promise<BoundPanelResponse> {
+    const body: Record<string, unknown> = {
+      dashboardId: input.dashboardId,
+      pipeline: input.pipeline,
+      panel: {
+        type: input.panel.type,
+        title: input.panel.title,
+        config: input.panel.config,
+        appearance: input.panel.appearance
+          ? withCompleteChartAppearance(input.panel.appearance)
+          : undefined,
+      },
+    };
+    if (input.source) body.source = input.source;
+    if (input.sourceDataSourceId) body.sourceDataSourceId = input.sourceDataSourceId;
+    if (input.fieldMapping) body.fieldMapping = input.fieldMapping;
+    return this.http.post<BoundPanelResponse>("/api/panels/bound", body);
   }
 
   /** Apply a reviewed proposal (HEL-225). Server validates + creates the
