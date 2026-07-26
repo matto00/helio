@@ -127,6 +127,16 @@ object RequestValidation {
       Left(s"name must be at most $MaxApiTokenNameLength characters")
     else if (req.expiresInDays.exists(_ < 1))
       Left("expiresInDays must be a positive number of days")
+    // HEL-369: `scopedPipelineIds` present-but-empty is rejected outright
+    // (a scope with no pipelines can never trigger anything, so it is a
+    // caller mistake, not a legitimate "scope to nothing"); blank ids inside
+    // a non-empty array are rejected the same way. Ownership/editor-role
+    // validation happens in ApiTokenService.create (needs repository access
+    // this pure function doesn't have).
+    else if (req.scopedPipelineIds.exists(_.isEmpty))
+      Left("scopedPipelineIds must not be empty when present")
+    else if (req.scopedPipelineIds.exists(_.exists(_.isBlank)))
+      Left("scopedPipelineIds must not contain blank ids")
     else
       Right(req)
 

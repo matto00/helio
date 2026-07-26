@@ -20,6 +20,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -168,11 +169,41 @@ class ApiTokenAuthSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   /** Truncate mutable state between tests via the privileged pool so cleanup
-   *  is never gated by RLS. Users are kept. */
+   *  is never gated by RLS. Users are kept. HEL-369: `pipelines`/`data_types`/
+   *  `data_sources` added for the scoped-token mint-time ownership/editor
+   *  checks below. */
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE api_tokens, resource_permissions, panels, dashboards CASCADE"
+      sqlu"TRUNCATE TABLE api_tokens, resource_permissions, panels, dashboards, pipelines, data_types, data_sources CASCADE"
     ))
+
+  /** HEL-369: seed a pipeline (+ its required data_source/data_type FK rows)
+   *  owned by `ownerUserId`, for scoped-token mint-time validation and the
+   *  scope-confinement tests below. Mirrors `PipelineRunRoutesSpec`'s
+   *  `seedPipelineWithDtId` raw-SQL fixture pattern. */
+  private def seedPipelineOwnedBy(ownerUserId: String): String = {
+    val dsId = UUID.randomUUID().toString
+    val dtId = UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    await(ctx.withSystemContext(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
+             VALUES ($dtId, 'dt', '[]', 1, $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerUserId::uuid, now(), now())"""
+    )))
+    pid
+  }
+
+  /** Grant `role` ("editor"/"viewer") on `pipelineId` to `granteeUserId`, via
+   *  the real `POST /api/pipelines/:id/permissions` route (session-authenticated
+   *  as the pipeline owner). */
+  private def grantPipelinePermission(ownerSession: String, pipelineId: String, granteeUserId: String, role: String): Unit =
+    Post(s"/api/pipelines/$pipelineId/permissions", jsonEntity(s"""{"granteeId":"$granteeUserId","role":"$role"}"""))
+      .addHeader(sessionCookie(ownerSession)).addHeader(csrfHeader) ~> routes ~> check {
+      status shouldBe StatusCodes.Created
+    }
 
   // HEL-287: session auth (sessionA/sessionB below) moved from an
   // `Authorization` bearer header to a `helio_session` cookie; PAT auth
@@ -199,6 +230,15 @@ class ApiTokenAuthSpec
   private def createDashboard(session: String, name: String): Unit =
     Post("/api/dashboards", jsonEntity(s"""{"name":"$name"}""")).addHeader(sessionCookie(session)).addHeader(csrfHeader) ~> routes ~> check {
       status shouldBe StatusCodes.Created
+    }
+
+  /** HEL-369: variant returning the created dashboard's id, needed by the
+   *  scoped-token-on-public-route regression test below (targets
+   *  `GET /api/dashboards/:id/panels`). */
+  private def createDashboardReturningId(session: String, name: String): String =
+    Post("/api/dashboards", jsonEntity(s"""{"name":"$name"}""")).addHeader(sessionCookie(session)).addHeader(csrfHeader) ~> routes ~> check {
+      status shouldBe StatusCodes.Created
+      responseAs[String].parseJson.asJsObject.fields("id").convertTo[String]
     }
 
   /** GET /api/dashboards as a PAT (`authToken` is always a `helio_pat_...`
@@ -385,6 +425,114 @@ class ApiTokenAuthSpec
       }
 
       dashboardNames(raw) shouldBe Set.empty // still authenticates
+    }
+  }
+
+  "POST /api/tokens (scoped, HEL-369)" should {
+
+    "mint a scoped token and surface scopedPipelineIds via GET /api/tokens" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdA)
+      val (_, raw) = createPat(sessionA, "helio-news", Some(s"""{"name":"helio-news","scopedPipelineIds":["$pid"]}"""))
+      raw should fullyMatch regex "helio_pat_[0-9a-f]{64}"
+
+      Get("/api/tokens").addHeader(sessionCookie(sessionA)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val tokens = responseAs[String].parseJson.convertTo[Vector[JsValue]].map(_.asJsObject.fields)
+        tokens.head("scopedPipelineIds").convertTo[Vector[String]] shouldBe Vector(pid)
+      }
+    }
+
+    "reject scoping to a pipeline the caller neither owns nor has any access to" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdB) // owned by B; A has no grant at all
+      Post("/api/tokens", jsonEntity(s"""{"name":"x","scopedPipelineIds":["$pid"]}"""))
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject scoping to a pipeline the caller only has viewer access to" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdB)
+      grantPipelinePermission(sessionB, pid, userIdA, "viewer")
+      Post("/api/tokens", jsonEntity(s"""{"name":"x","scopedPipelineIds":["$pid"]}"""))
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "allow scoping to a pipeline the caller has editor access to" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdB)
+      grantPipelinePermission(sessionB, pid, userIdA, "editor")
+      Post("/api/tokens", jsonEntity(s"""{"name":"x","scopedPipelineIds":["$pid"]}"""))
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+    }
+
+    "reject an empty scopedPipelineIds array" in {
+      cleanDb()
+      Post("/api/tokens", jsonEntity("""{"name":"x","scopedPipelineIds":[]}"""))
+        .addHeader(sessionCookie(sessionA)).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  "Scoped-token confinement (HEL-369 design.md Decision 2)" should {
+
+    "reject a scoped token on GET /api/dashboards (an unrelated authenticated route) with 403" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdA)
+      createDashboard(sessionA, "dash-a")
+      val (_, rawScoped) = createPat(sessionA, "scoped", Some(s"""{"name":"scoped","scopedPipelineIds":["$pid"]}"""))
+
+      Get("/api/dashboards").addHeader(bearer(rawScoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    // This is the specific bypass the round-1 design-gate skeptic found: a
+    // round-1 design applied the confinement only inside the `authenticate`
+    // branch, leaving `optionalAuthenticate`'s identical token-resolution
+    // chain free to resolve a scoped token to full owner-level access on
+    // this exact route family. See design.md Decision 2 / AuthDirectives.
+    // confineScopedToken and tasks.md 8.2.
+    "REQUIRED REGRESSION: reject a scoped token on GET /api/dashboards/:id/panels (the optional-auth/public " +
+      "route) even against a dashboard its own owner legitimately owns" in {
+      cleanDb()
+      // Scoped to a pipeline entirely unrelated to the dashboard under test —
+      // proves the confinement, not the pipeline allow-list, is what blocks this.
+      val unrelatedPid = seedPipelineOwnedBy(userIdA)
+      val dashId = createDashboardReturningId(sessionA, "dash-a")
+      val (_, rawScoped) = createPat(sessionA, "scoped", Some(s"""{"name":"scoped","scopedPipelineIds":["$unrelatedPid"]}"""))
+
+      Get(s"/api/dashboards/$dashId/panels").addHeader(bearer(rawScoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    "leave an unscoped PAT fully authorized on GET /api/dashboards/:id/panels (parity, unaffected by this change)" in {
+      cleanDb()
+      val dashId = createDashboardReturningId(sessionA, "dash-a")
+      val (_, rawUnscoped) = createPat(sessionA, "unscoped")
+
+      Get(s"/api/dashboards/$dashId/panels").addHeader(bearer(rawUnscoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+
+    "prefer the session cookie over a simultaneously-attached scoped-PAT header (the chokepoint doesn't interfere)" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdA)
+      createDashboard(sessionA, "dash-a")
+      val (_, rawScoped) = createPat(sessionA, "scoped", Some(s"""{"name":"scoped","scopedPipelineIds":["$pid"]}"""))
+
+      Get("/api/dashboards").addHeader(sessionCookie(sessionA)).addHeader(bearer(rawScoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
     }
   }
 }

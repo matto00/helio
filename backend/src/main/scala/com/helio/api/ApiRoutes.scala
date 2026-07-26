@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -176,7 +176,14 @@ final class ApiRoutes(
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
   // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
-  private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_))
+  // HEL-369: ApiTokenService now also takes pipelineRepo (always constructed
+  // above, never null) to validate a create request's scopedPipelineIds.
+  private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_, pipelineRepo))
+  // HEL-369: same nullable-optional wiring pattern as apiTokenServiceOpt
+  // above — fixtures that don't pass a PipelineRunRepository simply don't
+  // get the /api/hooks/run route mounted (hookTriggerServiceOpt.fold(reject)).
+  private val hookTriggerServiceOpt: Option[HookTriggerService] =
+    Option(pipelineRunRepo).map(new HookTriggerService(pipelineRunService, _, pipelineRepo))
   // HEL-246: same optional-wiring pattern — fixtures that don't pass an
   // ImageUploadRepository simply don't get the /api/uploads/image routes.
   private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem))
@@ -218,6 +225,18 @@ final class ApiRoutes(
           // themselves naturally since no cookie exists yet on the request
           // that is about to mint one.
           authDirectives.requireCsrfHeader {
+            // HEL-369 design.md Decision 2: the single confinement chokepoint
+            // for scoped tokens, wrapping the ENTIRE three-way branch split
+            // below (pathPrefix("auth") / optionalAuthenticate / authenticate).
+            // Placed here — between requireCsrfHeader and the concat — so no
+            // branch (present or future) ever gets a chance to independently
+            // resolve a scoped token's identity before this directive has
+            // confined it to /api/hooks/*. See AuthDirectives.confineScopedToken's
+            // scaladoc for the full resolution walkthrough and why a round-1
+            // design that applied this only inside the `authenticate` branch
+            // was rejected (it left optionalAuthenticate's identical
+            // token-resolution chain unconfined).
+            authDirectives.confineScopedToken { tokenScope =>
             concat(
               pathPrefix("auth") { concat(auth.routes, oauth.routes) },
               authDirectives.optionalAuthenticate { userOpt =>
@@ -323,6 +342,11 @@ final class ApiRoutes(
                   new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
                   apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
+                  // HEL-369: the only route family that consumes `tokenScope`
+                  // (extracted by confineScopedToken above the branch split).
+                  // Every other route class in this list keeps taking a bare
+                  // `authenticatedUser`, exactly as before this change.
+                  hookTriggerServiceOpt.fold(reject: Route)(svc => new HookRoutes(svc, authenticatedUser, tokenScope).routes),
                   imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes),
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
@@ -331,6 +355,7 @@ final class ApiRoutes(
                 )
               }
             )
+            }
           }
         }
       }

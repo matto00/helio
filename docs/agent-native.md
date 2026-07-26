@@ -34,6 +34,12 @@ A PAT resolves to the same `AuthenticatedUser` a session does, so it inherits
 that user's exact row visibility — RLS is neither bypassed nor weakened. Revoked
 and expired tokens return the standard 401.
 
+For a recurring external workflow that should be confined to re-running one or
+two specific pipelines rather than carrying the account's full authority, mint
+a **scoped** token instead — see
+["Scoped tokens + the external-trigger hook"](#scoped-tokens--the-external-trigger-hook-hel-369)
+below.
+
 ```bash
 SESSION=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' -d '{"email":"you@example.com","password":"…"}' | jq -r .token)
@@ -41,6 +47,67 @@ export HELIO_PAT=$(curl -s -X POST http://localhost:8080/api/tokens \
   -H "Authorization: Bearer $SESSION" -H 'Content-Type: application/json' \
   -d '{"name":"fable-mcp"}' | jq -r .token)
 ```
+
+### Scoped tokens + the external-trigger hook (HEL-369)
+
+For a recurring, unattended workflow (a systemd timer, Cloud Scheduler, cron)
+that should only ever be able to re-run one or two specific pipelines — never
+the account's full authority — mint a **scoped** token instead of a full-access
+PAT: pass `scopedPipelineIds`, an allow-list of pipeline ids the caller owns or
+has **editor** access to (viewer-only access is rejected at mint time — a
+viewer grantee can never trigger a run, so a token scoped to one would mint
+successfully but never work).
+
+```bash
+export HELIO_HOOK_PAT=$(curl -s -X POST http://localhost:8080/api/tokens \
+  -H "Authorization: Bearer $HELIO_PAT" -H 'Content-Type: application/json' \
+  -d '{"name":"helio-news-rebuild","scopedPipelineIds":["<pipeline-id>"]}' | jq -r .token)
+```
+
+A scoped token authenticates like any other `helio_pat_…` bearer credential,
+with one hard restriction: it is confined to **`POST /api/hooks/run`** and,
+within that route, to the pipeline ids in its allow-list — every other
+authenticated route (including public/optional-auth read routes) rejects it
+with `403 Forbidden`, even though it resolves to the token owner's real
+identity under the hood. This confinement is enforced once, ahead of every
+route family, so it cannot be bypassed by any route that resolves PAT bearer
+identity — see `AuthDirectives.confineScopedToken`. An unscoped PAT (no
+`scopedPipelineIds`) is completely unaffected and keeps working exactly as
+described above.
+
+Trigger a rebuild:
+
+```bash
+curl -s -X POST http://localhost:8080/api/hooks/run \
+  -H "Authorization: Bearer $HELIO_HOOK_PAT" -H 'Content-Type: application/json' \
+  -d '{"pipelineId":"<pipeline-id>"}'
+# {"runId":"…","pipelineId":"<pipeline-id>","status":"succeeded"}
+```
+
+The hook delegates straight to the same synchronous run-lifecycle path
+`POST /api/pipelines/:id/run` and the HEL-415 scheduler use
+(`PipelineRunService.submit`, `trigger_source = "external"`) — there is no
+second run-invocation path, and no async run to poll. Every triggered run is
+readable via the existing `GET /api/pipelines/:id/run-history`, tagged
+`triggerSource: "external"`. When a **scoped** token authenticated the
+trigger, the run record also carries `triggeredByTokenId` — the audit trail
+this ticket's acceptance criteria ask for; there is no separate audit
+endpoint. (An unscoped PAT can call the hook too, exactly as any other
+authenticated route — but its `triggeredByTokenId` is absent: the
+`AuthDirectives.confineScopedToken` chokepoint only extracts a token's id
+for a _scoped_ row, since only scoped tokens need per-request confinement
+data. If per-token audit for unscoped PATs matters for a given workflow,
+mint the token scoped.) Calling the hook again for a pipeline that already
+has a run in flight does not start a second run: it returns the in-flight
+run's `runId`/status instead, so a rapid retry from an external scheduler is
+a no-op rather than a duplicate rebuild.
+
+**Known exposure**: there is no rate limiting or replay-window enforcement on
+`POST /api/hooks/run` in this ticket. The mitigations are the token's narrow
+scope (a compromised scoped token can only re-trigger its allow-listed
+pipelines), the duplicate-trigger collapse described above, and revocation
+(`DELETE /api/tokens/:id`, already supported). A follow-up ticket can add
+per-token rate limiting if abuse is observed in practice.
 
 ## The canonical path
 
@@ -79,6 +146,7 @@ panel-bindable; binding one returns HTTP 400. Only pipeline outputs
 | Create pipeline      | `POST /api/pipelines`                                             | `create_pipeline` · `create-pipeline.sh`  |
 | Add step             | `POST /api/pipelines/:id/steps`                                   | `add_pipeline_step` · `add-step.sh`       |
 | Run pipeline         | `POST /api/pipelines/:id/run` (synchronous)                       | `run_pipeline` · `run-pipeline.sh`        |
+| External trigger     | `POST /api/hooks/run` (HEL-369; scoped-or-unscoped PAT)           | — (external scheduler, not MCP)           |
 | Create dashboard     | `POST /api/dashboards`                                            | `create_dashboard`                        |
 | Create panel         | `POST /api/panels`                                                | `create_panel` · `create-panel.sh`        |
 | Bind panel           | `PATCH /api/panels/:id`                                           | `bind_panel` · `bind-panel.sh`            |
