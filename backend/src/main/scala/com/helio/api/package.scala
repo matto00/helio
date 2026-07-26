@@ -249,8 +249,6 @@ package object api {
   val ConnectorMetadataResponse: protocols.ConnectorMetadataResponse.type = protocols.ConnectorMetadataResponse
 
   // Pipeline shape catalog (HEL-391)
-  type OutputFieldContractResponse = protocols.OutputFieldContractResponse
-  val OutputFieldContractResponse: protocols.OutputFieldContractResponse.type = protocols.OutputFieldContractResponse
   type OutputContractResponse = protocols.OutputContractResponse
   val OutputContractResponse: protocols.OutputContractResponse.type = protocols.OutputContractResponse
   type PipelineShapeCatalogEntryResponse = protocols.PipelineShapeCatalogEntryResponse

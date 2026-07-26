@@ -20,17 +20,10 @@ export type RowCountContract =
   | { kind: "at-most-param"; paramName: string }
   | { kind: "unbounded" };
 
-export interface OutputFieldContract {
-  name: string;
-  dataType: string;
-  nullable: boolean;
-}
-
-/** `fields` is currently `Vector.empty` for every shape — do not build UI
- *  that depends on it being populated (orchestrator pre-brief). */
+/** There is no statically-declared field list (`OutputFieldContract`/`fields`
+ *  was removed as YAGNI in HEL-623 — zero producers, zero consumers). */
 export interface OutputContract {
   rowCount: RowCountContract;
-  fields: OutputFieldContract[];
   description: string;
 }
 

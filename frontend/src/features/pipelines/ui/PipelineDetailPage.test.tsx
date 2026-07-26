@@ -1762,7 +1762,7 @@ const singleRowCatalogEntry: PipelineShapeCatalogEntry = {
       description: 'Either "aggregate" or "filter".',
     },
   ],
-  outputContract: { rowCount: { kind: "exactly-one" }, fields: [], description: "" },
+  outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
 };
 
 describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {

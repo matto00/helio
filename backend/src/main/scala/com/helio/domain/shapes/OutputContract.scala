@@ -1,7 +1,5 @@
 package com.helio.domain.shapes
 
-import com.helio.domain.DataFieldType
-
 /** The row-count guarantee a [[PipelineShape]] declares for its output — shape-level (declared once
  *  on the trait), not computed per-invocation (HEL-391 design.md Decision 2). A small, `sealed`
  *  closed set (confirmed as the right call in HEL-393 design.md Decision 6 — `single-row` is the
@@ -23,20 +21,14 @@ object RowCountContract {
   case object Unbounded extends RowCountContract
 }
 
-/** One statically-known output field a [[PipelineShape]] guarantees. Three fields only — an earlier
- *  draft added a `role: String` field with no defined vocabulary, no precedent, and no consumer
- *  (this ticket's `passthrough` shape never populates it); dropped for YAGNI after design-gate
- *  round 2 (HEL-391 design.md). A future ticket with a real, load-bearing need for field-role
- *  semantics (e.g. "which field is the time axis") can add it then, with a defined vocabulary and a
- *  reference shape that actually exercises it. */
-final case class OutputFieldContract(name: String, dataType: DataFieldType, nullable: Boolean)
-
 /** A [[PipelineShape]]'s guaranteed output shape — the "output-contract summary" panels
- *  (HEL-402) bind to. `fields` MAY be empty when the output field set is fully determined by
- *  caller-supplied params rather than fixed by the shape itself (true for this ticket's
- *  `passthrough` reference shape). */
+ *  (HEL-402) bind to. There is no statically-declared field list: a prior `OutputFieldContract`/
+ *  `fields: Vector[OutputFieldContract]` member was removed as YAGNI (HEL-623) — it had zero
+ *  producers and zero consumers across the shipped shape epic, and structurally could never be
+ *  populated correctly since `outputContract` is a static `val` with no access to `params`. Any
+ *  surface needing a shape's actual output columns binds via the runtime `DataType` schema
+ *  produced after instantiate → run (HEL-399), not a static field declaration. */
 final case class OutputContract(
     rowCount: RowCountContract,
-    fields: Vector[OutputFieldContract],
     description: String
 )

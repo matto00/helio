@@ -324,21 +324,12 @@ export type RowCountContractResponse =
   | { kind: "at-most-param"; paramName: string }
   | { kind: "unbounded" };
 
-/** One statically-known output field a shape guarantees. Mirrors the
- *  backend's `OutputFieldContractResponse`. */
-export interface OutputFieldContractResponse {
-  name: string;
-  dataType: string;
-  nullable: boolean;
-}
-
-/** A shape's guaranteed output shape. `fields` is `[]` for every shape
- *  currently registered on `main` — do not build anything that depends on it
- *  being populated; `rowCount`/`description` carry the real signal. Mirrors
- *  the backend's `OutputContractResponse`. */
+/** A shape's guaranteed output shape. There is no statically-declared field
+ *  list (`OutputFieldContractResponse`/`fields` was removed as YAGNI in
+ *  HEL-623 — zero producers, zero consumers). Mirrors the backend's
+ *  `OutputContractResponse`. */
 export interface OutputContractResponse {
   rowCount: RowCountContractResponse;
-  fields: OutputFieldContractResponse[];
   description: string;
 }
 

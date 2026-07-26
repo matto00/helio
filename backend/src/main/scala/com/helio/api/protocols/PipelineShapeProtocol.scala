@@ -1,8 +1,7 @@
 package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.helio.domain.DataFieldType
-import com.helio.domain.shapes.{OutputContract, OutputFieldContract, RowCountContract, ShapeParamDescriptor, ShapeStepExpansion}
+import com.helio.domain.shapes.{OutputContract, RowCountContract, ShapeParamDescriptor, ShapeStepExpansion}
 import com.helio.services.PipelineShapeCatalogEntry
 import spray.json._
 
@@ -11,29 +10,12 @@ import spray.json._
 // `GET /api/pipeline-shapes` wire shape. `ShapeParamDescriptor` (domain,
 // com.helio.domain.shapes) is reused directly on the wire — every field is
 // already wire-shaped (String/Boolean) — mirroring `*Config` classes' direct
-// reuse on the pipeline-step wire. `OutputFieldContract`/`OutputContract` get
-// thin response wrappers below because `dataType: DataFieldType` needs the
-// same string projection `InferredFieldResponse` already uses
-// (`DataTypeProtocol.scala`).
-
-/** Wire shape for one [[OutputFieldContract]] entry — `dataType` is projected to its canonical
- *  wire string via [[DataFieldType.asString]], mirroring `InferredFieldResponse`. */
-final case class OutputFieldContractResponse(name: String, dataType: String, nullable: Boolean)
-
-object OutputFieldContractResponse {
-  def fromDomain(field: OutputFieldContract): OutputFieldContractResponse =
-    OutputFieldContractResponse(
-      name     = field.name,
-      dataType = DataFieldType.asString(field.dataType),
-      nullable = field.nullable
-    )
-}
+// reuse on the pipeline-step wire.
 
 /** Wire shape for one [[OutputContract]] — `rowCount` reuses the domain `RowCountContract` type
  *  directly via [[PipelineShapeProtocol.rowCountContractFormat]]'s discriminated-union format. */
 final case class OutputContractResponse(
     rowCount: RowCountContract,
-    fields: Vector[OutputFieldContractResponse],
     description: String
 )
 
@@ -41,7 +23,6 @@ object OutputContractResponse {
   def fromDomain(contract: OutputContract): OutputContractResponse =
     OutputContractResponse(
       rowCount    = contract.rowCount,
-      fields      = contract.fields.map(OutputFieldContractResponse.fromDomain),
       description = contract.description
     )
 }
@@ -112,10 +93,8 @@ trait PipelineShapeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val outputFieldContractResponseFormat: RootJsonFormat[OutputFieldContractResponse] =
-    jsonFormat3(OutputFieldContractResponse.apply)
   implicit val outputContractResponseFormat: RootJsonFormat[OutputContractResponse] =
-    jsonFormat3(OutputContractResponse.apply)
+    jsonFormat2(OutputContractResponse.apply)
   implicit val pipelineShapeCatalogEntryResponseFormat: RootJsonFormat[PipelineShapeCatalogEntryResponse] =
     jsonFormat5(PipelineShapeCatalogEntryResponse.apply)
 

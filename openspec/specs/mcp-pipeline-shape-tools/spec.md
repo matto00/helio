@@ -9,14 +9,17 @@ pre-validated shape instead of hand-assembling raw pipeline steps.
 
 The MCP server SHALL register a `list_pipeline_shapes` tool that calls `GET /api/pipeline-shapes` and
 returns the response verbatim. Its description SHALL name every shape id registered on `main`
-(`passthrough`/`single-row`/`top-n`/`time-series`/`pivot-matrix`) and note that `outputContract.fields`
-is currently always empty (descriptive `rowCount`/`description` carry the real signal — do not treat an
-empty `fields` array as an error).
+(`passthrough`/`single-row`/`top-n`/`time-series`/`pivot-matrix`) and describe `outputContract` as
+`rowCount` + `description`, noting that the `rowCount`/`description` text carries the real signal about
+the shape's output. `outputContract` carries no `fields` member — a prior note in this description about
+`outputContract.fields` being "currently always empty" described a field that has since been removed
+entirely (HEL-623) and no longer applies.
 
 #### Scenario: Agent lists available shapes
 - **WHEN** an agent calls `list_pipeline_shapes`
 - **THEN** the tool returns the catalog array with `id`/`label`/`description`/`paramsSchema`/
-  `outputContract` for at least the `single-row`, `top-n`, `time-series`, and `pivot-matrix` entries
+  `outputContract` for at least the `single-row`, `top-n`, `time-series`, and `pivot-matrix` entries, and
+  each entry's `outputContract` contains only `rowCount` and `description`
 
 ### Requirement: create_pipeline_from_shape instantiates a shape into a pipeline
 

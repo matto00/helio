@@ -180,9 +180,8 @@ class TimeSeriesShapeSpec extends AnyWordSpec with Matchers {
 
   "TimeSeriesShape.outputContract" should {
 
-    "declare Unbounded row count with empty fields" in {
+    "declare Unbounded row count" in {
       TimeSeriesShape.outputContract.rowCount shouldBe RowCountContract.Unbounded
-      TimeSeriesShape.outputContract.fields shouldBe empty
     }
   }
 
