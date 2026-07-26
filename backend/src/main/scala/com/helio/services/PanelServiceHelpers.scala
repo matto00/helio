@@ -28,11 +28,14 @@ object PanelServiceHelpers {
                           Left(s"cannot change panel type: stored type is '${existing.kind}', request type is '${PanelType.asString(pt)}'")
                         case _ => Right(())
                       }
-      // D5 parity — validate `chartType` on the single-item PATCH path too, so
-      // an invalid value (e.g. "donut") is rejected identically to create.
+      // HEL-362: merge the payload over the stored appearance rather than
+      // rebuilding from defaults — a field absent from the payload preserves
+      // `existing.appearance`'s value; `chartType` is still validated
+      // (RequestValidation.validateChartType, via ChartAppearance.Patch.decode)
+      // so an invalid value (e.g. "donut") is rejected identically to create.
       appearanceOpt <- request.appearance match {
-                         case None    => Right(None)
-                         case Some(p) => normalizeAppearancePayload(p).map(Some(_))
+                         case None       => Right(None)
+                         case Some(json) => PanelAppearance.applyPatchJson(json, existing.appearance).map(Some(_))
                        }
       resolved = ResolvedPanelPatch(
                    trimmedTitle = trimmedTitle,
@@ -69,15 +72,36 @@ object PanelServiceHelpers {
 
   /** Validate every batch item's `appearance.chart.chartType` before any write
    *  (HEL-305 D5). An invalid value on any item fails the whole batch so the
-   *  transactional update never runs — no partial write. */
+   *  transactional update never runs — no partial write.
+   *
+   *  HEL-362: `item.appearance` is now a raw patch `JsValue` (absent-vs-null
+   *  merge semantics), so this reads the `chart.chartType` field directly off
+   *  the wire JSON rather than through the old typed `PanelAppearancePayload`
+   *  — the actual merge + full validation happens later, in
+   *  `PanelAppearance.applyPatchJson` inside `PanelMutationRepository.batchUpdate`;
+   *  this is a pre-write check so an invalid value 400s before any write runs. */
   private[services] def validateBatchChartTypes(
       items: Vector[PanelBatchItem]
   ): Either[String, Unit] =
     items.foldLeft[Either[String, Unit]](Right(())) {
       case (Left(err), _) => Left(err)
       case (Right(_), item) =>
-        RequestValidation.validateChartType(item.appearance.flatMap(_.chart).flatMap(_.chartType)).map(_ => ())
+        RequestValidation.validateChartType(item.appearance.flatMap(chartTypeFromAppearanceJson)).map(_ => ())
     }
+
+  /** Extract a provided (non-null) `chart.chartType` string from a raw
+   *  appearance patch `JsValue`, if any. Absent `chart`, absent `chartType`,
+   *  and explicit `null` all yield `None` — those are not validation
+   *  failures, only an actual provided string is checked. */
+  private def chartTypeFromAppearanceJson(json: JsValue): Option[String] = json match {
+    case JsObject(fields) =>
+      fields.get("chart") match {
+        case Some(JsObject(chartFields)) =>
+          chartFields.get("chartType").collect { case JsString(s) => s }
+        case _ => None
+      }
+    case _ => None
+  }
 
   /** Decode the create-side typed config from the request. Discriminator is
    *  required; an absent or empty `config` falls back to the subtype's

@@ -9,10 +9,25 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpReque
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
-import com.helio.domain.{AuthenticatedUser, DashboardId, Page, PagedResult, PanelId, RestApiConfig, RestApiConnector, User, UserId, UserSession}
+import com.helio.domain.{
+  AuthenticatedUser,
+  ChartAxisLabel,
+  ChartAxisLabels,
+  ChartLegend,
+  ChartTooltip,
+  DashboardId,
+  Page,
+  PagedResult,
+  PanelId,
+  RestApiConfig,
+  RestApiConnector,
+  User,
+  UserId,
+  UserSession
+}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import spray.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
+import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -502,7 +517,7 @@ class ApiRoutesSpec
 
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0), None)), None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(4.0), None).toJson), None, None)
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[PanelResponse]
@@ -665,7 +680,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None)), None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None).toJson), None, None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/panels/$panelId/duplicate") ~> routes() ~> check {
@@ -1939,7 +1954,7 @@ class ApiRoutesSpec
       }
       Patch(
         s"/api/panels/$panelId",
-        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None)), None, None)
+        UpdatePanelRequest(None, Some(PanelAppearancePayload(Some("#0f172a"), Some("#f8fafc"), Some(0.5), None).toJson), None, None)
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
       Post(s"/api/dashboards/$dashboardId/duplicate") ~> routes() ~> check {
@@ -2367,8 +2382,8 @@ class ApiRoutesSpec
       val batchReq = UpdatePanelsBatchRequest(
         fields = Vector("appearance"),
         panels = Vector(
-          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None)), None, None),
-          PanelBatchItem(panelId2, None, Some(PanelAppearancePayload(Some("#222222"), None, None, None)), None, None)
+          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None).toJson), None, None),
+          PanelBatchItem(panelId2, None, Some(PanelAppearancePayload(Some("#222222"), None, None, None).toJson), None, None)
         )
       )
 
@@ -2475,7 +2490,7 @@ class ApiRoutesSpec
       }
 
       val bad = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut"))))
-      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(bad), None, None)) ~> routes() ~> check {
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(bad.toJson), None, None)) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
       }
@@ -2495,7 +2510,7 @@ class ApiRoutesSpec
       }
 
       val good = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("scatter"))))
-      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(good), None, None)) ~> routes() ~> check {
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(good.toJson), None, None)) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         responseAs[PanelResponse].appearance.chart.flatMap(_.chartType) shouldBe Some("scatter")
       }
@@ -2521,11 +2536,11 @@ class ApiRoutesSpec
       val batchReq = UpdatePanelsBatchRequest(
         fields = Vector("appearance"),
         panels = Vector(
-          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None)), None, None),
+          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None).toJson), None, None),
           PanelBatchItem(
             panelId2,
             None,
-            Some(PanelAppearancePayload(Some("#222222"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut"))))),
+            Some(PanelAppearancePayload(Some("#222222"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut")))).toJson),
             None,
             None
           )
@@ -2563,7 +2578,7 @@ class ApiRoutesSpec
           PanelBatchItem(
             panelId,
             None,
-            Some(PanelAppearancePayload(Some("transparent"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("pie"))))),
+            Some(PanelAppearancePayload(Some("transparent"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("pie")))).toJson),
             None,
             None
           )
@@ -2575,12 +2590,285 @@ class ApiRoutesSpec
       }
     }
 
+    // ── HEL-362: appearance PATCH/updateBatch is a partial merge, not a replace ──
+
+    "PATCH background only, without a chart key, preserves a chart panel's already-set chartType and every other chart sub-field (HEL-362 AC1)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC1 Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      // First PATCH: establish a non-default, fully-customized stored chart.
+      val customChart = JsObject(
+        "seriesColors" -> JsArray(JsString("#123123"), JsString("#456456")),
+        "legend"       -> JsObject("show" -> JsBoolean(false), "position" -> JsString("left")),
+        "tooltip"      -> JsObject("enabled" -> JsBoolean(false)),
+        "axisLabels" -> JsObject(
+          "x" -> JsObject("show" -> JsBoolean(false), "label" -> JsString("Custom X")),
+          "y" -> JsObject("show" -> JsBoolean(false), "label" -> JsString("Custom Y"))
+        ),
+        "chartType" -> JsString("bar")
+      )
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(JsObject("chart" -> customChart)), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].appearance.chart.flatMap(_.chartType) shouldBe Some("bar")
+      }
+
+      // Second PATCH: background only, no `chart` key at all.
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(JsObject("background" -> JsString("#0a0"))), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.appearance.background shouldBe "#0a0"
+        val chart = response.appearance.chart.get
+        chart.chartType shouldBe Some("bar")
+        chart.seriesColors shouldBe Vector("#123123", "#456456")
+        chart.legend shouldBe ChartLegend(show = false, position = "left")
+        chart.tooltip shouldBe ChartTooltip(enabled = false)
+        chart.axisLabels shouldBe ChartAxisLabels(
+          x = ChartAxisLabel(show = false, label = Some("Custom X")),
+          y = ChartAxisLabel(show = false, label = Some("Custom Y"))
+        )
+      }
+    }
+
+    "PATCH a partial chart object ({chartType}) returns 200 (not 400) and changes only chartType (HEL-362 AC2)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC2 Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val fullChart = JsObject(
+        "seriesColors" -> JsArray(JsString("#654321")),
+        "legend"       -> JsObject("show" -> JsBoolean(true), "position" -> JsString("right")),
+        "tooltip"      -> JsObject("enabled" -> JsBoolean(true)),
+        "axisLabels" -> JsObject(
+          "x" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("X!")),
+          "y" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("Y!"))
+        ),
+        "chartType" -> JsString("line")
+      )
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(JsObject("chart" -> fullChart)), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(JsObject("chart" -> JsObject("chartType" -> JsString("bar")))), None, None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val chart = responseAs[PanelResponse].appearance.chart.get
+        chart.chartType shouldBe Some("bar")
+        chart.seriesColors shouldBe Vector("#654321")
+        chart.legend shouldBe ChartLegend(show = true, position = "right")
+        chart.tooltip shouldBe ChartTooltip(enabled = true)
+      }
+    }
+
+    "two sequential PATCHes (chart.chartType, then background) each preserve the other's change (HEL-362 AC3)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC3 Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(JsObject("chart" -> JsObject("chartType" -> JsString("bar")))), None, None)
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(JsObject("background" -> JsString("#123456"))), None, None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.appearance.background shouldBe "#123456"
+        response.appearance.chart.flatMap(_.chartType) shouldBe Some("bar")
+      }
+    }
+
+    "PATCH with an explicit null resets that field to PanelAppearance.Default (HEL-362)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Merge Null Reset Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), None, None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(JsObject("background" -> JsString("#0a0"))), None, None)
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(None, Some(JsObject("background" -> JsNull)), None, None)
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].appearance.background shouldBe "transparent"
+      }
+    }
+
+    "a top-level {\"appearance\": null} PATCH is a no-op — stored appearance unchanged, not wiped to Default (HEL-362 5.7a)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Merge Top-Level Null Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      // Establish a distinctive, non-default stored appearance first.
+      Patch(
+        s"/api/panels/$panelId",
+        UpdatePanelRequest(
+          None,
+          Some(JsObject("background" -> JsString("#0a0"), "chart" -> JsObject("chartType" -> JsString("bar")))),
+          None,
+          None
+        )
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      // A top-level `appearance: null` (present-but-null, not omitted) must be a
+      // no-op — NOT a wipe back to `PanelAppearance.Default`.
+      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(JsNull), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PanelResponse]
+        response.appearance.background shouldBe "#0a0"
+        response.appearance.chart.flatMap(_.chartType) shouldBe Some("bar")
+      }
+    }
+
+    "batch appearance update with a top-level null appearance is a no-op, not a wipe (HEL-362 5.7a)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Merge Top-Level Null Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), None, None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val establish = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem(panelId, None, Some(JsObject("background" -> JsString("#654321"))), None, None))
+      )
+      Post("/api/panels/updateBatch", establish) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      val nullAppearance = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem(panelId, None, Some(JsNull), None, None))
+      )
+      Post("/api/panels/updateBatch", nullAppearance) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[UpdatePanelsBatchResponse].panels.head.appearance.background shouldBe "#654321"
+      }
+    }
+
+    "batch appearance update preserves an omitted field (HEL-362)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Merge Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), None, None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val setColor = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem(panelId, None, Some(JsObject("color" -> JsString("#ffffff"))), None, None))
+      )
+      Post("/api/panels/updateBatch", setColor) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      val setBackgroundOnly = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem(panelId, None, Some(JsObject("background" -> JsString("#000000"))), None, None))
+      )
+      Post("/api/panels/updateBatch", setBackgroundOnly) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panel = responseAs[UpdatePanelsBatchResponse].panels.head
+        panel.appearance.background shouldBe "#000000"
+        panel.appearance.color shouldBe "#ffffff"
+      }
+    }
+
+    "batch appearance update accepts a partial chart payload (HEL-362)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Merge Chart Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      val fullChart = JsObject(
+        "seriesColors" -> JsArray(JsString("#010101")),
+        "legend"       -> JsObject("show" -> JsBoolean(true), "position" -> JsString("bottom")),
+        "tooltip"      -> JsObject("enabled" -> JsBoolean(true)),
+        "axisLabels" -> JsObject(
+          "x" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("X")),
+          "y" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("Y"))
+        ),
+        "chartType" -> JsString("line")
+      )
+      val establish = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(PanelBatchItem(panelId, None, Some(JsObject("chart" -> fullChart)), None, None))
+      )
+      Post("/api/panels/updateBatch", establish) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      val partialChart = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(panelId, None, Some(JsObject("chart" -> JsObject("chartType" -> JsString("scatter")))), None, None)
+        )
+      )
+      Post("/api/panels/updateBatch", partialChart) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val chart = responseAs[UpdatePanelsBatchResponse].panels.head.appearance.chart.get
+        chart.chartType shouldBe Some("scatter")
+        chart.legend shouldBe ChartLegend(show = true, position = "bottom")
+      }
+    }
+
     "panels updateBatch returns 404 for an unknown panel id" in {
       cleanDb()
 
       val batchReq = UpdatePanelsBatchRequest(
         fields = Vector("appearance"),
-        panels = Vector(PanelBatchItem("non-existent-id", None, Some(PanelAppearancePayload(Some("#ff0000"), None, None, None)), None, None))
+        panels = Vector(PanelBatchItem("non-existent-id", None, Some(PanelAppearancePayload(Some("#ff0000"), None, None, None).toJson), None, None))
       )
 
       Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {

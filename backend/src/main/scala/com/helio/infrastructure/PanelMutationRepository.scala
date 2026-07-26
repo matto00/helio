@@ -81,14 +81,19 @@ trait PanelMutationOps { self: PanelRepository =>
             updates += table.filter(_.id === item.id).map(r => (r.title, r.lastUpdated)).update((title, now)).map(_ => ())
           }
 
-          item.appearance.foreach { ap =>
+          // HEL-362: shared merge (PanelAppearance.applyPatchJson) replaces the
+          // old hand-rolled top-level-only getOrElse/orElse block so batch and
+          // single-item PATCH cannot diverge (partial `chart` now supported here
+          // too). Mirrors the `item.config` pattern below: a decode failure
+          // throws synchronously inside this lazily-evaluated DBIO closure, which
+          // Slick surfaces as a failed action — rolled back by `.transactionally`
+          // and reported by `PanelService.batchUpdate`'s `.recover` (no partial write).
+          item.appearance.foreach { appearanceJson =>
             val current = row.appearance
-            val merged = PanelAppearance(
-              background   = ap.background.getOrElse(current.background),
-              color        = ap.color.getOrElse(current.color),
-              transparency = ap.transparency.getOrElse(current.transparency),
-              chart        = ap.chart.orElse(current.chart)
-            )
+            val merged = PanelAppearance.applyPatchJson(appearanceJson, current) match {
+              case Right(a)  => a
+              case Left(err) => throw new IllegalArgumentException(s"panel '${item.id}' appearance patch: $err")
+            }
             updates += table.filter(_.id === item.id).map(r => (r.appearance, r.lastUpdated)).update((merged, now)).map(_ => ())
           }
 

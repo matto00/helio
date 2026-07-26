@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panel-appearance-patch.schema.json",
+  "title": "PanelAppearancePatch",
+  "description": "Partial-merge appearance payload for PATCH /api/panels/:id and POST /api/panels/updateBatch (HEL-362). Every top-level field is optional and preserves the panel's stored value when omitted; an explicit `null` resets that field to PanelAppearance.Default. `chart` merges the same way at its own field level — a partial `chart` object (e.g. only `chartType`) merges over the stored chart (or ChartAppearance.Default when none stored) instead of requiring every field. `chartType: null` inside `chart` clears it to absent rather than resetting to the `line` default.",
+  "type": "object",
+  "properties": {
+    "background": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "color": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "transparency": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "chart": {
+      "type": ["object", "null"],
+      "properties": {
+        "seriesColors": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "maxItems": 8
+        },
+        "legend": {
+          "type": ["object", "null"],
+          "required": ["show", "position"],
+          "properties": {
+            "show": {
+              "type": "boolean"
+            },
+            "position": {
+              "type": "string",
+              "enum": ["top", "bottom", "left", "right"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "tooltip": {
+          "type": ["object", "null"],
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "axisLabels": {
+          "type": ["object", "null"],
+          "required": ["x", "y"],
+          "properties": {
+            "x": {
+              "type": "object",
+              "required": ["show"],
+              "properties": {
+                "show": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "y": {
+              "type": "object",
+              "required": ["show"],
+              "properties": {
+                "show": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "chartType": {
+          "type": ["string", "null"],
+          "enum": ["bar", "line", "pie", "scatter", null]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
