@@ -1,8 +1,8 @@
 package com.helio.services
 
 import com.helio.api.protocols.{PanelCapabilitiesResponse, PanelCapabilityColumnResponse, PanelCapabilityResponse}
-import com.helio.domain.panels.{PanelBindingSpec, SlotEligibility}
-import com.helio.domain.{AuthenticatedUser, DataFieldType, DataType, DataTypeId, PanelType}
+import com.helio.domain.panels.PanelBindingSpec
+import com.helio.domain.{AuthenticatedUser, DataFieldType, DataType, DataTypeId, PanelType, SchemaField}
 import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +27,6 @@ final class PanelCapabilityService(
   // be traceable to the real bind-time rejection, not a paraphrase.
   private val NotPipelineOutputReason: String = "not-pipeline-output"
   private val NotPipelineOutputMessage: String = "Panels can only bind to pipeline-output data types"
-  private val MissingColumnsReason: String = "missing-required-column-type"
 
   def getCapabilities(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, PanelCapabilitiesResponse]] =
     // findByIdOwned, exactly like DataTypeService.findById (design.md D5):
@@ -90,39 +89,23 @@ final class PanelCapabilityService(
         message         = Some(NotPipelineOutputMessage)
       )
     else {
-      val eligible = spec.allSlots.map(slot => slot -> eligibleColumnNames(spec, slot, columns)).toMap
-      // design.md D3: bindable = every required slot has >=1 eligible
-      // column. `table` (no slots) is vacuously true. `chart`/`timeline`'s
-      // "+ >=1 column total" clause is subsumed automatically — a numeric
-      // (resp. orderable) column is itself a column, so `xAxis`/`event`
-      // (eligibility `Any`) are already non-empty whenever `yAxis`/`time` is.
-      val requiredSatisfied = spec.requiredSlots.forall(slot => eligible.getOrElse(slot, Vector.empty).nonEmpty)
-      if (requiredSatisfied)
-        PanelCapabilityResponse(
-          bindable        = true,
-          requiredSlots   = spec.requiredSlots,
-          optionalSlots   = spec.optionalSlots,
-          eligibleColumns = eligible,
-          reason          = None,
-          message         = None
-        )
-      else
-        PanelCapabilityResponse(
-          bindable        = false,
-          requiredSlots   = spec.requiredSlots,
-          optionalSlots   = spec.optionalSlots,
-          eligibleColumns = eligible,
-          reason          = Some(MissingColumnsReason),
-          message         = Some(s"No column satisfies a required slot for '${PanelType.asString(spec.panelType)}'")
-        )
+      // design.md D3 / HEL-364 task 1.2: bindability itself is delegated to
+      // the shared `PanelBindingSpec.evaluate` (behavior-preserving
+      // extraction — same required-slot-has->=1-eligible-column rule,
+      // `table`'s no-slots case still vacuously true). `chart`/`timeline`'s
+      // "+ >=1 column total" clause is still subsumed automatically — a
+      // numeric (resp. orderable) column is itself a column, so `xAxis`/
+      // `event` (eligibility `Any`) are already non-empty whenever
+      // `yAxis`/`time` is.
+      val schemaColumns = columns.map(c => SchemaField(c.name, c.dataType))
+      val result = PanelBindingSpec.evaluate(spec, schemaColumns)
+      PanelCapabilityResponse(
+        bindable        = result.bindable,
+        requiredSlots   = spec.requiredSlots,
+        optionalSlots   = spec.optionalSlots,
+        eligibleColumns = result.eligibleColumns,
+        reason          = result.reason,
+        message         = result.message
+      )
     }
-
-  private def eligibleColumnNames(
-      spec: PanelBindingSpec,
-      slotKey: String,
-      columns: Vector[PanelCapabilityColumnResponse]
-  ): Vector[String] = {
-    val eligibility = spec.eligibilityOf(slotKey)
-    columns.filter(c => DataFieldType.fromString(c.dataType).exists(t => SlotEligibility.accepts(eligibility, t))).map(_.name)
-  }
 }

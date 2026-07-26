@@ -205,6 +205,16 @@ export interface PanelResponse {
   dataAsOf: string | null;
 }
 
+/** `POST /api/panels/bound` (HEL-364) — every id created (or reused) by the
+ *  compound source→pipeline→run→panel-bind call, plus the created,
+ *  already-bound panel. Mirrors the backend's `BoundPanelResponse`. */
+export interface BoundPanelResponse {
+  sourceId: string;
+  pipelineId: string;
+  dataTypeId: string;
+  panel: PanelResponse;
+}
+
 /** `POST /api/pipelines/:id/run` — synchronous run result (rows already written). */
 export interface RunResultResponse {
   rows: Record<string, unknown>[];

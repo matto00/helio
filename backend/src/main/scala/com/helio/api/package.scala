@@ -103,6 +103,12 @@ package object api {
   type UpdatePanelsBatchResponse = protocols.UpdatePanelsBatchResponse
   val UpdatePanelsBatchResponse: protocols.UpdatePanelsBatchResponse.type = protocols.UpdatePanelsBatchResponse
 
+  // Bound panel (HEL-364)
+  type BoundPanelRequest = protocols.BoundPanelRequest
+  val BoundPanelRequest: protocols.BoundPanelRequest.type = protocols.BoundPanelRequest
+  type BoundPanelResponse = protocols.BoundPanelResponse
+  val BoundPanelResponse: protocols.BoundPanelResponse.type = protocols.BoundPanelResponse
+
   // DataType
   type DataTypeResponse = protocols.DataTypeResponse
   val DataTypeResponse: protocols.DataTypeResponse.type = protocols.DataTypeResponse

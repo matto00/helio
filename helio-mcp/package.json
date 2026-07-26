@@ -13,7 +13,8 @@
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify": "tsx scripts/verify.ts",
-    "compose": "tsx scripts/compose.ts"
+    "compose": "tsx scripts/compose.ts",
+    "verify-bound-panel": "tsx scripts/verify-bound-panel.ts"
   },
   "engines": {
     "node": ">=20"

@@ -462,6 +462,82 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       guarded(() => api.bindPanel(panelId, { dataTypeId, fieldMapping, panelType })),
   );
 
+  const boundPipelineStepSchema = z.object({
+    type: z.string().min(1),
+    config: z.record(z.unknown()).default({}),
+  });
+
+  server.registerTool(
+    "create_bound_panel",
+    {
+      title: "Create one bound panel in a single call",
+      description:
+        "Build ONE bound data panel with a single tool call — collapses the 6-call chain " +
+        "create_data_source/create_pipeline -> add_pipeline_step* -> run_pipeline -> create_panel -> " +
+        "bind_panel -> update_panel_appearance into one server-side POST /api/panels/bound (HEL-364). " +
+        "This is the PREFERRED path for a single bound panel; the granular tools above remain " +
+        "available and unchanged for finer-grained control (e.g. re-running an existing pipeline, or " +
+        "building a source once and reusing it across many panels via sourceDataSourceId).\n" +
+        "Exactly one of `source` (inline `{name, columns, rows}` — same shape as create_data_source) " +
+        "or `sourceDataSourceId` (an existing, caller-owned DataSource id) must be given. `pipeline." +
+        "outputDataTypeName` names the new panel-bindable output type; `pipeline.steps` is the same " +
+        "ordered `{type, config}` list add_pipeline_step accepts (see that tool's description for the " +
+        "full per-op config catalogue) — may be empty to bind the raw source schema unchanged. " +
+        "`panel.type` MUST be one of metric/chart/table/collection/timeline (the five data-bindable " +
+        "kinds) — any other type is rejected; use create_panel directly for text/markdown/image. " +
+        "The backend validates the requested panel type's fieldMapping is satisfiable by the " +
+        "pipeline's PROJECTED output schema BEFORE creating anything — an unsatisfiable binding " +
+        "(e.g. a chart with no numeric column for yAxis) 400s with nothing created. The pipeline run " +
+        "is synchronous, so the returned panel's DataType already has rows (no separate run_pipeline " +
+        "call needed) — a run that legitimately produces zero rows (e.g. an over-restrictive filter) " +
+        "still succeeds with a bound, empty panel, not an error. On any failure AFTER the validation " +
+        "gate, the backend cleans up every resource IT created for this call (the pipeline, its " +
+        "steps, the output DataType and its rows, and — only when `source` was created inline by " +
+        "this same call — that DataSource too; a reused sourceDataSourceId is never touched) and the " +
+        "error message names the failed stage (source/pipeline/steps/run/panel) — surfaced verbatim, " +
+        "never retried or silently swallowed. `fieldMapping` (top-level, optional) sets the created " +
+        "panel's binding — same per-type slot keys as bind_panel (metric -> {value,label?,unit?}; " +
+        "chart -> {xAxis,yAxis,series?,annotation?}; table -> omit; collection -> the base-type " +
+        "slots; timeline -> {time,event}). `panel.appearance` (optional) is completed the same way " +
+        "create_panel's is — a partial `{chart:{chartType}}` is overlaid onto the full default chart " +
+        "appearance. Returns { sourceId, pipelineId, dataTypeId, panel }.",
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        source: z
+          .object({
+            name: z.string().min(1),
+            columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
+            rows: z.array(z.array(z.unknown())),
+          })
+          .optional(),
+        sourceDataSourceId: z.string().min(1).optional(),
+        pipeline: z.object({
+          name: z.string().optional(),
+          outputDataTypeName: z.string().min(1),
+          steps: z.array(boundPipelineStepSchema).default([]),
+        }),
+        panel: z.object({
+          type: z.enum(["metric", "chart", "table", "collection", "timeline"]),
+          title: z.string().min(1),
+          config: z.record(z.unknown()).optional(),
+          appearance: z.record(z.unknown()).optional(),
+        }),
+        fieldMapping: z.record(z.string()).optional(),
+      },
+    },
+    ({ dashboardId, source, sourceDataSourceId, pipeline, panel, fieldMapping }) =>
+      guarded(() =>
+        api.createBoundPanel({
+          dashboardId,
+          source: source ? { ...source, rows: source.rows as unknown[][] } : undefined,
+          sourceDataSourceId,
+          pipeline,
+          panel,
+          fieldMapping,
+        }),
+      ),
+  );
+
   server.registerTool(
     "update_panel_appearance",
     {

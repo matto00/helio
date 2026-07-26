@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/bound-panel-response.schema.json",
+  "title": "BoundPanelResponse",
+  "description": "201 response body of POST /api/panels/bound (HEL-364) — every id created (or reused) by the call, plus the created, already-bound panel. The pipeline run is synchronous, so `panel`'s bound DataType already has rows (GET /api/types/:dataTypeId/rows returns them immediately, no separate run call needed).",
+  "type": "object",
+  "required": ["sourceId", "pipelineId", "dataTypeId", "panel"],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The DataSource id — freshly created for an inline `source`, or the caller-supplied `sourceDataSourceId` echoed back when reusing an existing source."
+    },
+    "pipelineId": { "type": "string", "minLength": 1 },
+    "dataTypeId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The pipeline's output DataType id — the same id injected into panel.config.dataTypeId."
+    },
+    "panel": { "$ref": "panel.schema.json" }
+  },
+  "additionalProperties": false
+}

@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.{DataFieldType, PanelType}
+import com.helio.domain.{DataFieldType, PanelType, SchemaField}
 
 /** Column-type eligibility rule for one `fieldMapping` slot (design.md D2).
  *
@@ -102,4 +102,49 @@ object PanelBindingSpec {
   /** The five data-bindable panel kinds `PanelCapabilityService` reports on,
    *  in the fixed order the response is built from. */
   val DataBindable: Vector[PanelBindingSpec] = Vector(Metric, Chart, Table, Collection, Timeline)
+
+  /** `bindable = false` reason emitted by [[evaluate]] when a required slot
+   *  has no eligible column (mirrors `PanelCapabilityService`'s prior inline
+   *  literal verbatim — HEL-364 task 1.2 extraction is behavior-preserving). */
+  val MissingColumnsReason: String = "missing-required-column-type"
+
+  /** Result of evaluating one [[PanelBindingSpec]] against a concrete column
+   *  set — extracted (HEL-364 task 1.2) from `PanelCapabilityService.capabilityFor`
+   *  so `BoundPanelService`'s pre-write validation gate and
+   *  `PanelCapabilityService`'s introspection endpoint share exactly one
+   *  implementation of "is this panel type satisfiable by these columns",
+   *  rather than two. Carries no `isPipelineOutput`/reason-for-non-output
+   *  concept — that check is orthogonal to column-type eligibility and stays
+   *  with each call site (`PanelCapabilityService` has a real DataType to ask;
+   *  `BoundPanelService`'s projected schema is, by construction, always a
+   *  pipeline output). */
+  final case class BindabilityResult(
+      bindable: Boolean,
+      eligibleColumns: Map[String, Vector[String]],
+      reason: Option[String],
+      message: Option[String]
+  )
+
+  /** Evaluate `spec` against `columns` (name + wire-string type, e.g. the
+   *  `SchemaField`s `PipelineAnalyzeService.analyze` projects, or a DataType's
+   *  own fields). `bindable = true` iff every required slot has at least one
+   *  eligible column — `table` (no required slots) is vacuously bindable. */
+  def evaluate(spec: PanelBindingSpec, columns: Vector[SchemaField]): BindabilityResult = {
+    val eligible = spec.allSlots.map(slot => slot -> eligibleColumnNames(spec, slot, columns)).toMap
+    val requiredSatisfied = spec.requiredSlots.forall(slot => eligible.getOrElse(slot, Vector.empty).nonEmpty)
+    if (requiredSatisfied)
+      BindabilityResult(bindable = true, eligibleColumns = eligible, reason = None, message = None)
+    else
+      BindabilityResult(
+        bindable        = false,
+        eligibleColumns = eligible,
+        reason          = Some(MissingColumnsReason),
+        message         = Some(s"No column satisfies a required slot for '${PanelType.asString(spec.panelType)}'")
+      )
+  }
+
+  private def eligibleColumnNames(spec: PanelBindingSpec, slotKey: String, columns: Vector[SchemaField]): Vector[String] = {
+    val eligibility = spec.eligibilityOf(slotKey)
+    columns.filter(c => DataFieldType.fromString(c.`type`).exists(t => SlotEligibility.accepts(eligibility, t))).map(_.name)
+  }
 }
