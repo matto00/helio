@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/workspace-context.schema.json",
+  "title": "WorkspaceContextResponse",
+  "description": "Response body for GET /api/workspace/context (HEL-371) — a server-side, owner-scoped snapshot of the caller's data sources, DataTypes, pipelines, and dashboards. Structural parity with helio-mcp/src/context.ts's WorkspaceContext interface, with two documented deltas: (1) `pipelineShapes` is intentionally OMITTED — not part of this ticket's scope/acceptance criteria, and PipelineShapeService is stateless/code-level with no per-user RLS story (design.md D4); a later ticket may add it. (2) `pipelines[].steps[]` carries the FULL per-step field set the MCP interface has — `position`, `type`, `outputColumns`, `validationError` — not just `outputColumns` (design-gate note 3): all four are already produced by the existing analyze path at zero extra cost, so the schema documents full parity rather than a narrowed subset.",
+  "type": "object",
+  "required": ["generatedAt", "counts", "dataSources", "dataTypes", "pipelines", "dashboards"],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "description": "ISO-8601 instant this snapshot was assembled."
+    },
+    "counts": { "$ref": "#/$defs/Counts" },
+    "dataSources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DataSourceEntry" }
+    },
+    "dataTypes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DataTypeEntry" }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PipelineEntry" }
+    },
+    "dashboards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DashboardEntry" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Counts": {
+      "type": "object",
+      "required": ["dataSources", "dataTypes", "pipelines", "dashboards"],
+      "properties": {
+        "dataSources": { "type": "integer", "minimum": 0 },
+        "dataTypes": { "type": "integer", "minimum": 0 },
+        "pipelines": { "type": "integer", "minimum": 0 },
+        "dashboards": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "Each field is the resource kind's true PagedResult.total (design.md D3), not the possibly page-truncated items.length — dataSources/dataTypes/dashboards are fetched with Page.Default (limit 200, parity with the MCP's own unparameterized fan-out), so counts can exceed the corresponding array's length for a workspace over 200 of a given kind."
+    },
+    "DataSourceEntry": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "tag": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when unset — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Column": {
+      "type": "object",
+      "required": ["name", "dataType", "nullable"],
+      "properties": {
+        "name": { "type": "string" },
+        "dataType": { "type": "string" },
+        "nullable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "ComputedColumn": {
+      "type": "object",
+      "required": ["name", "dataType", "expression"],
+      "properties": {
+        "name": { "type": "string" },
+        "dataType": { "type": "string" },
+        "expression": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "DataTypeEntry": {
+      "type": "object",
+      "required": ["id", "name", "pipelineOutput", "columns", "computedColumns", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "sourceId": {
+          "type": ["string", "null"],
+          "description": "Present for a source-companion DataType, ABSENT on the wire (not null) for a pipeline-output DataType — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason. Use `pipelineOutput` for the classification, not the presence/absence of this field."
+        },
+        "pipelineOutput": {
+          "type": "boolean",
+          "description": "true iff sourceId is absent — a panel-bindable, pipeline-produced DataType (V41 rule)."
+        },
+        "columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Column" }
+        },
+        "computedColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComputedColumn" }
+        },
+        "version": { "type": "integer", "minimum": 1 },
+        "tag": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when unset — see sourceId's description for the same spray-json omission behavior."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineStep": {
+      "type": "object",
+      "required": ["position", "type", "outputColumns"],
+      "properties": {
+        "position": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string" },
+        "outputColumns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "validationError": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when the step is valid — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "sourceDataSourceId",
+        "sourceDataSourceName",
+        "outputDataTypeId",
+        "outputDataTypeName",
+        "steps"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "sourceDataSourceId": { "type": "string" },
+        "sourceDataSourceName": { "type": "string" },
+        "outputDataTypeId": { "type": "string" },
+        "outputDataTypeName": { "type": "string" },
+        "lastRunStatus": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when the pipeline has never run — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason (applies to every field below with this same description)."
+        },
+        "lastRunAt": { "type": ["string", "null"] },
+        "lastRunRowCount": { "type": ["integer", "null"] },
+        "tag": { "type": ["string", "null"] },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PipelineStep" },
+          "description": "Populated from the existing analyze path, in step order. Empty when stepsError is set (design.md D5 per-pipeline degrade)."
+        },
+        "stepsError": {
+          "type": ["string", "null"],
+          "description": "Set (non-null) when this pipeline's analyze call failed — steps is [] in that case; ABSENT on the wire (not null) when analyze succeeded (spray-json omits a None field entirely). Mirrors helio-mcp/src/context.ts's per-pipeline try/catch; a single pipeline's failure never fails the whole request."
+        }
+      },
+      "additionalProperties": false
+    },
+    "DashboardEntry": {
+      "type": "object",
+      "required": ["id", "name", "panelCount"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "panelCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of distinct panelIds referenced across all four responsive breakpoints (lg/md/sm/xs) of the dashboard's layout."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -205,6 +205,11 @@ final class ApiRoutes(
   // /api/workspace/teardown route mounted.
   private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
     Option(dbContext).map(ctx => new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem))
+  // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
+  // above) — every dependency (dashboardService/dataSourceService/dataTypeRepo/
+  // pipelineService) is already constructed unconditionally above, so there is
+  // no nullable-repo gate to check (design.md D2).
+  private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeRepo, pipelineService)
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -351,7 +356,13 @@ final class ApiRoutes(
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
-                  workspaceTeardownServiceOpt.fold(reject: Route)(svc => new WorkspaceRoutes(svc, authenticatedUser).routes)
+                  // HEL-371: mounted unconditionally (not `.fold(reject)`-gated
+                  // on workspaceTeardownServiceOpt like every other nullable-repo
+                  // route family in this list) — WorkspaceRoutes itself now
+                  // internally gates only its `.../teardown` sub-route on the
+                  // Option, so `.../context` stays reachable regardless of
+                  // whether `dbContext` was supplied (design.md D2).
+                  new WorkspaceRoutes(workspaceTeardownServiceOpt, workspaceContextService, authenticatedUser).routes
                 )
               }
             )
