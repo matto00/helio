@@ -2100,6 +2100,45 @@ class ApiRoutesSpec
         snapshotPanel.`type` shouldBe "metric"
         // layout panelId references match the snapshotId
         snapshot.dashboard.layout.lg.head.panelId shouldBe snapshotPanel.snapshotId
+        // HEL-368: the additive `id` field equals both `snapshotId` and the panel's real id
+        snapshotPanel.id shouldBe Some(panelId)
+        snapshotPanel.id shouldBe Some(snapshotPanel.snapshotId)
+      }
+    }
+
+    // HEL-368: an export captured before the `id` field existed (or any
+    // hand-rolled snapshot omitting it) must still import successfully and
+    // produce the same result as one that carries `id` — `id` is decode-
+    // tolerant and ignored by the importer, which keys exclusively off
+    // `snapshotId`.
+    "import a snapshot whose panel entries omit the `id` field succeeds identically to one that includes it" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Legacy Export"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Legacy Panel"), Some("metric"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      var snapshot: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        snapshot = responseAs[DashboardSnapshotPayload]
+      }
+      // Simulate a pre-existing exported file: strip `id` from every panel entry.
+      val legacySnapshot = snapshot.copy(panels = snapshot.panels.map(_.copy(id = None)))
+
+      Post("/api/dashboards/import", legacySnapshot) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.dashboard.id should not be dashboardId
+        result.dashboard.name shouldBe "Legacy Export"
+        result.panels should have size 1
+        val importedPanel = result.panels.head
+        importedPanel.id should not be panelId
+        importedPanel.title shouldBe "Legacy Panel"
       }
     }
 
@@ -2276,6 +2315,7 @@ class ApiRoutesSpec
         panels = Vector(
           DashboardSnapshotPanelEntry(
             snapshotId = "snap-1",
+            id         = Some("snap-1"),
             title      = "Panel",
             `type`     = "unknown_type",
             appearance = PanelAppearancePayload(None, None, None, None),

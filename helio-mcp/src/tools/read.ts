@@ -54,8 +54,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       description:
         "Get one dashboard with its panels. Composed from the dashboard list record and the " +
         "/export snapshot, because the backend on `main` exposes neither GET /api/dashboards/:id " +
-        "nor GET /api/dashboards/:id/panels. Each panel includes its title, type, and typed config " +
-        "(the config carries the bound DataType id + field mapping for data panels).",
+        "nor GET /api/dashboards/:id/panels. Each panel includes its title, type, typed config " +
+        "(the config carries the bound DataType id + field mapping for data panels), and a stable " +
+        "`id` (the panel's real, non-remapped id) — use `id` for programmatic identification.",
       inputSchema: { dashboardId: z.string().min(1) },
     },
     ({ dashboardId }) => guarded(() => api.getDashboard(dashboardId)),

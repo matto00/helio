@@ -51,6 +51,10 @@ export interface DashboardResponse {
  *  payload whose shape is keyed by `type` (chart/metric/table/…); passed through. */
 export interface SnapshotPanelEntry {
   snapshotId: string;
+  /** HEL-368: stable, non-remapped real panel id (additive; absent on
+   *  exports captured before this field existed). Prefer this over
+   *  `snapshotId` for programmatic identification. */
+  id?: string;
   title: string;
   type: string;
   appearance: Record<string, unknown>;

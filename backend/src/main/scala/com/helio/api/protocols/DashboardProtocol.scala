@@ -67,9 +67,16 @@ final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: O
  *  reconstructs the typed config via [[PanelConfigCodec.decodeCreateConfig]].
  *
  *  CS2c-3c also closes the pre-existing Image / Divider data-loss bug —
- *  those subtypes' config fields now survive export → import round-trips. */
+ *  those subtypes' config fields now survive export → import round-trips.
+ *
+ *  HEL-368: `id` is an additive, decode-tolerant field carrying the panel's
+ *  real (non-remapped) server-assigned id, for programmatic/agent readers
+ *  (e.g. the MCP `get_dashboard` tool). `snapshotId` remains the sole handle
+ *  the importer uses for layout remapping — `id` is ignored on import and
+ *  `Option` so pre-existing exported files (lacking this key) still decode. */
 final case class DashboardSnapshotPanelEntry(
     snapshotId: String,
+    id: Option[String],
     title: String,
     `type`: String,
     appearance: PanelAppearancePayload,
@@ -158,6 +165,7 @@ object DashboardSnapshotPanelEntry {
   def fromDomain(panel: Panel): DashboardSnapshotPanelEntry =
     DashboardSnapshotPanelEntry(
       snapshotId = panel.id.value,
+      id         = Some(panel.id.value),
       title      = panel.title,
       `type`     = panel.kind,
       appearance = PanelAppearancePayload(
@@ -209,7 +217,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat2(AutoLayoutRequest.apply)
 
   // Snapshot formats
-  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat5(DashboardSnapshotPanelEntry.apply)
+  implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)
 }

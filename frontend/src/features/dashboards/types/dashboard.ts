@@ -44,6 +44,9 @@ export interface DuplicateDashboardResponse {
  *  narrowing on the frontend. */
 export interface DashboardSnapshotPanelEntry {
   snapshotId: string;
+  /** HEL-368: stable, non-remapped real panel id (additive; absent on
+   *  exports captured before this field existed). */
+  id?: string;
   title: string;
   type: string;
   appearance: {

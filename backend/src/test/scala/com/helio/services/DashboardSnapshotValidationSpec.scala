@@ -24,9 +24,13 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
   private val emptyDashboard  = DashboardSnapshotDashboardEntry("My Dashboard", emptyAppearance, emptyLayout)
   private val currentVersion  = DashboardSnapshotPayload.CurrentVersion
 
+  // HEL-368: `id` defaults to `None` here to double as coverage that a
+  // pre-existing snapshot lacking `id` (an export captured before this field
+  // existed) still validates identically to one that carries it.
   private def panel(snapshotId: String, panelType: String = "metric"): DashboardSnapshotPanelEntry =
     DashboardSnapshotPanelEntry(
       snapshotId = snapshotId,
+      id         = None,
       title      = "Title",
       `type`     = panelType,
       appearance = PanelAppearancePayload(None, None, None, None),
