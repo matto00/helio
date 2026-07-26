@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataTypeRowsResponse, ErrorResponse, JsonProtocols}
 import com.helio.domain.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
-import com.helio.services.DataTypeService
+import com.helio.services.{DataTypeService, PanelCapabilityService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -63,7 +63,8 @@ class DataTypeRoutesSpec
   private def makeRoutes: Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    new DataTypeRoutes(service, dummyUser)(typedSystem).routes
+    val capabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    new DataTypeRoutes(service, capabilityService, dummyUser)(typedSystem).routes
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

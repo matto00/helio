@@ -76,19 +76,20 @@ protocol stream.
 
 ## Tool catalog
 
-| Tool                    | Endpoint(s) used                                                  | Purpose                                                                                                 |
-| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `list_dashboards`       | `GET /api/dashboards`                                             | Paginated dashboard list                                                                                |
-| `get_dashboard`         | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                                                |
-| `list_data_sources`     | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                                                  |
-| `list_source_objects`   | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                                                         |
-| `list_data_types`       | `GET /api/types`                                                  | DataTypes with columns; flags pipeline-output (bindable) vs source-companion                            |
-| `get_data_type_rows`    | `GET /api/types/:id/rows`                                         | Latest pipeline-run row snapshot                                                                        |
-| `list_pipelines`        | `GET /api/pipelines`                                              | Pipeline summaries                                                                                      |
-| `get_pipeline`          | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                                              |
-| `analyze_pipeline`      | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                                            |
-| `list_pipeline_shapes`  | `GET /api/pipeline-shapes`                                        | Smart pipeline shape catalog (id/label/description/paramsSchema/outputContract, **HEL-400**)            |
-| `get_workspace_context` | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**), now including `pipelineShapes` (**HEL-400**) |
+| Tool                     | Endpoint(s) used                                                  | Purpose                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `list_dashboards`        | `GET /api/dashboards`                                             | Paginated dashboard list                                                                                |
+| `get_dashboard`          | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                                                |
+| `list_data_sources`      | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                                                  |
+| `list_source_objects`    | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                                                         |
+| `list_data_types`        | `GET /api/types`                                                  | DataTypes with columns; flags pipeline-output (bindable) vs source-companion                            |
+| `get_data_type_rows`     | `GET /api/types/:id/rows`                                         | Latest pipeline-run row snapshot                                                                        |
+| `get_panel_capabilities` | `GET /api/types/:id/panel-capabilities`                           | Which panel kinds a DataType can bind to, their fieldMapping slots + eligible columns (**HEL-365**)     |
+| `list_pipelines`         | `GET /api/pipelines`                                              | Pipeline summaries                                                                                      |
+| `get_pipeline`           | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                                              |
+| `analyze_pipeline`       | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                                            |
+| `list_pipeline_shapes`   | `GET /api/pipeline-shapes`                                        | Smart pipeline shape catalog (id/label/description/paramsSchema/outputContract, **HEL-400**)            |
+| `get_workspace_context`  | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**), now including `pipelineShapes` (**HEL-400**) |
 
 ### Write / composition tools
 

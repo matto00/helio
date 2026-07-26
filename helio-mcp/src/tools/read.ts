@@ -119,6 +119,28 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "get_panel_capabilities",
+    {
+      title: "Get panel capabilities for a DataType",
+      description:
+        "Given a DataType id, return the same binding menu bind_panel enforces: which of the five " +
+        "data-bindable panel kinds (metric, chart, table, collection, timeline) are structurally " +
+        "bindable, each one's required/optional fieldMapping slots (metric/collection → " +
+        "{value, label?, unit?}; chart → {xAxis, yAxis, series?, annotation?}; timeline → " +
+        "{time, event}; table → none), and which of the DataType's columns are eligible for each " +
+        "slot (numeric columns for value/yAxis; a timestamp/orderable column for time; any column " +
+        "for the rest — advisory, not a bind-time-enforced guarantee). Also returns shape signals: " +
+        "columns with their types, row count, whether the DataType has exactly one row, and " +
+        "isPipelineOutput (only pipeline outputs are bindable — V41; a source-companion DataType " +
+        "reports every kind bindable: false with reason 'not-pipeline-output'). Use this instead of " +
+        "re-deriving Helio's binding rules to build an offers menu before calling create_panel + " +
+        "bind_panel.",
+      inputSchema: { dataTypeId: z.string().min(1) },
+    },
+    ({ dataTypeId }) => guarded(() => api.getPanelCapabilities(dataTypeId)),
+  );
+
+  server.registerTool(
     "list_pipelines",
     {
       title: "List pipelines",

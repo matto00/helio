@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import org.slf4j.LoggerFactory
@@ -129,6 +129,9 @@ final class ApiRoutes(
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
+  // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
+  // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
+  private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
@@ -267,7 +270,7 @@ final class ApiRoutes(
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
-                  new DataTypeRoutes(dataTypeService, authenticatedUser).routes,
+                  new DataTypeRoutes(dataTypeService, panelCapabilityService, authenticatedUser).routes,
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                   new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,

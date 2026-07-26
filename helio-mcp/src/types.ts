@@ -111,6 +111,39 @@ export interface DataTypeRowsResponse {
   rowCount: number;
 }
 
+/** One column of a DataType's shape, as reported by `get_panel_capabilities`. */
+export interface PanelCapabilityColumnResponse {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+}
+
+/** Capability report for one bindable panel kind (HEL-365). `eligibleColumns`
+ *  is advisory (slot key -> column names that fit that slot's column-type
+ *  rule), not a bind-time guarantee — the backend does not validate
+ *  `fieldMapping` column fit today. `reason`/`message` are omitted on the
+ *  wire (spray-json drops `Option = None`) unless `bindable` is `false`. */
+export interface PanelCapabilityResponse {
+  bindable: boolean;
+  requiredSlots: string[];
+  optionalSlots: string[];
+  eligibleColumns: Record<string, string[]>;
+  reason?: string;
+  message?: string;
+}
+
+/** `GET /api/types/:id/panel-capabilities` — for an owner-scoped DataType,
+ *  which of the five data-bindable panel kinds (metric/chart/table/
+ *  collection/timeline) are structurally bindable, plus shape signals. */
+export interface PanelCapabilitiesResponse {
+  dataTypeId: string;
+  isPipelineOutput: boolean;
+  columns: PanelCapabilityColumnResponse[];
+  rowCount: number;
+  singleRow: boolean;
+  capabilities: Record<string, PanelCapabilityResponse>;
+}
+
 /** `GET /api/pipelines` / `GET /api/pipelines/:id` — summary (no steps). */
 export interface PipelineSummaryResponse {
   id: string;

@@ -29,6 +29,7 @@ import type {
   DataTypeResponse,
   DataTypeRowsResponse,
   Paged,
+  PanelCapabilitiesResponse,
   PanelResponse,
   PipelineAnalyzeResponse,
   PipelineShapeCatalogEntryResponse,
@@ -211,6 +212,16 @@ export class HelioApi {
 
   getDataTypeRows(dataTypeId: string): Promise<DataTypeRowsResponse> {
     return this.http.get<DataTypeRowsResponse>(`/api/types/${dataTypeId}/rows`);
+  }
+
+  /** Get the panel-binding "menu" for a DataType (HEL-365): which of the five
+   *  data-bindable panel kinds (metric/chart/table/collection/timeline) are
+   *  structurally bindable, each one's required/optional fieldMapping slots
+   *  and eligible columns per slot, and shape signals (columns+types, row
+   *  count, single-row flag, pipeline-output vs. source-companion). Thin
+   *  pass-through — no reshaping. */
+  getPanelCapabilities(dataTypeId: string): Promise<PanelCapabilitiesResponse> {
+    return this.http.get<PanelCapabilitiesResponse>(`/api/types/${dataTypeId}/panel-capabilities`);
   }
 
   listPipelines(): Promise<PipelineSummaryResponse[]> {
