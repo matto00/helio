@@ -62,10 +62,14 @@ final case class CreatePanelRequest(
  *  (when present) carries a typed patch whose shape matches the request's
  *  `type` (and at the service layer, the stored panel's type — cross-type
  *  PATCH is rejected with 400). Within `config`, fields use absent-vs-null
- *  semantics per the per-subtype `Patch.decode`. */
+ *  semantics per the per-subtype `Patch.decode`.
+ *
+ *  `appearance` (HEL-362) is a raw `JsValue` passthrough — mirroring `config`
+ *  — so the service layer can decode it against the stored panel's appearance
+ *  with full absent-vs-null merge semantics via `PanelAppearance.applyPatchJson`. */
 final case class UpdatePanelRequest(
     title: Option[String],
-    appearance: Option[PanelAppearancePayload],
+    appearance: Option[JsValue],
     `type`: Option[String],
     config: Option[JsValue]
 )
@@ -74,7 +78,7 @@ final case class UpdatePanelRequest(
 final case class PanelBatchItem(
     id: String,
     title: Option[String],
-    appearance: Option[PanelAppearancePayload],
+    appearance: Option[JsValue],
     `type`: Option[String],
     config: Option[JsValue]
 )
@@ -158,15 +162,15 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
    *  is validated. The wire is `{ dashboardId?, title?, type?, config? }`. */
   implicit val createPanelRequestFormat: RootJsonFormat[CreatePanelRequest] = jsonFormat5(CreatePanelRequest.apply)
 
-  /** Custom format for `UpdatePanelRequest` — `config` is preserved as a
-   *  raw `JsValue` so the service can decode it against the stored panel's
-   *  type with full absent-vs-null semantics. */
+  /** Custom format for `UpdatePanelRequest` — `config` and `appearance` are
+   *  both preserved as raw `JsValue` so the service can decode them against
+   *  the stored panel's type/appearance with full absent-vs-null semantics. */
   implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] =
     new RootJsonFormat[UpdatePanelRequest] {
       def write(r: UpdatePanelRequest): JsValue = {
         val fields = scala.collection.mutable.Map.empty[String, JsValue]
         r.title.foreach(v => fields("title") = JsString(v))
-        r.appearance.foreach(v => fields("appearance") = v.toJson)
+        r.appearance.foreach(v => fields("appearance") = v)
         r.`type`.foreach(v => fields("type") = JsString(v))
         r.config.foreach(v => fields("config") = v)
         JsObject(fields.toMap)
@@ -176,7 +180,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
         val obj = json.asJsObject
         UpdatePanelRequest(
           title      = obj.fields.get("title").map(_.convertTo[String]),
-          appearance = obj.fields.get("appearance").map(_.convertTo[PanelAppearancePayload]),
+          appearance = obj.fields.get("appearance"),
           `type`     = obj.fields.get("type").map(_.convertTo[String]),
           config     = obj.fields.get("config")
         )
@@ -189,7 +193,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
         val fields = scala.collection.mutable.Map.empty[String, JsValue]
         fields("id") = JsString(item.id)
         item.title.foreach(v => fields("title") = JsString(v))
-        item.appearance.foreach(v => fields("appearance") = v.toJson)
+        item.appearance.foreach(v => fields("appearance") = v)
         item.`type`.foreach(v => fields("type") = JsString(v))
         item.config.foreach(v => fields("config") = v)
         JsObject(fields.toMap)
@@ -204,7 +208,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
         PanelBatchItem(
           id         = id,
           title      = obj.fields.get("title").map(_.convertTo[String]),
-          appearance = obj.fields.get("appearance").map(_.convertTo[PanelAppearancePayload]),
+          appearance = obj.fields.get("appearance"),
           `type`     = obj.fields.get("type").map(_.convertTo[String]),
           config     = obj.fields.get("config")
         )

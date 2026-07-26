@@ -84,6 +84,9 @@ const SKIP = new Set([
   "DashboardLayoutItem", // matches *Payload/*Response variants
   "DashboardAppearance", // matches *Payload/*Response variants
   "PanelAppearance", // matches *Payload/*Response variants
+  "PanelAppearancePatch", // HEL-362: UpdatePanelRequest/PanelBatchItem.appearance is a raw
+  // JsValue (mirroring `config`), decoded by PanelAppearance.Patch —
+  // no matching case class to diff against.
 ]);
 
 const errors = [];

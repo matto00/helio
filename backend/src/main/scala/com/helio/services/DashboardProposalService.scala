@@ -5,12 +5,11 @@ import com.helio.api.protocols.{
   DashboardLayoutItemPayload,
   DashboardLayoutPayload,
   DashboardProposal,
-  PanelAppearancePayload,
   ProposalPanel,
   UpdateDashboardRequest,
   UpdatePanelRequest
 }
-import com.helio.api.protocols.CreatePanelRequest
+import com.helio.api.protocols.{CreatePanelRequest, PanelProtocol}
 import com.helio.domain.{AuthenticatedUser, ChartAppearance, Dashboard, DashboardId, DataTypeId, Panel, PanelType}
 import com.helio.domain.panels.ChartPanel
 import com.helio.infrastructure.DataTypeRepository
@@ -336,9 +335,13 @@ final class DashboardProposalService(
         accF.flatMap { acc =>
           if (created.kind == ChartPanel.Kind && hasChartAppearanceFields(proposal)) {
             val appearance = buildChartAppearance(proposal)
+            // HEL-362: `appearance` is now a raw JsValue merge patch (mirroring
+            // `config`); background/color/transparency are omitted (absent =
+            // preserve, harmless here since the panel was just created with
+            // `PanelAppearance.Default`) and only `chart` is set, wholesale.
             val request = UpdatePanelRequest(
               title      = None,
-              appearance = Some(PanelAppearancePayload(None, None, None, Some(appearance))),
+              appearance = Some(JsObject("chart" -> DashboardProposalServiceJson.chartAppearanceFormat.write(appearance))),
               `type`     = None,
               config     = None
             )
@@ -356,3 +359,10 @@ object DashboardProposalService {
   private val MetricKind: String          = "metric"
   private val TimelineKind: String        = "timeline"
 }
+
+/** Spray-JSON helper import surface for the service layer (mirrors
+ *  `SourceConfigParsing`) — gives `applyAppearance` access to
+ *  `chartAppearanceFormat` to serialize a domain `ChartAppearance` into the
+ *  raw `JsValue` merge-patch shape `UpdatePanelRequest.appearance` now
+ *  expects (HEL-362), without duplicating `PanelProtocol`'s field encoding. */
+private[services] object DashboardProposalServiceJson extends PanelProtocol

@@ -429,7 +429,14 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Update panel appearance",
       description:
         "Update a panel's appearance (background, color, transparency 0–1, and chart appearance). " +
-        "Partial — only the provided fields change.",
+        "True partial merge (HEL-362): any field you omit keeps its currently-stored value — you " +
+        "never need to resend the whole object. This applies inside `chart` too, at its own field " +
+        'level: {chart: {chartType: "bar"}} changes only chartType and leaves the panel\'s stored ' +
+        "seriesColors/legend/tooltip/axisLabels untouched (previously a partial chart object was " +
+        "rejected with 400; it is now accepted). To clear a field back to its default, send it as " +
+        "`null` explicitly (e.g. {background: null}); {chart: null} clears the whole chart " +
+        "sub-object. The one exception: {chart: {chartType: null}} clears just chartType (renders " +
+        "as the line default) rather than resetting the rest of chart.",
       inputSchema: {
         panelId: z.string().min(1),
         appearance: z.record(z.unknown()),
