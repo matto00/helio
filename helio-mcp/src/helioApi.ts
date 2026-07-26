@@ -489,6 +489,35 @@ export class HelioApi {
     return this.http.post<PanelResponse>("/api/panels", body);
   }
 
+  /** Create N panels on ONE dashboard in a single call (HEL-370,
+   *  `POST /api/panels/batch`) — collapses a per-story image+markdown (or a
+   *  batch of pre-created data panels) fan-out that would otherwise be N
+   *  separate `createPanel` round-trips into one atomic, all-or-nothing
+   *  server-side transaction. Each item is the same shape `createPanel`
+   *  accepts minus `dashboardId` (supplied once at the envelope level); each
+   *  item's `appearance` (if given) is completed the same way `createPanel`'s
+   *  is. Returns every created panel, with ids, in the same order supplied. */
+  createPanels(input: {
+    dashboardId: string;
+    panels: Array<{
+      title?: string;
+      type?: string;
+      config?: Record<string, unknown>;
+      appearance?: Record<string, unknown>;
+    }>;
+  }): Promise<{ panels: PanelResponse[] }> {
+    const body = {
+      dashboardId: input.dashboardId,
+      panels: input.panels.map((panel) => ({
+        title: panel.title,
+        type: panel.type,
+        config: panel.config,
+        appearance: panel.appearance ? withCompleteChartAppearance(panel.appearance) : undefined,
+      })),
+    };
+    return this.http.post<{ panels: PanelResponse[] }>("/api/panels/batch", body);
+  }
+
   /** Upload an image (HEL-246). Posts a single `file` multipart part to
    *  `POST /api/uploads/image` — the same shape `create_csv_data_source` uses —
    *  and returns the stored `id`, its served `url` (`/api/uploads/image/<id>`),

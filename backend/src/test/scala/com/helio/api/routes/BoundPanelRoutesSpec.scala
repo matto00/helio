@@ -165,7 +165,7 @@ class BoundPanelRoutesSpec
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
       dataTypeRowRepo, new PipelineRunCache(), new PipelineRunRegistry(), fileSystem
     )
-    val panelService = new PanelService(panelRepo, dataTypeRepo, accessChecker)
+    val panelService = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo)
     val boundPanelService = new BoundPanelService(
       dataSourceService, pipelineService, pipelineRunService, panelService,
       dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker

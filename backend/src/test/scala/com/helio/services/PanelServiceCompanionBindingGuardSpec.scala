@@ -3,7 +3,7 @@ package com.helio.services
 import com.helio.api.protocols.{CreatePanelRequest, UpdatePanelRequest}
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, never, times, verify, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers
@@ -53,7 +53,7 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
   }
 
   private def newService(dtRepo: DataTypeRepository, panelRepo: PanelRepository): PanelService =
-    new PanelService(panelRepo, dtRepo, stubAccess)
+    new PanelService(panelRepo, dtRepo, stubAccess, mock(classOf[DashboardRepository]))
 
   // ── POST /api/panels ─────────────────────────────────────────────────────
 

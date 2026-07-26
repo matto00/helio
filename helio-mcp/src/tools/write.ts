@@ -430,6 +430,50 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "create_panels",
+    {
+      title: "Create panels (batch)",
+      description:
+        "Create several panels on ONE dashboard in a single call (POST /api/panels/batch, HEL-370) " +
+        "— the preferred path whenever you're laying down more than one panel on a dashboard (e.g. a " +
+        "story's image + markdown pair, or a batch of pre-created data panels to bind afterward with " +
+        "bind_panel), instead of N sequential create_panel calls. All panels are created atomically: " +
+        "one bad item (unrecognized type, invalid chart.chartType, or a config.dataTypeId binding " +
+        "that violates the pipeline-only rule) creates NOTHING in the batch and the tool surfaces the " +
+        "backend's 400 verbatim, naming the offending item by 1-based index and title. On success, " +
+        "returns every created panel (with ids) in the same order supplied. Each entry in `panels` " +
+        "has the exact same shape as create_panel's arguments minus `dashboardId` (supplied once here) " +
+        "— see create_panel's description for the full per-type config/appearance rules. Like " +
+        "create_panel, this only creates plain or pre-bound-DataType panels; it does not build a " +
+        "source/pipeline/run chain (bind_panel or create_bound_panel remain the paths for that). " +
+        "create_panel remains available and unchanged for a single panel.",
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        panels: z.array(
+          z.object({
+            title: z.string().optional(),
+            type: z
+              .enum([
+                "metric",
+                "chart",
+                "table",
+                "text",
+                "markdown",
+                "image",
+                "collection",
+                "timeline",
+              ])
+              .optional(),
+            config: z.record(z.unknown()).optional(),
+            appearance: z.record(z.unknown()).optional(),
+          }),
+        ),
+      },
+    },
+    ({ dashboardId, panels }) => guarded(() => api.createPanels({ dashboardId, panels })),
+  );
+
+  server.registerTool(
     "bind_panel",
     {
       title: "Bind panel to a DataType",

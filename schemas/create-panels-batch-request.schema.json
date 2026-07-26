@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/create-panels-batch-request.schema.json",
+  "title": "CreatePanelsBatchRequest",
+  "description": "Payload for POST /api/panels/batch (HEL-370). Creates every entry in `panels` on `dashboardId` in a single transaction, all-or-nothing, returning them in input order. Each entry is shaped like create-panel-request.schema.json minus `dashboardId`, which is lifted to this envelope since every item in one batch targets the same dashboard.",
+  "type": "object",
+  "required": ["dashboardId", "panels"],
+  "additionalProperties": false,
+  "properties": {
+    "dashboardId": { "type": "string", "minLength": 1 },
+    "panels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "maxLength": 160 },
+          "type": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "chart",
+              "text",
+              "table",
+              "markdown",
+              "image",
+              "divider",
+              "collection",
+              "timeline"
+            ]
+          },
+          "config": { "type": "object" },
+          "appearance": { "$ref": "panel-appearance.schema.json" }
+        }
+      }
+    }
+  }
+}

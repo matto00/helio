@@ -102,6 +102,12 @@ package object api {
   val UpdatePanelsBatchRequest: protocols.UpdatePanelsBatchRequest.type = protocols.UpdatePanelsBatchRequest
   type UpdatePanelsBatchResponse = protocols.UpdatePanelsBatchResponse
   val UpdatePanelsBatchResponse: protocols.UpdatePanelsBatchResponse.type = protocols.UpdatePanelsBatchResponse
+  type CreatePanelBatchItem = protocols.CreatePanelBatchItem
+  val CreatePanelBatchItem: protocols.CreatePanelBatchItem.type = protocols.CreatePanelBatchItem
+  type CreatePanelsBatchRequest = protocols.CreatePanelsBatchRequest
+  val CreatePanelsBatchRequest: protocols.CreatePanelsBatchRequest.type = protocols.CreatePanelsBatchRequest
+  type CreatePanelsBatchResponse = protocols.CreatePanelsBatchResponse
+  val CreatePanelsBatchResponse: protocols.CreatePanelsBatchResponse.type = protocols.CreatePanelsBatchResponse
 
   // Bound panel (HEL-364)
   type BoundPanelRequest = protocols.BoundPanelRequest

@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, times, verify, when}
 import org.scalatest.matchers.should.Matchers
@@ -52,9 +52,10 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
   "PanelService.resolveBindingsForRead" should {
 
     "issue exactly one findByIdsOwned call for multiple typed panels" in {
-      val dtRepo    = mock(classOf[DataTypeRepository])
-      val panelRepo = mock(classOf[PanelRepository])
-      val service   = new PanelService(panelRepo, dtRepo, stubAccess)
+      val dtRepo        = mock(classOf[DataTypeRepository])
+      val panelRepo     = mock(classOf[PanelRepository])
+      val dashboardRepo = mock(classOf[DashboardRepository])
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
 
       val typeId1 = DataTypeId(UUID.randomUUID().toString)
       val typeId2 = DataTypeId(UUID.randomUUID().toString)
@@ -78,9 +79,10 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
     }
 
     "short-circuit without any DB call when no panels carry a typeId" in {
-      val dtRepo    = mock(classOf[DataTypeRepository])
-      val panelRepo = mock(classOf[PanelRepository])
-      val service   = new PanelService(panelRepo, dtRepo, stubAccess)
+      val dtRepo        = mock(classOf[DataTypeRepository])
+      val panelRepo     = mock(classOf[PanelRepository])
+      val dashboardRepo = mock(classOf[DashboardRepository])
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
 
       val panels = Vector(textPanel("p-1"), textPanel("p-2"))
       val result = await(service.resolveBindingsForRead(panels, Some(user)))
@@ -90,9 +92,10 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
     }
 
     "clear all bindings and skip DB call for anonymous callers" in {
-      val dtRepo    = mock(classOf[DataTypeRepository])
-      val panelRepo = mock(classOf[PanelRepository])
-      val service   = new PanelService(panelRepo, dtRepo, stubAccess)
+      val dtRepo        = mock(classOf[DataTypeRepository])
+      val panelRepo     = mock(classOf[PanelRepository])
+      val dashboardRepo = mock(classOf[DashboardRepository])
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
 
       val typeId = DataTypeId(UUID.randomUUID().toString)
       val panels = Vector(metricPanel("p-1", typeId), textPanel("p-2"))
