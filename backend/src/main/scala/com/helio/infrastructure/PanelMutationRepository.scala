@@ -125,4 +125,26 @@ trait PanelMutationOps { self: PanelRepository =>
 
     ctx.withSystemContext(action).map(_.map(rowToDomain).toVector)
   }
+
+  /** Batch create (HEL-370 D1): a pure multi-row INSERT, append-only — no
+   *  DELETE, no dashboard-row touch, no layout write (layout is HEL-367's
+   *  job). This is the additive sibling of `DashboardContentsOps.
+   *  replaceContents`'s DELETE-then-INSERT, not a reuse of it: reusing
+   *  `replaceContents` verbatim would delete every panel the caller didn't
+   *  include, which is replace-contents' contract, not batch-create's.
+   *  Returns `panels` verbatim (not a re-query) so the response order is
+   *  exactly the input order — the same trick `PanelRepository.insert` uses
+   *  for the single-create path.
+   *
+   *  Privileged (`withSystemContext`, bypasses the `panels_insert` RLS `WITH
+   *  CHECK` policy): `PanelService.batchCreate` has already confirmed the
+   *  caller is an owner/editor of the target dashboard, and every panel
+   *  passed here already has its `ownerId` set to that ACL-checked caller by
+   *  `PanelService.buildForCreate` — mirrors `PanelMutationOps.duplicate`'s
+   *  identical bypass rationale above. */
+  def insertBatch(panels: Vector[Panel]): Future[Vector[Panel]] = {
+    if (panels.isEmpty) return Future.successful(Vector.empty)
+    val action = DBIO.sequence(panels.map(p => table += domainToRow(p))).transactionally
+    ctx.withSystemContext(action).map(_ => panels)
+  }
 }

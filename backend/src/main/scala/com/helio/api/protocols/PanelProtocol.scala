@@ -85,6 +85,18 @@ final case class PanelBatchItem(
 final case class UpdatePanelsBatchRequest(fields: Vector[String], panels: Vector[PanelBatchItem])
 final case class UpdatePanelsBatchResponse(panels: Vector[PanelResponse])
 
+/** Batch-create entry (HEL-370) — `CreatePanelRequest` minus `dashboardId`,
+ *  which is lifted to the envelope (`CreatePanelsBatchRequest`) since every
+ *  item in one batch targets the same dashboard (design.md D3). */
+final case class CreatePanelBatchItem(
+    title: Option[String],
+    `type`: Option[String],
+    config: Option[JsValue],
+    appearance: Option[PanelAppearancePayload] = None
+)
+final case class CreatePanelsBatchRequest(dashboardId: Option[String], panels: Vector[CreatePanelBatchItem])
+final case class CreatePanelsBatchResponse(panels: Vector[PanelResponse])
+
 object PanelResponse {
 
   /** Build a discriminated-wire response from the typed `Panel` ADT.
@@ -216,6 +228,13 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
     }
   implicit val updatePanelsBatchRequestFormat: RootJsonFormat[UpdatePanelsBatchRequest]   = jsonFormat2(UpdatePanelsBatchRequest.apply)
   implicit val updatePanelsBatchResponseFormat: RootJsonFormat[UpdatePanelsBatchResponse] = jsonFormat1(UpdatePanelsBatchResponse.apply)
+
+  /** Batch-create (HEL-370) — mirrors `createPanelRequestFormat`'s plain
+   *  `jsonFormatN` derivation (no absent-vs-null merge semantics needed here,
+   *  unlike the PATCH batch formats above: every field is create-time only). */
+  implicit val createPanelBatchItemFormat: RootJsonFormat[CreatePanelBatchItem] = jsonFormat4(CreatePanelBatchItem.apply)
+  implicit val createPanelsBatchRequestFormat: RootJsonFormat[CreatePanelsBatchRequest] = jsonFormat2(CreatePanelsBatchRequest.apply)
+  implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat1(CreatePanelsBatchResponse.apply)
 
   // PanelQuery format (domain type sent to clients as a derived response)
   implicit val panelQueryFormat: RootJsonFormat[PanelQuery] = new RootJsonFormat[PanelQuery] {

@@ -35,6 +35,18 @@ final class PanelRoutes(
             }
           }
         },
+        // HEL-370: placed before `pathEndOrSingleSlash`/`path(PanelIdSegment)`,
+        // mirroring `updateBatch`'s placement above — a literal "batch" segment
+        // must never be shadowed by the `PanelIdSegment` matcher.
+        path("batch") {
+          post {
+            entity(as[CreatePanelsBatchRequest]) { request =>
+              ServiceResponse.run(panelService.batchCreate(request, user)) { created =>
+                StatusCodes.Created -> CreatePanelsBatchResponse(created.map(p => PanelResponse.fromDomain(p)))
+              }
+            }
+          }
+        },
         pathEndOrSingleSlash {
           post {
             entity(as[CreatePanelRequest]) { request =>

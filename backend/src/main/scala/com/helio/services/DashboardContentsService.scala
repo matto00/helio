@@ -65,7 +65,7 @@ final class DashboardContentsService(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] =
-    buildPanels(dashboardId, panels, user, Vector.empty).flatMap {
+    buildPanels(dashboardId, panels, user).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(built) =>
         val layout = remapLayout(panels, built)
@@ -75,26 +75,21 @@ final class DashboardContentsService(
         }
     }
 
-  /** Build every panel sequentially, short-circuiting on the first failure —
-   *  zero DB writes happen for ANY panel until every panel in the batch has
-   *  been validated + constructed (design.md D1). `PanelService.buildForCreate`
-   *  performs the same config-decode/appearance-resolve/`rejectCompanionBinding`
-   *  checks `POST /api/panels` does, without inserting. */
+  /** Map every proposal panel to a `CreatePanelRequest` up front, then
+   *  delegate the "validate every item before any write" recursion to
+   *  `PanelService.buildAllForCreate` (HEL-370 D2, behavior-preserving
+   *  extraction) — passing NO `itemLabel` so error messages stay
+   *  byte-for-byte unchanged (this class's own indexed "panel N ('title')"
+   *  errors come entirely from `validatePanels`/`preValidateBindings`, which
+   *  run BEFORE this method; see `buildAllForCreate`'s scaladoc). */
   private def buildPanels(
       dashboardId: DashboardId,
-      remaining: Vector[ProposalPanel],
-      user: AuthenticatedUser,
-      acc: Vector[Panel]
-  ): Future[Either[ServiceError, Vector[Panel]]] =
-    remaining.headOption match {
-      case None => Future.successful(Right(acc))
-      case Some(panel) =>
-        val createRequest = ProposalPanelSupport.buildCreateRequest(dashboardId, panel)
-        panelService.buildForCreate(dashboardId, createRequest, user).flatMap {
-          case Left(err)    => Future.successful(Left(err))
-          case Right(built) => buildPanels(dashboardId, remaining.tail, user, acc :+ built)
-        }
-    }
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Vector[Panel]]] = {
+    val requests = panels.map(panel => ProposalPanelSupport.buildCreateRequest(dashboardId, panel))
+    panelService.buildAllForCreate(dashboardId, requests, user)
+  }
 
   /** Remap each proposal panel's optional layout item onto its freshly minted
    *  panel id (design.md D2 — mirrors `DashboardProposalService.applyLayout`'s

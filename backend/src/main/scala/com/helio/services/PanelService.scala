@@ -1,10 +1,10 @@
 package com.helio.services
 
 import com.helio.api.RequestValidation
-import com.helio.api.protocols.{CreatePanelRequest, PanelBatchItem, UpdatePanelRequest}
+import com.helio.api.protocols.{CreatePanelRequest, CreatePanelsBatchRequest, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 import com.helio.services.PanelServiceHelpers._
 import org.slf4j.LoggerFactory
 import spray.json.JsValue
@@ -40,11 +40,18 @@ final case class ResolvedPanelPatch(
  *    ACL (via `accessChecker.requireAccess`) is the authoritative gate there;
  *    per-panel owner checks are collapsed.
  *  - `delete` / `duplicate` / `update` delegate to the dashboard-level ACL
- *    via `authorizeEditorOnDashboard`. */
+ *    via `authorizeEditorOnDashboard`.
+ *  - `batchCreate` (HEL-370) uses its own two-step `authorizeEditor`
+ *    (sharing-aware `dashboardRepo.findById` first, role check only for
+ *    known grantees) rather than `authorizeEditorOnDashboard` — design.md D4:
+ *    the latter's bare `accessChecker.requireAccess` call 403s a cross-tenant
+ *    caller instead of 404ing (an existence leak this ticket must not
+ *    reopen). Mirrors `DashboardContentsService.authorizeEditor` exactly. */
 final class PanelService(
     panelRepo:     PanelRepository,
     dataTypeRepo:  DataTypeRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    dashboardRepo: DashboardRepository
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -163,6 +170,41 @@ final class PanelService(
     }
   }
 
+  /** Sequentially `buildForCreate` every request for `dashboardId`, short-
+   *  circuiting on the first failure — zero DB writes for ANY item until every
+   *  item in `requests` has been validated + constructed (design.md D1/D2).
+   *
+   *  Extracted so `DashboardContentsService.buildPanels` and `batchCreate`
+   *  share one "validate every item before any write" recursion instead of
+   *  each hand-rolling its own. `itemLabel` (default: no label) lets a caller
+   *  opt into a per-index prefix on a `BadRequest` failure (e.g. `"panel 2
+   *  ('Revenue'): ..."`) without changing the unlabeled caller's messages —
+   *  `DashboardContentsService` passes the default so its own tested error
+   *  messages stay byte-for-byte unchanged; `batchCreate` opts in (design.md
+   *  D5) to satisfy this ticket's "400 identifies the offending item" AC.
+   *  Only `BadRequest` errors are labeled — every other `ServiceError`
+   *  `buildForCreate` can produce passes through unlabeled. */
+  private[services] def buildAllForCreate(
+      dashboardId: DashboardId,
+      requests: Vector[CreatePanelRequest],
+      user: AuthenticatedUser,
+      itemLabel: Int => Option[String] = _ => None
+  ): Future[Either[ServiceError, Vector[Panel]]] = {
+    def loop(remaining: Vector[(CreatePanelRequest, Int)], acc: Vector[Panel]): Future[Either[ServiceError, Vector[Panel]]] =
+      remaining.headOption match {
+        case None => Future.successful(Right(acc))
+        case Some((request, idx)) =>
+          buildForCreate(dashboardId, request, user).flatMap {
+            case Left(ServiceError.BadRequest(msg)) =>
+              val labeled = itemLabel(idx).fold(msg)(label => s"$label: $msg")
+              Future.successful(Left(ServiceError.BadRequest(labeled)))
+            case Left(err)    => Future.successful(Left(err))
+            case Right(built) => loop(remaining.tail, acc :+ built)
+          }
+      }
+    loop(requests.zipWithIndex, Vector.empty)
+  }
+
   // ── Delete / duplicate ────────────────────────────────────────────────────
 
   def delete(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
@@ -252,6 +294,75 @@ final class PanelService(
         }
       }
   }
+
+  // ── Batch create ──────────────────────────────────────────────────────────
+
+  /** `POST /api/panels/batch` (HEL-370) — create N panels on ONE existing
+   *  dashboard in a single transaction, all-or-nothing. Rejects an empty
+   *  `panels` array (400, mirrors `batchUpdate`'s empty-batch guard), then
+   *  ACL-checks `request.dashboardId` via the two-step `authorizeEditor`
+   *  (design.md D4), then maps every item + the envelope `dashboardId` to a
+   *  `CreatePanelRequest` and delegates validation + construction to
+   *  `buildAllForCreate` with a labeled `itemLabel` (design.md D2/D5) so a
+   *  bad item's 400 names it by 1-based index and title. Only on full success
+   *  does `panelRepo.insertBatch` run — zero DB writes on any invalid item. */
+  def batchCreate(
+      request: CreatePanelsBatchRequest,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Vector[Panel]]] =
+    if (request.panels.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("panels must not be empty")))
+    else
+      request.dashboardId.map(_.trim).filter(_.nonEmpty) match {
+        case None =>
+          Future.successful(Left(ServiceError.BadRequest("dashboardId is required")))
+        case Some(id) =>
+          val dashboardId = DashboardId(id)
+          authorizeEditor(dashboardId, user).flatMap {
+            case Left(err) => Future.successful(Left(err))
+            case Right(_) =>
+              val items = request.panels
+              val createRequests = items.map { item =>
+                CreatePanelRequest(
+                  dashboardId = Some(dashboardId.value),
+                  title       = item.title,
+                  `type`      = item.`type`,
+                  config      = item.config,
+                  appearance  = item.appearance
+                )
+              }
+              val itemLabel: Int => Option[String] =
+                idx => Some(s"panel ${idx + 1} ('${items(idx).title.getOrElse("")}')")
+              buildAllForCreate(dashboardId, createRequests, user, itemLabel).flatMap {
+                case Left(err)     => Future.successful(Left(err))
+                case Right(built)  => panelRepo.insertBatch(built).map(Right(_))
+              }
+          }
+      }
+
+  /** Owner or editor grantee may batch-create — mirrors
+   *  `DashboardContentsService.authorizeEditor`'s exact two-step pattern (NOT
+   *  a bare `accessChecker.requireAccess` call, which 403s ANY authenticated
+   *  no-grant caller on an existing resource instead of 404ing — design.md
+   *  D4, a known existence-leak class this ticket must not reopen). Step 1:
+   *  the sharing-aware `dashboardRepo.findById` — `None` (no grant at all) →
+   *  404, no existence leak. Step 2: only once the caller is a KNOWN grantee
+   *  does role tier matter — owner proceeds directly; a non-owner grantee's
+   *  role is checked via `accessChecker.requireAccess` (Viewer → 403, Editor
+   *  → proceed). */
+  private def authorizeEditor(dashboardId: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    dashboardRepo.findById(dashboardId, Some(user)).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
+      case Some(existing) if existing.ownerId == user.id =>
+        Future.successful(Right(()))
+      case Some(_) =>
+        accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
+          case Left(err)                    => Left(err)
+          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+          case Right(_)                     => Right(())
+        }
+    }
 
   // ── Patch ─────────────────────────────────────────────────────────────────
 

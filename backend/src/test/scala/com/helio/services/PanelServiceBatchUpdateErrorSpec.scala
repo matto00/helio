@@ -6,7 +6,7 @@ import ch.qos.logback.core.read.ListAppender
 import com.helio.api.protocols.PanelBatchItem
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
@@ -49,9 +49,10 @@ class PanelServiceBatchUpdateErrorSpec extends AnyWordSpec with Matchers {
   "PanelService.batchUpdate" should {
 
     "return a generic client message (no raw exception text) and log the DB failure" in {
-      val dtRepo    = mock(classOf[DataTypeRepository])
-      val panelRepo = mock(classOf[PanelRepository])
-      val item      = PanelBatchItem(id = "p-1", title = None, appearance = None, `type` = None, config = None)
+      val dtRepo        = mock(classOf[DataTypeRepository])
+      val panelRepo     = mock(classOf[PanelRepository])
+      val dashboardRepo = mock(classOf[DashboardRepository])
+      val item          = PanelBatchItem(id = "p-1", title = None, appearance = None, `type` = None, config = None)
 
       when(panelRepo.findByIdInternal(PanelId("p-1"))).thenReturn(Future.successful(Some(existingPanel("p-1"))))
 
@@ -65,7 +66,7 @@ class PanelServiceBatchUpdateErrorSpec extends AnyWordSpec with Matchers {
       logbackLogger.addAppender(appender)
 
       try {
-        val result = await(new PanelService(panelRepo, dtRepo, stubAccess).batchUpdate(Vector(item), user))
+        val result = await(new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo).batchUpdate(Vector(item), user))
 
         result.isLeft shouldBe true
         val message = result.swap.toOption.get.message

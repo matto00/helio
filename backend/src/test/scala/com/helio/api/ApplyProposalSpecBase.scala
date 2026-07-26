@@ -191,4 +191,24 @@ abstract class ApplyProposalSpecBase
     ))
     id
   }
+
+  /** Grant `granteeId` a role (`"editor"` / `"viewer"`) on `dashboardId` —
+   *  used by HEL-370 batch-create cross-tenant/grantee specs. Mirrors
+   *  `DashboardPanelAclSpec.grantRole`'s raw-SQL insert. */
+  protected def grantRole(dashboardId: String, granteeId: String, role: String): Unit =
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+             VALUES ('dashboard', $dashboardId, ${granteeId}::uuid, $role, now())
+             ON CONFLICT (resource_type, resource_id, grantee_id) DO UPDATE SET role = EXCLUDED.role"""
+    ))
+
+  /** ACL-free read of a dashboard's panel titles, via the privileged pool —
+   *  used by HEL-370 cross-tenant/no-grant specs to prove "nothing created"
+   *  on a dashboard the test's own session user cannot GET (the HTTP export
+   *  route itself 404s for a non-owner/non-grantee, so it can't be used to
+   *  observe the dashboard's contents in that scenario). */
+  protected def panelTitlesForDashboard(dashboardId: String): Vector[String] =
+    await(ctx.withSystemContext(
+      sql"""SELECT title FROM panels WHERE dashboard_id = $dashboardId""".as[String]
+    )).toVector
 }
