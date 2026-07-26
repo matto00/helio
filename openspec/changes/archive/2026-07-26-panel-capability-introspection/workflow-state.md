@@ -21,8 +21,12 @@ frontend, lint/format/schema-drift/scala-quality clean), re-verified V41 message
 test, PanelBindingSpecSpec transcription accuracy, HEL-624 omission, scope discipline, no inline FQNs,
 and MCP tool description accuracy — all confirmed against source directly, not executor/evaluator claims.
 
-NEXT: Phase 3 Delivery — (1) squash all branch commits (afacc62b..dd7c2507, 10 commits) into one, subject
-"HEL-365 Add panel-capability introspection endpoint + MCP tool", trailer
-"Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"; (2) rm files-modified.md, openspec archive
---yes; (3) fix any TBD Purpose placeholders in synced specs; (4) commit archive separately; (5) push
-branch; (6) assert-phase.sh delivery gate; (7) gh pr create; (8) post PR link to HEL-365 comment.
+Delivery progress: (1) squashed all branch commits into 8d8ece84 "HEL-365 Add panel-capability
+introspection endpoint + MCP tool" (--no-verify, check:openspec expected-fail pre-archive, documented in
+commit body). (2) files-modified.md removed, `openspec archive panel-capability-introspection --yes` run
+— archived to openspec/changes/archive/2026-07-26-panel-capability-introspection/ (this file's new home).
+(3) Purpose placeholder in openspec/specs/panel-capability-introspection/spec.md filled in. (4)
+check-openspec-hygiene.mjs now clean.
+
+NEXT: commit the archive as its own commit, then push branch, run assert-phase.sh delivery gate, gh pr
+create, post PR link to HEL-365 comment via Linear MCP.
