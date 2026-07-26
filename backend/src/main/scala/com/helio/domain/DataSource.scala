@@ -23,6 +23,10 @@ sealed trait DataSource {
   def createdAt: Instant
   def updatedAt: Instant
   def kind: String
+  /** HEL-366: optional free-form grouping tag, set only at create time. See
+   *  [[com.helio.services.WorkspaceTeardownService]] for the bulk-teardown
+   *  consumer of this field. */
+  def tag: Option[String]
 }
 
 /** CSV-backed source. The `path` is a FileSystem-relative key into the uploads
@@ -35,7 +39,8 @@ final case class CsvSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: CsvSourceConfig
+    config: CsvSourceConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "csv"
 }
@@ -46,7 +51,8 @@ final case class RestSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: RestApiConfig
+    config: RestApiConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "rest_api"
 }
@@ -57,7 +63,8 @@ final case class SqlSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: SqlSourceConfig
+    config: SqlSourceConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "sql"
 }
@@ -77,7 +84,8 @@ final case class TextSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: TextSourceConfig
+    config: TextSourceConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "text"
 }
@@ -99,7 +107,8 @@ final case class PdfSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: PdfSourceConfig
+    config: PdfSourceConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "pdf"
 }
@@ -122,7 +131,8 @@ final case class StaticSource(
     name: String,
     ownerId: UserId,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "static"
 }
@@ -142,7 +152,8 @@ final case class ImageSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    config: ImageSourceConfig
+    config: ImageSourceConfig,
+    tag: Option[String] = None
 ) extends DataSource {
   override val kind: String = "image"
 }

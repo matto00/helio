@@ -41,6 +41,7 @@ import type {
   RowsPreview,
   RunResultResponse,
   ShapeStepExpansionResponse,
+  TeardownResponse,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -171,8 +172,10 @@ export class HelioApi {
     return { ...record, panels: snapshot.panels };
   }
 
-  listDataSources(limit = 200, offset = 0): Promise<Paged<DataSourceResponse>> {
-    return this.http.get<Paged<DataSourceResponse>>("/api/data-sources", { limit, offset });
+  /** `tag` (HEL-366), when given, restricts results to the caller's resources whose `tag`
+   *  exactly matches — an owner-scoped exact-match filter, not a search. */
+  listDataSources(limit = 200, offset = 0, tag?: string): Promise<Paged<DataSourceResponse>> {
+    return this.http.get<Paged<DataSourceResponse>>("/api/data-sources", { limit, offset, tag });
   }
 
   /** No `/data-sources/:id/sources` endpoint exists — surface the source's
@@ -207,8 +210,10 @@ export class HelioApi {
     };
   }
 
-  listDataTypes(limit = 200, offset = 0): Promise<Paged<DataTypeResponse>> {
-    return this.http.get<Paged<DataTypeResponse>>("/api/types", { limit, offset });
+  /** `tag` (HEL-366), when given, restricts results to the caller's resources whose `tag`
+   *  exactly matches — an owner-scoped exact-match filter, not a search. */
+  listDataTypes(limit = 200, offset = 0, tag?: string): Promise<Paged<DataTypeResponse>> {
+    return this.http.get<Paged<DataTypeResponse>>("/api/types", { limit, offset, tag });
   }
 
   getDataTypeRows(dataTypeId: string): Promise<DataTypeRowsResponse> {
@@ -225,8 +230,10 @@ export class HelioApi {
     return this.http.get<PanelCapabilitiesResponse>(`/api/types/${dataTypeId}/panel-capabilities`);
   }
 
-  listPipelines(): Promise<PipelineSummaryResponse[]> {
-    return this.http.get<PipelineSummaryResponse[]>("/api/pipelines");
+  /** `tag` (HEL-366), when given, restricts results to the caller's pipelines whose `tag`
+   *  exactly matches — an owner-scoped exact-match filter, not a search. */
+  listPipelines(tag?: string): Promise<PipelineSummaryResponse[]> {
+    return this.http.get<PipelineSummaryResponse[]>("/api/pipelines", { tag });
   }
 
   /** Compose: summary (`/:id`) + ordered steps (`/:id/steps`). */
@@ -262,17 +269,21 @@ export class HelioApi {
    *  auto-creates a source-companion DataType; a pipeline over this source
    *  then produces the panel-bindable output type. Returns the flat
    *  DataSourceResponse (static create is NOT the `{source,dataType}` wrapper
-   *  shape the REST/SQL `/api/sources` endpoint returns). */
+   *  shape the REST/SQL `/api/sources` endpoint returns). `tag` (HEL-366,
+   *  optional) is a free-form grouping key propagated to the auto-created
+   *  companion DataType as well — see `teardown_resources`. */
   createDataSource(input: {
     name: string;
     columns: StaticColumn[];
     rows: unknown[][];
+    tag?: string;
   }): Promise<DataSourceResponse> {
     return this.http.post<DataSourceResponse>("/api/data-sources", {
       name: input.name,
       type: "static",
       columns: input.columns.map((c) => ({ name: c.name, type: c.type })),
       rows: input.rows,
+      tag: input.tag,
     });
   }
 
@@ -281,11 +292,18 @@ export class HelioApi {
    *  multipart form data to the same route the UI's file-upload flow uses.
    *  Like `static`, the backend auto-creates a source-companion DataType but
    *  this route only ever returns the flat `DataSourceResponse` (no `dataType`
-   *  field) — inspect the companion via `list_source_objects`. */
-  createCsvDataSource(input: { name: string; content: string }): Promise<DataSourceResponse> {
+   *  field) — inspect the companion via `list_source_objects`. `tag`
+   *  (HEL-366, optional) is a free-form grouping key propagated to the
+   *  auto-created companion DataType as well — see `teardown_resources`. */
+  createCsvDataSource(input: {
+    name: string;
+    content: string;
+    tag?: string;
+  }): Promise<DataSourceResponse> {
     const form = new FormData();
     form.set("name", input.name);
     form.set("file", new Blob([input.content], { type: "text/csv" }), `${input.name}.csv`);
+    if (input.tag) form.set("tag", input.tag);
     return this.http.postMultipart<DataSourceResponse>("/api/data-sources", form);
   }
 
@@ -353,10 +371,14 @@ export class HelioApi {
     };
   }
 
+  /** `tag` (HEL-366, optional) is a free-form grouping key propagated to the newly-created
+   *  output DataType as well (the only site that ever inserts that row) — see
+   *  `teardown_resources`. */
   createPipeline(input: {
     name: string;
     sourceDataSourceId: string;
     outputDataTypeName: string;
+    tag?: string;
   }): Promise<PipelineSummaryResponse> {
     return this.http.post<PipelineSummaryResponse>("/api/pipelines", input);
   }
@@ -395,12 +417,14 @@ export class HelioApi {
     outputDataTypeName: string;
     shapeId: string;
     params: Record<string, unknown>;
+    tag?: string;
   }): Promise<PipelineFromShapeResult> {
     const expansions = await this.expandPipelineShape(input.shapeId, input.params);
     const summary = await this.createPipeline({
       name: input.name,
       sourceDataSourceId: input.sourceDataSourceId,
       outputDataTypeName: input.outputDataTypeName,
+      tag: input.tag,
     });
     const steps: PipelineStepResponse[] = [];
     for (const expansion of expansions) {
@@ -628,6 +652,23 @@ export class HelioApi {
       "/api/dashboards/apply-proposal",
       proposal,
     );
+  }
+
+  /** Bulk-delete every data source, pipeline, and DataType owned by the caller that carries
+   *  `tag` (HEL-366, `POST /api/workspace/teardown`). Refuses the WHOLE call (200, `blocked:
+   *  true`, nothing deleted) if any tagged resource has a dependent outside this same tag batch
+   *  — untagged, OR tagged into a different, live batch — that an ordinary single-resource
+   *  delete's cascade would otherwise reach (a tagged DataSource with an out-of-batch dependent
+   *  Pipeline; a tagged output DataType with an out-of-batch producing Pipeline; a tagged
+   *  DataType still bound to a panel or still linked to an out-of-batch source). The response's
+   *  `conflicts` names each blocked resource and why. All-or-nothing: on success every resource
+   *  tagged `tag` is deleted; on a block, NOTHING is deleted, not even the unblocked portion.
+   *  Idempotent — a repeat call with the same tag after success reports all-zero counts. Pass
+   *  `dryRun: true` to compute and return the identical plan (same counts/conflicts shape)
+   *  without deleting anything — ALWAYS call with `dryRun: true` first to verify scope before a
+   *  real teardown, since deletion is permanent. */
+  teardownResources(input: { tag: string; dryRun?: boolean }): Promise<TeardownResponse> {
+    return this.http.post<TeardownResponse>("/api/workspace/teardown", input);
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────

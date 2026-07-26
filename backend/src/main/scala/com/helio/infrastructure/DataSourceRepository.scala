@@ -27,24 +27,24 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     row.sourceType match {
       case DataSourceKind.Csv =>
         val cfg = DataSourceConfigCodec.decodeCsv(row.config)
-        CsvSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        CsvSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.RestApi =>
         val cfg = DataSourceConfigCodec.decodeRest(row.config)
-        RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.Sql =>
         val cfg = DataSourceConfigCodec.decodeSql(row.config)
-        SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.Static =>
-        StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt)
+        StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag)
       case DataSourceKind.Text =>
         val cfg = DataSourceConfigCodec.decodeText(row.config)
-        TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.Pdf =>
         val cfg = DataSourceConfigCodec.decodePdf(row.config)
-        PdfSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        PdfSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.Image =>
         val cfg = DataSourceConfigCodec.decodeImage(row.config)
-        ImageSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg)
+        ImageSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case other =>
         throw new IllegalStateException(s"Unknown data source type in DB: '$other'")
     }
@@ -70,13 +70,19 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config     = configJson,
       createdAt  = ds.createdAt,
       updatedAt  = ds.updatedAt,
-      ownerId    = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value))
+      ownerId    = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value)),
+      tag        = ds.tag
     )
   }
 
-  def findAll(ownerId: UserId, page: Page): Future[PagedResult[DataSource]] = {
+  /** Owner-scoped, paginated list, optionally exact-matched on `tag` (HEL-366
+   *  tasks.md 2.5). `tag = None` is the pre-existing unfiltered behavior. */
+  def findAll(ownerId: UserId, page: Page, tag: Option[String] = None): Future[PagedResult[DataSource]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
-    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val baseQuery = tag match {
+      case Some(t) => table.filter(r => r.ownerId === ownerUuid && r.tag === t)
+      case None    => table.filter(_.ownerId === ownerUuid)
+    }
     val countAction = baseQuery.length.result
     val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
@@ -204,10 +210,14 @@ object DataSourceRepository {
       config: String,
       createdAt: Instant,
       updatedAt: Instant,
-      ownerId: Option[UUID]
+      ownerId: Option[UUID],
+      tag: Option[String] = None
   )
 
-  class DataSourceTable(tag: Tag) extends Table[DataSourceRow](tag, "data_sources") {
+  // Constructor param renamed `slickTag` (not `tag`) — this table declares its
+  // own `tag` *column* (HEL-366), which would otherwise shadow Slick's own
+  // `Tag` constructor parameter of the same name.
+  class DataSourceTable(slickTag: Tag) extends Table[DataSourceRow](slickTag, "data_sources") {
     def id         = column[String]("id", O.PrimaryKey)
     def name       = column[String]("name")
     def sourceType = column[String]("source_type")
@@ -215,8 +225,9 @@ object DataSourceRepository {
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
     def ownerId    = column[Option[UUID]]("owner_id")
+    def tag        = column[Option[String]]("tag")
 
-    def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId).mapTo[DataSourceRow]
+    def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId, tag).mapTo[DataSourceRow]
   }
 
   /** Read the static-source `{columns, rows}` payload. Used by the in-process

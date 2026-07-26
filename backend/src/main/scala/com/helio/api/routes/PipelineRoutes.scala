@@ -23,7 +23,9 @@ class PipelineRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              onSuccess(pipelineService.listSummaries(user))(summaries => complete(StatusCodes.OK, summaries))
+              parameter("tag".optional) { tag =>
+                onSuccess(pipelineService.listSummaries(user, tag))(summaries => complete(StatusCodes.OK, summaries))
+              }
             },
             post {
               entity(as[CreatePipelineRequest]) { req =>

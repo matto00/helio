@@ -26,7 +26,8 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       version        = row.version,
       createdAt      = row.createdAt,
       updatedAt      = row.updatedAt,
-      ownerId        = row.ownerId.map(id => UserId(id.toString)).getOrElse(UserId("00000000-0000-0000-0000-000000000000"))
+      ownerId        = row.ownerId.map(id => UserId(id.toString)).getOrElse(UserId("00000000-0000-0000-0000-000000000000")),
+      tag            = row.tag
     )
 
   private def domainToRow(dt: DataType): DataTypeRow =
@@ -39,12 +40,18 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
       version        = dt.version,
       createdAt      = dt.createdAt,
       updatedAt      = dt.updatedAt,
-      ownerId        = if (dt.ownerId.value.isEmpty) None else Some(UUID.fromString(dt.ownerId.value))
+      ownerId        = if (dt.ownerId.value.isEmpty) None else Some(UUID.fromString(dt.ownerId.value)),
+      tag            = dt.tag
     )
 
-  def findAll(ownerId: UserId, page: Page): Future[PagedResult[DataType]] = {
+  /** Owner-scoped, paginated list, optionally exact-matched on `tag` (HEL-366
+   *  tasks.md 2.5). `tag = None` is the pre-existing unfiltered behavior. */
+  def findAll(ownerId: UserId, page: Page, tag: Option[String] = None): Future[PagedResult[DataType]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
-    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val baseQuery = tag match {
+      case Some(t) => table.filter(r => r.ownerId === ownerUuid && r.tag === t)
+      case None    => table.filter(_.ownerId === ownerUuid)
+    }
     val countAction = baseQuery.length.result
     val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
@@ -183,12 +190,18 @@ class DataTypeRepository(ctx: DbContext)(implicit ec: ExecutionContext)
    *  panel owned by `user` is bound to this data type. Cross-user bindings
    *  (another user's panel bound to the same type) are not counted — the
    *  caller can only see the panels they own. */
-  def existsBoundToAnyOwnedPanel(id: DataTypeId, user: AuthenticatedUser): Future[Boolean] = {
+  def existsBoundToAnyOwnedPanel(id: DataTypeId, user: AuthenticatedUser): Future[Boolean] =
+    ctx.withUserContext(user.id.value)(existsBoundToAnyOwnedPanelAction(id, user)).map(_ > 0)
+
+  /** Bare `DBIO[Int]` (row count) underlying [[existsBoundToAnyOwnedPanel]] —
+   *  extracted (HEL-366 tasks.md 3.1) so `WorkspaceTeardownRepository` can
+   *  compose the identical query inside its own app-pool `withUserContext`
+   *  transaction (design.md Decision 3/6) instead of duplicating the SQL.
+   *  This call site's own wrapping in `withUserContext` above is unchanged —
+   *  zero behavior change for existing callers. */
+  def existsBoundToAnyOwnedPanelAction(id: DataTypeId, user: AuthenticatedUser): DBIO[Int] = {
     val ownerStr = user.id.value
-    ctx.withUserContext(user.id.value)(
-      sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value} AND owner_id = $ownerStr::uuid"
-        .as[Int].head
-    ).map(_ > 0)
+    sql"SELECT COUNT(*) FROM panels WHERE type_id = ${id.value} AND owner_id = $ownerStr::uuid".as[Int].head
   }
 }
 
@@ -224,10 +237,14 @@ object DataTypeRepository {
       version: Int,
       createdAt: Instant,
       updatedAt: Instant,
-      ownerId: Option[UUID]
+      ownerId: Option[UUID],
+      tag: Option[String] = None
   )
 
-  class DataTypeTable(tag: Tag) extends Table[DataTypeRow](tag, "data_types") {
+  // Constructor param renamed `slickTag` (not `tag`) — this table declares
+  // its own `tag` *column* (HEL-366), which would otherwise shadow Slick's
+  // own `Tag` constructor parameter of the same name.
+  class DataTypeTable(slickTag: Tag) extends Table[DataTypeRow](slickTag, "data_types") {
     def id             = column[String]("id", O.PrimaryKey)
     def sourceId       = column[Option[String]]("source_id")
     def name           = column[String]("name")
@@ -237,7 +254,8 @@ object DataTypeRepository {
     def createdAt      = column[Instant]("created_at")
     def updatedAt      = column[Instant]("updated_at")
     def ownerId        = column[Option[UUID]]("owner_id")
+    def tag            = column[Option[String]]("tag")
 
-    def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt, ownerId).mapTo[DataTypeRow]
+    def * = (id, sourceId, name, fields, computedFields, version, createdAt, updatedAt, ownerId, tag).mapTo[DataTypeRow]
   }
 }

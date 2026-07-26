@@ -16,7 +16,8 @@ final case class DataTypeResponse(
     computedFields: Vector[ComputedFieldResponse],
     version: Int,
     createdAt: String,
-    updatedAt: String
+    updatedAt: String,
+    tag: Option[String] = None
 )
 final case class DataTypesResponse(items: Vector[DataTypeResponse])
 final case class DataFieldPayload(name: String, displayName: String, dataType: String, nullable: Boolean)
@@ -48,7 +49,8 @@ object DataTypeResponse {
       computedFields = dt.computedFields.map(cf => ComputedFieldResponse(cf.name, cf.displayName, cf.expression, cf.dataType)),
       version        = dt.version,
       createdAt      = dt.createdAt.toString,
-      updatedAt      = dt.updatedAt.toString
+      updatedAt      = dt.updatedAt.toString,
+      tag            = dt.tag
     )
 }
 
@@ -60,7 +62,7 @@ trait DataTypeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   // DataType API formats
   implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse]                   = jsonFormat4(DataFieldResponse.apply)
   implicit val computedFieldResponseFormat: RootJsonFormat[ComputedFieldResponse]           = jsonFormat4(ComputedFieldResponse.apply)
-  implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]                     = jsonFormat8(DataTypeResponse.apply)
+  implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]                     = jsonFormat9(DataTypeResponse.apply)
   implicit val dataTypesResponseFormat: RootJsonFormat[DataTypesResponse]                   = jsonFormat1(DataTypesResponse.apply)
   implicit val dataFieldPayloadFormat: RootJsonFormat[DataFieldPayload]                     = jsonFormat4(DataFieldPayload.apply)
   implicit val computedFieldPayloadFormat: RootJsonFormat[ComputedFieldPayload]             = jsonFormat4(ComputedFieldPayload.apply)

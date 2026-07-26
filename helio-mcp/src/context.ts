@@ -40,7 +40,7 @@ export interface WorkspaceContext {
     pipelines: number;
     dashboards: number;
   };
-  dataSources: Array<{ id: string; name: string; type: string }>;
+  dataSources: Array<{ id: string; name: string; type: string; tag: string | null }>;
   dataTypes: Array<{
     id: string;
     name: string;
@@ -50,6 +50,9 @@ export interface WorkspaceContext {
     columns: Array<{ name: string; dataType: string; nullable: boolean }>;
     computedColumns: Array<{ name: string; dataType: string; expression: string }>;
     version: number;
+    /** HEL-366: free-form grouping key, mirrors the owning DataSource's or producing Pipeline's
+     *  tag; `null` when unset. */
+    tag: string | null;
   }>;
   pipelines: Array<{
     id: string;
@@ -61,6 +64,8 @@ export interface WorkspaceContext {
     lastRunStatus: string | null;
     lastRunAt: string | null;
     lastRunRowCount: number | null;
+    /** HEL-366: free-form grouping key; `null` when unset. */
+    tag: string | null;
     steps: Array<{
       position: number;
       type: string;
@@ -127,6 +132,7 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
         lastRunStatus: summary.lastRunStatus,
         lastRunAt: summary.lastRunAt,
         lastRunRowCount: summary.lastRunRowCount,
+        tag: summary.tag ?? null,
       };
       try {
         const analyzed = await api.analyzePipeline(summary.id);
@@ -153,7 +159,12 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
       pipelines: pipelineSummaries.length,
       dashboards: dashboardsPage.total,
     },
-    dataSources: sourcesPage.items.map((s) => ({ id: s.id, name: s.name, type: s.type })),
+    dataSources: sourcesPage.items.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      tag: s.tag ?? null,
+    })),
     dataTypes: typesPage.items.map((t) => {
       // spray-json omits `sourceId` entirely when it is null, so a MISSING
       // field is the pipeline-output (panel-bindable) case. Normalize before
@@ -175,6 +186,7 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
           expression: c.expression,
         })),
         version: t.version,
+        tag: t.tag ?? null,
       };
     }),
     pipelines,

@@ -5,7 +5,12 @@ import spray.json._
 
 // ── Pipeline summary / CRUD types ────────────────────────────────────────────
 
-final case class CreatePipelineRequest(name: String, sourceDataSourceId: String, outputDataTypeName: String)
+final case class CreatePipelineRequest(
+    name: String,
+    sourceDataSourceId: String,
+    outputDataTypeName: String,
+    tag: Option[String] = None
+)
 final case class UpdatePipelineRequest(name: String)
 final case class PipelineSummaryResponse(
     id: String,
@@ -17,7 +22,8 @@ final case class PipelineSummaryResponse(
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
-    ownerId: Option[String] = None
+    ownerId: Option[String] = None,
+    tag: Option[String] = None
 )
 
 // ── Pipeline run API types ───────────────────────────────────────────────────
@@ -62,9 +68,9 @@ trait PipelineProtocol
     with PipelineAnalyzeProtocol {
 
   // CRUD formats
-  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
+  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat4(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat10(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
 
   // Run formats
   implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat8(PipelineRunRecord.apply)

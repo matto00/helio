@@ -276,4 +276,12 @@ package object api {
   val ExpandPipelineShapeRequest: protocols.ExpandPipelineShapeRequest.type = protocols.ExpandPipelineShapeRequest
   type ShapeStepExpansionResponse = protocols.ShapeStepExpansionResponse
   val ShapeStepExpansionResponse: protocols.ShapeStepExpansionResponse.type = protocols.ShapeStepExpansionResponse
+
+  // Workspace tag-teardown (HEL-366)
+  type TeardownRequest = protocols.TeardownRequest
+  val TeardownRequest: protocols.TeardownRequest.type = protocols.TeardownRequest
+  type TeardownConflictResponse = protocols.TeardownConflictResponse
+  val TeardownConflictResponse: protocols.TeardownConflictResponse.type = protocols.TeardownConflictResponse
+  type TeardownResponse = protocols.TeardownResponse
+  val TeardownResponse: protocols.TeardownResponse.type = protocols.TeardownResponse
 }

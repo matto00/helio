@@ -118,7 +118,8 @@ class PipelineRepository(
       lastRunAt          = row.lastRunAt,
       createdAt          = row.createdAt,
       updatedAt          = row.updatedAt,
-      ownerId            = UserId(row.ownerId.toString)
+      ownerId            = UserId(row.ownerId.toString),
+      tag                = row.tag
     )
 
   /** Sharing-aware joined summary. Returns Some for owner or grantee callers. */
@@ -142,7 +143,8 @@ class PipelineRepository(
             lastRunStatus        = p.lastRunStatus,
             lastRunAt            = p.lastRunAt.map(_.toString),
             lastRunRowCount      = p.lastRunRowCount,
-            ownerId              = p.ownerId.toString
+            ownerId              = p.ownerId.toString,
+            tag                  = p.tag
           )
         })
     }
@@ -167,7 +169,8 @@ class PipelineRepository(
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
         lastRunRowCount      = p.lastRunRowCount,
-        ownerId              = p.ownerId.toString
+        ownerId              = p.ownerId.toString,
+        tag                  = p.tag
       )
     })
   }
@@ -190,12 +193,21 @@ class PipelineRepository(
 
   /** Owner-scoped create. Verifies the bound `sourceDataSourceId` belongs to
     * the caller; returns `Left("Data source not found")` if it does not (404,
-    * not 400 — existence and authorization are indistinguishable). */
+    * not 400 — existence and authorization are indistinguishable).
+    *
+    * HEL-366: `tag` is set on the new pipeline row AND propagated to its
+    * freshly-created output DataType (tasks.md 2.3(b)). This is the only
+    * physical insertion site for the pipeline's output DataType — later runs
+    * (`PipelineRunService.upsertFieldsFromRows`) only update its `fields` via
+    * `findByIdInternal`/`updateInternal`, never re-insert it — so propagating
+    * here at create time is the sole place that can satisfy design.md
+    * Decision 2's "output DataType → producing Pipeline" tag-parity guard. */
   def create(
       name: String,
       sourceDataSourceId: DataSourceId,
       outputDataTypeName: String,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[String, PipelineSummary]] = {
     dataSourceRepo.findByIdOwned(sourceDataSourceId, user).flatMap {
       case None =>
@@ -211,7 +223,8 @@ class PipelineRepository(
           version        = 1,
           createdAt      = now,
           updatedAt      = now,
-          ownerId        = user.id
+          ownerId        = user.id,
+          tag            = tag
         )
         dataTypeRepo.insert(newDataType, user).flatMap { createdDataType =>
           val pipelineId  = UUID.randomUUID().toString
@@ -225,7 +238,8 @@ class PipelineRepository(
             createdAt          = now,
             updatedAt          = now,
             lastRunRowCount    = None,
-            ownerId            = UUID.fromString(user.id.value)
+            ownerId            = UUID.fromString(user.id.value),
+            tag                = tag
           )
           ctx.withUserContext(user.id.value)(pipelinesTable += pipelineRow).map { _ =>
             Right(PipelineSummary(
@@ -238,7 +252,8 @@ class PipelineRepository(
               lastRunStatus        = None,
               lastRunAt            = None,
               lastRunRowCount      = None,
-              ownerId              = user.id.value
+              ownerId              = user.id.value,
+              tag                  = tag
             ))
           }
         }
@@ -319,11 +334,16 @@ class PipelineRepository(
 
   /** Owner-scoped list summaries — only returns pipelines owned by the
     * caller. Replaces the unscoped pre-CS2 listing that leaked every
-    * pipeline to every authenticated user. */
-  def listSummaries(user: AuthenticatedUser): Future[Vector[PipelineSummary]] = {
+    * pipeline to every authenticated user. `tag`, when given, exact-matches
+    * (HEL-366 tasks.md 2.5) — `None` is the pre-existing unfiltered behavior. */
+  def listSummaries(user: AuthenticatedUser, tag: Option[String] = None): Future[Vector[PipelineSummary]] = {
     val ownerUuid = UUID.fromString(user.id.value)
+    val ownedPipelines = tag match {
+      case Some(t) => pipelinesTable.filter(p => p.ownerId === ownerUuid && p.tag === t)
+      case None    => pipelinesTable.filter(_.ownerId === ownerUuid)
+    }
     val query = for {
-      pipeline   <- pipelinesTable if pipeline.ownerId === ownerUuid
+      pipeline   <- ownedPipelines
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
       dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
     } yield (pipeline, dataSource.name, dataType.name)
@@ -339,7 +359,8 @@ class PipelineRepository(
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
         lastRunRowCount      = p.lastRunRowCount,
-        ownerId              = p.ownerId.toString
+        ownerId              = p.ownerId.toString,
+        tag                  = p.tag
       )
     }.toVector)
   }
@@ -364,7 +385,8 @@ object PipelineRepository {
       lastRunStatus: Option[String],
       lastRunAt: Option[String],
       lastRunRowCount: Option[Long],
-      ownerId: String = ""
+      ownerId: String = "",
+      tag: Option[String] = None
   )
 
   case class PipelineRow(
@@ -377,10 +399,14 @@ object PipelineRepository {
       createdAt: Instant,
       updatedAt: Instant,
       lastRunRowCount: Option[Long],
-      ownerId: UUID
+      ownerId: UUID,
+      tag: Option[String] = None
   )
 
-  class PipelineTable(tag: Tag) extends Table[PipelineRow](tag, "pipelines") {
+  // Constructor param renamed `slickTag` (not `tag`) — this table declares
+  // its own `tag` *column* (HEL-366), which would otherwise shadow Slick's
+  // own `Tag` constructor parameter of the same name.
+  class PipelineTable(slickTag: Tag) extends Table[PipelineRow](slickTag, "pipelines") {
     def id                 = column[String]("id", O.PrimaryKey)
     def name               = column[String]("name")
     def sourceDataSourceId = column[String]("source_data_source_id")
@@ -391,9 +417,10 @@ object PipelineRepository {
     def updatedAt          = column[Instant]("updated_at")
     def lastRunRowCount    = column[Option[Long]]("last_run_row_count")
     def ownerId            = column[UUID]("owner_id")
+    def tag                = column[Option[String]]("tag")
 
     def * =
-      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId)
+      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
         .mapTo[PipelineRow]
   }
 }

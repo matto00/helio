@@ -67,13 +67,17 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       title: "List data sources",
       description:
         "List data sources (CSV, REST API, SQL, static) — the roots of the canonical path " +
-        "DataSource → Pipeline → DataType → Panel. Discriminated on `type`.",
+        "DataSource → Pipeline → DataType → Panel. Discriminated on `type`. Each entry's `tag` " +
+        "(HEL-366, omitted when unset) is its free-form grouping key. Optional `tag` param " +
+        "restricts to the caller's sources with an exact tag match — a preview of exactly what " +
+        "teardown_resources would discover for that tag, without deleting anything.",
       inputSchema: {
         limit: z.number().int().positive().max(500).optional(),
         offset: z.number().int().nonnegative().optional(),
+        tag: z.string().min(1).optional(),
       },
     },
-    ({ limit, offset }) => guarded(() => api.listDataSources(limit, offset)),
+    ({ limit, offset, tag }) => guarded(() => api.listDataSources(limit, offset, tag)),
   );
 
   server.registerTool(
@@ -97,13 +101,18 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       description:
         "List DataTypes with their columns (fields) and computed fields. A DataType with " +
         "sourceId === null is a pipeline OUTPUT and is the only kind a panel may bind to (V41). " +
-        "A DataType with a non-null sourceId is a source companion (not panel-bindable).",
+        "A DataType with a non-null sourceId is a source companion (not panel-bindable). Each " +
+        "entry's `tag` (HEL-366, omitted when unset) mirrors its owning DataSource's or producing " +
+        "Pipeline's tag. Optional `tag` param restricts to the caller's DataTypes with an exact tag " +
+        "match — a preview of exactly what teardown_resources would discover for that tag, without " +
+        "deleting anything.",
       inputSchema: {
         limit: z.number().int().positive().max(500).optional(),
         offset: z.number().int().nonnegative().optional(),
+        tag: z.string().min(1).optional(),
       },
     },
-    ({ limit, offset }) => guarded(() => api.listDataTypes(limit, offset)),
+    ({ limit, offset, tag }) => guarded(() => api.listDataTypes(limit, offset, tag)),
   );
 
   server.registerTool(
@@ -147,10 +156,15 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       description:
         "List pipelines as summaries (source, output DataType, last-run status/row-count). Pipelines " +
         "are the only path that produces panel-bindable DataTypes. Use get_pipeline or " +
-        "analyze_pipeline for step detail.",
-      inputSchema: {},
+        "analyze_pipeline for step detail. Each entry's `tag` (HEL-366, omitted when unset) is its " +
+        "free-form grouping key. Optional `tag` param restricts to the caller's pipelines with an " +
+        "exact tag match — a preview of exactly what teardown_resources would discover for that " +
+        "tag, without deleting anything.",
+      inputSchema: {
+        tag: z.string().min(1).optional(),
+      },
     },
-    () => guarded(() => api.listPipelines()),
+    ({ tag }) => guarded(() => api.listPipelines(tag)),
   );
 
   server.registerTool(

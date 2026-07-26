@@ -135,7 +135,8 @@ object Main {
         cookieConfig,
         alertRuleRepo = alertRuleRepo,
         alertEventRepo = alertEventRepo,
-        pipelineScheduleRepo = pipelineScheduleRepo
+        pipelineScheduleRepo = pipelineScheduleRepo,
+        dbContext = ctx
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so

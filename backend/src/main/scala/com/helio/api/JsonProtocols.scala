@@ -52,3 +52,4 @@ trait JsonProtocols
     with PipelineShapeProtocol
     with PanelCapabilityProtocol
     with BoundPanelProtocol
+    with WorkspaceProtocol
