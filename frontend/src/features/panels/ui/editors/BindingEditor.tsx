@@ -196,6 +196,26 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       onDirtyChange(dataDirty);
     }, [dataDirty, onDirtyChange]);
 
+    // HEL-624 — the backend rejects scatter + aggregation. When the user
+    // switches the live chart-type selector to scatter while the Aggregation
+    // section already has values, clear them so Save never submits the
+    // rejected combination. "Adjusting state when a prop changes" during
+    // render (not an effect), mirroring `TableRenderer`'s width-reseed
+    // pattern (HEL-255 design D6) rather than a `setState`-in-`useEffect`.
+    // Only fires on an actual transition INTO scatter (tracked via
+    // `prevChartType`) — an editor opened directly on a legacy scatter panel
+    // with a stray stored aggregation (pre-dates this validation) is left
+    // untouched per design.md D3.
+    const [prevChartType, setPrevChartType] = useState(chartType);
+    if (chartType !== prevChartType) {
+      setPrevChartType(chartType);
+      if (panel.type === "chart" && chartType === "scatter") {
+        setAggField("");
+        setAggFn("");
+        setAggYField("");
+      }
+    }
+
     useImperativeHandle(
       ref,
       () => ({
@@ -386,17 +406,30 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           />
         )}
 
-        {selectedType && panel.type === "chart" && (
-          <ChartAggregationFields
-            fieldOptions={aggFieldOptions(selectedType)}
-            groupByValue={aggField}
-            onGroupByChange={setAggField}
-            valueFieldValue={aggYField}
-            onValueFieldChange={setAggYField}
-            aggFnValue={aggFn}
-            onAggFnChange={setAggFn}
-          />
-        )}
+        {/* HEL-624 — the backend rejects scatter + aggregation (each scatter
+            point plots a raw row with no groupBy semantic), so the
+            Aggregation section is replaced with a short explanatory note
+            instead of ever being submittable for a scatter chart. */}
+        {selectedType &&
+          panel.type === "chart" &&
+          (chartType === "scatter" ? (
+            <div className="panel-detail-modal__data-section">
+              <span className="panel-detail-modal__data-label">Aggregation</span>
+              <p className="panel-detail-modal__type-hint">
+                Aggregation isn&apos;t available for scatter — each point plots a raw row.
+              </p>
+            </div>
+          ) : (
+            <ChartAggregationFields
+              fieldOptions={aggFieldOptions(selectedType)}
+              groupByValue={aggField}
+              onGroupByChange={setAggField}
+              valueFieldValue={aggYField}
+              onValueFieldChange={setAggYField}
+              aggFnValue={aggFn}
+              onAggFnChange={setAggFn}
+            />
+          ))}
 
         {/* HEL-248 — Chart per-type Display controls. Rendered for every chart
             panel (independent of a data binding, except scatter's field selects

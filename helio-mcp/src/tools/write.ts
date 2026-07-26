@@ -412,6 +412,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "bar {orientation:vertical|horizontal, stacking:none|stacked|normalized, barGapPct:0-100}; " +
         "pie {donutHolePct:0-90, showPercentLabels}; scatter {sizeField,colorField}). Set the " +
         "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config. " +
+        "Optional `aggregation` ({groupBy, agg:count|sum|avg|min|max, yField}) groups bound rows by " +
+        "`groupBy` and plots one aggregate mark per group instead of one mark per row — honored for " +
+        "bar/line/pie (for pie, one `{name,value}` slice per group); REJECTED (400) if combined with " +
+        '`chartType: "scatter"`, since scatter plots a raw {x,y} coordinate pair per row with no ' +
+        "groupBy semantic. " +
         "Optional `annotation` (static string) renders as a subtitle/footnote beneath the chart; " +
         "omit it for no annotation. To source the annotation dynamically from a bound DataType " +
         "column instead, set the reserved `fieldMapping.annotation` slot (see bind_panel) rather " +

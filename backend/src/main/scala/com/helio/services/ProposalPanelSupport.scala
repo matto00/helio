@@ -3,6 +3,7 @@ package com.helio.services
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{CreatePanelRequest, ProposalPanel}
 import com.helio.domain.{AuthenticatedUser, DashboardId, DataTypeId, PanelType}
+import com.helio.domain.panels.ChartPanel
 import com.helio.infrastructure.DataTypeRepository
 import spray.json.{JsObject, JsString, JsValue}
 
@@ -42,7 +43,26 @@ object ProposalPanelSupport {
       _ <- if (panel.`type` == DashboardProposalService.TimelineKind)
              RequestValidation.validateTimelineSort(panel.sort).left.map(msg => s"$where: $msg")
            else Right(())
+      _ <- if (panel.`type` == "chart")
+             ChartPanel.rejectsAggregation(panel.chartType, mergedAggregationPresent(panel))
+               .toLeft(()).left.map(msg => s"$where: $msg")
+           else Right(())
     } yield ()
+
+  /** Whether the panel's ACTUALLY-RESOLVED create-side config (the same JSON
+   *  `ChartPanelConfig.decodeCreate` will read) carries an `aggregation` key
+   *  — not `panel.aggregation` directly, which the generic HEL-316 `config`
+   *  passthrough can bypass (a proposal can supply `aggregation` via
+   *  `config: {"aggregation": {...}}` instead of the flat field, and the
+   *  decoder reads either identically). `buildCreateRequest` is pure and
+   *  side-effect-free; the `dashboardId` it takes has no bearing on the
+   *  resolved `config` (it only sets `CreatePanelRequest.dashboardId`), so a
+   *  placeholder is safe to pass here, before any real dashboard exists. */
+  private def mergedAggregationPresent(panel: ProposalPanel): Boolean =
+    buildCreateRequest(DashboardId(""), panel).config match {
+      case Some(JsObject(fields)) => fields.get("aggregation").exists(_.isInstanceOf[JsObject])
+      case _                      => false
+    }
 
   /** Verify every panel's actual binding target — the flat `dataTypeId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's

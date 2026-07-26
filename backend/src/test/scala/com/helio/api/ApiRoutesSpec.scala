@@ -11,6 +11,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import com.helio.domain.{
   AuthenticatedUser,
+  ChartAppearance,
   ChartAxisLabel,
   ChartAxisLabels,
   ChartLegend,
@@ -2347,6 +2348,79 @@ class ApiRoutesSpec
       Post("/api/dashboards/import", payload) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("nonexistent-id")
+      }
+    }
+
+    // HEL-624 task 5.8 — 5th enforcement site: import rejects a chart entry
+    // combining `chartType: "scatter"` with a present `aggregation`, with
+    // zero dashboard/panel rows created (DashboardServiceValidation.validatePanelEntries).
+    "reject import of a chart entry combining chartType scatter with aggregation — zero writes" in {
+      cleanDb()
+      val payload = DashboardSnapshotPayload(
+        version = DashboardSnapshotPayload.CurrentVersion,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "Scatter Import",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+        ),
+        panels = Vector(
+          DashboardSnapshotPanelEntry(
+            snapshotId = "snap-1",
+            id         = Some("snap-1"),
+            title      = "Scatter",
+            `type`     = "chart",
+            appearance = PanelAppearancePayload(
+              None, None, None,
+              Some(ChartAppearance.Default.copy(chartType = Some("scatter")))
+            ),
+            config = JsObject(
+              "fieldMapping" -> JsObject.empty,
+              "aggregation"  -> JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("region"))
+            )
+          )
+        )
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("aggregation is not supported for scatter charts")
+      }
+      Get("/api/dashboards") ~> routes() ~> check {
+        responseAs[PagedResult[DashboardResponse]].total shouldBe 0
+      }
+    }
+
+    // Regression: a valid (non-conflicting) chart entry still imports fine.
+    "import a snapshot containing a valid chart entry (no regression)" in {
+      cleanDb()
+      val payload = DashboardSnapshotPayload(
+        version = DashboardSnapshotPayload.CurrentVersion,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "Valid Chart Import",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+        ),
+        panels = Vector(
+          DashboardSnapshotPanelEntry(
+            snapshotId = "snap-1",
+            id         = Some("snap-1"),
+            title      = "Bar",
+            `type`     = "chart",
+            appearance = PanelAppearancePayload(
+              None, None, None,
+              Some(ChartAppearance.Default.copy(chartType = Some("bar")))
+            ),
+            config = JsObject(
+              "fieldMapping" -> JsObject.empty,
+              "aggregation"  -> JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("region"))
+            )
+          )
+        )
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get("/api/dashboards") ~> routes() ~> check {
+        responseAs[PagedResult[DashboardResponse]].total shouldBe 1
       }
     }
 

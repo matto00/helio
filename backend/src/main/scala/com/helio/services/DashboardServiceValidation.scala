@@ -10,7 +10,7 @@ import com.helio.api.protocols.{
   UpdateDashboardRequest
 }
 import com.helio.domain._
-import com.helio.domain.panels.PanelConfigCodec
+import com.helio.domain.panels.{ChartPanel, PanelConfigCodec}
 
 /** Static validators and normalizers extracted from [[DashboardService]]
  *  to keep that file within the 300-line budget. Methods retain their
@@ -45,7 +45,16 @@ object DashboardServiceValidation {
 
   /** Validate each entry's `type` against the registry AND its `config`
    *  against the per-subtype decoder (catches type/config shape mismatch
-   *  before the importer reaches the repository). */
+   *  before the importer reaches the repository). Also enforces the one
+   *  cross-field rule this ticket (HEL-624) adds to import: a chart entry
+   *  combining `chartType: "scatter"` with a present `aggregation` is
+   *  rejected — the 5th of D2's five enforcement sites. No raw-JSON peeking
+   *  is needed here (unlike the `PanelService`/`ProposalPanelSupport` sites):
+   *  `entry.appearance.chart.chartType` and the decoded config's
+   *  `aggregation` are already typed and are the exact values
+   *  `DashboardSnapshotRepository.importSnapshot` will persist. This does NOT
+   *  add general cross-field validation to import (e.g. the `chartType` enum)
+   *  — see design.md's Non-Goals. */
   private[services] def validatePanelEntries(panels: Vector[DashboardSnapshotPanelEntry]): Either[String, Unit] =
     panels.foldLeft[Either[String, Unit]](Right(())) {
       case (Left(err), _) => Left(err)
@@ -53,7 +62,14 @@ object DashboardServiceValidation {
         PanelType.fromString(entry.`type`).flatMap { _ =>
           PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config))
             .left.map(msg => s"panel '${entry.snapshotId}': $msg")
-            .map(_ => ())
+            .flatMap {
+              case PanelConfigCodec.ChartCreate(c) =>
+                ChartPanel.rejectsAggregation(entry.appearance.chart.flatMap(_.chartType), c.aggregation.isDefined) match {
+                  case Some(msg) => Left(s"panel '${entry.snapshotId}': $msg")
+                  case None      => Right(())
+                }
+              case _ => Right(())
+            }
         }
     }
 

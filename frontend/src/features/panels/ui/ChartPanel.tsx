@@ -158,6 +158,17 @@ function buildAggregateDataOption(
   aggregate: GroupedAggregate,
   chartType: ChartType,
 ): Partial<EChartsOption> {
+  if (chartType === "pie") {
+    return {
+      series: [
+        {
+          type: "pie",
+          data: aggregate.categories.map((name, i) => ({ name, value: aggregate.values[i] })),
+        },
+      ],
+    };
+  }
+
   return {
     xAxis: { type: "category", data: aggregate.categories },
     series: [{ type: chartType, data: aggregate.values }],
@@ -170,8 +181,8 @@ export interface ChartPanelProps {
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
   /** HEL-292: precomputed groupBy aggregate. Only applied when the rendered
-   *  `chartType` is `bar`/`line` — pie/scatter (or an absent aggregate) fall
-   *  back to the existing per-row `rawRows` path unchanged. */
+   *  `chartType` is `bar`/`line`/`pie` (HEL-624) — scatter (or an absent
+   *  aggregate) falls back to the existing per-row `rawRows` path unchanged. */
   chartAggregate?: GroupedAggregate | null;
   /** HEL-248: persisted per-chart-type display options. The active chart type's
    *  entry is applied to the built option; entries for other types are ignored
@@ -199,7 +210,8 @@ export function ChartPanel({
       ? appearanceToEChartsOption(appearance.chart)
       : { option: {} as EChartsOption, chartType: "line" as ChartType };
 
-  const useAggregate = chartAggregate != null && (chartType === "bar" || chartType === "line");
+  const useAggregate =
+    chartAggregate != null && (chartType === "bar" || chartType === "line" || chartType === "pie");
 
   const dataOption = useAggregate
     ? buildAggregateDataOption(chartAggregate, chartType)

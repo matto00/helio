@@ -11,7 +11,8 @@ import com.helio.api.protocols.{
   DashboardSnapshotPayload,
   PanelAppearancePayload
 }
-import spray.json.JsObject
+import com.helio.domain.ChartAppearance
+import spray.json.{JsObject, JsString}
 
 /** Unit coverage for the four `Either`-returning helpers underpinning
  *  `DashboardService.validateSnapshotPayload`. The integration tests round-trip
@@ -35,6 +36,27 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
       `type`     = panelType,
       appearance = PanelAppearancePayload(None, None, None, None),
       config     = JsObject.empty
+    )
+
+  private val aggregationJson: JsObject =
+    JsObject("groupBy" -> JsString("category"), "agg" -> JsString("sum"), "yField" -> JsString("amount"))
+
+  // HEL-624 task 5.8 — a chart entry combining `chartType: "scatter"` with a
+  // present `aggregation` (5th enforcement site: `POST /api/dashboards/import`).
+  private def chartPanel(
+      snapshotId: String,
+      chartType: String,
+      aggregation: Option[JsObject]
+  ): DashboardSnapshotPanelEntry =
+    DashboardSnapshotPanelEntry(
+      snapshotId = snapshotId,
+      id         = None,
+      title      = "Chart",
+      `type`     = "chart",
+      appearance = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some(chartType)))),
+      config     = JsObject(
+        Map("fieldMapping" -> JsObject.empty) ++ aggregation.map("aggregation" -> _)
+      )
     )
 
   "DashboardService.validateSnapshotPayload" should {
@@ -84,6 +106,36 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
         version   = currentVersion,
         dashboard = emptyDashboard.copy(layout = layout),
         panels    = Vector(panel("p1"))
+      )
+      DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
+    }
+
+    // HEL-624 task 5.8 — 5th enforcement site: POST /api/dashboards/import.
+    "reject a scatter+aggregation chart entry (zero writes)" in {
+      val payload = DashboardSnapshotPayload(
+        version   = currentVersion,
+        dashboard = emptyDashboard,
+        panels    = Vector(chartPanel("p1", "scatter", Some(aggregationJson)))
+      )
+      val result = DashboardService.validateSnapshotPayload(payload)
+      result.isLeft shouldBe true
+      result.left.toOption.get should include("aggregation is not supported for scatter charts")
+    }
+
+    "accept a valid (non-conflicting) chart entry — scatter with no aggregation (no regression)" in {
+      val payload = DashboardSnapshotPayload(
+        version   = currentVersion,
+        dashboard = emptyDashboard,
+        panels    = Vector(chartPanel("p1", "scatter", None))
+      )
+      DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
+    }
+
+    "accept a valid (non-conflicting) chart entry — bar with aggregation (no regression)" in {
+      val payload = DashboardSnapshotPayload(
+        version   = currentVersion,
+        dashboard = emptyDashboard,
+        panels    = Vector(chartPanel("p1", "bar", Some(aggregationJson)))
       )
       DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
     }

@@ -216,7 +216,7 @@ describe("ChartPanel \u2014 chartAggregate (HEL-292)", () => {
     expect(option.series[0].data).toEqual([3, 6]);
   });
 
-  it("ignores chartAggregate for a pie chart and falls back to the rawRows path", () => {
+  it("honors chartAggregate for a pie chart, producing {name,value} slices (HEL-624)", () => {
     const headers = ["category", "sales"];
     const rawRows = [
       ["Apples", "100"],
@@ -240,10 +240,10 @@ describe("ChartPanel \u2014 chartAggregate (HEL-292)", () => {
       series: Array<{ type: string; data: Array<{ name: string; value: number }> }>;
     };
     expect(option.series[0].type).toBe("pie");
-    // Per-row data, NOT the aggregate categories/values.
+    // Aggregate categories/values, NOT the per-row rawRows data.
     expect(option.series[0].data).toEqual([
-      { name: "Apples", value: 100 },
-      { name: "Bananas", value: 200 },
+      { name: "2019", value: 3 },
+      { name: "2020", value: 6 },
     ]);
   });
 
@@ -287,6 +287,59 @@ describe("ChartPanel \u2014 chartAggregate (HEL-292)", () => {
     render(<ChartPanel fieldMapping={fieldMapping} headers={headers} rawRows={rawRows} />);
     const option = getOption(screen.getByTestId("echarts")) as { xAxis: { data: string[] } };
     expect(option.xAxis.data).toEqual(["2024-01-01", "2024-01-02"]);
+  });
+});
+
+describe("ChartPanel \u2014 pie chartAggregate (HEL-624)", () => {
+  const chartAggregate = { categories: ["Apples", "Bananas", "Cherries"], values: [100, 200, 50] };
+  const appearance = {
+    ...baseAppearance,
+    chart: { ...baseChartConfig, chartType: "pie" as const },
+  };
+
+  it("maps aggregate categories/values into {name,value} pie slices", () => {
+    render(<ChartPanel appearance={appearance} chartAggregate={chartAggregate} />);
+    const option = getOption(screen.getByTestId("echarts")) as {
+      series: Array<{ type: string; data: Array<{ name: string; value: number }> }>;
+    };
+    expect(option.series[0].type).toBe("pie");
+    expect(option.series[0].data).toEqual([
+      { name: "Apples", value: 100 },
+      { name: "Bananas", value: 200 },
+      { name: "Cherries", value: 50 },
+    ]);
+  });
+
+  it("does not include xAxis or yAxis keys for an aggregated pie", () => {
+    render(<ChartPanel appearance={appearance} chartAggregate={chartAggregate} />);
+    const option = getOption(screen.getByTestId("echarts"));
+    expect(option.xAxis).toBeUndefined();
+    expect(option.yAxis).toBeUndefined();
+  });
+
+  it("still applies donut radius and percent-label chartOptions on top of an aggregated pie", () => {
+    render(
+      <ChartPanel
+        appearance={appearance}
+        chartAggregate={chartAggregate}
+        chartOptions={{ pie: { donutHolePct: 50, showPercentLabels: true } }}
+      />,
+    );
+    const option = getOption(screen.getByTestId("echarts")) as {
+      series: Array<{
+        radius?: string[];
+        label?: { show?: boolean; formatter?: string };
+        data: Array<{ name: string; value: number }>;
+      }>;
+    };
+    expect(option.series[0].radius).toEqual(["50%", "70%"]);
+    expect(option.series[0].label?.show).toBe(true);
+    expect(option.series[0].label?.formatter).toContain("{d}");
+    expect(option.series[0].data).toEqual([
+      { name: "Apples", value: 100 },
+      { name: "Bananas", value: 200 },
+      { name: "Cherries", value: 50 },
+    ]);
   });
 });
 
