@@ -52,6 +52,8 @@ merge semantics applies identically to `PATCH /api/panels/:id` and `POST /api/pa
 - **THEN** the panel's stored appearance equals the submitted object field-for-field — identical to
   today's replace behavior
 
+## ADDED Requirements
+
 ### Requirement: Panel appearance chart merges partially
 A payload `appearance.chart` object MUST merge over the panel's stored `chart` (or
 `ChartAppearance.Default` when the panel has no stored `chart`) field-by-field. A payload chart
@@ -80,8 +82,6 @@ chart field replaces the stored field's value wholesale (no merge inside `legend
 - **THEN** the panel's stored `chart.chartType` becomes absent (`None`), matching today's
   absent-chartType-renders-as-line fallback — **not** reset to `ChartAppearance.Default.chartType`
   (`"line"`), which is the one field-level exception to the general "null resets to Default" rule
-
-## ADDED Requirements
 
 ### Requirement: Batch appearance updates use the same merge semantics as the single-item PATCH
 `POST /api/panels/updateBatch` MUST merge each item's `appearance` payload using the identical
