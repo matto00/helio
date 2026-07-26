@@ -314,6 +314,66 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ── HEL-624: ChartPanel.rejectsAggregation / validateConfig ─────────────────
+
+  "ChartPanel.rejectsAggregation" should {
+    "reject scatter + a present aggregation" in {
+      ChartPanel.rejectsAggregation(Some("scatter"), aggregationPresent = true) shouldBe defined
+    }
+
+    "allow scatter + no aggregation" in {
+      ChartPanel.rejectsAggregation(Some("scatter"), aggregationPresent = false) shouldBe None
+    }
+
+    "allow pie + a present aggregation" in {
+      ChartPanel.rejectsAggregation(Some("pie"), aggregationPresent = true) shouldBe None
+    }
+
+    "allow bar + a present aggregation" in {
+      ChartPanel.rejectsAggregation(Some("bar"), aggregationPresent = true) shouldBe None
+    }
+
+    "allow line + a present aggregation" in {
+      ChartPanel.rejectsAggregation(Some("line"), aggregationPresent = true) shouldBe None
+    }
+
+    "allow an absent chartType + a present aggregation" in {
+      ChartPanel.rejectsAggregation(None, aggregationPresent = true) shouldBe None
+    }
+  }
+
+  "ChartPanel.validateConfig" should {
+    val agg = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
+
+    def chartWithType(chartType: Option[String], aggregation: Option[JsObject]): ChartPanel =
+      ChartPanel(
+        id, dashboardId, "t", meta,
+        appearance = PanelAppearance.Default.copy(chart = Some(ChartAppearance.Default.copy(chartType = chartType))),
+        owner,
+        ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, aggregation)
+      )
+
+    "reject a scatter chart with a present aggregation" in {
+      chartWithType(Some("scatter"), Some(agg)).validateConfig.isLeft shouldBe true
+    }
+
+    "accept a scatter chart with no aggregation" in {
+      chartWithType(Some("scatter"), None).validateConfig shouldBe Right(())
+    }
+
+    "accept a pie chart with a present aggregation" in {
+      chartWithType(Some("pie"), Some(agg)).validateConfig shouldBe Right(())
+    }
+
+    "accept a bar chart with a present aggregation" in {
+      chartWithType(Some("bar"), Some(agg)).validateConfig shouldBe Right(())
+    }
+
+    "accept a line chart with a present aggregation" in {
+      chartWithType(Some("line"), Some(agg)).validateConfig shouldBe Right(())
+    }
+  }
+
   "ChartPanelConfig.aggregation" should {
     val agg = JsObject(
       "groupBy" -> JsString("year"),

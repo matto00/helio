@@ -297,7 +297,11 @@ final case class ChartPanel(
   def fieldMapping: Option[JsValue] =
     if (config.fieldMapping.fields.isEmpty) None else Some(config.fieldMapping)
 
-  def validateConfig: Either[String, Unit] = Right(())
+  def validateConfig: Either[String, Unit] =
+    ChartPanel.rejectsAggregation(appearance.chart.flatMap(_.chartType), config.aggregation.isDefined) match {
+      case Some(msg) => Left(msg)
+      case None      => Right(())
+    }
 
   def buildQuery: Option[PanelQuery] =
     dataTypeId.map(_ => PanelQuery(
@@ -329,4 +333,17 @@ object ChartPanel {
     def writeConfigToWire(config: Any): JsValue =
       config.asInstanceOf[ChartPanelConfig].toJson
   }
+
+  /** Pure predicate: a `scatter`-typed chart combined with a present
+   *  `aggregation` is invalid — scatter plots a raw `{x, y}` coordinate pair
+   *  per row and has no coordinate-level meaning for a categorical `groupBy`
+   *  aggregate (design.md D2). Returns the shared error message, or `None`
+   *  when the combination is fine. Every one of the five enforcement sites
+   *  (direct create, PATCH, batch-PATCH, ProposalPanel pre-pass, snapshot
+   *  import) delegates to this single rule so the message and the condition
+   *  can never drift apart between call sites. */
+  def rejectsAggregation(chartType: Option[String], aggregationPresent: Boolean): Option[String] =
+    if (chartType.contains("scatter") && aggregationPresent)
+      Some("aggregation is not supported for scatter charts — scatter plots raw points and has no groupBy semantic")
+    else None
 }

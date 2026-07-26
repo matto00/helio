@@ -4,7 +4,7 @@ import com.helio.api.RequestValidation
 import com.helio.api.protocols.{CreatePanelRequest, PanelAppearancePayload, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain._
 import com.helio.domain.panels._
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.{JsNull, JsObject, JsString, JsValue}
 
 /** Static helpers extracted from the [[PanelService]] companion to keep
  *  that file within the 300-line budget. Methods retain their original
@@ -207,5 +207,64 @@ object PanelServiceHelpers {
       case JsObject(fields) =>
         fields.get("dataTypeId").collect { case JsString(s) if s.nonEmpty => DataTypeId(s) }
       case _ => None
+    }
+
+  /** Peek an incoming PATCH `config` payload's `aggregation` field, tolerant
+   *  raw-JSON style (mirrors `chartTypeFromAppearanceJson`/
+   *  `dataTypeIdFromConfigPatch`): `Some(true)` = the patch sets a JsObject
+   *  aggregation spec, `Some(false)` = the patch explicitly clears it
+   *  (`null`), `None` = the field is absent from this patch (unchanged). */
+  private[services] def aggregationPresenceFromConfigPatch(json: JsValue): Option[Boolean] =
+    json match {
+      case JsObject(fields) =>
+        fields.get("aggregation") match {
+          case Some(_: JsObject) => Some(true)
+          case Some(JsNull)      => Some(false)
+          case _                 => None
+        }
+      case _ => None
+    }
+
+  /** D2's single-update enforcement site: reject a PATCH that would result in
+   *  a `ChartPanel` combining `chartType: "scatter"` with a present
+   *  `aggregation`, accounting for a partial PATCH (only one of the two
+   *  fields provided) against the stored panel's other field. A no-op for any
+   *  non-`ChartPanel` — `PanelAppearance.chart` is a field every panel kind
+   *  structurally carries, so a `TablePanel`'s incidental value must never
+   *  trigger this check. */
+  private[services] def validateScatterAggregationConflict(
+      existing: Panel,
+      spec: ResolvedPanelPatch
+  ): Either[String, Unit] = existing match {
+    case cp: ChartPanel =>
+      val effectiveChartType =
+        spec.appearance.orElse(Some(cp.appearance)).flatMap(_.chart).flatMap(_.chartType)
+      val effectiveAggregationPresent =
+        spec.configPatch.flatMap(aggregationPresenceFromConfigPatch).getOrElse(cp.config.aggregation.isDefined)
+      ChartPanel.rejectsAggregation(effectiveChartType, effectiveAggregationPresent) match {
+        case Some(msg) => Left(msg)
+        case None      => Right(())
+      }
+    case _ => Right(())
+  }
+
+  /** D2's batch-update enforcement site: same rule, same type-narrowing
+   *  guard, applied per `(item, panel)` pair before the transactional batch
+   *  write so one conflicting item 400s the whole batch (no partial write). */
+  private[services] def validateBatchAggregationConflict(
+      pairs: Vector[(PanelBatchItem, Panel)]
+  ): Either[String, Unit] =
+    pairs.foldLeft[Either[String, Unit]](Right(())) {
+      case (Left(err), _) => Left(err)
+      case (Right(_), (item, panel: ChartPanel)) =>
+        val effectiveChartType =
+          item.appearance.flatMap(chartTypeFromAppearanceJson).orElse(panel.appearance.chart.flatMap(_.chartType))
+        val effectiveAggregationPresent =
+          item.config.flatMap(aggregationPresenceFromConfigPatch).getOrElse(panel.config.aggregation.isDefined)
+        ChartPanel.rejectsAggregation(effectiveChartType, effectiveAggregationPresent) match {
+          case Some(msg) => Left(s"panel '${item.id}': $msg")
+          case None      => Right(())
+        }
+      case (Right(_), _) => Right(())
     }
 }

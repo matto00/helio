@@ -94,7 +94,10 @@
           "type": "object",
           "description": "Column bindings keyed by slot: {xAxis, yAxis, series?} feed the chart axes. The reserved `annotation` slot (HEL-323) binds the annotation to a DataType column instead of static text — its first-row value renders as the annotation. Bound `fieldMapping.annotation` and static `config.annotation` are mutually exclusive (the editor clears the other on mode switch); if both are somehow set, the static `annotation` literal wins."
         },
-        "aggregation": { "$ref": "#/$defs/ChartAggregation" },
+        "aggregation": {
+          "$ref": "#/$defs/ChartAggregation",
+          "description": "Groups bound rows by `groupBy` and plots one aggregate mark per group instead of one mark per row. Honored for `chartType` bar/line/pie (for pie, each group renders as one `{name, value}` slice). Rejected (400) at create/update when combined with `chartType: \"scatter\"` — scatter plots a raw `{x, y}` coordinate pair per row and has no groupBy semantic."
+        },
         "chartOptions": {
           "$ref": "#/$defs/ChartOptions",
           "description": "Per-chart-type display options keyed by chart type. Absent falls back to the pre-HEL-248 rendering. Options stored under a non-active type are ignored on render but preserved across type switches."

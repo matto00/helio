@@ -157,7 +157,7 @@ final class PanelService(
           case Left(err) => Left(err)
           case Right(_) =>
             val now = Instant.now()
-            Right(buildNewPanel(
+            val panel = buildNewPanel(
               id           = PanelId(UUID.randomUUID().toString),
               dashboardId  = dashboardId,
               title        = RequestValidation.normalizePanelTitle(request.title),
@@ -165,7 +165,11 @@ final class PanelService(
               appearance   = appearance,
               ownerId      = user.id,
               createConfig = createConfig
-            ))
+            )
+            panel.validateConfig match {
+              case Left(msg) => Left(ServiceError.BadRequest(msg))
+              case Right(_)  => Right(panel)
+            }
         }
     }
   }
@@ -275,6 +279,7 @@ final class PanelService(
                   val batchValidation = for {
                     _ <- validateBatchTypeMatch(items.zip(panels))
                     _ <- validateBatchChartTypes(items)
+                    _ <- validateBatchAggregationConflict(items.zip(panels))
                   } yield ()
                   batchValidation match {
                     case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
@@ -382,16 +387,21 @@ final class PanelService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
-                val incomingDataTypeId = spec.configPatch.flatMap(dataTypeIdFromConfigPatch)
-                rejectCompanionBinding(incomingDataTypeId, user).flatMap {
-                  case Left(err) => Future.successful(Left(err))
+                validateScatterAggregationConflict(existing, spec) match {
+                  case Left(err) =>
+                    Future.successful(Left(ServiceError.BadRequest(err)))
                   case Right(_) =>
-                    patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
-                      .map {
-                        case Some(panel) => Right(panel)
-                        case None        => Left(ServiceError.NotFound("Panel not found"))
-                      }
-                      .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                    val incomingDataTypeId = spec.configPatch.flatMap(dataTypeIdFromConfigPatch)
+                    rejectCompanionBinding(incomingDataTypeId, user).flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(_) =>
+                        patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
+                          .map {
+                            case Some(panel) => Right(panel)
+                            case None        => Left(ServiceError.NotFound("Panel not found"))
+                          }
+                          .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                    }
                 }
             }
         }
