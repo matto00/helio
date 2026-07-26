@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/auto-layout-request.schema.json",
+  "title": "AutoLayoutRequest",
+  "description": "Body of POST /api/dashboards/:id/auto-layout (HEL-367) — packs the supplied panel sizes into non-overlapping {x,y,w,h} positions (left-to-right shelf-flow, input order = visual order) and persists them identically to all four responsive breakpoints. `cols` is optional and defaults to 12. Panels on the dashboard but omitted from `items` keep their current saved position; a `panelId` not belonging to the target dashboard rejects the whole request with 400.",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/auto-layout-item.schema.json"
+      }
+    },
+    "cols": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Grid column count to pack against. Defaults to 12 (the desktop lg breakpoint's column count) when omitted."
+    }
+  },
+  "additionalProperties": false
+}

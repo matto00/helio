@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/auto-layout-item.schema.json",
+  "title": "AutoLayoutItemPayload",
+  "description": "One {panelId, w, h} size to pack (HEL-367) — sizes only, no position. The panel's kind is looked up server-side from the dashboard's actual panels, never trusted from the request body.",
+  "type": "object",
+  "required": ["panelId", "w", "h"],
+  "properties": {
+    "panelId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "w": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "h": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false
+}

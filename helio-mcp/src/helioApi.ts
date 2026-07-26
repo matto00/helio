@@ -736,4 +736,25 @@ export class HelioApi {
     const layout = { lg: items, md: items, sm: items, xs: items };
     return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { layout });
   }
+
+  /** Pack `{panelId, w, h}` sizes into non-overlapping `{x,y,w,h}` positions
+   *  and persist them (HEL-367, `POST /api/dashboards/:id/auto-layout`) —
+   *  replaces the need for a caller to compute panel positions itself (the
+   *  server flows sizes left-to-right, wraps overflowing rows, widens ragged
+   *  shelf edges, and clamps out-of-bounds sizes per panel kind). Input order
+   *  is visual order; `cols` defaults to 12. Panels omitted from `items` keep
+   *  their current saved position; a `panelId` not on the dashboard causes
+   *  the backend to reject the whole request with 400 (surfaced verbatim by
+   *  the tool's guarded handler, not swallowed here). Same "apply to all four
+   *  breakpoints" convention as `updateDashboardLayout`. */
+  autoLayoutDashboard(
+    dashboardId: string,
+    items: { panelId: string; w: number; h: number }[],
+    cols?: number,
+  ): Promise<DashboardResponse> {
+    return this.http.post<DashboardResponse>(`/api/dashboards/${dashboardId}/auto-layout`, {
+      items,
+      cols,
+    });
+  }
 }

@@ -45,6 +45,18 @@ final case class UpdateDashboardRequest(
 )
 final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
 
+// ── Auto-layout API types (HEL-367) ──────────────────────────────────────────
+
+/** One `{panelId, w, h}` size to pack — sizes only, no position. `kind` is
+ *  never part of the wire shape; `AutoLayoutService` resolves it server-side
+ *  from the dashboard's actual panels (design.md D4). */
+final case class AutoLayoutItemPayload(panelId: String, w: Int, h: Int)
+
+/** Body of `POST /api/dashboards/:id/auto-layout` (HEL-367). `cols` is
+ *  optional and defaults to 12 (matches `DesktopPanelGrid`'s `lg` breakpoint
+ *  column count) — see design.md D1. */
+final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int])
+
 // ── Snapshot API types ───────────────────────────────────────────────────────
 
 /** Snapshot panel entry (CS2c-3c discriminated wire shape).
@@ -191,6 +203,10 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat2(CreateDashboardRequest.apply)
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat3(UpdateDashboardRequest.apply)
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
+
+  // Auto-layout formats (HEL-367)
+  implicit val autoLayoutItemPayloadFormat: RootJsonFormat[AutoLayoutItemPayload] = jsonFormat3(AutoLayoutItemPayload.apply)
+  implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat2(AutoLayoutRequest.apply)
 
   // Snapshot formats
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat5(DashboardSnapshotPanelEntry.apply)
