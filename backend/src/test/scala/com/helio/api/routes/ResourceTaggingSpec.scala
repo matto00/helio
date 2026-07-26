@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{DataSourceResponse, JsonProtocols, PipelineSummaryResponse, TeardownResponse}
+import com.helio.api.{AccessCheckerImpl, DataSourceResponse, JsonProtocols, PipelineSummaryResponse, ResourceTypeRegistry, TeardownResponse}
 import com.helio.domain._
 import com.helio.infrastructure._
 import com.helio.services._
@@ -116,8 +116,20 @@ class ResourceTaggingSpec
     val fs     = new LocalFileSystem(tmpDir)
     val ctx    = new DbContext(db, db)(routeEc)
     val teardownRepo = new WorkspaceTeardownRepository(ctx, dataTypeRepo)(routeEc)
-    val svc           = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
-    new WorkspaceRoutes(svc, user)(routeEc).routes
+    val teardownSvc   = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
+    // HEL-371: WorkspaceContextService's four dependencies, built the same
+    // way `dataSourceRoutesFor`/`pipelineRoutesFor` above build theirs —
+    // "dashboard" is the only ACL resource type any of this fixture's calls
+    // actually resolve (mirrors BoundPanelRoutesSpec's identical registry
+    // carve-out comment).
+    val dashboardRepo  = new DashboardRepository(ctx)(routeEc)
+    val registry        = new ResourceTypeRegistry()
+    val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeRepo, pipelineService)
+    new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes
   }
 
   private def createStaticSourceJson(name: String, tagField: String): String =

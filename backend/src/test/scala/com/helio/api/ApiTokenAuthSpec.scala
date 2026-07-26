@@ -534,5 +534,29 @@ class ApiTokenAuthSpec
         status shouldBe StatusCodes.OK
       }
     }
+
+    // HEL-371 tasks.md 4.7 / design.md D6: GET /api/workspace/context's first
+    // unmatched path segment is "workspace", not "hooks" — the same
+    // pre-existing confineScopedToken chokepoint that rejects
+    // GET /api/dashboards above rejects this route too, with no new code
+    // needed in WorkspaceRoutes/WorkspaceContextService.
+    "reject a scoped token on GET /api/workspace/context with 403" in {
+      cleanDb()
+      val pid = seedPipelineOwnedBy(userIdA)
+      val (_, rawScoped) = createPat(sessionA, "scoped", Some(s"""{"name":"scoped","scopedPipelineIds":["$pid"]}"""))
+
+      Get("/api/workspace/context").addHeader(bearer(rawScoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    "leave an unscoped PAT fully authorized on GET /api/workspace/context, returning 200" in {
+      cleanDb()
+      val (_, rawUnscoped) = createPat(sessionA, "unscoped")
+
+      Get("/api/workspace/context").addHeader(bearer(rawUnscoped)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
   }
 }

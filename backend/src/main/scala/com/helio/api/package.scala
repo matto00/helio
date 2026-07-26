@@ -296,4 +296,24 @@ package object api {
   val HookRunRequest: protocols.HookRunRequest.type = protocols.HookRunRequest
   type HookTriggerResponse = protocols.HookTriggerResponse
   val HookTriggerResponse: protocols.HookTriggerResponse.type = protocols.HookTriggerResponse
+
+  // Workspace context assembler (HEL-371)
+  type WorkspaceContextCounts = protocols.WorkspaceContextCounts
+  val WorkspaceContextCounts: protocols.WorkspaceContextCounts.type = protocols.WorkspaceContextCounts
+  type WorkspaceContextDataSource = protocols.WorkspaceContextDataSource
+  val WorkspaceContextDataSource: protocols.WorkspaceContextDataSource.type = protocols.WorkspaceContextDataSource
+  type WorkspaceContextColumn = protocols.WorkspaceContextColumn
+  val WorkspaceContextColumn: protocols.WorkspaceContextColumn.type = protocols.WorkspaceContextColumn
+  type WorkspaceContextComputedColumn = protocols.WorkspaceContextComputedColumn
+  val WorkspaceContextComputedColumn: protocols.WorkspaceContextComputedColumn.type = protocols.WorkspaceContextComputedColumn
+  type WorkspaceContextDataType = protocols.WorkspaceContextDataType
+  val WorkspaceContextDataType: protocols.WorkspaceContextDataType.type = protocols.WorkspaceContextDataType
+  type WorkspaceContextPipelineStep = protocols.WorkspaceContextPipelineStep
+  val WorkspaceContextPipelineStep: protocols.WorkspaceContextPipelineStep.type = protocols.WorkspaceContextPipelineStep
+  type WorkspaceContextPipeline = protocols.WorkspaceContextPipeline
+  val WorkspaceContextPipeline: protocols.WorkspaceContextPipeline.type = protocols.WorkspaceContextPipeline
+  type WorkspaceContextDashboard = protocols.WorkspaceContextDashboard
+  val WorkspaceContextDashboard: protocols.WorkspaceContextDashboard.type = protocols.WorkspaceContextDashboard
+  type WorkspaceContextResponse = protocols.WorkspaceContextResponse
+  val WorkspaceContextResponse: protocols.WorkspaceContextResponse.type = protocols.WorkspaceContextResponse
 }

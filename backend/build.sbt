@@ -104,6 +104,12 @@ lazy val root = (project in file("."))
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
       "org.mockito" % "mockito-core" % "5.12.0" % Test,
       "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
+      // HEL-371 cycle-2: real JSON Schema (2020-12) validation of a live
+      // GET /api/workspace/context response body against
+      // schemas/workspace-context.schema.json — Jackson is already on the
+      // classpath (pinned below), this adds only the schema-validation
+      // engine itself.
+      "com.networknt" % "json-schema-validator" % "1.0.87" % Test,
       "org.apache.pekko" %% "pekko-http-cors" % "1.1.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
       "com.mysql" % "mysql-connector-j" % "8.3.0",
