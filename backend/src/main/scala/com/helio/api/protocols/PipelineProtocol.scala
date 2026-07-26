@@ -36,6 +36,10 @@ final case class RunStatusResponse(
     error: Option[String],
     rowCount: Option[Int] = None
 )
+/** `triggeredByTokenId` (HEL-369): the id of the PAT that authenticated an
+ *  external trigger (`POST /api/hooks/run`), or absent for every other
+ *  trigger source -- the audit read path this ticket's acceptance criteria
+ *  ask for (no new endpoint; existing `GET /api/pipelines/:id/run-history`). */
 final case class PipelineRunRecord(
     id: String,
     pipelineId: String,
@@ -44,13 +48,18 @@ final case class PipelineRunRecord(
     completedAt: Option[String],
     rowCount: Option[Int],
     errorLog: Option[String],
-    triggerSource: String
+    triggerSource: String,
+    triggeredByTokenId: Option[String] = None
 )
+/** `runId` (HEL-369) surfaces the persisted run's id so `HookTriggerService`
+ *  can return it to an external caller; `None` only for `previewStep`
+ *  (no run is persisted for a step preview). */
 final case class RunResultResponse(
     rows: Vector[JsObject],
     rowCount: Int,
     stepRowCounts: Map[String, Long] = Map.empty,
-    sourceRowCount: Long = 0L
+    sourceRowCount: Long = 0L,
+    runId: Option[String] = None
 )
 
 /** `PipelineProtocol extends DataTypeProtocol with PipelineStepProtocol with
@@ -73,7 +82,7 @@ trait PipelineProtocol
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
 
   // Run formats
-  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat8(PipelineRunRecord.apply)
+  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat9(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {
@@ -98,5 +107,5 @@ trait PipelineProtocol
     }
   }
 
-  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat4(RunResultResponse.apply)
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat5(RunResultResponse.apply)
 }

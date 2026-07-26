@@ -4,7 +4,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.{ApiTokenId, AuthenticatedUser, UserId}
 import com.helio.infrastructure.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.ApiTokenService
 import org.scalatest.matchers.should.Matchers
@@ -20,10 +20,13 @@ import scala.concurrent.{ExecutionContext, Future}
  *  route-level round-trip is covered by `ApiRoutesSpec`/`ApiTokenAuthSpec`. */
 class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
 
-  private val sessionToken = "a-real-session-token"
-  private val patToken     = "helio_pat_" + "a" * 64
-  private val sessionUser  = AuthenticatedUser(UserId("session-user-id"))
-  private val patUser      = AuthenticatedUser(UserId("pat-user-id"))
+  private val sessionToken   = "a-real-session-token"
+  private val patToken       = "helio_pat_" + "a" * 64
+  private val scopedPatToken = "helio_pat_" + "b" * 64
+  private val sessionUser    = AuthenticatedUser(UserId("session-user-id"))
+  private val patUser        = AuthenticatedUser(UserId("pat-user-id"))
+  private val scopedTokenId  = ApiTokenId("scoped-token-id")
+  private val allowedPipelineIds = Set("pipeline-1")
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
@@ -35,6 +38,16 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
       override def findUserByTokenHash(hash: String): Future[Option[AuthenticatedUser]] =
         Future.successful(if (hash == ApiTokenService.sha256Hex(patToken)) Some(patUser) else None)
       override def touchLastUsed(hash: String): Future[Unit] = Future.successful(())
+      // HEL-369: backs `confineScopedToken`'s speculative resolution. Only
+      // `scopedPatToken` resolves to a *scoped* row (Some(allowedPipelineIds));
+      // `patToken` resolves but is unscoped (None); anything else doesn't
+      // resolve at all.
+      override def findPrincipalByTokenHash(hash: String): Future[Option[(AuthenticatedUser, ApiTokenId, Option[Set[String]])]] =
+        Future.successful(hash match {
+          case h if h == ApiTokenService.sha256Hex(scopedPatToken) => Some((patUser, scopedTokenId, Some(allowedPipelineIds)))
+          case h if h == ApiTokenService.sha256Hex(patToken)       => Some((patUser, ApiTokenId("unscoped-token-id"), None))
+          case _                                                   => None
+        })
     }
 
   private val directives = new AuthDirectives(stubSessionRepo, Some(stubApiTokenRepo))
@@ -136,6 +149,63 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
     "pass a non-GET request with no credential at all (e.g. register/login minting the cookie)" in {
       Post("/") ~> csrfRoute ~> check {
         status shouldBe StatusCodes.OK
+      }
+    }
+  }
+
+  "AuthDirectives.confineScopedToken (HEL-369 design.md Decision 2)" should {
+
+    val confineRoute =
+      directives.confineScopedToken { tokenScope =>
+        complete(StatusCodes.OK, tokenScope.map(_.allowedPipelineIds.toVector.sorted.mkString(",")).getOrElse("none"))
+      }
+
+    "pass through (None) when a session cookie is present, without inspecting a simultaneously-present scoped-PAT header" in {
+      Get("/dashboards")
+        .withHeaders(Cookie(SessionCookies.Name -> sessionToken), Authorization(OAuth2BearerToken(scopedPatToken))) ~>
+        confineRoute ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[String] shouldBe "none"
+        }
+    }
+
+    "pass through (None) when no Authorization header is present at all" in {
+      Get("/dashboards") ~> confineRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe "none"
+      }
+    }
+
+    "pass through (None) for an unscoped PAT" in {
+      Get("/dashboards").withHeaders(Authorization(OAuth2BearerToken(patToken))) ~> confineRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe "none"
+      }
+    }
+
+    "pass through (None) for an invalid/unresolved bearer token" in {
+      Get("/dashboards").withHeaders(Authorization(OAuth2BearerToken("helio_pat_" + "0" * 64))) ~> confineRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe "none"
+      }
+    }
+
+    "extract Some(TokenScope) for a scoped token on a /hooks/... path" in {
+      Get("/hooks/run").withHeaders(Authorization(OAuth2BearerToken(scopedPatToken))) ~> confineRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe "pipeline-1"
+      }
+    }
+
+    "reject a scoped token with 403 on a non-hooks path (the round-1 design-gate bypass this closes)" in {
+      Get("/dashboards").withHeaders(Authorization(OAuth2BearerToken(scopedPatToken))) ~> confineRoute ~> check {
+        status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    "reject a scoped token with 403 on a path that merely starts with \"hooks\" (exact-segment match, not a prefix test)" in {
+      Get("/hooksomething").withHeaders(Authorization(OAuth2BearerToken(scopedPatToken))) ~> confineRoute ~> check {
+        status shouldBe StatusCodes.Forbidden
       }
     }
   }

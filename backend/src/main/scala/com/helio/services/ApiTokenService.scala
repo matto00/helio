@@ -2,8 +2,8 @@ package com.helio.services
 
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{ApiTokenResponse, CreateApiTokenRequest, CreateApiTokenResponse}
-import com.helio.domain.{ApiToken, ApiTokenId, AuthenticatedUser}
-import com.helio.infrastructure.{ApiTokenRepository, TokenHashing}
+import com.helio.domain.{ApiToken, ApiTokenId, AuthenticatedUser, PipelineId}
+import com.helio.infrastructure.{ApiTokenRepository, PipelineRepository, TokenHashing}
 
 import java.security.SecureRandom
 import java.time.Instant
@@ -19,9 +19,17 @@ import scala.concurrent.{ExecutionContext, Future}
  *    [[CreateApiTokenResponse]] of the creating request. It is never
  *    persisted, never logged, and never readable again.
  *  - Only the SHA-256 hex of the raw token is stored; lookups at
- *    authentication time compare hashes (see AuthDirectives). */
+ *    authentication time compare hashes (see AuthDirectives).
+ *
+ *  `pipelineRepo` (HEL-369) is only consulted when `scopedPipelineIds` is
+ *  present on the create request, to enforce the mint-time invariant that a
+ *  scoped token can only ever name pipelines the caller could actually
+ *  trigger a run on (owner, or editor grantee -- NOT a viewer grantee, who
+ *  can never trigger a run per `PipelineRunService.submit`'s own check;
+ *  see design.md Decision 1). */
 final class ApiTokenService(
-    apiTokenRepo: ApiTokenRepository
+    apiTokenRepo: ApiTokenRepository,
+    pipelineRepo: PipelineRepository
 )(implicit ec: ExecutionContext) {
 
   import ApiTokenService._
@@ -33,27 +41,59 @@ final class ApiTokenService(
     RequestValidation.validateCreateApiTokenRequest(rawRequest) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(req) =>
-        val now      = Instant.now()
-        val rawToken = generateRawToken()
-        val token = ApiToken(
-          id         = ApiTokenId(UUID.randomUUID().toString),
-          userId     = user.id,
-          tokenHash  = sha256Hex(rawToken),
-          name       = req.name.trim,
-          createdAt  = now,
-          lastUsedAt = None,
-          expiresAt  = req.expiresInDays.map(days => now.plus(days.toLong, ChronoUnit.DAYS))
-        )
-        apiTokenRepo.create(token).map { created =>
-          Right(
-            CreateApiTokenResponse(
-              id        = created.id.value,
-              name      = created.name,
-              token     = rawToken,
-              createdAt = created.createdAt.toString,
-              expiresAt = created.expiresAt.map(_.toString)
+        validateScope(req.scopedPipelineIds, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            val now      = Instant.now()
+            val rawToken = generateRawToken()
+            val token = ApiToken(
+              id                = ApiTokenId(UUID.randomUUID().toString),
+              userId            = user.id,
+              tokenHash         = sha256Hex(rawToken),
+              name              = req.name.trim,
+              createdAt         = now,
+              lastUsedAt        = None,
+              expiresAt         = req.expiresInDays.map(days => now.plus(days.toLong, ChronoUnit.DAYS)),
+              scopedPipelineIds = req.scopedPipelineIds.map(_.toSet)
             )
-          )
+            apiTokenRepo.create(token).map { created =>
+              Right(
+                CreateApiTokenResponse(
+                  id        = created.id.value,
+                  name      = created.name,
+                  token     = rawToken,
+                  createdAt = created.createdAt.toString,
+                  expiresAt = created.expiresAt.map(_.toString)
+                )
+              )
+            }
+        }
+    }
+
+  /** Sequential, short-circuiting: the first pipeline id the caller cannot
+   *  edit fails the whole request with a `BadRequest` naming it. Owner check
+   *  first (the common case, one query), editor-grant check only if not
+   *  owner. */
+  private def validateScope(scopedPipelineIds: Option[Seq[String]], user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    scopedPipelineIds match {
+      case None => Future.successful(Right(()))
+      case Some(ids) =>
+        ids.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, rawId) =>
+          accF.flatMap {
+            case left @ Left(_) => Future.successful(left)
+            case Right(_) =>
+              val pipelineId = PipelineId(rawId)
+              pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
+                case Some(_) => Future.successful(Right(()))
+                case None =>
+                  pipelineRepo.findGrantRole(pipelineId, user).map {
+                    case Some("editor") => Right(())
+                    case _ => Left(ServiceError.BadRequest(
+                      s"scopedPipelineIds: pipeline '$rawId' not found or caller lacks editor access"
+                    ))
+                  }
+              }
+          }
         }
     }
 

@@ -37,24 +37,44 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * parent pipeline. `triggerSource` defaults to `"manual"` (rather than
     * requiring every test/caller to pass the literal) -- the real callers
     * that care (`PipelineRunService.executeRun`, the HEL-415 scheduler path)
-    * always pass it explicitly. */
-  def insertRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, user: AuthenticatedUser, triggerSource: String = "manual"): Future[Unit] =
+    * always pass it explicitly. `triggeredByTokenId` (HEL-369) is the id of
+    * the scoped or unscoped PAT that authenticated an external trigger, or
+    * `None` for every other trigger source. */
+  def insertRun(
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      user: AuthenticatedUser,
+      triggerSource: String = "manual",
+      triggeredByTokenId: Option[String] = None
+  ): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
-      case true  => insertRunInternal(runId, pipelineId, startedAt, triggerSource)
+      case true  => insertRunInternal(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId)
     }
 
-  /** ACL-bypassing insertRun for the privileged Spark driver path. */
-  def insertRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, triggerSource: String = "manual"): Future[Unit] = {
+  /** ACL-bypassing insertRun for the privileged Spark driver path.
+    * `triggeredByTokenId` is the domain-facing `ApiTokenId.value` string;
+    * converted to the column's `UUID` type here (mirrors every other
+    * String-domain-id-over-UUID-column conversion in this repository, e.g.
+    * `user.id.value` -> `UUID.fromString` above). */
+  def insertRunInternal(
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      triggerSource: String = "manual",
+      triggeredByTokenId: Option[String] = None
+  ): Future[Unit] = {
     val row = PipelineRunRow(
-      id            = runId.value,
-      pipelineId    = pipelineId.value,
-      status        = "queued",
-      startedAt     = startedAt,
-      completedAt   = None,
-      rowCount      = None,
-      errorLog      = None,
-      triggerSource = triggerSource
+      id                 = runId.value,
+      pipelineId         = pipelineId.value,
+      status             = "queued",
+      startedAt          = startedAt,
+      completedAt        = None,
+      rowCount           = None,
+      errorLog           = None,
+      triggerSource      = triggerSource,
+      triggeredByTokenId = triggeredByTokenId.map(UUID.fromString)
     )
     ctx.withSystemContext(runsTable += row).map(_ => ())
   }
@@ -204,6 +224,18 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).exists.result
     )
+
+  /** ACL-bypassing lookup of the in-flight run (`completed_at IS NULL`) for a
+    * pipeline, if any -- same predicate as [[hasActiveRunInternal]], but
+    * returning the row so `HookTriggerService` can collapse a duplicate
+    * external trigger into the existing run's id/status (HEL-369 design.md
+    * Decision 6) instead of starting a second one. `headOption` is safe:
+    * at most one run per pipeline can have a null `completed_at` at a time
+    * (the scheduler/hook overlap guard is what keeps that invariant true). */
+  def findActiveRunInternal(pipelineId: PipelineId): Future[Option[PipelineRunRow]] =
+    ctx.withSystemContext(
+      runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).result.headOption
+    )
 }
 
 object PipelineRunRepository {
@@ -216,19 +248,25 @@ object PipelineRunRepository {
       completedAt: Option[Instant],
       rowCount: Option[Int],
       errorLog: Option[String],
-      triggerSource: String
+      triggerSource: String,
+      // HEL-369: UUID (not String) -- matches the column's REFERENCES
+      // api_tokens(id) type; converted to/from the domain-facing
+      // ApiTokenId.value string at the repository boundary (insertRunInternal's
+      // param, PipelineRunService.history's mapping).
+      triggeredByTokenId: Option[UUID] = None
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
-    def id            = column[String]("id", O.PrimaryKey)
-    def pipelineId    = column[String]("pipeline_id")
-    def status        = column[String]("status")
-    def startedAt     = column[Instant]("started_at")
-    def completedAt   = column[Option[Instant]]("completed_at")
-    def rowCount      = column[Option[Int]]("row_count")
-    def errorLog      = column[Option[String]]("error_log")
-    def triggerSource = column[String]("trigger_source")
+    def id                 = column[String]("id", O.PrimaryKey)
+    def pipelineId         = column[String]("pipeline_id")
+    def status             = column[String]("status")
+    def startedAt          = column[Instant]("started_at")
+    def completedAt        = column[Option[Instant]]("completed_at")
+    def rowCount           = column[Option[Int]]("row_count")
+    def errorLog           = column[Option[String]]("error_log")
+    def triggerSource      = column[String]("trigger_source")
+    def triggeredByTokenId = column[Option[UUID]]("triggered_by_token_id")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource).mapTo[PipelineRunRow]
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId).mapTo[PipelineRunRow]
   }
 }

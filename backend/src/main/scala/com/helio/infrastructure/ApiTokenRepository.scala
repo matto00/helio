@@ -2,6 +2,8 @@ package com.helio.infrastructure
 
 import com.helio.domain.{ApiToken, ApiTokenId, AuthenticatedUser, UserId}
 import slick.jdbc.PostgresProfile.api._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -47,6 +49,24 @@ class ApiTokenRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(uid => AuthenticatedUser(UserId(uid.toString))))
   }
 
+  /** Resolve a token hash to its owner, id, AND scope (HEL-369). Same
+   *  privileged pre-auth lookup as [[findUserByTokenHash]] (unchanged, left
+   *  for every existing caller), additionally selecting `id` and
+   *  `scoped_pipeline_ids`. Only `AuthDirectives.confineScopedToken` calls
+   *  this. */
+  def findPrincipalByTokenHash(hash: String): Future[Option[(AuthenticatedUser, ApiTokenId, Option[Set[String]])]] = {
+    val now = Instant.now()
+    ctx.withSystemContext(
+      tokens
+        .filter(t => t.tokenHash === hash && (t.expiresAt.isEmpty || t.expiresAt > now))
+        .map(t => (t.id, t.userId, t.scopedPipelineIds))
+        .result
+        .headOption
+    ).map(_.map { case (id, uid, scopedJson) =>
+      (AuthenticatedUser(UserId(uid.toString)), ApiTokenId(id.toString), scopedJson.map(decodeScope))
+    })
+  }
+
   /** Record token usage. Privileged callsite: invoked from the pre-auth
    *  resolution path (same justification as [[findUserByTokenHash]]). */
   def touchLastUsed(hash: String): Future[Unit] =
@@ -73,24 +93,26 @@ class ApiTokenRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   private def toRow(token: ApiToken): ApiTokenRow =
     ApiTokenRow(
-      id         = UUID.fromString(token.id.value),
-      userId     = UUID.fromString(token.userId.value),
-      tokenHash  = token.tokenHash,
-      name       = token.name,
-      createdAt  = token.createdAt,
-      lastUsedAt = token.lastUsedAt,
-      expiresAt  = token.expiresAt
+      id                = UUID.fromString(token.id.value),
+      userId            = UUID.fromString(token.userId.value),
+      tokenHash         = token.tokenHash,
+      name              = token.name,
+      createdAt         = token.createdAt,
+      lastUsedAt        = token.lastUsedAt,
+      expiresAt         = token.expiresAt,
+      scopedPipelineIds = token.scopedPipelineIds.map(encodeScope)
     )
 
   private def rowToDomain(row: ApiTokenRow): ApiToken =
     ApiToken(
-      id         = ApiTokenId(row.id.toString),
-      userId     = UserId(row.userId.toString),
-      tokenHash  = row.tokenHash,
-      name       = row.name,
-      createdAt  = row.createdAt,
-      lastUsedAt = row.lastUsedAt,
-      expiresAt  = row.expiresAt
+      id                = ApiTokenId(row.id.toString),
+      userId            = UserId(row.userId.toString),
+      tokenHash         = row.tokenHash,
+      name              = row.name,
+      createdAt         = row.createdAt,
+      lastUsedAt        = row.lastUsedAt,
+      expiresAt         = row.expiresAt,
+      scopedPipelineIds = row.scopedPipelineIds.map(decodeScope)
     )
 }
 
@@ -102,6 +124,19 @@ object ApiTokenRepository {
       ts      => ts.toInstant
     )
 
+  /** Maps Scala String <-> PostgreSQL JSONB -- identity at the Scala level;
+   *  the type exists to mark the JSONB-backed column explicitly (mirrors
+   *  `AlertRuleRepository.jsonbStringType`/`DataSourceRepository.jsonbStringType`).
+   *  HEL-369: `scoped_pipeline_ids` is JSONB (not a native Postgres array --
+   *  see V74's migration comment) storing a plain JSON array of pipeline id
+   *  strings; [[encodeScope]]/[[decodeScope]] do the domain-boundary
+   *  conversion. */
+  implicit val jsonbStringType: BaseColumnType[String] =
+    MappedColumnType.base[String, String](s => s, s => s)
+
+  private[infrastructure] def encodeScope(ids: Set[String]): String = ids.toVector.sorted.toJson.compactPrint
+  private[infrastructure] def decodeScope(json: String): Set[String] = json.parseJson.convertTo[Vector[String]].toSet
+
   final case class ApiTokenRow(
       id: UUID,
       userId: UUID,
@@ -109,17 +144,19 @@ object ApiTokenRepository {
       name: String,
       createdAt: Instant,
       lastUsedAt: Option[Instant],
-      expiresAt: Option[Instant]
+      expiresAt: Option[Instant],
+      scopedPipelineIds: Option[String] = None
   )
 
   class ApiTokenTable(tag: Tag) extends Table[ApiTokenRow](tag, "api_tokens") {
-    def id         = column[UUID]("id", O.PrimaryKey)
-    def userId     = column[UUID]("user_id")
-    def tokenHash  = column[String]("token_hash")
-    def name       = column[String]("name")
-    def createdAt  = column[Instant]("created_at")
-    def lastUsedAt = column[Option[Instant]]("last_used_at")
-    def expiresAt  = column[Option[Instant]]("expires_at")
-    def * = (id, userId, tokenHash, name, createdAt, lastUsedAt, expiresAt) <> (ApiTokenRow.tupled, ApiTokenRow.unapply)
+    def id                = column[UUID]("id", O.PrimaryKey)
+    def userId            = column[UUID]("user_id")
+    def tokenHash         = column[String]("token_hash")
+    def name              = column[String]("name")
+    def createdAt         = column[Instant]("created_at")
+    def lastUsedAt        = column[Option[Instant]]("last_used_at")
+    def expiresAt         = column[Option[Instant]]("expires_at")
+    def scopedPipelineIds = column[Option[String]]("scoped_pipeline_ids")
+    def * = (id, userId, tokenHash, name, createdAt, lastUsedAt, expiresAt, scopedPipelineIds) <> (ApiTokenRow.tupled, ApiTokenRow.unapply)
   }
 }

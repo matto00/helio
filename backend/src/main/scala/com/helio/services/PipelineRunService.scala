@@ -73,12 +73,19 @@ final class PipelineRunService(
    *  HEL-417: `triggerSource` defaults to `TriggerSource.Manual` so the
    *  existing manual-API callsite (`PipelineRunSubmitRoutes`) is unaffected;
    *  `PipelineSchedulerService.fire` passes `TriggerSource.Scheduled`
-   *  explicitly. */
+   *  explicitly.
+   *
+   *  HEL-369: `triggeredByTokenId` defaults to `None` so every existing call
+   *  site (`PipelineRunSubmitRoutes`, `PipelineSchedulerService`,
+   *  `BoundPanelService`) is unaffected; `HookTriggerService` passes the
+   *  scoped-or-unscoped PAT's id explicitly when `POST /api/hooks/run`
+   *  authenticated the request. */
   def submit(
       pipelineId: PipelineId,
       isDry: Boolean,
       user: AuthenticatedUser,
-      triggerSource: String = TriggerSource.Manual
+      triggerSource: String = TriggerSource.Manual,
+      triggeredByTokenId: Option[String] = None
   ): Future[Either[ServiceError, RunResultResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
@@ -86,12 +93,12 @@ final class PipelineRunService(
       case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
         // Grantee — only editor grantees may trigger runs; viewers get 403.
         pipelineRepo.findGrantRole(pipelineId, user).flatMap {
-          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user, triggerSource)
+          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
           case _              => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
         }
       case Some(pipeline) =>
         // Owner path — always permitted.
-        runPipeline(pipeline, pipelineId, isDry, user, triggerSource)
+        runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
     }
 
   private def runPipeline(
@@ -99,7 +106,8 @@ final class PipelineRunService(
       pipelineId: PipelineId,
       isDry: Boolean,
       user: AuthenticatedUser,
-      triggerSource: String
+      triggerSource: String,
+      triggeredByTokenId: Option[String]
   ): Future[Either[ServiceError, RunResultResponse]] =
     // Privileged: pipeline ACL is the authoritative gate; source is part of the
     // pipeline definition. findByIdInternal is correct here.
@@ -120,7 +128,7 @@ final class PipelineRunService(
             // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
             pipelineStepRepo
               .listByPipelineInternal(pipelineId)
-              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user, triggerSource))
+              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user, triggerSource, triggeredByTokenId))
         }
     }
 
@@ -203,14 +211,15 @@ final class PipelineRunService(
           pipelineRunRepo.listByPipelineInternal(pipelineId).map { rows =>
             Right(rows.map { r =>
               PipelineRunRecord(
-                id            = r.id,
-                pipelineId    = r.pipelineId,
-                status        = r.status,
-                startedAt     = r.startedAt.toString,
-                completedAt   = r.completedAt.map(_.toString),
-                rowCount      = r.rowCount,
-                errorLog      = r.errorLog,
-                triggerSource = r.triggerSource
+                id                 = r.id,
+                pipelineId         = r.pipelineId,
+                status             = r.status,
+                startedAt          = r.startedAt.toString,
+                completedAt        = r.completedAt.map(_.toString),
+                rowCount           = r.rowCount,
+                errorLog           = r.errorLog,
+                triggerSource      = r.triggerSource,
+                triggeredByTokenId = r.triggeredByTokenId.map(_.toString)
               )
             })
           }
@@ -239,12 +248,13 @@ final class PipelineRunService(
    *  → publish SSE events → handle success/failure. Extracted from `submit`
    *  to flatten the nested flatMap chain. Behaviour-preserving. */
   private def executeRun(
-      pipeline:      Pipeline,
-      dataSource:    DataSource,
-      steps:         Vector[PipelineStep],
-      isDry:         Boolean,
-      user:          AuthenticatedUser,
-      triggerSource: String
+      pipeline:           Pipeline,
+      dataSource:         DataSource,
+      steps:              Vector[PipelineStep],
+      isDry:              Boolean,
+      user:               AuthenticatedUser,
+      triggerSource:      String,
+      triggeredByTokenId: Option[String] = None
   ): Future[Either[ServiceError, RunResultResponse]] = {
     val pipelineId = pipeline.id
     val runId      = PipelineRunId(UUID.randomUUID().toString)
@@ -256,7 +266,7 @@ final class PipelineRunService(
     val preExec: Future[Unit] =
       if (!isDry && pipelineRunRepo != null)
         pipelineRunRepo
-          .insertRun(runId, pipelineId, startAt, user, triggerSource)
+          .insertRun(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId)
           .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10))
           .recoverWith { case _ => Future.successful(()) }
       else Future.successful(())
@@ -297,7 +307,10 @@ final class PipelineRunService(
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector
-        val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount)
+        // HEL-369: `runId` was already generated above for insertRun/insertDryRun;
+        // surfacing it here is what lets HookTriggerService return it to the
+        // external caller (design.md Decision 5).
+        val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value))
         val followUp: Future[Unit] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user)
           else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user)

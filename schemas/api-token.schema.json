@@ -23,6 +23,11 @@
     "expiresAt": {
       "type": "string",
       "format": "date-time"
+    },
+    "scopedPipelineIds": {
+      "description": "HEL-369: present (and non-empty) only for a scoped token, surfacing its pipeline allow-list for audit/visibility. Absent for an unscoped, full-access PAT.",
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "required": ["id", "name", "createdAt"],

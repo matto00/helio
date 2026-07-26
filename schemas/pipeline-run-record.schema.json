@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipeline-run-record.schema.json",
   "title": "PipelineRunRecord",
-  "description": "A single persisted pipeline run as returned by GET /api/pipelines/:id/run-history. `triggerSource` records how the run was started (HEL-417): `manual` (user-submitted via the run API, including dry runs), `scheduled` (fired by the scheduler runtime, HEL-415), or `external` (reserved for HEL-369; no caller yet).",
+  "description": "A single persisted pipeline run as returned by GET /api/pipelines/:id/run-history. `triggerSource` records how the run was started (HEL-417): `manual` (user-submitted via the run API, including dry runs), `scheduled` (fired by the scheduler runtime, HEL-415), or `external` (POST /api/hooks/run, HEL-369). `triggeredByTokenId` (HEL-369) is present when a PAT authenticated the triggering request.",
   "type": "object",
   "properties": {
     "id": { "type": "string" },
@@ -12,7 +12,8 @@
     "completedAt": { "type": ["string", "null"], "format": "date-time" },
     "rowCount": { "type": ["integer", "null"] },
     "errorLog": { "type": ["string", "null"] },
-    "triggerSource": { "type": "string", "enum": ["manual", "scheduled", "external"] }
+    "triggerSource": { "type": "string", "enum": ["manual", "scheduled", "external"] },
+    "triggeredByTokenId": { "type": "string" }
   },
   "required": [
     "id",

@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2Bearer
 import org.apache.pekko.http.scaladsl.server.{Directive0, Directive1}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.api.protocols.ResourceProtocol
-import com.helio.domain.AuthenticatedUser
+import com.helio.domain.{AuthenticatedUser, TokenScope}
 import com.helio.infrastructure.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.ApiTokenService
 
@@ -97,6 +97,61 @@ class AuthDirectives(
           case Failure(_)          => complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
         }
       case None => provide(None)
+    }
+
+  /** Single chokepoint (HEL-369 design.md Decision 2) wrapping the ENTIRE
+   *  three-way `pathPrefix("auth")` / `optionalAuthenticate` / `authenticate`
+   *  `concat(...)` in `ApiRoutes.scala`, between `requireCsrfHeader` and that
+   *  `concat`. A round-1 design put this confinement only inside the
+   *  `authenticate` branch -- insufficient, because `optionalAuthenticate`
+   *  shares the exact same token-resolution chain and would otherwise
+   *  resolve a scoped token to the *same* full `AuthenticatedUser`, handing
+   *  it unconfined owner-level access on public/optional-auth routes like
+   *  `GET /api/dashboards/:id/panels`. This directive runs ahead of that
+   *  split so no branch — present or future — ever gets a chance to
+   *  independently resolve a scoped token's identity.
+   *
+   *  Resolution (each step short-circuits on match):
+   *  - a `helio_session` cookie is present at all (valid or not) -> `None`,
+   *    without inspecting the `Authorization` header — mirrors
+   *    `resolveIdentity`'s existing session-over-header precedence, so a
+   *    session-authenticated request is never affected by this directive
+   *    regardless of what bearer header also happens to be attached.
+   *  - no `helio_pat_...` bearer header is present -> `None` — anonymous and
+   *    non-PAT-bearer requests pass through untouched, preserving
+   *    `optionalAuthenticate`'s public-access semantics.
+   *  - the bearer does not resolve (invalid/expired/revoked) or resolves but
+   *    is UNSCOPED -> `None` — let the branch's own `authenticate`/
+   *    `optionalAuthenticate` perform its normal resolution and produce the
+   *    normal 401 or full-access behavior; this directive only ever acts on
+   *    a token that positively resolves to a *scoped* row.
+   *  - resolves AND is scoped -> `Some(TokenScope(...))` if the first
+   *    unmatched path **segment** is exactly `"hooks"` (exact equality, not
+   *    a prefix/`startsWith` test — `/api/hooksomething` must still be
+   *    rejected); otherwise `403 Forbidden` immediately, before any of the
+   *    three branches run. */
+  val confineScopedToken: Directive1[Option[TokenScope]] =
+    optionalCookie(SessionCookies.Name).flatMap {
+      case Some(_) => provide(None)
+      case None =>
+        optionalHeaderValueByType(Authorization).flatMap {
+          case Some(Authorization(OAuth2BearerToken(token))) if token.startsWith(ApiTokenService.TokenPrefix) =>
+            apiTokenRepo match {
+              case None => provide(None)
+              case Some(repo) =>
+                val hash = ApiTokenService.sha256Hex(token)
+                onComplete(repo.findPrincipalByTokenHash(hash)).flatMap {
+                  case Success(Some((_, tokenId, Some(allowedIds)))) =>
+                    extractUnmatchedPath.flatMap { path =>
+                      val firstSegment = path.toString.split("/").filterNot(_.isEmpty).headOption
+                      if (firstSegment.contains("hooks")) provide(Some(TokenScope(tokenId, allowedIds)))
+                      else complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                    }
+                  case _ => provide(None)
+                }
+            }
+          case _ => provide(None)
+        }
     }
 
   /** CSRF defense (design.md D4). Once the session cookie can be sent

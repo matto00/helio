@@ -290,4 +290,10 @@ package object api {
   val TeardownConflictResponse: protocols.TeardownConflictResponse.type = protocols.TeardownConflictResponse
   type TeardownResponse = protocols.TeardownResponse
   val TeardownResponse: protocols.TeardownResponse.type = protocols.TeardownResponse
+
+  // External trigger hook (HEL-369)
+  type HookRunRequest = protocols.HookRunRequest
+  val HookRunRequest: protocols.HookRunRequest.type = protocols.HookRunRequest
+  type HookTriggerResponse = protocols.HookTriggerResponse
+  val HookTriggerResponse: protocols.HookTriggerResponse.type = protocols.HookTriggerResponse
 }

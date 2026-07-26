@@ -53,3 +53,4 @@ trait JsonProtocols
     with PanelCapabilityProtocol
     with BoundPanelProtocol
     with WorkspaceProtocol
+    with HookProtocol
