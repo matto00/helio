@@ -159,6 +159,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         panels = Vector(
           DashboardSnapshotPanelEntry(
             snapshotId = "p-1",
+            id         = Some("p-1"),
             title      = "Panel",
             `type`     = "table",
             appearance = PanelAppearancePayload(Some("#fff"), Some("#000"), Some(0.5), None),

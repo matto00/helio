@@ -1,10 +1,5 @@
-# dashboard-export-import Specification
+## MODIFIED Requirements
 
-## Purpose
-Round-trip a dashboard (and its panels) as a self-contained, portable JSON snapshot via
-`GET /api/dashboards/:id/export` and `POST /api/dashboards/import`, so dashboards can be backed
-up, shared, or recreated with fresh server-assigned IDs.
-## Requirements
 ### Requirement: Export dashboard endpoint
 The system SHALL expose `GET /api/dashboards/:id/export` that returns a self-contained JSON snapshot of the dashboard. The snapshot SHALL include the dashboard `name`, `appearance`, `layout` (with panel references keyed by `snapshotId`), a `panels` array with each panel's `snapshotId`, `id`, `title`, `type`, `appearance`, `typeId`, and `fieldMapping`, and a top-level `version` field. The snapshot SHALL NOT include server-assigned IDs, `createdBy`, `createdAt`, or `lastUpdated` fields, **except** each panel entry's `id` field, which is an intentional, additive exception carrying the panel's real (non-remapped) server-assigned id for programmatic/agent identification. `snapshotId` remains the sole handle used for import layout remapping; `id` is informational only and MUST NOT be used by the importer.
 
@@ -55,25 +50,3 @@ The system SHALL expose `POST /api/dashboards/import` that accepts a dashboard s
 #### Scenario: Import with malformed payload — layout references unknown snapshotId
 - **WHEN** a `POST /api/dashboards/import` request is made with a layout item whose `panelId` does not match any `snapshotId` in the panels array
 - **THEN** the system returns `400 Bad Request` with a descriptive error message
-
-### Requirement: Export action in dashboard actions menu
-The system SHALL provide an "Export" action in each dashboard's actions menu. Activating it SHALL download the dashboard's export snapshot as a JSON file named `<dashboard-name>.json`.
-
-#### Scenario: Export action triggers file download
-- **WHEN** the user activates "Export" in a dashboard's actions menu
-- **THEN** the system calls `GET /api/dashboards/:id/export`
-- **AND** the browser downloads a file named `<dashboard-name>.json` containing the snapshot JSON
-
-### Requirement: Import option in the dashboard create panel
-The system SHALL provide a way to import a dashboard from the create panel in the dashboard sidebar. The user SHALL be able to select a `.json` file, which is sent to the import endpoint. On success, the new dashboard SHALL be added to the sidebar and immediately selected. On failure, a descriptive error SHALL be displayed inline.
-
-#### Scenario: Import from file succeeds
-- **WHEN** the user selects a valid snapshot JSON file in the import input
-- **THEN** the system calls `POST /api/dashboards/import` with the file contents
-- **AND** the new dashboard appears in the sidebar and is immediately selected
-
-#### Scenario: Import from file fails with server error
-- **WHEN** the user selects a file that is rejected by the server (malformed payload)
-- **THEN** an inline error message is displayed describing the failure
-- **AND** the sidebar state is unchanged
-
