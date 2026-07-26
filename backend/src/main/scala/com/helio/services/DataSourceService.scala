@@ -2,6 +2,7 @@ package com.helio.services
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
+import com.helio.api.RequestValidation
 import com.helio.api.protocols.{
   CsvPreviewResponse,
   FieldOverridePayload,
@@ -79,8 +80,10 @@ final class DataSourceService(
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[DataSource]] =
-    dataSourceRepo.findAll(user.id, page)
+  /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
+   *  pre-existing unfiltered behavior. */
+  def findAll(user: AuthenticatedUser, page: Page, tag: Option[String] = None): Future[PagedResult[DataSource]] =
+    dataSourceRepo.findAll(user.id, page, tag)
 
   // ── Create (Static) ───────────────────────────────────────────────────────
 
@@ -89,7 +92,9 @@ final class DataSourceService(
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     else if (req.rows.size > staticMaxRows)
       Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
-    else {
+    else RequestValidation.validateTag(req.tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(tag) =>
       val now      = Instant.now()
       val sourceId = DataSourceId(UUID.randomUUID().toString)
       val source   = StaticSource(
@@ -97,7 +102,8 @@ final class DataSourceService(
         name      = req.name.trim,
         ownerId   = user.id,
         createdAt = now,
-        updatedAt = now
+        updatedAt = now,
+        tag       = tag
       )
       // StaticSource is identity-only in the ADT; the {columns, rows} payload
       // is written to the `config` column directly via a static-payload-aware
@@ -108,6 +114,10 @@ final class DataSourceService(
         dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
           case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
           case Some(ds) =>
+            // HEL-366 tasks.md 2.3(a): the companion DataType's tag mirrors
+            // its owning DataSource's tag — the default shape of a tagged
+            // resource graph that design.md Decision 6's source-link guard
+            // depends on.
             val dataType = DataType(
               id        = DataTypeId(UUID.randomUUID().toString),
               sourceId  = Some(ds.id),
@@ -116,7 +126,8 @@ final class DataSourceService(
               version   = 1,
               createdAt = now,
               updatedAt = now,
-              ownerId   = user.id
+              ownerId   = user.id,
+              tag       = tag
             )
             dataTypeRepo.insert(dataType, user).map(_ => Right(ds))
         }
@@ -129,8 +140,12 @@ final class DataSourceService(
       name: String,
       bytes: Array[Byte],
       overrides: Vector[FieldOverridePayload],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
+    RequestValidation.validateTag(tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(validTag) =>
     DataSourceCsvSupport.decodeUtf8(bytes) match {
       case None =>
         Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
@@ -146,7 +161,8 @@ final class DataSourceService(
           ownerId   = user.id,
           createdAt = now,
           updatedAt = now,
-          config    = CsvSourceConfig(filePath)
+          config    = CsvSourceConfig(filePath),
+          tag       = validTag
         )
         fileSystem.write(filePath, bytes).flatMap { _ =>
           dataSourceRepo.insert(source, user).flatMap { ds =>
@@ -166,11 +182,13 @@ final class DataSourceService(
               version   = 1,
               createdAt = now,
               updatedAt = now,
-              ownerId   = user.id
+              ownerId   = user.id,
+              tag       = validTag
             )
             dataTypeRepo.insert(dt, user).map(_ => Right(ds))
           }
         }
+    }
     }
 
   // ── Create (Text/Markdown, HEL-215) ───────────────────────────────────────
@@ -182,19 +200,20 @@ final class DataSourceService(
       name: String,
       bytes: Array[Byte],
       filename: String,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
-    ingestText(name, filename, bytes, sourceUrl = None, user)
+    ingestText(name, filename, bytes, sourceUrl = None, user, tag)
 
   /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
    *  and stores them exactly like an upload (`config.sourceUrl` set so
    *  refresh re-fetches instead of re-reading). */
-  def createTextUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+  def createTextUrl(name: String, url: String, user: AuthenticatedUser, tag: Option[String] = None): Future[Either[ServiceError, DataSource]] =
     ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
       case Left(err) =>
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(bytes) =>
-        ingestText(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+        ingestText(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user, tag)
     }
 
   /** Shared ingestion path for both text-source creation modes: extension
@@ -206,11 +225,14 @@ final class DataSourceService(
       filename: String,
       bytes: Array[Byte],
       sourceUrl: Option[String],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
     if (name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
-    else
+    else RequestValidation.validateTag(tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(validTag) =>
       ContentSourceSupport.validateExtension(filename, ContentSourceSupport.TextExtensions) match {
         case Left(msg) =>
           Future.successful(Left(ServiceError.BadRequest(msg)))
@@ -231,7 +253,8 @@ final class DataSourceService(
                   ownerId   = user.id,
                   createdAt = now,
                   updatedAt = now,
-                  config    = TextSourceConfig(filePath, sourceUrl)
+                  config    = TextSourceConfig(filePath, sourceUrl),
+                  tag       = validTag
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
@@ -243,13 +266,15 @@ final class DataSourceService(
                       version   = 1,
                       createdAt = now,
                       updatedAt = now,
-                      ownerId   = user.id
+                      ownerId   = user.id,
+                      tag       = validTag
                     )
                     dataTypeRepo.insert(dt, user).map(_ => Right(ds))
                   }
                 }
             }
       }
+    }
 
   // ── Create (PDF, HEL-214) ─────────────────────────────────────────────────
 
@@ -260,19 +285,20 @@ final class DataSourceService(
       name: String,
       bytes: Array[Byte],
       filename: String,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
-    ingestPdf(name, filename, bytes, sourceUrl = None, user)
+    ingestPdf(name, filename, bytes, sourceUrl = None, user, tag)
 
   /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
    *  and stores them exactly like an upload (`config.sourceUrl` set so
    *  refresh re-fetches instead of re-reading). */
-  def createPdfUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+  def createPdfUrl(name: String, url: String, user: AuthenticatedUser, tag: Option[String] = None): Future[Either[ServiceError, DataSource]] =
     ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
       case Left(err) =>
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(bytes) =>
-        ingestPdf(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+        ingestPdf(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user, tag)
     }
 
   /** The PDF connector's `DataType` field list: the shared `{content,
@@ -297,11 +323,14 @@ final class DataSourceService(
       filename: String,
       bytes: Array[Byte],
       sourceUrl: Option[String],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
     if (name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
-    else
+    else RequestValidation.validateTag(tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(validTag) =>
       ContentSourceSupport.validateExtension(filename, ContentSourceSupport.PdfExtensions) match {
         case Left(msg) =>
           Future.successful(Left(ServiceError.BadRequest(msg)))
@@ -322,7 +351,8 @@ final class DataSourceService(
                   ownerId   = user.id,
                   createdAt = now,
                   updatedAt = now,
-                  config    = PdfSourceConfig(filePath, sourceUrl)
+                  config    = PdfSourceConfig(filePath, sourceUrl),
+                  tag       = validTag
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
@@ -334,13 +364,15 @@ final class DataSourceService(
                       version   = 1,
                       createdAt = now,
                       updatedAt = now,
-                      ownerId   = user.id
+                      ownerId   = user.id,
+                      tag       = validTag
                     )
                     dataTypeRepo.insert(dt, user).map(_ => Right(ds))
                   }
                 }
             }
       }
+    }
 
   // ── Create (Image, HEL-216) ────────────────────────────────────────────────
 
@@ -351,19 +383,20 @@ final class DataSourceService(
       name: String,
       bytes: Array[Byte],
       filename: String,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
-    ingestImage(name, filename, bytes, sourceUrl = None, user)
+    ingestImage(name, filename, bytes, sourceUrl = None, user, tag)
 
   /** URL path: fetches the URL's raw bytes via `ContentSourceSupport.fetchUrl`
    *  and stores them exactly like an upload (`config.sourceUrl` set so
    *  refresh re-fetches instead of re-reading). */
-  def createImageUrl(name: String, url: String, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+  def createImageUrl(name: String, url: String, user: AuthenticatedUser, tag: Option[String] = None): Future[Either[ServiceError, DataSource]] =
     ContentSourceSupport.fetchUrl(url, resolveHost, isBlocked).flatMap {
       case Left(err) =>
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(bytes) =>
-        ingestImage(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user)
+        ingestImage(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user, tag)
     }
 
   /** Shared ingestion path for both image-source creation modes: extension
@@ -378,11 +411,14 @@ final class DataSourceService(
       filename: String,
       bytes: Array[Byte],
       sourceUrl: Option[String],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
     if (name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
-    else
+    else RequestValidation.validateTag(tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(validTag) =>
       ContentSourceSupport.validateExtension(filename, ContentSourceSupport.ImageExtensions) match {
         case Left(msg) =>
           Future.successful(Left(ServiceError.BadRequest(msg)))
@@ -403,7 +439,8 @@ final class DataSourceService(
                   ownerId   = user.id,
                   createdAt = now,
                   updatedAt = now,
-                  config    = ImageSourceConfig(filePath, sourceUrl)
+                  config    = ImageSourceConfig(filePath, sourceUrl),
+                  tag       = validTag
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
@@ -420,13 +457,15 @@ final class DataSourceService(
                       version   = 1,
                       createdAt = now,
                       updatedAt = now,
-                      ownerId   = user.id
+                      ownerId   = user.id,
+                      tag       = validTag
                     )
                     dataTypeRepo.insert(dt, user).map(_ => Right(ds))
                   }
                 }
             }
       }
+    }
 
   // ── Update / delete ───────────────────────────────────────────────────────
 
@@ -689,6 +728,9 @@ final class DataSourceService(
           val updated = dt.copy(fields = fields, updatedAt = now)
           dataTypeRepo.update(updated, user).map(_.getOrElse(updated))
         case None =>
+          // HEL-366 tasks.md 2.3(a): the healed companion DataType's tag
+          // mirrors its owning DataSource's tag, same as every create-time
+          // companion-DataType construction site above.
           val fresh = DataType(
             id        = DataTypeId(UUID.randomUUID().toString),
             sourceId  = Some(source.id),
@@ -697,7 +739,8 @@ final class DataSourceService(
             version   = 1,
             createdAt = now,
             updatedAt = now,
-            ownerId   = user.id
+            ownerId   = user.id,
+            tag       = source.tag
           )
           dataTypeRepo.insert(fresh, user)
       }

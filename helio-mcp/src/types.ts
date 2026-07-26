@@ -75,6 +75,9 @@ export interface DataSourceResponse {
   createdAt: string;
   updatedAt: string;
   config?: unknown;
+  /** HEL-366: optional free-form grouping tag, set only at create time. Omitted on the wire
+   *  when null (spray-json drops `Option = None`) — read as `tag ?? null`. */
+  tag?: string | null;
 }
 
 export interface DataFieldResponse {
@@ -103,6 +106,11 @@ export interface DataTypeResponse {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** HEL-366: optional free-form grouping tag — for a source-companion DataType, mirrors its
+   *  owning DataSource's tag; for a pipeline-output DataType, mirrors its producing Pipeline's
+   *  tag. Omitted on the wire when null (spray-json drops `Option = None`) — read as
+   *  `tag ?? null`. */
+  tag?: string | null;
 }
 
 /** `GET /api/types/:id/rows` — latest pipeline-run snapshot. */
@@ -156,6 +164,9 @@ export interface PipelineSummaryResponse {
   lastRunAt: string | null;
   lastRunRowCount: number | null;
   ownerId?: string | null;
+  /** HEL-366: optional free-form grouping tag, set only at create time. Omitted on the wire
+   *  when null (spray-json drops `Option = None`) — read as `tag ?? null`. */
+  tag?: string | null;
 }
 
 /** One step from `GET /api/pipelines/:id/steps`. `config` shape is keyed by
@@ -384,6 +395,34 @@ export interface PipelineShapeCatalogEntryResponse {
   description: string;
   paramsSchema: ShapeParamDescriptorResponse[];
   outputContract: OutputContractResponse;
+}
+
+// ── Workspace tag-teardown (HEL-366) — mirrors
+// `backend/.../api/protocols/WorkspaceProtocol.scala` ───────────────────────
+
+/** One blocking conflict from `POST /api/workspace/teardown` — the tagged
+ *  resource that would be (or was) blocked, and why. Mirrors the backend's
+ *  `TeardownConflictResponse`. */
+export interface TeardownConflictResponse {
+  resourceKind: string;
+  resourceId: string;
+  resourceName: string;
+  reason: string;
+}
+
+/** `POST /api/workspace/teardown` response. `dryRun`/`committed`/`blocked`
+ *  are always present (not `Option` on the wire); counts mean "would be /
+ *  were affected" for both a dry run and a real call. Mirrors the backend's
+ *  `TeardownResponse`. */
+export interface TeardownResponse {
+  tag: string;
+  dryRun: boolean;
+  committed: boolean;
+  blocked: boolean;
+  conflicts: TeardownConflictResponse[];
+  sourcesDeleted: number;
+  pipelinesDeleted: number;
+  typesDeleted: number;
 }
 
 /** One entry in `POST /api/pipeline-shapes/:id/expand`'s response array —

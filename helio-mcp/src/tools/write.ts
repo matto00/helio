@@ -41,15 +41,19 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "DataSource → Pipeline → DataType → Panel. The backend auto-creates a source-companion " +
         "DataType (NOT panel-bindable); build a pipeline over the returned source id to produce a " +
         "bindable output type. Returns the created source id. For a real integration use " +
-        "create_csv_data_source, create_rest_data_source, or create_sql_data_source instead.",
+        "create_csv_data_source, create_rest_data_source, or create_sql_data_source instead. " +
+        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to the " +
+        "auto-created companion DataType too, and lets a whole workflow run's resources be torn " +
+        "down together later with teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
         rows: z.array(z.array(z.unknown())),
+        tag: z.string().min(1).max(200).optional(),
       },
     },
-    ({ name, columns, rows }) =>
-      guarded(() => api.createDataSource({ name, columns, rows: rows as unknown[][] })),
+    ({ name, columns, rows, tag }) =>
+      guarded(() => api.createDataSource({ name, columns, rows: rows as unknown[][], tag })),
   );
 
   server.registerTool(
@@ -61,13 +65,17 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "MCP process required. Posts the content as a multipart upload to the same endpoint the " +
         "UI's file-upload flow uses. Like `static`, the backend auto-creates a source-companion " +
         "DataType (NOT returned inline — inspect it via list_source_objects); build a pipeline over " +
-        "the returned source id to produce a panel-bindable output type.",
+        "the returned source id to produce a panel-bindable output type. Optional `tag` (HEL-366, " +
+        "free-form grouping key, max 200 chars) is propagated to the auto-created companion " +
+        "DataType too, and lets a whole workflow run's resources be torn down together later with " +
+        "teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         content: z.string().min(1),
+        tag: z.string().min(1).max(200).optional(),
       },
     },
-    ({ name, content }) => guarded(() => api.createCsvDataSource({ name, content })),
+    ({ name, content, tag }) => guarded(() => api.createCsvDataSource({ name, content, tag })),
   );
 
   const restAuthSchema = z.discriminatedUnion("type", [
@@ -140,15 +148,19 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Create a pipeline from a source. Creates a NEW pipeline-output DataType named " +
         "`outputDataTypeName` (this is the panel-bindable type). Returns the pipeline summary " +
-        "including `id` and `outputDataTypeId`. Add steps with add_pipeline_step, then run_pipeline.",
+        "including `id` and `outputDataTypeId`. Add steps with add_pipeline_step, then run_pipeline. " +
+        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to the " +
+        "newly-created output DataType too, and lets a whole workflow run's resources be torn down " +
+        "together later with teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         sourceDataSourceId: z.string().min(1),
         outputDataTypeName: z.string().min(1),
+        tag: z.string().min(1).max(200).optional(),
       },
     },
-    ({ name, sourceDataSourceId, outputDataTypeName }) =>
-      guarded(() => api.createPipeline({ name, sourceDataSourceId, outputDataTypeName })),
+    ({ name, sourceDataSourceId, outputDataTypeName, tag }) =>
+      guarded(() => api.createPipeline({ name, sourceDataSourceId, outputDataTypeName, tag })),
   );
 
   server.registerTool(
@@ -271,16 +283,19 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "measures:{fn,field,alias}[]}; " +
         '`pivot-matrix` {index:string[], column, values, agg:"sum"|"count"|"avg"|"min"|' +
         '"max"|"first"}. Returns the created pipeline summary plus the ordered list of created ' +
-        "steps.",
+        "steps. Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to " +
+        "the newly-created output DataType too, and lets a whole workflow run's resources be torn " +
+        "down together later with teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         sourceDataSourceId: z.string().min(1),
         outputDataTypeName: z.string().min(1),
         shapeId: z.string().min(1),
         params: z.record(z.unknown()).default({}),
+        tag: z.string().min(1).max(200).optional(),
       },
     },
-    ({ name, sourceDataSourceId, outputDataTypeName, shapeId, params }) =>
+    ({ name, sourceDataSourceId, outputDataTypeName, shapeId, params, tag }) =>
       guarded(() =>
         api.createPipelineFromShape({
           name,
@@ -288,6 +303,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           outputDataTypeName,
           shapeId,
           params,
+          tag,
         }),
       ),
   );
@@ -602,6 +618,47 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ panelId, appearance }) => guarded(() => api.updatePanelAppearance(panelId, appearance)),
+  );
+
+  // ── Workspace tag-teardown (HEL-366) ────────────────────────────────────────
+
+  server.registerTool(
+    "teardown_resources",
+    {
+      title: "Bulk-delete every resource carrying a tag",
+      description:
+        "Permanently delete every data source, pipeline, and DataType the caller owns that carries " +
+        "`tag` (POST /api/workspace/teardown) — the tag-based replacement for scanning resource " +
+        "names to find and delete a workflow run's resources. Give resources this same `tag` at " +
+        "create time (create_data_source/create_csv_data_source's `tag`, create_pipeline/" +
+        "create_pipeline_from_shape's `tag`) so they can all be torn down together in one call.\n" +
+        "**Refuse-on-out-of-batch-dependent**: the WHOLE call is refused (still HTTP 200, " +
+        "`blocked: true`, NOTHING deleted — not even the unblocked portion of the tagged set) if " +
+        "any tagged resource has a dependent outside this same tag batch that an ordinary single-" +
+        "resource delete's cascade would otherwise reach: a tagged data source whose dependent " +
+        "pipeline is untagged OR tagged with a *different* value (e.g. teardown tag `T`, dependent " +
+        "pipeline tagged `U`) both block identically — being untagged and being tagged into another " +
+        "live batch are treated the same way, neither is silently swept in. Likewise a tagged " +
+        "output DataType whose producing pipeline is untagged or differently tagged blocks. A " +
+        "tagged DataType still bound to a panel, or still linked to a data source that is NOT " +
+        "tagged into this SAME batch, also blocks (a source tagged into the SAME batch as its " +
+        "companion DataType is fine — both are deleted together, the common case). `conflicts` in " +
+        "the response names each blocked resource, its kind, and the out-of-batch dependent causing " +
+        "the block; resolve by tagging the dependent into this same batch too, or deleting it " +
+        "individually first, then retry.\n" +
+        "**Always call with `dryRun: true` first** to preview exactly what would be deleted (or " +
+        "why it would be blocked) before running for real — the response reports the same " +
+        "`sourcesDeleted`/`pipelinesDeleted`/`typesDeleted` counts and/or `conflicts` a real call " +
+        "would, but deletes nothing. Idempotent: a repeat call with the same tag after a successful " +
+        "teardown reports all-zero counts. Owner-scoped: never discovers, counts, reports, or " +
+        "deletes another user's resources, even if they carry the same tag. Irreversible once " +
+        "`dryRun` is omitted/false and the call succeeds.",
+      inputSchema: {
+        tag: z.string().min(1).max(200),
+        dryRun: z.boolean().optional(),
+      },
+    },
+    ({ tag, dryRun }) => guarded(() => api.teardownResources({ tag, dryRun })),
   );
 
   // ── Delete tools ──────────────────────────────────────────────────────────

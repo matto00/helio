@@ -106,6 +106,18 @@ object RequestValidation {
         Left(s"Invalid sort value: '$s'. Valid values: ${TimelineOptions.ValidSorts.toSeq.sorted.mkString(", ")}")
     }
 
+  /** HEL-366: max length of the free-form `tag` field on data sources,
+   *  pipelines, and DataTypes — mirrors the DB `CHECK (length(tag) <= 200)`
+   *  (V73) so an over-length tag surfaces as a curated 400 before it ever
+   *  reaches the DB constraint. */
+  val MaxTagLength = 200
+
+  def validateTag(tag: Option[String]): Either[String, Option[String]] =
+    tag match {
+      case Some(t) if t.length > MaxTagLength => Left(s"tag must be at most $MaxTagLength characters")
+      case other                              => Right(other)
+    }
+
   val MaxApiTokenNameLength = 100
 
   def validateCreateApiTokenRequest(req: CreateApiTokenRequest): Either[String, CreateApiTokenRequest] =

@@ -30,12 +30,16 @@ final class DataTypeRoutes(
       concat(
         pathEndOrSingleSlash {
           get {
-            parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+            parameters(
+              "offset".as[Int].withDefault(Page.Default.offset),
+              "limit".as[Int].withDefault(Page.Default.limit),
+              "tag".optional
+            ) { (offsetRaw, limitRaw, tag) =>
               if (offsetRaw < 0)
                 complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
               else {
                 val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                onSuccess(dataTypeService.findAll(user, page)) { result =>
+                onSuccess(dataTypeService.findAll(user, page, tag)) { result =>
                   complete(PagedResult(result.items.map(DataTypeResponse.fromDomain), result.total, result.offset, result.limit))
                 }
               }

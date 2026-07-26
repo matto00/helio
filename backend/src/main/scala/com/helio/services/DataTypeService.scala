@@ -19,8 +19,10 @@ final class DataTypeService(
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[DataType]] =
-    dataTypeRepo.findAll(user.id, page)
+  /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
+   *  pre-existing unfiltered behavior. */
+  def findAll(user: AuthenticatedUser, page: Page, tag: Option[String] = None): Future[PagedResult[DataType]] =
+    dataTypeRepo.findAll(user.id, page, tag)
 
   def findById(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
     dataTypeRepo.findByIdOwned(id, user).map {
@@ -136,7 +138,15 @@ final class DataTypeService(
    *
    *  Uses `findByIdInternal` (privileged): this is error-message rendering only —
    *  the source name is shown to the user who already owns the DataType that
-   *  links to it.  No data is returned about the source's content. */
+   *  links to it.  No data is returned about the source's content.
+   *
+   *  HEL-366 cross-reference: `WorkspaceTeardownRepository.sourceLinkConflict`
+   *  reimplements a narrow, tag-scoped, app-pool variant of this same
+   *  existence check for the bulk-teardown path — it cannot call this method
+   *  (privileged pool via `findByIdInternal`, not composable into teardown's
+   *  app-pool transaction; see design.md Decision 3/6). A future schema
+   *  change to `sourceId`'s semantics here is a prompt to check that method
+   *  too. */
   private def checkSourceLink(dt: DataType): Future[Either[ServiceError, Unit]] =
     dt.sourceId match {
       case None => Future.successful(Right(()))

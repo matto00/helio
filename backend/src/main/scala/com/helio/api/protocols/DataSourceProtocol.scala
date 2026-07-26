@@ -22,6 +22,8 @@ sealed trait DataSourceResponse {
    *  trait so concrete case classes don't introduce an extra constructor
    *  parameter that confuses the spray-json macro. */
   def `type`: String
+  /** HEL-366: optional free-form grouping tag, set only at create time. */
+  def tag: Option[String]
 }
 
 final case class CsvSourceResponse(
@@ -29,7 +31,8 @@ final case class CsvSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: CsvSourceConfigPayload
+    config: CsvSourceConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Csv
 }
@@ -39,7 +42,8 @@ final case class RestSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: RestApiConfigPayload
+    config: RestApiConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.RestApi
 }
@@ -49,7 +53,8 @@ final case class SqlSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: SqlSourceConfigPayload
+    config: SqlSourceConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Sql
 }
@@ -58,7 +63,8 @@ final case class StaticSourceResponse(
     id: String,
     name: String,
     createdAt: String,
-    updatedAt: String
+    updatedAt: String,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Static
 }
@@ -68,7 +74,8 @@ final case class TextSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: TextSourceConfigPayload
+    config: TextSourceConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Text
 }
@@ -78,7 +85,8 @@ final case class PdfSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: PdfSourceConfigPayload
+    config: PdfSourceConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Pdf
 }
@@ -88,7 +96,8 @@ final case class ImageSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    config: ImageSourceConfigPayload
+    config: ImageSourceConfigPayload,
+    tag: Option[String] = None
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Image
 }
@@ -131,15 +140,15 @@ final case class RestApiConfigPayload(
 
 final case class TextSourceConfigPayload(path: String, sourceUrl: Option[String])
 final case class TextSourceUrlConfigPayload(url: String)
-final case class TextSourceUrlRequest(name: String, `type`: String, config: TextSourceUrlConfigPayload)
+final case class TextSourceUrlRequest(name: String, `type`: String, config: TextSourceUrlConfigPayload, tag: Option[String] = None)
 
 final case class PdfSourceConfigPayload(path: String, sourceUrl: Option[String])
 final case class PdfSourceUrlConfigPayload(url: String)
-final case class PdfSourceUrlRequest(name: String, `type`: String, config: PdfSourceUrlConfigPayload)
+final case class PdfSourceUrlRequest(name: String, `type`: String, config: PdfSourceUrlConfigPayload, tag: Option[String] = None)
 
 final case class ImageSourceConfigPayload(path: String, sourceUrl: Option[String])
 final case class ImageSourceUrlConfigPayload(url: String)
-final case class ImageSourceUrlRequest(name: String, `type`: String, config: ImageSourceUrlConfigPayload)
+final case class ImageSourceUrlRequest(name: String, `type`: String, config: ImageSourceUrlConfigPayload, tag: Option[String] = None)
 
 final case class FieldOverridePayload(name: String, displayName: String, dataType: String)
 final case class CreateSourceRequest(
@@ -170,7 +179,8 @@ final case class StaticDataSourceRequest(
     name: String,
     `type`: String,
     columns: Vector[StaticColumnPayload],
-    rows: Vector[Vector[JsValue]]
+    rows: Vector[Vector[JsValue]],
+    tag: Option[String] = None
 )
 
 object DataSourceResponse {
@@ -190,7 +200,8 @@ object DataSourceResponse {
         name      = c.name,
         createdAt = c.createdAt.toString,
         updatedAt = c.updatedAt.toString,
-        config    = CsvSourceConfigPayload(c.config.path)
+        config    = CsvSourceConfigPayload(c.config.path),
+        tag       = c.tag
       )
     case r: RestSource =>
       RestSourceResponse(
@@ -198,7 +209,8 @@ object DataSourceResponse {
         name      = r.name,
         createdAt = r.createdAt.toString,
         updatedAt = r.updatedAt.toString,
-        config    = SecretRedaction.redact(RestApiConfigPayload.fromDomain(r.config))
+        config    = SecretRedaction.redact(RestApiConfigPayload.fromDomain(r.config)),
+        tag       = r.tag
       )
     case s: SqlSource =>
       SqlSourceResponse(
@@ -206,14 +218,16 @@ object DataSourceResponse {
         name      = s.name,
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
-        config    = SecretRedaction.redact(SqlSourceConfigPayload.fromDomain(s.config))
+        config    = SecretRedaction.redact(SqlSourceConfigPayload.fromDomain(s.config)),
+        tag       = s.tag
       )
     case s: StaticSource =>
       StaticSourceResponse(
         id        = s.id.value,
         name      = s.name,
         createdAt = s.createdAt.toString,
-        updatedAt = s.updatedAt.toString
+        updatedAt = s.updatedAt.toString,
+        tag       = s.tag
       )
     case t: TextSource =>
       TextSourceResponse(
@@ -221,7 +235,8 @@ object DataSourceResponse {
         name      = t.name,
         createdAt = t.createdAt.toString,
         updatedAt = t.updatedAt.toString,
-        config    = TextSourceConfigPayload(t.config.path, t.config.sourceUrl)
+        config    = TextSourceConfigPayload(t.config.path, t.config.sourceUrl),
+        tag       = t.tag
       )
     case p: PdfSource =>
       PdfSourceResponse(
@@ -229,7 +244,8 @@ object DataSourceResponse {
         name      = p.name,
         createdAt = p.createdAt.toString,
         updatedAt = p.updatedAt.toString,
-        config    = PdfSourceConfigPayload(p.config.path, p.config.sourceUrl)
+        config    = PdfSourceConfigPayload(p.config.path, p.config.sourceUrl),
+        tag       = p.tag
       )
     case i: ImageSource =>
       ImageSourceResponse(
@@ -237,7 +253,8 @@ object DataSourceResponse {
         name      = i.name,
         createdAt = i.createdAt.toString,
         updatedAt = i.updatedAt.toString,
-        config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl)
+        config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl),
+        tag       = i.tag
       )
   }
 }
@@ -368,22 +385,22 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload]       = jsonFormat3(FieldOverridePayload.apply)
   implicit val textSourceConfigPayloadFormat: RootJsonFormat[TextSourceConfigPayload]       = jsonFormat2(TextSourceConfigPayload.apply)
   implicit val textSourceUrlConfigPayloadFormat: RootJsonFormat[TextSourceUrlConfigPayload] = jsonFormat1(TextSourceUrlConfigPayload.apply)
-  implicit val textSourceUrlRequestFormat: RootJsonFormat[TextSourceUrlRequest]             = jsonFormat3(TextSourceUrlRequest.apply)
+  implicit val textSourceUrlRequestFormat: RootJsonFormat[TextSourceUrlRequest]             = jsonFormat4(TextSourceUrlRequest.apply)
   implicit val pdfSourceConfigPayloadFormat: RootJsonFormat[PdfSourceConfigPayload]         = jsonFormat2(PdfSourceConfigPayload.apply)
   implicit val pdfSourceUrlConfigPayloadFormat: RootJsonFormat[PdfSourceUrlConfigPayload]   = jsonFormat1(PdfSourceUrlConfigPayload.apply)
-  implicit val pdfSourceUrlRequestFormat: RootJsonFormat[PdfSourceUrlRequest]               = jsonFormat3(PdfSourceUrlRequest.apply)
+  implicit val pdfSourceUrlRequestFormat: RootJsonFormat[PdfSourceUrlRequest]               = jsonFormat4(PdfSourceUrlRequest.apply)
   implicit val imageSourceConfigPayloadFormat: RootJsonFormat[ImageSourceConfigPayload]       = jsonFormat2(ImageSourceConfigPayload.apply)
   implicit val imageSourceUrlConfigPayloadFormat: RootJsonFormat[ImageSourceUrlConfigPayload] = jsonFormat1(ImageSourceUrlConfigPayload.apply)
-  implicit val imageSourceUrlRequestFormat: RootJsonFormat[ImageSourceUrlRequest]             = jsonFormat3(ImageSourceUrlRequest.apply)
+  implicit val imageSourceUrlRequestFormat: RootJsonFormat[ImageSourceUrlRequest]             = jsonFormat4(ImageSourceUrlRequest.apply)
 
   // ── Per-subtype response formats (used only inside DataSourceResponseFormat) ─
-  private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat5(CsvSourceResponse.apply)
-  private val restSourceResponseFormat: RootJsonFormat[RestSourceResponse]     = jsonFormat5(RestSourceResponse.apply)
-  private val sqlSourceResponseFormat: RootJsonFormat[SqlSourceResponse]       = jsonFormat5(SqlSourceResponse.apply)
-  private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat4(StaticSourceResponse.apply)
-  private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat5(TextSourceResponse.apply)
-  private val pdfSourceResponseFormat: RootJsonFormat[PdfSourceResponse]       = jsonFormat5(PdfSourceResponse.apply)
-  private val imageSourceResponseFormat: RootJsonFormat[ImageSourceResponse]   = jsonFormat5(ImageSourceResponse.apply)
+  private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat6(CsvSourceResponse.apply)
+  private val restSourceResponseFormat: RootJsonFormat[RestSourceResponse]     = jsonFormat6(RestSourceResponse.apply)
+  private val sqlSourceResponseFormat: RootJsonFormat[SqlSourceResponse]       = jsonFormat6(SqlSourceResponse.apply)
+  private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat5(StaticSourceResponse.apply)
+  private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat6(TextSourceResponse.apply)
+  private val pdfSourceResponseFormat: RootJsonFormat[PdfSourceResponse]       = jsonFormat6(PdfSourceResponse.apply)
+  private val imageSourceResponseFormat: RootJsonFormat[ImageSourceResponse]   = jsonFormat6(ImageSourceResponse.apply)
 
   /** Discriminated-union format for the [[DataSourceResponse]] ADT.
    *
@@ -435,5 +452,5 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   // Static connector formats
   implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat2(StaticColumnPayload.apply)
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)
-  implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat4(StaticDataSourceRequest.apply)
+  implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat5(StaticDataSourceRequest.apply)
 }

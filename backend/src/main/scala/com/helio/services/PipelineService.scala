@@ -1,5 +1,6 @@
 package com.helio.services
 
+import com.helio.api.RequestValidation
 import com.helio.api.protocols.{
   AggregateAnalyzeStepResponse,
   AnalyzeStepResponse,
@@ -99,8 +100,10 @@ final class PipelineService(
 
   // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 
-  def listSummaries(user: AuthenticatedUser): Future[Vector[PipelineSummaryResponse]] =
-    pipelineRepo.listSummaries(user).map(_.map(toSummaryResponse))
+  /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
+   *  pre-existing unfiltered behavior. */
+  def listSummaries(user: AuthenticatedUser, tag: Option[String] = None): Future[Vector[PipelineSummaryResponse]] =
+    pipelineRepo.listSummaries(user, tag).map(_.map(toSummaryResponse))
 
   /** Sharing-aware read. Owner, editor, and viewer grantees can read. */
   def findSummaryById(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =
@@ -116,12 +119,15 @@ final class PipelineService(
       Future.successful(Left(ServiceError.BadRequest("sourceDataSourceId is required")))
     else if (req.outputDataTypeName.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("outputDataTypeName is required")))
-    else
-      pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user).map {
-        case Right(summary)                       => Right(toSummaryResponse(summary))
-        case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
-        case Left(msg)                              => Left(ServiceError.BadRequest(msg))
-      }
+    else RequestValidation.validateTag(req.tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(tag) =>
+        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user, tag).map {
+          case Right(summary)                       => Right(toSummaryResponse(summary))
+          case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
+          case Left(msg)                              => Left(ServiceError.BadRequest(msg))
+        }
+    }
   }
 
   /** Owner-only rename. Grantees (editor or viewer) receive 403 because
@@ -500,7 +506,8 @@ final class PipelineService(
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
-      ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None
+      ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
+      tag                  = s.tag
     )
 
   private def toFieldResponse(sf: SchemaField): SchemaFieldResponse =

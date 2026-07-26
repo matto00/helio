@@ -11,9 +11,9 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -86,7 +86,15 @@ final class ApiRoutes(
     // /api/pipelines/:id/schedule routes mounted
     // (pipelineScheduleServiceOpt.fold(reject)). Appended last for the same
     // purely-additive reason.
-    pipelineScheduleRepo: PipelineScheduleRepository = null
+    pipelineScheduleRepo: PipelineScheduleRepository = null,
+    // HEL-366: same nullable-optional wiring pattern as the repos above —
+    // fixtures that don't pass a DbContext simply don't get the
+    // /api/workspace/teardown route mounted (workspaceTeardownServiceOpt.
+    // fold(reject)). Unlike the other nullable params this is a raw
+    // DbContext rather than a repository: WorkspaceTeardownRepository's
+    // entire teardown transaction must run via `ctx.withUserContext` (design.md
+    // Decision 3's hard constraint), which no existing repository exposes.
+    dbContext: DbContext = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -181,6 +189,11 @@ final class ApiRoutes(
   // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineShapeService        = new PipelineShapeService()
+  // HEL-366: same nullable-optional wiring pattern as the repos above —
+  // fixtures that don't pass a DbContext simply don't get the
+  // /api/workspace/teardown route mounted.
+  private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
+    Option(dbContext).map(ctx => new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem))
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -308,7 +321,8 @@ final class ApiRoutes(
                   imageUploadServiceOpt.fold(reject: Route)(svc => new UploadRoutes(svc, authenticatedUser).routes),
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
-                  pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes)
+                  pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
+                  workspaceTeardownServiceOpt.fold(reject: Route)(svc => new WorkspaceRoutes(svc, authenticatedUser).routes)
                 )
               }
             )

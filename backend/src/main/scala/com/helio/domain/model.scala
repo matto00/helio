@@ -514,7 +514,12 @@ final case class DataType(
     version: Int,
     createdAt: Instant,
     updatedAt: Instant,
-    ownerId: UserId
+    ownerId: UserId,
+    // HEL-366: optional free-form grouping tag. For a source-companion
+    // DataType this mirrors its owning DataSource's tag; for a pipeline
+    // output DataType this mirrors its producing Pipeline's tag (both
+    // propagated at create time — see design.md Decision 6 / tasks.md 2.3).
+    tag: Option[String] = None
 )
 
 sealed trait Role
@@ -558,7 +563,9 @@ final case class Pipeline(
     lastRunAt: Option[Instant],
     createdAt: Instant,
     updatedAt: Instant,
-    ownerId: UserId
+    ownerId: UserId,
+    // HEL-366: optional free-form grouping tag, set only at create time.
+    tag: Option[String] = None
 )
 
 final case class PipelineStepId(value: String) extends AnyVal

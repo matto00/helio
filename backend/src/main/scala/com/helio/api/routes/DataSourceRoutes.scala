@@ -57,12 +57,16 @@ final class DataSourceRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+              parameters(
+                "offset".as[Int].withDefault(Page.Default.offset),
+                "limit".as[Int].withDefault(Page.Default.limit),
+                "tag".optional
+              ) { (offsetRaw, limitRaw, tag) =>
                 if (offsetRaw < 0)
                   complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
                 else {
                   val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                  onSuccess(dataSourceService.findAll(user, page)) { result =>
+                  onSuccess(dataSourceService.findAll(user, page, tag)) { result =>
                     complete(PagedResult(result.items.map(DataSourceResponse.fromDomain), result.total, result.offset, result.limit))
                   }
                 }
@@ -104,7 +108,7 @@ final class DataSourceRoutes(
       if (typeStr.contains(DataSourceKind.Text)) {
         Try(json.convertTo[TextSourceUrlRequest]) match {
           case Success(request) =>
-            ServiceResponse.run(dataSourceService.createTextUrl(request.name, request.config.url, user)) { ds =>
+            ServiceResponse.run(dataSourceService.createTextUrl(request.name, request.config.url, user, request.tag)) { ds =>
               StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
             }
           case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
@@ -112,7 +116,7 @@ final class DataSourceRoutes(
       } else if (typeStr.contains(DataSourceKind.Pdf)) {
         Try(json.convertTo[PdfSourceUrlRequest]) match {
           case Success(request) =>
-            ServiceResponse.run(dataSourceService.createPdfUrl(request.name, request.config.url, user)) { ds =>
+            ServiceResponse.run(dataSourceService.createPdfUrl(request.name, request.config.url, user, request.tag)) { ds =>
               StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
             }
           case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
@@ -120,7 +124,7 @@ final class DataSourceRoutes(
       } else if (typeStr.contains(DataSourceKind.Image)) {
         Try(json.convertTo[ImageSourceUrlRequest]) match {
           case Success(request) =>
-            ServiceResponse.run(dataSourceService.createImageUrl(request.name, request.config.url, user)) { ds =>
+            ServiceResponse.run(dataSourceService.createImageUrl(request.name, request.config.url, user, request.tag)) { ds =>
               StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
             }
           case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
@@ -154,6 +158,8 @@ final class DataSourceRoutes(
         val typeStr      = partsMap.get("type").map(_.utf8String.trim).filter(_.nonEmpty).getOrElse(DataSourceKind.Csv)
         val nameOpt      = partsMap.get("name").map(_.utf8String.trim).filter(_.nonEmpty)
         val bytesOpt     = partsMap.get("file").map(_.toArray)
+        // HEL-366: optional `tag` multipart part, mirroring `name`/`type`.
+        val tag          = partsMap.get("tag").map(_.utf8String.trim).filter(_.nonEmpty)
 
         (nameOpt, bytesOpt) match {
           case (None, _) =>
@@ -171,7 +177,7 @@ final class DataSourceRoutes(
                 ErrorResponse(s"File exceeds the maximum allowed size of $textMaxBytes bytes")
               )
             else
-              ServiceResponse.run(dataSourceService.createTextUpload(name, bytes, filename, user)) { ds =>
+              ServiceResponse.run(dataSourceService.createTextUpload(name, bytes, filename, user, tag)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
           case (Some(name), Some(bytes)) if typeStr == DataSourceKind.Pdf =>
@@ -184,7 +190,7 @@ final class DataSourceRoutes(
                 ErrorResponse(s"File exceeds the maximum allowed size of $pdfMaxBytes bytes")
               )
             else
-              ServiceResponse.run(dataSourceService.createPdfUpload(name, bytes, filename, user)) { ds =>
+              ServiceResponse.run(dataSourceService.createPdfUpload(name, bytes, filename, user, tag)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
           case (Some(name), Some(bytes)) if typeStr == DataSourceKind.Image =>
@@ -197,7 +203,7 @@ final class DataSourceRoutes(
                 ErrorResponse(s"File exceeds the maximum allowed size of $imageMaxBytes bytes")
               )
             else
-              ServiceResponse.run(dataSourceService.createImageUpload(name, bytes, filename, user)) { ds =>
+              ServiceResponse.run(dataSourceService.createImageUpload(name, bytes, filename, user, tag)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
           case (Some(name), Some(bytes)) =>
@@ -210,7 +216,7 @@ final class DataSourceRoutes(
               val overrides = partsMap.get("fields")
                 .map(data => DataSourceService.parseFieldOverrides(data.utf8String))
                 .getOrElse(Vector.empty)
-              ServiceResponse.run(dataSourceService.createCsv(name, bytes, overrides, user)) { ds =>
+              ServiceResponse.run(dataSourceService.createCsv(name, bytes, overrides, user, tag)) { ds =>
                 StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
               }
             }
