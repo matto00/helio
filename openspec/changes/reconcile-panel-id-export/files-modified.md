@@ -1,8 +1,0 @@
-- `backend/src/main/scala/com/helio/api/protocols/DashboardProtocol.scala` — add additive `id: Option[String]` to `DashboardSnapshotPanelEntry`, populate `Some(panel.id.value)` in `fromDomain`, bump `jsonFormat5` → `jsonFormat6`; no `CurrentVersion` bump (D3).
-- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala` — assert export's new `id` field equals `snapshotId`/real panel id; add new test importing a snapshot with `id` stripped from every panel entry (legacy-export simulation) succeeds identically; add `id` to an existing hand-rolled `DashboardSnapshotPanelEntry` construction (now a required constructor arg).
-- `backend/src/test/scala/com/helio/api/protocols/AggregatorRegressionSpec.scala` — add `id` to the round-trip test's hand-rolled `DashboardSnapshotPanelEntry` construction.
-- `backend/src/test/scala/com/helio/services/DashboardSnapshotValidationSpec.scala` — `panel()` test helper now explicitly passes `id = None`, doubling as coverage that validation succeeds without `id` present.
-- `helio-mcp/src/types.ts` — mirror `id?: string` on `SnapshotPanelEntry`.
-- `helio-mcp/src/tools/read.ts` — update `get_dashboard` tool description to state each panel carries a stable `id`.
-- `frontend/src/features/dashboards/types/dashboard.ts` — mirror `id?: string` on `DashboardSnapshotPanelEntry` (type-only; no FE logic reads it).
-- `openspec/changes/reconcile-panel-id-export/tasks.md` — mark all tasks complete.
