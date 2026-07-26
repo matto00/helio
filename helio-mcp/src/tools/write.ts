@@ -775,4 +775,37 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     },
     ({ dashboardId, items }) => guarded(() => api.updateDashboardLayout(dashboardId, items)),
   );
+
+  server.registerTool(
+    "auto_layout_dashboard",
+    {
+      title: "Auto-pack panel sizes into a non-overlapping layout",
+      description:
+        "Server-side geometry helper (POST /api/dashboards/:id/auto-layout) that replaces having to " +
+        "compute panel positions yourself — pass ONLY sizes ([{panelId,w,h}], no x/y) and the backend " +
+        "flows them left-to-right on a 12-column grid (configurable via `cols`), wrapping to a new row " +
+        "when one fills, widening a nearly-full row to close a ragged right edge, and clamping any " +
+        "out-of-bounds size to its panel kind's readable min/max (e.g. a chart too short to show its " +
+        "axis labels). Input order IS visual order. Panels omitted from `items` keep their current " +
+        "saved position; a `panelId` not on the target dashboard is rejected with 400 (surfaced " +
+        "verbatim, nothing persisted). Same placement is applied to all four responsive breakpoints. " +
+        "Create + bind panels first, then call this with their ids and your chosen sizes — no need to " +
+        "reimplement shelf-packing/clamping client-side.",
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        items: z
+          .array(
+            z.object({
+              panelId: z.string().min(1),
+              w: z.number().int().positive(),
+              h: z.number().int().positive(),
+            }),
+          )
+          .min(1),
+        cols: z.number().int().positive().optional(),
+      },
+    },
+    ({ dashboardId, items, cols }) =>
+      guarded(() => api.autoLayoutDashboard(dashboardId, items, cols)),
+  );
 }

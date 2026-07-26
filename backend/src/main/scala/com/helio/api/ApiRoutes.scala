@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, ImageUploadService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -134,6 +134,10 @@ final class ApiRoutes(
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
   private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker)
+  // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
+  // the other dashboard/panel services use; PanelPacker (the pure geometry)
+  // is invoked internally, no extra wiring needed here.
+  private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked)
   private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
@@ -288,6 +292,7 @@ final class ApiRoutes(
                   },
                   new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
                   new DashboardContentsRoutes(dashboardContentsService, authenticatedUser).routes,
+                  new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                   // HEL-364: mounted ahead of PanelRoutes so the literal

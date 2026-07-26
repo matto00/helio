@@ -83,6 +83,12 @@ package object api {
   val ReplaceDashboardContentsRequest: protocols.ReplaceDashboardContentsRequest.type =
     protocols.ReplaceDashboardContentsRequest
 
+  // Dashboard auto-layout (HEL-367)
+  type AutoLayoutItemPayload = protocols.AutoLayoutItemPayload
+  val AutoLayoutItemPayload: protocols.AutoLayoutItemPayload.type = protocols.AutoLayoutItemPayload
+  type AutoLayoutRequest = protocols.AutoLayoutRequest
+  val AutoLayoutRequest: protocols.AutoLayoutRequest.type = protocols.AutoLayoutRequest
+
   // Panel
   type PanelAppearancePayload = protocols.PanelAppearancePayload
   val PanelAppearancePayload: protocols.PanelAppearancePayload.type = protocols.PanelAppearancePayload
