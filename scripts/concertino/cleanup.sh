@@ -38,6 +38,44 @@ BACKEND_PORT="${3:-}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# ---------------------------------------------------------------------------
+# Merged-precondition guard (HEL-371 follow-up, 2026-07-26).
+#
+# The `--phase4` opt-in above only stops a *bare* invocation. Twice now a review
+# agent has destroyed a LIVE worktree mid-review by passing `--phase4` anyway
+# (HEL-323, then HEL-371), despite explicit instructions not to run this script.
+# Prose guards have not held, so enforce the actual Phase-4 precondition
+# mechanically: cleanup is post-MERGE, so the worktree's code must already be
+# in origin/main.
+#
+# Squash-merges mean branch commits are never ancestors of main, so
+# `git branch --merged` is useless here — compare the TREES instead. If any
+# tracked code path still differs from origin/main, the work is unmerged and
+# this is not Phase 4. Refuse loudly (exit 1, not a silent no-op) so a stray
+# mid-review call surfaces as an error instead of passing for success.
+#
+# Override with CONCERTINO_SKIP_MERGE_CHECK=1 for the genuine abandon-a-branch
+# case (deliberately discarding unmerged work).
+# ---------------------------------------------------------------------------
+if [ "${CONCERTINO_SKIP_MERGE_CHECK:-}" != "1" ] && [ -d "$WORKTREE_PATH" ]; then
+  git -C "$REPO_ROOT" fetch origin --quiet 2>/dev/null || true
+  if ! git -C "$WORKTREE_PATH" diff --quiet origin/main HEAD -- \
+      backend frontend schemas helio-mcp scripts infra 2>/dev/null; then
+    echo "cleanup.sh: REFUSING to remove '$WORKTREE_PATH' — its code does not match" >&2
+    echo "origin/main, so this work is NOT merged and this is NOT Phase 4." >&2
+    echo "" >&2
+    echo "If you are an evaluator or skeptic: you should not be running this script" >&2
+    echo "at all. It is the orchestrator's post-merge teardown. Stop here." >&2
+    echo "" >&2
+    echo "Differing paths:" >&2
+    git -C "$WORKTREE_PATH" diff --stat origin/main HEAD -- \
+      backend frontend schemas helio-mcp scripts infra >&2 || true
+    echo "" >&2
+    echo "To discard unmerged work deliberately: CONCERTINO_SKIP_MERGE_CHECK=1" >&2
+    exit 1
+  fi
+fi
+
 # Stop dev servers on this ticket's ports (no-op if already down).
 [ -n "$DEV_PORT" ]     && fuser -k "${DEV_PORT}/tcp"     2>/dev/null || true
 [ -n "$BACKEND_PORT" ] && fuser -k "${BACKEND_PORT}/tcp" 2>/dev/null || true
