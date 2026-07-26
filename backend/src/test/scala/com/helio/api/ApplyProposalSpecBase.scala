@@ -175,4 +175,20 @@ abstract class ApplyProposalSpecBase
 
   protected def apply(body: String) =
     Post("/api/dashboards/apply-proposal", json(body)).addHeader(sessionCookie).addHeader(csrfHeader)
+
+  /** Seed a dashboard row directly (bypassing the HTTP layer) owned by an
+   *  arbitrary user id — used by HEL-363 cross-tenant / owner-scoping specs
+   *  that need a dashboard owned by `otherId` without a second stubbed
+   *  session. Mirrors `DashboardPanelAclSpec.seedDashboard`'s raw-SQL insert. */
+  protected def seedDashboardForOwner(name: String, ownerId: String): String = {
+    val id = UUID.randomUUID().toString
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($id, $name, $ownerId, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent"}',
+                     '{"lg":[],"md":[],"sm":[],"xs":[]}',
+                     $ownerId::uuid)"""
+    ))
+    id
+  }
 }

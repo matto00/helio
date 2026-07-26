@@ -11,7 +11,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DashboardRepository(protected val ctx: DbContext)(implicit protected val ec: ExecutionContext)
-    extends DashboardProtocol with PanelProtocol with DashboardSnapshotOps {
+    extends DashboardProtocol with PanelProtocol with DashboardSnapshotOps with DashboardContentsOps {
 
   import DashboardRepository._
 
@@ -114,6 +114,25 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
   def findByIdInternal(id: DashboardId): Future[Option[Dashboard]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
+
+  /** Owner-scoped, case-insensitive/trimmed name lookup for the get-or-create
+   *  path (HEL-363 D3) — app-level check-then-insert, no DB uniqueness
+   *  constraint (a hard constraint was explicitly rejected at the design gate:
+   *  it would regress `duplicate`'s "(copy)" naming and `updateName`'s
+   *  unchecked rename, both of which allow same-owner name collisions by
+   *  design — see design.md D3). The comparison normalizes via Postgres
+   *  `lower(trim(name))`, matching `RequestValidation.normalizeDashboardName`'s
+   *  trim convention regardless of what the caller already normalized. */
+  def findByNameOwned(name: String, ownerId: UserId): Future[Option[Dashboard]] = {
+    val normalized = name.trim.toLowerCase
+    val ownerUuid  = UUID.fromString(ownerId.value)
+    ctx.withUserContext(ownerId.value)(
+      table
+        .filter(d => d.ownerId === ownerUuid && d.name.trim.toLowerCase === normalized)
+        .result
+        .headOption
+    ).map(_.map(rowToDomain))
+  }
 
   /** Sharing-aware list. Returns dashboards owned by the user OR where the
    *  user has an explicit grant.

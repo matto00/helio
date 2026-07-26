@@ -34,6 +34,7 @@ import type {
   PipelineShapeCatalogEntryResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
+  ProposalPanel,
   RestAuthInput,
   RowsPreview,
   RunResultResponse,
@@ -418,8 +419,31 @@ export class HelioApi {
     };
   }
 
-  createDashboard(input: { name: string }): Promise<DashboardResponse> {
+  /** Create a dashboard, or — when `ifExists: "return"` (HEL-363) — return an
+   *  existing same-owner, case-insensitive/trimmed name match instead of
+   *  creating a duplicate (200), so a rebuild script can target a stable
+   *  dashboard without first listing + scanning for a name match. Omitting
+   *  `ifExists` behaves exactly as before (always creates, 201). */
+  createDashboard(input: { name: string; ifExists?: "return" }): Promise<DashboardResponse> {
     return this.http.post<DashboardResponse>("/api/dashboards", input);
+  }
+
+  /** Atomically replace ALL of an existing dashboard's panels with the
+   *  supplied set (HEL-363, `PUT /api/dashboards/:id/contents`). Validates
+   *  every panel (structure + V41 pipeline-only binding, RLS-owner-scoped)
+   *  BEFORE any write — on any invalid panel, NOTHING is deleted or created
+   *  and the backend's 400 names the offending panel. On success, the
+   *  dashboard's old panels are gone and the new set exists; the live
+   *  dashboard is never observably empty mid-rebuild. Returns the rebuilt
+   *  dashboard + panels, same shape as apply_proposal. */
+  replaceDashboardContents(
+    dashboardId: string,
+    panels: ProposalPanel[],
+  ): Promise<{ dashboard: DashboardResponse; panels: PanelResponse[] }> {
+    return this.http.put<{ dashboard: DashboardResponse; panels: PanelResponse[] }>(
+      `/api/dashboards/${dashboardId}/contents`,
+      { panels },
+    );
   }
 
   /** Create a panel. `type` ∈

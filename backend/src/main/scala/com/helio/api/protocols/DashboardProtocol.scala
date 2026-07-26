@@ -33,7 +33,11 @@ final case class DashboardResponse(
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
-final case class CreateDashboardRequest(name: Option[String])
+// HEL-363: `ifExists` is an opt-in get-or-create flag. `Some("return")` looks
+// up an owner-scoped, case-insensitive/trimmed name match and returns it
+// (200) instead of creating a duplicate; any other value (or absence) leaves
+// `create` byte-for-byte unchanged (always creates, 201) — see design.md D3.
+final case class CreateDashboardRequest(name: Option[String], ifExists: Option[String] = None)
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
@@ -184,7 +188,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat6(DashboardResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse]                   = jsonFormat1(DashboardsResponse.apply)
   implicit val duplicateDashboardResponseFormat: RootJsonFormat[DuplicateDashboardResponse]   = jsonFormat2(DuplicateDashboardResponse.apply)
-  implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat1(CreateDashboardRequest.apply)
+  implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat2(CreateDashboardRequest.apply)
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat3(UpdateDashboardRequest.apply)
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 

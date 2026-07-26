@@ -12,6 +12,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
+import type { ProposalPanel } from "../types.js";
+import { panelSchema } from "./proposal.js";
 
 function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -311,10 +313,47 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     "create_dashboard",
     {
       title: "Create dashboard",
-      description: "Create an empty dashboard. Returns its id (add panels with create_panel).",
-      inputSchema: { name: z.string().min(1) },
+      description:
+        "Create an empty dashboard. Returns its id (add panels with create_panel). Pass " +
+        'ifExists:"return" (HEL-363) for idempotent get-or-create: an owner-scoped, ' +
+        "case-insensitive/trimmed name match is returned instead (200, same dashboard id as any " +
+        "prior call) rather than creating a duplicate — useful for a scheduled rebuild script that " +
+        "targets a stable dashboard without first listing + scanning for a name match. Omit " +
+        "ifExists for the original behavior: always creates a new dashboard (201), even if a " +
+        "same-named one already exists. Note: this is a sequential-call idempotency guarantee, not " +
+        "a hard uniqueness constraint — two truly concurrent calls with the same name can both create.",
+      inputSchema: { name: z.string().min(1), ifExists: z.literal("return").optional() },
     },
-    ({ name }) => guarded(() => api.createDashboard({ name })),
+    ({ name, ifExists }) => guarded(() => api.createDashboard({ name, ifExists })),
+  );
+
+  server.registerTool(
+    "replace_dashboard_contents",
+    {
+      title: "Atomically replace a dashboard's panels",
+      description:
+        "Replace ALL of an existing dashboard's panels with the supplied set, atomically " +
+        "(PUT /api/dashboards/:id/contents, HEL-363) — in one server-side transaction, instead of " +
+        "hand-rolling delete_panel-per-panel followed by create_panel-per-panel (which leaves the " +
+        "live dashboard observably half-empty mid-rebuild and is not atomic). Every panel is " +
+        "validated (structure + V41 pipeline-only binding, RLS-owner-scoped) BEFORE any write: on " +
+        "any invalid panel, the response is a 400 naming the offending panel by index/title and " +
+        "NOTHING is deleted or created — the dashboard's existing panel set is left byte-for-byte " +
+        "unchanged. On success, every prior panel is gone and every supplied panel exists; the " +
+        "response is the rebuilt dashboard + panels (same shape as apply_proposal). Panels use the " +
+        "exact same shape as propose_dashboard/apply_proposal's `panels` array (see those tools' " +
+        "descriptions for the full per-type config/binding rules) — no pre-existing panel id is " +
+        "needed since every panel gets a freshly minted id; per-panel `layout` (if given) is applied " +
+        "on the rebuilt dashboard. Two overlapping calls for the SAME dashboard are last-writer-" +
+        "wins (each still returns 200 for the write it made, but the later commit's panel set is " +
+        "what survives) — call this serially per dashboard, as a scheduled rebuild naturally would.",
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        panels: z.array(panelSchema),
+      },
+    },
+    ({ dashboardId, panels }) =>
+      guarded(() => api.replaceDashboardContents(dashboardId, panels as ProposalPanel[])),
   );
 
   server.registerTool(

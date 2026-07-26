@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/replace-dashboard-contents-request.schema.json",
+  "title": "ReplaceDashboardContentsRequest",
+  "description": "Body of PUT /api/dashboards/:id/contents (HEL-363) — atomically replaces ALL of an existing dashboard's panels with the supplied set. Reuses the ProposalPanel wire shape verbatim (no separate DTO, no pre-existing panel id needed — every panel gets a freshly minted id). The target dashboard's id comes from the URL path, not the body.",
+  "type": "object",
+  "required": ["panels"],
+  "properties": {
+    "panels": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/dashboard-proposal.schema.json#/$defs/ProposalPanel"
+      }
+    }
+  },
+  "additionalProperties": false
+}

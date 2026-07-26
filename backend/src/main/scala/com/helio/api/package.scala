@@ -78,6 +78,11 @@ package object api {
   type ProposalPanelLayout = protocols.ProposalPanelLayout
   val ProposalPanelLayout: protocols.ProposalPanelLayout.type = protocols.ProposalPanelLayout
 
+  // Dashboard contents replace (HEL-363)
+  type ReplaceDashboardContentsRequest = protocols.ReplaceDashboardContentsRequest
+  val ReplaceDashboardContentsRequest: protocols.ReplaceDashboardContentsRequest.type =
+    protocols.ReplaceDashboardContentsRequest
+
   // Panel
   type PanelAppearancePayload = protocols.PanelAppearancePayload
   val PanelAppearancePayload: protocols.PanelAppearancePayload.type = protocols.PanelAppearancePayload
