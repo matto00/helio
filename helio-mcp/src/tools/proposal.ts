@@ -23,7 +23,9 @@ const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "tim
 // No `divider`: dropped from the proposal flow's type set for parity with
 // create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
 // on other paths, this tool just no longer offers it.
-const PANEL_TYPES = [
+// Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
+// exact same agent-facing panel-type set instead of redefining it.
+export const PANEL_TYPES = [
   "metric",
   "chart",
   "table",
@@ -55,7 +57,11 @@ const aggregationSchema = z.union([
 const chartTypeSchema = z.enum(["bar", "line", "pie", "scatter"]);
 const dividerOrientationSchema = z.enum(["horizontal", "vertical"]);
 
-const panelSchema = z.object({
+// Exported so `replace_dashboard_contents` (write.ts, HEL-363) can validate
+// its `panels` array with the exact same shape `propose_dashboard`/
+// `apply_proposal` use — the backend's `ProposalPanel` wire shape is shared
+// verbatim across all three (design.md D2).
+export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),

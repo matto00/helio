@@ -70,6 +70,12 @@ export class HelioHttpClient {
     return this.send<T>("PATCH", path, body);
   }
 
+  /** PUT a JSON body to `path` and parse the JSON response as `T` (HEL-363,
+   *  first caller: `PUT /api/dashboards/:id/contents`). */
+  put<T>(path: string, body?: unknown): Promise<T> {
+    return this.send<T>("PUT", path, body);
+  }
+
   /** DELETE `path`. Helio's delete endpoints answer `204 No Content`, so the
    *  response body is empty — `dispatch` returns `undefined` for a 204 rather
    *  than trying to `JSON.parse("")`. Callers default `T` to `void`. */
@@ -92,7 +98,7 @@ export class HelioHttpClient {
   }
 
   private send<T>(
-    method: "GET" | "POST" | "PATCH" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
     query?: Record<string, string | number | undefined>,

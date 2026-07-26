@@ -40,11 +40,37 @@ final class DashboardService(
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
     dashboardRepo.findAll(user.id, page)
 
-  def create(request: CreateDashboardInput, user: AuthenticatedUser): Future[Dashboard] = {
+  /** Create a dashboard, or — when `request.ifExists = Some("return")`
+   *  (HEL-363 D3) — return an existing same-owner, case-insensitive/trimmed
+   *  name match instead of creating a duplicate. Returns `(dashboard,
+   *  created)`: `created = true` for a fresh insert (route → 201), `false`
+   *  for a returned existing match (route → 200).
+   *
+   *  App-level check-then-insert, no DB uniqueness constraint (design.md D3):
+   *  when `ifExists` is absent this performs NO lookup at all — byte-for-byte
+   *  the same single insert as before this change, no new failure mode. The
+   *  lookup-then-insert is NOT atomic (no constraint backs it) — two
+   *  concurrent calls that both miss an existing match can both insert,
+   *  yielding two same-named dashboards; accepted for v1 (design.md D4),
+   *  since `helio-news`'s real usage is one serial call per rebuild. */
+  def create(request: CreateDashboardInput, user: AuthenticatedUser): Future[(Dashboard, Boolean)] = {
+    val name = RequestValidation.normalizeDashboardName(request.name)
+    request.ifExists match {
+      case Some("return") =>
+        dashboardRepo.findByNameOwned(name, user.id).flatMap {
+          case Some(existing) => Future.successful((existing, false))
+          case None           => insertNew(name, user).map((_, true))
+        }
+      case _ =>
+        insertNew(name, user).map((_, true))
+    }
+  }
+
+  private def insertNew(name: String, user: AuthenticatedUser): Future[Dashboard] = {
     val now = Instant.now()
     val dashboard = Dashboard(
       id         = DashboardId(UUID.randomUUID().toString),
-      name       = RequestValidation.normalizeDashboardName(request.name),
+      name       = name,
       meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
       appearance = DashboardAppearance.Default,
       layout     = DashboardLayout.Default,
@@ -205,8 +231,10 @@ object DashboardService {
 
   /** Inputs accepted by `create`. A small wrapper instead of leaking the
    *  protocol-level `CreateDashboardRequest` to keep the service signature
-   *  independent of the HTTP protocol types. */
-  final case class CreateDashboardInput(name: Option[String])
+   *  independent of the HTTP protocol types. `ifExists` defaults to `None`
+   *  so every pre-HEL-363 positional call site (`CreateDashboardInput(name)`)
+   *  keeps compiling unchanged. */
+  final case class CreateDashboardInput(name: Option[String], ifExists: Option[String] = None)
 
   /** Validate a snapshot payload at import time.
    *  Forwarding def — keeps the external call path `DashboardService.validateSnapshotPayload`

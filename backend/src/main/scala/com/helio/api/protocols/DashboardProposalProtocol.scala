@@ -43,6 +43,11 @@ final case class ProposalPanel(
 
 final case class DashboardProposal(dashboardName: String, panels: Vector[ProposalPanel])
 
+// HEL-363: body of `PUT /api/dashboards/:id/contents`. Reuses `ProposalPanel`
+// verbatim (design.md D2) — the target dashboard's id comes from the URL
+// path, not the body, so there is no `dashboardName` field here.
+final case class ReplaceDashboardContentsRequest(panels: Vector[ProposalPanel])
+
 trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val proposalPanelLayoutFormat: RootJsonFormat[ProposalPanelLayout] = jsonFormat4(
     ProposalPanelLayout.apply
@@ -102,4 +107,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
   implicit val dashboardProposalFormat: RootJsonFormat[DashboardProposal] = jsonFormat2(
     DashboardProposal.apply
   )
+
+  implicit val replaceDashboardContentsRequestFormat: RootJsonFormat[ReplaceDashboardContentsRequest] =
+    jsonFormat1(ReplaceDashboardContentsRequest.apply)
 }

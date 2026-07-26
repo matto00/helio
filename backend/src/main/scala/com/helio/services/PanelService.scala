@@ -115,32 +115,53 @@ final class PanelService(
           case Right(ResourceAccess.Viewer) =>
             Future.successful(Left(ServiceError.Forbidden()))
           case Right(_) =>
-            val resolved = for {
-              createConfig <- resolveCreateConfig(request)
-              appearance   <- resolveCreateAppearance(request.appearance)
-            } yield (createConfig, appearance)
-            resolved match {
-              case Left(err) =>
-                Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right((createConfig, appearance)) =>
-                rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user).flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_) =>
-                    val now = Instant.now()
-                    val panel = buildNewPanel(
-                      id           = PanelId(UUID.randomUUID().toString),
-                      dashboardId  = dashboardId,
-                      title        = RequestValidation.normalizePanelTitle(request.title),
-                      meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                      appearance   = appearance,
-                      ownerId      = user.id,
-                      createConfig = createConfig
-                    )
-                    panelRepo.insert(panel).map(Right(_))
-                }
+            buildForCreate(dashboardId, request, user).flatMap {
+              case Left(err)    => Future.successful(Left(err))
+              case Right(panel) => panelRepo.insert(panel).map(Right(_))
             }
         }
     }
+
+  /** Construct + validate a new `Panel` domain object for `dashboardId` from a
+   *  `CreatePanelRequest` — every check `create` performs EXCEPT the
+   *  dashboard ACL check (the caller is expected to have already authorized
+   *  the target dashboard) and the final `panelRepo.insert` write.
+   *
+   *  Extracted (HEL-363 D1, behavior-preserving — same validation order, same
+   *  error messages as before) so `DashboardContentsService`'s atomic
+   *  replace-contents path can validate + build every panel in a batch, with
+   *  zero DB writes, before its single transactional write — reusing this
+   *  exact config-decode/appearance-resolve/`rejectCompanionBinding` logic
+   *  per panel instead of duplicating it. */
+  private[services] def buildForCreate(
+      dashboardId: DashboardId,
+      request: CreatePanelRequest,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Panel]] = {
+    val resolved = for {
+      createConfig <- resolveCreateConfig(request)
+      appearance   <- resolveCreateAppearance(request.appearance)
+    } yield (createConfig, appearance)
+    resolved match {
+      case Left(err) =>
+        Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right((createConfig, appearance)) =>
+        rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user).map {
+          case Left(err) => Left(err)
+          case Right(_) =>
+            val now = Instant.now()
+            Right(buildNewPanel(
+              id           = PanelId(UUID.randomUUID().toString),
+              dashboardId  = dashboardId,
+              title        = RequestValidation.normalizePanelTitle(request.title),
+              meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+              appearance   = appearance,
+              ownerId      = user.id,
+              createConfig = createConfig
+            ))
+        }
+    }
+  }
 
   // ── Delete / duplicate ────────────────────────────────────────────────────
 

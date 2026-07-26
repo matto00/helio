@@ -42,8 +42,13 @@ final class DashboardRoutes(
             },
             post {
               entity(as[CreateDashboardRequest]) { request =>
-                onSuccess(dashboardService.create(DashboardService.CreateDashboardInput(request.name), user)) { created =>
-                  complete(StatusCodes.Created, DashboardResponse.fromDomain(created))
+                val input = DashboardService.CreateDashboardInput(request.name, request.ifExists)
+                onSuccess(dashboardService.create(input, user)) {
+                  // HEL-363: `created = false` means `ifExists: "return"` matched an
+                  // existing dashboard by name — 200, not 201 (nothing was created).
+                  case (dashboard, created) =>
+                    val status = if (created) StatusCodes.Created else StatusCodes.OK
+                    complete(status, DashboardResponse.fromDomain(dashboard))
                 }
               }
             }
