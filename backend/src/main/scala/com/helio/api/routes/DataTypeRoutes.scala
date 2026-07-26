@@ -7,13 +7,17 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataTypeIdSegment
 import com.helio.domain._
-import com.helio.services.DataTypeService
+import com.helio.services.{DataTypeService, PanelCapabilityService}
 
 import scala.concurrent.ExecutionContextExecutor
 
-/** Thin HTTP shell for `/api/types`. All logic in [[DataTypeService]]. */
+/** Thin HTTP shell for `/api/types`. CRUD logic in [[DataTypeService]];
+ *  `/panel-capabilities` logic in [[PanelCapabilityService]] (design.md D6 —
+ *  folded into this router rather than a new file, mirroring `/rows` and
+ *  `/validate-expression`). */
 final class DataTypeRoutes(
     dataTypeService: DataTypeService,
+    panelCapabilityService: PanelCapabilityService,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -52,6 +56,11 @@ final class DataTypeRoutes(
                 ValidateExpressionResponse(valid = result.valid, message = result.message)
               }
             }
+          }
+        },
+        path(DataTypeIdSegment / "panel-capabilities") { id =>
+          get {
+            ServiceResponse.run(panelCapabilityService.getCapabilities(id, user))(identity)
           }
         },
         path(DataTypeIdSegment) { id =>

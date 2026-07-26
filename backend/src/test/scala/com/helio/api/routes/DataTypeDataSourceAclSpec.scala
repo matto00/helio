@@ -10,7 +10,7 @@ import com.helio.api.{DataSourceResponse, JsonProtocols}
 import com.helio.domain.PagedResult
 import com.helio.domain._
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem}
-import com.helio.services.{DataSourceService, DataTypeService, PanelService, SourceService}
+import com.helio.services.{DataSourceService, DataTypeService, PanelCapabilityService, PanelService, SourceService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -112,7 +112,8 @@ class DataTypeDataSourceAclSpec
   private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val svc = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    new DataTypeRoutes(svc, user)(typedSystem).routes
+    val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    new DataTypeRoutes(svc, capabilitySvc, user)(typedSystem).routes
   }
 
   private def dataSourceRoutesFor(user: AuthenticatedUser): Route = {
@@ -178,6 +179,24 @@ class DataTypeDataSourceAclSpec
     "return 404 for a cross-user caller" in {
       val dtId = seedOwnedDataType(userAId)
       Get(s"/types/${dtId.value}/validate-expression?expr=1%2B1") ~> dataTypeRoutesFor(userB) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  "GET /types/:id/panel-capabilities" should {
+    "return 200 for the owner" in {
+      val dtId = seedOwnedDataType(userAId)
+      Get(s"/types/${dtId.value}/panel-capabilities") ~> dataTypeRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+    // design.md D5 (task 5.5): cross-tenant existence must never leak as a
+    // 403 — the DataType lookup is owner-scoped (findByIdOwned), so a
+    // cross-user request looks identical to a nonexistent id.
+    "return 404 for a cross-user caller, not 403" in {
+      val dtId = seedOwnedDataType(userAId)
+      Get(s"/types/${dtId.value}/panel-capabilities") ~> dataTypeRoutesFor(userB) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
