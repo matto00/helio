@@ -127,8 +127,10 @@ class ResourceTaggingSpec
     val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
     val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeRepo, pipelineService)
+    // HEL-372 design.md D7: WorkspaceContextService takes dataTypeService now.
+    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
     new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes
   }
 
