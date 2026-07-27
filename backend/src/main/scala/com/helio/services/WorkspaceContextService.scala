@@ -10,6 +10,7 @@ import com.helio.api.protocols.{
   WorkspaceContextDashboard,
   WorkspaceContextDataSource,
   WorkspaceContextDataType,
+  WorkspaceContextJoinHint,
   WorkspaceContextPipeline,
   WorkspaceContextPipelineStep,
   WorkspaceContextResponse
@@ -94,6 +95,36 @@ final class WorkspaceContextService(
    *  technique is itself an overflow surface). */
   private val MeanRoundingScale: Int = 4
 
+  /** `classifySemanticRole`'s string→dimension cardinality ceiling (HEL-374
+   *  design.md D1 step 7) — a string column with `distinctCount` at or below
+   *  this (and real evidence, and not `distinctCountCapped`) is classified
+   *  `dimension` rather than `text`. Self-approved tunable, no existing
+   *  codebase precedent (design.md Planner Notes). */
+  private val DimensionCardinalityThreshold: Int = 50
+
+  /** `computeJoinHints`'s per-name-bucket candidate cap (HEL-374 design.md
+   *  D2) — enforced AFTER the `columnStats`-membership candidacy restriction,
+   *  so this bounds comparisons, not candidate gathering itself. Stable-sorted
+   *  by `(dataTypeId, column)` before truncation (deterministic). Self-approved
+   *  tunable, no existing codebase precedent. */
+  private val MaxColumnsPerNameBucket: Int = 50
+
+  /** `computeJoinHints`'s output cap (HEL-374 design.md D2) — sorted by
+   *  confidence descending, `(leftDataTypeId, leftColumn, rightDataTypeId,
+   *  rightColumn)` ascending tie-break, before truncation. Self-approved
+   *  tunable, no existing codebase precedent. */
+  private val MaxJoinHints: Int = 50
+
+  /** `computeJoinHints`'s confidence-damping floor (HEL-374 design.md D2,
+   *  post-design-gate human-review fix): a pair's `evidenceWeight` reaches
+   *  `1.0` once BOTH sides' `distinctCount` is at or above this — below it,
+   *  `evidenceWeight` scales down linearly, damping the value-overlap boost
+   *  so two unrelated low-cardinality identifier columns that coincidentally
+   *  share the same small example-value set (e.g. sequential integers
+   *  `1..5`, common in small/demo data) cannot read as near-certain. Self-
+   *  approved tunable, no existing codebase precedent. */
+  private val MinDistinctForFullConfidence: Int = 20
+
   /** Assembles one snapshot of the caller's workspace. `dataSources`/
    *  `dataTypes`/`dashboards` use `Page.Default` (200 — design.md D3, parity
    *  with the MCP's own unparameterized fan-out); `counts` always reports
@@ -123,7 +154,11 @@ final class WorkspaceContextService(
       dataSources = sourcesPage.items.map(toDataSourceEntry),
       dataTypes   = dataTypes,
       pipelines   = pipelines,
-      dashboards  = dashboardsPage.items.map(toDashboardEntry)
+      dashboards  = dashboardsPage.items.map(toDashboardEntry),
+      // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER the
+      // traverse above completes — `dataTypes` is the exact structure already
+      // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
+      joinHints = computeJoinHints(dataTypes)
     )
   }
 
@@ -225,7 +260,7 @@ final class WorkspaceContextService(
         name           = dt.name,
         sourceId       = dt.sourceId.map(_.value),
         pipelineOutput = dt.sourceId.isEmpty,
-        columns        = dt.fields.map(f => WorkspaceContextColumn(f.name, f.dataType, f.nullable)),
+        columns        = dt.fields.map(f => WorkspaceContextColumn(f.name, f.dataType, f.nullable, classifySemanticRole(f, columnStats.get(f.name)))),
         computedColumns = dt.computedFields.map(cf => WorkspaceContextComputedColumn(cf.name, cf.dataType, cf.expression)),
         version        = dt.version,
         tag            = dt.tag,
@@ -243,6 +278,67 @@ final class WorkspaceContextService(
    *  never sampled) — design.md D3. */
   private def fieldCategory(f: DataField): Option[FieldTypeCategory] =
     DataFieldType.fromString(f.dataType).map(DataFieldType.category)
+
+  private val TemporalNameTokens: Set[String]   = Set("date", "time", "timestamp", "dob")
+  private val IdentifierNameTokens: Set[String] = Set("id", "uuid", "guid")
+
+  /** Name-token normalization (HEL-374 design.md D1 steps 4/5): camelCase
+   *  boundary insertion (`fooBar` → `foo_Bar`), lowercase, split on `_`. The
+   *  ONE shared implementation for BOTH the temporal-token check (step 4) and
+   *  the identifier-token check (step 5) — token-exact matching throughout,
+   *  never substring (a raw `.contains("date")`/`.contains("guid")` would
+   *  misclassify `validated`/`estimated`/`guidance`/`guideline`/`misguided`;
+   *  design-gate round-1 finding, closed in round 2). Also reused verbatim by
+   *  `computeJoinHints`'s name-bucket grouping key (design.md D2) — one
+   *  normalization helper, not a forked copy, so the two can never drift.
+   *  `private[services]` so this can be unit-tested directly (tasks.md 2.1). */
+  private[services] def normalizedNameTokens(name: String): Vector[String] = {
+    val snakeCase = name.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase
+    snakeCase.split("_").toVector.filter(_.nonEmpty)
+  }
+
+  private def isTemporalName(tokens: Vector[String]): Boolean =
+    tokens.exists(TemporalNameTokens.contains) || (tokens.size > 1 && tokens.last == "at")
+
+  private def isIdentifierName(tokens: Vector[String]): Boolean =
+    tokens.exists(IdentifierNameTokens.contains)
+
+  /** Deterministic `semanticRole` classification (HEL-374 design.md D1),
+   *  first-match-wins, 8-step precedence:
+   *   1. Content-category field → `text` (carried finding #6 — content values
+   *      are never inspected; this is a name/category-only, unconditional
+   *      short-circuit, checked BEFORE any name heuristic so a Content field
+   *      can never be misclassified `temporal`/`identifier` by its name).
+   *   2. Declared `boolean` → `boolean`.
+   *   3. Declared `timestamp` → `temporal`.
+   *   4. Name matches the temporal-token heuristic → `temporal`.
+   *   5. Name matches the identifier-token heuristic → `identifier`.
+   *   6. Declared `integer`/`float` → `measure`.
+   *   7. Declared `string` with real evidence (`distinctCount > 0`, excludes
+   *      the all-empty-snapshot case from being misread as "confirmed low
+   *      cardinality"), not `distinctCountCapped`, and `distinctCount <=
+   *      DimensionCardinalityThreshold` → `dimension`; otherwise → `text`.
+   *   8. Unparseable `dataType` (falls through every declared-type check
+   *      above) → `text`.
+   *  `private[services]` so `WorkspaceContextServiceSpec` (or a dedicated
+   *  spec) can table-drive this directly (tasks.md 5.1). */
+  private[services] def classifySemanticRole(field: DataField, stats: Option[WorkspaceContextColumnStats]): String = {
+    val declaredType = DataFieldType.fromString(field.dataType)
+    val tokens        = normalizedNameTokens(field.name)
+
+    if (fieldCategory(field).contains(FieldTypeCategory.Content)) "text"
+    else if (declaredType.contains(DataFieldType.BooleanType)) "boolean"
+    else if (declaredType.contains(DataFieldType.TimestampType)) "temporal"
+    else if (isTemporalName(tokens)) "temporal"
+    else if (isIdentifierName(tokens)) "identifier"
+    else if (declaredType.contains(DataFieldType.IntegerType) || declaredType.contains(DataFieldType.FloatType)) "measure"
+    else if (declaredType.contains(DataFieldType.StringType)) {
+      val lowCardinality = stats.exists(s =>
+        s.distinctCount > 0 && !s.distinctCountCapped && s.distinctCount <= DimensionCardinalityThreshold
+      )
+      if (lowCardinality) "dimension" else "text"
+    } else "text" // unparseable dataType (step 8)
+  }
 
   /** Pure, unit-testable sanitizer (design.md D3, tasks.md 2.1/4.2):
    *   1. Column projection — keep only `Structured`-category fields (a field
@@ -466,6 +562,138 @@ final class WorkspaceContextService(
     case JsString(s) => s.trim.toDoubleOption
     case _           => None
   }).filter(_.isFinite)
+
+  /** One join-hint candidate: an `identifier`-role column that also has a
+   *  `columnStats` entry (HEL-374 design.md D2's round-1-fix candidacy
+   *  restriction — see `computeJoinHints`), paired with the owning
+   *  DataType's id and the `columnStats` needed for the confidence
+   *  computation. Not part of the wire shape, purely an internal grouping
+   *  helper. */
+  private final case class JoinCandidate(dataTypeId: String, column: WorkspaceContextColumn, stats: WorkspaceContextColumnStats)
+
+  /** Declared-type bucket for join-hint pairing (design.md D2): only columns
+   *  in the SAME bucket are ever compared (numeric-ish vs. numeric-ish,
+   *  string-ish vs. string-ish, timestamp vs. timestamp) — a cross-type
+   *  identifier join (e.g. a string-typed id vs. an integer-typed id) is a
+   *  stated, accepted miss (design.md Risks), not silently mismatched to a
+   *  spurious pair. An unparseable `dataType` buckets with its own literal
+   *  string, so two columns with the same unrecognized `dataType` can still
+   *  pair, but never with a recognized type. */
+  private def typeBucket(dataType: String): String = DataFieldType.fromString(dataType) match {
+    case Some(DataFieldType.IntegerType) | Some(DataFieldType.FloatType)         => "numeric"
+    case Some(DataFieldType.StringType)                                         => "string"
+    case Some(DataFieldType.TimestampType)                                      => "timestamp"
+    case Some(DataFieldType.BooleanType)                                        => "boolean"
+    case Some(DataFieldType.StringBodyType) | Some(DataFieldType.BinaryRefType) => "content"
+    case None                                                                   => s"unknown:$dataType"
+  }
+
+  /** Jaccard overlap of two already-truncated `compactPrint` example-value
+   *  sets (design.md D2). Guards its own divide-by-zero explicitly, at the
+   *  terminal boundary where the value is computed (carried finding #3 — ask
+   *  what happens on the empty-vs-empty case before writing the guard, not
+   *  just at it): an empty-vs-empty pair (e.g. two all-null identifier
+   *  columns) yields `0.0`, not a fabricated `NaN`. */
+  private def jaccard(left: Set[String], right: Set[String]): Double = {
+    val union = left ++ right
+    if (union.isEmpty) 0.0 else (left intersect right).size.toDouble / union.size.toDouble
+  }
+
+  /** Confidence for one candidate pair (HEL-374 design.md D2, post-design-gate
+   *  human-review fix): `0.5 + 0.5 * jaccard * evidenceWeight`, NOT raw
+   *  `0.5 + 0.5 * jaccard`. Raw Jaccard over ≤5 example values saturates
+   *  trivially — two UNRELATED identifier columns that happen to hold small
+   *  sequential integers (`1,2,3,4,5`, an overwhelmingly common shape for
+   *  surface ids in small/demo/test data) would otherwise read as
+   *  `confidence = 1.0` on pure coincidence. `evidenceWeight` dampens the
+   *  value-overlap boost by cardinality evidence, reusing `distinctCount`
+   *  (`columnStats` already computes it — no new computation, no new fetch):
+   *  a column whose sampled `distinctCount` is small can contribute only a
+   *  fraction of full evidence weight regardless of how completely its
+   *  ≤5 example values overlap; a well-evidenced identifier column (typically
+   *  `distinctCountCapped: true`) reaches `evidenceWeight = 1.0` quickly, so a
+   *  real match can still reach the top of the scale. Rounded via the
+   *  EXISTING `roundToFourDecimals` (reused verbatim, per carried finding #1
+   *  — safe by inspection here since the domain is bounded `[0.5, 1.0]`). */
+  private def joinHintConfidence(left: JoinCandidate, right: JoinCandidate): Double = {
+    val leftValues  = left.stats.exampleValues.map(_.compactPrint).toSet
+    val rightValues = right.stats.exampleValues.map(_.compactPrint).toSet
+    val evidenceWeight =
+      math.min(1.0, math.min(left.stats.distinctCount, right.stats.distinctCount).toDouble / MinDistinctForFullConfidence)
+    roundToFourDecimals(0.5 + 0.5 * jaccard(leftValues, rightValues) * evidenceWeight)
+  }
+
+  /** Bounded, precision-favoring cross-DataType joinability hints (HEL-374
+   *  design.md D2) — a pure post-processing step over `dataTypes`, the exact
+   *  structures `assemble` already built; no new DB access, no new `Future`
+   *  step (wired once, after the `Future.traverse` that builds `dataTypes`
+   *  completes — design.md D3).
+   *
+   *  **Candidate gathering (design-gate round-1 fix, the central cost-bound
+   *  requirement)**: a column is a candidate iff its `semanticRole ==
+   *  "identifier"` AND its DataType's `columnStats` contains an entry for it
+   *  — NOT gathered from `columns` alone, which is built from the DataType's
+   *  entire unbounded declared field list. `columnStats` is independently
+   *  capped at `SampleColumnLimit` (40) by `computeColumnStats`'s own
+   *  enumeration, so requiring membership in it genuinely bounds candidates
+   *  to ≤40 per DataType (verified by construction, not assumed) — and, as a
+   *  side effect, automatically excludes source-companion DataTypes (whose
+   *  `columnStats` is always empty) with no separate `pipelineOutput` filter,
+   *  and guarantees every candidate has `exampleValues` available for the
+   *  confidence computation.
+   *
+   *  **Bounding the comparison work**: candidates are grouped by normalized
+   *  name (`normalizedNameTokens`, reused verbatim from the semantic-role
+   *  name heuristic — one implementation, not a forked copy); each bucket is
+   *  capped at `MaxColumnsPerNameBucket`, stable-sorted by `(dataTypeId,
+   *  column name)` before truncation (deterministic, not iteration-order-
+   *  dependent). Only cross-DataType, same-declared-type-bucket pairs are
+   *  compared. Worst case: `Page.Default` (200) DataTypes × `SampleColumnLimit`
+   *  (40) candidates each = 8,000 candidate columns; each compared against at
+   *  most `MaxColumnsPerNameBucket - 1` (49) same-bucket peers ⇒ ≤ 392,000
+   *  pairwise comparisons, each an O(1)-ish Jaccard over ≤5-element sets — no
+   *  DB I/O, sub-second CPU, independent of how many buckets exist.
+   *
+   *  `private[services]` so this can be pure-unit-tested directly (tasks.md
+   *  5.2), mirroring `sanitizeSampleRows`/`computeColumnStats`. */
+  private[services] def computeJoinHints(dataTypes: Vector[WorkspaceContextDataType]): Vector[WorkspaceContextJoinHint] = {
+    val candidates: Vector[JoinCandidate] = dataTypes.flatMap { dt =>
+      dt.columns
+        .filter(c => c.semanticRole == "identifier" && dt.columnStats.contains(c.name))
+        .map(c => JoinCandidate(dt.id, c, dt.columnStats(c.name)))
+    }
+
+    val buckets: Map[String, Vector[JoinCandidate]] =
+      candidates.groupBy(c => normalizedNameTokens(c.column.name).mkString(""))
+
+    val hints: Vector[WorkspaceContextJoinHint] = buckets.values.flatMap { bucket =>
+      val capped = bucket.sortBy(c => (c.dataTypeId, c.column.name)).take(MaxColumnsPerNameBucket)
+      for {
+        i <- capped.indices
+        j <- (i + 1) until capped.size
+        a  = capped(i)
+        b  = capped(j)
+        if a.dataTypeId != b.dataTypeId
+        if typeBucket(a.column.dataType) == typeBucket(b.column.dataType)
+      } yield {
+        // Canonical (left, right) assignment (design.md D2): the
+        // lexicographically smaller dataTypeId is always left — one hint per
+        // unordered pair, never two.
+        val (left, right) = if (a.dataTypeId < b.dataTypeId) (a, b) else (b, a)
+        WorkspaceContextJoinHint(
+          leftDataTypeId  = left.dataTypeId,
+          leftColumn      = left.column.name,
+          rightDataTypeId = right.dataTypeId,
+          rightColumn     = right.column.name,
+          confidence      = joinHintConfidence(left, right)
+        )
+      }
+    }.toVector
+
+    hints
+      .sortBy(h => (-h.confidence, h.leftDataTypeId, h.leftColumn, h.rightDataTypeId, h.rightColumn))
+      .take(MaxJoinHints)
+  }
 
   private def toDashboardEntry(d: Dashboard): WorkspaceContextDashboard =
     WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = distinctPanelCount(d.layout))

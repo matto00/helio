@@ -12,8 +12,13 @@
 import {
   asNumeric,
   buildWorkspaceContext,
+  classifySemanticRole,
   computeColumnStats,
+  computeJoinHints,
+  normalizedNameTokens,
   sanitizeSampleRows,
+  type ColumnStats,
+  type SemanticRole,
 } from "./context.js";
 import type { HelioApi } from "./helioApi.js";
 import type { DataTypeResponse } from "./types.js";
@@ -543,4 +548,428 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(entry.columnStats).toEqual({});
     expect(getDataTypeRowsCalls).toEqual(["dt-output"]); // never called for the companion
   });
+});
+
+/**
+ * HEL-374 tasks.md 5.3 — MCP-side unit tests for `classifySemanticRole`/
+ * `normalizedNameTokens`, mirroring `WorkspaceContextServiceClassifySemanticRoleSpec`
+ * (Scala) case-for-case. INDEPENDENT TypeScript implementation of the
+ * identical 8-step precedence the Scala side enforces (design.md D1) — no
+ * shared runtime, so parity is achieved by duplicating the rules and testing
+ * each side separately.
+ */
+describe("normalizedNameTokens", () => {
+  it("splits snake_case names on underscore", () => {
+    expect(normalizedNameTokens("user_id")).toEqual(["user", "id"]);
+  });
+
+  it("inserts a boundary before an uppercase letter following a lowercase/digit (camelCase)", () => {
+    expect(normalizedNameTokens("userId")).toEqual(["user", "id"]);
+    expect(normalizedNameTokens("createdAt")).toEqual(["created", "at"]);
+  });
+
+  it("collapses a run of uppercase letters preceded by lowercase into one boundary (UserID)", () => {
+    expect(normalizedNameTokens("UserID")).toEqual(["user", "id"]);
+  });
+
+  it("produces a single token for a name with no boundary", () => {
+    expect(normalizedNameTokens("guidance")).toEqual(["guidance"]);
+  });
+});
+
+describe("classifySemanticRole", () => {
+  const field = (name: string, dataType: string) => ({ name, dataType });
+
+  const emptyStats = (overrides: Partial<ColumnStats> = {}): ColumnStats => ({
+    nullRate: 0,
+    distinctCount: 0,
+    distinctCountCapped: false,
+    exampleValues: [],
+    ...overrides,
+  });
+
+  // ── HEL-374 spec.md scenarios ("Deterministic column semantic role") ────
+
+  it("classifies a declared boolean column as boolean", () => {
+    expect(classifySemanticRole(field("is_active", "boolean"), undefined)).toBe("boolean");
+  });
+
+  it("classifies a declared timestamp column as temporal", () => {
+    expect(classifySemanticRole(field("created_at", "timestamp"), undefined)).toBe("temporal");
+  });
+
+  it("classifies a string column with a date-like name as temporal", () => {
+    expect(classifySemanticRole(field("signup_date", "string"), undefined)).toBe("temporal");
+  });
+
+  it(
+    "classifies an id-named column as identifier regardless of declared type, even with " +
+      "high-cardinality stats exceeding the distinct-count cap",
+    () => {
+      const stats = emptyStats({ distinctCount: 100, distinctCountCapped: true });
+      expect(classifySemanticRole(field("user_id", "integer"), stats)).toBe("identifier");
+    },
+  );
+
+  it("classifies a numeric non-id column as measure", () => {
+    expect(classifySemanticRole(field("amount", "float"), undefined)).toBe("measure");
+  });
+
+  it("classifies a low-cardinality string column as dimension", () => {
+    const stats = emptyStats({ distinctCount: 2 });
+    expect(classifySemanticRole(field("status", "string"), stats)).toBe("dimension");
+  });
+
+  it("classifies a Content-category column as text without inspecting stats", () => {
+    expect(classifySemanticRole(field("notes", "string-body"), undefined)).toBe("text");
+  });
+
+  // ── design-gate round-1 finding: token-exact, not substring, matching ───
+
+  it("does not classify validated/paid/avoid as identifier (no _id/uuid/guid token)", () => {
+    expect(classifySemanticRole(field("validated", "string"), undefined)).not.toBe("identifier");
+    expect(classifySemanticRole(field("paid", "string"), undefined)).not.toBe("identifier");
+    expect(classifySemanticRole(field("avoid", "string"), undefined)).not.toBe("identifier");
+  });
+
+  it("does not classify estimated as temporal (no date/time/timestamp/dob token, no trailing _at)", () => {
+    expect(classifySemanticRole(field("estimated", "string"), undefined)).not.toBe("temporal");
+  });
+
+  it("does not classify guidance/guideline/misguided as identifier (guid is a substring, not a whole token)", () => {
+    expect(classifySemanticRole(field("guidance", "string"), undefined)).not.toBe("identifier");
+    expect(classifySemanticRole(field("guideline", "string"), undefined)).not.toBe("identifier");
+    expect(classifySemanticRole(field("misguided", "string"), undefined)).not.toBe("identifier");
+  });
+
+  it("still classifies a genuinely _guid-suffixed camelCase name as identifier", () => {
+    expect(classifySemanticRole(field("extGuid", "string"), undefined)).toBe("identifier");
+  });
+
+  it("classifies a bare id/uuid/guid-named column as identifier", () => {
+    expect(classifySemanticRole(field("id", "string"), undefined)).toBe("identifier");
+    expect(classifySemanticRole(field("external_uuid", "string"), undefined)).toBe("identifier");
+  });
+
+  // ── remaining precedence branches ────────────────────────────────────────
+
+  it("classifies a string column with no stats as text, not dimension", () => {
+    expect(classifySemanticRole(field("status", "string"), undefined)).toBe("text");
+  });
+
+  it(
+    "classifies a string column with distinctCount 0 as text, not dimension " +
+      "(the all-empty-snapshot case must not read as confirmed low cardinality)",
+    () => {
+      expect(
+        classifySemanticRole(field("status", "string"), emptyStats({ distinctCount: 0 })),
+      ).toBe("text");
+    },
+  );
+
+  it("classifies a string column with distinctCountCapped true as text even when distinctCount <= threshold", () => {
+    const stats = emptyStats({ distinctCount: 5, distinctCountCapped: true });
+    expect(classifySemanticRole(field("status", "string"), stats)).toBe("text");
+  });
+
+  it("classifies a string column whose distinctCount exceeds the dimension threshold (50) as text", () => {
+    const stats = emptyStats({ distinctCount: 51 });
+    expect(classifySemanticRole(field("status", "string"), stats)).toBe("text");
+  });
+
+  it("classifies an unparseable declared dataType as text", () => {
+    expect(classifySemanticRole(field("mystery", "not-a-real-type"), undefined)).toBe("text");
+  });
+});
+
+/**
+ * HEL-374 tasks.md 5.3 — MCP-side unit tests for `computeJoinHints`, mirroring
+ * `WorkspaceContextServiceComputeJoinHintsSpec` (Scala) case-for-case.
+ */
+describe("computeJoinHints", () => {
+  interface Col {
+    name: string;
+    dataType: string;
+    semanticRole: SemanticRole;
+  }
+  interface DT {
+    id: string;
+    columns: Col[];
+    columnStats: Record<string, ColumnStats>;
+  }
+
+  function identifierColumn(
+    name: string,
+    dataType: string,
+    distinctCount: number,
+    exampleValues: unknown[],
+    distinctCountCapped = false,
+  ): [Col, ColumnStats] {
+    return [
+      { name, dataType, semanticRole: "identifier" },
+      { nullRate: 0, distinctCount, distinctCountCapped, exampleValues },
+    ];
+  }
+
+  function dataTypeEntry(
+    id: string,
+    columns: Array<[Col, ColumnStats]>,
+    columnStatsLimit = Infinity,
+  ): DT {
+    const columnStats: Record<string, ColumnStats> = {};
+    columns.slice(0, columnStatsLimit).forEach(([c, s]) => {
+      columnStats[c.name] = s;
+    });
+    return { id, columns: columns.map(([c]) => c), columnStats };
+  }
+
+  it("produces a hint with confidence > 0.5 for a matching identifier column pair with partial overlap", () => {
+    const a = dataTypeEntry("dt-a", [identifierColumn("customer_id", "integer", 20, [1, 2, 3])]);
+    const b = dataTypeEntry("dt-b", [identifierColumn("customer_id", "integer", 20, [2, 3, 4])]);
+
+    const hints = computeJoinHints([a, b]);
+
+    expect(hints).toHaveLength(1);
+    expect(hints[0]?.leftColumn).toBe("customer_id");
+    expect(hints[0]?.rightColumn).toBe("customer_id");
+    expect(hints[0]?.confidence).toBeGreaterThan(0.5);
+  });
+
+  it("produces no hint for a matching non-identifier column pair (measure), even with identical values", () => {
+    const measureCol = (name: string): [Col, ColumnStats] => [
+      { name, dataType: "float", semanticRole: "measure" },
+      { nullRate: 0, distinctCount: 20, distinctCountCapped: false, exampleValues: ["x"] },
+    ];
+    const a = dataTypeEntry("dt-a", [measureCol("amount")]);
+    const b = dataTypeEntry("dt-b", [measureCol("amount")]);
+
+    expect(computeJoinHints([a, b])).toEqual([]);
+  });
+
+  it("never pairs a column against itself within the same DataType", () => {
+    const a = dataTypeEntry("dt-a", [
+      identifierColumn("customer_id", "integer", 20, [1]),
+      identifierColumn("customer_id2", "integer", 20, [1]),
+    ]);
+
+    expect(computeJoinHints([a])).toEqual([]);
+  });
+
+  it("only compares columns whose declared-type buckets match (skip a string id vs. an integer id)", () => {
+    const a = dataTypeEntry("dt-a", [identifierColumn("order_id", "string", 20, ["1"])]);
+    const b = dataTypeEntry("dt-b", [identifierColumn("order_id", "integer", 20, [1])]);
+
+    expect(computeJoinHints([a, b])).toEqual([]);
+  });
+
+  it("yields confidence exactly 0.5, not a fabricated NaN, for two all-null identifier columns", () => {
+    const a = dataTypeEntry("dt-a", [identifierColumn("user_id", "integer", 0, [])]);
+    const b = dataTypeEntry("dt-b", [identifierColumn("user_id", "integer", 0, [])]);
+
+    const hints = computeJoinHints([a, b]);
+
+    expect(hints).toHaveLength(1);
+    expect(hints[0]?.confidence).toBe(0.5);
+    expect(Number.isNaN(hints[0]?.confidence)).toBe(false);
+  });
+
+  // ── confidence damping (post-design-gate human-review fix, design.md D2's
+  //    evidenceWeight — REQUIRED per the ticket's addendum) ────────────────
+
+  it(
+    "does NOT let two unrelated low-cardinality identifier columns sharing an identical small " +
+      "example-value set read as near-certain",
+    () => {
+      const sharedValues = ["1", "2", "3", "4", "5"];
+      const a = dataTypeEntry("dt-low-a", [identifierColumn("id", "string", 5, sharedValues)]);
+      const b = dataTypeEntry("dt-low-b", [identifierColumn("id", "string", 5, sharedValues)]);
+
+      const hints = computeJoinHints([a, b]);
+
+      expect(hints).toHaveLength(1);
+      expect(hints[0]?.confidence).toBeLessThanOrEqual(0.65);
+    },
+  );
+
+  it(
+    "allows a well-evidenced (distinctCount >= MinDistinctForFullConfidence) full-overlap pair to reach " +
+      "a high confidence — proving the damping targets low cardinality specifically, not overlap itself",
+    () => {
+      const sharedValues = ["1", "2", "3", "4", "5"];
+      const a = dataTypeEntry("dt-high-a", [identifierColumn("id", "string", 20, sharedValues)]);
+      const b = dataTypeEntry("dt-high-b", [identifierColumn("id", "string", 20, sharedValues)]);
+
+      const hints = computeJoinHints([a, b]);
+
+      expect(hints).toHaveLength(1);
+      expect(hints[0]?.confidence).toBe(1.0);
+    },
+  );
+
+  // ── design-gate round-1 finding: candidate gathering MUST be bounded via
+  //    columnStats membership, not the unbounded columns list alone ────────
+
+  it(
+    "draws at most SAMPLE_COLUMN_LIMIT (40) identifier candidates from a DataType declaring more " +
+      "than that, via the columnStats-membership restriction",
+    () => {
+      const wideColumns: Array<[Col, ColumnStats]> = Array.from({ length: 45 }, (_, i) =>
+        identifierColumn(`id${i}`, "string", 20, ["x"]),
+      );
+      const wide = dataTypeEntry("wide-dt", wideColumns, 40);
+
+      const overflowMatch = dataTypeEntry("overflow-dt", [
+        identifierColumn("id40", "string", 20, ["x"]),
+      ]);
+      const withinCapMatch = dataTypeEntry("within-cap-dt", [
+        identifierColumn("id0", "string", 20, ["x"]),
+      ]);
+
+      const hints = computeJoinHints([wide, overflowMatch, withinCapMatch]);
+
+      expect(hints.some((h) => h.leftColumn === "id40" || h.rightColumn === "id40")).toBe(false);
+      expect(hints.some((h) => h.leftColumn === "id0" || h.rightColumn === "id0")).toBe(true);
+    },
+  );
+
+  it(
+    "contributes zero candidates for a DataType whose columnStats is empty (source-companion case), " +
+      "even though its columns array lists an identifier-role column",
+    () => {
+      const companion = dataTypeEntry(
+        "companion-dt",
+        [identifierColumn("customer_id", "integer", 20, [1])],
+        0,
+      );
+      const other = dataTypeEntry("other-dt", [
+        identifierColumn("customer_id", "integer", 20, [1]),
+      ]);
+
+      expect(computeJoinHints([companion, other])).toEqual([]);
+    },
+  );
+
+  // ── bounding the comparison work (design.md D2) ──────────────────────────
+
+  it(
+    "caps a single name-bucket at MAX_COLUMNS_PER_NAME_BUCKET (50) BEFORE pairwise comparison, so a " +
+      "higher-confidence candidate past the cap never enters the comparison set",
+    () => {
+      const pad = (i: number) => String(i).padStart(2, "0");
+      const lowConfidenceTypes = Array.from({ length: 50 }, (_, i) =>
+        dataTypeEntry(`dt-${pad(i)}`, [identifierColumn("id", "string", 20, [`v${i}`])]),
+      );
+      const highConfidenceTypesPastCap = Array.from({ length: 5 }, (_, i) =>
+        dataTypeEntry(`dt-${pad(i + 50)}`, [identifierColumn("id", "string", 20, ["shared"])]),
+      );
+
+      const hints = computeJoinHints([...lowConfidenceTypes, ...highConfidenceTypesPastCap]);
+
+      for (const h of hints) {
+        expect(h.leftDataTypeId < "dt-50").toBe(true);
+        expect(h.rightDataTypeId < "dt-50").toBe(true);
+      }
+    },
+  );
+
+  it("truncates total output to MAX_JOIN_HINTS (50) even when more qualifying pairs exist across many buckets", () => {
+    const pad = (i: number) => String(i).padStart(2, "0");
+    const types = Array.from({ length: 60 }, (_, i) => {
+      const name = `key${i}`;
+      return [
+        dataTypeEntry(`dt-${pad(i)}-a`, [identifierColumn(name, "string", 20, ["x"])]),
+        dataTypeEntry(`dt-${pad(i)}-b`, [identifierColumn(name, "string", 20, ["x"])]),
+      ];
+    }).flat();
+
+    expect(computeJoinHints(types)).toHaveLength(50);
+  });
+
+  // ── canonical (left, right) assignment ───────────────────────────────────
+
+  it("always assigns the lexicographically smaller dataTypeId as left, regardless of input order", () => {
+    const a = dataTypeEntry("dt-z", [identifierColumn("order_id", "integer", 20, [1])]);
+    const b = dataTypeEntry("dt-a", [identifierColumn("order_id", "integer", 20, [1])]);
+
+    const hints = computeJoinHints([a, b]);
+
+    expect(hints).toHaveLength(1);
+    expect(hints[0]?.leftDataTypeId).toBe("dt-a");
+    expect(hints[0]?.rightDataTypeId).toBe("dt-z");
+  });
+});
+
+/**
+ * HEL-374 tasks.md 5.3 — shared cross-language regression fixture: the SAME
+ * input, asserted to produce the SAME `semanticRole`/`confidence` output on
+ * both sides (mirrored in WorkspaceContextServiceSpec's "HEL-374 6.1/6.2"
+ * DB-backed integration tests and the pure-unit specs above) — one
+ * non-trivial case per role, plus one join-hint case, per carried finding #4
+ * (cross-language parity is a hard requirement, tested on both sides).
+ */
+describe("cross-language parity fixture (HEL-374 tasks.md 5.3)", () => {
+  it("agrees with the Scala side on semanticRole for one representative column per role", () => {
+    const lowCardStats: ColumnStats = {
+      nullRate: 0,
+      distinctCount: 2,
+      distinctCountCapped: false,
+      exampleValues: ["active", "inactive"],
+    };
+    expect(classifySemanticRole({ name: "is_active", dataType: "boolean" }, undefined)).toBe(
+      "boolean",
+    );
+    expect(classifySemanticRole({ name: "created_at", dataType: "timestamp" }, undefined)).toBe(
+      "temporal",
+    );
+    expect(classifySemanticRole({ name: "user_id", dataType: "integer" }, undefined)).toBe(
+      "identifier",
+    );
+    expect(classifySemanticRole({ name: "amount", dataType: "float" }, undefined)).toBe("measure");
+    expect(classifySemanticRole({ name: "status", dataType: "string" }, lowCardStats)).toBe(
+      "dimension",
+    );
+    expect(classifySemanticRole({ name: "notes", dataType: "string-body" }, undefined)).toBe(
+      "text",
+    );
+  });
+
+  it(
+    "agrees with the Scala side on the confidence for a partial-overlap identifier join hint " +
+      "(customer_id, [1,2,3] vs [2,3,4], distinctCount 20 both sides -> 0.5 + 0.5*0.5*1 = 0.75)",
+    () => {
+      const a = {
+        id: "dt-a",
+        columns: [
+          { name: "customer_id", dataType: "integer", semanticRole: "identifier" as SemanticRole },
+        ],
+        columnStats: {
+          customer_id: {
+            nullRate: 0,
+            distinctCount: 20,
+            distinctCountCapped: false,
+            exampleValues: [1, 2, 3],
+          },
+        },
+      };
+      const b = {
+        id: "dt-b",
+        columns: [
+          { name: "customer_id", dataType: "integer", semanticRole: "identifier" as SemanticRole },
+        ],
+        columnStats: {
+          customer_id: {
+            nullRate: 0,
+            distinctCount: 20,
+            distinctCountCapped: false,
+            exampleValues: [2, 3, 4],
+          },
+        },
+      };
+
+      const hints = computeJoinHints([a, b]);
+
+      expect(hints).toHaveLength(1);
+      expect(hints[0]?.confidence).toBe(0.75);
+    },
+  );
 });

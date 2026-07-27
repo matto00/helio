@@ -761,6 +761,120 @@ class WorkspaceContextServiceSpec
     }
   }
 
+  // ── HEL-374 6.1 semanticRole via assemble (DB-backed integration, task 5.4) ─
+  //
+  // Pure-unit precedence coverage lives in WorkspaceContextServiceClassifySemanticRoleSpec
+  // (tasks.md 5.1) — this confirms the real assemble() round trip wires
+  // classifySemanticRole correctly and the resulting response still validates
+  // against the schema with semanticRole present on every column.
+
+  "assemble (HEL-374 6.1 semanticRole)" should {
+    "report the correct semanticRole for representative columns, and validate against the schema" in {
+      implicit val ec: ExecutionContext = routeEc
+      val source   = createSource(userA, "semrole-source")
+      val pipeline = createPipeline(userA, source.id, "semrole-pipeline", "semrole-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(
+        DataField("user_id", "User Id", "integer", nullable = false),
+        DataField("created_at", "Created At", "timestamp", nullable = false),
+        DataField("status", "Status", "string", nullable = true),
+        DataField("amount", "Amount", "float", nullable = false)
+      ))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("user_id" -> JsNumber(1), "created_at" -> JsString("2024-01-01T00:00:00Z"), "status" -> JsString("active"), "amount" -> JsNumber(10)),
+        JsObject("user_id" -> JsNumber(2), "created_at" -> JsString("2024-01-02T00:00:00Z"), "status" -> JsString("inactive"), "amount" -> JsNumber(20))
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      def role(name: String): String = entry.columns.find(_.name == name).getOrElse(fail(s"$name column missing")).semanticRole
+
+      role("user_id") shouldBe "identifier"
+      role("created_at") shouldBe "temporal"
+      role("status") shouldBe "dimension"
+      role("amount") shouldBe "measure"
+
+      schemaValidationErrors(resp) shouldBe empty
+    }
+  }
+
+  // ── HEL-374 6.2 joinHints via assemble (DB-backed integration) ───────────
+
+  "assemble (HEL-374 6.2 joinHints)" should {
+    "report a join hint for two of the caller's own pipeline-output DataTypes sharing an overlapping " +
+      "identifier column, and validate against the schema" in {
+      implicit val ec: ExecutionContext = routeEc
+      val sourceOne   = createSource(userA, "joinhint-source-one")
+      val pipelineOne = createPipeline(userA, sourceOne.id, "joinhint-pipeline-one", "joinhint-output-one")
+      setDataTypeFields(DataTypeId(pipelineOne.outputDataTypeId), userA, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipelineOne.outputDataTypeId, Seq(
+        JsObject("customer_id" -> JsNumber(1)),
+        JsObject("customer_id" -> JsNumber(2)),
+        JsObject("customer_id" -> JsNumber(3))
+      )))
+
+      val sourceTwo   = createSource(userA, "joinhint-source-two")
+      val pipelineTwo = createPipeline(userA, sourceTwo.id, "joinhint-pipeline-two", "joinhint-output-two")
+      setDataTypeFields(DataTypeId(pipelineTwo.outputDataTypeId), userA, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipelineTwo.outputDataTypeId, Seq(
+        JsObject("customer_id" -> JsNumber(2)),
+        JsObject("customer_id" -> JsNumber(3)),
+        JsObject("customer_id" -> JsNumber(4))
+      )))
+
+      val resp = await(service.assemble(userA))
+      val hint = resp.joinHints.find(h =>
+        Set(h.leftDataTypeId, h.rightDataTypeId) == Set(pipelineOne.outputDataTypeId, pipelineTwo.outputDataTypeId)
+      )
+
+      hint shouldBe defined
+      hint.get.leftColumn shouldBe "customer_id"
+      hint.get.rightColumn shouldBe "customer_id"
+      hint.get.confidence should be > 0.5
+
+      schemaValidationErrors(resp) shouldBe empty
+    }
+  }
+
+  // ── HEL-374 6.3 joinHints owner-scoping (DB-backed integration) ──────────
+  //
+  // computeJoinHints itself is DB-free and pure-unit-tested directly
+  // (WorkspaceContextServiceComputeJoinHintsSpec) — design.md D3's argument is
+  // that assemble() never holds more than one caller's dataTypes in scope, so
+  // cross-tenant comparison is structurally impossible. This test verifies
+  // that argument empirically against the real assemble() path (ticket.md's
+  // "Design-gate attention" explicitly flags RLS/ownership tracing as a
+  // required final-gate verification item, not something to accept on
+  // documentation alone once code exists) — userB's own single order_id
+  // DataType has no sibling of userB's own to pair against, so if a bug ever
+  // let computeJoinHints see userA's DataTypes too, this would catch the
+  // resulting spurious cross-tenant hint.
+
+  "assemble (HEL-374 6.3 joinHints owner-scoping)" should {
+    "never surface a join hint referencing another caller's DataType" in {
+      implicit val ec: ExecutionContext = routeEc
+      val aSource   = createSource(userA, "joinhint-scoped-a-source")
+      val aPipeline = createPipeline(userA, aSource.id, "joinhint-scoped-a-pipeline", "joinhint-scoped-a-output")
+      setDataTypeFields(DataTypeId(aPipeline.outputDataTypeId), userA, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(aPipeline.outputDataTypeId, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
+
+      val bSource   = createSource(userB, "joinhint-scoped-b-source")
+      val bPipeline = createPipeline(userB, bSource.id, "joinhint-scoped-b-pipeline", "joinhint-scoped-b-output")
+      setDataTypeFields(DataTypeId(bPipeline.outputDataTypeId), userB, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(bPipeline.outputDataTypeId, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
+
+      val respB = await(service.assemble(userB))
+
+      respB.joinHints.exists(h => h.leftDataTypeId == aPipeline.outputDataTypeId || h.rightDataTypeId == aPipeline.outputDataTypeId) shouldBe false
+      // B alone has no second order_id-named pipeline-output DataType to pair
+      // against — an empty joinHints here (rather than a hint against A's
+      // DataType) is the whole point of the assertion above; this line just
+      // pins the exact shape so the test isn't vacuously true.
+      respB.joinHints shouldBe empty
+    }
+  }
+
   // ── Non-blocking suggestion (evaluation-1.md) ───────────────────────────
   // Pins the exact rejection behavior of `.../teardown` now that
   // `WorkspaceRoutes` mounts unconditionally and gates `workspaceTeardownServiceOpt`
