@@ -4,7 +4,15 @@
   "title": "WorkspaceContextResponse",
   "description": "Response body for GET /api/workspace/context (HEL-371) — a server-side, owner-scoped snapshot of the caller's data sources, DataTypes, pipelines, and dashboards. Structural parity with helio-mcp/src/context.ts's WorkspaceContext interface, with two documented deltas: (1) `pipelineShapes` is intentionally OMITTED — not part of this ticket's scope/acceptance criteria, and PipelineShapeService is stateless/code-level with no per-user RLS story (design.md D4); a later ticket may add it. (2) `pipelines[].steps[]` carries the FULL per-step field set the MCP interface has — `position`, `type`, `outputColumns`, `validationError` — not just `outputColumns` (design-gate note 3): all four are already produced by the existing analyze path at zero extra cost, so the schema documents full parity rather than a narrowed subset.",
   "type": "object",
-  "required": ["generatedAt", "counts", "dataSources", "dataTypes", "pipelines", "dashboards"],
+  "required": [
+    "generatedAt",
+    "counts",
+    "dataSources",
+    "dataTypes",
+    "pipelines",
+    "dashboards",
+    "joinHints"
+  ],
   "properties": {
     "generatedAt": {
       "type": "string",
@@ -26,6 +34,11 @@
     "dashboards": {
       "type": "array",
       "items": { "$ref": "#/$defs/DashboardEntry" }
+    },
+    "joinHints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/JoinHint" },
+      "description": "HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints — pairwise comparisons of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself and never mutates any DataType's authoritative dataType. ALWAYS present (an empty array, never omitted) even when no candidate pairs exist. Bounded by construction, independent of workspace size — see JoinHint.confidence and MaxJoinHints/MaxColumnsPerNameBucket in WorkspaceContextService for the documented caps."
     }
   },
   "additionalProperties": false,
@@ -58,11 +71,16 @@
     },
     "Column": {
       "type": "object",
-      "required": ["name", "dataType", "nullable"],
+      "required": ["name", "dataType", "nullable", "semanticRole"],
       "properties": {
         "name": { "type": "string" },
         "dataType": { "type": "string" },
-        "nullable": { "type": "boolean" }
+        "nullable": { "type": "boolean" },
+        "semanticRole": {
+          "type": "string",
+          "enum": ["temporal", "dimension", "measure", "identifier", "boolean", "text"],
+          "description": "HEL-374: deterministic, INFERRED/ADVISORY classification derived from this column's declared dataType, a name heuristic, and (when available) its columnStats entry — see WorkspaceContextService.classifySemanticRole for the fixed, documented precedence. Never alters dataType, the authoritative declared type."
+        }
       },
       "additionalProperties": false
     },
@@ -117,6 +135,28 @@
         }
       },
       "additionalProperties": false
+    },
+    "JoinHint": {
+      "type": "object",
+      "required": ["leftDataTypeId", "leftColumn", "rightDataTypeId", "rightColumn", "confidence"],
+      "properties": {
+        "leftDataTypeId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The lexicographically smaller of the pair's two DataType ids — a canonical assignment so a given unordered pair produces exactly one hint, never two."
+        },
+        "leftColumn": { "type": "string" },
+        "rightDataTypeId": { "type": "string", "minLength": 1 },
+        "rightColumn": { "type": "string" },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1.0,
+          "description": "HEL-374: 0.5 means a name+type match with weak or no value/cardinality evidence; the score approaches 1.0 only as sampled values overlap AND both columns show enough distinct values (>= 20, MinDistinctForFullConfidence) to make coincidental overlap unlikely. This is a bounded heuristic over a small sample (<=5 example values per side), not certainty — always advisory, never a substitute for verifying the join. Rounded to 4 decimal places."
+        }
+      },
+      "additionalProperties": false,
+      "description": "HEL-374: one inferred, advisory cross-DataType joinability hint — a bounded, precision-favoring pairwise comparison of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself (that is HEL-342's concern) and never mutates any DataType's declared schema."
     },
     "DataTypeEntry": {
       "type": "object",

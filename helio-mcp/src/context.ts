@@ -319,6 +319,272 @@ function computeColumnStatsForField(
   return stats;
 }
 
+// ── Semantic role classification (HEL-374 design.md D1) ──────────────────────
+//
+// An INDEPENDENT TypeScript implementation of the identical 8-step precedence
+// `WorkspaceContextService.classifySemanticRole` (Scala) enforces — no shared
+// runtime between the backend and helio-mcp, so parity is achieved by
+// duplicating the rules and testing each side separately, not by sharing code.
+
+/** The wire values `dataType` string literals used for Content-category
+ *  fields (HEL-217) — mirrors the Scala side's `FieldTypeCategory.Content`.
+ *  Checked FIRST (step 1), before any name heuristic, so a Content field can
+ *  never be misclassified `temporal`/`identifier` by its name alone. */
+const CONTENT_DATA_TYPES = new Set(["string-body", "binary-ref"]);
+
+/** `classifySemanticRole`'s string→dimension cardinality ceiling (design.md
+ *  D1 step 7) — matches the Scala side's `DimensionCardinalityThreshold`. */
+const DIMENSION_CARDINALITY_THRESHOLD = 50;
+
+const TEMPORAL_NAME_TOKENS = new Set(["date", "time", "timestamp", "dob"]);
+const IDENTIFIER_NAME_TOKENS = new Set(["id", "uuid", "guid"]);
+
+export type SemanticRole = "temporal" | "dimension" | "measure" | "identifier" | "boolean" | "text";
+
+/** Name-token normalization (design.md D1 steps 4/5): camelCase boundary
+ *  insertion (`fooBar` -> `foo_Bar`), lowercase, split on `_`. The ONE shared
+ *  implementation for BOTH the temporal-token check (step 4) and the
+ *  identifier-token check (step 5) — token-exact matching throughout, never
+ *  substring (a raw `.includes("date")`/`.includes("guid")` would
+ *  misclassify `validated`/`estimated`/`guidance`/`guideline`/`misguided`).
+ *  Also reused verbatim by `computeJoinHints`'s name-bucket grouping key
+ *  (design.md D2) — one normalization helper, not a forked copy, mirroring
+ *  the Scala side's `normalizedNameTokens`. */
+export function normalizedNameTokens(name: string): string[] {
+  const snakeCase = name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  return snakeCase.split("_").filter((t) => t.length > 0);
+}
+
+function isTemporalName(tokens: string[]): boolean {
+  return (
+    tokens.some((t) => TEMPORAL_NAME_TOKENS.has(t)) ||
+    (tokens.length > 1 && tokens[tokens.length - 1] === "at")
+  );
+}
+
+function isIdentifierName(tokens: string[]): boolean {
+  return tokens.some((t) => IDENTIFIER_NAME_TOKENS.has(t));
+}
+
+/** Mirrors `WorkspaceContextService.classifySemanticRole` (Scala, design.md
+ *  D1's 8-step precedence): (1) Content-category `dataType` -> `text`
+ *  (unconditional, no value inspection); (2) declared `boolean` -> `boolean`;
+ *  (3) declared `timestamp` -> `temporal`; (4) temporal name token ->
+ *  `temporal`; (5) identifier name token -> `identifier`; (6) declared
+ *  `integer`/`float` -> `measure`; (7) declared `string` with real evidence
+ *  (`distinctCount > 0`, not `distinctCountCapped`, `distinctCount <=
+ *  DIMENSION_CARDINALITY_THRESHOLD`) -> `dimension`, otherwise `text`;
+ *  (8) unparseable/unrecognized `dataType` -> `text` (falls through every
+ *  declared-type check above; steps 4/5 can still fire since they're
+ *  name-only). */
+export function classifySemanticRole(
+  field: Pick<DataFieldResponse, "name" | "dataType">,
+  stats: ColumnStats | undefined,
+): SemanticRole {
+  const tokens = normalizedNameTokens(field.name);
+
+  if (CONTENT_DATA_TYPES.has(field.dataType)) return "text";
+  if (field.dataType === "boolean") return "boolean";
+  if (field.dataType === "timestamp") return "temporal";
+  if (isTemporalName(tokens)) return "temporal";
+  if (isIdentifierName(tokens)) return "identifier";
+  if (field.dataType === "integer" || field.dataType === "float") return "measure";
+  if (field.dataType === "string") {
+    const lowCardinality =
+      stats !== undefined &&
+      stats.distinctCount > 0 &&
+      !stats.distinctCountCapped &&
+      stats.distinctCount <= DIMENSION_CARDINALITY_THRESHOLD;
+    return lowCardinality ? "dimension" : "text";
+  }
+  return "text";
+}
+
+// ── Join hints (HEL-374 design.md D2) ─────────────────────────────────────
+//
+// An INDEPENDENT TypeScript implementation of `WorkspaceContextService.computeJoinHints`
+// (Scala) — no shared runtime, so parity is achieved by duplicating the rules
+// and testing each side separately.
+
+export interface WorkspaceContextJoinHint {
+  leftDataTypeId: string;
+  leftColumn: string;
+  rightDataTypeId: string;
+  rightColumn: string;
+  confidence: number;
+}
+
+/** `computeJoinHints`'s per-name-bucket candidate cap (design.md D2) —
+ *  enforced AFTER the `columnStats`-membership candidacy restriction, so
+ *  this bounds comparisons, not candidate gathering itself. Matches the
+ *  Scala side's `MaxColumnsPerNameBucket`. */
+const MAX_COLUMNS_PER_NAME_BUCKET = 50;
+/** `computeJoinHints`'s output cap (design.md D2). Matches the Scala side's
+ *  `MaxJoinHints`. */
+const MAX_JOIN_HINTS = 50;
+/** `computeJoinHints`'s confidence-damping floor (design.md D2, post-design-
+ *  gate human-review fix) — matches the Scala side's `MinDistinctForFullConfidence`.
+ *  See `joinHintConfidence` for the rationale. */
+const MIN_DISTINCT_FOR_FULL_CONFIDENCE = 20;
+
+interface JoinCandidate {
+  dataTypeId: string;
+  columnName: string;
+  dataType: string;
+  distinctCount: number;
+  exampleValues: unknown[];
+}
+
+/** Declared-type bucket for join-hint pairing (design.md D2): only columns in
+ *  the SAME bucket are ever compared (numeric-ish vs. numeric-ish, string-ish
+ *  vs. string-ish, timestamp vs. timestamp) — a cross-type identifier join
+ *  (e.g. a string-typed id vs. an integer-typed id) is a stated, accepted
+ *  miss, not silently mismatched to a spurious pair. Mirrors the Scala side's
+ *  `typeBucket`. */
+function typeBucket(dataType: string): string {
+  if (dataType === "integer" || dataType === "float") return "numeric";
+  if (dataType === "string") return "string";
+  if (dataType === "timestamp") return "timestamp";
+  if (dataType === "boolean") return "boolean";
+  if (CONTENT_DATA_TYPES.has(dataType)) return "content";
+  return `unknown:${dataType}`;
+}
+
+/** Jaccard overlap of two already-`JSON.stringify`-normalized example-value
+ *  sets. Guards its own divide-by-zero explicitly, at the terminal boundary
+ *  where the value is computed: an empty-vs-empty pair (e.g. two all-null
+ *  identifier columns) yields `0`, not a fabricated `NaN`. Mirrors the Scala
+ *  side's `jaccard`. */
+function jaccard(left: Set<string>, right: Set<string>): number {
+  const union = new Set([...left, ...right]);
+  if (union.size === 0) return 0;
+  let intersectionSize = 0;
+  for (const v of left) if (right.has(v)) intersectionSize += 1;
+  return intersectionSize / union.size;
+}
+
+/** Confidence for one candidate pair (design.md D2, post-design-gate
+ *  human-review fix): `0.5 + 0.5 * jaccard * evidenceWeight`, NOT raw
+ *  `0.5 + 0.5 * jaccard`. Raw Jaccard over <=5 example values saturates
+ *  trivially — two UNRELATED identifier columns that happen to hold small
+ *  sequential integers (`1,2,3,4,5`, an overwhelmingly common shape for
+ *  surface ids in small/demo/test data) would otherwise read as
+ *  `confidence = 1.0` on pure coincidence. `evidenceWeight` dampens the
+ *  value-overlap boost by cardinality evidence, reusing `distinctCount`
+ *  (`ColumnStats` already computes it — no new computation, no new fetch): a
+ *  column whose sampled `distinctCount` is small can contribute only a
+ *  fraction of full evidence weight regardless of how completely its <=5
+ *  example values overlap; a well-evidenced identifier column (typically
+ *  `distinctCountCapped: true`) reaches `evidenceWeight = 1` quickly, so a
+ *  real match can still reach the top of the scale. Rounded via the EXISTING
+ *  `roundToFourDecimals` (reused verbatim — safe by inspection here since the
+ *  domain is bounded `[0.5, 1.0]`). Mirrors the Scala side's `joinHintConfidence`. */
+function joinHintConfidence(left: JoinCandidate, right: JoinCandidate): number {
+  const leftValues = new Set(left.exampleValues.map((v) => JSON.stringify(v)));
+  const rightValues = new Set(right.exampleValues.map((v) => JSON.stringify(v)));
+  const evidenceWeight = Math.min(
+    1,
+    Math.min(left.distinctCount, right.distinctCount) / MIN_DISTINCT_FOR_FULL_CONFIDENCE,
+  );
+  return roundToFourDecimals(0.5 + 0.5 * jaccard(leftValues, rightValues) * evidenceWeight);
+}
+
+/** Bounded, precision-favoring cross-DataType joinability hints (design.md
+ *  D2) — a pure post-processing function over already-built `dataTypes`
+ *  entries; no additional fetch. Mirrors the Scala side's `computeJoinHints`.
+ *
+ *  **Candidate gathering (design-gate round-1 fix, the central cost-bound
+ *  requirement)**: a column is a candidate iff its `semanticRole ==
+ *  "identifier"` AND its DataType's `columnStats` contains an entry for it —
+ *  NOT gathered from `columns`/`t.fields` alone, which is built from the
+ *  DataType's entire unbounded declared field list. `columnStats` is
+ *  independently capped at `SAMPLE_COLUMN_LIMIT` (40) by
+ *  `computeColumnStats`'s own enumeration, so requiring membership in it
+ *  genuinely bounds candidates to <=40 per DataType — and, as a side effect,
+ *  automatically excludes source-companion DataTypes (whose `columnStats` is
+ *  always `{}`) with no separate `pipelineOutput` filter.
+ *
+ *  Owner-scoping: this function never fetches anything — its only input is
+ *  `dataTypes`, the array `buildWorkspaceContext` already assembled for a
+ *  SINGLE caller's own `typesPage` (mirrors the Scala side's design.md D3;
+ *  there is only ever one caller's data in scope for a given call). */
+export function computeJoinHints(
+  dataTypes: Array<{
+    id: string;
+    columns: Array<{ name: string; dataType: string; semanticRole: SemanticRole }>;
+    columnStats: Record<string, ColumnStats>;
+  }>,
+): WorkspaceContextJoinHint[] {
+  const candidates: JoinCandidate[] = [];
+  for (const dt of dataTypes) {
+    for (const c of dt.columns) {
+      if (c.semanticRole !== "identifier") continue;
+      const stats = dt.columnStats[c.name];
+      if (stats === undefined) continue;
+      candidates.push({
+        dataTypeId: dt.id,
+        columnName: c.name,
+        dataType: c.dataType,
+        distinctCount: stats.distinctCount,
+        exampleValues: stats.exampleValues,
+      });
+    }
+  }
+
+  const buckets = new Map<string, JoinCandidate[]>();
+  for (const candidate of candidates) {
+    const key = normalizedNameTokens(candidate.columnName).join("");
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(candidate);
+    else buckets.set(key, [candidate]);
+  }
+
+  const hints: WorkspaceContextJoinHint[] = [];
+  for (const bucket of buckets.values()) {
+    const capped = [...bucket]
+      .sort((a, b) => {
+        const byType = a.dataTypeId.localeCompare(b.dataTypeId);
+        return byType !== 0 ? byType : a.columnName.localeCompare(b.columnName);
+      })
+      .slice(0, MAX_COLUMNS_PER_NAME_BUCKET);
+
+    for (let i = 0; i < capped.length; i++) {
+      const a = capped[i];
+      if (a === undefined) continue;
+      for (let j = i + 1; j < capped.length; j++) {
+        const b = capped[j];
+        if (b === undefined) continue;
+        if (a.dataTypeId === b.dataTypeId) continue;
+        if (typeBucket(a.dataType) !== typeBucket(b.dataType)) continue;
+
+        // Canonical (left, right) assignment (design.md D2): the
+        // lexicographically smaller dataTypeId is always left — one hint per
+        // unordered pair, never two.
+        const [left, right] = a.dataTypeId < b.dataTypeId ? [a, b] : [b, a];
+        hints.push({
+          leftDataTypeId: left.dataTypeId,
+          leftColumn: left.columnName,
+          rightDataTypeId: right.dataTypeId,
+          rightColumn: right.columnName,
+          confidence: joinHintConfidence(left, right),
+        });
+      }
+    }
+  }
+
+  hints.sort((a, b) => {
+    if (a.confidence !== b.confidence) return b.confidence - a.confidence;
+    if (a.leftDataTypeId !== b.leftDataTypeId)
+      return a.leftDataTypeId.localeCompare(b.leftDataTypeId);
+    if (a.leftColumn !== b.leftColumn) return a.leftColumn.localeCompare(b.leftColumn);
+    if (a.rightDataTypeId !== b.rightDataTypeId)
+      return a.rightDataTypeId.localeCompare(b.rightDataTypeId);
+    return a.rightColumn.localeCompare(b.rightColumn);
+  });
+
+  return hints.slice(0, MAX_JOIN_HINTS);
+}
+
 export interface WorkspaceContext {
   generatedAt: string;
   counts: {
@@ -334,7 +600,15 @@ export interface WorkspaceContext {
     sourceId: string | null;
     /** true when this DataType is a pipeline output (panel-bindable). */
     pipelineOutput: boolean;
-    columns: Array<{ name: string; dataType: string; nullable: boolean }>;
+    columns: Array<{
+      name: string;
+      dataType: string;
+      nullable: boolean;
+      /** HEL-374: deterministic, INFERRED/ADVISORY classification — see
+       *  `classifySemanticRole`. Never alters `dataType`, the authoritative
+       *  declared type. */
+      semanticRole: SemanticRole;
+    }>;
     computedColumns: Array<{ name: string; dataType: string; expression: string }>;
     version: number;
     /** HEL-366: free-form grouping key, mirrors the owning DataSource's or producing Pipeline's
@@ -392,6 +666,10 @@ export interface WorkspaceContext {
     outputRowCount: string;
     outputDescription: string;
   }>;
+  /** HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints —
+   *  see `computeJoinHints`. Never authors a join step itself and never mutates any DataType's
+   *  authoritative dataType. ALWAYS present (`[]`, never omitted) even when no candidate pairs exist. */
+  joinHints: WorkspaceContextJoinHint[];
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -450,6 +728,53 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
     }),
   );
 
+  const dataTypes = await Promise.all(
+    typesPage.items.map(async (t) => {
+      // spray-json omits `sourceId` entirely when it is null, so a MISSING
+      // field is the pipeline-output (panel-bindable) case. Normalize before
+      // deciding — `=== null` alone would misclassify the bindable type.
+      const sourceId = t.sourceId ?? null;
+      const pipelineOutput = sourceId === null;
+      // Sample rows + column stats only for pipeline-output DataTypes
+      // (design.md D2) — a source-companion DataType is never written to
+      // the row snapshot table, so a query for one would always return
+      // empty; skip it entirely rather than pay a guaranteed-empty round
+      // trip. `excludeContentFields=true` strips Content-category (string-
+      // body/binary-ref, HEL-217) field values at the SQL tier (design.md
+      // D1); `maxStructuredColumns=SAMPLE_COLUMN_LIMIT` strips Structured
+      // column overflow beyond 40 at the SQL tier too (HEL-373 design.md
+      // D1). ONE fetch (`STATS_ROW_LIMIT`, 500 rows) serves both
+      // `sanitizeSampleRows` (unchanged, still self-limits to 5) and the
+      // new `computeColumnStats` (HEL-373 design.md D10).
+      const rawRows = pipelineOutput
+        ? (await api.getDataTypeRows(t.id, STATS_ROW_LIMIT, true, SAMPLE_COLUMN_LIMIT)).rows
+        : [];
+      const sampleRows = pipelineOutput ? sanitizeSampleRows(t.fields, rawRows) : [];
+      const columnStats = pipelineOutput ? computeColumnStats(t.fields, rawRows) : {};
+      return {
+        id: t.id,
+        name: t.name,
+        sourceId,
+        pipelineOutput,
+        columns: t.fields.map((f) => ({
+          name: f.name,
+          dataType: f.dataType,
+          nullable: f.nullable,
+          semanticRole: classifySemanticRole(f, columnStats[f.name]),
+        })),
+        computedColumns: t.computedFields.map((c) => ({
+          name: c.name,
+          dataType: c.dataType,
+          expression: c.expression,
+        })),
+        version: t.version,
+        tag: t.tag ?? null,
+        sampleRows,
+        columnStats,
+      };
+    }),
+  );
+
   return {
     generatedAt: new Date().toISOString(),
     counts: {
@@ -464,51 +789,7 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
       type: s.type,
       tag: s.tag ?? null,
     })),
-    dataTypes: await Promise.all(
-      typesPage.items.map(async (t) => {
-        // spray-json omits `sourceId` entirely when it is null, so a MISSING
-        // field is the pipeline-output (panel-bindable) case. Normalize before
-        // deciding — `=== null` alone would misclassify the bindable type.
-        const sourceId = t.sourceId ?? null;
-        const pipelineOutput = sourceId === null;
-        // Sample rows + column stats only for pipeline-output DataTypes
-        // (design.md D2) — a source-companion DataType is never written to
-        // the row snapshot table, so a query for one would always return
-        // empty; skip it entirely rather than pay a guaranteed-empty round
-        // trip. `excludeContentFields=true` strips Content-category (string-
-        // body/binary-ref, HEL-217) field values at the SQL tier (design.md
-        // D1); `maxStructuredColumns=SAMPLE_COLUMN_LIMIT` strips Structured
-        // column overflow beyond 40 at the SQL tier too (HEL-373 design.md
-        // D1). ONE fetch (`STATS_ROW_LIMIT`, 500 rows) serves both
-        // `sanitizeSampleRows` (unchanged, still self-limits to 5) and the
-        // new `computeColumnStats` (HEL-373 design.md D10).
-        const rawRows = pipelineOutput
-          ? (await api.getDataTypeRows(t.id, STATS_ROW_LIMIT, true, SAMPLE_COLUMN_LIMIT)).rows
-          : [];
-        const sampleRows = pipelineOutput ? sanitizeSampleRows(t.fields, rawRows) : [];
-        const columnStats = pipelineOutput ? computeColumnStats(t.fields, rawRows) : {};
-        return {
-          id: t.id,
-          name: t.name,
-          sourceId,
-          pipelineOutput,
-          columns: t.fields.map((f) => ({
-            name: f.name,
-            dataType: f.dataType,
-            nullable: f.nullable,
-          })),
-          computedColumns: t.computedFields.map((c) => ({
-            name: c.name,
-            dataType: c.dataType,
-            expression: c.expression,
-          })),
-          version: t.version,
-          tag: t.tag ?? null,
-          sampleRows,
-          columnStats,
-        };
-      }),
-    ),
+    dataTypes,
     pipelines,
     dashboards: dashboardsPage.items.map((d) => ({
       id: d.id,
@@ -523,5 +804,10 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
       outputRowCount: flattenRowCount(s.outputContract.rowCount),
       outputDescription: s.outputContract.description,
     })),
+    // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER
+    // `dataTypes` above is fully built — no new fetch. `dataTypes` is the
+    // exact structure already owner-scoped by `typesPage` (D3), so there is
+    // only ever one caller's data in scope for this whole function call.
+    joinHints: computeJoinHints(dataTypes),
   };
 }

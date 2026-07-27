@@ -27,8 +27,37 @@ final case class WorkspaceContextDataSource(
     tag: Option[String]
 )
 
-final case class WorkspaceContextColumn(name: String, dataType: String, nullable: Boolean)
+/** `semanticRole` (HEL-374 design.md D1): one of `temporal`/`dimension`/`measure`/
+ *  `identifier`/`boolean`/`text`, derived deterministically from the column's
+ *  declared `dataType` + a name heuristic + (when available) `columnStats` —
+ *  see `WorkspaceContextService.classifySemanticRole`. Advisory only: it never
+ *  alters `dataType`, the authoritative declared type. */
+final case class WorkspaceContextColumn(name: String, dataType: String, nullable: Boolean, semanticRole: String)
 final case class WorkspaceContextComputedColumn(name: String, dataType: String, expression: String)
+
+/** One inferred, advisory cross-DataType joinability hint (HEL-374 design.md
+ *  D2): a bounded, precision-favoring pairwise comparison of `identifier`-role
+ *  columns across the caller's own pipeline-output DataTypes, computed
+ *  entirely from data `assemble` already fetched — no new DB access. Never
+ *  authors a join step itself (HEL-342's concern). `confidence` is always in
+ *  `[0.5, 1.0]`: `0.5` = name+type match with weak/no value or cardinality
+ *  evidence; it approaches `1.0` only as sampled values overlap AND both
+ *  columns show enough distinct values to make coincidental overlap unlikely
+ *  — a cardinality-damped value-overlap boost (post-design-gate fix, design.md
+ *  D2's `evidenceWeight`), not raw Jaccard overlap alone, so two unrelated
+ *  low-cardinality identifier columns that coincidentally share the same
+ *  small example-value set do NOT read as near-certain
+ *  (`WorkspaceContextService.computeJoinHints`). A bounded heuristic over a
+ *  small sample, never certainty — always advisory. The lexicographically
+ *  smaller `dataTypeId` of the pair is always `left` — one hint per unordered
+ *  pair, never two. */
+final case class WorkspaceContextJoinHint(
+    leftDataTypeId: String,
+    leftColumn: String,
+    rightDataTypeId: String,
+    rightColumn: String,
+    confidence: Double
+)
 
 /** Per-column statistics (HEL-373 `computeColumnStats`, design.md D4/D5/D6/D7):
  *  `nullRate`/`distinctCount`/`distinctCountCapped`/`exampleValues` are always
@@ -116,7 +145,8 @@ final case class WorkspaceContextResponse(
     dataSources: Vector[WorkspaceContextDataSource],
     dataTypes: Vector[WorkspaceContextDataType],
     pipelines: Vector[WorkspaceContextPipeline],
-    dashboards: Vector[WorkspaceContextDashboard]
+    dashboards: Vector[WorkspaceContextDashboard],
+    joinHints: Vector[WorkspaceContextJoinHint]
 )
 
 trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol {
@@ -125,9 +155,11 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
   implicit val workspaceContextDataSourceFormat: RootJsonFormat[WorkspaceContextDataSource] =
     jsonFormat4(WorkspaceContextDataSource.apply)
   implicit val workspaceContextColumnFormat: RootJsonFormat[WorkspaceContextColumn] =
-    jsonFormat3(WorkspaceContextColumn.apply)
+    jsonFormat4(WorkspaceContextColumn.apply)
   implicit val workspaceContextComputedColumnFormat: RootJsonFormat[WorkspaceContextComputedColumn] =
     jsonFormat3(WorkspaceContextComputedColumn.apply)
+  implicit val workspaceContextJoinHintFormat: RootJsonFormat[WorkspaceContextJoinHint] =
+    jsonFormat5(WorkspaceContextJoinHint.apply)
   implicit val workspaceContextColumnStatsFormat: RootJsonFormat[WorkspaceContextColumnStats] =
     jsonFormat7(WorkspaceContextColumnStats.apply)
   // Map[String, WorkspaceContextColumnStats]'s format is summoned automatically
@@ -142,5 +174,5 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
     jsonFormat3(WorkspaceContextDashboard.apply)
   implicit val workspaceContextResponseFormat: RootJsonFormat[WorkspaceContextResponse] =
-    jsonFormat6(WorkspaceContextResponse.apply)
+    jsonFormat7(WorkspaceContextResponse.apply)
 }
