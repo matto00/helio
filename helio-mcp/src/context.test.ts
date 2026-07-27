@@ -9,7 +9,12 @@
  * `panelCount`/`flattenRowCount`), not by sharing code.
  */
 
-import { buildWorkspaceContext, sanitizeSampleRows } from "./context.js";
+import {
+  asNumeric,
+  buildWorkspaceContext,
+  computeColumnStats,
+  sanitizeSampleRows,
+} from "./context.js";
 import type { HelioApi } from "./helioApi.js";
 import type { DataTypeResponse } from "./types.js";
 
@@ -107,6 +112,312 @@ describe("sanitizeSampleRows", () => {
   });
 });
 
+/**
+ * HEL-373 tasks.md 5.5 — MCP-side unit tests for `computeColumnStats`/
+ * `asNumeric`, mirroring `WorkspaceContextServiceComputeColumnStatsSpec`'s
+ * Scala-side cases. An INDEPENDENT TypeScript implementation of the
+ * identical caps `WorkspaceContextService.computeColumnStats` (Scala)
+ * enforces (design.md D2/D3/D4/D5/D6/D10) — parity via duplicating the
+ * rules and testing each side separately, not sharing code.
+ */
+describe("computeColumnStats", () => {
+  const structuredField = (name: string, dataType = "string") => ({ name, dataType });
+
+  it("reports min/max/mean for a numeric column", () => {
+    const fields = [structuredField("amount", "float")];
+    const rawRows = [{ amount: 10 }, { amount: 20 }, { amount: 30 }];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBe(10);
+    expect(stats?.max).toBe(30);
+    expect(stats?.mean).toBe(20);
+  });
+
+  it("omits min/max/mean for a non-numeric column", () => {
+    const fields = [structuredField("status")];
+    const rawRows = [{ status: "active" }, { status: "inactive" }];
+
+    const stats = computeColumnStats(fields, rawRows).status;
+
+    expect(stats?.min).toBeUndefined();
+    expect(stats?.max).toBeUndefined();
+    expect(stats?.mean).toBeUndefined();
+  });
+
+  it("reports nullRate, distinctCount, and exampleValues for a Structured column", () => {
+    const fields = [structuredField("status")];
+    const rawRows = [{ status: "active" }, { status: "inactive" }, { status: null }];
+
+    const stats = computeColumnStats(fields, rawRows).status;
+
+    expect(stats?.nullRate).toBeCloseTo(1 / 3);
+    expect(stats?.distinctCount).toBe(2);
+    expect(stats?.distinctCountCapped).toBe(false);
+    expect(stats?.exampleValues).toEqual(expect.arrayContaining(["active", "inactive"]));
+  });
+
+  it("reports no min/max/mean and nullRate 0 for a numeric-declared column whose values are all unparseable strings", () => {
+    const fields = [structuredField("amount", "float")];
+    const rawRows = [{ amount: "n/a" }, { amount: "n/a" }];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBeUndefined();
+    expect(stats?.max).toBeUndefined();
+    expect(stats?.mean).toBeUndefined();
+    expect(stats?.nullRate).toBe(0);
+  });
+
+  it("computes min/max/mean for a numeric-declared column whose values are string-encoded numbers (CSV case)", () => {
+    const fields = [structuredField("amount", "integer")];
+    const rawRows = [{ amount: "10" }, { amount: "20" }];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBe(10);
+    expect(stats?.max).toBe(20);
+    expect(stats?.mean).toBe(15);
+  });
+
+  // ── HEL-373 skeptic-final-1.md: "NaN"/"Infinity" string literals must be
+  //    treated as unparseable garbage, not as successfully-parsed non-finite
+  //    numbers (which would otherwise poison numericMax/mean to Infinity,
+  //    then silently serialize to null via JSON.stringify) ─────────────────
+
+  it('excludes a literal "NaN" string cell from min/max/mean like any other unparseable string', () => {
+    const fields = [structuredField("amount", "float")];
+    const rawRows = [{ amount: "10" }, { amount: "20" }, { amount: "NaN" }];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBe(10);
+    expect(stats?.max).toBe(20);
+    expect(stats?.mean).toBe(15);
+  });
+
+  it('excludes literal "Infinity"/"-Infinity" string cells from min/max/mean like any other unparseable string', () => {
+    const fields = [structuredField("amount", "integer")];
+    const rawRows = [
+      ...Array.from({ length: 10 }, (_, i) => ({ amount: String(i + 1) })),
+      { amount: "Infinity" },
+      { amount: "-Infinity" },
+    ];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBe(1);
+    expect(stats?.max).toBe(10);
+    expect(stats?.mean).toBe(5.5);
+  });
+
+  // ── HEL-373 skeptic-final-2.md: a genuine native-number Infinity (e.g. from
+  //    JSON.parse("1e400"), exactly what the HTTP response layer produces for
+  //    an overflowing numeric literal) must be excluded from min/max/mean
+  //    exactly like an unparseable string — the round-1 fix only patched the
+  //    typeof "string" branch; this is the sibling typeof "number" branch
+  //    instance of the SAME bug class, now closed by asNumeric's single
+  //    exit-point finiteness filter ─────────────────────────────────────────
+
+  it('excludes a native-number Infinity cell (e.g. from JSON.parse("1e400")) from min/max/mean', () => {
+    const fields = [structuredField("amount", "float")];
+    const rawRows = [{ amount: 10 }, { amount: 20 }, { amount: JSON.parse("1e400") as number }];
+
+    const stats = computeColumnStats(fields, rawRows).amount;
+
+    expect(stats?.min).toBe(10);
+    expect(stats?.max).toBe(20);
+    expect(stats?.mean).toBe(15);
+  });
+
+  // ── HEL-373 skeptic-final-3.md: the ACCUMULATED numericSum can overflow to
+  //    +-Infinity even though every individual value fed into it is
+  //    legitimately finite (post-asNumeric, already airtight per rounds
+  //    1-2) — a different location than asNumeric's own gap, closed by a
+  //    finiteness guard at the ColumnStats construction site covering
+  //    min/max/mean together ──────────────────────────────────────────────
+
+  it(
+    "excludes a fabricated mean when the accumulated sum overflows, while min/max stay correct " +
+      "(two individually-finite 1e308 values)",
+    () => {
+      const fields = [structuredField("amount", "float")];
+      const rawRows = [{ amount: 1e308 }, { amount: 1e308 }];
+
+      const stats = computeColumnStats(fields, rawRows).amount;
+
+      expect(stats?.min).toBe(1e308);
+      expect(stats?.max).toBe(1e308);
+      expect(stats?.mean).toBeUndefined();
+    },
+  );
+
+  // Here the running SUM itself stays finite (499 small addends are
+  // negligible next to a single ~1.7e308 outlier) — the true mean IS
+  // computable and finite (~3.4e305). The naive Math.round(mean * 10000)
+  // technique's OWN multiply step would overflow at this magnitude,
+  // fabricating the same wrong ~922-trillion-style value the whole arc has
+  // been about eliminating even though the true mean is legitimately huge
+  // but finite. The fix must report the genuinely correct huge mean here,
+  // not undefined — undefined would be swallowing valid information.
+  it(
+    "reports a genuinely correct (if very large) mean — not a fabricated value — when a single " +
+      "near-Number.MAX_VALUE outlier is averaged with 499 otherwise-ordinary rows",
+    () => {
+      const fields = [structuredField("amount", "float")];
+      const ordinaryRows = Array.from({ length: 499 }, (_, i) => ({ amount: i + 1 }));
+      const rawRows = [...ordinaryRows, { amount: 1.7e308 }];
+
+      const stats = computeColumnStats(fields, rawRows).amount;
+
+      expect(stats?.min).toBe(1);
+      expect(stats?.max).toBe(1.7e308);
+      expect(stats?.mean).toBeDefined();
+      expect(Number.isFinite(stats?.mean)).toBe(true);
+      // HEL-373 skeptic-final-4.md requirement 4: assert the EXACT expected
+      // value (independently confirmed via a direct probe: `(1+2+...+499 +
+      // 1.7e308) / 500 === 3.3999999999999998e+305` in plain JS arithmetic —
+      // matching the Scala side's own independently-computed result exactly),
+      // not just a magnitude bound — closes the test-strength gap the round-4
+      // skeptic flagged relative to the Scala sibling test.
+      expect(stats?.mean).toBe(3.3999999999999998e305);
+    },
+  );
+
+  // ── HEL-373 skeptic-final-4.md: cross-language rounding tie-break
+  //    convention must be identical. Round 4 switched the Scala side's
+  //    rounding technique to BigDecimal.setScale(4, HALF_UP) ("round half
+  //    AWAY FROM ZERO") but left the TS side on Math.round ("round half
+  //    TOWARD +Infinity") — the two conventions disagree ONLY at an exact
+  //    binary tie at the 4th decimal place. A mean of exactly -0.00005 is the
+  //    skeptic's own reproduction case: HALF_UP rounds to -0.0001;
+  //    Math.round's own tie-break rounds to -0/0. This pins the now-fixed TS
+  //    side to the SAME expected value the Scala side already produces
+  //    (mirrored in WorkspaceContextServiceComputeColumnStatsSpec.scala) —
+  //    the actual mechanical determinism check design.md D5/D6 promises, not
+  //    just prose. ────────────────────────────────────────────────────────
+
+  it(
+    "rounds an exact -0.00005 mean tie AWAY FROM ZERO (to -0.0001), matching the Scala side's " +
+      "HALF_UP tie-break convention",
+    () => {
+      const fields = [structuredField("amount", "float")];
+      const rawRows = [{ amount: -0.00005 }];
+
+      const stats = computeColumnStats(fields, rawRows).amount;
+
+      expect(stats?.mean).toBe(-0.0001);
+    },
+  );
+
+  it("reports nullRate 1, distinctCount 0, and no min/max for an all-null column", () => {
+    const fields = [structuredField("notes")];
+    const rawRows = [{ notes: null }, {}];
+
+    const stats = computeColumnStats(fields, rawRows).notes;
+
+    expect(stats?.nullRate).toBe(1);
+    expect(stats?.distinctCount).toBe(0);
+    expect(stats?.exampleValues).toEqual([]);
+    expect(stats?.min).toBeUndefined();
+  });
+
+  it("produces a non-empty per-column entry with nullRate 0 / distinctCount 0 for an empty row array", () => {
+    const fields = [structuredField("id"), structuredField("amount", "float")];
+
+    const stats = computeColumnStats(fields, []);
+
+    expect(Object.keys(stats)).toEqual(["id", "amount"]);
+    expect(stats.id?.nullRate).toBe(0);
+    expect(stats.id?.distinctCount).toBe(0);
+    expect(stats.amount?.min).toBeUndefined();
+  });
+
+  it("caps columnStats columns at the first 40 declared Structured fields, in field order", () => {
+    const fields = Array.from({ length: 45 }, (_, i) => structuredField(`col${i}`));
+    const rawRow = Object.fromEntries(fields.map((f) => [f.name, f.name]));
+
+    const stats = computeColumnStats(fields, [rawRow]);
+
+    expect(Object.keys(stats)).toHaveLength(40);
+    expect(stats).toHaveProperty("col0");
+    expect(stats).toHaveProperty("col39");
+    expect(stats).not.toHaveProperty("col40");
+  });
+
+  it("reports distinctCountCapped true and distinctCount equal to the cap for a high-cardinality column", () => {
+    const fields = [structuredField("id")];
+    const rawRows = Array.from({ length: 150 }, (_, i) => ({ id: `id-${i}` }));
+
+    const stats = computeColumnStats(fields, rawRows).id;
+
+    expect(stats?.distinctCountCapped).toBe(true);
+    expect(stats?.distinctCount).toBe(100);
+  });
+
+  it("has no entry for a Content-category field", () => {
+    const fields = [structuredField("title"), structuredField("body", "string-body")];
+    const rawRow = { title: "doc", body: "x".repeat(500) };
+
+    const stats = computeColumnStats(fields, [rawRow]);
+
+    expect(Object.keys(stats)).toEqual(["title"]);
+  });
+
+  it("produces identical output across repeated calls over the same input (determinism)", () => {
+    const fields = [structuredField("amount", "float"), structuredField("status")];
+    const rawRows = [
+      { amount: 3, status: "b" },
+      { amount: 1, status: "a" },
+      { amount: 2, status: "a" },
+    ];
+
+    const first = computeColumnStats(fields, rawRows);
+    const second = computeColumnStats(fields, rawRows);
+
+    expect(first).toEqual(second);
+  });
+});
+
+/**
+ * HEL-373 skeptic-final-2.md's binding requirement 3: "exhaustive
+ * table-driven tests over `asNumeric`'s entire input space, both sides — not
+ * one case bolted on." Every case below pins the exact expected
+ * `number | undefined` for one representative of each input class
+ * `asNumeric` can ever see — mirrors the Scala side's table exactly.
+ */
+describe("asNumeric", () => {
+  const cases: Array<[string, unknown, number | undefined]> = [
+    ["a finite number", 42, 42],
+    [
+      'a number that overflows to +Infinity (JSON.parse("1e400"))',
+      JSON.parse("1e400") as number,
+      undefined,
+    ],
+    [
+      'a number that overflows to -Infinity (JSON.parse("-1e400"))',
+      JSON.parse("-1e400") as number,
+      undefined,
+    ],
+    ['the literal "NaN" string', "NaN", undefined],
+    ['the literal "Infinity" string', "Infinity", undefined],
+    ['the literal "-Infinity" string', "-Infinity", undefined],
+    ["a valid numeric string", "42", 42],
+    ["a valid numeric string with surrounding whitespace", "  10.5  ", 10.5],
+    ["an empty string", "", undefined],
+    ["a whitespace-only string", "   ", undefined],
+    ["a non-numeric string", "n/a", undefined],
+    ["a boolean", true, undefined],
+    ["an object", { k: "v" }, undefined],
+    ["an array", [1], undefined],
+    ["null", null, undefined],
+  ];
+
+  it.each(cases)("returns the expected value for %s", (_description, input, expected) => {
+    expect(asNumeric(input)).toBe(expected);
+  });
+});
+
 describe("buildWorkspaceContext — sampleRows wiring", () => {
   const pipelineOutputType: DataTypeResponse = {
     id: "dt-output",
@@ -168,10 +479,15 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
         dataTypeId: string,
         limit?: number,
         excludeContentFields?: boolean,
+        maxStructuredColumns?: number,
       ) => {
         getDataTypeRowsCalls.push(dataTypeId);
-        expect(limit).toBe(5);
+        // HEL-373: ONE shared fetch, STATS_ROW_LIMIT (500) / maxStructuredColumns
+        // (40) — not the old sample-only limit — feeds BOTH sanitizeSampleRows
+        // and computeColumnStats.
+        expect(limit).toBe(500);
         expect(excludeContentFields).toBe(true);
+        expect(maxStructuredColumns).toBe(40);
         // The real endpoint would already respect `limit` — returning MORE
         // than 5 here deliberately exercises sanitizeSampleRows's own
         // defense-in-depth row cap through the full buildWorkspaceContext path.
@@ -198,7 +514,24 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(row.wide).toContain("…[truncated]");
   });
 
-  it("reports [] for a source-companion DataType, and never calls getDataTypeRows for it", async () => {
+  it("populates columnStats for a pipeline-output DataType from the SAME fetch as sampleRows, called exactly once", async () => {
+    const { api, getDataTypeRowsCalls } = makeFakeApi();
+
+    const context = await buildWorkspaceContext(api);
+    const entry = context.dataTypes.find((t) => t.id === "dt-output");
+    if (!entry) throw new Error("dt-output entry missing");
+
+    expect(entry.columnStats.name).toBeDefined();
+    expect(entry.columnStats.wide).toBeDefined();
+    expect(entry.columnStats.body).toBeUndefined(); // Content field excluded
+    // wide is declared "integer" and rows 1-6 hold plain numbers 1..6 (row-0's
+    // oversized array is excluded from the numeric fold — not a number).
+    expect(entry.columnStats.wide?.min).toBe(1);
+    expect(entry.columnStats.wide?.max).toBe(6);
+    expect(getDataTypeRowsCalls).toEqual(["dt-output"]); // exactly once, not twice
+  });
+
+  it("reports [] / {} for a source-companion DataType, and never calls getDataTypeRows for it", async () => {
     const { api, getDataTypeRowsCalls } = makeFakeApi();
 
     const context = await buildWorkspaceContext(api);
@@ -207,6 +540,7 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
 
     expect(entry.pipelineOutput).toBe(false);
     expect(entry.sampleRows).toEqual([]);
+    expect(entry.columnStats).toEqual({});
     expect(getDataTypeRowsCalls).toEqual(["dt-output"]); // never called for the companion
   });
 });

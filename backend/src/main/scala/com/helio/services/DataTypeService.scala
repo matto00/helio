@@ -175,6 +175,24 @@ object DataTypeService {
   /** Result of `DataTypeService.validateExpression` — mirrors the wire shape
    *  of `ValidateExpressionResponse` so the route can pass it through
    *  unchanged. */
+
+  /** Structured-category field names in `fields` beyond the first `limit`, in
+   *  declared order (HEL-373 design.md D1 round-1/round-3 fix). Shared by
+   *  both `WorkspaceContextService` (SQL-tier `excludeKeys` extension for
+   *  `computeColumnStats`'s own fetch) and `DataTypeRoutes` (the `/rows`
+   *  route's `maxStructuredColumns` param) — ONE implementation, no
+   *  duplication, since both already depend on `DataTypeService`.
+   *
+   *  A field whose `dataType` doesn't parse via `DataFieldType.fromString` is
+   *  conservatively excluded from the Structured set entirely — never counted
+   *  toward the first `limit`, never in the overflow set either — mirroring
+   *  `WorkspaceContextService.fieldCategory`'s existing convention. */
+  def overflowStructuredFieldNames(fields: Vector[DataField], limit: Int): Set[String] =
+    fields
+      .filter(f => DataFieldType.fromString(f.dataType).map(DataFieldType.category).contains(FieldTypeCategory.Structured))
+      .drop(limit)
+      .map(_.name)
+      .toSet
 }
 
 final case class ExpressionValidationResult(valid: Boolean, message: Option[String])

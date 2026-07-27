@@ -30,6 +30,23 @@ final case class WorkspaceContextDataSource(
 final case class WorkspaceContextColumn(name: String, dataType: String, nullable: Boolean)
 final case class WorkspaceContextComputedColumn(name: String, dataType: String, expression: String)
 
+/** Per-column statistics (HEL-373 `computeColumnStats`, design.md D4/D5/D6/D7):
+ *  `nullRate`/`distinctCount`/`distinctCountCapped`/`exampleValues` are always
+ *  present (design.md D7); `min`/`max`/`mean` are numeric-column-only and
+ *  therefore `Option` — spray-json's `jsonFormatN` OMITS a `None` field from
+ *  the wire rather than emitting `null`, so these three must NOT be listed in
+ *  `ColumnStats`'s `required` array in `schemas/workspace-context.schema.json`
+ *  (the exact lesson HEL-371 cost a full eval cycle on). */
+final case class WorkspaceContextColumnStats(
+    nullRate: Double,
+    distinctCount: Int,
+    distinctCountCapped: Boolean,
+    exampleValues: Vector[JsValue],
+    min: Option[Double],
+    max: Option[Double],
+    mean: Option[Double]
+)
+
 /** `pipelineOutput = sourceId.isEmpty` (design.md D7) — classified directly
  *  off the domain `DataType.sourceId: Option[DataSourceId]`, never through a
  *  wire round-trip (spray-json omits `None` fields, which is the exact
@@ -41,7 +58,12 @@ final case class WorkspaceContextComputedColumn(name: String, dataType: String, 
  *  columns and 200 characters per cell (`WorkspaceContextService.sanitizeSampleRows`,
  *  design.md D3). Always present (an empty `Vector`, never `Option`) — a
  *  source-companion DataType or one with no run snapshot reports `[]`, so
- *  there is no spray-json `None`-omission concern here. */
+ *  there is no spray-json `None`-omission concern here.
+ *
+ *  `columnStats` (HEL-373): one entry per Structured-category column (capped
+ *  at 40, design.md D2), keyed by column name, computed from the same
+ *  ≤500-row fetch `sampleRows` derives from. Always present (an empty `Map`,
+ *  never `Option`) — same always-present convention as `sampleRows`. */
 final case class WorkspaceContextDataType(
     id: String,
     name: String,
@@ -51,7 +73,8 @@ final case class WorkspaceContextDataType(
     computedColumns: Vector[WorkspaceContextComputedColumn],
     version: Int,
     tag: Option[String],
-    sampleRows: Vector[JsObject]
+    sampleRows: Vector[JsObject],
+    columnStats: Map[String, WorkspaceContextColumnStats]
 )
 
 final case class WorkspaceContextPipelineStep(
@@ -105,8 +128,13 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
     jsonFormat3(WorkspaceContextColumn.apply)
   implicit val workspaceContextComputedColumnFormat: RootJsonFormat[WorkspaceContextComputedColumn] =
     jsonFormat3(WorkspaceContextComputedColumn.apply)
+  implicit val workspaceContextColumnStatsFormat: RootJsonFormat[WorkspaceContextColumnStats] =
+    jsonFormat7(WorkspaceContextColumnStats.apply)
+  // Map[String, WorkspaceContextColumnStats]'s format is summoned automatically
+  // by spray-json's built-in `mapFormat[V: JsonFormat]` given the above
+  // implicit — no separate named val needed.
   implicit val workspaceContextDataTypeFormat: RootJsonFormat[WorkspaceContextDataType] =
-    jsonFormat9(WorkspaceContextDataType.apply)
+    jsonFormat10(WorkspaceContextDataType.apply)
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =

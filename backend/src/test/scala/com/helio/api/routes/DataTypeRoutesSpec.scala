@@ -101,6 +101,15 @@ class DataTypeRoutesSpec
     await(dataTypeRepo.insert(dt, dummyUser)).id.value
   }
 
+  /** HEL-373 5.3: a DataType with 3 Structured fields + 1 Content field —
+   *  small enough that `maxStructuredColumns=2` exercises real overflow
+   *  without needing 41+ fields. */
+  private def seedWideDataTypeWithFields(): String = {
+    val fields = (0 until 3).map(i => DataField(s"col$i", s"col$i", "string", nullable = false)).toVector :+
+      DataField("body", "Body", "string-body", nullable = true)
+    seedDataTypeWithFields(fields)
+  }
+
   // ── Tests ────────────────────────────────────────────────────────────────────
 
   "GET /types/:id/rows" should {
@@ -229,6 +238,62 @@ class DataTypeRoutesSpec
 
       Get(s"/types/$dtId/rows?limit=-1") ~> makeRoutes ~> check {
         status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // ── HEL-373 5.3 ?maxStructuredColumns= param, independently and combined
+    //    with ?excludeContentFields= (design.md D1 round-2 fix) ────────────
+
+    "?maxStructuredColumns= alone (no excludeContentFields) excludes only the column-count overflow — " +
+      "Content-category field values ARE still present" in {
+      val dtId = seedWideDataTypeWithFields()
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq(
+        JsObject("col0" -> JsString("a"), "col1" -> JsString("b"), "col2" -> JsString("c"), "body" -> JsString("text"))
+      )))
+
+      Get(s"/types/$dtId/rows?maxStructuredColumns=2") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rows.head.fields.keySet shouldBe Set("col0", "col1", "body")
+      }
+    }
+
+    "?excludeContentFields=true alone (today's existing behavior) excludes only Content fields" in {
+      val dtId = seedWideDataTypeWithFields()
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq(
+        JsObject("col0" -> JsString("a"), "col1" -> JsString("b"), "col2" -> JsString("c"), "body" -> JsString("text"))
+      )))
+
+      Get(s"/types/$dtId/rows?excludeContentFields=true") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rows.head.fields.keySet shouldBe Set("col0", "col1", "col2")
+      }
+    }
+
+    "?excludeContentFields=true&maxStructuredColumns= together excludes both" in {
+      val dtId = seedWideDataTypeWithFields()
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq(
+        JsObject("col0" -> JsString("a"), "col1" -> JsString("b"), "col2" -> JsString("c"), "body" -> JsString("text"))
+      )))
+
+      Get(s"/types/$dtId/rows?excludeContentFields=true&maxStructuredColumns=2") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rows.head.fields.keySet shouldBe Set("col0", "col1")
+      }
+    }
+
+    "omitting both params preserves the plain unbounded-listRows response exactly as today" in {
+      val dtId = seedWideDataTypeWithFields()
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq(
+        JsObject("col0" -> JsString("a"), "col1" -> JsString("b"), "col2" -> JsString("c"), "body" -> JsString("text"))
+      )))
+
+      Get(s"/types/$dtId/rows") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rows.head.fields.keySet shouldBe Set("col0", "col1", "col2", "body")
       }
     }
   }

@@ -48,28 +48,40 @@ final class DataTypeRoutes(
         },
         path(DataTypeIdSegment / "rows") { id =>
           get {
-            parameters("limit".as[Int].optional, "excludeContentFields".as[Boolean].withDefault(false)) {
-              (limitOpt, excludeContentFields) =>
-                if (limitOpt.exists(_ <= 0))
-                  complete(StatusCodes.BadRequest, ErrorResponse("limit must be greater than 0"))
-                else if (!excludeContentFields)
-                  ServiceResponse.run(dataTypeService.listRows(id, user, limitOpt)) { rows =>
+            parameters(
+              "limit".as[Int].optional,
+              "excludeContentFields".as[Boolean].withDefault(false),
+              "maxStructuredColumns".as[Int].optional
+            ) { (limitOpt, excludeContentFields, maxStructuredColumns) =>
+              if (limitOpt.exists(_ <= 0))
+                complete(StatusCodes.BadRequest, ErrorResponse("limit must be greater than 0"))
+              else if (!excludeContentFields && maxStructuredColumns.isEmpty)
+                ServiceResponse.run(dataTypeService.listRows(id, user, limitOpt)) { rows =>
+                  DataTypeRowsResponse(rows = rows, rowCount = rows.size)
+                }
+              else
+                // excludeContentFields and/or maxStructuredColumns need the DataType's
+                // own fields to compute excludeKeys (HEL-372 design.md D1, HEL-373
+                // design.md D1 round-2 fix) — a second owner-scoped lookup rather than
+                // threading it through listRows itself, matching the round-2 skeptic's
+                // "two-lookup approach is cleaner" allowance. Each param independently,
+                // optionally widens excludeKeys — omitting both preserves today's exact
+                // unbounded-listRows behavior (the branch above).
+                ServiceResponse.runWith(dataTypeService.findById(id, user)) { dt =>
+                  val contentExcludeKeys =
+                    if (excludeContentFields)
+                      dt.fields
+                        .filter(f => DataFieldType.fromString(f.dataType).exists(t => DataFieldType.category(t) == FieldTypeCategory.Content))
+                        .map(_.name)
+                        .toSet
+                    else Set.empty[String]
+                  val overflowExcludeKeys =
+                    maxStructuredColumns.map(n => DataTypeService.overflowStructuredFieldNames(dt.fields, n)).getOrElse(Set.empty[String])
+                  val excludeKeys = contentExcludeKeys ++ overflowExcludeKeys
+                  ServiceResponse.run(dataTypeService.listRows(id, user, limitOpt, excludeKeys)) { rows =>
                     DataTypeRowsResponse(rows = rows, rowCount = rows.size)
                   }
-                else
-                  // excludeContentFields needs the DataType's own fields to compute
-                  // excludeKeys (HEL-372 design.md D1) — a second owner-scoped lookup
-                  // rather than threading it through listRows itself, matching the
-                  // round-2 skeptic's "two-lookup approach is cleaner" allowance.
-                  ServiceResponse.runWith(dataTypeService.findById(id, user)) { dt =>
-                    val excludeKeys = dt.fields
-                      .filter(f => DataFieldType.fromString(f.dataType).exists(t => DataFieldType.category(t) == FieldTypeCategory.Content))
-                      .map(_.name)
-                      .toSet
-                    ServiceResponse.run(dataTypeService.listRows(id, user, limitOpt, excludeKeys)) { rows =>
-                      DataTypeRowsResponse(rows = rows, rowCount = rows.size)
-                    }
-                  }
+                }
             }
           }
         },

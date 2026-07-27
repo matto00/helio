@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
-import spray.json.{JsBoolean, JsNumber, JsObject, JsString}
+import spray.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString}
 
 import java.nio.file.Files
 import java.time.Instant
@@ -418,6 +418,221 @@ class WorkspaceContextServiceSpec
     }
   }
 
+  // ── HEL-373 5.1 Column statistics via assemble (DB-backed integration) ──
+
+  "assemble (HEL-373 5.1 columnStats)" should {
+    "report min/max/mean for a numeric column, distinctCount/exampleValues for a string column" in {
+      val source   = createSource(userA, "colstats-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-pipeline", "colstats-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(
+        DataField("status", "Status", "string", nullable = true),
+        DataField("amount", "Amount", "float", nullable = false)
+      ))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("status" -> JsString("active"), "amount" -> JsNumber(10)),
+        JsObject("status" -> JsString("inactive"), "amount" -> JsNumber(20)),
+        JsObject("status" -> JsNull, "amount" -> JsNumber(30))
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      val status = entry.columnStats("status")
+      status.distinctCount shouldBe 2
+      status.distinctCountCapped shouldBe false
+      status.exampleValues should contain theSameElementsAs Vector(JsString("active"), JsString("inactive"))
+      status.min shouldBe None
+      status.max shouldBe None
+      status.mean shouldBe None
+
+      val amount = entry.columnStats("amount")
+      amount.min shouldBe Some(10.0)
+      amount.max shouldBe Some(30.0)
+      amount.mean shouldBe Some(20.0)
+    }
+
+    "report no min/max/mean for a numeric-declared column whose values are unparseable strings" in {
+      val source   = createSource(userA, "colstats-garbage-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-garbage-pipeline", "colstats-garbage-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("amount", "Amount", "float", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("amount" -> JsString("n/a")),
+        JsObject("amount" -> JsString("n/a"))
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      val amount = entry.columnStats("amount")
+      amount.min shouldBe None
+      amount.max shouldBe None
+      amount.mean shouldBe None
+    }
+
+    "report min/max/mean for a numeric-declared column whose values are string-encoded numbers (CSV case)" in {
+      val source   = createSource(userA, "colstats-csv-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-csv-pipeline", "colstats-csv-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("amount", "Amount", "integer", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("amount" -> JsString("10")),
+        JsObject("amount" -> JsString("20"))
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      val amount = entry.columnStats("amount")
+      amount.min shouldBe Some(10.0)
+      amount.max shouldBe Some(20.0)
+      amount.mean shouldBe Some(15.0)
+    }
+
+    "report nullRate 1, distinctCount 0, and no min/max for an all-null column" in {
+      val source   = createSource(userA, "colstats-allnull-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-allnull-pipeline", "colstats-allnull-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("notes", "Notes", "string", nullable = true)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("notes" -> JsNull),
+        JsObject("notes" -> JsNull)
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      val notes = entry.columnStats("notes")
+      notes.nullRate shouldBe 1.0
+      notes.distinctCount shouldBe 0
+      notes.min shouldBe None
+    }
+
+    "report columnStats entries with nullRate 0/distinctCount 0 for a DataType with no run snapshot, " +
+      "not omitted (5.1 branch precision)" in {
+      val source   = createSource(userA, "colstats-norun-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-norun-pipeline", "colstats-norun-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("id", "Id", "string", nullable = false)))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.columnStats.keySet shouldBe Set("id")
+      entry.columnStats("id").nullRate shouldBe 0.0
+      entry.columnStats("id").distinctCount shouldBe 0
+    }
+
+    "report no columnStats entry for a wide DataType's overflow columns, both empty-snapshot and non-empty" in {
+      val source   = createSource(userA, "colstats-wide-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-wide-pipeline", "colstats-wide-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      val wideFields = (0 until 45).map(i => DataField(s"col$i", s"col$i", "string", nullable = false)).toVector
+      setDataTypeFields(outputId, userA, wideFields)
+
+      // Empty-snapshot case (no rows written yet).
+      val emptyResp  = await(service.assemble(userA))
+      val emptyEntry = emptyResp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      emptyEntry.columnStats.keySet should have size 40
+      emptyEntry.columnStats.keySet should contain("col39")
+      emptyEntry.columnStats.keySet should not contain "col40"
+
+      // Non-empty-snapshot case.
+      val wideRow = JsObject(wideFields.map(f => f.name -> JsString(f.name)).toMap)
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(wideRow)))
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      entry.columnStats.keySet should have size 40
+      entry.columnStats.keySet should contain("col39")
+      entry.columnStats.keySet should not contain "col40"
+    }
+
+    "report distinctCountCapped true for a high-cardinality column" in {
+      val source   = createSource(userA, "colstats-highcard-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-highcard-pipeline", "colstats-highcard-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("id", "Id", "string", nullable = false)))
+      val rows = (0 until 150).map(i => JsObject("id" -> JsString(s"id-$i")))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, rows))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.columnStats("id").distinctCountCapped shouldBe true
+      entry.columnStats("id").distinctCount shouldBe 100
+    }
+
+    "have no columnStats entry for a Content-category column" in {
+      val source   = createSource(userA, "colstats-content-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-content-pipeline", "colstats-content-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(
+        DataField("title", "Title", "string", nullable = false),
+        DataField("body", "Body", "string-body", nullable = true)
+      ))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("title" -> JsString("doc"), "body" -> JsString("y" * 500))
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.columnStats.keySet should not contain "body"
+      entry.columnStats.keySet should contain("title")
+    }
+
+    "produce identical columnStats across two calls over an unchanged snapshot (determinism)" in {
+      val source   = createSource(userA, "colstats-determinism-source")
+      val pipeline = createPipeline(userA, source.id, "colstats-determinism-pipeline", "colstats-determinism-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(
+        DataField("status", "Status", "string", nullable = false),
+        DataField("amount", "Amount", "float", nullable = false)
+      ))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+        JsObject("status" -> JsString("b"), "amount" -> JsNumber(3)),
+        JsObject("status" -> JsString("a"), "amount" -> JsNumber(1)),
+        JsObject("status" -> JsString("a"), "amount" -> JsNumber(2))
+      )))
+
+      val first  = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("missing"))
+      val second = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("missing"))
+
+      first.columnStats shouldBe second.columnStats
+    }
+  }
+
+  "assemble (HEL-373 5.1 columnStats owner-scoping)" should {
+    "never surface another user's columnStats" in {
+      val aSource   = createSource(userA, "colstats-scoped-a-source")
+      val aPipeline = createPipeline(userA, aSource.id, "colstats-scoped-a-pipeline", "colstats-scoped-a-output")
+      setDataTypeFields(DataTypeId(aPipeline.outputDataTypeId), userA, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(aPipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("secret-a")))))
+
+      val bSource   = createSource(userB, "colstats-scoped-b-source")
+      val bPipeline = createPipeline(userB, bSource.id, "colstats-scoped-b-pipeline", "colstats-scoped-b-output")
+      setDataTypeFields(DataTypeId(bPipeline.outputDataTypeId), userB, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(bPipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("secret-b")))))
+
+      val respB  = await(service.assemble(userB))
+      val entryB = respB.dataTypes.find(_.id == bPipeline.outputDataTypeId).getOrElse(fail("b output DataType missing"))
+      entryB.columnStats("name").exampleValues shouldBe Vector(JsString("secret-b"))
+
+      respB.dataTypes.exists(_.id == aPipeline.outputDataTypeId) shouldBe false
+      respB.dataTypes.flatMap(_.columnStats.values).flatMap(_.exampleValues) should not contain JsString("secret-a")
+    }
+  }
+
   // ── HEL-372 4.5 Route-level schema validity with non-empty sampleRows ───
 
   "GET /workspace/context (HEL-372 4.5 sampleRows schema validity)" should {
@@ -505,6 +720,44 @@ class WorkspaceContextServiceSpec
       brokenEntry.stepsError shouldBe defined
 
       schemaValidationErrors(baseline.copy(pipelines = baseline.pipelines :+ brokenEntry)) shouldBe empty
+    }
+  }
+
+  // ── HEL-373 5.4 Schema validity — columnStats present/absent min/max/mean ─
+  //
+  // design.md D7's explicit lesson (HEL-371 cost a full eval cycle on this
+  // exact mistake): test BOTH the field-present (numeric column) and
+  // field-absent (non-numeric column) branches of min/max/mean, not
+  // absent-only — absent-only coverage is exactly the gap that let the
+  // original bug through.
+
+  "assemble (HEL-373 5.4 columnStats schema validity)" should {
+    "validate against the schema when min/max/mean ARE present (numeric column)" in {
+      implicit val ec: ExecutionContext = routeEc
+      val source   = createSource(userA, "schema-colstats-numeric-source")
+      val pipeline = createPipeline(userA, source.id, "schema-colstats-numeric-pipeline", "schema-colstats-numeric-output")
+      setDataTypeFields(DataTypeId(pipeline.outputDataTypeId), userA, Vector(DataField("amount", "Amount", "float", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(JsObject("amount" -> JsNumber(42)))))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      entry.columnStats("amount").min shouldBe defined
+
+      schemaValidationErrors(resp) shouldBe empty
+    }
+
+    "validate against the schema when min/max/mean are ABSENT (non-numeric column)" in {
+      implicit val ec: ExecutionContext = routeEc
+      val source   = createSource(userA, "schema-colstats-nonnumeric-source")
+      val pipeline = createPipeline(userA, source.id, "schema-colstats-nonnumeric-pipeline", "schema-colstats-nonnumeric-output")
+      setDataTypeFields(DataTypeId(pipeline.outputDataTypeId), userA, Vector(DataField("status", "Status", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(JsObject("status" -> JsString("active")))))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      entry.columnStats("status").min shouldBe None
+
+      schemaValidationErrors(resp) shouldBe empty
     }
   }
 
