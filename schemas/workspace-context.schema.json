@@ -78,7 +78,15 @@
     },
     "DataTypeEntry": {
       "type": "object",
-      "required": ["id", "name", "pipelineOutput", "columns", "computedColumns", "version"],
+      "required": [
+        "id",
+        "name",
+        "pipelineOutput",
+        "columns",
+        "computedColumns",
+        "version",
+        "sampleRows"
+      ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string" },
@@ -102,6 +110,15 @@
         "tag": {
           "type": ["string", "null"],
           "description": "Absent on the wire (not null) when unset — see sourceId's description for the same spray-json omission behavior."
+        },
+        "sampleRows": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "description": "One sample row, keyed by column name. Permissive item shape — values may be any JSON type the DataType's Structured-category columns produce (string/number/boolean/null)."
+          },
+          "description": "HEL-372: up to 5 rows from this DataType's latest pipeline-run snapshot, keyed by column name. ALWAYS present (an empty array, never omitted) — a source-companion DataType (sourceId present) or a pipeline-output DataType with no run snapshot reports []. Bounded by construction: at most 5 rows (SQL-tier LIMIT), at most the first 40 of the DataType's declared Structured-category columns per row (in field/columns[] order), at most 200 characters per cell value (oversized values truncated to a string ending in the literal marker \"…[truncated]\"). Content-category columns (dataType string-body/binary-ref, HEL-217) are EXCLUDED from sampleRows entirely — their values never appear here, regardless of length — stripped at the SQL tier before the row ever reaches the app."
         }
       },
       "additionalProperties": false

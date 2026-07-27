@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataTypeRowsResponse, ErrorResponse, JsonProtocols}
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.{AuthenticatedUser, DataField, DataType, DataTypeId, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
 import com.helio.services.{DataTypeService, PanelCapabilityService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -17,6 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -80,6 +81,26 @@ class DataTypeRoutesSpec
     dtId
   }
 
+  /** HEL-372 4.6: a DataType with a declared `fields` schema (via the real repo,
+   *  not raw SQL, so the JSON shape matches `DataFieldProtocol` exactly) — needed
+   *  to exercise `?excludeContentFields=true`, which computes `excludeKeys` from
+   *  the DataType's own fields. */
+  private def seedDataTypeWithFields(fields: Vector[DataField]): String = {
+    val now = Instant.now()
+    val dt = DataType(
+      id             = DataTypeId(UUID.randomUUID().toString),
+      sourceId       = None,
+      name           = "TestTypeWithFields",
+      fields         = fields,
+      computedFields = Vector.empty,
+      version        = 1,
+      createdAt      = now,
+      updatedAt      = now,
+      ownerId        = dummyUser.id
+    )
+    await(dataTypeRepo.insert(dt, dummyUser)).id.value
+  }
+
   // ── Tests ────────────────────────────────────────────────────────────────────
 
   "GET /types/:id/rows" should {
@@ -140,6 +161,74 @@ class DataTypeRoutesSpec
         val resp = responseAs[DataTypeRowsResponse]
         resp.rowCount             shouldBe 1
         resp.rows.head.fields("x") shouldBe JsNumber(99)
+      }
+    }
+
+    // ── HEL-372 4.6: ?limit=/?excludeContentFields= query params ─────────
+
+    "?limit=2 returns at most 2 rows, even when more are stored" in {
+      val dtId = seedDataType()
+      val rows = (0 until 5).map(i => JsObject("idx" -> JsNumber(i)))
+      await(dataTypeRowRepo.overwriteRows(dtId, rows))
+
+      Get(s"/types/$dtId/rows?limit=2") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rowCount shouldBe 2
+        resp.rows should have size 2
+      }
+    }
+
+    "?excludeContentFields=true strips string-body/binary-ref field keys from the response" in {
+      val dtId = seedDataTypeWithFields(Vector(
+        DataField("title", "Title", "string", nullable = false),
+        DataField("body", "Body", "string-body", nullable = true)
+      ))
+      await(dataTypeRowRepo.overwriteRows(dtId, Seq(
+        JsObject("title" -> JsString("doc"), "body" -> JsString("y" * 500))
+      )))
+
+      Get(s"/types/$dtId/rows?excludeContentFields=true") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rows should have size 1
+        resp.rows.head.fields.keySet should contain("title")
+        resp.rows.head.fields.keySet should not contain "body"
+      }
+    }
+
+    "omitting both limit and excludeContentFields preserves the full, unbounded snapshot" in {
+      val dtId = seedDataTypeWithFields(Vector(
+        DataField("title", "Title", "string", nullable = false),
+        DataField("body", "Body", "string-body", nullable = true)
+      ))
+      val rows = (0 until 3).map(i => JsObject("title" -> JsString(s"t$i"), "body" -> JsString(s"b$i")))
+      await(dataTypeRowRepo.overwriteRows(dtId, rows))
+
+      Get(s"/types/$dtId/rows") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DataTypeRowsResponse]
+        resp.rowCount shouldBe 3
+        resp.rows should have size 3
+        resp.rows.head.fields.keySet shouldBe Set("title", "body")
+      }
+    }
+
+    "?limit=0 is rejected with 400" in {
+      val dtId = seedDataType()
+
+      Get(s"/types/$dtId/rows?limit=0") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val resp = responseAs[ErrorResponse]
+        resp.message should include("limit")
+      }
+    }
+
+    "a negative limit is also rejected with 400" in {
+      val dtId = seedDataType()
+
+      Get(s"/types/$dtId/rows?limit=-1") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.BadRequest
       }
     }
   }

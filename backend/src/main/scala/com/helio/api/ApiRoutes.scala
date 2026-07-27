@@ -206,10 +206,12 @@ final class ApiRoutes(
   private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
     Option(dbContext).map(ctx => new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem))
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
-  // above) — every dependency (dashboardService/dataSourceService/dataTypeRepo/
+  // above) — every dependency (dashboardService/dataSourceService/dataTypeService/
   // pipelineService) is already constructed unconditionally above, so there is
-  // no nullable-repo gate to check (design.md D2).
-  private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeRepo, pipelineService)
+  // no nullable-repo gate to check (design.md D2). HEL-372 design.md D7: takes
+  // dataTypeService (not the bare repo) — its listRows is the owner-scoping
+  // choke point sample rows need.
+  private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)

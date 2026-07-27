@@ -17,7 +17,7 @@
  */
 
 import type { HelioApi } from "./helioApi.js";
-import type { RowCountContractResponse } from "./types.js";
+import type { DataFieldResponse, RowCountContractResponse } from "./types.js";
 
 /** Flatten a `RowCountContractResponse` discriminated union to a display string (HEL-400
  *  design.md Decision 5): `"exactly-one"`, `"at-most-param:<paramName>"`, or `"unbounded"`. */
@@ -30,6 +30,67 @@ function flattenRowCount(rowCount: RowCountContractResponse): string {
     case "unbounded":
       return "unbounded";
   }
+}
+
+// ── Sample rows (HEL-372 design.md D3/D6) ────────────────────────────────
+//
+// An INDEPENDENT TypeScript implementation of the identical caps
+// `WorkspaceContextService.sanitizeSampleRows` (Scala) enforces — this
+// codebase has no shared runtime between the backend and helio-mcp, so
+// parity is achieved by duplicating the rules and testing each side
+// separately (the existing pattern for `panelCount`/`flattenRowCount`),
+// not by sharing code.
+
+/** Bounded sample-row count per pipeline-output DataType. */
+const SAMPLE_ROW_LIMIT = 5;
+/** First N declared Structured-category columns retained per sample row. */
+const SAMPLE_COLUMN_LIMIT = 40;
+/** Per-cell character cap before truncation. */
+const SAMPLE_CELL_CHAR_LIMIT = 200;
+const TRUNCATION_MARKER = "…[truncated]";
+
+/** The wire values `DataFieldType.asString` emits for its `Structured`-category
+ *  variants (`string`/`integer`/`float`/`boolean`/`timestamp`) — deliberately
+ *  NOT a "content types" exclusion list, so an unrecognized/unparseable
+ *  `dataType` string is conservatively excluded too, matching the Scala side's
+ *  `DataFieldType.fromString(...).exists(...)` behavior. */
+const STRUCTURED_DATA_TYPES = new Set(["string", "integer", "float", "boolean", "timestamp"]);
+
+/** `JSON.stringify` is the TS equivalent of spray-json's `compactPrint` for
+ *  the scalar/array/object JSON values a row cell can hold — same length
+ *  semantics (e.g. a string value's stringified form includes its quotes). */
+function truncateCell(value: unknown): unknown {
+  const compact = JSON.stringify(value);
+  if (compact !== undefined && compact.length > SAMPLE_CELL_CHAR_LIMIT) {
+    return compact.slice(0, SAMPLE_CELL_CHAR_LIMIT) + TRUNCATION_MARKER;
+  }
+  return value;
+}
+
+/** Pure, unit-testable sanitizer mirroring `WorkspaceContextService.sanitizeSampleRows`
+ *  (design.md D3): (1) column projection — keep only Structured-category `fields`
+ *  (unparseable/Content dataType excluded), first `SAMPLE_COLUMN_LIMIT` in declared
+ *  order; (2) row projection — first `SAMPLE_ROW_LIMIT` rows (defense-in-depth; the
+ *  real call path already asks the backend for at most 5 via `getDataTypeRows`'s
+ *  `limit` param); (3) cell truncation, exact marker text `"…[truncated]"`. */
+export function sanitizeSampleRows(
+  fields: Pick<DataFieldResponse, "name" | "dataType">[],
+  rawRows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const structuredFieldNames = fields
+    .filter((f) => STRUCTURED_DATA_TYPES.has(f.dataType))
+    .slice(0, SAMPLE_COLUMN_LIMIT)
+    .map((f) => f.name);
+
+  return rawRows.slice(0, SAMPLE_ROW_LIMIT).map((row) => {
+    const projected: Record<string, unknown> = {};
+    for (const name of structuredFieldNames) {
+      if (Object.prototype.hasOwnProperty.call(row, name)) {
+        projected[name] = truncateCell(row[name]);
+      }
+    }
+    return projected;
+  });
 }
 
 export interface WorkspaceContext {
@@ -53,6 +114,11 @@ export interface WorkspaceContext {
     /** HEL-366: free-form grouping key, mirrors the owning DataSource's or producing Pipeline's
      *  tag; `null` when unset. */
     tag: string | null;
+    /** HEL-372: up to 5 rows from this DataType's latest pipeline-run snapshot, keyed by
+     *  column name — capped to the first 40 declared Structured-category columns and 200
+     *  characters per cell (see `sanitizeSampleRows`). ALWAYS present (`[]`, never omitted)
+     *  for a source-companion DataType or one with no run snapshot. */
+    sampleRows: Record<string, unknown>[];
   }>;
   pipelines: Array<{
     id: string;
@@ -165,30 +231,46 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
       type: s.type,
       tag: s.tag ?? null,
     })),
-    dataTypes: typesPage.items.map((t) => {
-      // spray-json omits `sourceId` entirely when it is null, so a MISSING
-      // field is the pipeline-output (panel-bindable) case. Normalize before
-      // deciding — `=== null` alone would misclassify the bindable type.
-      const sourceId = t.sourceId ?? null;
-      return {
-        id: t.id,
-        name: t.name,
-        sourceId,
-        pipelineOutput: sourceId === null,
-        columns: t.fields.map((f) => ({
-          name: f.name,
-          dataType: f.dataType,
-          nullable: f.nullable,
-        })),
-        computedColumns: t.computedFields.map((c) => ({
-          name: c.name,
-          dataType: c.dataType,
-          expression: c.expression,
-        })),
-        version: t.version,
-        tag: t.tag ?? null,
-      };
-    }),
+    dataTypes: await Promise.all(
+      typesPage.items.map(async (t) => {
+        // spray-json omits `sourceId` entirely when it is null, so a MISSING
+        // field is the pipeline-output (panel-bindable) case. Normalize before
+        // deciding — `=== null` alone would misclassify the bindable type.
+        const sourceId = t.sourceId ?? null;
+        const pipelineOutput = sourceId === null;
+        // Sample rows only for pipeline-output DataTypes (design.md D2) — a
+        // source-companion DataType is never written to the row snapshot
+        // table, so a query for one would always return empty; skip it
+        // entirely rather than pay a guaranteed-empty round trip.
+        // `excludeContentFields=true` strips Content-category (string-body/
+        // binary-ref, HEL-217) field values at the SQL tier (design.md D1).
+        const sampleRows = pipelineOutput
+          ? sanitizeSampleRows(
+              t.fields,
+              (await api.getDataTypeRows(t.id, SAMPLE_ROW_LIMIT, true)).rows,
+            )
+          : [];
+        return {
+          id: t.id,
+          name: t.name,
+          sourceId,
+          pipelineOutput,
+          columns: t.fields.map((f) => ({
+            name: f.name,
+            dataType: f.dataType,
+            nullable: f.nullable,
+          })),
+          computedColumns: t.computedFields.map((c) => ({
+            name: c.name,
+            dataType: c.dataType,
+            expression: c.expression,
+          })),
+          version: t.version,
+          tag: t.tag ?? null,
+          sampleRows,
+        };
+      }),
+    ),
     pipelines,
     dashboards: dashboardsPage.items.map((d) => ({
       id: d.id,

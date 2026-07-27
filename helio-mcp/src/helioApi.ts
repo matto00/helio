@@ -216,8 +216,20 @@ export class HelioApi {
     return this.http.get<Paged<DataTypeResponse>>("/api/types", { limit, offset, tag });
   }
 
-  getDataTypeRows(dataTypeId: string): Promise<DataTypeRowsResponse> {
-    return this.http.get<DataTypeRowsResponse>(`/api/types/${dataTypeId}/rows`);
+  /** `limit`/`excludeContentFields` (HEL-372): forwarded as `?limit=`/`?excludeContentFields=`
+   *  query params when given — mirrors `GET /api/types/:id/rows`'s optional params 1:1
+   *  (`DataTypeRoutes.scala`). Omitting both preserves the prior unbounded/full-content
+   *  behavior for any existing caller. */
+  getDataTypeRows(
+    dataTypeId: string,
+    limit?: number,
+    excludeContentFields?: boolean,
+  ): Promise<DataTypeRowsResponse> {
+    return this.http.get<DataTypeRowsResponse>(`/api/types/${dataTypeId}/rows`, {
+      limit,
+      excludeContentFields:
+        excludeContentFields === undefined ? undefined : String(excludeContentFields),
+    });
   }
 
   /** Get the panel-binding "menu" for a DataType (HEL-365): which of the five

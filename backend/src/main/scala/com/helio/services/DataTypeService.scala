@@ -30,14 +30,23 @@ final class DataTypeService(
       case None     => Left(ServiceError.NotFound("DataType not found"))
     }
 
-  def listRows(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[JsObject]]] =
+  /** `limit`/`excludeKeys` forward straight to the repo AFTER the
+   *  `findByIdOwned` ownership check below — no new RLS surface (HEL-372
+   *  design.md D4). Defaults (`None`/`Set.empty`) preserve the exact prior
+   *  unbounded/full-content behavior for every existing caller. */
+  def listRows(
+      id: DataTypeId,
+      user: AuthenticatedUser,
+      limit: Option[Int] = None,
+      excludeKeys: Set[String] = Set.empty
+  ): Future[Either[ServiceError, Vector[JsObject]]] =
     dataTypeRepo.findByIdOwned(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("DataType not found")))
       case Some(_) =>
         if (dataTypeRowRepo == null)
           Future.successful(Right(Vector.empty))
         else
-          dataTypeRowRepo.listRows(id.value).map(rows => Right(rows))
+          dataTypeRowRepo.listRows(id.value, limit, excludeKeys).map(rows => Right(rows))
     }
 
   def validateExpression(id: DataTypeId, expr: String, user: AuthenticatedUser): Future[Either[ServiceError, ExpressionValidationResult]] =

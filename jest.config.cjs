@@ -4,4 +4,5 @@ module.exports = {
   testMatch: ["**/?(*.)+(spec|test).[tj]s?(x)"],
   testPathIgnorePatterns: ["/node_modules/", "/openspec/", "/.cursor/", "/frontend/", "/e2e/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
+  moduleNameMapper: { "^(\\.{1,2}/.*)\\.js$": "$1" },
 };

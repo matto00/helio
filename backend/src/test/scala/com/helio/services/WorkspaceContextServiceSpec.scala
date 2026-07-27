@@ -5,13 +5,12 @@ import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest, Wo
 import com.helio.api.routes.WorkspaceRoutes
 import com.helio.domain._
 import com.helio.infrastructure._
+import com.helio.testsupport.JsonSchemaValidation
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.networknt.schema.{JsonSchemaFactory, SpecVersion}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -19,15 +18,13 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
-import spray.json.{JsBoolean, JsObject, JsString}
+import spray.json.{JsBoolean, JsNumber, JsObject, JsString}
 
-import java.io.File
 import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.jdk.CollectionConverters._
 
 /** HEL-371 tasks.md section 4 — `WorkspaceContextService.assemble` coverage.
  *
@@ -54,11 +51,13 @@ class WorkspaceContextServiceSpec
 
   private var dataSourceRepo: DataSourceRepository     = _
   private var dataTypeRepo: DataTypeRepository         = _
+  private var dataTypeRowRepo: DataTypeRowRepository   = _
   private var pipelineRepo: PipelineRepository         = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var dashboardRepo: DashboardRepository       = _
 
   private var dataSourceService: DataSourceService = _
+  private var dataTypeService: DataTypeService     = _
   private var pipelineService: PipelineService     = _
   private var service: WorkspaceContextService     = _
 
@@ -91,6 +90,7 @@ class WorkspaceContextServiceSpec
 
     dataSourceRepo   = new DataSourceRepository(ctx)
     dataTypeRepo     = new DataTypeRepository(ctx)
+    dataTypeRowRepo  = new DataTypeRowRepository(ctx)
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     pipelineStepRepo = new PipelineStepRepository(ctx)
     dashboardRepo    = new DashboardRepository(ctx)
@@ -98,6 +98,7 @@ class WorkspaceContextServiceSpec
     val tmpDir = Files.createTempDirectory("helio-workspace-context-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
     // Only "dashboard" is exercised by DashboardService's own AccessChecker
@@ -109,7 +110,10 @@ class WorkspaceContextServiceSpec
     val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
-    service = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeRepo, pipelineService)
+    // HEL-372 design.md D7: WorkspaceContextService takes dataTypeService
+    // (its listRows is the owner-scoping choke point sample rows use), not
+    // the bare dataTypeRepo.
+    service = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
 
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@test.local"}, now())""",
@@ -126,25 +130,15 @@ class WorkspaceContextServiceSpec
 
   // ── HEL-371 cycle-2: real JSON Schema validation (design.md/evaluation-1.md
   // change request 1/2) ───────────────────────────────────────────────────
+  //
+  // HEL-372 tasks.md 4.1: the schema-file-location + ajv-equivalent-validation
+  // harness itself now lives in `JsonSchemaValidation` (shared test support) —
+  // this spec was already past CONTRIBUTING's ~400-line guidance before this
+  // ticket's new cases, so the mechanics were extracted rather than grown
+  // further; only the response-specific `schemaValidationErrors` wrapper stays
+  // local to this spec.
 
-  /** Locates `schemas/workspace-context.schema.json` by walking up from the
-   *  test JVM's working directory — robust to whether sbt forks tests with
-   *  cwd `backend/` (the normal case) or the repo root. */
-  private def workspaceContextSchemaFile: File = {
-    def search(dir: File, depthRemaining: Int): File = {
-      val candidate = new File(dir, "schemas/workspace-context.schema.json")
-      if (candidate.exists()) candidate
-      else if (depthRemaining <= 0 || dir.getParentFile == null)
-        fail(s"could not locate schemas/workspace-context.schema.json searching upward from " +
-          new File(".").getCanonicalPath)
-      else search(dir.getParentFile, depthRemaining - 1)
-    }
-    search(new File(".").getCanonicalFile, 5)
-  }
-
-  private val jsonMapper = new ObjectMapper()
-  private val workspaceContextJsonSchema =
-    JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(jsonMapper.readTree(workspaceContextSchemaFile))
+  private val workspaceContextJsonSchema = JsonSchemaValidation.compile("workspace-context.schema.json")
 
   /** Real ajv-equivalent validation (networknt/json-schema-validator, JSON
    *  Schema 2020-12) of an assembled response against
@@ -152,10 +146,8 @@ class WorkspaceContextServiceSpec
    *  round-trip deserialization, which cannot catch a schema `required` list
    *  disagreeing with spray-json's omit-`None`-fields wire behavior (the
    *  exact bug this closes; see evaluation-1.md change request 1). */
-  private def schemaValidationErrors(body: WorkspaceContextResponse): Vector[String] = {
-    val json = workspaceContextResponseFormat.write(body).compactPrint
-    workspaceContextJsonSchema.validate(jsonMapper.readTree(json)).asScala.map(_.getMessage).toVector
-  }
+  private def schemaValidationErrors(body: WorkspaceContextResponse): Vector[String] =
+    JsonSchemaValidation.validationErrors(workspaceContextJsonSchema, workspaceContextResponseFormat.write(body).compactPrint)
 
   // ── Fixtures ────────────────────────────────────────────────────────────
 
@@ -205,6 +197,17 @@ class WorkspaceContextServiceSpec
       ownerId    = user.id
     )
     await(dashboardRepo.insert(dash))
+  }
+
+  /** A freshly-created pipeline's output DataType starts with `fields =
+   *  Vector.empty` (`PipelineRepository.create`) — real fields only land
+   *  after a run. Sample-row tests (4.3/4.4/4.5) need a declared schema to
+   *  sample against without running a real Spark job, so this sets it
+   *  directly via the owner-scoped repo update, the same op `DataTypeService.update`
+   *  itself performs. */
+  private def setDataTypeFields(id: DataTypeId, user: AuthenticatedUser, fields: Vector[DataField]): Unit = {
+    val existing = await(dataTypeRepo.findByIdOwned(id, user)).getOrElse(fail("DataType not found"))
+    await(dataTypeRepo.update(existing.copy(fields = fields), user)).getOrElse(fail("DataType update failed"))
   }
 
   // ── 4.1 Empty workspace ─────────────────────────────────────────────────
@@ -324,6 +327,117 @@ class WorkspaceContextServiceSpec
       brokenEntry.steps shouldBe empty
       brokenEntry.stepsError shouldBe defined
       brokenEntry.stepsError.get should not be empty
+    }
+  }
+
+  // ── HEL-372 4.3 Sample rows per pipeline-output DataType ────────────────
+
+  "assemble (HEL-372 4.3 sample rows)" should {
+    "report up to 5 sampleRows, drawn in row order, for a pipeline-output DataType " +
+      "whose snapshot has more than 5 rows" in {
+      val source   = createSource(userA, "samplerows-source")
+      val pipeline = createPipeline(userA, source.id, "samplerows-pipeline", "samplerows-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(DataField("name", "Name", "string", nullable = false)))
+      val rows = (0 until 7).map(i => JsObject("name" -> JsString(s"row-$i")))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, rows))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.sampleRows should have size 5
+      entry.sampleRows.map(_.fields("name")) shouldBe (0 to 4).map(i => JsString(s"row-$i")).toVector
+    }
+
+    "report [] for a pipeline-output DataType whose pipeline has never run" in {
+      val source   = createSource(userA, "norun-source")
+      val pipeline = createPipeline(userA, source.id, "norun-pipeline", "norun-output")
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.sampleRows shouldBe empty
+    }
+
+    "report [] for a source-companion DataType, without issuing a row query" in {
+      createSource(userA, "companion-samplerows-source")
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.name == "companion-samplerows-source").getOrElse(fail("companion DataType missing"))
+
+      entry.sampleRows shouldBe empty
+    }
+
+    "never include a string-body content field's value in sampleRows" in {
+      val source   = createSource(userA, "content-source")
+      val pipeline = createPipeline(userA, source.id, "content-pipeline", "content-output")
+      val outputId = DataTypeId(pipeline.outputDataTypeId)
+
+      setDataTypeFields(outputId, userA, Vector(
+        DataField("title", "Title", "string", nullable = false),
+        DataField("body", "Body", "string-body", nullable = true)
+      ))
+      val bigBody = "y" * 500
+      await(dataTypeRowRepo.overwriteRows(
+        pipeline.outputDataTypeId,
+        Seq(JsObject("title" -> JsString("doc"), "body" -> JsString(bigBody)))
+      ))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+
+      entry.sampleRows should have size 1
+      entry.sampleRows.head.fields.keySet should not contain "body"
+      entry.sampleRows.head.fields("title") shouldBe JsString("doc")
+    }
+  }
+
+  // ── HEL-372 4.4 Owner-scoping (extends 4.2) ─────────────────────────────
+
+  "assemble (HEL-372 4.4 owner-scoping — sample rows)" should {
+    "never surface another user's sampleRows" in {
+      val aSource   = createSource(userA, "scoped-a-source")
+      val aPipeline = createPipeline(userA, aSource.id, "scoped-a-pipeline", "scoped-a-output")
+      setDataTypeFields(DataTypeId(aPipeline.outputDataTypeId), userA, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(aPipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("secret-a")))))
+
+      val bSource   = createSource(userB, "scoped-b-source")
+      val bPipeline = createPipeline(userB, bSource.id, "scoped-b-pipeline", "scoped-b-output")
+      setDataTypeFields(DataTypeId(bPipeline.outputDataTypeId), userB, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(bPipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("secret-b")))))
+
+      val respB  = await(service.assemble(userB))
+      val entryB = respB.dataTypes.find(_.id == bPipeline.outputDataTypeId).getOrElse(fail("b output DataType missing"))
+      entryB.sampleRows.map(_.fields("name")) shouldBe Vector(JsString("secret-b"))
+
+      // B's response doesn't even carry A's DataType entry — and even if it
+      // did, no sampleRows cell anywhere in B's response may equal A's value.
+      respB.dataTypes.exists(_.id == aPipeline.outputDataTypeId) shouldBe false
+      respB.dataTypes.flatMap(_.sampleRows).flatMap(_.fields.values) should not contain JsString("secret-a")
+    }
+  }
+
+  // ── HEL-372 4.5 Route-level schema validity with non-empty sampleRows ───
+
+  "GET /workspace/context (HEL-372 4.5 sampleRows schema validity)" should {
+    "validate against the schema when at least one DataType entry has non-empty sampleRows" in {
+      implicit val ec: ExecutionContext = routeEc
+      val source   = createSource(userA, "schema-samplerows-source")
+      val pipeline = createPipeline(userA, source.id, "schema-samplerows-pipeline", "schema-samplerows-output")
+      setDataTypeFields(DataTypeId(pipeline.outputDataTypeId), userA, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("x")))))
+
+      val routes = new WorkspaceRoutes(None, service, userA).routes
+
+      Get("/workspace/context") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val body  = responseAs[WorkspaceContextResponse]
+        val entry = body.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+        entry.sampleRows should not be empty
+
+        schemaValidationErrors(body) shouldBe empty
+      }
     }
   }
 

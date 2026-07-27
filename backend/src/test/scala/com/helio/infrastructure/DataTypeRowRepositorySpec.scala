@@ -109,5 +109,62 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(repo.listRows(dtA)) should have size 1
       await(repo.listRows(dtB)) should have size 2
     }
+
+    // ── HEL-372 design.md D1: SQL-tier row/key bounding ──────────────────
+
+    "limit bounds the result at the SQL tier, preserving row_index order" in {
+      val dtLimit = "dt-limit-" + java.util.UUID.randomUUID().toString
+      val rows    = (0 until 5).map(i => JsObject("idx" -> JsNumber(i)))
+      await(repo.overwriteRows(dtLimit, rows))
+
+      val result = await(repo.listRows(dtLimit, limit = Some(3)))
+      result.map(_.fields("idx")) shouldBe (0 until 3).map(i => JsNumber(i)).toVector
+    }
+
+    "limit greater than the row count returns every row, unchanged" in {
+      val dtLimit = "dt-limit-wide-" + java.util.UUID.randomUUID().toString
+      await(repo.overwriteRows(dtLimit, Seq(makeRow("solo", 1))))
+
+      val result = await(repo.listRows(dtLimit, limit = Some(50)))
+      result should have size 1
+    }
+
+    "excludeKeys strips the named top-level keys from every row's data, inside the query" in {
+      val dtExclude = "dt-exclude-" + java.util.UUID.randomUUID().toString
+      val row = JsObject(
+        "name"    -> JsString("alice"),
+        "score"   -> JsNumber(10),
+        "content" -> JsString("x" * 500)
+      )
+      await(repo.overwriteRows(dtExclude, Seq(row)))
+
+      val result = await(repo.listRows(dtExclude, excludeKeys = Set("content")))
+      result should have size 1
+      result.head.fields should contain key "name"
+      result.head.fields should contain key "score"
+      result.head.fields should not contain key("content")
+    }
+
+    "excludeKeys with multiple keys strips all of them, and is independent of limit" in {
+      val dtExclude = "dt-exclude-multi-" + java.util.UUID.randomUUID().toString
+      val row = JsObject(
+        "keep1" -> JsString("a"),
+        "drop1" -> JsString("b"),
+        "drop2" -> JsString("c")
+      )
+      await(repo.overwriteRows(dtExclude, Seq(row, row)))
+
+      val result = await(repo.listRows(dtExclude, limit = Some(1), excludeKeys = Set("drop1", "drop2")))
+      result should have size 1
+      result.head.fields.keySet shouldBe Set("keep1")
+    }
+
+    "excludeKeys for a key absent from the row is a no-op" in {
+      val dtExclude = "dt-exclude-absent-" + java.util.UUID.randomUUID().toString
+      await(repo.overwriteRows(dtExclude, Seq(makeRow("alice", 10))))
+
+      val result = await(repo.listRows(dtExclude, excludeKeys = Set("nonexistent-key")))
+      result.head.fields.keySet shouldBe Set("name", "score")
+    }
   }
 }

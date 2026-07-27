@@ -34,7 +34,14 @@ final case class WorkspaceContextComputedColumn(name: String, dataType: String, 
  *  off the domain `DataType.sourceId: Option[DataSourceId]`, never through a
  *  wire round-trip (spray-json omits `None` fields, which is the exact
  *  footgun `context.ts`'s own inline comment documents for its client-side
- *  fan-out — the Scala assembler avoids it by construction). */
+ *  fan-out — the Scala assembler avoids it by construction).
+ *
+ *  `sampleRows` (HEL-372): up to 5 rows from the DataType's latest
+ *  pipeline-run snapshot, capped to the first 40 declared Structured-category
+ *  columns and 200 characters per cell (`WorkspaceContextService.sanitizeSampleRows`,
+ *  design.md D3). Always present (an empty `Vector`, never `Option`) — a
+ *  source-companion DataType or one with no run snapshot reports `[]`, so
+ *  there is no spray-json `None`-omission concern here. */
 final case class WorkspaceContextDataType(
     id: String,
     name: String,
@@ -43,7 +50,8 @@ final case class WorkspaceContextDataType(
     columns: Vector[WorkspaceContextColumn],
     computedColumns: Vector[WorkspaceContextComputedColumn],
     version: Int,
-    tag: Option[String]
+    tag: Option[String],
+    sampleRows: Vector[JsObject]
 )
 
 final case class WorkspaceContextPipelineStep(
@@ -98,7 +106,7 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
   implicit val workspaceContextComputedColumnFormat: RootJsonFormat[WorkspaceContextComputedColumn] =
     jsonFormat3(WorkspaceContextComputedColumn.apply)
   implicit val workspaceContextDataTypeFormat: RootJsonFormat[WorkspaceContextDataType] =
-    jsonFormat8(WorkspaceContextDataType.apply)
+    jsonFormat9(WorkspaceContextDataType.apply)
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =
