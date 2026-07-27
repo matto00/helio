@@ -199,6 +199,23 @@ export function computeColumnStats(
   return result;
 }
 
+/** Rounds an already-scaled value to the nearest integer, breaking an EXACT
+ *  tie AWAY FROM ZERO — matching Java's `BigDecimal.RoundingMode.HALF_UP`
+ *  semantics the Scala side's `roundToFourDecimals` uses (design.md D5/D6
+ *  cross-language determinism; HEL-373 skeptic-final-4.md finding, fixed
+ *  under human direction to align TS to Scala, not the reverse). Plain
+ *  `Math.round` breaks ties TOWARD +Infinity instead (e.g. `Math.round(-0.5)
+ *  === -0`), which diverges from `HALF_UP` for a NEGATIVE exact tie — e.g. a
+ *  mean that divides to exactly `-0.00005`: `HALF_UP` rounds to `-0.0001`,
+ *  `Math.round`'s own tie-break rounds to `-0`/`0`. This is the ONLY case the
+ *  two conventions disagree on — every non-tie value already rounds
+ *  identically under both (a fractional part other than exactly `0.5` has a
+ *  unique nearest integer regardless of tie-break rule), so this wrapper
+ *  changes behavior at ties only. */
+function roundHalfAwayFromZero(scaled: number): number {
+  return scaled >= 0 ? Math.round(scaled) : -Math.round(-scaled);
+}
+
 /** Rounds `value` to 4 decimal places (design.md D5/D6 determinism) WITHOUT
  *  the naive `Math.round(value * 10000) / 10000` technique's own overflow
  *  surface — HEL-373 skeptic-final-3.md round-3 fix. That technique's
@@ -212,12 +229,15 @@ export function computeColumnStats(
  *  overflow before it happens and falls back to the unrounded — but still
  *  correctly finite — `value`, since rounding to 4 decimal places is a
  *  practical no-op at a magnitude where the multiply itself would overflow).
- *  Callers are responsible for ensuring `value` is already finite (this
- *  function does not itself guard non-finite input). */
+ *  Tie-breaking delegates to `roundHalfAwayFromZero` (HEL-373
+ *  skeptic-final-4.md) so this matches the Scala side's `HALF_UP` convention
+ *  exactly, not just in magnitude. Callers are responsible for ensuring
+ *  `value` is already finite (this function does not itself guard
+ *  non-finite input). */
 function roundToFourDecimals(value: number): number {
   const scaled = value * MEAN_ROUNDING_FACTOR;
   if (!Number.isFinite(scaled)) return value;
-  return Math.round(scaled) / MEAN_ROUNDING_FACTOR;
+  return roundHalfAwayFromZero(scaled) / MEAN_ROUNDING_FACTOR;
 }
 
 function computeColumnStatsForField(

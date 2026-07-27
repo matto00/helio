@@ -274,9 +274,39 @@ describe("computeColumnStats", () => {
       expect(stats?.max).toBe(1.7e308);
       expect(stats?.mean).toBeDefined();
       expect(Number.isFinite(stats?.mean)).toBe(true);
-      // Genuinely huge (the mathematically correct order of magnitude given
-      // the outlier), NOT a fabricated small-ish value.
-      expect(stats?.mean).toBeGreaterThan(1e300);
+      // HEL-373 skeptic-final-4.md requirement 4: assert the EXACT expected
+      // value (independently confirmed via a direct probe: `(1+2+...+499 +
+      // 1.7e308) / 500 === 3.3999999999999998e+305` in plain JS arithmetic —
+      // matching the Scala side's own independently-computed result exactly),
+      // not just a magnitude bound — closes the test-strength gap the round-4
+      // skeptic flagged relative to the Scala sibling test.
+      expect(stats?.mean).toBe(3.3999999999999998e305);
+    },
+  );
+
+  // ── HEL-373 skeptic-final-4.md: cross-language rounding tie-break
+  //    convention must be identical. Round 4 switched the Scala side's
+  //    rounding technique to BigDecimal.setScale(4, HALF_UP) ("round half
+  //    AWAY FROM ZERO") but left the TS side on Math.round ("round half
+  //    TOWARD +Infinity") — the two conventions disagree ONLY at an exact
+  //    binary tie at the 4th decimal place. A mean of exactly -0.00005 is the
+  //    skeptic's own reproduction case: HALF_UP rounds to -0.0001;
+  //    Math.round's own tie-break rounds to -0/0. This pins the now-fixed TS
+  //    side to the SAME expected value the Scala side already produces
+  //    (mirrored in WorkspaceContextServiceComputeColumnStatsSpec.scala) —
+  //    the actual mechanical determinism check design.md D5/D6 promises, not
+  //    just prose. ────────────────────────────────────────────────────────
+
+  it(
+    "rounds an exact -0.00005 mean tie AWAY FROM ZERO (to -0.0001), matching the Scala side's " +
+      "HALF_UP tie-break convention",
+    () => {
+      const fields = [structuredField("amount", "float")];
+      const rawRows = [{ amount: -0.00005 }];
+
+      const stats = computeColumnStats(fields, rawRows).amount;
+
+      expect(stats?.mean).toBe(-0.0001);
     },
   );
 

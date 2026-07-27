@@ -254,10 +254,62 @@ JSON `null`/absent-key, a distinct, orthogonal signal from "present but not nume
 silently become `0` (would corrupt `min`/`mean`). If zero values parse as numeric across the whole fetch
 (all null, or all unparseable garbage on a mistyped column), `min`/`max`/`mean` are `None` (absent on the
 wire, D7) rather than a fabricated number — same "no min/max" contract the ticket's all-null-column
-acceptance criterion already describes, extended to the "declared numeric but holds garbage" case. `mean`
-is rounded to 4 decimal places via `math.round(sum / count * 10000) / 10000.0` — an identical technique in
-both Scala and TS, over the identical input order (`ORDER BY row_index ASC`), so both sides compute the
-same IEEE-754 double sum and the same rounded result (D6's determinism requirement).
+acceptance criterion already describes, extended to the "declared numeric but holds garbage" case.
+`mean` is rounded to 4 decimal places over the identical input order (`ORDER BY row_index ASC`), so both
+sides compute the same IEEE-754 double sum — **see D5a below for the actual rounding technique in the
+shipped code (revised post-ship from what this paragraph originally specified) and its cross-language
+tie-break convention.**
+
+**D5a — Post-ship revision (four final-gate skeptic rounds, all four findings genuinely real and fixed;
+this addendum documents the ACTUAL shipped rounding/aggregation technique — the D5 paragraph above
+describes the ORIGINAL design-gate-approved technique, which the shipped code no longer uses verbatim).**
+The final-gate skeptic process caught two additional corruption paths beyond D5's own "declared numeric but
+holds garbage" case, both in the *aggregation* step rather than the per-value `asNumeric` parse step D5
+covers:
+
+1. **Accumulator overflow.** `numericSum`'s running fold can itself overflow to `±Infinity` even when every
+   individual value folded into it already passed `asNumeric` (e.g. two legitimately-finite `1e308` values
+   summed). A finiteness guard is applied once, at the terminal boundary before a
+   `WorkspaceContextColumnStats`/`ColumnStats` is constructed — covering `min`, `max`, and `mean` together
+   in one place, not as three separate per-field checks — so a non-finite result from ANY source (a
+   per-value parse, D5's `asNumeric`; or aggregation itself) is uniformly excluded (`None`/`undefined`), not
+   fabricated.
+2. **The rounding technique's OWN overflow surface.** D5's original `math.round(sum / count * 10000) /
+   10000.0` technique has a second, independent overflow surface baked into the multiply-by-`10^scale` step:
+   on the Scala side, `math.round(Double): Long` silently CLAMPS a non-finite (or merely
+   `Long`-range-exceeding) input to `Long.MaxValue` instead of propagating non-finiteness — so a
+   genuinely-huge-but-finite mean (one legitimate large outlier averaged with many ordinary rows) would
+   silently fabricate a deceptively-finite, wildly-wrong value via this rounding step alone, even after
+   finding (1) is fixed. **The shipped fix**: Scala replaced the technique with
+   `BigDecimal(mean).setScale(4, RoundingMode.HALF_UP).toDouble` — no intermediate multiply, so no overflow
+   surface, and a legitimately huge mean survives correctly rather than being fabricated or needlessly
+   dropped. TS mirrors this (no native arbitrary-precision decimal type in the JS standard library) with a
+   `roundToFourDecimals` helper that pre-checks whether `value * 10000` itself would overflow and falls back
+   to the already-finite, correct, unrounded `value` if so — same outcome, different mechanism.
+3. **Cross-language tie-break parity.** Before this revision, both sides used `math.round`/`Math.round`,
+   which tie-break identically ("round half toward +Infinity" — `math.round(-0.5) == 0` in both languages).
+   Switching only the Scala side to `BigDecimal`'s `RoundingMode.HALF_UP` ("round half AWAY FROM ZERO")
+   introduced a real, adversarially-confirmed divergence at an EXACT binary tie at the 4th decimal place
+   (e.g. a mean of exactly `-0.00005`: `HALF_UP` → `-0.0001`; the old TS tie-break → `-0`/`0`) — a regression
+   against this ticket's own determinism promise (D6), caught by the final-gate skeptic process and fixed by
+   aligning TS to Scala (not the reverse, since `HALF_UP`/`BigDecimal` is what closed finding 2 above): TS's
+   `roundToFourDecimals` now breaks ties away from zero too, via an explicit `roundHalfAwayFromZero` wrapper
+   (`scaled >= 0 ? Math.round(scaled) : -Math.round(-scaled)`) — the only place its behavior differs from
+   plain `Math.round`, since every non-tie value already rounds identically under both conventions. Pinned
+   by an identical `-0.00005 → -0.0001` regression test on both sides.
+
+**Accepted, not fixed, floating-point precision caveat**: the `Double`/JS-`number` `numericSum` accumulator
+itself is standard IEEE-754 running-sum arithmetic (the same technique numpy/pandas use for a naive sum),
+which accumulates a small relative rounding error at extreme magnitude/row-count combinations — e.g. 500
+rows of exactly `1e300` produce a computed mean of `1.0000000000000088E300` rather than the mathematically
+exact `1e300`, a relative error of ~8.8e-15 (identical on both Scala and TS, since both fold in the same
+`ORDER BY row_index ASC` order). This is NOT the same failure class as findings 1-2 above (those produced a
+wildly-wrong, order-of-magnitude-different fabricated number or a masked `None`/`null`; this stays in the
+mathematically correct neighborhood, off by roughly 1 part in 10^14) and was deliberately NOT fixed with a
+`BigDecimal`-accumulation representation change — accepted as a standard, expected characteristic of
+`Double`-accumulator arithmetic for extreme-magnitude/high-row-count numeric columns, not a defect. Flagged
+here so a future reviewer doesn't rediscover it and mistake it for one of the corruption bugs findings 1-2
+describe.
 
 **D6 — Determinism: fixed row order (already guaranteed by `ORDER BY row_index ASC`) + fixed
 first-seen-order example-value capture + fixed mean rounding (D5) together make `computeColumnStats` a pure
@@ -366,6 +418,14 @@ side's tests independently assert their own numeric parsing, cap, and rounding b
   → Mitigation: both params are independently optional and additive (D1); a route-level test pins the
   combined case (`excludeContentFields=true&maxStructuredColumns=40`) alongside the two params used
   individually, so the composition itself is covered, not just each param in isolation.
+- [Risk] `mean`'s `Double`/JS-`number` running-sum accumulator carries the standard IEEE-754 floating-point
+  precision drift any naive `Double` accumulator has, at extreme magnitude/row-count combinations (see D5a's
+  "Accepted, not fixed" paragraph — e.g. ~8.8e-15 relative error for 500 rows of exactly `1e300`).
+  → Mitigation: explicitly accepted, not silently absorbed — the human coordinator reviewed this directly
+  during the final-gate arc and declined a `BigDecimal`-accumulation representation change (cost/complexity
+  not justified by a drift that stays in the mathematically correct neighborhood and matches
+  numpy/pandas-equivalent behavior, unlike the wildly-wrong fabricated values D5a's findings 1-2 fixed).
+  Documented here so a future reviewer doesn't mistake it for an unfixed instance of those bugs.
 
 ## Migration Plan
 
