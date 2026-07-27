@@ -129,8 +129,22 @@ final class WorkspaceContextService(
    *  `dataTypes`/`dashboards` use `Page.Default` (200 — design.md D3, parity
    *  with the MCP's own unparameterized fan-out); `counts` always reports
    *  each list call's true `PagedResult.total`, so truncation past 200 items
-   *  is detectable even though this ticket doesn't solve it (D3). */
-  def assemble(user: AuthenticatedUser): Future[WorkspaceContextResponse] = {
+   *  is detectable — HEL-377 makes it self-describing via
+   *  `truncation.paginationTruncatedResources`, this ticket's carried finding.
+   *
+   *  `budgetBytes` (HEL-377 design.md D2/D7/D8): defaults to
+   *  `WorkspaceContextBudget.DefaultBudgetBytes` (env-var overridable) so
+   *  existing callers with a single argument are unaffected. The assembled
+   *  response is built with `WorkspaceContextBudget.PlaceholderTruncation` —
+   *  a value that is unconditionally overwritten by the final
+   *  `WorkspaceContextBudget.apply` call below, never otherwise read (see
+   *  that constant's doc) — and `WorkspaceContextBudget.apply` is the LAST
+   *  step before returning, a pure in-memory pass over the already-bounded
+   *  structure above (no new DB access, no new `Future` step). */
+  def assemble(
+      user: AuthenticatedUser,
+      budgetBytes: Int = WorkspaceContextBudget.DefaultBudgetBytes
+  ): Future[WorkspaceContextResponse] = {
     val sourcesF    = dataSourceService.findAll(user, Page.Default)
     val typesF      = dataTypeService.findAll(user, Page.Default)
     val dashboardsF = dashboardService.findAll(user, Page.Default)
@@ -143,23 +157,27 @@ final class WorkspaceContextService(
       summaries      <- summariesF
       pipelines      <- Future.traverse(summaries)(buildPipeline(_, user))
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
-    } yield WorkspaceContextResponse(
-      generatedAt = Instant.now().toString,
-      counts = WorkspaceContextCounts(
-        dataSources = sourcesPage.total,
-        dataTypes   = typesPage.total,
-        pipelines   = summaries.size,
-        dashboards  = dashboardsPage.total
-      ),
-      dataSources = sourcesPage.items.map(toDataSourceEntry),
-      dataTypes   = dataTypes,
-      pipelines   = pipelines,
-      dashboards  = dashboardsPage.items.map(toDashboardEntry),
-      // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER the
-      // traverse above completes — `dataTypes` is the exact structure already
-      // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
-      joinHints = computeJoinHints(dataTypes)
-    )
+    } yield {
+      val assembled = WorkspaceContextResponse(
+        generatedAt = Instant.now().toString,
+        counts = WorkspaceContextCounts(
+          dataSources = sourcesPage.total,
+          dataTypes   = typesPage.total,
+          pipelines   = summaries.size,
+          dashboards  = dashboardsPage.total
+        ),
+        dataSources = sourcesPage.items.map(toDataSourceEntry),
+        dataTypes   = dataTypes,
+        pipelines   = pipelines,
+        dashboards  = dashboardsPage.items.map(toDashboardEntry),
+        // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER the
+        // traverse above completes — `dataTypes` is the exact structure already
+        // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
+        joinHints = computeJoinHints(dataTypes),
+        truncation = WorkspaceContextBudget.PlaceholderTruncation
+      )
+      WorkspaceContextBudget.apply(assembled, budgetBytes, sourcesPage, typesPage, dashboardsPage)
+    }
   }
 
   /** Per-pipeline `analyze` fan-out (design.md D5 — parallel via

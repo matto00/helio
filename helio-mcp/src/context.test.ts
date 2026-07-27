@@ -10,15 +10,20 @@
  */
 
 import {
+  applyBudget,
   asNumeric,
   buildWorkspaceContext,
   classifySemanticRole,
   computeColumnStats,
   computeJoinHints,
+  DEFAULT_BUDGET_BYTES,
   normalizedNameTokens,
+  paginationTruncatedResources,
   sanitizeSampleRows,
   type ColumnStats,
   type SemanticRole,
+  type WorkspaceContext,
+  type WorkspaceContextJoinHint,
 } from "./context.js";
 import type { HelioApi } from "./helioApi.js";
 import type { DataTypeResponse } from "./types.js";
@@ -548,6 +553,34 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(entry.columnStats).toEqual({});
     expect(getDataTypeRowsCalls).toEqual(["dt-output"]); // never called for the companion
   });
+
+  // ── HEL-377 tasks.md 4.2 — budgetBytes wiring through buildWorkspaceContext ──
+
+  it("uses DEFAULT_BUDGET_BYTES and leaves a small workspace's context unchanged when budgetBytes is omitted", async () => {
+    const { api } = makeFakeApi();
+
+    const context = await buildWorkspaceContext(api);
+
+    expect(context.truncation.budgetBytes).toBe(DEFAULT_BUDGET_BYTES);
+    expect(context.truncation.applied).toBe(false);
+  });
+
+  it("trims the context to the structural floor when budgetBytes=0 is passed through", async () => {
+    const { api } = makeFakeApi();
+
+    const context = await buildWorkspaceContext(api, 0);
+
+    expect(context.truncation.applied).toBe(true);
+    expect(context.truncation.budgetBytes).toBe(0);
+    expect(context.truncation.structuralFloorExceedsBudget).toBe(true);
+    for (const dt of context.dataTypes) {
+      expect(dt.sampleRows).toEqual([]);
+      for (const stats of Object.values(dt.columnStats)) expect(stats.exampleValues).toEqual([]);
+    }
+    expect(context.joinHints).toEqual([]);
+    // Resources themselves are still present — never dropped to chase budget.
+    expect(context.dataTypes.map((dt) => dt.id).sort()).toEqual(["dt-companion", "dt-output"]);
+  });
 });
 
 /**
@@ -972,4 +1005,528 @@ describe("cross-language parity fixture (HEL-374 tasks.md 5.3)", () => {
       expect(hints[0]?.confidence).toBe(0.75);
     },
   );
+
+  it(
+    "agrees with the Scala side's WorkspaceContextBudget on the tiered shed order and cap semantics " +
+      "(HEL-377 tasks.md 6.2 — mirrors WorkspaceContextServiceApplyBudgetSpec's 'tier 1 only' / " +
+      "'tier 1 exhausted, tier 2 partial' cases). NOT a byte-identical-serialized-output claim " +
+      "(design.md D9's explicit disclaimer — JSON.stringify and spray-json's compactPrint are " +
+      "independent serializers) — what's asserted is the SAME relative outcome for the SAME logical " +
+      "construction: a budget exactly one unit under this side's own natural size caps sampleRows down " +
+      "by exactly one row (uniformly across DataTypes) while leaving exampleValues/joinHints at their " +
+      "natural size, and a budget one unit under the sampleRows=[] floor caps exampleValues down by " +
+      "exactly one value while leaving joinHints natural — the same shed order (D3), reaching an " +
+      "equivalent cap for an equivalent input, exactly as the Scala pure-unit spec pins on its own side.",
+    () => {
+      const naturalSampleRowCount = 5;
+      const naturalExampleValueCount = 5;
+      const naturalJoinHintCount = 3;
+
+      const paddedValue = (prefix: string, i: number): string => prefix + "x".repeat(300) + i;
+
+      const dataTypeFixture = (id: string): WorkspaceContext["dataTypes"][number] => ({
+        id,
+        name: `dt-${id}`,
+        sourceId: null,
+        pipelineOutput: true,
+        columns: [{ name: "value", dataType: "string", nullable: true, semanticRole: "text" }],
+        computedColumns: [],
+        version: 1,
+        tag: null,
+        sampleRows: Array.from({ length: naturalSampleRowCount }, (_, i) => ({
+          value: paddedValue("row-", i),
+        })),
+        columnStats: {
+          value: {
+            nullRate: 0,
+            distinctCount: naturalExampleValueCount,
+            distinctCountCapped: false,
+            exampleValues: Array.from({ length: naturalExampleValueCount }, (_, i) =>
+              paddedValue("ex-", i),
+            ),
+          },
+        },
+      });
+
+      const joinHints: WorkspaceContextJoinHint[] = Array.from(
+        { length: naturalJoinHintCount },
+        (_, i) => ({
+          leftDataTypeId: `left-${i}`,
+          leftColumn: "value",
+          rightDataTypeId: `right-${i}`,
+          rightColumn: "value",
+          confidence: 0.9 - i * 0.001,
+        }),
+      );
+
+      const dataTypes: WorkspaceContext["dataTypes"] = ["a", "b", "c"].map(dataTypeFixture);
+      const context: WorkspaceContext = {
+        generatedAt: "2024-01-01T00:00:00Z",
+        counts: { dataSources: 0, dataTypes: dataTypes.length, pipelines: 0, dashboards: 0 },
+        dataSources: [],
+        dataTypes,
+        pipelines: [],
+        dashboards: [],
+        pipelineShapes: [],
+        joinHints,
+        truncation: {
+          applied: false,
+          budgetBytes: 0,
+          estimatedSizeBytes: 0,
+          sampleRowsCap: 0,
+          exampleValuesCap: 0,
+          joinHintsKept: 0,
+          joinHintsOmittedByBudget: 0,
+          structuralFloorExceedsBudget: false,
+          paginationTruncatedResources: [],
+        },
+      };
+
+      const naturalSize = applyBudget(context, Number.MAX_SAFE_INTEGER, []).truncation
+        .estimatedSizeBytes;
+
+      const tier1Only = applyBudget(context, naturalSize - 1, []);
+      expect(tier1Only.truncation.sampleRowsCap).toBe(naturalSampleRowCount - 1);
+      expect(tier1Only.truncation.exampleValuesCap).toBe(naturalExampleValueCount);
+      expect(tier1Only.truncation.joinHintsKept).toBe(naturalJoinHintCount);
+
+      const zeroRowsDataTypes = dataTypes.map((dt) => ({ ...dt, sampleRows: [] }));
+      const sizeAfterTier1 = applyBudget(
+        { ...context, dataTypes: zeroRowsDataTypes },
+        Number.MAX_SAFE_INTEGER,
+        [],
+      ).truncation.estimatedSizeBytes;
+
+      const tier2Partial = applyBudget(context, sizeAfterTier1 - 1, []);
+      expect(tier2Partial.truncation.sampleRowsCap).toBe(0);
+      expect(tier2Partial.truncation.exampleValuesCap).toBe(naturalExampleValueCount - 1);
+      expect(tier2Partial.truncation.joinHintsKept).toBe(naturalJoinHintCount);
+    },
+  );
+});
+
+/**
+ * HEL-377 tasks.md 6.1 — MCP-side unit tests for `applyBudget`/
+ * `paginationTruncatedResources`, mirroring `WorkspaceContextServiceApplyBudgetSpec`
+ * (Scala)'s scenario coverage. `applyBudget` is an INDEPENDENT TypeScript
+ * implementation of the identical tiered shed order (design.md D3) and
+ * exact-decomposition technique (design.md D4) the Scala side's
+ * `WorkspaceContextBudget` enforces — no shared runtime, so parity is
+ * achieved by duplicating the rules and testing each side separately (see
+ * the "cross-language parity fixture" describe block above for the explicit
+ * cross-check).
+ */
+describe("applyBudget", () => {
+  const NATURAL_SAMPLE_ROW_COUNT = 5;
+  const NATURAL_EXAMPLE_VALUE_COUNT = 5;
+  const NATURAL_JOIN_HINT_COUNT = 3;
+
+  /** Deliberately large per-row/per-example-value payloads so a single unit
+   *  cut (one row, one example value) always recovers far more than the
+   *  1-byte margin the "-1" budgets below rely on — makes every threshold
+   *  test robust to exact JSON-overhead arithmetic without hand-computing it
+   *  (mirrors the Scala spec's identical `paddedValue` rationale). */
+  function paddedValue(prefix: string, i: number): string {
+    return prefix + "x".repeat(300) + i;
+  }
+
+  function dataTypeFixture(id: string): WorkspaceContext["dataTypes"][number] {
+    return {
+      id,
+      name: `dt-${id}`,
+      sourceId: null,
+      pipelineOutput: true,
+      columns: [{ name: "value", dataType: "string", nullable: true, semanticRole: "text" }],
+      computedColumns: [],
+      version: 1,
+      tag: null,
+      sampleRows: Array.from({ length: NATURAL_SAMPLE_ROW_COUNT }, (_, i) => ({
+        value: paddedValue("row-", i),
+      })),
+      columnStats: {
+        value: {
+          nullRate: 0,
+          distinctCount: NATURAL_EXAMPLE_VALUE_COUNT,
+          distinctCountCapped: false,
+          exampleValues: Array.from({ length: NATURAL_EXAMPLE_VALUE_COUNT }, (_, i) =>
+            paddedValue("ex-", i),
+          ),
+        },
+      },
+    };
+  }
+
+  function joinHintFixture(i: number): WorkspaceContextJoinHint {
+    return {
+      leftDataTypeId: `left-${i}`,
+      leftColumn: "value",
+      rightDataTypeId: `right-${i}`,
+      rightColumn: "value",
+      confidence: 0.9 - i * 0.001,
+    };
+  }
+
+  function baseContext(
+    dataTypes: WorkspaceContext["dataTypes"],
+    joinHints: WorkspaceContextJoinHint[] = Array.from(
+      { length: NATURAL_JOIN_HINT_COUNT },
+      (_, i) => joinHintFixture(i),
+    ),
+  ): WorkspaceContext {
+    return {
+      generatedAt: "2024-01-01T00:00:00Z",
+      counts: { dataSources: 0, dataTypes: dataTypes.length, pipelines: 0, dashboards: 0 },
+      dataSources: [],
+      dataTypes,
+      pipelines: [],
+      dashboards: [],
+      pipelineShapes: [],
+      joinHints,
+      truncation: {
+        applied: false,
+        budgetBytes: 0,
+        estimatedSizeBytes: 0,
+        sampleRowsCap: 0,
+        exampleValuesCap: 0,
+        joinHintsKept: 0,
+        joinHintsOmittedByBudget: 0,
+        structuralFloorExceedsBudget: false,
+        paginationTruncatedResources: [],
+      },
+    };
+  }
+
+  const threeDataTypes: WorkspaceContext["dataTypes"] = ["a", "b", "c"].map(dataTypeFixture);
+
+  function naturalSizeOf(context: WorkspaceContext): number {
+    return applyBudget(context, Number.MAX_SAFE_INTEGER, []).truncation.estimatedSizeBytes;
+  }
+
+  /** The context's real, independently-measured CORE (every field except
+   *  `truncation`) serialized length — computed WITHOUT calling any of
+   *  `applyBudget`'s own internal helpers, so this is an honest cross-check
+   *  of `estimatedSizeBytes`'s arithmetic, not a tautology. */
+  function realCoreSize(context: WorkspaceContext): number {
+    const { truncation: _truncation, ...core } = context;
+    return JSON.stringify(core).length;
+  }
+
+  it("leaves the context unchanged and reports applied=false within budget", () => {
+    const context = baseContext(threeDataTypes);
+    const naturalSize = naturalSizeOf(context);
+
+    const result = applyBudget(context, naturalSize, []);
+
+    expect(result.dataTypes).toEqual(threeDataTypes);
+    expect(result.joinHints).toEqual(context.joinHints);
+    expect(result.truncation.applied).toBe(false);
+    expect(result.truncation.estimatedSizeBytes).toBe(naturalSize);
+    expect(result.truncation.sampleRowsCap).toBe(NATURAL_SAMPLE_ROW_COUNT);
+    expect(result.truncation.exampleValuesCap).toBe(NATURAL_EXAMPLE_VALUE_COUNT);
+    expect(result.truncation.joinHintsKept).toBe(NATURAL_JOIN_HINT_COUNT);
+    expect(result.truncation.joinHintsOmittedByBudget).toBe(0);
+    expect(result.truncation.structuralFloorExceedsBudget).toBe(false);
+  });
+
+  it("tier 1 only: shrinks sampleRows, leaves exampleValues/joinHints natural (pins D3's cut-first order)", () => {
+    const context = baseContext(threeDataTypes);
+    const naturalSize = naturalSizeOf(context);
+
+    // naturalSize doesn't fit by exactly 1 byte — cutting a single row (a
+    // large, padded value) recovers far more than 1 byte, so this resolves
+    // to a tier-1-only partial cut, never touching tier 2/3.
+    const result = applyBudget(context, naturalSize - 1, []);
+
+    expect(result.truncation.applied).toBe(true);
+    expect(result.truncation.sampleRowsCap).toBeLessThan(NATURAL_SAMPLE_ROW_COUNT);
+    expect(result.truncation.sampleRowsCap).toBeGreaterThanOrEqual(0);
+    expect(result.truncation.exampleValuesCap).toBe(NATURAL_EXAMPLE_VALUE_COUNT);
+    expect(result.truncation.joinHintsKept).toBe(NATURAL_JOIN_HINT_COUNT);
+    expect(result.truncation.structuralFloorExceedsBudget).toBe(false);
+
+    // The pinned assertion: exampleValues and joinHints are UNCHANGED from
+    // natural, not merely "still present."
+    for (const dt of result.dataTypes) {
+      expect(dt.sampleRows).toHaveLength(result.truncation.sampleRowsCap);
+      expect(dt.columnStats).toEqual(threeDataTypes.find((n) => n.id === dt.id)?.columnStats);
+    }
+    expect(result.joinHints).toEqual(context.joinHints);
+  });
+
+  it("tier 1 exhausted, tier 2 partial: empties sampleRows, shrinks exampleValues, leaves joinHints natural", () => {
+    const context = baseContext(threeDataTypes);
+    const zeroRowsDataTypes = threeDataTypes.map((dt) => ({ ...dt, sampleRows: [] }));
+    const sizeAfterTier1 = naturalSizeOf(baseContext(zeroRowsDataTypes));
+
+    const result = applyBudget(context, sizeAfterTier1 - 1, []);
+
+    expect(result.truncation.applied).toBe(true);
+    expect(result.truncation.sampleRowsCap).toBe(0);
+    expect(result.truncation.exampleValuesCap).toBeLessThan(NATURAL_EXAMPLE_VALUE_COUNT);
+    expect(result.truncation.exampleValuesCap).toBeGreaterThanOrEqual(0);
+    expect(result.truncation.joinHintsKept).toBe(NATURAL_JOIN_HINT_COUNT);
+    expect(result.truncation.structuralFloorExceedsBudget).toBe(false);
+
+    for (const dt of result.dataTypes) {
+      expect(dt.sampleRows).toEqual([]);
+      for (const stats of Object.values(dt.columnStats)) {
+        expect(stats.exampleValues).toHaveLength(result.truncation.exampleValuesCap);
+      }
+    }
+    expect(result.joinHints).toEqual(context.joinHints);
+  });
+
+  it("tiers 1 and 2 exhausted, tier 3 partial: empties sampleRows/exampleValues, shrinks joinHints", () => {
+    const context = baseContext(threeDataTypes);
+    const zeroRowsAndExamplesDataTypes = threeDataTypes.map((dt) => ({
+      ...dt,
+      sampleRows: [],
+      columnStats: Object.fromEntries(
+        Object.entries(dt.columnStats).map(([name, stats]) => [
+          name,
+          { ...stats, exampleValues: [] },
+        ]),
+      ),
+    }));
+    const sizeAfterTier2 = naturalSizeOf(baseContext(zeroRowsAndExamplesDataTypes));
+
+    const result = applyBudget(context, sizeAfterTier2 - 1, []);
+
+    expect(result.truncation.applied).toBe(true);
+    expect(result.truncation.sampleRowsCap).toBe(0);
+    expect(result.truncation.exampleValuesCap).toBe(0);
+    expect(result.truncation.joinHintsKept).toBeLessThan(NATURAL_JOIN_HINT_COUNT);
+    expect(result.truncation.joinHintsKept).toBeGreaterThanOrEqual(0);
+    expect(result.truncation.joinHintsOmittedByBudget).toBe(
+      NATURAL_JOIN_HINT_COUNT - result.truncation.joinHintsKept,
+    );
+    expect(result.truncation.structuralFloorExceedsBudget).toBe(false);
+
+    for (const dt of result.dataTypes) {
+      expect(dt.sampleRows).toEqual([]);
+      for (const stats of Object.values(dt.columnStats)) expect(stats.exampleValues).toEqual([]);
+    }
+    // The already-sorted (confidence descending) PREFIX is kept.
+    expect(result.joinHints).toEqual(context.joinHints.slice(0, result.truncation.joinHintsKept));
+  });
+
+  it("structural floor (D5): empties sampleRows/exampleValues/joinHints entirely and flags structuralFloorExceedsBudget", () => {
+    const context = baseContext(threeDataTypes);
+
+    const result = applyBudget(context, 0, []);
+
+    expect(result.truncation.applied).toBe(true);
+    expect(result.truncation.sampleRowsCap).toBe(0);
+    expect(result.truncation.exampleValuesCap).toBe(0);
+    expect(result.truncation.joinHintsKept).toBe(0);
+    expect(result.truncation.joinHintsOmittedByBudget).toBe(NATURAL_JOIN_HINT_COUNT);
+    expect(result.truncation.structuralFloorExceedsBudget).toBe(true);
+
+    for (const dt of result.dataTypes) {
+      expect(dt.sampleRows).toEqual([]);
+      for (const stats of Object.values(dt.columnStats)) expect(stats.exampleValues).toEqual([]);
+    }
+    expect(result.joinHints).toEqual([]);
+
+    // Resources themselves are NEVER dropped, even at the tightest budget —
+    // the acceptance criterion this case exists to prove.
+    expect(result.dataTypes.map((dt) => dt.id)).toEqual(threeDataTypes.map((dt) => dt.id));
+  });
+
+  it("never alters any tier-0 (structural) field, even at budgetBytes=0", () => {
+    const richDataType: WorkspaceContext["dataTypes"][number] = {
+      id: "dt-1",
+      name: "orders",
+      sourceId: null,
+      pipelineOutput: true,
+      columns: [
+        { name: "id", dataType: "string", nullable: false, semanticRole: "identifier" },
+        { name: "amount", dataType: "float", nullable: true, semanticRole: "measure" },
+      ],
+      computedColumns: [{ name: "doubled", dataType: "float", expression: "amount * 2" }],
+      version: 3,
+      tag: "finance",
+      sampleRows: [{ amount: 12.5 }],
+      columnStats: {
+        amount: {
+          nullRate: 0.1,
+          distinctCount: 42,
+          distinctCountCapped: false,
+          exampleValues: [1, 2],
+          min: 1,
+          max: 99,
+          mean: 50.25,
+        },
+      },
+    };
+    const context: WorkspaceContext = {
+      ...baseContext([richDataType]),
+      counts: { dataSources: 1, dataTypes: 1, pipelines: 1, dashboards: 1 },
+      pipelines: [
+        {
+          id: "p1",
+          name: "orders-pipeline",
+          sourceDataSourceId: "src-1",
+          sourceDataSourceName: "source-1",
+          outputDataTypeId: "dt-1",
+          outputDataTypeName: "orders",
+          lastRunStatus: "success",
+          lastRunAt: "2024-01-01T00:00:00Z",
+          lastRunRowCount: 100,
+          tag: null,
+          steps: [{ position: 0, type: "cast", outputColumns: ["amount"], validationError: null }],
+        },
+      ],
+      dashboards: [{ id: "dash-1", name: "Overview", panelCount: 4 }],
+    };
+
+    const result = applyBudget(context, 0, []);
+
+    expect(result.counts).toEqual(context.counts);
+    expect(result.pipelines).toEqual(context.pipelines);
+    expect(result.dashboards).toEqual(context.dashboards);
+
+    const trimmed = result.dataTypes[0];
+    if (!trimmed) throw new Error("expected trimmed DataType entry");
+    expect(trimmed.id).toBe(richDataType.id);
+    expect(trimmed.name).toBe(richDataType.name);
+    expect(trimmed.sourceId).toBe(richDataType.sourceId);
+    expect(trimmed.pipelineOutput).toBe(richDataType.pipelineOutput);
+    expect(trimmed.columns).toEqual(richDataType.columns);
+    expect(trimmed.computedColumns).toEqual(richDataType.computedColumns);
+    expect(trimmed.version).toBe(richDataType.version);
+    expect(trimmed.tag).toBe(richDataType.tag);
+
+    const trimmedStats = trimmed.columnStats.amount;
+    const naturalStats = richDataType.columnStats.amount;
+    if (!trimmedStats || !naturalStats) throw new Error("expected amount columnStats");
+    expect(trimmedStats.nullRate).toBe(naturalStats.nullRate);
+    expect(trimmedStats.distinctCount).toBe(naturalStats.distinctCount);
+    expect(trimmedStats.distinctCountCapped).toBe(naturalStats.distinctCountCapped);
+    expect(trimmedStats.min).toBe(naturalStats.min);
+    expect(trimmedStats.max).toBe(naturalStats.max);
+    expect(trimmedStats.mean).toBe(naturalStats.mean);
+    // Only the value-level enrichment tier is shed.
+    expect(trimmedStats.exampleValues).toEqual([]);
+  });
+
+  it("produces identical output for the same input and budget across repeated calls (determinism)", () => {
+    const context = baseContext(threeDataTypes);
+    const naturalSize = naturalSizeOf(context);
+    const budget = Math.floor(naturalSize / 2);
+
+    const first = applyBudget(context, budget, []);
+    const second = applyBudget(context, budget, []);
+
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+  });
+
+  it("reports an estimatedSizeBytes that exactly equals the actual returned context's real core size (pins D4's decomposition identity)", () => {
+    const context = baseContext(threeDataTypes);
+    const naturalSize = naturalSizeOf(context);
+
+    for (const budget of [naturalSize - 1, Math.floor(naturalSize / 2), 0]) {
+      const result = applyBudget(context, budget, []);
+      expect(realCoreSize(result)).toBe(result.truncation.estimatedSizeBytes);
+    }
+  });
+
+  // ── Non-blocking suggestion (evaluation-1.md cycle 1): heterogeneous
+  // natural sizes — pins that the derived natural cap is a MAX reduction
+  // (not e.g. a MIN, and not an assumption every DataType/column shares the
+  // same natural size), and that `.slice(0, cap)` gracefully saturates (a
+  // no-op) for a DataType/column whose own natural size is already below
+  // the derived cap. Every other fixture above uses UNIFORM per-DataType/
+  // per-column natural sizes, so this specific behavior wasn't directly
+  // pinned before. Mirrors WorkspaceContextServiceApplyBudgetSpec's
+  // equivalent "heterogeneous natural sizes" cases.
+
+  it("derives sampleRowsCap as the MAX across DataTypes, and leaves a DataType with fewer natural rows untouched by slice() saturation", () => {
+    const small = dataTypeFixture("small");
+    const smallDataType = { ...small, sampleRows: small.sampleRows.slice(0, 2) };
+    const dataTypes = [smallDataType, dataTypeFixture("full-b"), dataTypeFixture("full-c")];
+    const context = baseContext(dataTypes);
+    const naturalSize = naturalSizeOf(context);
+
+    // Within budget: sampleRowsCap reports the MAX (5) even though "small"
+    // naturally has only 2 — not a MIN, not "every DataType matches."
+    const withinBudget = applyBudget(context, naturalSize, []);
+    expect(withinBudget.truncation.sampleRowsCap).toBe(NATURAL_SAMPLE_ROW_COUNT);
+    expect(withinBudget.dataTypes.find((dt) => dt.id === "small")?.sampleRows).toHaveLength(2);
+
+    // Force a partial tier-1 cut to naturalCap - 1 (4) — ABOVE "small"'s own
+    // natural size (2), so "small" must be left untouched by slice()
+    // saturation while "full-b"/"full-c" (natural 5) shrink to exactly 4.
+    const result = applyBudget(context, naturalSize - 1, []);
+    expect(result.truncation.sampleRowsCap).toBe(NATURAL_SAMPLE_ROW_COUNT - 1);
+    expect(result.dataTypes.find((dt) => dt.id === "small")?.sampleRows).toHaveLength(2);
+    for (const dt of result.dataTypes) {
+      if (dt.id === "small") continue;
+      expect(dt.sampleRows).toHaveLength(result.truncation.sampleRowsCap);
+    }
+  });
+
+  it("derives exampleValuesCap as the MAX across columns, and leaves a column with fewer natural example values untouched by slice() saturation", () => {
+    const small = dataTypeFixture("small");
+    const smallStats = small.columnStats.value;
+    if (!smallStats) throw new Error("expected 'value' columnStats on the small fixture");
+    const smallDataType = {
+      ...small,
+      columnStats: {
+        value: { ...smallStats, exampleValues: smallStats.exampleValues.slice(0, 2) },
+      },
+    };
+    // sampleRows already emptied on every DataType, so this context's own
+    // naturalSizeOf IS "sizeAfterTier1" — isolates the assertion to tier 2.
+    const dataTypes = [smallDataType, dataTypeFixture("full-b"), dataTypeFixture("full-c")].map(
+      (dt) => ({
+        ...dt,
+        sampleRows: [],
+      }),
+    );
+    const context = baseContext(dataTypes);
+    const sizeAfterTier1 = naturalSizeOf(context);
+
+    const withinBudget = applyBudget(context, sizeAfterTier1, []);
+    expect(withinBudget.truncation.exampleValuesCap).toBe(NATURAL_EXAMPLE_VALUE_COUNT);
+    expect(
+      withinBudget.dataTypes.find((dt) => dt.id === "small")?.columnStats.value?.exampleValues,
+    ).toHaveLength(2);
+
+    const result = applyBudget(context, sizeAfterTier1 - 1, []);
+    expect(result.truncation.exampleValuesCap).toBe(NATURAL_EXAMPLE_VALUE_COUNT - 1);
+    expect(
+      result.dataTypes.find((dt) => dt.id === "small")?.columnStats.value?.exampleValues,
+    ).toHaveLength(2);
+    for (const dt of result.dataTypes) {
+      if (dt.id === "small") continue;
+      expect(dt.columnStats.value?.exampleValues).toHaveLength(result.truncation.exampleValuesCap);
+    }
+  });
+});
+
+describe("paginationTruncatedResources", () => {
+  it("reports [] when no page was truncated", () => {
+    const full = { items: [1, 2, 3], total: 3 };
+    expect(paginationTruncatedResources(full, full, full)).toEqual([]);
+  });
+
+  it("reports exactly the truncated resource kind(s), preserving dataSources/dataTypes/dashboards order", () => {
+    const truncatedSources = { items: Array(200).fill(0), total: 250 };
+    const untruncatedTypes = { items: Array(5).fill(0), total: 5 };
+    const truncatedDashboards = { items: Array(200).fill(0), total: 201 };
+
+    expect(
+      paginationTruncatedResources(truncatedSources, untruncatedTypes, truncatedDashboards),
+    ).toEqual(["dataSources", "dashboards"]);
+  });
+
+  it("reports all three when all three are truncated", () => {
+    const truncated = { items: Array(200).fill(0), total: 500 };
+    expect(paginationTruncatedResources(truncated, truncated, truncated)).toEqual([
+      "dataSources",
+      "dataTypes",
+      "dashboards",
+    ]);
+  });
 });
