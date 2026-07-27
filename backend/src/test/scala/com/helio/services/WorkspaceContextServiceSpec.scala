@@ -1,6 +1,6 @@
 package com.helio.services
 
-import com.helio.api.{AccessCheckerImpl, JsonProtocols, ResourceTypeRegistry, ResourceType => AclResourceType}
+import com.helio.api.{AccessCheckerImpl, ErrorResponse, JsonProtocols, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest, WorkspaceContextCounts, WorkspaceContextResponse}
 import com.helio.api.routes.WorkspaceRoutes
 import com.helio.domain._
@@ -905,6 +905,63 @@ class WorkspaceContextServiceSpec
       // on this exact same (teardown-less) routes instance is unaffected.
       Get("/workspace/context") ~> routes ~> check {
         status shouldBe StatusCodes.OK
+      }
+    }
+  }
+
+  // ── HEL-377 5.3 Route-level: budgetBytes query param ─────────────────────
+
+  "GET /workspace/context (HEL-377 budgetBytes query param)" should {
+    "trim the response to the structural floor via budgetBytes=0 and report truncation accordingly" in {
+      implicit val ec: ExecutionContext = routeEc
+      val source   = createSource(userA, "budget-source")
+      val pipeline = createPipeline(userA, source.id, "budget-pipeline", "budget-output")
+      setDataTypeFields(DataTypeId(pipeline.outputDataTypeId), userA, Vector(DataField("name", "Name", "string", nullable = false)))
+      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(JsObject("name" -> JsString("x")))))
+
+      val routes = new WorkspaceRoutes(None, service, userA).routes
+
+      Get("/workspace/context?budgetBytes=0") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[WorkspaceContextResponse]
+        body.truncation.applied shouldBe true
+        body.truncation.budgetBytes shouldBe 0
+        body.truncation.structuralFloorExceedsBudget shouldBe true
+        body.dataTypes.foreach(_.sampleRows shouldBe empty)
+        body.dataTypes.foreach(_.columnStats.values.foreach(_.exampleValues shouldBe empty))
+        body.joinHints shouldBe empty
+        // Structural identity of resources is preserved even at the
+        // tightest budget — the DataType itself is never dropped.
+        body.dataTypes.exists(_.id == pipeline.outputDataTypeId) shouldBe true
+
+        schemaValidationErrors(body) shouldBe empty
+      }
+    }
+
+    "reject a negative budgetBytes with 400" in {
+      implicit val ec: ExecutionContext = routeEc
+      val routes = new WorkspaceRoutes(None, service, userA).routes
+
+      Get("/workspace/context?budgetBytes=-1") ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("budgetBytes")
+      }
+    }
+
+    "use the configured default budget when budgetBytes is omitted" in {
+      implicit val ec: ExecutionContext = routeEc
+      createSource(userA, "budget-default-source")
+
+      val routes = new WorkspaceRoutes(None, service, userA).routes
+
+      Get("/workspace/context") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[WorkspaceContextResponse]
+        body.truncation.budgetBytes shouldBe WorkspaceContextBudget.DefaultBudgetBytes
+        // This fixture is far smaller than the (200000-byte) default budget.
+        body.truncation.applied shouldBe false
+
+        schemaValidationErrors(body) shouldBe empty
       }
     }
   }

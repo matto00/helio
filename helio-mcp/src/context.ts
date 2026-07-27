@@ -585,6 +585,286 @@ export function computeJoinHints(
   return hints.slice(0, MAX_JOIN_HINTS);
 }
 
+// ── Token-budget trimming (HEL-377 design.md D1-D9) ──────────────────────
+//
+// An INDEPENDENT TypeScript implementation of `WorkspaceContextBudget`
+// (Scala) — no shared runtime, so parity is achieved by duplicating the
+// same tiered shed order (D3) and exact-decomposition technique (D4) and
+// testing each side separately (design.md D9). Cross-runtime byte-for-byte
+// equality of `estimatedSizeBytes` is NOT claimed (the two serializers can
+// escape non-ASCII/control characters differently) — what IS mirrored, and
+// IS tested, is the algorithm: the same shed order, reaching the SAME caps
+// for an equivalent logical input and budget.
+
+export interface WorkspaceContextTruncation {
+  applied: boolean;
+  budgetBytes: number;
+  estimatedSizeBytes: number;
+  sampleRowsCap: number;
+  exampleValuesCap: number;
+  joinHintsKept: number;
+  joinHintsOmittedByBudget: number;
+  structuralFloorExceedsBudget: boolean;
+  paginationTruncatedResources: string[];
+}
+
+/** Env-var-overridable default budget (design.md D8/D9) — same value and
+ *  same env-var name as the backend's `WorkspaceContextBudget.DefaultBudgetBytes`,
+ *  independently read here since the MCP process has no shared runtime with
+ *  the backend. `200000` (~200K UTF-16 code units) if unset or unparseable. */
+function readDefaultBudgetBytes(): number {
+  const raw = process.env["WORKSPACE_CONTEXT_DEFAULT_BUDGET_BYTES"];
+  if (raw === undefined) return 200_000;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : 200_000;
+}
+export const DEFAULT_BUDGET_BYTES: number = readDefaultBudgetBytes();
+
+/** A discarded placeholder — `buildWorkspaceContext` must supply SOME
+ *  `WorkspaceContextTruncation` before `applyBudget` has run (mirrors the
+ *  Scala side's `WorkspaceContextBudget.PlaceholderTruncation` — every field
+ *  here is overwritten unconditionally by `applyBudget`, never read). */
+const PLACEHOLDER_TRUNCATION: WorkspaceContextTruncation = {
+  applied: false,
+  budgetBytes: 0,
+  estimatedSizeBytes: 0,
+  sampleRowsCap: 0,
+  exampleValuesCap: 0,
+  joinHintsKept: 0,
+  joinHintsOmittedByBudget: 0,
+  structuralFloorExceedsBudget: false,
+  paginationTruncatedResources: [],
+};
+
+/** D-Pagination (the ticket's carried finding): which of
+ *  `dataSources`/`dataTypes`/`dashboards` were truncated by the `limit=200`
+ *  fetch (compares each already-fetched page's `items.length` against its
+ *  reported `total` — no new request). `[]` when none were truncated. */
+export function paginationTruncatedResources(
+  sourcesPage: { items: unknown[]; total: number },
+  typesPage: { items: unknown[]; total: number },
+  dashboardsPage: { items: unknown[]; total: number },
+): string[] {
+  const result: string[] = [];
+  if (sourcesPage.items.length < sourcesPage.total) result.push("dataSources");
+  if (typesPage.items.length < typesPage.total) result.push("dataTypes");
+  if (dashboardsPage.items.length < dashboardsPage.total) result.push("dashboards");
+  return result;
+}
+
+type ContextDataTypes = WorkspaceContext["dataTypes"];
+
+/** The CORE context's serialized size — every field of `context` EXCEPT
+ *  `truncation` itself (mirrors the Scala side's `coreSize` — excluding
+ *  `truncation`'s own bytes avoids a field describing a size that includes
+ *  its own not-yet-known serialized length). */
+function coreSize(context: WorkspaceContext): number {
+  const { truncation: _truncation, ...core } = context;
+  return JSON.stringify(core).length;
+}
+
+function sampleRowsLenAt(dataTypes: ContextDataTypes, cap: number): number {
+  let total = 0;
+  for (const dt of dataTypes) total += JSON.stringify(dt.sampleRows.slice(0, cap)).length;
+  return total;
+}
+
+function exampleValuesLenAt(dataTypes: ContextDataTypes, cap: number): number {
+  let total = 0;
+  for (const dt of dataTypes) {
+    for (const stats of Object.values(dt.columnStats)) {
+      total += JSON.stringify(stats.exampleValues.slice(0, cap)).length;
+    }
+  }
+  return total;
+}
+
+function joinHintsLenAt(joinHints: WorkspaceContextJoinHint[], cap: number): number {
+  return JSON.stringify(joinHints.slice(0, cap)).length;
+}
+
+function trimSampleRows(dataTypes: ContextDataTypes, cap: number): ContextDataTypes {
+  return dataTypes.map((dt) => ({ ...dt, sampleRows: dt.sampleRows.slice(0, cap) }));
+}
+
+function trimExampleValues(dataTypes: ContextDataTypes, cap: number): ContextDataTypes {
+  return dataTypes.map((dt) => {
+    const columnStats: Record<string, ColumnStats> = {};
+    for (const [name, stats] of Object.entries(dt.columnStats)) {
+      columnStats[name] = { ...stats, exampleValues: stats.exampleValues.slice(0, cap) };
+    }
+    return { ...dt, columnStats };
+  });
+}
+
+/** Searches `maxCap downTo 0` for the LARGEST cap whose predicted total
+ *  context size fits `budget` (design.md D4's "table lookup" — an exact
+ *  arithmetic identity, never re-serializing the full context per candidate).
+ *  `undefined` iff even `c = 0` doesn't fit (the tier is fully exhausted and
+ *  still over budget — the caller proceeds to the next tier). */
+function findLargestFittingCap(
+  maxCap: number,
+  currentSize: number,
+  naturalTierLen: number,
+  tierLenAtCap: (c: number) => number,
+  budget: number,
+): number | undefined {
+  for (let c = maxCap; c >= 0; c--) {
+    const predicted = currentSize - (naturalTierLen - tierLenAtCap(c));
+    if (predicted <= budget) return c;
+  }
+  return undefined;
+}
+
+/** Applies the D3 tiered shed order to `context`, returning the
+ *  (possibly-trimmed) context with its `truncation` field set to the real
+ *  outcome. `context.truncation` on entry is discarded unconditionally (see
+ *  `PLACEHOLDER_TRUNCATION`) — every other field is read. Pure: no network
+ *  calls. Mirrors the Scala side's `WorkspaceContextBudget.apply`. */
+export function applyBudget(
+  context: WorkspaceContext,
+  budgetBytes: number,
+  paginationTruncated: string[],
+): WorkspaceContext {
+  const naturalSampleRowsCap = context.dataTypes.reduce(
+    (m, dt) => Math.max(m, dt.sampleRows.length),
+    0,
+  );
+  const naturalExampleValuesCap = context.dataTypes.reduce((m, dt) => {
+    let localMax = m;
+    for (const stats of Object.values(dt.columnStats))
+      localMax = Math.max(localMax, stats.exampleValues.length);
+    return localMax;
+  }, 0);
+  const naturalJoinHintsCount = context.joinHints.length;
+
+  const naturalSize = coreSize(context);
+
+  const truncationOf = (
+    applied: boolean,
+    estimatedSizeBytes: number,
+    sampleRowsCap: number,
+    exampleValuesCap: number,
+    joinHintsKept: number,
+    structuralFloorExceedsBudget: boolean,
+  ): WorkspaceContextTruncation => ({
+    applied,
+    budgetBytes,
+    estimatedSizeBytes,
+    sampleRowsCap,
+    exampleValuesCap,
+    joinHintsKept,
+    joinHintsOmittedByBudget: naturalJoinHintsCount - joinHintsKept,
+    structuralFloorExceedsBudget,
+    paginationTruncatedResources: paginationTruncated,
+  });
+
+  // Fast path (design.md D4 step 1): one full serialization; if within
+  // budget, return unchanged.
+  if (naturalSize <= budgetBytes) {
+    return {
+      ...context,
+      truncation: truncationOf(
+        false,
+        naturalSize,
+        naturalSampleRowsCap,
+        naturalExampleValuesCap,
+        naturalJoinHintsCount,
+        false,
+      ),
+    };
+  }
+
+  // ── Tier 1: sampleRows (cut FIRST) ────────────────────────────────────
+  const naturalTier1Len = sampleRowsLenAt(context.dataTypes, naturalSampleRowsCap);
+  const c1 = findLargestFittingCap(
+    naturalSampleRowsCap,
+    naturalSize,
+    naturalTier1Len,
+    (c) => sampleRowsLenAt(context.dataTypes, c),
+    budgetBytes,
+  );
+
+  if (c1 !== undefined) {
+    const estimatedSize = naturalSize - (naturalTier1Len - sampleRowsLenAt(context.dataTypes, c1));
+    return {
+      ...context,
+      dataTypes: trimSampleRows(context.dataTypes, c1),
+      truncation: truncationOf(
+        true,
+        estimatedSize,
+        c1,
+        naturalExampleValuesCap,
+        naturalJoinHintsCount,
+        false,
+      ),
+    };
+  }
+
+  // Tier 1 fully exhausted (sampleRows emptied everywhere) and still over
+  // budget — proceed to tier 2.
+  const sizeAfterTier1 = naturalSize - (naturalTier1Len - sampleRowsLenAt(context.dataTypes, 0));
+  const tier1EmptiedTypes = trimSampleRows(context.dataTypes, 0);
+
+  // ── Tier 2: columnStats[*].exampleValues (cut 2nd) ────────────────────
+  const naturalTier2Len = exampleValuesLenAt(tier1EmptiedTypes, naturalExampleValuesCap);
+  const c2 = findLargestFittingCap(
+    naturalExampleValuesCap,
+    sizeAfterTier1,
+    naturalTier2Len,
+    (c) => exampleValuesLenAt(tier1EmptiedTypes, c),
+    budgetBytes,
+  );
+
+  if (c2 !== undefined) {
+    const estimatedSize =
+      sizeAfterTier1 - (naturalTier2Len - exampleValuesLenAt(tier1EmptiedTypes, c2));
+    return {
+      ...context,
+      dataTypes: trimExampleValues(tier1EmptiedTypes, c2),
+      truncation: truncationOf(true, estimatedSize, 0, c2, naturalJoinHintsCount, false),
+    };
+  }
+
+  // Tier 2 fully exhausted (exampleValues emptied everywhere) and still over
+  // budget — proceed to tier 3.
+  const sizeAfterTier2 =
+    sizeAfterTier1 - (naturalTier2Len - exampleValuesLenAt(tier1EmptiedTypes, 0));
+  const tiers12EmptiedTypes = trimExampleValues(tier1EmptiedTypes, 0);
+
+  // ── Tier 3: joinHints (cut LAST) ───────────────────────────────────────
+  const naturalTier3Len = joinHintsLenAt(context.joinHints, naturalJoinHintsCount);
+  const c3 = findLargestFittingCap(
+    naturalJoinHintsCount,
+    sizeAfterTier2,
+    naturalTier3Len,
+    (c) => joinHintsLenAt(context.joinHints, c),
+    budgetBytes,
+  );
+
+  if (c3 !== undefined) {
+    const estimatedSize =
+      sizeAfterTier2 - (naturalTier3Len - joinHintsLenAt(context.joinHints, c3));
+    return {
+      ...context,
+      dataTypes: tiers12EmptiedTypes,
+      joinHints: context.joinHints.slice(0, c3),
+      truncation: truncationOf(true, estimatedSize, 0, 0, c3, false),
+    };
+  }
+
+  // D5: structural floor — all three tiers exhausted and STILL over budget.
+  // Return as-is at this now-minimal size; resources are never dropped to
+  // chase the budget further.
+  const estimatedSize = sizeAfterTier2 - (naturalTier3Len - joinHintsLenAt(context.joinHints, 0));
+  return {
+    ...context,
+    dataTypes: tiers12EmptiedTypes,
+    joinHints: [],
+    truncation: truncationOf(true, estimatedSize, 0, 0, 0, true),
+  };
+}
+
 export interface WorkspaceContext {
   generatedAt: string;
   counts: {
@@ -670,6 +950,8 @@ export interface WorkspaceContext {
    *  see `computeJoinHints`. Never authors a join step itself and never mutates any DataType's
    *  authoritative dataType. ALWAYS present (`[]`, never omitted) even when no candidate pairs exist. */
   joinHints: WorkspaceContextJoinHint[];
+  /** HEL-377: the deterministic byte-budget outcome — see `applyBudget`. ALWAYS present. */
+  truncation: WorkspaceContextTruncation;
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -686,7 +968,15 @@ function panelCount(layout: {
   return ids.size;
 }
 
-export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceContext> {
+/** `budgetBytes` (HEL-377 design.md D7/D9): defaults to `DEFAULT_BUDGET_BYTES`
+ *  (env-var overridable, same convention as the backend's own default) so
+ *  existing callers with a single argument are unaffected. `applyBudget` is
+ *  the LAST step before returning — a pure in-memory pass over the
+ *  already-bounded structure built above (no new fetch). */
+export async function buildWorkspaceContext(
+  api: HelioApi,
+  budgetBytes: number = DEFAULT_BUDGET_BYTES,
+): Promise<WorkspaceContext> {
   const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes] =
     await Promise.all([
       api.listDataSources(),
@@ -775,7 +1065,7 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
     }),
   );
 
-  return {
+  const context: WorkspaceContext = {
     generatedAt: new Date().toISOString(),
     counts: {
       dataSources: sourcesPage.total,
@@ -809,5 +1099,14 @@ export async function buildWorkspaceContext(api: HelioApi): Promise<WorkspaceCon
     // exact structure already owner-scoped by `typesPage` (D3), so there is
     // only ever one caller's data in scope for this whole function call.
     joinHints: computeJoinHints(dataTypes),
+    // HEL-377: overwritten unconditionally by `applyBudget` below — see
+    // `PLACEHOLDER_TRUNCATION`.
+    truncation: PLACEHOLDER_TRUNCATION,
   };
+
+  return applyBudget(
+    context,
+    budgetBytes,
+    paginationTruncatedResources(sourcesPage, typesPage, dashboardsPage),
+  );
 }

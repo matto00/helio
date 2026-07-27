@@ -11,7 +11,8 @@
     "dataTypes",
     "pipelines",
     "dashboards",
-    "joinHints"
+    "joinHints",
+    "truncation"
   ],
   "properties": {
     "generatedAt": {
@@ -38,8 +39,9 @@
     "joinHints": {
       "type": "array",
       "items": { "$ref": "#/$defs/JoinHint" },
-      "description": "HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints — pairwise comparisons of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself and never mutates any DataType's authoritative dataType. ALWAYS present (an empty array, never omitted) even when no candidate pairs exist. Bounded by construction, independent of workspace size — see JoinHint.confidence and MaxJoinHints/MaxColumnsPerNameBucket in WorkspaceContextService for the documented caps."
-    }
+      "description": "HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints — pairwise comparisons of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself and never mutates any DataType's authoritative dataType. ALWAYS present (an empty array, never omitted) even when no candidate pairs exist. Bounded by construction, independent of workspace size — see JoinHint.confidence and MaxJoinHints/MaxColumnsPerNameBucket in WorkspaceContextService for the documented caps. May itself be trimmed by the budgeting pass described in truncation — see Truncation."
+    },
+    "truncation": { "$ref": "#/$defs/Truncation" }
   },
   "additionalProperties": false,
   "$defs": {
@@ -278,6 +280,70 @@
         }
       },
       "additionalProperties": false
+    },
+    "Truncation": {
+      "type": "object",
+      "required": [
+        "applied",
+        "budgetBytes",
+        "estimatedSizeBytes",
+        "sampleRowsCap",
+        "exampleValuesCap",
+        "joinHintsKept",
+        "joinHintsOmittedByBudget",
+        "structuralFloorExceedsBudget",
+        "paginationTruncatedResources"
+      ],
+      "properties": {
+        "applied": {
+          "type": "boolean",
+          "description": "true iff the deterministic budgeting pass actually shrank sampleRows, exampleValues, or joinHints below their natural size to fit budgetBytes."
+        },
+        "budgetBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The budget used for this response — the request's budgetBytes query param, or the server's configured default (WORKSPACE_CONTEXT_DEFAULT_BUDGET_BYTES, default 200000) when omitted. Measured in UTF-16 code units (String.length), NOT exact UTF-8 bytes and NOT a real LLM token count — an approximate, model-independent proxy for prompt cost (see estimatedSizeBytes)."
+        },
+        "estimatedSizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The response's measured post-trim size, in UTF-16 code units (String.length on the compact JSON serialization) of every top-level field EXCEPT this truncation object itself — excluding truncation's own bytes avoids a field describing a size that includes its own not-yet-known serialized length; truncation's bytes are a small, roughly-fixed metadata overhead added on top of the budgeted core, not counted against budgetBytes. Not an exact UTF-8 byte count and not a real LLM token count — see budgetBytes."
+        },
+        "sampleRowsCap": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The sampleRows row-count cap actually applied uniformly across every DataType (cut 1st in the shed order); equals each DataType's own natural sampleRows length when untouched (at most 5)."
+        },
+        "exampleValuesCap": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The columnStats[*].exampleValues length cap actually applied uniformly across every column of every DataType (cut 2nd, only once sampleRows is fully exhausted and the response is still over budget); equals each column's own natural exampleValues length when untouched (at most 5)."
+        },
+        "joinHintsKept": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "joinHints' length after budget trimming (cut 3rd/last, only once sampleRows and exampleValues are both fully exhausted and the response is still over budget). The already-sorted (confidence descending, id tie-break) prefix that was kept."
+        },
+        "joinHintsOmittedByBudget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "joinHints' natural (pre-budget) length minus joinHintsKept — how many join hints the budget pass dropped from the end of the already-sorted list."
+        },
+        "structuralFloorExceedsBudget": {
+          "type": "boolean",
+          "description": "true iff even the fully-shrunk response (sampleRows=[] everywhere, exampleValues=[] everywhere, joinHints=[]) still exceeds budgetBytes — resources are never dropped to chase the budget further, so the budget becomes best-effort in this case. A consumer should treat this as a signal the requested budget could not be fully honored, not that the response is malformed."
+        },
+        "paginationTruncatedResources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["dataSources", "dataTypes", "dashboards"]
+          },
+          "description": "Which of dataSources/dataTypes/dashboards were truncated by the underlying Page.Default (200-item) fetch limit — i.e. counts.<kind> exceeds <kind>.length. Empty when none were truncated. This does not raise the 200-item fetch limit; it makes the existing truncation explicit rather than silent (a workspace with more than 200 of a given resource kind is not fully represented in the corresponding array, even though counts reports the true total)."
+        }
+      },
+      "additionalProperties": false,
+      "description": "HEL-377: the deterministic byte-budget outcome — reports whether/how sampleRows/exampleValues/joinHints were shrunk to fit budgetBytes, and whether the existing Page.Default (200-item) list fetch truncated any resource kind. ALWAYS present (an object, never omitted) — applied: false and all-natural cap values when nothing needed trimming."
     }
   }
 }

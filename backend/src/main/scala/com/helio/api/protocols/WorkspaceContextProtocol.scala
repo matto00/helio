@@ -134,11 +134,44 @@ final case class WorkspaceContextPipeline(
 
 final case class WorkspaceContextDashboard(id: String, name: String, panelCount: Int)
 
+/** Deterministic budgeting outcome (HEL-377 design.md D6) — reports
+ *  whether/how `WorkspaceContextBudget.apply` shrank `sampleRows`/
+ *  `exampleValues`/`joinHints` to fit `budgetBytes`, so a downstream consumer
+ *  (HEL-341's Claude call) can tell the context is partial. ALWAYS present
+ *  (a required top-level field on `WorkspaceContextResponse`, never
+ *  `Option`) — every field here is a simple scalar/vector, so there is no
+ *  spray-json `None`-omission risk (the epic's carried finding #8).
+ *
+ *  `estimatedSizeBytes`/`budgetBytes` are UTF-16 code-unit counts of the
+ *  compact JSON serialization (`String.length`), NOT exact UTF-8 byte counts
+ *  and NOT a real LLM token count (design.md D1) — an approximate,
+ *  model-independent proxy for prompt cost. `estimatedSizeBytes` measures the
+ *  response's CORE fields only (every field except this `truncation` object
+ *  itself) — excluding `truncation`'s own bytes avoids the self-referential
+ *  paradox of a field whose value would have to describe a size that
+ *  includes its own not-yet-known serialized length; `truncation`'s bytes are
+ *  a small, roughly-fixed metadata overhead added on top of the budgeted
+ *  core, not counted against `budgetBytes` itself. */
+final case class WorkspaceContextTruncation(
+    applied: Boolean,
+    budgetBytes: Int,
+    estimatedSizeBytes: Int,
+    sampleRowsCap: Int,
+    exampleValuesCap: Int,
+    joinHintsKept: Int,
+    joinHintsOmittedByBudget: Int,
+    structuralFloorExceedsBudget: Boolean,
+    paginationTruncatedResources: Vector[String]
+)
+
 /** Top-level response for `GET /api/workspace/context`. Field-for-field
  *  structural parity with `helio-mcp/src/context.ts`'s `WorkspaceContext`
  *  EXCEPT `pipelineShapes`, intentionally omitted (design.md D4 — not part of
  *  this ticket's scope/acceptance criteria; `PipelineShapeService` is
- *  stateless/code-level with no RLS story). */
+ *  stateless/code-level with no RLS story).
+ *
+ *  `truncation` (HEL-377): the deterministic byte-budget outcome — see
+ *  `WorkspaceContextTruncation`. */
 final case class WorkspaceContextResponse(
     generatedAt: String,
     counts: WorkspaceContextCounts,
@@ -146,7 +179,8 @@ final case class WorkspaceContextResponse(
     dataTypes: Vector[WorkspaceContextDataType],
     pipelines: Vector[WorkspaceContextPipeline],
     dashboards: Vector[WorkspaceContextDashboard],
-    joinHints: Vector[WorkspaceContextJoinHint]
+    joinHints: Vector[WorkspaceContextJoinHint],
+    truncation: WorkspaceContextTruncation
 )
 
 trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol {
@@ -173,6 +207,8 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
     jsonFormat12(WorkspaceContextPipeline.apply)
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
     jsonFormat3(WorkspaceContextDashboard.apply)
+  implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =
+    jsonFormat9(WorkspaceContextTruncation.apply)
   implicit val workspaceContextResponseFormat: RootJsonFormat[WorkspaceContextResponse] =
-    jsonFormat7(WorkspaceContextResponse.apply)
+    jsonFormat8(WorkspaceContextResponse.apply)
 }
