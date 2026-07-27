@@ -80,6 +80,12 @@ lint/format/schemas/scala-quality clean, openspec validate --strict valid, tsc -
 confidence description checked word-for-word, accurate. git status clean before/after skeptic's own
 probing.
 
+## Delivery — PR open, watching CI
+Squashed 9 branch commits into one (fac7cbec), archived the change (aae5997c, no placeholder Purpose
+issue since workspace-context-assembly spec already existed), pushed branch, delivery gate PASS, PR
+#311 opened: https://github.com/matto00/helio/pull/311. Posted PR link to HEL-374. Next: watch CI to
+green, then manual `gh pr merge --squash` (never --auto per standing rules), then Phase 4 cleanup on
+human confirmation.
+
 ## Next step
-Both gates cleared (evaluator PASS + skeptic CONFIRM). Proceeding to Delivery: squash commits, archive
-change, fix synced-spec Purpose placeholders, push branch, create PR.
+Watching `gh pr checks --watch` on PR #311.
