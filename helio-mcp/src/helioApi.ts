@@ -224,11 +224,13 @@ export class HelioApi {
     dataTypeId: string,
     limit?: number,
     excludeContentFields?: boolean,
+    maxStructuredColumns?: number,
   ): Promise<DataTypeRowsResponse> {
     return this.http.get<DataTypeRowsResponse>(`/api/types/${dataTypeId}/rows`, {
       limit,
       excludeContentFields:
         excludeContentFields === undefined ? undefined : String(excludeContentFields),
+      maxStructuredColumns,
     });
   }
 

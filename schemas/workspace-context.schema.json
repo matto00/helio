@@ -76,6 +76,48 @@
       },
       "additionalProperties": false
     },
+    "ColumnStats": {
+      "type": "object",
+      "required": ["nullRate", "distinctCount", "distinctCountCapped", "exampleValues"],
+      "properties": {
+        "nullRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of the bounded fetch's rows whose value for this column is JSON null or the key is absent. 0 when the fetch is empty (no run snapshot yet), not NaN."
+        },
+        "distinctCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of distinct (200-char-truncated) values among the bounded fetch's rows, capped at 100 (see distinctCountCapped)."
+        },
+        "distinctCountCapped": {
+          "type": "boolean",
+          "description": "true iff the true distinct count among the bounded fetch's rows exceeds the cap (100) — distinctCount itself then equals the cap, not the true count."
+        },
+        "exampleValues": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "description": "One distinct, non-null, 200-char-truncated example value, in first-seen row order."
+          },
+          "description": "Up to 5 distinct, non-null example values, in first-seen row order (deterministic)."
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Numeric-column-only (integer/float declared type), present only when at least one fetched value parses as numeric. Absent on the wire (not null) for a non-numeric column or a numeric-declared column whose every value fails to parse — spray-json omits a None Option field entirely rather than emitting null; not in required for that reason."
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "See min's description; same presence rule."
+        },
+        "mean": {
+          "type": ["number", "null"],
+          "description": "See min's description; same presence rule. Rounded to 4 decimal places."
+        }
+      },
+      "additionalProperties": false
+    },
     "DataTypeEntry": {
       "type": "object",
       "required": [
@@ -85,7 +127,8 @@
         "columns",
         "computedColumns",
         "version",
-        "sampleRows"
+        "sampleRows",
+        "columnStats"
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
@@ -119,6 +162,11 @@
             "description": "One sample row, keyed by column name. Permissive item shape — values may be any JSON type the DataType's Structured-category columns produce (string/number/boolean/null)."
           },
           "description": "HEL-372: up to 5 rows from this DataType's latest pipeline-run snapshot, keyed by column name. ALWAYS present (an empty array, never omitted) — a source-companion DataType (sourceId present) or a pipeline-output DataType with no run snapshot reports []. Bounded by construction: at most 5 rows (SQL-tier LIMIT), at most the first 40 of the DataType's declared Structured-category columns per row (in field/columns[] order), at most 200 characters per cell value (oversized values truncated to a string ending in the literal marker \"…[truncated]\"). Content-category columns (dataType string-body/binary-ref, HEL-217) are EXCLUDED from sampleRows entirely — their values never appear here, regardless of length — stripped at the SQL tier before the row ever reaches the app."
+        },
+        "columnStats": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/ColumnStats" },
+          "description": "HEL-373: per-column statistics keyed by column name, one entry per Structured-category column of this DataType (capped at the first 40 in declared order — same bound as sampleRows/columns). Computed over the SAME bounded (≤500-row) fetch sampleRows is derived from — an approximation, not the DataType's true full row count, for a DataType with more than 500 stored rows (see design.md D1). ALWAYS present (an empty object, never omitted) — a source-companion DataType reports {}; a pipeline-output DataType with no run snapshot yet still reports one entry per Structured-category column (nullRate: 0, distinctCount: 0). Content-category columns (string-body/binary-ref, HEL-217) have no entry at all — absence is the signal, mirroring sampleRows's exclusion."
         }
       },
       "additionalProperties": false
