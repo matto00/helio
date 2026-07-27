@@ -298,6 +298,25 @@ covers:
    plain `Math.round`, since every non-tie value already rounds identically under both conventions. Pinned
    by an identical `-0.00005 → -0.0001` regression test on both sides.
 
+**Cross-language rounding parity is bounded, not absolute — stated explicitly rather than assumed.**
+Aligning the tie-break convention (point 3 above) makes the two sides agree at every tie and at every
+practically-reachable value, confirmed by direct probing (final-gate skeptic round 4) and pinned by a
+shared regression test. But Scala and TS still use two *different rounding algorithms*, not one shared
+implementation: Scala rounds the original value exactly via `BigDecimal.setScale` (arbitrary-precision
+decimal arithmetic, no representation error); TS multiplies by `10^4`, rounds, and divides back down (with
+the overflow pre-check from finding 2), which — unlike `BigDecimal` — can introduce IEEE-754 floating-point
+representation error during the multiply/divide steps for an adversarially-constructed input. The two are
+**not guaranteed bit-identical for every conceivable double**, only for the tie-break convention and for
+every value either side's test suite or adversarial skeptic probing has actually reached. Closing this
+residual gap completely would require either giving TS an exact-decimal arithmetic library (a new
+dependency for a purely cosmetic parity gain) or reverting Scala's `BigDecimal.setScale` back to a
+multiply-based technique (which would reintroduce finding 2's overflow-fabrication surface — unacceptable).
+Deliberately not pursued for that reason. This sentence exists specifically so a future reader doesn't
+repeat this ticket's own most costly pattern: a confident, unqualified determinism/finiteness claim in this
+document that quietly stopped matching the shipped code (the original D5 paragraph's "identical technique
+in both Scala and TS" text, and the once-false "`JsNumber` cannot represent `NaN`/`Infinity`" comment, both
+did exactly this and each cost a full review round to catch).
+
 **Accepted, not fixed, floating-point precision caveat**: the `Double`/JS-`number` `numericSum` accumulator
 itself is standard IEEE-754 running-sum arithmetic (the same technique numpy/pandas use for a naive sum),
 which accumulates a small relative rounding error at extreme magnitude/row-count combinations — e.g. 500
