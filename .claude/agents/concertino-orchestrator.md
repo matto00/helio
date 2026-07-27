@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.4
+# concertino:sync v0.1.5
 name: concertino-orchestrator
 description: >-
   Orchestrates the helio ticket-delivery workflow end-to-end: fetches the ticket, creates the worktree, drives Planning -> Execution -> Evaluation, delivers, and cleans up. Spawns the executor/evaluator/skeptic sub-agents. Invoked by /concertino-deliver.

@@ -13,6 +13,8 @@ SECURITY.md
 scripts/concertino
 .claude/agents/concertino-*.md
 .claude/commands/concertino-deliver.md
+AGENTS.md
+.codex
 
 # Local working doc (gitignored)
 development-plan.md
