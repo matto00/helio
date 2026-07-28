@@ -1,6 +1,8 @@
 .idea
 .vscode/
 .metals/
+.bsp/
+.bloop/
 node_modules/
 frontend/node_modules/
 dist/
