@@ -51,3 +51,8 @@ frontend/skills-lock.json
 
 # Local demo/test artifacts (occasionally created by playwright sessions, etc.)
 docs/demo/
+
+# Concertino
+.concertino/
+scripts/concertino/
+concertino.config.json

@@ -1,5 +1,5 @@
 ---
-# concertino:sync v0.1.4
+# concertino:sync v0.1.5
 name: concertino-executor
 description: >-
   Implementation agent for the helio ticket-delivery workflow. Implements the planned change, runs verification gates, commits. Resumable across evaluation cycles. Invoked only by the orchestrator.
@@ -123,8 +123,11 @@ When changed files match `backend/**`:
 Fix any failure before proceeding. Never skip a failing gate. When a gate fails or
 you hit a bug, follow `systematic-debugging.md`: **no fix without a probe-confirmed
 root cause** — name the failing layer, run a minimal probe that confirms the cause,
-then fix the cause (not the symptom). After 2 failed
-attempts on the same symptom, stop and escalate per that doc's circuit breaker.
+then fix the cause (not the symptom). After `DEBUG_ATTEMPTS` failed attempts on the
+same symptom (read the current value from `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/workflow-state.md`
+— resolved once at Setup from the run's speed; the `default` speed's value is
+**2**, shown only as an illustrative example), stop and
+escalate per that doc's circuit breaker.
 
 Per `verification-before-completion.md`: do not report a gate as passing until you
 have run it fresh and read its output. Gate results in your return must be
