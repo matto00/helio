@@ -53,6 +53,12 @@ Planning → Execution → Evaluation in sequence, deliver, and clean up.
   the counters this workflow already tracks across resume (`CYCLE`,
   `SKEPTIC_CYCLE`) were already runtime state; the bounds they're compared
   against are runtime state too, for exactly the same resume-safety reason.
+- `ADDRESS_FAILURE` (optional, CON-98): `true`, or unset/`false` — forwarded
+  by `/concertino-address-failure <TICKET_ID>` (the dashboard's `a` key on a
+  FAILED fleet row). When `true`, run the **Address-Failure entry point**
+  below **instead of** the ordinary Setup section — everything after that
+  entry point (Phase 1 onward) is unchanged, reached only once the entry
+  point has resolved a phase to resume from.
 
 ## Harness resume model
 
@@ -75,6 +81,23 @@ sub-agent was told to produce (its report path, or a new commit on the
 branch), or escalate. The spawn/resume instructions below each restate this
 at the point you need it, so the rule survives even if you only ever see one
 of them in isolation.
+
+**One narrow exception (CON-76).** The only circumstance in which this
+orchestrator may end its turn while artifacts of the current ticket are still
+incomplete is to bubble a `PENDING_ESCALATION` it has just raised (via
+`--raise-only`) or received from a child it spawned, up to its own parent —
+and only after that escalation's full state is durably persisted in
+`workflow-state.md` so a cold re-spawn can reconstruct it. This is not the
+same failure mode CON-10 and CON-15 closed off: at the moment of this return,
+this orchestrator has no outstanding spawned child of its own (the
+executor/evaluator/skeptic/auditor that led to this escalation has already
+returned its verdict) — nothing here is orphaned by the return, because
+everything needed to resume is already on disk and the parent that receives
+this return is the one now responsible for eventually calling `SendMessage`
+back in. Ending a turn for any other reason — including while waiting on a
+spawned executor, evaluator, skeptic, or auditor — remains exactly as
+forbidden as before. See "Escalation & Circuit Breakers" → "How to raise one"
+below for the full raise/bubble/resume protocol this exception exists for.
 
 You spawn sub-agents with the `Agent` tool and resume the executor + evaluator **warm** via `SendMessage` across cycles. The skeptic is **always a fresh `Agent` spawn** (cold). If `SendMessage` is unavailable, fall back to a fresh spawn whose prompt begins `RESUME — do not start over`, pointing the agent at `workflow-state.md` to recover — it resumes, never restarts.
 
@@ -141,40 +164,172 @@ Never let telemetry block delivery: if a call fails, continue.
 1. **Fetch the ticket** (title + description + acceptance criteria) and set its
    status to *In Progress*.
    Use the Linear MCP: `mcp__linear__get_issue` to fetch, `mcp__linear__save_issue` to set status, `mcp__linear__save_comment` to comment.
+
+   **Check for a per-ticket harness override (CON-62).** Immediately after the
+   fetch, inspect the ticket's `labels` (Linear's `get_issue`/`mcp__linear__get_issue`
+   already returns these — no additional call) for labels matching `^harness:(.+)$`.
+   - **No match** → proceed unchanged; no override for this run.
+   - **Exactly one match, value in the implemented set** (see
+     `CONCERTINO_IMPLEMENTED_HARNESSES` in `.concertino.env` for the current
+     set — today `claude-code`, `codex`, `opencode`) → record the value as
+     `HARNESS_OVERRIDE` for step 3 below.
+   - **Exactly one match, value NOT implemented (e.g. `local-llm`), OR more
+     than one matching label (ambiguous)** → **hard stop here.** Do not derive
+     a branch name (step 2) or call `setup-worktree.sh` (step 3) — no
+     worktree is created. Surface the ticket id and the unsupported/ambiguous
+     value(s) to the human exactly like the `FAIL` → `BLOCKER` treatment in
+     step 3 below.
+
+   **Check for a design-ticket type (CON-100).** Also immediately after the
+   fetch, alongside the check above: a label matching exactly `type:design`
+   marks the ticket as one. Absent that label, a title starting with the
+   literal prefix `[DESIGN] ` also marks it as one. Absent both, the ticket
+   is an ordinary (`feature`/`task`/`bug`) ticket. The label wins when both
+   are present. Unlike the harness-label check above, there is no
+   "unsupported value"/ambiguity case to hard-stop on — "design" is a single
+   boolean-ish signal (a ticket either is or isn't one), two agreeing signals
+   is not a conflict, and there is no open value set to validate against.
+   Record the resolved value as `TICKET_TYPE` (`design` or `feature`) for
+   step 6 below.
 2. **Derive a branch name:** `[feature|task|bug]/[3-5-word-description]/[ticket-id]`
    (`feature/` net-new behavior; `task/` tests/tooling/infra; `bug/` regressions).
 3. **Create the worktree** by calling the canonical script (do not hand-roll
    `git worktree` / env-copy / port math — the script is the source of truth),
-   passing `SPEED` (or `default` if unset) as the third argument — this is
+   passing `SPEED` (or `default` if unset) as the third argument and any
+   `HARNESS_OVERRIDE` recorded in step 1 as the optional fourth — this is
    also where the run's speed gets resolved, once, authoritatively:
 
    ```bash
-   scripts/concertino/setup-worktree.sh "$TICKET_ID" "<branch>" "${SPEED:-default}"
+   scripts/concertino/setup-worktree.sh "$TICKET_ID" "<branch>" "${SPEED:-default}" "${HARNESS_OVERRIDE:-}"
    ```
 
    Parse its `READY` lines for `worktree=`, `dev_port=`, `backend_port=` and store
    them as `WORKTREE_PATH`, `DEV_PORT`, `BACKEND_PORT`. **These are now the
    authoritative ports** — do not recompute them later. Also parse `speed=`,
    `budgets=` (a JSON object), `models=` (a JSON object, per role),
-   `second_final_gate_skeptic=`, and `evaluator_clean_worktree=` — these are
-   the run's one authoritative speed resolution (`setup-worktree.sh` already
-   called `resolve-speed.sh` internally; **do not call it again yourself**).
+   `second_final_gate_skeptic=`, `evaluator_clean_worktree=`, `harness=`, and
+   `harness_source=` — these are the run's one authoritative speed/harness
+   resolution (`setup-worktree.sh` already called `resolve-speed.sh`
+   internally; **do not call it again yourself**).
    If the script prints `FAIL` instead (including a failed speed resolution —
-   an unrecognized speed name, or a harness with no model-tier data), treat it
-   as a `BLOCKER`: surface to the human rather than guessing a resolution.
-4. **Gate before advancing:** `scripts/concertino/assert-phase.sh setup "$WORKTREE_PATH"`.
+   an unrecognized speed name, or a harness with no model-tier data — or an
+   unsupported `HARNESS_OVERRIDE`, re-validated here independently of step 1's
+   own check as defense in depth), treat it as a `BLOCKER`: surface to the
+   human rather than guessing a resolution.
+4. **Gate before advancing:** `scripts/concertino/assert-phase.sh setup "$WORKTREE_PATH" "$TICKET_ID"`.
    If it prints `FAIL`, do not proceed — re-run setup or escalate.
 5. **Resolve `AGENT_MERGE` once, for the whole run.** `AGENT_MERGE_OVERRIDE`
    takes precedence when it is `true` or `false`; otherwise fall back to the
    config default `false`. This resolution happens
    exactly once, here — never recomputed later in the run.
 6. Write initial `workflow-state.md` (PHASE: Planning, AGENT_MERGE: `<resolved
-   value>`, plus every field parsed in step 3: `SPEED`, `EXECUTION_CYCLES`,
-   `SKEPTIC_DESIGN_ROUNDS`, `SKEPTIC_FINAL_ROUNDS`, `DEBUG_ATTEMPTS`, `MODELS`,
-   `SECOND_FINAL_GATE_SKEPTIC`, `EVALUATOR_CLEAN_WORKTREE` — see
-   `core/workflow-state.template.md`). Every subsequent phase transition below
-   that rewrites `workflow-state.md` carries these fields forward unchanged;
-   they are resolved exactly once, here, for the whole run.
+   value>`, `TICKET_TYPE: <resolved value>` (from the design-ticket-type
+   check above), `DESIGN_QUESTIONS: null`, plus every field parsed in step 3:
+   `SPEED`, `EXECUTION_CYCLES`, `SKEPTIC_DESIGN_ROUNDS`, `SKEPTIC_FINAL_ROUNDS`,
+   `DEBUG_ATTEMPTS`, `MODELS`, `SECOND_FINAL_GATE_SKEPTIC`,
+   `EVALUATOR_CLEAN_WORKTREE` — see `core/workflow-state.template.md`). Every
+   subsequent phase transition below that rewrites `workflow-state.md` carries
+   these fields forward unchanged; they are resolved exactly once, here, for
+   the whole run — `DESIGN_QUESTIONS` itself is the one exception, updated as
+   Phase 1 Planning's design-ticket branch raises/answers/triages each
+   question (see below).
+
+---
+
+## Address-Failure entry point
+
+CON-98. Run this **instead of** the ordinary Setup section above whenever
+`ADDRESS_FAILURE=true` (the dashboard's `a` key on a FAILED fleet row, via
+`/concertino-address-failure <TICKET_ID>`). Its job is to figure out what
+actually happened to a run that already ended in `FAILED`, restore whatever
+is needed to keep going, and then hand off into the **same** Execution →
+Evaluation → final gate → Delivery → Cleanup loop every ordinary run already
+uses below — this is explicitly a re-entry point into the existing machinery,
+never a second, parallel implementation of it.
+
+1. **Audit.** Read `.concertino/runs/$TICKET_ID/events.jsonl` **in full,
+   before taking any write action** — no worktree, branch, or file is
+   created or modified until this read completes. Extract at minimum:
+   - the most recent `run.start` event — its `branch`/`worktree`/`speed`/
+     `harness` fields, needed for step 2 below;
+   - the full `phase.enter`/`gate.result`/`verdict`/`escalation.*` timeline —
+     the same data the dashboard's own drill-down TIMELINE/GATES panels
+     already render from this exact log, reused here rather than re-derived
+     a second way;
+   - the most recent evaluator/skeptic report path referenced by an
+     `evidence` event, if any.
+
+   Write a short audit summary (a few sentences: what phase the run reached,
+   what the last verdict/gate/escalation said, and your own read on why it
+   likely ended in FAILED) — this becomes step 4's persisted evidence and
+   step 5's input to the first resumed executor call.
+
+2. **Restore the worktree, idempotently.** Call the canonical script with
+   the branch name recorded in step 1's `run.start` event — **never
+   hand-rolled worktree/branch detection, and never a
+   `.concertino/worktrees/**` glob**, even though one might work; the event
+   log already records this authoritatively, and the script is already
+   idempotent by design ("re-running for an existing worktree reuses it"),
+   so this is safe whether the worktree is still on disk (the common case —
+   a FAILED run never reaches Phase 4, so `cleanup.sh` never removed it) or
+   was manually deleted (recreates it fresh, checked out at the same branch —
+   any committed executor work survives on the branch regardless of worktree
+   lifecycle):
+
+   ```bash
+   scripts/concertino/setup-worktree.sh "$TICKET_ID" "<branch from run.start>" "<speed from run.start>" "<harness from run.start>"
+   ```
+
+   Parse `WORKTREE_PATH`/`DEV_PORT`/`BACKEND_PORT` exactly as ordinary Setup
+   step 3 does. **If the script prints `FAIL`** — e.g. the branch itself was
+   also deleted (a stale branch-cleanup job, alongside a manually-removed
+   worktree) — treat it as a `BLOCKER`, surfaced to the human exactly like
+   any other environmental Setup failure. Never silently downgrade this to
+   "just start fresh" without saying so — that would discard whatever the
+   original attempt actually got right without ever telling anyone.
+3. **Reconstruct planning state if needed.**
+   - If `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/workflow-state.md` is present (the
+     common case), read it and resume from its recorded `PHASE` exactly as
+     an ordinary mid-session resume already does (see "Workflow State"
+     above) — Execution, Evaluation, Delivery or Cleanup, whichever it says.
+   - If it is **missing** (the worktree was recreated in step 2 AND the
+     change was never committed to the branch), reconstruct
+     `ticket.md`/`proposal.md`/`design.md`/`tasks.md` (and any spec deltas)
+     from `.concertino/runs/$TICKET_ID/evidence/` — Phase 1's own
+     `persist-evidence.sh` output, durable in the main checkout independent
+     of the worktree's own lifecycle — writing them back into
+     `WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/` and resuming from **Planning** (Phase 1,
+     step 3 onward: the artifacts already exist, reconstructed, so proceed
+     to the design-soundness gate rather than re-drafting from scratch).
+   - If evidence is **also** missing (nothing ever got far enough to persist
+     anything), there is nothing to remediate: fall back to an ordinary
+     fresh delivery run for this ticket (equivalent to treating this exactly
+     like Setup step 1 with `ADDRESS_FAILURE` unset), and **state this
+     plainly** in the audit summary from step 1 — never silently proceed as
+     though a resume occurred when none did.
+4. **Persist the audit as evidence**, via the same script Phase 1 step 6
+   already uses, so the audit shows up in the drill-down's EVIDENCE panel
+   like any other artifact:
+
+   ```bash
+   scripts/concertino/persist-evidence.sh "$TICKET_ID" "<path to the audit summary>"
+   ```
+
+   On `READY ref=<path>`, emit an `evidence` event exactly as Phase 1 step 6
+   does (`label=address-failure-audit`). On `FAIL`, skip the event and
+   continue — never block the resume on a failed persist.
+5. **Resume the ordinary loop.** Continue from whichever phase step 3
+   resolved — Execution, Evaluation, Delivery, or Cleanup — using that
+   phase's own section below unchanged. The one addition: the **first**
+   executor call resumed this way (whether a cold spawn, if step 3 landed on
+   Execution with no warm agent to resume, or a warm resume) receives step
+   1's audit findings the same way an ordinary Evaluation-loop FAIL cycle
+   passes `EVALUATION_REPORT_PATH` — this is the literal "reuses the
+   existing executor/evaluator/skeptic loop" the design calls for, not a
+   parallel implementation of it. Every phase transition from here on
+   updates `workflow-state.md`/emits telemetry exactly as it always does;
+   nothing below this point needs to know the run entered through this
+   entry point rather than ordinary Setup.
 
 ---
 
@@ -194,8 +349,14 @@ Execute directly (no subagent).
    description — this is what the dashboard's drill-down TICKET panel parses out of
    the persisted file. Acceptance criteria and any other content go in their own
    subsequent `##` sections, after the description.
+
+   **`TICKET_TYPE == design` (CON-100):** stop here — do not continue with
+   step 3 below. Instead jump to "Design-ticket Planning," immediately after
+   step 6 below, which replaces steps 3–6 for a design ticket (except where
+   its own step 4 says otherwise).
 3. **Create the planning artifacts** (proposal/design/tasks, plus spec deltas if
-   the change affects a contract), in dependency order:
+   the change affects a contract), in dependency order — **`TICKET_TYPE ==
+   feature` only**, per the branch in step 2 above:
    - Get the build order: `openspec status --change "<CHANGE_NAME>" --json | jq 'del(.context)'` — parse `applyRequires` and the `artifacts` list.
    - For each artifact with status `ready`: `openspec instructions <artifact-id> --change "<CHANGE_NAME>" --json | jq 'del(.context)'`. Use the returned `rules`, `template`, `instruction`, `outputPath`, `dependencies` — read the dependency files, then write the artifact to `outputPath` following `template`.
    - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
@@ -213,7 +374,7 @@ Execute directly (no subagent).
    Claude Code, pass the skeptic's resolved model (`workflow-state.md`'s
    `MODELS.skeptic`) as this `Agent` call's own `model` parameter — see
    "Per-spawn model overrides" below for the full contract this relies on; on
-   Codex there is no equivalent per-spawn call (see that same section).
+   Codex or OpenCode there is no equivalent per-spawn call (see that same section).
    **Wait for its verdict inside this turn before proceeding** — free if you're
    the top-level session, fatal if you're a sub-agent (you'd never see the
    verdict, and the skeptic you just spawned is orphaned). If the harness
@@ -253,7 +414,86 @@ Execute directly (no subagent).
    not here — see the "durable `verdict.ref`, no redundant `evidence` event"
    note in `evaluator.md`/`skeptic.md`.)
 
-Update `workflow-state.md` (PHASE: Execution, CYCLE: 1).
+Update `workflow-state.md` (PHASE: Execution, CYCLE: 1) — **`TICKET_TYPE ==
+feature` only.** A `design` ticket instead follows "Design-ticket Planning"
+immediately below, which reaches this same transition itself (step 4) when a
+`fold-in` scope applies, or proceeds straight to Phase 4 instead (step 6)
+when none does.
+
+---
+
+### Design-ticket Planning (`TICKET_TYPE == design`; CON-100)
+
+Run this instead of steps 3–6 above, immediately after step 2 (`ticket.md`
+written). A design ticket's own acceptance criteria are "the right
+escalations got raised and answered," not "the described behavior got
+implemented" — so do not draft `proposal.md`/`design.md`/`tasks.md` from
+guessed answers the way step 3 would.
+
+1. **Extract the open questions.** Scan `ticket.md` line by line (heading or
+   plain paragraph, any nesting level — match on the line's text, not on
+   structure) for the first line whose text matches the regex
+   `/open questions?/i`. When found, take the markdown bullet list
+   immediately following it (skipping only blank lines; stop at the first
+   non-bullet, non-blank line) as the question set, one `sub_questions[]`
+   entry per bullet. When no line matches at all, or a match exists but no
+   bullet list immediately follows it, raise a single-question Planning
+   `ESCALATION` instead ("What should this design ticket resolve?") — a
+   design ticket with nothing extractable is mis-typed or under-specified,
+   never a silent no-op.
+2. **Raise the extracted questions as one multi-part escalation**, using the
+   `sub_questions=` form from "How to raise one" below — one `{question,
+   options}` entry per extracted bullet. State the best bounded `options` you
+   can; a genuinely open-ended question may omit a clean enum and take a
+   free-form answer instead. Persist each question and its recorded answer
+   into `DESIGN_QUESTIONS` in `workflow-state.md`.
+3. **Triage each answered question** that plausibly implies future work, via
+   the **"Triaging a suggested follow-up"** sub-procedure below — this is its
+   third invocation site, alongside Phase 3 Delivery and Phase 4 step 4:
+   `description` = the question plus its answer, `files=unknown` (no code
+   diff exists yet at Planning time — an already-supported input), and your
+   own `ac_relevant`/`effort` judgment. Record the resulting
+   `fold-in`/`standalone`/`discard` verdict back into `DESIGN_QUESTIONS`.
+   When an answer plainly implies no action (a pure definitional/policy
+   statement with no implied build work), you may record an implicit
+   `discard` directly, stating why, without a wasted triage round-trip.
+4. **`fold-in` verdicts.** If one or more questions triaged `fold-in`, apply
+   the sub-procedure's existing plan-revision requirement **once**, across
+   the union of every `fold-in` question's combined scope (not once per
+   question): extend `ticket.md`'s acceptance criteria to state that combined
+   scope explicitly, then write `proposal.md`/`design.md`/`tasks.md` (and any
+   spec deltas) for it via    - Get the build order: `openspec status --change "<CHANGE_NAME>" --json | jq 'del(.context)'` — parse `applyRequires` and the `artifacts` list.
+   - For each artifact with status `ready`: `openspec instructions <artifact-id> --change "<CHANGE_NAME>" --json | jq 'del(.context)'`. Use the returned `rules`, `template`, `instruction`, `outputPath`, `dependencies` — read the dependency files, then write the artifact to `outputPath` following `template`.
+   - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
+   - `jq 'del(.context)'` strips the static context block openspec repeats on every call (already in your system context and `openspec/config.yaml`) — keep it to save tokens.
+
+   Validate before handoff (fix any errors first):
+   ```bash
+   openspec validate --change "<CHANGE_NAME>"
+   ``` — this design ticket never
+   ran step 3 above — re-run `openspec validate --change <CHANGE_NAME>`
+   clean, then a fresh design-gate skeptic spawn to `CONFIRM` (same procedure
+   and `SKEPTIC_DESIGN_ROUNDS` budget as step 5 above; `REFUTE` handled
+   identically). The sub-procedure's own step 1 ("make the change directory
+   editable again," undoing an `openspec archive`) does not apply at this
+   call site — Planning runs before Phase 3 ever archives anything for this
+   change, so there is nothing to restore. Once `CONFIRM`ed, persist evidence
+   for the (now-written) planning artifacts exactly as step 6 above, then
+   proceed into Phase 2 Execution for that combined scope, unmodified —
+   update `workflow-state.md` (PHASE: Execution, CYCLE: 1) and continue
+   exactly as an ordinary ticket would from here.
+5. **`standalone` verdicts.** File a follow-up ticket per the sub-procedure's
+   existing standalone behavior; record its identifier into
+   `DESIGN_QUESTIONS`.
+6. **No question triaged `fold-in`.** Once every question in
+   `DESIGN_QUESTIONS` has a recorded, actioned verdict (every `standalone`
+   verdict has a filed ticket id), this design ticket's Planning is complete
+   with no code to execute — do not consider it done on a recorded-but-
+   unactioned verdict. Skip Phase 2 and Phase 3 entirely and proceed straight
+   to **Phase 4**'s alternate no-code entry condition (see Phase 4 below)
+   instead of the `Update workflow-state.md (PHASE: Execution, CYCLE: 1)`
+   transition step 4 above uses (update `workflow-state.md` PHASE: Cleanup
+   instead).
 
 ---
 
@@ -287,7 +527,7 @@ or the evaluator's report path instead of returning control, or escalate.
 Both spawns above are on Claude Code: pass each role's resolved model
 (`workflow-state.md`'s `MODELS.executor` / `MODELS.evaluator`) as the `Agent`
 call's own `model` parameter — see "Per-spawn model overrides" below. Codex
-has no equivalent per-spawn call.
+and OpenCode have no equivalent per-spawn call.
 
 Record agent IDs in `workflow-state.md` for resume.
 
@@ -419,22 +659,26 @@ stated, documented limit of this feature on Codex, not a silent gap — see
 ## Triaging a suggested follow-up
 
 A single named sub-procedure (the `followup-triage` capability), invoked by
-name from both of the workflow's existing follow-up-surfacing points — Phase
-3 Delivery's non-blocking evaluator/skeptic suggestions (below) and Phase 4
-step 4's post-cleanup observation (below) — rather than reimplemented at
-either call site. Its job is to turn a bare suggestion into a stated
-recommendation ("high file overlap + small effort → recommend fold-in") the
-human approves against, and to make sure a `fold-in` answer is actually acted
-on, not just recorded — the direct fix for CON-30, where a recorded fold-in
-decision never led to the plan actually being revised.
+name from all three of the workflow's follow-up-surfacing points — Phase 3
+Delivery's non-blocking evaluator/skeptic suggestions (below), Phase 4 step
+4's post-cleanup observation (below), and Phase 1 Planning's per-question
+triage for a `design` ticket (see "Design-ticket Planning" above and the
+`design-ticket-type` capability) — rather than reimplemented at any call
+site. Its job is to turn a bare suggestion into a stated recommendation
+("high file overlap + small effort → recommend fold-in") the human approves
+against, and to make sure a `fold-in` answer is actually acted on, not just
+recorded — the direct fix for CON-30, where a recorded fold-in decision never
+led to the plan actually being revised.
 
 1. **Identify `description`/`files`.** At the Phase 3 call site: from the
    evaluator/skeptic report's non-blocking suggestion text, for any
    suggestion that names discrete additional work (skip a one-line style nit
    — present that as-is, no triage needed). At the Phase 4 call site: from
-   your own observation. `files=` is a comma-separated list of paths the
-   suggested work would touch, or the literal `unknown` when none can be
-   named yet.
+   your own observation. At the design-ticket Planning call site: from an
+   answered open question, `description` = the question plus its answer.
+   `files=` is a comma-separated list of paths the suggested work would touch,
+   or the literal `unknown` when none can be named yet — always `unknown` at
+   the design-ticket Planning call site, since no code diff exists yet.
 2. **State your own `ac_relevant`/`effort` judgment.** `ac_relevant=yes`
    means the suggestion is actually required to satisfy the current ticket's
    acceptance criteria (it was never really "follow-up" at all);
@@ -485,15 +729,18 @@ decision never led to the plan actually being revised.
      `fold-in` alone is **not** sufficient. Before proceeding past this point
      (into/back through Execution at the Phase 3 call site; before Phase 4
      cleanup at the Phase 4 call site), all of the following must hold:
-     1. **Make the change directory editable again.** Both call sites reach
-        this step *after* Phase 3 step 2 has already archived the change
-        (`openspec archive <CHANGE_NAME> --yes` has already moved
-        `ticket.md`/`proposal.md`/`design.md`/`tasks.md` out of
+     1. **Make the change directory editable again.** The Phase 3 and Phase 4
+        call sites both reach this step *after* Phase 3 step 2 has already
+        archived the change (`openspec archive <CHANGE_NAME> --yes` has
+        already moved `ticket.md`/`proposal.md`/`design.md`/`tasks.md` out of
         `openspec/changes/<CHANGE_NAME>/` into its archive location, and
         merged its `specs/` delta files into the canonical
         `openspec/specs/`). `openspec validate` cannot operate on an
         archived change directory, so move the directory back to
         `openspec/changes/<CHANGE_NAME>/` first — required, not optional.
+        **This step does not apply at the design-ticket Planning call
+        site** — Planning runs before Phase 3 has ever archived this change,
+        so there is nothing to restore; proceed directly to step 2 below.
      2. **Revise the plan for real.** At that now-restored path, extend
         `ticket.md`'s acceptance criteria to state the added scope
         explicitly (this is what the evaluator and the final-gate skeptic
@@ -522,7 +769,14 @@ decision never led to the plan actually being revised.
         → Delivery, ending with that new worktree's own
         `cleanup.sh --phase4`. Either way, **do not end your turn** (Phase 4
         step 5) until this step has completed — a `fold-in` answer reopens
-        Execution, it does not end the run.
+        Execution, it does not end the run. **At the design-ticket Planning
+        call site**, this step and step 6 below are not invoked directly —
+        see "Design-ticket Planning" above step 4: once this step 4's
+        `CONFIRM` is reached, the ticket instead proceeds into the ordinary
+        Phase 2 Execution → Evaluation → final gate → Delivery pipeline
+        unmodified, which executes the added scope and performs its own
+        (first, only) archive itself, naturally, with no collision to
+        resolve.
      6. **Re-archive — but resolve the `specs/` delta collision first.**
         Re-archiving is part of this same `fold-in` obligation, not a
         separate step to skip once the added scope has shipped — but a naive
@@ -533,7 +787,9 @@ decision never led to the plan actually being revised.
         archive pass (Phase 3 step 2, before this fold-in was even
         triaged) already merged into the canonical `openspec/specs/` — this
         is reproducible on essentially every real fold-in that reaches this
-        point, not an edge case. Before calling `openspec archive` again,
+        point, not an edge case (Phase 3/Phase 4 call sites only — see step 5
+        immediately above for why the design-ticket Planning call site never
+        reaches this step). Before calling `openspec archive` again,
         state explicitly which of the following two applies, tied to
         whether step 2's `design.md` revision introduced any new/modified
         spec requirement for the added scope:
@@ -554,8 +810,9 @@ decision never led to the plan actually being revised.
           spec change" gap CON-30 was about, just relocated to the spec
           layer instead of the plan layer.
 
-Both existing follow-up-surfacing points below invoke this procedure by name
-rather than repeating its steps.
+All three follow-up-surfacing points — Phase 3 Delivery, Phase 4 step 4, and
+design-ticket Planning above — invoke this procedure by name rather than
+repeating its steps.
 
 ---
 
@@ -586,7 +843,7 @@ Run directly (no subagent).
 
    Commit the archive as a separate commit.
 3. **Push the branch:** `git push -u origin <branch>`, then gate:
-   `scripts/concertino/assert-phase.sh delivery "$WORKTREE_PATH" "<branch>"`. Do not
+   `scripts/concertino/assert-phase.sh delivery "$WORKTREE_PATH" "<branch>" "$TICKET_ID"`. Do not
    create the PR until this passes.
 4. **Create the PR** (`gh pr create` targeting the base branch): title
    `HEL-26 <brief description>`; body links the ticket and
@@ -617,7 +874,13 @@ Run directly (no subagent).
      "merged" confirmation before Phase 4. (A `fold-in` answer here is
      handled per that sub-procedure's step 5, above, before Delivery
      resumes.)
-   - **`AGENT_MERGE = true`:** spawn the **auditor fresh** (cold — never
+   - **`AGENT_MERGE = true`:** Run `scripts/concertino/check-agent-merge-permission.sh "$WORKTREE_PATH"` before spawning the auditor:
+     - **`PASS`** → proceed to spawn the auditor exactly as below. No added cost on the already-working path.
+     - **`FAIL`** → do **not** attempt the spawn. Raise one escalation (per "How to raise one", `kind=blocker`) naming the missing rule(s) verbatim from the script's stderr, `options=retry,fallback`:
+       - **`retry`** — the human ran `concertino sync` (or edited `.claude/settings.json` by hand) — re-run the check; on `PASS`, proceed to spawn the auditor; on `FAIL` again, re-raise (this does not count against, or interact with, any existing budget — a one-off permission-state check, not a REFUTE/FAIL loop).
+       - **`fallback`** — proceed exactly as the existing `AGENT_MERGE = false` path: present the PR, wait for a human "merged" confirmation, no auditor spawn this run.
+
+     Then spawn the **auditor fresh** (cold — never
      resumed, matching the skeptic's pattern) with `WORKTREE_PATH,
      CHANGE_NAME, TICKET_ID, BRANCH, PR_URL`. Emit
      `agent.spawn role=orchestrator agent=auditor` at the spawn point.
@@ -643,7 +906,17 @@ Update `workflow-state.md` (PHASE: Cleanup).
 
 ## Phase 4: Post-merge cleanup
 
-After either a human "merged" confirmation or an auditor `MERGE` verdict:
+After either a human "merged" confirmation or an auditor `MERGE` verdict —
+**or, alternate no-code entry condition (CON-100):** for a `TICKET_TYPE:
+design` ticket where no question in `DESIGN_QUESTIONS` triaged `fold-in`,
+once every `standalone`/`discard` verdict has resolved (every `standalone`
+verdict has a filed follow-up ticket id — see "Design-ticket Planning"
+above and "Definition of done for a design ticket" below), in place of the
+ordinary merged-PR confirmation, since no code was ever executed or pushed
+for this ticket. A `design` ticket with at least one `fold-in` scope instead
+requires the ordinary merged-PR confirmation, unchanged, since real code
+exists for that scope. **This substitutes only the entry condition above —
+Phase 4's own internal step order below is unchanged either way:**
 
 1. Stop servers and remove the worktree via the canonical script (reads
    ports/path from `workflow-state.md` if not in memory). `cleanup.sh` is a
@@ -653,8 +926,8 @@ After either a human "merged" confirmation or an auditor `MERGE` verdict:
    Phase 4 (post-merge)** — never during proposal, implementation, or review:
 
    ```bash
-   scripts/concertino/cleanup.sh --phase4 "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
-   scripts/concertino/assert-phase.sh cleanup "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
+   scripts/concertino/cleanup.sh --phase4 "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"
+   scripts/concertino/assert-phase.sh cleanup "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"
    ```
 
    `cleanup.sh` also fast-forwards local `main` now (bringing it up to date
@@ -665,9 +938,20 @@ After either a human "merged" confirmation or an auditor `MERGE` verdict:
    now block for as long as a human takes to answer. It always still exits 0
    and prints its normal `READY cleaned worktree=...` line once that
    escalation resolves (answered, skipped, or timed out), so this step
-   completes either way; there is nothing else to handle here.
+   completes either way; there is nothing else to handle here. **For a design
+   ticket reached via the no-code entry condition above, this fast-forward
+   step is a safe, unmodified no-op**: it compares local `main`'s tip
+   against the fetched remote tip and returns immediately when they already
+   match, which is the expected state here since this ticket's branch never
+   pushed anything new to `main` — no script change is needed for this
+   branch.
 
-2. Set the ticket to **Done** and post a closing comment (what shipped + merged PR link).
+2. Set the ticket to **Done** and post a closing comment (what shipped +
+   merged PR link). **For a `TICKET_TYPE: design` ticket**, the closing
+   comment instead (or, when a `fold-in` scope also executed, in addition to
+   "what shipped + merged PR link") lists every question in
+   `DESIGN_QUESTIONS`, its answer, and the resulting action: `fold-in` → the
+   merged PR link, `standalone` → the new ticket's id, `discard` → no action.
 3. **Hygiene check** (report only — do not auto-fix):
    ```bash
    git worktree list                            # any stragglers?
@@ -677,6 +961,16 @@ After either a human "merged" confirmation or an auditor `MERGE` verdict:
    ```
 
    Report anything unexpected as a "Hygiene note:" — do not fix automatically.
+
+**Definition of done for a design ticket (CON-100).** Do not treat a
+`TICKET_TYPE: design` ticket as complete until: every question in
+`DESIGN_QUESTIONS` has a recorded triage verdict; every `standalone` verdict
+has an actually-filed follow-up ticket (its identifier recorded), not merely
+a recorded verdict; and every `fold-in` verdict's combined scope has
+completed ordinary delivery (merged, per this run's `AGENT_MERGE`
+resolution). A recorded verdict with no corresponding filed ticket or
+completed delivery does not satisfy this — the same principle CON-30 already
+established for `followup-triage`, extended here to the design-ticket level.
 
 **"Genuinely complete" — the precise boundary (CON-48).** Your own Phase 4
 work is genuinely complete only once **all three** of the steps above have
@@ -772,20 +1066,68 @@ doesn't, or the script fails for any reason, `CONTEXT` is simply empty — raise
 the escalation anyway, without `context=`, rather than let a malformed
 context call block it.
 
-Then raise it as a single **blocking** call. This both lights up `NEEDS YOU`
-on the dashboard and waits for the human's decision — the dashboard's
-escalation screen writes the answer, and this call returns it directly. Only
-include `context=` when `CONTEXT` is non-empty — an event with `context=""`
-is not the same as one with no `context` field at all, and the screen's
-"no context" rendering depends on the key being genuinely absent:
+**Present it in your own chat transcript immediately, before anything else
+below (CON-76).** Post the question — and, for the multi-part form, every
+sub-question — plus its options and any gathered context into your own
+transcript first, whichever branch you take next. This alone closes the gap
+whenever you already own the human-visible chat channel (an `--inline` run,
+the top-level `/concertino-deliver` session itself, or Codex/OpenCode's
+default sequential single-thread flow, which has no subagent hop to bubble
+across in the first place — see `inline-orchestrator-mode` and
+`docs/harness-capabilities.md`). It costs nothing when you don't own that
+channel either; the topology branch below is what additionally reaches the
+human in that case.
 
-```bash
-ARGS=(ticket=$TICKET_ID role=orchestrator \
-  question="<one sentence, the decision you need>" \
-  options=approve,deny)
-[ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
-scripts/concertino/emit-event.sh escalation --await "${ARGS[@]}"
-```
+**Then decide how you wait for the answer — by topology (CON-76):**
+
+- **You are the root** — this session has no parent orchestrator that spawned
+  it (`--inline`, or Codex/OpenCode's default sequential single-thread flow,
+  where the one thread reading this file *is* the root by construction).
+  Raise it as a single **blocking** call. This both lights up `NEEDS YOU` on
+  the dashboard and waits for the human's decision — the dashboard's
+  escalation screen writes the answer, and this call returns it directly.
+  Only include `context=` when `CONTEXT` is non-empty — an event with
+  `context=""` is not the same as one with no `context` field at all, and the
+  screen's "no context" rendering depends on the key being genuinely absent:
+
+  ```bash
+  ARGS=(ticket=$TICKET_ID role=orchestrator \
+    question="<one sentence, the decision you need>" \
+    options=approve,deny)
+  [ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
+  scripts/concertino/emit-event.sh escalation --await "${ARGS[@]}"
+  ```
+
+- **You are running as a Claude Code subagent** — dispatched via
+  `Agent(subagent_type: concertino-orchestrator)`, the default,
+  non-`--inline` topology — raise it **without blocking** instead:
+
+  ```bash
+  ARGS=(ticket=$TICKET_ID role=orchestrator \
+    question="<one sentence, the decision you need>" \
+    options=approve,deny)
+  [ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
+  scripts/concertino/emit-event.sh escalation --raise-only "${ARGS[@]}"
+  ```
+
+  This writes `escalation.raised` — lighting up `NEEDS YOU` on the dashboard
+  exactly as `--await` would — and returns immediately, exit 0, with nothing
+  to read on stdout. Then, before doing anything else:
+
+  1. Persist a `PENDING_ESCALATION` record in `workflow-state.md` (see the
+     template): `question`, `options` (or `sub_questions`), `context_ref` (if
+     any), `raised_at`, and `kind` (`planning | blocker | budget | followup |
+     final-gate`).
+  2. Return a result headed `ESCALATION-PENDING`, carrying that same
+     information plus an explicit instruction for your parent to
+     `SendMessage` **this same agent** back in once resolved.
+
+  This is the one narrow exception to "never end your turn while artifacts of
+  the current ticket are still incomplete" from "Harness resume model" above —
+  it applies only here, because nothing you spawned is still outstanding at
+  this exact moment (the executor/evaluator/skeptic/auditor whose verdict led
+  to this escalation has already returned), and only because everything
+  needed to resume is already durably on disk before you return.
 
 **Several genuinely independent sub-questions at once?** Use the multi-part
 form instead of synthesizing them into one combined question/options list —
@@ -803,41 +1145,47 @@ scripts/concertino/emit-event.sh escalation --await \
   ]'
 ```
 
-The dashboard renders this as a step-through wizard, one sub-question at a
-time. On exit 0, stdout carries one line per sub-answer, in the same order as
+(Replace `--await` with `--raise-only` for the subagent branch above — the
+`sub_questions=` shape is identical either way.) The dashboard renders this as
+a step-through wizard, one sub-question at a time. On a resolving `--await`
+call, stdout carries one line per sub-answer, in the same order as
 `sub_questions` — read them positionally, paired with the sub-questions you
 sent. Everything else about this call — the required per-call timeout below,
 `escalation.answered` already being recorded on success, the non-zero-exit/
 timeout fallback, and the off-ramp rules — applies identically to this form;
-this is purely a wire-shape choice on the same blocking call, not a different
-resolution mechanism. This is informational only: no existing circuit breaker
-below is changed to use it — adopting multi-part for a specific one is a
-separate decision.
+this is purely a wire-shape choice, not a different resolution mechanism.
+This is informational only: no existing circuit breaker below is changed to
+use it — adopting multi-part for a specific one is a separate decision.
 
 **This call must set an explicit per-call timeout, or the harness will kill it
 long before `--await` ever times out on its own.** Claude Code's Bash tool
 defaults to a 120000 ms (two minute) timeout — nowhere near `--await`'s own
 wait — and only honors a longer one if you ask for it. So the Bash tool call
-that runs this command must pass `timeout: 600000` (600000 ms — ten minutes,
-its maximum) explicitly. On another harness, find and set the equivalent
-per-call timeout parameter to its longest allowed value. With that in place,
-`--await`'s own timeout (`CONCERTINO_ESCALATION_TIMEOUT_MIN`, a few minutes by
-default — see `dashboard.escalationTimeoutMinutes`) is deliberately shorter
-than the call timeout, so the wait itself is what ends this call, not an
-external cutoff killing it mid-poll. Even if a harness kills it anyway
-(wrong timeout, a restart, anything), `--await` traps `TERM`/`INT` and
-records `escalation.timeout` before it dies, so the log stays accurate
-regardless of which side ended the wait.
+that runs the **root** branch's `--await` above must pass `timeout: 600000`
+(600000 ms — ten minutes, its maximum) explicitly. On another harness, find
+and set the equivalent per-call timeout parameter to its longest allowed
+value. With that in place, `--await`'s own timeout
+(`CONCERTINO_ESCALATION_TIMEOUT_MIN`, a few minutes by default — see
+`dashboard.escalationTimeoutMinutes`) is deliberately shorter than the call
+timeout, so the wait itself is what ends this call, not an external cutoff
+killing it mid-poll. Even if a harness kills it anyway (wrong timeout, a
+restart, anything), `--await` traps `TERM`/`INT` and records
+`escalation.timeout` before it dies, so the log stays accurate regardless of
+which side ended the wait. (The subagent branch's `--raise-only` call needs no
+such timeout — it never blocks, so the harness's default is already more than
+enough; `--wait-only`'s own short `max_wait_sec` calls, used only by the root
+below, fit comfortably inside the harness default too.)
 
 - **Exit 0:** the human answered from the dashboard. The decision is on
   stdout — use it and continue. The script has already recorded
   `escalation.answered`; **do not emit it again**, or the log carries it twice.
 - **Non-zero exit: it timed out, or the wait was killed.** Either way
   `--await` has already recorded `escalation.timeout` (its own deadline, or
-  its `TERM`/`INT` trap firing). Fall back to chat exactly as before — present
-  the `ESCALATION` block and wait there for the human's reply. **A timeout is
-  never an approval — never treat it, or silence, as one.** Once you have the
-  answer from chat, record it yourself, since nothing else will:
+  its `TERM`/`INT` trap firing). Fall back to chat exactly as before — you
+  already presented the question there; simply wait for the human's reply.
+  **A timeout is never an approval — never treat it, or silence, as one.**
+  Once you have the answer from chat, record it yourself, since nothing else
+  will:
 
   ```bash
   scripts/concertino/emit-event.sh escalation.answered \
@@ -845,7 +1193,84 @@ regardless of which side ended the wait.
     answer="<their decision, one line>" || true
   ```
 
-**When to stop doubting an answer.** Both paths above end the same way — with
+### Receiving a bubbled escalation, and the root's resolution loop (CON-76)
+
+**If you receive an `ESCALATION-PENDING` result from a child you spawned**
+(rather than raising an escalation of your own): apply the same topology test
+as above. If you have a parent of your own — you are yourself a subagent —
+immediately re-return the same `ESCALATION-PENDING` payload upward, unchanged,
+without presenting it or attempting to resolve it: you are a relay at this
+hop, not the presenter. Only when you have no parent of your own — you are the
+root — do you present and resolve it yourself, per the procedure below.
+(Today's one real topology has no orchestrator spawning another orchestrator,
+so this relay branch is not yet exercised in practice; it is written once,
+generically, so a future role that reuses this same file — "a fleet driver, a
+queue runner, or another orchestrator dispatched you," per "Harness resume
+model" above — inherits correct bubble-up behavior with no bookkeeping of its
+own.)
+
+**The root's resolution procedure, once `ESCALATION-PENDING` reaches you**
+(whether you raised it yourself just above, or it was relayed to you by a
+child):
+
+1. If this is the first time this question has reached a human-visible
+   transcript — i.e. it was relayed to you, not raised by you directly —
+   present the question/options/context to the human in your own chat
+   transcript now, before doing anything else below.
+2. Poll for a dashboard answer using repeated short `--wait-only` calls, each
+   bounded by its own short per-call budget (~25–30s), looping again on exit
+   code 2, stopping on exit 0 (resolved) or exit 1 (the escalation's *real*
+   deadline was reached):
+
+   ```bash
+   scripts/concertino/emit-event.sh escalation --wait-only max_wait_sec=30 ticket=$TICKET_ID
+   ```
+
+   Between calls, remain able to accept a direct chat reply from the human —
+   this is exactly why the wait is chunked into short calls instead of one
+   long blocking one (a harness's message-queueing behavior during a
+   long-running Bash call is not something to depend on). On exit 1, handle it
+   exactly like a directly-raised `--await` timeout above: a timeout is never
+   an approval, but you already presented the question in chat, so simply
+   keep waiting there for the human's reply and record it per step 3 below —
+   nothing stops a late dashboard answer from still landing and winning the
+   race the normal way.
+3. The moment the human replies directly in chat, write their answer through
+   `concertino answer` rather than acting on it directly:
+
+   ```bash
+   concertino answer $TICKET_ID "<their decision>"
+   # or, for one step of a multi-part escalation:
+   concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
+   ```
+
+   Branch directly on its result (see the `escalation-answer-cli` capability)
+   — no confirming `--wait-only` call is needed, since `concertino answer`
+   itself records `escalation.answered` when its own write is the one that
+   resolves the escalation:
+   - **Refused** (already answered) — the dashboard won the race. Report that
+     to the human — do not silently proceed as if your own write had won —
+     and continue your normal `--wait-only` loop from step 2: it is what
+     observes and logs the dashboard's competing answer.
+   - **Successful and resolving** (a single-question answer, or the multi-part
+     sub-answer that completed the last remaining slot) — proceed straight to
+     the resume procedure below; `escalation.answered` is already recorded.
+   - **Successful but not yet resolving** (a partial multi-part sub-answer) —
+     do not resume anything yet. Continue the normal `--wait-only` loop from
+     step 2 for the remaining sub-questions, answerable via either channel.
+
+**Resuming the bubbled orchestrator, once resolved:** `SendMessage` the
+waiting `concertino-orchestrator` agent — the same one that returned
+`ESCALATION-PENDING` — carrying the question, the answer, which channel
+resolved it, and the timestamp, and wait for its next result within the same
+turn before proceeding (an ordinary warm resume, not a further bubble). If
+`SendMessage` is unavailable or that agent cannot be resumed, fall back to a
+fresh cold spawn of `concertino-orchestrator` with a prompt beginning `RESUME
+— do not start over`, pointing it at `workflow-state.md` — the resolved
+`PENDING_ESCALATION` there (plus the resolution you were just given) lets it
+continue without re-raising the same question.
+
+**When to stop doubting an answer.** Every path above ends the same way — with
 an answer *recorded*. Reaching that point sometimes means judging a claim you
 cannot prove, and that judgement needs a defined stopping point, or it isn't
 caution: it's a run that can never be told anything.
@@ -856,10 +1281,15 @@ caution: it's a run that can never be told anything.
   Check what is checkable first, then record.
 - **Recording the answer is terminal for this run.** The moment an answer lands
   through one of this project's own resolution mechanisms — `--await`'s
-  `answer.json` path, or the manual `escalation.answered` fallback just above —
-  that event *is* the authoritative resolution of the question it closes, by
-  this document's own design. It is not "a chat message that happened to
-  convince you." Proceed on it.
+  `answer.json` path, the manual `escalation.answered` fallback just above, or
+  (CON-76) a `PENDING_ESCALATION` resolution relayed to a bubbled orchestrator
+  via `SendMessage` from its parent — that recording *is* the authoritative
+  resolution of the question it closes, by this document's own design. It is
+  not "a chat message that happened to convince you." Proceed on it. A
+  `SendMessage`-relayed resolution is exactly as authoritative as observing
+  `answer.json` directly, since it travelled through the same
+  `writeAnswer`/`writeSubAnswer` write — it needs no separate re-corroboration
+  by the resumed orchestrator.
 - **Do not reopen a question resolved that way.** If something later feels
   newly suspicious, that suspicion attaches to *new* claims going forward; it
   never unwinds a decision already properly recorded. Concretely: once the
@@ -894,12 +1324,20 @@ Every bound named below is `workflow-state.md`'s resolved value for this run
 ### Always reaches the human
 
 - **Planning ESCALATION:** new external dependency, major architectural change,
-  breaking API change, or scope significantly beyond the ticket.
+  breaking API change, or scope significantly beyond the ticket. **A `design`
+  ticket's own extracted open questions (CON-100)** are also raised as a
+  Planning ESCALATION — a single multi-part one — per "Design-ticket Planning"
+  above; so is the single-question fallback when nothing was extractable.
 - **Budget exhausted:** any counter below at its bound — surface the report + ask
   how to proceed.
 - **BLOCKER (environmental):** dev server won't start, creds missing, infra/tooling
   failure. Never retried as a code change.
 - **Contradiction:** a change request that is impossible or contradicts the spec.
+- **Agent-merge permission grant missing** (agent-merge runs on claude-code
+  only, before the auditor spawn — a distinct, earlier check from the row
+  below, not a modification of it): `options=retry,fallback` —
+  `retry` re-runs `check-agent-merge-permission.sh` after the human grants
+  it; `fallback` lands on the identical `AGENT_MERGE = false` flow.
 - **Auditor `ESCALATE`/`BLOCKER`** (agent-merge runs only): one attempt, no
   retry — fall back to the wait-for-"merged" flow (see Non-Goals of the
   agent-merge design: an `ESCALATE` reflects a merge-time fact the executor
@@ -924,6 +1362,7 @@ model a role runs on move.
 | Executor debug (per symptom) | `DEBUG_ATTEMPTS` (2)             | executor escalates the symptom         |
 | Server start                 | 1 attempt (health-wait timeout)        | `BLOCKER` → human                      |
 | Speed resolution (`resolve-speed.sh`, via `setup-worktree.sh`) | 1 attempt | `BLOCKER` → human (unrecognized speed, or a harness with no model-tier data) |
+| Agent-merge permission grant (pre-check, claude-code only) | 1 attempt per ask (`retry` re-runs the check, does not consume a budget) | `FAIL` → escalate `options=retry,fallback`; `fallback` lands on the `AGENT_MERGE = false` flow |
 | Agent-merge (auditor)        | 1 attempt, no retry                    | `ESCALATE`/`BLOCKER` → human decides next step |
 
 ---
@@ -942,6 +1381,10 @@ model a role runs on move.
 - Do not read PASS evaluation reports — only FAIL/BLOCKER/final-presentation.
 - Post-merge cleanup requires either a human "merged" confirmation or an
   auditor `MERGE` verdict — do not clean up speculatively on anything less.
+  **Exception (CON-100):** a `TICKET_TYPE: design` ticket with no `fold-in`
+  scope instead requires every `standalone`/`discard` verdict to have
+  resolved — see Phase 4's alternate no-code entry condition above; a design
+  ticket with a `fold-in` scope still requires the ordinary confirmation.
 - **The final skeptic gate is unconditional at every speed** — no `SPEED`
   value or `speeds` config field skips, weakens, or replaces it with a
   non-cold spawn. `slow`'s `secondFinalGateSkeptic` may only *add* a second

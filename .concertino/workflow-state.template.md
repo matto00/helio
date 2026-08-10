@@ -22,6 +22,17 @@ LAST_SKEPTIC_VERDICT: CONFIRM | REFUTE | BLOCKER | —
 # default) and never recomputed — survives compaction/resume like every other
 # run-level decision here.
 AGENT_MERGE: true | false
+# design-ticket-type (CON-100). Resolved once at Setup, alongside AGENT_MERGE:
+# label `type:design` (exact match) wins; else title prefix `[DESIGN] `; else
+# `feature`. Never recomputed later in the run.
+TICKET_TYPE: design | feature
+# design-ticket-type (CON-100). One entry per open question a design ticket's
+# Planning raised: its answer, the "Triaging a suggested follow-up" verdict
+# (fold-in|standalone|discard), and, once actioned, a reference to the result
+# (a merged PR link for fold-in, a new ticket id for standalone, or null for
+# discard/unactioned) — so a resumed/compacted session recovers exactly which
+# questions were raised, answered, and triaged. null for TICKET_TYPE: feature.
+DESIGN_QUESTIONS: [{"question":"...","answer":"...","verdict":"fold-in|standalone|discard","action_ref":"..."}] | null
 # --- delivery-speed-presets (CON-22) — resolved once at Setup from
 # setup-worktree.sh's extended READY contract (speed=/budgets=/models=/
 # second_final_gate_skeptic=/evaluator_clean_worktree=), never recomputed —
@@ -41,3 +52,7 @@ MODELS: {"orchestrator":"<model>","executor":"<model>","evaluator":"<model>","sk
 # core/roles/orchestrator.md for how each is used.
 SECOND_FINAL_GATE_SKEPTIC: true | false
 EVALUATOR_CLEAN_WORKTREE: true | false
+# escalation-bubble-up (CON-76). Set only while a --raise-only escalation is
+# outstanding and this orchestrator has returned control to its parent,
+# waiting to be SendMessage-resumed with the resolution. null otherwise.
+PENDING_ESCALATION: {"question":"...","options":"...","context_ref":"...","raised_at":<ms>,"kind":"planning|blocker|budget|followup|final-gate"} | null
