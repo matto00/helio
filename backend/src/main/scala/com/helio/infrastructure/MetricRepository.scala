@@ -10,11 +10,12 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Owner-scoped Slick repository for the `metrics` table (HEL-446 — data-layer
- *  foundation for the Semantic/Metric Layer epic, HEL-418; no CRUD service or
- *  REST routes yet). Mirrors `DataTypeRepository`/`AlertRuleRepository`
- *  conventions: `withUserContext` for owner-scoped reads/writes, a privileged
- *  `withSystemContext` variant for internal callers, `allowed_dimensions` and
- *  `format` mapped to JSONB columns.
+ *  foundation for the Semantic/Metric Layer epic, HEL-418; `MetricService`/
+ *  `MetricRoutes`, HEL-493, are the CRUD service + REST layer on top). Mirrors
+ *  `DataTypeRepository`/`AlertRuleRepository` conventions: `withUserContext`
+ *  for owner-scoped reads/writes, a privileged `withSystemContext` variant
+ *  for internal callers, `allowed_dimensions` and `format` mapped to JSONB
+ *  columns.
  *
  *  `aggregation` is validated against `MetricAggregation.values` here, at the
  *  insert/update boundary (design.md Decision 1) — the domain case class
@@ -85,6 +86,23 @@ class MetricRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(
       table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
     ).map(_.map(rowToDomain).toVector)
+  }
+
+  /** Owner-scoped, paginated list — DB-level `count` + `drop`/`take`,
+   *  mirroring `DataTypeRepository.findAll` (HEL-493 design.md Decision 1).
+   *  Added for the `/api/metrics` list endpoint's `PagedResult` envelope;
+   *  `listByOwner` (above) stays unpaginated for its existing callers/tests. */
+  def findAll(ownerId: UserId, page: Page): Future[PagedResult[MetricDefinition]] = {
+    val ownerUuid  = UUID.fromString(ownerId.value)
+    val baseQuery  = table.filter(_.ownerId === ownerUuid)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
+    ctx.withUserContext(ownerId.value)(
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
   }
 
   /** Update mutable fields in user context, after validating `aggregation`

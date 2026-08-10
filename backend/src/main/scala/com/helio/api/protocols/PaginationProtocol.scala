@@ -7,16 +7,18 @@ import spray.json._
 /** JSON formats for [[PagedResult]] for each list-endpoint response type.
  *
  *  Each format is hand-rolled because spray-json's `jsonFormat` macros cannot
- *  derive formats for generic case classes. The four concrete types are
+ *  derive formats for generic case classes. The five concrete types are
  *  `PagedResult[DashboardResponse]`, `PagedResult[DataTypeResponse]`,
- *  `PagedResult[DataSourceResponse]`, and `PagedResult[PanelResponse]`. */
+ *  `PagedResult[DataSourceResponse]`, `PagedResult[PanelResponse]`, and
+ *  `PagedResult[MetricResponse]` (HEL-493). */
 trait PaginationProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
     with DashboardProtocol
     with DataTypeProtocol
     with DataSourceProtocol
-    with PanelProtocol {
+    with PanelProtocol
+    with MetricProtocol {
 
   private def pagedResultFormat[A](implicit itemFormat: JsonFormat[A]): RootJsonFormat[PagedResult[A]] =
     new RootJsonFormat[PagedResult[A]] {
@@ -50,4 +52,7 @@ trait PaginationProtocol
 
   implicit val pagedPanelsFormat: RootJsonFormat[PagedResult[PanelResponse]] =
     pagedResultFormat[PanelResponse]
+
+  implicit val pagedMetricsFormat: RootJsonFormat[PagedResult[MetricResponse]] =
+    pagedResultFormat[MetricResponse]
 }

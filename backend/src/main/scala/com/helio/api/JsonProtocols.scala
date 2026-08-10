@@ -27,6 +27,10 @@ import com.helio.api.protocols._
  *  - `BoundPanelProtocol extends PanelProtocol with DataSourceProtocol with PipelineProtocol`
  *    (BoundPanelRequest/Response carry PanelResponse, StaticColumnPayload, and
  *    CreatePipelineStepRequest)
+ *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
+ *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
+ *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
+ *    `PagedResult[MetricResponse]`)
  *
  *  All re-exports for backward compatibility happen via `package object protocols`
  *  / wildcard import below: every case class and companion is in

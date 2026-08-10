@@ -259,6 +259,14 @@ package object api {
   type SnoozeAlertEventRequest = protocols.SnoozeAlertEventRequest
   val SnoozeAlertEventRequest: protocols.SnoozeAlertEventRequest.type = protocols.SnoozeAlertEventRequest
 
+  // Metric (HEL-446 domain/response; HEL-493 create/update requests + REST layer)
+  type MetricResponse = protocols.MetricResponse
+  val MetricResponse: protocols.MetricResponse.type = protocols.MetricResponse
+  type CreateMetricRequest = protocols.CreateMetricRequest
+  val CreateMetricRequest: protocols.CreateMetricRequest.type = protocols.CreateMetricRequest
+  type UpdateMetricRequest = protocols.UpdateMetricRequest
+  val UpdateMetricRequest: protocols.UpdateMetricRequest.type = protocols.UpdateMetricRequest
+
   // PipelineSchedule (HEL-414)
   type PipelineScheduleResponse = protocols.PipelineScheduleResponse
   val PipelineScheduleResponse: protocols.PipelineScheduleResponse.type = protocols.PipelineScheduleResponse

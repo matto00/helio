@@ -140,6 +140,15 @@ object RequestValidation {
     else
       Right(req)
 
+  /** HEL-493: shared `name` trim/non-empty check for `MetricService.create`
+   *  and `.update` — unlike `normalizeDashboardName`/`normalizePanelTitle`
+   *  above, an empty metric name is a hard 400 (no silent placeholder
+   *  default), so this returns `Either` rather than defaulting. */
+  def validateMetricName(name: String): Either[String, String] = {
+    val trimmed = name.trim
+    if (trimmed.isEmpty) Left("name is required") else Right(trimmed)
+  }
+
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
 }
