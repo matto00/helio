@@ -798,3 +798,49 @@ final case class AlertEvent(
     acknowledgedAt: Option[Instant],
     snoozedUntil: Option[Instant]
 )
+
+final case class MetricId(value: String) extends AnyVal
+
+/** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
+ *  purely presentational (no effect on the underlying aggregation). */
+final case class MetricFormat(
+    unit: Option[String],
+    decimals: Option[Int],
+    prefix: Option[String],
+    suffix: Option[String]
+)
+
+/** Allow-list for `MetricDefinition.aggregation` (HEL-446). Deliberately a
+ *  flat `Set[String]` + `validate`, not a `sealed trait` ADT like `Severity`/
+ *  `Comparator`/`ScheduleKind` — `MetricDefinition.aggregation` stays a raw
+ *  `String` field per the ticket's literal field list, validated only at the
+ *  repository insert/update boundary (design.md Decision 1), not at
+ *  construction. */
+object MetricAggregation {
+  val values: Set[String] = Set("sum", "avg", "min", "max", "count", "countDistinct")
+
+  def validate(s: String): Either[String, String] =
+    if (values.contains(s)) Right(s)
+    else Left(s"Unknown aggregation: '$s'. Valid values: ${values.toList.sorted.mkString(", ")}")
+}
+
+/** HEL-446 — Semantic/Metric Layer foundation (data-layer only; no CRUD
+ *  service/routes yet, see HEL-418-B onward). A metric names a reusable
+ *  measure over a pipeline-output `DataType`: an aggregation function applied
+ *  to `measureField`, the dimensions it may be grouped by, and a display
+ *  format. `aggregation` is validated against `MetricAggregation.values` at
+ *  the repository boundary (design.md Decision 1), not at construction. */
+final case class MetricDefinition(
+    id: MetricId,
+    ownerId: UserId,
+    dataTypeId: DataTypeId,
+    name: String,
+    description: Option[String],
+    measureField: String,
+    aggregation: String,
+    allowedDimensions: Vector[String],
+    format: MetricFormat,
+    deprecated: Boolean = false,
+    createdAt: Instant,
+    updatedAt: Instant
+)

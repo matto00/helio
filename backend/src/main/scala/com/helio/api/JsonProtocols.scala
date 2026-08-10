@@ -19,6 +19,7 @@ import com.helio.api.protocols._
  *  - `DataSourceProtocol extends DataTypeProtocol`     (CreateSourceResponse carries DataTypeResponse)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
+ *  - `MetricProtocol` has no cross-domain dependency
  *  - `PipelineScheduleProtocol` has no cross-domain dependency
  *  - `ConnectorProtocol` has no cross-domain dependency
  *  - `PipelineShapeProtocol` has no cross-domain dependency
@@ -47,6 +48,7 @@ trait JsonProtocols
     with ImageUploadProtocol
     with AlertRuleProtocol
     with AlertEventProtocol
+    with MetricProtocol
     with PipelineScheduleProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol
