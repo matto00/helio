@@ -88,9 +88,9 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
       ownerId: UserId,
       dataTypeId: DataTypeId,
       aggregation: String = "sum",
-      name: String = "Total Revenue"
-  ): MetricDefinition = {
-    val now = Instant.now()
+      name: String = "Total Revenue",
+      createdAt: Instant = Instant.now()
+  ): MetricDefinition =
     MetricDefinition(
       id                = MetricId(UUID.randomUUID().toString),
       ownerId           = ownerId,
@@ -102,10 +102,9 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
       allowedDimensions = Vector("region"),
       format            = MetricFormat(unit = Some("USD"), decimals = Some(2), prefix = None, suffix = None),
       deprecated        = false,
-      createdAt         = now,
-      updatedAt         = now
+      createdAt         = createdAt,
+      updatedAt         = createdAt
     )
-  }
 
   "MetricRepository" should {
 
@@ -296,6 +295,65 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
         val result = await(metricRepo.insert(metric, user1))
         result shouldBe Right(metric)
       }
+    }
+  }
+
+  "MetricRepository.findAll" should {
+
+    "pages results DB-side (offset/limit) and returns the caller's full total" in {
+      cleanDb(); seedUsers()
+      val dt = await(dtRepo.insert(newDataType(owner1), user1))
+      val base = Instant.now()
+      // Explicit, strictly-increasing createdAt per row (rather than relying
+      // on wall-clock gaps between sequential inserts) so ordering assertions
+      // below are deterministic — findAll sorts most-recently-created first,
+      // mirroring listByOwner/DataTypeRepository.findAll.
+      val names = Vector("A", "B", "C", "D", "E")
+      names.zipWithIndex.foreach { case (n, i) =>
+        await(metricRepo.insert(newMetric(owner1, dt.id, name = n, createdAt = base.plusSeconds(i)), user1))
+      }
+
+      val firstPage = await(metricRepo.findAll(owner1, Page(offset = 0, limit = 2)))
+      firstPage.items    should have size 2
+      firstPage.total    shouldBe 5
+      firstPage.offset   shouldBe 0
+      firstPage.limit    shouldBe 2
+      firstPage.items.map(_.name) shouldBe Vector("E", "D")
+
+      val secondPage = await(metricRepo.findAll(owner1, Page(offset = 2, limit = 2)))
+      secondPage.items should have size 2
+      secondPage.total shouldBe 5
+      secondPage.items.map(_.name) shouldBe Vector("C", "B")
+
+      val lastPage = await(metricRepo.findAll(owner1, Page(offset = 4, limit = 2)))
+      lastPage.items should have size 1
+      lastPage.total shouldBe 5
+      lastPage.items.map(_.name) shouldBe Vector("A")
+    }
+
+    "scopes results to the caller's own metrics" in {
+      cleanDb(); seedUsers()
+      val dt1 = await(dtRepo.insert(newDataType(owner1), user1))
+      val dt2 = await(dtRepo.insert(newDataType(owner2), user2))
+      await(metricRepo.insert(newMetric(owner1, dt1.id, name = "A"), user1))
+      await(metricRepo.insert(newMetric(owner1, dt1.id, name = "B"), user1))
+      await(metricRepo.insert(newMetric(owner2, dt2.id, name = "C"), user2))
+
+      val forOwner1 = await(metricRepo.findAll(owner1, Page(offset = 0, limit = 10)))
+      forOwner1.total shouldBe 2
+      forOwner1.items.map(_.name) should contain allOf ("A", "B")
+      forOwner1.items.map(_.name) should not contain "C"
+
+      val forOwner2 = await(metricRepo.findAll(owner2, Page(offset = 0, limit = 10)))
+      forOwner2.total shouldBe 1
+      forOwner2.items.map(_.name) should contain only "C"
+    }
+
+    "returns an empty page with total 0 when the owner has no metrics" in {
+      cleanDb(); seedUsers()
+      val result = await(metricRepo.findAll(owner1, Page(offset = 0, limit = 10)))
+      result.items shouldBe empty
+      result.total shouldBe 0
     }
   }
 
