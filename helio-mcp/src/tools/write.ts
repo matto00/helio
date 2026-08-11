@@ -13,6 +13,11 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
+import {
+  buildUpdateMetricBody,
+  metricAggregationSchema,
+  metricFormatSchema,
+} from "./metricSchemas.js";
 import { panelSchema } from "./proposal.js";
 
 function jsonResult(value: unknown): CallToolResult {
@@ -666,6 +671,98 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     ({ tag, dryRun }) => guarded(() => api.teardownResources({ tag, dryRun })),
   );
 
+  // ── Metrics (semantic layer, HEL-446/HEL-493/HEL-541) ───────────────────
+
+  server.registerTool(
+    "create_metric",
+    {
+      title: "Create metric",
+      description:
+        "Define a reusable metric: an aggregation applied to one field over a pipeline-output " +
+        "DataType. `dataTypeId` MUST be a caller-owned pipeline-output DataType — V41: sourceId " +
+        "absent on that DataType (check via list_data_types/get_panel_capabilities; a source-" +
+        "companion DataType's id is rejected with 400). `measureField` and each entry of " +
+        "`allowedDimensions` must be columns that actually exist on that DataType (also validated " +
+        "server-side, verbatim rejection message on mismatch). Prefer this over re-deriving the same " +
+        "aggregation inline in every panel/pipeline step that needs it — call list_metrics first to " +
+        "check whether the measure you need is already defined, and reference it (get_metric) " +
+        "instead of duplicating the logic.",
+      inputSchema: {
+        dataTypeId: z.string().min(1),
+        name: z.string().min(1),
+        description: z.string().optional(),
+        measureField: z.string().min(1),
+        aggregation: metricAggregationSchema,
+        allowedDimensions: z.array(z.string()),
+        format: metricFormatSchema.optional(),
+      },
+    },
+    ({ dataTypeId, name, description, measureField, aggregation, allowedDimensions, format }) =>
+      guarded(() =>
+        api.createMetric({
+          dataTypeId,
+          name,
+          description,
+          measureField,
+          aggregation,
+          allowedDimensions,
+          format,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "update_metric",
+    {
+      title: "Update metric",
+      description:
+        "Partially update a defined metric (PATCH /api/metrics/:id). Every field is optional and " +
+        "independently patchable: an OMITTED argument leaves that field unchanged server-side. " +
+        "`description` and `format` are additionally NULLABLE — pass an explicit `null` to CLEAR " +
+        "that field (distinct from omitting it, which leaves it as-is); `format`, when given as an " +
+        "object, replaces the whole format object (no deep merge of its own sub-fields: unit/" +
+        "decimals/prefix/suffix). `dataTypeId` is not patchable — create a new metric if the measure " +
+        "needs to move to a different DataType. `aggregation`, when given, is validated client-side " +
+        "against the same enum create_metric uses before any request reaches the backend; " +
+        "`measureField`/`allowedDimensions` changes are validated against the metric's DataType " +
+        "server-side, same as create_metric.",
+      inputSchema: {
+        metricId: z.string().min(1),
+        name: z.string().min(1).optional(),
+        description: z.string().nullable().optional(),
+        measureField: z.string().min(1).optional(),
+        aggregation: metricAggregationSchema.optional(),
+        allowedDimensions: z.array(z.string()).optional(),
+        format: metricFormatSchema.nullable().optional(),
+        deprecated: z.boolean().optional(),
+      },
+    },
+    ({
+      metricId,
+      name,
+      description,
+      measureField,
+      aggregation,
+      allowedDimensions,
+      format,
+      deprecated,
+    }) =>
+      guarded(() =>
+        api.updateMetric(
+          metricId,
+          buildUpdateMetricBody({
+            name,
+            description,
+            measureField,
+            aggregation,
+            allowedDimensions,
+            format,
+            deprecated,
+          }),
+        ),
+      ),
+  );
+
   // ── Delete tools ──────────────────────────────────────────────────────────
   // Each wraps a backend DELETE (204 No Content). Deletion is PERMANENT and
   // owner-scoped; the backend's 403 (not owner) / 404 (unknown id) is surfaced
@@ -735,6 +832,21 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       inputSchema: { pipelineId: z.string().min(1) },
     },
     ({ pipelineId }) => guarded(() => api.deletePipeline(pipelineId)),
+  );
+
+  server.registerTool(
+    "delete_metric",
+    {
+      title: "Delete metric",
+      description:
+        "Permanently delete a defined metric (DELETE /api/metrics/:id). Does not affect the " +
+        "underlying DataType. Any panel bound to this metric is UNBOUND, not deleted (its " +
+        "metric reference is cleared, matching the existing unbind-not-delete convention for a " +
+        "deleted DataType/data source). Owner-only — a non-owner gets 403, an unknown id 404. " +
+        "Irreversible.",
+      inputSchema: { metricId: z.string().min(1) },
+    },
+    ({ metricId }) => guarded(() => api.deleteMetric(metricId)),
   );
 
   server.registerTool(
