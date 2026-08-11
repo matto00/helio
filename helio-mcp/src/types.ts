@@ -437,3 +437,74 @@ export interface ShapeStepExpansionResponse {
   kind: string;
   config: Record<string, unknown>;
 }
+
+// ── Metric (semantic layer) CRUD (HEL-493/HEL-541) — mirrors
+// `backend/.../api/protocols/MetricProtocol.scala` ──────────────────────────
+
+/** Display formatting hints for a metric's value — all optional, purely
+ *  presentational. Mirrors the backend's `MetricFormat`; every field is a
+ *  Scala `Option` and is OMITTED on the wire when `None` (spray-json drops
+ *  `Option = None`), so each field here is `?:` per the existing `types.ts`
+ *  convention. */
+export interface MetricFormat {
+  unit?: string;
+  decimals?: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+/** `GET /api/metrics` / `GET /api/metrics/:id` / `POST /api/metrics` /
+ *  `PATCH /api/metrics/:id` response — mirrors the backend's
+ *  `MetricResponse`. A metric names a reusable measure (an `aggregation`
+ *  applied to `measureField`) over a pipeline-output DataType (V41) — the
+ *  semantic layer a panel should reference instead of re-deriving a measure
+ *  inline. `description` is omitted on the wire when unset (spray-json drops
+ *  `Option = None`). */
+export interface MetricResponse {
+  id: string;
+  ownerId: string;
+  dataTypeId: string;
+  name: string;
+  description?: string;
+  measureField: string;
+  aggregation: string;
+  allowedDimensions: string[];
+  format: MetricFormat;
+  deprecated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `POST /api/metrics` request body — mirrors the backend's
+ *  `CreateMetricRequest`. `dataTypeId` must resolve to a caller-owned,
+ *  pipeline-output DataType (V41); `format`, when omitted, defaults to an
+ *  all-absent `MetricFormat` server-side. */
+export interface CreateMetricRequest {
+  dataTypeId: string;
+  name: string;
+  description?: string;
+  measureField: string;
+  aggregation: string;
+  allowedDimensions: string[];
+  format?: MetricFormat;
+}
+
+/** `PATCH /api/metrics/:id` request body — mirrors the backend's
+ *  `UpdateMetricRequest`'s absent-vs-null convention (design.md Decision 2,
+ *  same idiom as `MetricPanelConfig.Patch`/`Option[Option[X]]`): `name`/
+ *  `measureField`/`aggregation`/`allowedDimensions`/`deprecated` are plain
+ *  optional replace-if-present fields; `description`/`format` are
+ *  nullable-optional — key ABSENT from the built JSON body means "leave
+ *  unchanged", key present with value `null` means "clear". `dataTypeId` is
+ *  intentionally not patchable (not in the ticket's field list). This
+ *  interface itself is the already-parsed shape the tool builds a JSON body
+ *  from; see `write.ts`'s body-builder for the absent-vs-null encoding. */
+export interface UpdateMetricRequest {
+  name?: string;
+  description?: string | null;
+  measureField?: string;
+  aggregation?: string;
+  allowedDimensions?: string[];
+  format?: MetricFormat | null;
+  deprecated?: boolean;
+}

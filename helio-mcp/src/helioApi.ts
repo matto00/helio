@@ -21,6 +21,7 @@ import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
   BoundPanelResponse,
   ConnectorMetadataResponse,
+  CreateMetricRequest,
   CreateSourceResult,
   CsvPreview,
   DashboardProposal,
@@ -29,6 +30,7 @@ import type {
   DataSourceResponse,
   DataTypeResponse,
   DataTypeRowsResponse,
+  MetricResponse,
   Paged,
   PanelCapabilitiesResponse,
   PanelResponse,
@@ -42,6 +44,7 @@ import type {
   RunResultResponse,
   ShapeStepExpansionResponse,
   TeardownResponse,
+  UpdateMetricRequest,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -275,6 +278,19 @@ export class HelioApi {
    *  `description` carry the real signal. Thin pass-through, no reshaping. */
   listPipelineShapes(): Promise<PipelineShapeCatalogEntryResponse[]> {
     return this.http.get<PipelineShapeCatalogEntryResponse[]>("/api/pipeline-shapes");
+  }
+
+  /** List metrics — the caller-owned reusable measures defined over
+   *  pipeline-output DataTypes (HEL-446/HEL-493). Thin pass-through to the
+   *  paginated `GET /api/metrics`. */
+  listMetrics(limit = 200, offset = 0): Promise<Paged<MetricResponse>> {
+    return this.http.get<Paged<MetricResponse>>("/api/metrics", { limit, offset });
+  }
+
+  /** Get one metric by id (`GET /api/metrics/:id`). A non-caller-owned or
+   *  unknown id 404s, surfaced verbatim by the tool's `guarded` handler. */
+  getMetric(metricId: string): Promise<MetricResponse> {
+    return this.http.get<MetricResponse>(`/api/metrics/${metricId}`);
   }
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────
@@ -685,6 +701,27 @@ export class HelioApi {
     return this.http.post<TeardownResponse>("/api/workspace/teardown", input);
   }
 
+  // ── Metrics (semantic layer, HEL-446/HEL-493/HEL-541) ───────────────────
+
+  /** Create a metric (`POST /api/metrics`) — a named, reusable measure
+   *  (`aggregation` over `measureField`) over a caller-owned, pipeline-output
+   *  DataType (V41). The backend validates `dataTypeId`/`measureField`/
+   *  `allowedDimensions` against the DataType's actual shape; that rejection
+   *  is surfaced verbatim, never worked around here. */
+  createMetric(input: CreateMetricRequest): Promise<MetricResponse> {
+    return this.http.post<MetricResponse>("/api/metrics", input);
+  }
+
+  /** Update a metric (`PATCH /api/metrics/:id`). `patch` is the ALREADY-BUILT
+   *  wire body (design.md Decision 2's absent-vs-null convention: a key is
+   *  present only when the caller supplied that argument) — the tool layer
+   *  (`write.ts`'s body-builder) does the omit-vs-null encoding before
+   *  calling this method, so this method itself is a pure pass-through, same
+   *  as every other method on this class. */
+  updateMetric(metricId: string, patch: UpdateMetricRequest): Promise<MetricResponse> {
+    return this.http.patch<MetricResponse>(`/api/metrics/${metricId}`, patch);
+  }
+
   // ── Delete ────────────────────────────────────────────────────────────────
   //
   // Every delete endpoint answers `204 No Content` (the backend's
@@ -729,6 +766,14 @@ export class HelioApi {
   async deletePipeline(pipelineId: string): Promise<{ deleted: true; id: string }> {
     await this.http.delete(`/api/pipelines/${pipelineId}`);
     return { deleted: true, id: pipelineId };
+  }
+
+  /** `DELETE /api/metrics/:id`. Owner-only. Does not touch the underlying
+   *  DataType. Any panel bound to this metric has its metric reference
+   *  cleared (`ON DELETE SET NULL`, V76) rather than being deleted. */
+  async deleteMetric(metricId: string): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/metrics/${metricId}`);
+    return { deleted: true, id: metricId };
   }
 
   /** `DELETE /api/pipeline-steps/:stepId`. Note the flat top-level path — a

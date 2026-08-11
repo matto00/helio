@@ -239,6 +239,37 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "list_metrics",
+    {
+      title: "List metrics",
+      description:
+        "List defined metrics (paginated envelope: items, total, offset, limit) — the caller's " +
+        "reusable measures over pipeline-output DataTypes (V41: each metric's dataTypeId has " +
+        "sourceId absent). Before deriving an ad-hoc aggregation inline in a panel or pipeline step, " +
+        "call this to see whether a metric already names the measure you need — reference it " +
+        "(get_metric) instead of re-deriving one.",
+      inputSchema: {
+        limit: z.number().int().positive().max(500).optional(),
+        offset: z.number().int().nonnegative().optional(),
+      },
+    },
+    ({ limit, offset }) => guarded(() => api.listMetrics(limit, offset)),
+  );
+
+  server.registerTool(
+    "get_metric",
+    {
+      title: "Get metric",
+      description:
+        "Get one defined metric by id, including its aggregation, measureField, allowedDimensions, " +
+        "and display format. 404s (surfaced via the guarded error path) when the id does not resolve " +
+        "to a caller-owned metric.",
+      inputSchema: { metricId: z.string().min(1) },
+    },
+    ({ metricId }) => guarded(() => api.getMetric(metricId)),
+  );
+
+  server.registerTool(
     "get_workspace_context",
     {
       title: "Get workspace context",
