@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, times, verify, when}
 import org.scalatest.matchers.should.Matchers
@@ -55,7 +55,7 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
       val dtRepo        = mock(classOf[DataTypeRepository])
       val panelRepo     = mock(classOf[PanelRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val typeId1 = DataTypeId(UUID.randomUUID().toString)
       val typeId2 = DataTypeId(UUID.randomUUID().toString)
@@ -82,7 +82,7 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
       val dtRepo        = mock(classOf[DataTypeRepository])
       val panelRepo     = mock(classOf[PanelRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val panels = Vector(textPanel("p-1"), textPanel("p-2"))
       val result = await(service.resolveBindingsForRead(panels, Some(user)))
@@ -95,7 +95,7 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
       val dtRepo        = mock(classOf[DataTypeRepository])
       val panelRepo     = mock(classOf[PanelRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val typeId = DataTypeId(UUID.randomUUID().toString)
       val panels = Vector(metricPanel("p-1", typeId), textPanel("p-2"))

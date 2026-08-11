@@ -52,6 +52,7 @@ class BoundPanelRoutesSpec
   private var dataSourceRepo: DataSourceRepository    = _
   private var dataTypeRepo: DataTypeRepository        = _
   private var dataTypeRowRepo: DataTypeRowRepository  = _
+  private var metricRepo: MetricRepository            = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository        = _
   private var pipelineStepRepo: PipelineStepRepository = _
@@ -76,6 +77,7 @@ class BoundPanelRoutesSpec
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
     dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
+    metricRepo       = new MetricRepository(ctx)(routeEc)
     permissionRepo   = new ResourcePermissionRepository(ctx)(routeEc)
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
@@ -165,7 +167,7 @@ class BoundPanelRoutesSpec
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
       dataTypeRowRepo, new PipelineRunCache(), new PipelineRunRegistry(), fileSystem
     )
-    val panelService = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo)
+    val panelService = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
     val boundPanelService = new BoundPanelService(
       dataSourceService, pipelineService, pipelineRunService, panelService,
       dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker

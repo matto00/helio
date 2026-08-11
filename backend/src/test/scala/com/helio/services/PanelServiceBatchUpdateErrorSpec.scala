@@ -6,7 +6,7 @@ import ch.qos.logback.core.read.ListAppender
 import com.helio.api.protocols.PanelBatchItem
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
@@ -66,7 +66,7 @@ class PanelServiceBatchUpdateErrorSpec extends AnyWordSpec with Matchers {
       logbackLogger.addAppender(appender)
 
       try {
-        val result = await(new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo).batchUpdate(Vector(item), user))
+        val result = await(new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository])).batchUpdate(Vector(item), user))
 
         result.isLeft shouldBe true
         val message = result.swap.toOption.get.message

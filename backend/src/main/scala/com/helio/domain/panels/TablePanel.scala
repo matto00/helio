@@ -1,7 +1,7 @@
 package com.helio.domain.panels
 
 import com.helio.api.RequestValidation
-import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.{DashboardId, DataTypeId, MetricId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -11,19 +11,26 @@ import spray.json.DefaultJsonProtocol._
  *
  *  `density` (`condensed` | `normal` | `spacious`) and `columnOrder` (ordered
  *  visible-column keys) follow the HEL-253 `columnWidths` pattern: optional,
- *  absent = defaults (normal density; all columns visible in natural order). */
+ *  absent = defaults (normal density; all columns visible in natural order).
+ *
+ *  `metricId` (HEL-500) persists, validates, and cross-user-clears
+ *  identically to [[MetricPanelConfig]]'s, but is NOT materialized into an
+ *  effective `fieldMapping` here — a table's arbitrary column-key mapping has
+ *  no unambiguous single slot a metric's one `measureField` should fill
+ *  (design.md D4). */
 final case class TablePanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     columnWidths: Map[String, Int] = Map.empty,
     density: Option[String] = None,
-    columnOrder: Option[List[String]] = None
+    columnOrder: Option[List[String]] = None,
+    metricId: Option[MetricId] = None
 )
 
 object TablePanelConfig {
-  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty, None, None)
+  val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty, None, None, None)
 
-  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat5(TablePanelConfig.apply)
+  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat6(TablePanelConfig.apply)
 
   def decode(json: JsValue): TablePanelConfig = json match {
     case JsObject(fields) =>
@@ -49,7 +56,11 @@ object TablePanelConfig {
         case Some(JsArray(elems)) => Some(elems.collect { case JsString(s) => s }.toList)
         case _                    => None
       }
-      TablePanelConfig(dataTypeId, mapping, widths, density, columnOrder)
+      val metricId = fields.get("metricId") match {
+        case Some(JsString(s)) => Some(MetricId(s))
+        case _                 => None
+      }
+      TablePanelConfig(dataTypeId, mapping, widths, density, columnOrder, metricId)
     case _ => Empty
   }
 
@@ -63,15 +74,16 @@ object TablePanelConfig {
       fieldMapping: Option[Option[JsObject]],
       columnWidths: Option[Option[Map[String, Int]]],
       density: Option[Option[String]],
-      columnOrder: Option[Option[List[String]]]
+      columnOrder: Option[Option[List[String]]],
+      metricId: Option[Option[MetricId]] = None
   ) {
     def isEmpty: Boolean =
       dataTypeId.isEmpty && fieldMapping.isEmpty && columnWidths.isEmpty &&
-        density.isEmpty && columnOrder.isEmpty
+        density.isEmpty && columnOrder.isEmpty && metricId.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -115,7 +127,13 @@ object TablePanelConfig {
             }.toList))
           case Some(x) => deserializationError(s"columnOrder must be an array or null, got $x")
         }
-        Patch(typeId, mapping, widths, density, columnOrder)
+        val metricId = fields.get("metricId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(MetricId(s)))
+          case Some(x)           => deserializationError(s"metricId must be a string or null, got $x")
+        }
+        Patch(typeId, mapping, widths, density, columnOrder, metricId)
       case _ => Empty
     }
   }
@@ -156,7 +174,8 @@ final case class TablePanel(
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
       columnWidths = patch.columnWidths.fold(config.columnWidths)(_.getOrElse(Map.empty)),
       density      = patch.density.fold(config.density)(identity),
-      columnOrder  = patch.columnOrder.fold(config.columnOrder)(identity)
+      columnOrder  = patch.columnOrder.fold(config.columnOrder)(identity),
+      metricId     = patch.metricId.fold(config.metricId)(identity)
     )
   )
 }

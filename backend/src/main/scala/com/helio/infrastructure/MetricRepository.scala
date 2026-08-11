@@ -80,6 +80,25 @@ class MetricRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(rowToDomain))
   }
 
+  /** Batch owner-scoped lookup -- fetches all metrics in `ids` owned by
+   *  `user` in a single `WHERE id IN (...) AND owner_id = ?` query. Mirrors
+   *  `DataTypeRepository.findByIdsOwned` exactly (HEL-500 design.md D3) —
+   *  supports the panel read path resolving many panels' `metricId`
+   *  bindings in one round trip.
+   *
+   *  Returns a `Map[MetricId, MetricDefinition]` for O(1) per-panel
+   *  resolution. Short-circuits immediately with an empty Map when `ids` is
+   *  empty. */
+  def findByIdsOwned(ids: Seq[MetricId], user: AuthenticatedUser): Future[Map[MetricId, MetricDefinition]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val idSet     = ids.map(_.value).toSet
+      val ownerUuid = UUID.fromString(user.id.value)
+      ctx.withUserContext(user.id.value)(
+        table.filter(r => (r.id inSet idSet) && r.ownerId === ownerUuid).result
+      ).map(_.map(rowToDomain).map(m => m.id -> m).toMap)
+    }
+
   /** Owner-scoped list, most-recently-created first. */
   def listByOwner(user: AuthenticatedUser): Future[Vector[MetricDefinition]] = {
     val ownerUuid = UUID.fromString(user.id.value)

@@ -18,4 +18,16 @@ package object panels {
       case x           => deserializationError(s"Expected string for DataTypeId, got $x")
     }
   }
+
+  /** JSON format for the `MetricId` value class (HEL-500) — mirrors
+   *  `dataTypeIdFormat` above. Needed by the bound-trio configs' macro-
+   *  derived `jsonFormatN` formats now that they carry an optional
+   *  `metricId: Option[MetricId]` field. */
+  implicit val metricIdFormat: JsonFormat[MetricId] = new JsonFormat[MetricId] {
+    def write(id: MetricId): JsValue = JsString(id.value)
+    def read(json: JsValue): MetricId = json match {
+      case JsString(s) => MetricId(s)
+      case x           => deserializationError(s"Expected string for MetricId, got $x")
+    }
+  }
 }

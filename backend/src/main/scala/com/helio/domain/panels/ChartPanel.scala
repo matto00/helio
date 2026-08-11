@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.{DashboardId, DataTypeId, MetricId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -177,19 +177,27 @@ object ChartOptions {
  *  as distinct types per design.md §1 so future divergence is structural.
  *
  *  `chartOptions` (HEL-248) carries optional per-chart-type display options,
- *  keyed by chart type; absent = the pre-change rendering defaults. */
+ *  keyed by chart type; absent = the pre-change rendering defaults.
+ *
+ *  `metricId` (HEL-500) persists, validates, and cross-user-clears
+ *  identically to [[MetricPanelConfig]]'s, but is NOT materialized into an
+ *  effective `fieldMapping` here — a chart's axis-keyed mapping has no
+ *  unambiguous single slot a metric's one `measureField` should fill
+ *  (design.md D4). It round-trips as write-only metadata until a follow-up
+ *  defines the axis assignment. */
 final case class ChartPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     aggregation: Option[JsObject] = None,
     chartOptions: Option[ChartOptions] = None,
-    annotation: Option[String] = None
+    annotation: Option[String] = None,
+    metricId: Option[MetricId] = None
 )
 
 object ChartPanelConfig {
-  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None, None, None)
+  val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None, None, None, None)
 
-  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat5(ChartPanelConfig.apply)
+  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat6(ChartPanelConfig.apply)
 
   /** Normalize an annotation input to the cleared/set state: absent, null,
    *  empty, and whitespace-only all collapse to `None` so a blank annotation
@@ -214,7 +222,11 @@ object ChartPanelConfig {
         case _                 => None
       }
       val chartOptions = fields.get("chartOptions").flatMap(ChartOptions.parse(_, strict))
-      ChartPanelConfig(dataTypeId, mapping, aggregation, chartOptions, normalizeAnnotation(fields.get("annotation")))
+      val metricId = fields.get("metricId") match {
+        case Some(JsString(s)) => Some(MetricId(s))
+        case _                 => None
+      }
+      ChartPanelConfig(dataTypeId, mapping, aggregation, chartOptions, normalizeAnnotation(fields.get("annotation")), metricId)
     case _ => Empty
   }
 
@@ -229,14 +241,15 @@ object ChartPanelConfig {
       fieldMapping: Option[Option[JsObject]],
       aggregation: Option[Option[JsObject]],
       chartOptions: Option[Option[ChartOptions]],
-      annotation: Option[Option[String]]
+      annotation: Option[Option[String]],
+      metricId: Option[Option[MetricId]] = None
   ) {
     def isEmpty: Boolean =
-      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && chartOptions.isEmpty && annotation.isEmpty
+      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && chartOptions.isEmpty && annotation.isEmpty && metricId.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -274,7 +287,13 @@ object ChartPanelConfig {
           case Some(JsString(_))                    => Some(None)
           case Some(x)                              => deserializationError(s"annotation must be a string or null, got $x")
         }
-        Patch(typeId, mapping, aggregation, chartOptions, annotation)
+        val metricId = fields.get("metricId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(MetricId(s)))
+          case Some(x)           => deserializationError(s"metricId must be a string or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation, chartOptions, annotation, metricId)
       case _ => Empty
     }
   }
@@ -319,7 +338,8 @@ final case class ChartPanel(
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
       aggregation  = patch.aggregation.fold(config.aggregation)(identity),
       chartOptions = patch.chartOptions.fold(config.chartOptions)(identity),
-      annotation   = patch.annotation.fold(config.annotation)(identity)
+      annotation   = patch.annotation.fold(config.annotation)(identity),
+      metricId     = patch.metricId.fold(config.metricId)(identity)
     )
   )
 }

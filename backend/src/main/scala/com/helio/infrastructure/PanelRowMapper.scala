@@ -81,13 +81,14 @@ object PanelRowMapper extends PanelProtocol {
       collectionOptions  = None,
       timelineOptions    = None,
       imageCaption       = None,
-      chartAnnotation    = None
+      chartAnnotation    = None,
+      metricId           = None
     )
 
     p match {
-      case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit)
-      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions), chartAnnotation = cp.config.annotation)
-      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder))
+      case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit, metricId = mp.config.metricId.map(_.value))
+      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions), chartAnnotation = cp.config.annotation, metricId = cp.config.metricId.map(_.value))
+      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder), metricId = tp.config.metricId.map(_.value))
       case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
@@ -106,7 +107,8 @@ object PanelRowMapper extends PanelProtocol {
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
       aggregation  = row.aggregation.flatMap(parseJsObject),
       label        = row.metricLabel,
-      unit         = row.metricUnit
+      unit         = row.metricUnit,
+      metricId     = row.metricId.map(MetricId(_))
     )
 
   private def chartConfig(row: PanelRepository.PanelRow): ChartPanelConfig =
@@ -115,7 +117,8 @@ object PanelRowMapper extends PanelProtocol {
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
       aggregation  = row.aggregation.flatMap(parseJsObject),
       chartOptions = row.chartOptions.flatMap(parseChartOptions),
-      annotation   = row.chartAnnotation.flatMap(normalizeText)
+      annotation   = row.chartAnnotation.flatMap(normalizeText),
+      metricId     = row.metricId.map(MetricId(_))
     )
 
   private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =
@@ -124,7 +127,8 @@ object PanelRowMapper extends PanelProtocol {
       fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
       columnWidths = row.columnWidths.flatMap(parseColumnWidths).getOrElse(Map.empty),
       density      = row.tableDensity,
-      columnOrder  = row.columnOrder.flatMap(parseColumnOrder)
+      columnOrder  = row.columnOrder.flatMap(parseColumnOrder),
+      metricId     = row.metricId.map(MetricId(_))
     )
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
