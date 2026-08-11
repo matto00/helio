@@ -3,7 +3,7 @@ package com.helio.services
 import com.helio.api.protocols.{CreatePanelRequest, PanelAppearancePayload, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, never, times, verify, when}
 import org.scalatest.matchers.should.Matchers
@@ -76,7 +76,7 @@ class PanelServiceScatterAggregationSpec extends AnyWordSpec with Matchers {
       val panelRepo     = mock(classOf[PanelRepository])
       val dtRepo        = mock(classOf[DataTypeRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val request = CreatePanelRequest(
         dashboardId = Some(dashId.value),
@@ -98,7 +98,7 @@ class PanelServiceScatterAggregationSpec extends AnyWordSpec with Matchers {
       val panelRepo     = mock(classOf[PanelRepository])
       val dtRepo        = mock(classOf[DataTypeRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val request = CreatePanelRequest(
         dashboardId = Some(dashId.value),
@@ -199,7 +199,7 @@ class PanelServiceScatterAggregationSpec extends AnyWordSpec with Matchers {
       val panelRepo     = mock(classOf[PanelRepository])
       val dtRepo        = mock(classOf[DataTypeRepository])
       val dashboardRepo = mock(classOf[DashboardRepository])
-      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo)
+      val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val okPanel   = chartPanel("p-1", "bar", None)
       val badPanel  = chartPanel("p-2", "bar", None)

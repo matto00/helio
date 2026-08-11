@@ -82,6 +82,10 @@
         "unit": {
           "type": "string",
           "description": "Literal display unit override — distinct from fieldMapping.unit, which binds to a data column."
+        },
+        "metricId": {
+          "type": "string",
+          "description": "Optional binding to a stored MetricDefinition (HEL-500) instead of the raw dataTypeId/fieldMapping/aggregation trio. When set, the effective dataTypeId/fieldMapping/aggregation/unit are materialized from the referenced metric at read time for any of those fields the panel itself leaves unset — a raw field present on this config always overrides its metric-derived counterpart."
         }
       }
     },
@@ -105,6 +109,10 @@
         "annotation": {
           "type": ["string", "null"],
           "description": "Optional static subtitle/footnote rendered beneath the chart title (HEL-318). Absent leaves it unchanged on PATCH; null/empty/whitespace clears it. Omitted from the response config when unset. The dynamic alternative is the reserved `fieldMapping.annotation` slot (HEL-323), which sources the annotation from a bound DataType column; this static literal wins when both are set."
+        },
+        "metricId": {
+          "type": "string",
+          "description": "Optional binding to a stored MetricDefinition (HEL-500) — persists, validates, and cross-user-clears identically to MetricConfig.metricId, but is NOT materialized into an effective fieldMapping: a chart's axis-keyed mapping ({xAxis, yAxis, series?}) has no unambiguous single slot a metric's one measureField should fill."
         }
       }
     },
@@ -128,6 +136,10 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Ordered list of visible data-column keys. Absent or empty shows all columns in natural order; when non-empty, exactly these keys render in this order (intersected with keys present in the data)."
+        },
+        "metricId": {
+          "type": "string",
+          "description": "Optional binding to a stored MetricDefinition (HEL-500) — persists, validates, and cross-user-clears identically to MetricConfig.metricId, but is NOT materialized into an effective fieldMapping: a table's arbitrary column-key mapping has no unambiguous single slot a metric's one measureField should fill."
         }
       }
     },

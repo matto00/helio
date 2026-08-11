@@ -209,6 +209,83 @@ object PanelServiceHelpers {
       case _ => None
     }
 
+  /** Extract the bound `metricId` a create-side config targets, if any
+   *  (HEL-500). Only the "bound trio" (Metric/Chart/Table) carries a
+   *  `metricId` — mirrors `dataTypeIdFromCreateConfig`'s shape, scoped to
+   *  the kinds that actually have the field. */
+  private[services] def metricIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[MetricId] =
+    config match {
+      case PanelConfigCodec.MetricCreate(c) => c.metricId
+      case PanelConfigCodec.ChartCreate(c)  => c.metricId
+      case PanelConfigCodec.TableCreate(c)  => c.metricId
+      case _                                => None
+    }
+
+  /** Extract the `metricId` an incoming PATCH `config` payload explicitly
+   *  sets to a non-null value, if any (HEL-500). Mirrors
+   *  `dataTypeIdFromConfigPatch` exactly: absent and explicit `null` both
+   *  yield `None` — only an actual re-bind attempt triggers the create/
+   *  update-time validation. */
+  private[services] def metricIdFromConfigPatch(json: JsValue): Option[MetricId] =
+    json match {
+      case JsObject(fields) =>
+        fields.get("metricId").collect { case JsString(s) if s.nonEmpty => MetricId(s) }
+      case _ => None
+    }
+
+  /** Extract the bound `metricId` from a panel's stored config, if any
+   *  (HEL-500). Only the "bound trio" carries the field; every other panel
+   *  kind returns `None`. Mirrors `Panel.dataTypeId`'s trait-level accessor
+   *  without promoting `metricId` onto the `Panel` trait itself — kept as a
+   *  service-layer concern since only `PanelService`'s read/validation
+   *  paths need it. */
+  private[services] def metricIdOf(panel: Panel): Option[MetricId] = panel match {
+    case mp: MetricPanel => mp.config.metricId
+    case cp: ChartPanel  => cp.config.metricId
+    case tp: TablePanel  => tp.config.metricId
+    case _               => None
+  }
+
+  /** Clear a bound-trio panel's `metricId` only, leaving every other config
+   *  field (including the raw `dataTypeId`/`fieldMapping` trio) untouched.
+   *  A no-op for any non-bound-trio panel. Distinct from
+   *  `Panel.withBindingCleared`, which wipes the *entire* binding — HEL-500
+   *  design.md D3 requires an unresolvable `metricId` to clear independently
+   *  of the panel's raw fields. */
+  private[services] def withMetricCleared(panel: Panel): Panel = panel match {
+    case mp: MetricPanel => mp.copy(config = mp.config.copy(metricId = None))
+    case cp: ChartPanel  => cp.copy(config = cp.config.copy(metricId = None))
+    case tp: TablePanel  => tp.copy(config = tp.config.copy(metricId = None))
+    case other           => other
+  }
+
+  /** `MetricPanel`-only (HEL-500 design.md D4): materialize the effective
+   *  `dataTypeId`/`fieldMapping`/`aggregation`/`unit` from a resolved
+   *  `MetricDefinition`, with any raw field the panel's own config already
+   *  sets always overriding its metric-derived counterpart. A no-op for
+   *  `ChartPanel`/`TablePanel` (and every other kind) — their field mappings
+   *  aren't derivable from a single measure field (see `ChartPanelConfig`'s
+   *  own scaladoc). */
+  private[services] def withMaterializedMetric(panel: Panel, metric: MetricDefinition): Panel = panel match {
+    case mp: MetricPanel =>
+      val effectiveDataTypeId =
+        if (mp.config.dataTypeId.value.nonEmpty) mp.config.dataTypeId else metric.dataTypeId
+      val effectiveFieldMapping =
+        if (mp.config.fieldMapping.fields.nonEmpty) mp.config.fieldMapping
+        else JsObject("value" -> JsString(metric.measureField))
+      val effectiveAggregation = mp.config.aggregation.orElse(
+        Some(JsObject("value" -> JsString(metric.measureField), "agg" -> JsString(metric.aggregation)))
+      )
+      val effectiveUnit = mp.config.unit.orElse(metric.format.unit)
+      mp.copy(config = mp.config.copy(
+        dataTypeId   = effectiveDataTypeId,
+        fieldMapping = effectiveFieldMapping,
+        aggregation  = effectiveAggregation,
+        unit         = effectiveUnit
+      ))
+    case other => other
+  }
+
   /** Peek an incoming PATCH `config` payload's `aggregation` field, tolerant
    *  raw-JSON style (mirrors `chartTypeFromAppearanceJson`/
    *  `dataTypeIdFromConfigPatch`): `Some(true)` = the patch sets a JsObject

@@ -1,25 +1,33 @@
 package com.helio.domain.panels
 
-import com.helio.domain.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.{DashboardId, DataTypeId, MetricId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 /** Typed config for a [[MetricPanel]]. Carries the data-type binding plus
  *  the field mapping — both are required at the schema level for a panel
  *  to render data, but cycle-1 read-path tolerance defaults to empty so a
- *  mid-edit row with `type_id IS NULL` does not 500 on listByDashboard. */
+ *  mid-edit row with `type_id IS NULL` does not 500 on listByDashboard.
+ *
+ *  `metricId` (HEL-500) optionally binds to a stored `MetricDefinition`
+ *  instead of the raw trio: when set, it is the authoritative source of the
+ *  effective `dataTypeId`/`fieldMapping`/`aggregation`/`unit` at read time
+ *  (`PanelService.resolveBindingsForRead`/`resolveSingleBinding`, design.md
+ *  D4) — the raw fields on this config, when present, always override their
+ *  metric-derived counterpart. */
 final case class MetricPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     aggregation: Option[JsObject] = None,
     label: Option[String] = None,
-    unit: Option[String] = None
+    unit: Option[String] = None,
+    metricId: Option[MetricId] = None
 )
 
 object MetricPanelConfig {
-  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None, None, None)
+  val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None, None, None, None)
 
-  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat5(MetricPanelConfig.apply)
+  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat6(MetricPanelConfig.apply)
 
   /** Tolerant JsValue decoder — missing/null fields default to empties
    *  so partial rows survive the read path (CS2c-3a cycle-2 lesson). */
@@ -45,7 +53,11 @@ object MetricPanelConfig {
         case Some(JsString(s)) => Some(s)
         case _                 => None
       }
-      MetricPanelConfig(dataTypeId, mapping, aggregation, label, unit)
+      val metricId = fields.get("metricId") match {
+        case Some(JsString(s)) => Some(MetricId(s))
+        case _                 => None
+      }
+      MetricPanelConfig(dataTypeId, mapping, aggregation, label, unit, metricId)
     case _ => Empty
   }
 
@@ -60,14 +72,15 @@ object MetricPanelConfig {
       fieldMapping: Option[Option[JsObject]],
       aggregation: Option[Option[JsObject]],
       label: Option[Option[String]] = None,
-      unit: Option[Option[String]] = None
+      unit: Option[Option[String]] = None,
+      metricId: Option[Option[MetricId]] = None
   ) {
     def isEmpty: Boolean =
-      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && label.isEmpty && unit.isEmpty
+      dataTypeId.isEmpty && fieldMapping.isEmpty && aggregation.isEmpty && label.isEmpty && unit.isEmpty && metricId.isEmpty
   }
 
   object Patch {
-    val Empty: Patch = Patch(None, None, None, None, None)
+    val Empty: Patch = Patch(None, None, None, None, None, None)
 
     def decode(json: JsValue): Patch = json match {
       case JsObject(fields) =>
@@ -101,7 +114,13 @@ object MetricPanelConfig {
           case Some(JsString(s)) => Some(Some(s))
           case Some(x)           => deserializationError(s"unit must be a string or null, got $x")
         }
-        Patch(typeId, mapping, aggregation, label, unit)
+        val metricId = fields.get("metricId") match {
+          case None              => None
+          case Some(JsNull)      => Some(None)
+          case Some(JsString(s)) => Some(Some(MetricId(s)))
+          case Some(x)           => deserializationError(s"metricId must be a string or null, got $x")
+        }
+        Patch(typeId, mapping, aggregation, label, unit, metricId)
       case _ => Empty
     }
   }
@@ -147,7 +166,8 @@ final case class MetricPanel(
       fieldMapping = patch.fieldMapping.fold(config.fieldMapping)(_.getOrElse(JsObject.empty)),
       aggregation  = patch.aggregation.fold(config.aggregation)(identity),
       label        = patch.label.fold(config.label)(identity),
-      unit         = patch.unit.fold(config.unit)(identity)
+      unit         = patch.unit.fold(config.unit)(identity),
+      metricId     = patch.metricId.fold(config.metricId)(identity)
     )
   )
 }

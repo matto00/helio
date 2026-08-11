@@ -134,7 +134,11 @@ final class ApiRoutes(
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
   private val authService       = new AuthService(userRepo)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
-  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo)
+  // HEL-500: metricRepo may be null for fixtures that don't pass one (same
+  // nullable-optional wiring convention as the constructor param above) —
+  // safe because PanelService only touches it when a panel actually carries
+  // a `metricId`.
+  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.

@@ -9,7 +9,7 @@ import com.helio.api.protocols.IdParsing.PanelIdSegment
 import com.helio.domain._
 import com.helio.services.PanelService
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Thin HTTP shell for `/api/panels`. All validation, ACL, and patch
  *  composition lives in [[com.helio.services.PanelService]] (which absorbed
@@ -70,7 +70,16 @@ final class PanelRoutes(
         },
         path(PanelIdSegment / "query") { panelId =>
           get {
-            onSuccess(panelService.findById(panelId, Some(user))) {
+            // HEL-500: resolve bindings (cross-user dataTypeId/metricId
+            // clearing + MetricPanel effective-binding materialization,
+            // design.md D3/D4) before building the query — this was
+            // previously the one panel-read path that skipped resolution
+            // entirely.
+            val resolved = panelService.findById(panelId, Some(user)).flatMap {
+              case None        => Future.successful(None)
+              case Some(panel) => panelService.resolveBinding(panel, user).map(Some(_))
+            }
+            onSuccess(resolved) {
               case None =>
                 complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
               case Some(panel) =>

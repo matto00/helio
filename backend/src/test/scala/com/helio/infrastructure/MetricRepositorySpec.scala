@@ -286,6 +286,42 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
       unchanged.get.aggregation shouldBe metric.aggregation
     }
 
+    // ── HEL-500 T.5: findByIdsOwned batch lookup, mirrors DataTypeRepositorySpec's ──
+
+    "findByIdsOwned returns only metrics owned by the given user" in {
+      cleanDb(); seedUsers()
+      val dt1     = await(dtRepo.insert(newDataType(owner1), user1))
+      val dt2     = await(dtRepo.insert(newDataType(owner2), user2))
+      val metric1 = newMetric(owner1, dt1.id, name = "A")
+      val metric2 = newMetric(owner1, dt1.id, name = "B")
+      val metric3 = newMetric(owner2, dt2.id, name = "C")
+      await(metricRepo.insert(metric1, user1))
+      await(metricRepo.insert(metric2, user1))
+      await(metricRepo.insert(metric3, user2))
+
+      val result = await(metricRepo.findByIdsOwned(Seq(metric1.id, metric2.id, metric3.id), user1))
+      result.keySet shouldBe Set(metric1.id, metric2.id)
+      result(metric1.id).name shouldBe "A"
+      result(metric2.id).name shouldBe "B"
+      result.get(metric3.id) shouldBe None
+    }
+
+    "findByIdsOwned excludes all metrics when caller owns none" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner2), user2))
+      val metric = newMetric(owner2, dt.id)
+      await(metricRepo.insert(metric, user2))
+
+      val result = await(metricRepo.findByIdsOwned(Seq(metric.id), user1))
+      result shouldBe Map.empty
+    }
+
+    "findByIdsOwned short-circuits with empty map for empty input" in {
+      cleanDb(); seedUsers()
+      val result = await(metricRepo.findByIdsOwned(Seq.empty, user1))
+      result shouldBe Map.empty
+    }
+
     "accepts every allow-listed aggregation value" in {
       cleanDb(); seedUsers()
       val dt = await(dtRepo.insert(newDataType(owner1), user1))

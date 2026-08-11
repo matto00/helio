@@ -314,6 +314,119 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ── HEL-500: metricId decode/decodeCreate/Patch/applyPatch round-trips ─────
+  // (T.1) — absent/null/set for Metric/Chart/Table bound-trio configs.
+
+  "MetricPanelConfig.metricId" should {
+    "default to None when absent" in {
+      MetricPanelConfig.decode(JsObject.empty).metricId shouldBe None
+      MetricPanelConfig.decodeCreate(JsObject.empty).metricId shouldBe None
+    }
+
+    "decode a present metricId string" in {
+      val decoded = MetricPanelConfig.decode(JsObject("metricId" -> JsString("m-1")))
+      decoded.metricId shouldBe Some(MetricId("m-1"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat6)" in {
+      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1")))
+      val decoded = MetricPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent key leaves metricId untouched (outer None)" in {
+      MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
+    }
+
+    "Patch.decode: explicit null clears metricId (Some(None))" in {
+      MetricPanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
+    }
+
+    "Patch.decode: present string sets metricId (Some(Some(v)))" in {
+      MetricPanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
+    }
+
+    "applyPatch: absent key preserves the existing metricId" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1"))))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, None))
+      patched.config.metricId shouldBe Some(MetricId("m-1"))
+    }
+
+    "applyPatch: explicit null clears a previously-set metricId" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1"))))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, Some(None)))
+      patched.config.metricId shouldBe None
+    }
+
+    "applyPatch: present string sets metricId" in {
+      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty))
+      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
+      patched.config.metricId shouldBe Some(MetricId("m-1"))
+    }
+  }
+
+  "ChartPanelConfig.metricId" should {
+    "default to None when absent" in {
+      ChartPanelConfig.decode(JsObject.empty).metricId shouldBe None
+    }
+
+    "decode a present metricId string" in {
+      ChartPanelConfig.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(MetricId("m-1"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat6)" in {
+      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1")))
+      val decoded = ChartPanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent/null/present metricId" in {
+      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
+      ChartPanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
+      ChartPanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
+    }
+
+    "applyPatch: fold metricId patch into the rebuilt config" in {
+      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty))
+      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
+      patched.config.metricId shouldBe Some(MetricId("m-1"))
+
+      val cleared = patched.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None, Some(None)))
+      cleared.config.metricId shouldBe None
+    }
+  }
+
+  "TablePanelConfig.metricId" should {
+    "default to None when absent" in {
+      TablePanelConfig.decode(JsObject.empty).metricId shouldBe None
+    }
+
+    "decode a present metricId string" in {
+      TablePanelConfig.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(MetricId("m-1"))
+    }
+
+    "round-trip via the per-subtype format (jsonFormat6)" in {
+      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, None, None, Some(MetricId("m-1")))
+      val decoded = TablePanelConfig.decode(cfg.toJson)
+      decoded shouldBe cfg
+    }
+
+    "Patch.decode: absent/null/present metricId" in {
+      TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
+      TablePanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
+      TablePanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
+    }
+
+    "applyPatch: fold metricId patch into the rebuilt config" in {
+      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty))
+      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
+      patched.config.metricId shouldBe Some(MetricId("m-1"))
+
+      val cleared = patched.applyPatch(TablePanelConfig.Patch(None, None, None, None, None, Some(None)))
+      cleared.config.metricId shouldBe None
+    }
+  }
+
   // ── HEL-624: ChartPanel.rejectsAggregation / validateConfig ─────────────────
 
   "ChartPanel.rejectsAggregation" should {

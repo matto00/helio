@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.api.protocols.CreatePanelRequest
 import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, PanelRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
 import org.mockito.Mockito.mock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -41,7 +41,8 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
       mock(classOf[PanelRepository]),
       mock(classOf[DataTypeRepository]),
       stubAccess,
-      mock(classOf[DashboardRepository])
+      mock(classOf[DashboardRepository]),
+      mock(classOf[MetricRepository])
     )
 
   private def validTextRequest(title: String): CreatePanelRequest =
