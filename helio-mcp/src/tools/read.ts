@@ -275,12 +275,16 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       title: "Get workspace context",
       description:
         "One compact snapshot of the whole workspace: data sources, DataTypes (with columns), " +
-        "pipelines (with steps and per-step output columns), dashboards, and the pipelineShapes " +
+        "pipelines (with steps and per-step output columns), dashboards, the pipelineShapes " +
         "catalog (id/label/description/paramsSchema/outputRowCount/outputDescription for every " +
-        "registered smart pipeline shape — see list_pipeline_shapes / create_pipeline_from_shape). " +
-        "Read this first to reason about what exists (e.g. which DataType is a single-row pipeline " +
-        "output, or which shape ids are available) instead of fanning out many calls yourself. Same " +
-        "payload as the helio://workspace/context resource.",
+        "registered smart pipeline shape — see list_pipeline_shapes / create_pipeline_from_shape), " +
+        "and the metrics catalog (id/name/dataTypeId/measureField/aggregation/allowedDimensions/" +
+        "format/deprecated for every metric the caller owns — see list_metrics/get_metric). Bind a " +
+        "proposal panel to one via metricId (propose_dashboard/apply_proposal) instead of " +
+        "re-deriving a raw dataTypeId/fieldMapping binding. Read this first to reason about what " +
+        "exists (e.g. which DataType is a single-row pipeline output, which shape ids are " +
+        "available, or which metrics are already defined) instead of fanning out many calls " +
+        "yourself. Same payload as the helio://workspace/context resource.",
       inputSchema: {},
     },
     () => guarded(() => buildWorkspaceContext(api)),

@@ -26,7 +26,7 @@ import {
   type WorkspaceContextJoinHint,
 } from "./context.js";
 import type { HelioApi } from "./helioApi.js";
-import type { DataTypeResponse } from "./types.js";
+import type { DataTypeResponse, MetricResponse } from "./types.js";
 
 /** `noUncheckedIndexedAccess` (helio-mcp's tsconfig) types `arr[0]` as
  *  `T | undefined` — this narrows it once per test rather than repeating
@@ -457,7 +457,10 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     updatedAt: "2026-01-01T00:00:00Z",
   };
 
-  function makeFakeApi(): { api: HelioApi; getDataTypeRowsCalls: string[] } {
+  function makeFakeApi(metrics: MetricResponse[] = []): {
+    api: HelioApi;
+    getDataTypeRowsCalls: string[];
+  } {
     const getDataTypeRowsCalls: string[] = [];
     const wideValue = Array.from({ length: 150 }, () => 7);
     const rawRows = [
@@ -485,6 +488,7 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
       listDashboards: async () => ({ items: [], total: 0, offset: 0, limit: 200 }),
       listPipelines: async () => [],
       listPipelineShapes: async () => [],
+      listMetrics: async () => ({ items: metrics, total: metrics.length, offset: 0, limit: 200 }),
       getDataTypeRows: async (
         dataTypeId: string,
         limit?: number,
@@ -552,6 +556,64 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(entry.sampleRows).toEqual([]);
     expect(entry.columnStats).toEqual({});
     expect(getDataTypeRowsCalls).toEqual(["dt-output"]); // never called for the companion
+  });
+
+  // ── HEL-549: metrics catalog ──────────────────────────────────────────────
+
+  function metricFixture(overrides: Partial<MetricResponse> = {}): MetricResponse {
+    return {
+      id: "metric-1",
+      ownerId: "user-1",
+      dataTypeId: "dt-output",
+      name: "Total Revenue",
+      measureField: "wide",
+      aggregation: "sum",
+      allowedDimensions: [],
+      format: { unit: "$" },
+      deprecated: false,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      ...overrides,
+    };
+  }
+
+  it("populates metrics with one entry per owned metric, carrying every catalog field", async () => {
+    const metric = metricFixture();
+    const { api } = makeFakeApi([metric]);
+
+    const context = await buildWorkspaceContext(api);
+
+    expect(context.metrics).toEqual([
+      {
+        id: metric.id,
+        name: metric.name,
+        dataTypeId: metric.dataTypeId,
+        measureField: metric.measureField,
+        aggregation: metric.aggregation,
+        allowedDimensions: metric.allowedDimensions,
+        format: metric.format,
+        deprecated: metric.deprecated,
+      },
+    ]);
+  });
+
+  it("returns metrics: [] for a workspace with no defined metrics, not an error", async () => {
+    const { api } = makeFakeApi([]);
+
+    const context = await buildWorkspaceContext(api);
+
+    expect(context.metrics).toEqual([]);
+  });
+
+  it("includes a deprecated metric, flagged, rather than omitting it", async () => {
+    const deprecatedMetric = metricFixture({ id: "metric-2", deprecated: true });
+    const { api } = makeFakeApi([deprecatedMetric]);
+
+    const context = await buildWorkspaceContext(api);
+
+    const entry = context.metrics.find((m) => m.id === "metric-2");
+    if (!entry) throw new Error("expected the deprecated metric to be present");
+    expect(entry.deprecated).toBe(true);
   });
 
   // ── HEL-377 tasks.md 4.2 — budgetBytes wiring through buildWorkspaceContext ──
@@ -1068,6 +1130,7 @@ describe("cross-language parity fixture (HEL-374 tasks.md 5.3)", () => {
         pipelines: [],
         dashboards: [],
         pipelineShapes: [],
+        metrics: [],
         joinHints,
         truncation: {
           applied: false,
@@ -1181,6 +1244,7 @@ describe("applyBudget", () => {
       pipelines: [],
       dashboards: [],
       pipelineShapes: [],
+      metrics: [],
       joinHints,
       truncation: {
         applied: false,

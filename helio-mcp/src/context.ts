@@ -17,7 +17,7 @@
  */
 
 import type { HelioApi } from "./helioApi.js";
-import type { DataFieldResponse, RowCountContractResponse } from "./types.js";
+import type { DataFieldResponse, MetricFormat, RowCountContractResponse } from "./types.js";
 
 /** Flatten a `RowCountContractResponse` discriminated union to a display string (HEL-400
  *  design.md Decision 5): `"exactly-one"`, `"at-most-param:<paramName>"`, or `"unbounded"`. */
@@ -946,6 +946,22 @@ export interface WorkspaceContext {
     outputRowCount: string;
     outputDescription: string;
   }>;
+  /** HEL-549: the caller's defined-metric catalog (HEL-446/493/541) — the semantic layer an agent
+   *  should discover and reuse via a proposal panel's `metricId` rather than re-deriving a raw
+   *  dataTypeId/fieldMapping binding. Field names mirror `MetricDefinition`/`MetricResponse`
+   *  verbatim (`dataTypeId`, not a renamed field). Not paginated/trimmed — mirrors dataSources/
+   *  pipelines/dashboards (small, flat records); ALWAYS present (`[]`, never omitted). A
+   *  `deprecated: true` entry is still included, not filtered out. */
+  metrics: Array<{
+    id: string;
+    name: string;
+    dataTypeId: string;
+    measureField: string;
+    aggregation: string;
+    allowedDimensions: string[];
+    format: MetricFormat;
+    deprecated: boolean;
+  }>;
   /** HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints —
    *  see `computeJoinHints`. Never authors a join step itself and never mutates any DataType's
    *  authoritative dataType. ALWAYS present (`[]`, never omitted) even when no candidate pairs exist. */
@@ -977,13 +993,14 @@ export async function buildWorkspaceContext(
   api: HelioApi,
   budgetBytes: number = DEFAULT_BUDGET_BYTES,
 ): Promise<WorkspaceContext> {
-  const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes] =
+  const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes, metricsPage] =
     await Promise.all([
       api.listDataSources(),
       api.listDataTypes(),
       api.listDashboards(),
       api.listPipelines(),
       api.listPipelineShapes(),
+      api.listMetrics(),
     ]);
 
   // Fan out one analyze per pipeline for steps + per-step output columns.
@@ -1093,6 +1110,16 @@ export async function buildWorkspaceContext(
       paramsSchema: s.paramsSchema,
       outputRowCount: flattenRowCount(s.outputContract.rowCount),
       outputDescription: s.outputContract.description,
+    })),
+    metrics: metricsPage.items.map((m) => ({
+      id: m.id,
+      name: m.name,
+      dataTypeId: m.dataTypeId,
+      measureField: m.measureField,
+      aggregation: m.aggregation,
+      allowedDimensions: m.allowedDimensions,
+      format: m.format,
+      deprecated: m.deprecated,
     })),
     // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER
     // `dataTypes` above is fully built — no new fetch. `dataTypes` is the

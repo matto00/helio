@@ -20,6 +20,11 @@ const proposalServiceScala = join(
   "backend/src/main/scala/com/helio/services/DashboardProposalService.scala",
 );
 const helioMcpProposalTs = join(repoRoot, "helio-mcp/src/tools/proposal.ts");
+// HEL-549: DATA_PANEL_TYPES moved out of proposal.ts into its own module so a
+// unit test can import the (zod-free) warning-computation logic without
+// pulling proposal.ts's `server.registerTool(...)` calls into the compile
+// graph — see proposalValidation.ts's docstring.
+const helioMcpProposalValidationTs = join(repoRoot, "helio-mcp/src/tools/proposalValidation.ts");
 const proposalReviewTsx = join(repoRoot, "frontend/src/features/dashboards/ui/ProposalReview.tsx");
 
 // Extract `case class <Name>(<params>)` (handles multi-line param lists).
@@ -264,14 +269,14 @@ panelTypeSurfaces.push({
 
 const dataPanelTypeSurfaces = [
   {
-    label: "helio-mcp/src/tools/proposal.ts DATA_PANEL_TYPES",
+    label: "helio-mcp/src/tools/proposalValidation.ts DATA_PANEL_TYPES",
     canonical: canonicalDataPanelKinds,
     actual: extractQuoted(
       extractBetween(
-        helioMcpProposalSrc,
+        readFileSync(helioMcpProposalValidationTs, "utf8"),
         "const DATA_PANEL_TYPES = new Set([",
         "])",
-        helioMcpProposalTs,
+        helioMcpProposalValidationTs,
       ),
     ),
   },

@@ -16,6 +16,11 @@ final case class ProposalPanel(
     title: String,
     `type`: String,
     dataTypeId: Option[String],
+    // HEL-549: additive to dataTypeId — binds the panel to a defined metric
+    // (`metric`/`chart`/`table` panels only) via the existing HEL-500
+    // MetricPanelConfig/ChartPanelConfig/TablePanelConfig `metricId` slot.
+    // dataTypeId stays required for these panel kinds exactly as before.
+    metricId: Option[String],
     fieldMapping: Option[JsObject],
     aggregation: Option[JsObject],
     content: Option[String],
@@ -63,6 +68,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         "type"  -> JsString(p.`type`)
       )
       p.dataTypeId.foreach(v => fields("dataTypeId") = JsString(v))
+      p.metricId.foreach(v => fields("metricId") = JsString(v))
       p.fieldMapping.foreach(v => fields("fieldMapping") = v)
       p.aggregation.foreach(v => fields("aggregation") = v)
       p.content.foreach(v => fields("content") = JsString(v))
@@ -86,6 +92,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         title        = obj.fields.get("title").map(_.convertTo[String]).getOrElse(deserializationError("proposal panel 'title' is required")),
         `type`       = obj.fields.get("type").map(_.convertTo[String]).getOrElse(deserializationError("proposal panel 'type' is required")),
         dataTypeId   = obj.fields.get("dataTypeId").map(_.convertTo[String]),
+        metricId     = obj.fields.get("metricId").map(_.convertTo[String]),
         fieldMapping = obj.fields.get("fieldMapping").map(_.asJsObject),
         aggregation  = obj.fields.get("aggregation").map(_.asJsObject),
         content      = obj.fields.get("content").map(_.convertTo[String]),

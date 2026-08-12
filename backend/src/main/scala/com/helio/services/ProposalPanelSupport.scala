@@ -2,9 +2,9 @@ package com.helio.services
 
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{CreatePanelRequest, ProposalPanel}
-import com.helio.domain.{AuthenticatedUser, DashboardId, DataTypeId, PanelType}
+import com.helio.domain.{AuthenticatedUser, DashboardId, DataTypeId, MetricId, PanelType}
 import com.helio.domain.panels.ChartPanel
-import com.helio.infrastructure.DataTypeRepository
+import com.helio.infrastructure.{DataTypeRepository, MetricRepository}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,32 +67,81 @@ object ProposalPanelSupport {
   /** Verify every panel's actual binding target — the flat `dataTypeId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
    *  `config.dataTypeId` — resolves to a pipeline-output DataType owned by
-   *  the caller. Runs BEFORE any write (zero DB writes here — these are
-   *  reads only), so a bad binding never reaches the caller's transactional
+   *  the caller, THEN (HEL-549) that a panel carrying a `metricId` resolves
+   *  to a caller-owned, non-deprecated metric on a panel type that supports
+   *  it. Runs BEFORE any write (zero DB writes here — these are reads
+   *  only), so a bad binding never reaches the caller's transactional
    *  write. */
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository
+      dataTypeRepo: DataTypeRepository,
+      metricRepo: MetricRepository
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) {
       (accF, panel) =>
         accF.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_) => bindingCandidate(panel) match {
-            case None => Future.successful(Right(()))
-            case Some(id) =>
-              dataTypeRepo.findByIdOwned(DataTypeId(id), user).map {
-                case None =>
-                  Left(ServiceError.BadRequest(s"panel '${panel.title}': dataType $id not found"))
-                case Some(dt) if dt.sourceId.isDefined =>
-                  Left(ServiceError.BadRequest(
-                    s"panel '${panel.title}': panels can only bind to pipeline-output data types"
-                  ))
-                case Some(_) => Right(())
-              }
-          }
+          case Right(_)  => validateOnePanelBinding(panel, user, dataTypeRepo, metricRepo)
         }
+    }
+
+  private def validateOnePanelBinding(
+      panel: ProposalPanel,
+      user: AuthenticatedUser,
+      dataTypeRepo: DataTypeRepository,
+      metricRepo: MetricRepository
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    validateDataTypeBinding(panel, user, dataTypeRepo).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  => validateMetricBinding(panel, user, metricRepo)
+    }
+
+  private def validateDataTypeBinding(
+      panel: ProposalPanel,
+      user: AuthenticatedUser,
+      dataTypeRepo: DataTypeRepository
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    bindingCandidate(panel) match {
+      case None => Future.successful(Right(()))
+      case Some(id) =>
+        dataTypeRepo.findByIdOwned(DataTypeId(id), user).map {
+          case None =>
+            Left(ServiceError.BadRequest(s"panel '${panel.title}': dataType $id not found"))
+          case Some(dt) if dt.sourceId.isDefined =>
+            Left(ServiceError.BadRequest(
+              s"panel '${panel.title}': panels can only bind to pipeline-output data types"
+            ))
+          case Some(_) => Right(())
+        }
+    }
+
+  /** HEL-549: reject a `metricId` before any create when it's set on a panel
+   *  type outside `MetricIdSupportedKinds`, doesn't resolve to a
+   *  caller-owned metric, or resolves to one with `deprecated: true`
+   *  (design.md D3 — stricter than `PanelService.rejectUnresolvableMetric`'s
+   *  direct-create path, which never checks `deprecated`). A panel with no
+   *  `metricId` passes through unchanged. */
+  private def validateMetricBinding(
+      panel: ProposalPanel,
+      user: AuthenticatedUser,
+      metricRepo: MetricRepository
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    panel.metricId match {
+      case None => Future.successful(Right(()))
+      case Some(id) =>
+        if (!DashboardProposalService.MetricIdSupportedKinds.contains(panel.`type`))
+          Future.successful(Left(ServiceError.BadRequest(
+            s"panel '${panel.title}': metricId is not supported on a ${panel.`type`} panel"
+          )))
+        else
+          metricRepo.findByIdOwned(MetricId(id), user).map {
+            case None =>
+              Left(ServiceError.BadRequest(s"panel '${panel.title}': metric $id not found"))
+            case Some(metric) if metric.deprecated =>
+              Left(ServiceError.BadRequest(s"panel '${panel.title}': metric $id is deprecated"))
+            case Some(_) => Right(())
+          }
     }
 
   /** The dataTypeId that will ACTUALLY end up bound on the created panel, for
@@ -151,7 +200,7 @@ object ProposalPanelSupport {
     val baseFields = Map(
       "dataTypeId"   -> JsString(dataTypeId),
       "fieldMapping" -> panel.fieldMapping.getOrElse(JsObject.empty)
-    )
+    ) ++ panel.metricId.map("metricId" -> JsString(_))
     val withAggregation = panel.aggregation.fold(baseFields)(agg => baseFields + ("aggregation" -> agg))
     val withMetricLiteral =
       if (panel.`type` == DashboardProposalService.MetricKind)

@@ -11,7 +11,7 @@ import com.helio.api.protocols.{
 import com.helio.api.protocols.PanelProtocol
 import com.helio.domain.{AuthenticatedUser, ChartAppearance, Dashboard, DashboardId, Panel}
 import com.helio.domain.panels.ChartPanel
-import com.helio.infrastructure.DataTypeRepository
+import com.helio.infrastructure.{DataTypeRepository, MetricRepository}
 import spray.json.JsObject
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,7 +42,11 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DashboardProposalService(
     dashboardService: DashboardService,
     panelService: PanelService,
-    dataTypeRepo: DataTypeRepository
+    dataTypeRepo: DataTypeRepository,
+    // HEL-549: mirrors PanelService's nullable-optional wiring convention
+    // (design.md D5) — only touched when a panel actually carries a
+    // metricId, so a test fixture that never sets one never exercises it.
+    metricRepo: MetricRepository
 )(implicit ec: ExecutionContext) {
 
   import DashboardProposalService._
@@ -54,7 +58,7 @@ final class DashboardProposalService(
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo).flatMap {
+        ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo, metricRepo).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_)  => createAll(proposal, user)
         }
@@ -196,6 +200,12 @@ object DashboardProposalService {
   private[services] val DataPanelKinds: Set[String] = Set("metric", "chart", "table", "collection", "timeline")
   private[services] val MetricKind: String          = "metric"
   private[services] val TimelineKind: String        = "timeline"
+  // HEL-549: the exact panel-type set HEL-500 added `metricId` support to on
+  // MetricPanelConfig/ChartPanelConfig/TablePanelConfig — collection/timeline
+  // never got a metricId slot, so a proposal panel of those types carrying a
+  // metricId is rejected by `preValidateBindings` rather than silently
+  // dropped (design.md D4).
+  private[services] val MetricIdSupportedKinds: Set[String] = Set("metric", "chart", "table")
 }
 
 /** Spray-JSON helper import surface for the service layer (mirrors

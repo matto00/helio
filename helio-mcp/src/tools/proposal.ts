@@ -18,8 +18,8 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { DashboardProposal, ProposalPanel } from "../types.js";
+import { computeProposalWarnings } from "./proposalValidation.js";
 
-const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "timeline"]);
 // No `divider`: dropped from the proposal flow's type set for parity with
 // create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
 // on other paths, this tool just no longer offers it.
@@ -65,6 +65,11 @@ export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),
+  // HEL-549: additive to dataTypeId (which remains required) — binds a
+  // metric/chart/table panel to a defined metric via the same
+  // MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot
+  // create_panel uses. Unsupported on collection/timeline.
+  metricId: z.string().optional(),
   fieldMapping: z.record(z.string()).optional(),
   aggregation: aggregationSchema.optional(),
   // Initial config for non-data panels, applied at create time (HEL-293).
@@ -134,6 +139,12 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "• table — bind with dataTypeId/fieldMapping; config.density " +
         "(condensed|normal|spacious) and config.columnOrder (string[] of visible column keys, in " +
         "order).\n" +
+        "• metric/chart/table — may additionally supply `metricId` to bind the panel to a defined " +
+        "metric (see get_workspace_context's metrics catalog, or list_metrics/get_metric), reusing " +
+        "the same config slot POST /api/panels uses. dataTypeId is still required alongside it — " +
+        "metricId does not replace it. Unsupported on collection/timeline; a missing/deprecated/" +
+        "not-owned metricId or one set on an unsupported type warns here (applyReady: false) and " +
+        "400s the whole apply at apply_proposal time.\n" +
         "• collection — bind with dataTypeId/fieldMapping (base-type slots, e.g. baseType " +
         "metric → {value,label?,unit?}); config.baseType (metric) and config.layout " +
         "(grid|list). One bound row = one rendered item.\n" +
@@ -159,31 +170,19 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
     },
     ({ dashboardName, panels }) =>
       guarded(async () => {
-        const proposal: DashboardProposal = { dashboardName, panels: panels as ProposalPanel[] };
+        const typedPanels = panels as ProposalPanel[];
+        const proposal: DashboardProposal = { dashboardName, panels: typedPanels };
 
-        // Read-only validation against the workspace: resolve DataTypes once and
-        // flag data panels whose binding is missing or not a pipeline output.
-        const typesPage = await api.listDataTypes();
+        // Read-only validation against the workspace: resolve DataTypes/metrics
+        // once and flag panels whose binding is missing/invalid. Extracted to
+        // `proposalValidation.ts` (HEL-549) — see that module's docstring for why.
+        const [typesPage, metricsPage] = await Promise.all([
+          api.listDataTypes(),
+          api.listMetrics(),
+        ]);
         const byId = new Map(typesPage.items.map((t) => [t.id, t]));
-        const warnings: string[] = [];
-
-        panels.forEach((panel, i) => {
-          const where = `panel ${i + 1} ('${panel.title}')`;
-          if (DATA_PANEL_TYPES.has(panel.type)) {
-            if (!panel.dataTypeId) {
-              warnings.push(`${where}: a ${panel.type} panel needs a dataTypeId`);
-              return;
-            }
-            const dt = byId.get(panel.dataTypeId);
-            if (!dt) {
-              warnings.push(`${where}: dataTypeId ${panel.dataTypeId} not found in this workspace`);
-            } else if ((dt.sourceId ?? null) !== null) {
-              warnings.push(
-                `${where}: dataType '${dt.name}' is a source companion, not a pipeline output — it cannot be bound`,
-              );
-            }
-          }
-        });
+        const metricById = new Map(metricsPage.items.map((m) => [m.id, m]));
+        const warnings = computeProposalWarnings(typedPanels, byId, metricById);
 
         return { proposal, warnings, applyReady: warnings.length === 0 };
       }),

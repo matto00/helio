@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
-import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.{DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, MetricRepository, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -49,6 +49,7 @@ abstract class ApplyProposalSpecBase
   private var appDb: JdbcBackend.Database        = _
   private var privilegedDb: JdbcBackend.Database = _
   private var ctx: DbContext                     = _
+  private var metricRepo: MetricRepository       = _
   protected var routes: Route                    = _
 
   protected val userId = "00000000-0000-0000-0000-0000000000a1"
@@ -121,12 +122,17 @@ abstract class ApplyProposalSpecBase
     val permissionRepo   = new ResourcePermissionRepository(ctx)(routeEc)
     val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
+    metricRepo           = new MetricRepository(ctx)(routeEc)
 
     routes = new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
       stubFileSystem, new RestApiConnector(Some(_ => Future.successful(Left("no HTTP")))),
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
-      new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc)
+      new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
+      // HEL-549: wires a real MetricRepository so apply-proposal specs can
+      // exercise the metricId validation path (nullable-optional default
+      // otherwise, mirroring ApiRoutes's own convention).
+      metricRepo = metricRepo
     ).routes
 
     // Seed users, a data source, and three DataTypes via the privileged pool.
@@ -201,6 +207,30 @@ abstract class ApplyProposalSpecBase
              VALUES ('dashboard', $dashboardId, ${granteeId}::uuid, $role, now())
              ON CONFLICT (resource_type, resource_id, grantee_id) DO UPDATE SET role = EXCLUDED.role"""
     ))
+
+  /** Seed a metric row directly (bypassing the HTTP layer, via the privileged
+   *  pool) owned by an arbitrary user id — used by HEL-549's metricId
+   *  validation specs to seed a caller-owned, foreign, and/or deprecated
+   *  metric without a second stubbed session. Mirrors
+   *  `seedDashboardForOwner`'s raw-SQL insert. */
+  protected def seedMetric(
+      ownerId: String,
+      dataTypeId: String,
+      deprecated: Boolean = false,
+      name: String = "Test Metric",
+      measureField: String = "region"
+  ): String = {
+    val id = UUID.randomUUID().toString
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO metrics
+               (id, owner_id, data_type_id, name, measure_field, aggregation,
+                allowed_dimensions, format, deprecated, created_at, updated_at)
+             VALUES
+               ($id, $ownerId::uuid, $dataTypeId, $name, $measureField, 'sum',
+                '[]'::jsonb, '{}'::jsonb, $deprecated, now(), now())"""
+    ))
+    id
+  }
 
   /** ACL-free read of a dashboard's panel titles, via the privileged pool —
    *  used by HEL-370 cross-tenant/no-grant specs to prove "nothing created"
