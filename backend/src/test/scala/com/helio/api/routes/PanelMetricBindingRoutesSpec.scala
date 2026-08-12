@@ -267,6 +267,124 @@ class PanelMetricBindingRoutesSpec
       }
     }
 
+    // ── HEL-560 tasks.md 8.3: metricDeprecated materialization ───────────────
+
+    "surface config.metricDeprecated = true for a MetricPanel bound to a deprecated metric, even with a raw override" in {
+      val dashId = seedDashboard(userAId)
+      val dt     = await(dataTypeRepo.insert(pipelineOutputDataType(userA.id), userA))
+      val metric = await(metricRepo.insert(newMetric(userA.id, dt.id), userA)).toOption.get
+      await(metricRepo.update(metric.copy(deprecated = true), userA))
+
+      Post(
+        "/panels",
+        json(
+          s"""{"dashboardId":"${dashId.value}","title":"Revenue","type":"metric",
+             |"config":{"metricId":"${metric.id.value}","fieldMapping":{"value":"profit"}}}""".stripMargin
+        )
+      ) ~> panelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/dashboards/${dashId.value}/panels") ~> publicDashboardRoutesFor(Some(userA)) ~> check {
+        status shouldBe StatusCodes.OK
+        val body   = responseAs[JsObject]
+        val panels = body.fields("items").asInstanceOf[JsArray].elements
+        val config = panels.head.asJsObject.fields("config").asJsObject
+
+        config.fields("metricDeprecated") shouldBe JsBoolean(true)
+        // Raw override still wins for fieldMapping — metricDeprecated is
+        // independent of the raw-vs-materialized precedence (design.md D6).
+        config.fields("fieldMapping") shouldBe JsObject("value" -> JsString("profit"))
+      }
+    }
+
+    "surface config.metricDeprecated = false for a MetricPanel bound to an active metric" in {
+      val dashId = seedDashboard(userAId)
+      val dt     = await(dataTypeRepo.insert(pipelineOutputDataType(userA.id), userA))
+      val metric = await(metricRepo.insert(newMetric(userA.id, dt.id), userA)).toOption.get
+
+      Post(
+        "/panels",
+        json(s"""{"dashboardId":"${dashId.value}","title":"Revenue","type":"metric","config":{"metricId":"${metric.id.value}"}}""")
+      ) ~> panelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/dashboards/${dashId.value}/panels") ~> publicDashboardRoutesFor(Some(userA)) ~> check {
+        status shouldBe StatusCodes.OK
+        val body   = responseAs[JsObject]
+        val panels = body.fields("items").asInstanceOf[JsArray].elements
+        val config = panels.head.asJsObject.fields("config").asJsObject
+
+        config.fields("metricDeprecated") shouldBe JsBoolean(false)
+      }
+    }
+
+    "surface config.metricDeprecated = true for a ChartPanel/TablePanel bound to a deprecated metric" in {
+      val dashId = seedDashboard(userAId)
+      val dt     = await(dataTypeRepo.insert(pipelineOutputDataType(userA.id), userA))
+      val metric = await(metricRepo.insert(newMetric(userA.id, dt.id), userA)).toOption.get
+      await(metricRepo.update(metric.copy(deprecated = true), userA))
+
+      Post(
+        "/panels",
+        json(s"""{"dashboardId":"${dashId.value}","title":"Chart","type":"chart","config":{"metricId":"${metric.id.value}"}}""")
+      ) ~> panelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Post(
+        "/panels",
+        json(s"""{"dashboardId":"${dashId.value}","title":"Table","type":"table","config":{"metricId":"${metric.id.value}"}}""")
+      ) ~> panelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Get(s"/dashboards/${dashId.value}/panels") ~> publicDashboardRoutesFor(Some(userA)) ~> check {
+        status shouldBe StatusCodes.OK
+        val body   = responseAs[JsObject]
+        val panels = body.fields("items").asInstanceOf[JsArray].elements
+        panels should have size 2
+        panels.foreach { panel =>
+          val config = panel.asJsObject.fields("config").asJsObject
+          config.fields("metricDeprecated") shouldBe JsBoolean(true)
+          // Chart/table never materialize fieldMapping from the metric — the
+          // deprecated flag is set independent of that scope (design.md D6).
+          config.fields("fieldMapping") shouldBe JsObject.empty
+        }
+      }
+    }
+
+    // ── HEL-560 tasks.md 8.4: rename requires no re-binding ───────────────────
+
+    "reflect a metric rename on every subsequent panel read with no PATCH /api/panels/:id call" in {
+      val dashId = seedDashboard(userAId)
+      val dt     = await(dataTypeRepo.insert(pipelineOutputDataType(userA.id), userA))
+      val metric = await(metricRepo.insert(newMetric(userA.id, dt.id, name = "Old Name"), userA)).toOption.get
+
+      Post(
+        "/panels",
+        json(s"""{"dashboardId":"${dashId.value}","title":"Revenue","type":"metric","config":{"metricId":"${metric.id.value}"}}""")
+      ) ~> panelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      // Rename via PATCH /api/metrics/:id — no PATCH /api/panels/:id call anywhere in this test.
+      Patch(s"/metrics/${metric.id.value}", json("""{"name":"New Name"}""")) ~> metricRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/dashboards/${dashId.value}/panels") ~> publicDashboardRoutesFor(Some(userA)) ~> check {
+        status shouldBe StatusCodes.OK
+        val body   = responseAs[JsObject]
+        val panels = body.fields("items").asInstanceOf[JsArray].elements
+        val config = panels.head.asJsObject.fields("config").asJsObject
+        // The effective binding (still resolved from the renamed metric)
+        // continues to read correctly — proving the panel needed no update.
+        config.fields("dataTypeId") shouldBe JsString(dt.id.value)
+        config.fields("fieldMapping") shouldBe JsObject("value" -> JsString("revenue"))
+      }
+    }
+
     "clear metricId on read after the referenced metric is deleted, panel stays intact" in {
       val dashId = seedDashboard(userAId)
       val dt     = await(dataTypeRepo.insert(pipelineOutputDataType(userA.id), userA))

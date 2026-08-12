@@ -20,7 +20,7 @@ import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/app
 import type { User } from "../features/auth/types/user";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { DataType } from "../features/dataTypes/types/dataType";
-import type { MetricSummary } from "../features/metrics/types/metric";
+import type { Metric, MetricSummary } from "../features/metrics/types/metric";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
 import type { PanelAppearance, PanelType } from "../features/panels/types/panel";
 import type { DataSource } from "../features/sources/types/dataSource";
@@ -80,10 +80,22 @@ interface TestState {
     items?: MetricSummary[];
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
+    /** HEL-560: single-metric detail state consumed by `MetricDetailPage.tsx`. */
+    currentMetric?: Metric | null;
+    currentMetricStatus?: "idle" | "loading" | "succeeded" | "failed";
+    currentMetricError?: string | null;
   };
 }
 
-export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
+export function renderWithStore(
+  ui: ReactElement,
+  preloadedState?: TestState,
+  /** HEL-560: initial `MemoryRouter` location — defaults to "/" (prior
+   *  behavior, unchanged for every existing caller). Needed by pages that
+   *  read a route param via `useParams` (e.g. `MetricDetailPage`'s `:id`),
+   *  which require a matched `<Route>` to resolve. */
+  initialPath: string = "/",
+) {
   const reducer = {
     auth: authReducer,
     dashboards: dashboardsReducer,
@@ -153,6 +165,16 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           items: preloadedState.metrics?.items ?? [],
           status: preloadedState.metrics?.status ?? "idle",
           error: preloadedState.metrics?.error ?? null,
+          createStatus: "idle",
+          createError: null,
+          updateStatus: "idle",
+          updateError: null,
+          deleteStatus: "idle",
+          deleteError: null,
+          currentMetric: preloadedState.metrics?.currentMetric ?? null,
+          currentMetricStatus: preloadedState.metrics?.currentMetricStatus ?? "idle",
+          currentMetricError: preloadedState.metrics?.currentMetricError ?? null,
+          createModalOpen: false,
         },
       }
     : undefined;
@@ -164,7 +186,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
 
   function Wrapper({ children }: PropsWithChildren) {
     return (
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialPath]}>
         <ThemeProvider>
           <Provider store={store}>
             <OverlayProvider>{children}</OverlayProvider>

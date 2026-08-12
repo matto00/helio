@@ -26,6 +26,9 @@ interface MetricBindingFieldsProps {
   labelState: BoundOrLiteralState;
   unitState: BoundOrLiteralState;
   metricBinding: MetricBindingState;
+  /** True when the bound metric is deprecated (HEL-560) — forwarded to
+   *  `MetricPicker`. See `MetricPickerProps.deprecated`. */
+  metricDeprecated?: boolean;
 }
 
 export function MetricBindingFields({
@@ -37,6 +40,7 @@ export function MetricBindingFields({
   labelState,
   unitState,
   metricBinding,
+  metricDeprecated,
 }: MetricBindingFieldsProps) {
   const metricBound = metricBinding.selectedMetricId !== null;
   return (
@@ -47,6 +51,7 @@ export function MetricBindingFields({
         selectedMetricId={metricBinding.selectedMetricId}
         onSelect={metricBinding.setSelectedMetricId}
         showResolvedFields
+        deprecated={metricDeprecated}
       />
       {!metricBound && (
         <MetricValueEditor

@@ -79,6 +79,7 @@ export function makeMetricPanel(
     label: overrides.config?.label,
     unit: overrides.config?.unit,
     metricId: overrides.config?.metricId,
+    metricDeprecated: overrides.config?.metricDeprecated,
   };
   return applyBase<MetricPanel>(overrides, "metric", config);
 }
@@ -93,6 +94,7 @@ export function makeChartPanel(
     chartOptions: overrides.config?.chartOptions,
     annotation: overrides.config?.annotation,
     metricId: overrides.config?.metricId,
+    metricDeprecated: overrides.config?.metricDeprecated,
   };
   return applyBase<ChartPanel>(overrides, "chart", config);
 }
@@ -105,6 +107,7 @@ export function makeTablePanel(
     fieldMapping: overrides.config?.fieldMapping ?? {},
     columnWidths: overrides.config?.columnWidths,
     metricId: overrides.config?.metricId,
+    metricDeprecated: overrides.config?.metricDeprecated,
   };
   return applyBase<TablePanel>(overrides, "table", config);
 }

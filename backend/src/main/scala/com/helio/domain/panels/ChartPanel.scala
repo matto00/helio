@@ -184,20 +184,25 @@ object ChartOptions {
  *  effective `fieldMapping` here — a chart's axis-keyed mapping has no
  *  unambiguous single slot a metric's one `measureField` should fill
  *  (design.md D4). It round-trips as write-only metadata until a follow-up
- *  defines the axis assignment. */
+ *  defines the axis assignment.
+ *
+ *  `metricDeprecated` (HEL-560) is read-only/server-materialized — same
+ *  semantics as [[MetricPanelConfig.metricDeprecated]]: awareness of a bound
+ *  metric's deprecated status applies regardless of materialization scope. */
 final case class ChartPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     aggregation: Option[JsObject] = None,
     chartOptions: Option[ChartOptions] = None,
     annotation: Option[String] = None,
-    metricId: Option[MetricId] = None
+    metricId: Option[MetricId] = None,
+    metricDeprecated: Option[Boolean] = None
 )
 
 object ChartPanelConfig {
   val Empty: ChartPanelConfig = ChartPanelConfig(DataTypeId(""), JsObject.empty, None, None, None, None)
 
-  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat6(ChartPanelConfig.apply)
+  implicit val format: RootJsonFormat[ChartPanelConfig] = jsonFormat7(ChartPanelConfig.apply)
 
   /** Normalize an annotation input to the cleared/set state: absent, null,
    *  empty, and whitespace-only all collapse to `None` so a blank annotation

@@ -24,7 +24,9 @@ class MetricRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import MetricRepository._
 
-  private val table = TableQuery[MetricTable]
+  private val table      = TableQuery[MetricTable]
+  private val panelTable = TableQuery[PanelRepository.PanelTable]
+  private val dashTable  = TableQuery[DashboardRepository.DashboardTable]
 
   private def rowToDomain(row: MetricRow): MetricDefinition =
     MetricDefinition(
@@ -157,6 +159,33 @@ class MetricRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def findByIdInternal(id: MetricId): Future[Option[MetricDefinition]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
+
+  /** Owner-scoped "where used" query (HEL-560 design.md D1): every panel
+   *  owned by `user` whose `metricId` currently references `id`, joined to
+   *  its owning dashboard for `dashboardName` — mirrors
+   *  `PanelRepository.findById`'s panel↔dashboard join shape and
+   *  `DataTypeRepository.existsBoundToAnyOwnedPanel`'s owner-scoping (the
+   *  panel's own `owner_id`, not a sharing-aware ACL — matches every other
+   *  per-id metric route's `findByIdOwned`-first semantics). Used by both the
+   *  `/usage` route (tasks.md 1.1/1.2) and `MetricService.delete`'s
+   *  pre-delete count (tasks.md 1.4, via [[countBoundPanels]]). */
+  def usage(id: MetricId, user: AuthenticatedUser): Future[Vector[MetricUsagePanel]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val q = for {
+      panel <- panelTable if panel.metricId === id.value && panel.ownerId === ownerUuid
+      dash  <- dashTable if dash.id === panel.dashboardId
+    } yield (panel.id, panel.title, dash.id, dash.name)
+    ctx.withUserContext(user.id.value)(q.result).map(_.map {
+      case (panelId, panelTitle, dashboardId, dashboardName) =>
+        MetricUsagePanel(PanelId(panelId), panelTitle, DashboardId(dashboardId), dashboardName)
+    }.toVector)
+  }
+
+  /** Row count underlying [[usage]] — `MetricService.delete` only needs the
+   *  count, not the full panel list, so this avoids building the response
+   *  DTO for a value it discards. */
+  def countBoundPanels(id: MetricId, user: AuthenticatedUser): Future[Int] =
+    usage(id, user).map(_.size)
 }
 
 object MetricRepository {

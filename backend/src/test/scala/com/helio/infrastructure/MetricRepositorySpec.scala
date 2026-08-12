@@ -1,12 +1,14 @@
 package com.helio.infrastructure
 
 import com.helio.domain._
+import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json.JsObject
 
 import java.time.Instant
 import java.util.UUID
@@ -15,7 +17,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-446 — `MetricRepository` CRUD round-trip, owner scoping, CASCADE
  *  delete from the bound `DataType`, and `aggregation` allow-list
- *  validation at the insert/update boundary. */
+ *  validation at the insert/update boundary. HEL-560 tasks.md 8.1 adds the
+ *  "where used" query (`usage`/`countBoundPanels`) coverage. */
 class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
@@ -24,6 +27,8 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private var db: JdbcBackend.Database           = _
   private var metricRepo: MetricRepository       = _
   private var dtRepo: DataTypeRepository         = _
+  private var panelRepo: PanelRepository         = _
+  private var dashboardRepo: DashboardRepository = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -39,6 +44,8 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
     val ctx = new DbContext(db, db)
     metricRepo = new MetricRepository(ctx)
     dtRepo = new DataTypeRepository(ctx)
+    panelRepo = new PanelRepository(ctx)
+    dashboardRepo = new DashboardRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -50,9 +57,43 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
 
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
+    await(db.run(sqlu"DELETE FROM panels"))
+    await(db.run(sqlu"DELETE FROM dashboards"))
     await(db.run(sqlu"DELETE FROM metrics"))
     await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM users"))
+  }
+
+  private def seedDashboard(ownerId: UserId): DashboardId = {
+    import PostgresProfile.api._
+    val id = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($id, 'Usage Test Dashboard', ${ownerId.value}, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent"}',
+                     '{"lg":[],"md":[],"sm":[],"xs":[]}', ${ownerId.value}::uuid)"""
+    ))
+    DashboardId(id)
+  }
+
+  private def seedBoundPanel(
+      metricId: MetricId,
+      dashboardId: DashboardId,
+      ownerId: UserId,
+      title: String = "Bound Panel"
+  ): PanelId = {
+    val panelId = PanelId(UUID.randomUUID().toString)
+    val panel = MetricPanel(
+      panelId,
+      dashboardId,
+      title,
+      ResourceMeta(ownerId.value, Instant.now(), Instant.now()),
+      PanelAppearance.Default,
+      ownerId,
+      MetricPanelConfig(dataTypeId = DataTypeId(""), fieldMapping = JsObject.empty, metricId = Some(metricId))
+    )
+    await(panelRepo.insert(panel))
+    panelId
   }
 
   private val owner1Id = UUID.randomUUID().toString
@@ -390,6 +431,89 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
       val result = await(metricRepo.findAll(owner1, Page(offset = 0, limit = 10)))
       result.items shouldBe empty
       result.total shouldBe 0
+    }
+  }
+
+  // ── HEL-560 tasks.md 8.1: "where used" query ────────────────────────────────
+
+  "MetricRepository.usage" should {
+
+    "returns the panels + dashboards bound to a metric, owner-scoped" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner1), user1))
+      val metric = newMetric(owner1, dt.id)
+      await(metricRepo.insert(metric, user1))
+
+      val dashA = seedDashboard(owner1)
+      val dashB = seedDashboard(owner1)
+      val panelA = seedBoundPanel(metric.id, dashA, owner1, title = "Panel A")
+      val panelB = seedBoundPanel(metric.id, dashB, owner1, title = "Panel B")
+
+      val result = await(metricRepo.usage(metric.id, user1))
+
+      result should have size 2
+      result.map(_.panelId) should contain allOf (panelA, panelB)
+      val entryA = result.find(_.panelId == panelA).get
+      entryA.panelTitle shouldBe "Panel A"
+      entryA.dashboardId shouldBe dashA
+      entryA.dashboardName shouldBe "Usage Test Dashboard"
+    }
+
+    "returns an empty vector for a metric with no bound panels" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner1), user1))
+      val metric = newMetric(owner1, dt.id)
+      await(metricRepo.insert(metric, user1))
+
+      val result = await(metricRepo.usage(metric.id, user1))
+      result shouldBe empty
+    }
+
+    "never returns another owner's panels, even if bound to the same metric id" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner1), user1))
+      val metric = newMetric(owner1, dt.id)
+      await(metricRepo.insert(metric, user1))
+
+      val dashOwnedByA = seedDashboard(owner1)
+      val dashOwnedByB = seedDashboard(owner2)
+      seedBoundPanel(metric.id, dashOwnedByA, owner1, title = "Owned by A")
+      // A cross-owner row that shouldn't exist via the normal create/update
+      // path (service-layer validation would clear a foreign metricId on
+      // read) — inserted directly at the repository layer to prove the join
+      // itself scopes on the CALLER's owner_id, not just the metric's.
+      seedBoundPanel(metric.id, dashOwnedByB, owner2, title = "Owned by B")
+
+      val result = await(metricRepo.usage(metric.id, user1))
+      result should have size 1
+      result.head.panelTitle shouldBe "Owned by A"
+    }
+  }
+
+  "MetricRepository.countBoundPanels" should {
+
+    "returns the same count as usage.size" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner1), user1))
+      val metric = newMetric(owner1, dt.id)
+      await(metricRepo.insert(metric, user1))
+
+      val dash = seedDashboard(owner1)
+      seedBoundPanel(metric.id, dash, owner1)
+      seedBoundPanel(metric.id, dash, owner1)
+
+      val count = await(metricRepo.countBoundPanels(metric.id, user1))
+      count shouldBe 2
+    }
+
+    "returns 0 for an unbound metric" in {
+      cleanDb(); seedUsers()
+      val dt     = await(dtRepo.insert(newDataType(owner1), user1))
+      val metric = newMetric(owner1, dt.id)
+      await(metricRepo.insert(metric, user1))
+
+      val count = await(metricRepo.countBoundPanels(metric.id, user1))
+      count shouldBe 0
     }
   }
 

@@ -15,6 +15,9 @@ import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import type { ChartPanel, MetricPanel, TablePanel } from "../../types/panel";
 
 export interface MetricBindingState {
+  /** Offered picker options — deprecated metrics filtered out, EXCEPT the
+   *  panel's currently-bound metric stays visible/selectable even if it has
+   *  since been deprecated (HEL-560 design.md D5). */
   metrics: MetricSummary[];
   metricsStatus: "idle" | "loading" | "succeeded" | "failed";
   selectedMetricId: string | null;
@@ -36,7 +39,7 @@ export function useMetricBindingState(
   panel: MetricPanel | ChartPanel | TablePanel,
 ): MetricBindingState {
   const dispatch = useAppDispatch();
-  const metrics = useAppSelector((state) => state.metrics.items);
+  const allMetrics = useAppSelector((state) => state.metrics.items);
   const metricsStatus = useAppSelector((state) => state.metrics.status);
 
   const initialMetricId = panel.config.metricId ?? null;
@@ -47,6 +50,13 @@ export function useMetricBindingState(
       void dispatch(fetchMetrics());
     }
   }, [metricsStatus, dispatch]);
+
+  // HEL-560 design.md D5: exclude deprecated metrics from new selections,
+  // except the panel's currently-bound metric (initialMetricId, not the
+  // live/dirty selectedMetricId — a user shouldn't lose sight of what's
+  // actually bound while browsing other options) stays visible/selectable
+  // even if it has since been deprecated.
+  const metrics = allMetrics.filter((m) => !m.deprecated || m.id === initialMetricId);
 
   const dirty = selectedMetricId !== initialMetricId;
   const patchValue: string | null | undefined = dirty ? selectedMetricId : undefined;

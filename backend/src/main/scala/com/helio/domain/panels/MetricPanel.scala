@@ -14,20 +14,28 @@ import spray.json.DefaultJsonProtocol._
  *  effective `dataTypeId`/`fieldMapping`/`aggregation`/`unit` at read time
  *  (`PanelService.resolveBindingsForRead`/`resolveSingleBinding`, design.md
  *  D4) — the raw fields on this config, when present, always override their
- *  metric-derived counterpart. */
+ *  metric-derived counterpart.
+ *
+ *  `metricDeprecated` (HEL-560) is a read-only, server-materialized field:
+ *  never decoded from client input (`decode`/`decodeCreate`/`Patch` all
+ *  ignore it), always freshly recomputed by
+ *  `PanelServiceHelpers.withMaterializedMetric` from the resolved metric's
+ *  current `deprecated` flag whenever `metricId` resolves to an owned
+ *  `MetricDefinition` — absent (not `false`) otherwise. */
 final case class MetricPanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     aggregation: Option[JsObject] = None,
     label: Option[String] = None,
     unit: Option[String] = None,
-    metricId: Option[MetricId] = None
+    metricId: Option[MetricId] = None,
+    metricDeprecated: Option[Boolean] = None
 )
 
 object MetricPanelConfig {
   val Empty: MetricPanelConfig = MetricPanelConfig(DataTypeId(""), JsObject.empty, None, None, None, None)
 
-  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat6(MetricPanelConfig.apply)
+  implicit val format: RootJsonFormat[MetricPanelConfig] = jsonFormat7(MetricPanelConfig.apply)
 
   /** Tolerant JsValue decoder — missing/null fields default to empties
    *  so partial rows survive the read path (CS2c-3a cycle-2 lesson). */

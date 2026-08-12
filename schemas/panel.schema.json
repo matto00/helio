@@ -36,10 +36,38 @@
   "$comment": "Per-subtype config shapes live in $defs and are selected via the top-level oneOf below. dataSourceId is not a valid field — panels bind to DataTypes (config.dataTypeId), not DataSources directly.",
   "oneOf": [
     {
-      "properties": { "type": { "const": "metric" }, "config": { "$ref": "#/$defs/MetricConfig" } }
+      "properties": {
+        "type": { "const": "metric" },
+        "config": {
+          "allOf": [
+            { "$ref": "#/$defs/MetricConfig" },
+            { "if": { "required": ["metricId"] }, "then": { "required": ["metricDeprecated"] } }
+          ]
+        }
+      }
     },
-    { "properties": { "type": { "const": "chart" }, "config": { "$ref": "#/$defs/ChartConfig" } } },
-    { "properties": { "type": { "const": "table" }, "config": { "$ref": "#/$defs/TableConfig" } } },
+    {
+      "properties": {
+        "type": { "const": "chart" },
+        "config": {
+          "allOf": [
+            { "$ref": "#/$defs/ChartConfig" },
+            { "if": { "required": ["metricId"] }, "then": { "required": ["metricDeprecated"] } }
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "table" },
+        "config": {
+          "allOf": [
+            { "$ref": "#/$defs/TableConfig" },
+            { "if": { "required": ["metricId"] }, "then": { "required": ["metricDeprecated"] } }
+          ]
+        }
+      }
+    },
     { "properties": { "type": { "const": "text" }, "config": { "$ref": "#/$defs/TextConfig" } } },
     {
       "properties": {
@@ -86,6 +114,10 @@
         "metricId": {
           "type": "string",
           "description": "Optional binding to a stored MetricDefinition (HEL-500) instead of the raw dataTypeId/fieldMapping/aggregation trio. When set, the effective dataTypeId/fieldMapping/aggregation/unit are materialized from the referenced metric at read time for any of those fields the panel itself leaves unset — a raw field present on this config always overrides its metric-derived counterpart."
+        },
+        "metricDeprecated": {
+          "type": "boolean",
+          "description": "HEL-560: read-only, server-materialized — always reflects the bound metric's current `deprecated` value whenever `metricId` resolves to an owned MetricDefinition. Declared here (not required) so it validates on the response; the server never reads it from client input (create/update decoders ignore it) even though this $def is also shared by create-panel-request.schema.json for POST /api/panels. Absent on an unbound panel or one bound only via the raw dataTypeId/fieldMapping trio."
         }
       }
     },
@@ -113,6 +145,10 @@
         "metricId": {
           "type": "string",
           "description": "Optional binding to a stored MetricDefinition (HEL-500) — persists, validates, and cross-user-clears identically to MetricConfig.metricId, but is NOT materialized into an effective fieldMapping: a chart's axis-keyed mapping ({xAxis, yAxis, series?}) has no unambiguous single slot a metric's one measureField should fill."
+        },
+        "metricDeprecated": {
+          "type": "boolean",
+          "description": "HEL-560: read-only, server-materialized — same semantics as MetricConfig.metricDeprecated. Set regardless of the chart's own metricId materialization scope (which never derives fieldMapping)."
         }
       }
     },
@@ -140,6 +176,10 @@
         "metricId": {
           "type": "string",
           "description": "Optional binding to a stored MetricDefinition (HEL-500) — persists, validates, and cross-user-clears identically to MetricConfig.metricId, but is NOT materialized into an effective fieldMapping: a table's arbitrary column-key mapping has no unambiguous single slot a metric's one measureField should fill."
+        },
+        "metricDeprecated": {
+          "type": "boolean",
+          "description": "HEL-560: read-only, server-materialized — same semantics as MetricConfig.metricDeprecated. Set regardless of the table's own metricId materialization scope (which never derives fieldMapping)."
         }
       }
     },

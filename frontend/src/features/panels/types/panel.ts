@@ -112,6 +112,11 @@ export interface MetricPanelConfig {
    *  (`MetricPanel.scala`/`PanelServiceHelpers.withMaterializedMetric`).
    *  Absent/`null` = unbound. */
   metricId?: string | null;
+  /** Read-only, server-materialized (HEL-560): always reflects the bound
+   *  metric's current `deprecated` value whenever `metricId` resolves.
+   *  Absent (not `false`) on an unbound panel or one bound only via the raw
+   *  dataTypeId/fieldMapping trio — never send this on a create/PATCH. */
+  metricDeprecated?: boolean;
 }
 
 // ── Per-chart-type display options (HEL-248) ────────────────────────────────
@@ -178,6 +183,10 @@ export interface ChartPanelConfig {
    *  for a metric's measure field (`PanelServiceHelpers.withMaterializedMetric`
    *  is a no-op for `ChartPanel`). Absent/`null` = unbound. */
   metricId?: string | null;
+  /** Read-only, server-materialized (HEL-560) — same semantics as
+   *  `MetricPanelConfig.metricDeprecated`. Set regardless of the chart's own
+   *  metricId materialization scope. */
+  metricDeprecated?: boolean;
 }
 
 export interface TablePanelConfig {
@@ -196,6 +205,10 @@ export interface TablePanelConfig {
    *  never-materialized semantics as `ChartPanelConfig.metricId`. Absent/
    *  `null` = unbound. */
   metricId?: string | null;
+  /** Read-only, server-materialized (HEL-560) — same semantics as
+   *  `MetricPanelConfig.metricDeprecated`. Set regardless of the table's own
+   *  metricId materialization scope. */
+  metricDeprecated?: boolean;
 }
 
 export interface TextPanelConfig {

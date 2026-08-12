@@ -950,8 +950,11 @@ export interface WorkspaceContext {
    *  should discover and reuse via a proposal panel's `metricId` rather than re-deriving a raw
    *  dataTypeId/fieldMapping binding. Field names mirror `MetricDefinition`/`MetricResponse`
    *  verbatim (`dataTypeId`, not a renamed field). Not paginated/trimmed — mirrors dataSources/
-   *  pipelines/dashboards (small, flat records); ALWAYS present (`[]`, never omitted). A
-   *  `deprecated: true` entry is still included, not filtered out. */
+   *  pipelines/dashboards (small, flat records); ALWAYS present (`[]`, never omitted). HEL-560:
+   *  a `deprecated: true` entry is EXCLUDED from this array — deprecated metrics should stop being
+   *  offered to the agent (existing bindings still resolve; `list_metrics` is unaffected, since it's
+   *  the tool an agent uses to actively manage/un-deprecate metrics). Every remaining entry therefore
+   *  always carries `deprecated: false`, kept on the wire shape for stability rather than dropped. */
   metrics: Array<{
     id: string;
     name: string;
@@ -1111,16 +1114,21 @@ export async function buildWorkspaceContext(
       outputRowCount: flattenRowCount(s.outputContract.rowCount),
       outputDescription: s.outputContract.description,
     })),
-    metrics: metricsPage.items.map((m) => ({
-      id: m.id,
-      name: m.name,
-      dataTypeId: m.dataTypeId,
-      measureField: m.measureField,
-      aggregation: m.aggregation,
-      allowedDimensions: m.allowedDimensions,
-      format: m.format,
-      deprecated: m.deprecated,
-    })),
+    // HEL-560: deprecated metrics are excluded from the grounding catalog by
+    // default — filter BEFORE mapping so the exclusion can never drift from
+    // the mapped shape below.
+    metrics: metricsPage.items
+      .filter((m) => m.deprecated !== true)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        dataTypeId: m.dataTypeId,
+        measureField: m.measureField,
+        aggregation: m.aggregation,
+        allowedDimensions: m.allowedDimensions,
+        format: m.format,
+        deprecated: m.deprecated,
+      })),
     // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER
     // `dataTypes` above is fully built — no new fetch. `dataTypes` is the
     // exact structure already owner-scoped by `typesPage` (D3), so there is

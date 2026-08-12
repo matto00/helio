@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/metric-usage-response.schema.json",
+  "title": "MetricUsageResponse",
+  "description": "Response body of GET /api/metrics/:id/usage (HEL-560) — the panels (and their owning dashboards) currently bound to a metric via config.metricId, owner-scoped. Mirrors the sub-resource precedent set by pipeline-analyze-response.schema.json.",
+  "type": "object",
+  "required": ["metricId", "count", "panels"],
+  "properties": {
+    "metricId": { "type": "string", "minLength": 1 },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "panels.length, carried explicitly so a caller doesn't need to count the array."
+    },
+    "panels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/MetricUsagePanel" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "MetricUsagePanel": {
+      "type": "object",
+      "required": ["panelId", "panelTitle", "dashboardId", "dashboardName"],
+      "properties": {
+        "panelId": { "type": "string", "minLength": 1 },
+        "panelTitle": { "type": "string" },
+        "dashboardId": { "type": "string", "minLength": 1 },
+        "dashboardName": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -83,6 +83,40 @@ object UpdateMetricRequest {
   val Empty: UpdateMetricRequest = UpdateMetricRequest(None, None, None, None, None, None, None)
 }
 
+/** One panel entry in a [[MetricUsageResponse]] — wire DTO for
+ *  `MetricUsagePanel` (HEL-560), string-ified IDs mirroring
+ *  `MetricResponse`'s own convention. */
+final case class MetricUsagePanelResponse(
+    panelId: String,
+    panelTitle: String,
+    dashboardId: String,
+    dashboardName: String
+)
+
+/** Response body of `GET /api/metrics/:id/usage` (HEL-560 design.md D1) —
+ *  wire DTO for `MetricUsage`. */
+final case class MetricUsageResponse(
+    metricId: String,
+    count: Int,
+    panels: Vector[MetricUsagePanelResponse]
+)
+
+object MetricUsageResponse {
+  def fromDomain(u: MetricUsage): MetricUsageResponse =
+    MetricUsageResponse(
+      metricId = u.metricId.value,
+      count    = u.count,
+      panels   = u.panels.map(p =>
+        MetricUsagePanelResponse(
+          panelId       = p.panelId.value,
+          panelTitle    = p.panelTitle,
+          dashboardId   = p.dashboardId.value,
+          dashboardName = p.dashboardName
+        )
+      )
+    )
+}
+
 trait MetricProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   // Needed directly (no ID/Instant fields) — used by MetricRepository's JSONB
   // `format` column MappedColumnType, mirroring DataTypeProtocol's
@@ -154,4 +188,10 @@ trait MetricProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case _ => UpdateMetricRequest.Empty
       }
     }
+
+  implicit val metricUsagePanelResponseFormat: RootJsonFormat[MetricUsagePanelResponse] =
+    jsonFormat4(MetricUsagePanelResponse.apply)
+
+  implicit val metricUsageResponseFormat: RootJsonFormat[MetricUsageResponse] =
+    jsonFormat3(MetricUsageResponse.apply)
 }

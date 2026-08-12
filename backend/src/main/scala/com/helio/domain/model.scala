@@ -844,3 +844,21 @@ final case class MetricDefinition(
     createdAt: Instant,
     updatedAt: Instant
 )
+
+/** One panel bound to a metric, for the "where used" query (HEL-560) —
+ *  carries its owning dashboard's id/name so the caller never needs a
+ *  second round trip to render "Panel X on Dashboard Y". */
+final case class MetricUsagePanel(
+    panelId: PanelId,
+    panelTitle: String,
+    dashboardId: DashboardId,
+    dashboardName: String
+)
+
+/** Owner-scoped usage summary for `GET /api/metrics/:id/usage` and the
+ *  pre-delete count `MetricService.delete` computes (HEL-560 design.md D1). */
+final case class MetricUsage(
+    metricId: MetricId,
+    count: Int,
+    panels: Vector[MetricUsagePanel]
+)

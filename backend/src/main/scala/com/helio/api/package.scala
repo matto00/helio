@@ -266,6 +266,11 @@ package object api {
   val CreateMetricRequest: protocols.CreateMetricRequest.type = protocols.CreateMetricRequest
   type UpdateMetricRequest = protocols.UpdateMetricRequest
   val UpdateMetricRequest: protocols.UpdateMetricRequest.type = protocols.UpdateMetricRequest
+  // Metric usage (HEL-560 — GET /api/metrics/:id/usage)
+  type MetricUsagePanelResponse = protocols.MetricUsagePanelResponse
+  val MetricUsagePanelResponse: protocols.MetricUsagePanelResponse.type = protocols.MetricUsagePanelResponse
+  type MetricUsageResponse = protocols.MetricUsageResponse
+  val MetricUsageResponse: protocols.MetricUsageResponse.type = protocols.MetricUsageResponse
 
   // PipelineSchedule (HEL-414)
   type PipelineScheduleResponse = protocols.PipelineScheduleResponse

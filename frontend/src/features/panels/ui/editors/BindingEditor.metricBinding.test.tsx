@@ -58,6 +58,13 @@ const metric: MetricSummary = {
   updatedAt: "2026-07-01T00:00:00Z",
 };
 
+const deprecatedMetric: MetricSummary = {
+  ...metric,
+  id: "m-2",
+  name: "Legacy Revenue",
+  deprecated: true,
+};
+
 beforeEach(() => {
   mockedUpdateBinding.mockReset();
 });
@@ -199,6 +206,95 @@ describe("BindingEditor — bind-to-metric mode, chart/table panels (HEL-500/HEL
     const call = mockedUpdateBinding.mock.calls[0];
     const metricId = call[10];
     expect(metricId).toBe("m-1");
+  });
+});
+
+describe("BindingEditor — deprecated metric indicator (HEL-560)", () => {
+  it("shows a 'deprecated' indicator for a metric panel already bound to a deprecated metric", () => {
+    const panel = makeMetricPanel({
+      id: "p1",
+      config: { dataTypeId: "dt1", fieldMapping: { value: "price" }, metricId: "m-2" },
+    });
+    renderWithStore(
+      <BindingEditor panel={panel} initialRefreshInterval={null} onDirtyChange={() => {}} />,
+      {
+        dataTypes: { items: [dataType], status: "succeeded" },
+        // The panel's currently-bound deprecated metric stays in the offered
+        // list per design.md D5 — the real filtering lives in
+        // useMetricBindingState (covered by its own test file); this fixture
+        // just carries the deprecated flag through for the indicator to read.
+        metrics: { items: [metric, deprecatedMetric], status: "succeeded" },
+      },
+    );
+
+    expect(screen.getByText("deprecated")).toBeInTheDocument();
+  });
+
+  it("shows no indicator for a metric panel bound to an active metric", () => {
+    const panel = makeMetricPanel({
+      id: "p1",
+      config: { dataTypeId: "dt1", fieldMapping: { value: "price" }, metricId: "m-1" },
+    });
+    renderWithStore(
+      <BindingEditor panel={panel} initialRefreshInterval={null} onDirtyChange={() => {}} />,
+      {
+        dataTypes: { items: [dataType], status: "succeeded" },
+        metrics: { items: [metric, deprecatedMetric], status: "succeeded" },
+      },
+    );
+
+    expect(screen.queryByText("deprecated")).not.toBeInTheDocument();
+  });
+
+  it("shows a 'deprecated' indicator for a chart panel already bound to a deprecated metric", () => {
+    const panel = makeChartPanel({
+      id: "p2",
+      config: { dataTypeId: "dt1", fieldMapping: {}, metricId: "m-2" },
+    });
+    renderWithStore(
+      <BindingEditor
+        panel={panel}
+        initialRefreshInterval={null}
+        chartType="line"
+        onDirtyChange={() => {}}
+      />,
+      {
+        dataTypes: { items: [dataType], status: "succeeded" },
+        metrics: { items: [metric, deprecatedMetric], status: "succeeded" },
+      },
+    );
+
+    expect(screen.getByText("deprecated")).toBeInTheDocument();
+  });
+
+  // skeptic-final-1.md change request 1: clearing a deprecated-bound
+  // metric's selection mid-edit (before saving) must drop the indicator
+  // immediately, not fall through to the panel's stale
+  // `config.metricDeprecated` from its last server-fetched materialization.
+  it("hides the indicator immediately after clearing a deprecated-bound metric's selection, before saving", () => {
+    const panel = makeMetricPanel({
+      id: "p1",
+      config: {
+        dataTypeId: "dt1",
+        fieldMapping: { value: "price" },
+        metricId: "m-2",
+        metricDeprecated: true,
+      },
+    });
+    renderWithStore(
+      <BindingEditor panel={panel} initialRefreshInterval={null} onDirtyChange={() => {}} />,
+      {
+        dataTypes: { items: [dataType], status: "succeeded" },
+        metrics: { items: [metric, deprecatedMetric], status: "succeeded" },
+      },
+    );
+
+    expect(screen.getByText("deprecated")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("option", { name: "— None —" }));
+
+    expect(screen.queryByText("deprecated")).not.toBeInTheDocument();
   });
 });
 
