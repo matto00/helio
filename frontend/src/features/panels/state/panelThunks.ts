@@ -186,6 +186,10 @@ export const updatePanelBinding = createAsyncThunk<
     /** HEL-318: Chart static annotation, folded into the same single Save
      *  PATCH. `undefined` = leave unchanged, `null` = clear, string = set. */
     annotation?: string | null;
+    /** HEL-500/HEL-553: bind-to-metric mode, folded into the same single Save
+     *  PATCH. `undefined` = leave unchanged, `null` = clear, a metric id =
+     *  set. */
+    metricId?: string | null;
   },
   { rejectValue: string }
 >(
@@ -202,14 +206,15 @@ export const updatePanelBinding = createAsyncThunk<
       tableDisplay,
       chartOptions,
       annotation,
+      metricId,
     },
     { rejectWithValue },
   ) => {
     try {
-      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions`/`annotation`
-      // are optional trailing params on `updatePanelBindingRequest`; passing
-      // them as `undefined` when the caller didn't supply one is behaviorally
-      // identical to omitting the argument.
+      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions`/`annotation`/
+      // `metricId` are optional trailing params on `updatePanelBindingRequest`;
+      // passing them as `undefined` when the caller didn't supply one is
+      // behaviorally identical to omitting the argument.
       return await updatePanelBindingRequest(
         panelId,
         typeId,
@@ -221,6 +226,7 @@ export const updatePanelBinding = createAsyncThunk<
         tableDisplay,
         chartOptions,
         annotation,
+        metricId,
       );
     } catch {
       return rejectWithValue("Failed to update panel binding.");

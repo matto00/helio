@@ -8,6 +8,7 @@ import { getMeRequest } from "../features/auth/services/authService";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
+import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
@@ -46,6 +47,10 @@ jest.mock("../features/dataTypes/services/dataTypeService", () => ({
 
 jest.mock("../features/pipelines/services/pipelineService", () => ({
   getPipelines: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("../features/metrics/services/metricService", () => ({
+  fetchMetrics: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../features/auth/services/authService", () => ({
@@ -105,6 +110,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      metrics: metricsReducer,
       toasts: toastsReducer,
     },
     preloadedState: {
@@ -475,6 +481,43 @@ describe("App", () => {
     // The in-page heading was dropped (top breadcrumb shows the section).
     // Verify the page rendered by looking for its container.
     await waitFor(() => expect(document.querySelector(".type-registry-page")).toBeInTheDocument());
+  });
+
+  it("renders a Metrics nav link in the sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
+    const metricsLink = within(sidebarNav).getByRole("link", { name: "Metrics" });
+    expect(metricsLink).toBeInTheDocument();
+    expect(metricsLink).toHaveAttribute("href", "/metrics");
+  });
+
+  it("navigates to /metrics and renders the Metrics page", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
+
+    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
+    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Metrics" }));
+
+    await waitFor(() => expect(document.querySelector(".metrics-page")).toBeInTheDocument());
+  });
+
+  it("shows 'Metrics' breadcrumb when route is /metrics", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/metrics" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Metrics"),
+    );
   });
 
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {

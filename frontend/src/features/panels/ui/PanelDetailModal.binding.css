@@ -251,3 +251,34 @@
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
+
+/* Bind-to-metric resolved fields (HEL-500/HEL-553) — read-only measure/
+   aggregation/format summary shown once a metric is selected on a metric
+   panel (design.md D5). */
+
+.panel-detail-modal__metric-resolved {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+}
+
+.panel-detail-modal__metric-resolved-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.panel-detail-modal__metric-resolved-row dt {
+  color: var(--app-text-muted);
+}
+
+.panel-detail-modal__metric-resolved-row dd {
+  margin: 0;
+  color: var(--app-text);
+  font-family: var(--font-mono);
+}

@@ -106,6 +106,32 @@ describe("buildBindingPatch — chart annotation (HEL-318)", () => {
   });
 });
 
+describe("buildBindingPatch — bind-to-metric (HEL-500/HEL-553)", () => {
+  it("omits metricId entirely when undefined (leave unchanged)", () => {
+    const patch = buildBindingPatch({ typeId: "dt-1", fieldMapping: { xAxis: "a" } });
+    expect("metricId" in patch).toBe(false);
+  });
+
+  it("includes metricId when set", () => {
+    const patch = buildBindingPatch({
+      typeId: "dt-1",
+      fieldMapping: { xAxis: "a" },
+      metricId: "m-1",
+    });
+    expect(patch.metricId).toBe("m-1");
+  });
+
+  it("sends metricId: null to clear a previously-bound metric", () => {
+    const patch = buildBindingPatch({
+      typeId: "dt-1",
+      fieldMapping: { xAxis: "a" },
+      metricId: null,
+    });
+    expect("metricId" in patch).toBe(true);
+    expect(patch.metricId).toBeNull();
+  });
+});
+
 describe("buildCreatePanelBody — text case seeds dataTypeId", () => {
   it("seeds config.dataTypeId from the creation modal's selected DataType", () => {
     const body = buildCreatePanelBody({

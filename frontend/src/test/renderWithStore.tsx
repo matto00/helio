@@ -9,6 +9,7 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
+import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
@@ -19,6 +20,7 @@ import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/app
 import type { User } from "../features/auth/types/user";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { DataType } from "../features/dataTypes/types/dataType";
+import type { MetricSummary } from "../features/metrics/types/metric";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
 import type { PanelAppearance, PanelType } from "../features/panels/types/panel";
 import type { DataSource } from "../features/sources/types/dataSource";
@@ -74,6 +76,11 @@ interface TestState {
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
   };
+  metrics?: {
+    items?: MetricSummary[];
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
+  };
 }
 
 export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
@@ -83,6 +90,7 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
     layoutHistory: layoutHistoryReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
+    metrics: metricsReducer,
     pipelines: pipelinesReducer,
     sources: sourcesReducer,
     toasts: toastsReducer,
@@ -140,6 +148,11 @@ export function renderWithStore(ui: ReactElement, preloadedState?: TestState) {
           items: preloadedState.pipelines?.items ?? [],
           status: preloadedState.pipelines?.status ?? "idle",
           error: preloadedState.pipelines?.error ?? null,
+        },
+        metrics: {
+          items: preloadedState.metrics?.items ?? [],
+          status: preloadedState.metrics?.status ?? "idle",
+          error: preloadedState.metrics?.error ?? null,
         },
       }
     : undefined;

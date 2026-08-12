@@ -219,6 +219,8 @@ describe("BindingEditor aggregation controls", () => {
         undefined,
         // HEL-318: trailing annotation arg — undefined for a metric panel.
         undefined,
+        // HEL-500/HEL-553: trailing metricId arg — undefined (untouched).
+        undefined,
       ),
     );
   });

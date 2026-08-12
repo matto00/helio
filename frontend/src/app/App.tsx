@@ -29,6 +29,8 @@ import { PanelList } from "../features/panels/ui/PanelList";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
+import { MetricDetailPage } from "../features/metrics/ui/MetricDetailPage";
+import { MetricsPage } from "../features/metrics/ui/MetricsPage";
 import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage";
 import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
@@ -75,6 +77,7 @@ function breadcrumbLabel(pathname: string): string {
   if (pathname.startsWith("/sources")) return "Data Sources";
   if (pathname.startsWith("/pipelines")) return "Data Pipelines";
   if (pathname.startsWith("/registry")) return "Type Registry";
+  if (pathname.startsWith("/metrics")) return "Metrics";
   return "Dashboards";
 }
 
@@ -101,6 +104,7 @@ function AppShell() {
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
+  const metrics = useAppSelector((state) => state.metrics);
   // Registry only ever lists pipeline-bound output types (strict
   // source→pipeline→type→panel; see the sidebar's own SidebarBody.tsx) — the
   // breadcrumb and the phone sheet must agree on that same filtered set, or
@@ -109,6 +113,9 @@ function AppShell() {
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
   const mobileSection = sectionFromPathname(location.pathname);
   const pipelineRouteId = location.pathname.startsWith("/pipelines/")
+    ? location.pathname.split("/")[2]
+    : null;
+  const metricRouteId = location.pathname.startsWith("/metrics/")
     ? location.pathname.split("/")[2]
     : null;
   const breadcrumbItemName = ((): string | null => {
@@ -122,6 +129,9 @@ function AppShell() {
     if (mobileSection === "registry") {
       const id = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
       return pipelineOutputDataTypes.find((dt) => dt.id === id)?.name ?? null;
+    }
+    if (mobileSection === "metrics" && metricRouteId !== null) {
+      return metrics.items.find((m) => m.id === metricRouteId)?.name ?? null;
     }
     return null;
   })();
@@ -169,6 +179,12 @@ function AppShell() {
           };
         });
       }
+      case "metrics":
+        return metrics.items.map((metric) => ({
+          id: metric.id,
+          name: metric.name,
+          isActive: metric.id === metricRouteId,
+        }));
     }
   })();
 
@@ -187,6 +203,7 @@ function AppShell() {
     sources: "No data sources yet.",
     pipelines: "No pipelines yet.",
     registry: "No types yet.",
+    metrics: "No metrics yet.",
   };
 
   function handleMobileSheetSelect(item: MobileNavSheetItem) {
@@ -202,6 +219,9 @@ function AppShell() {
         return;
       case "registry":
         dispatch(setSelectedTypeId(item.id));
+        return;
+      case "metrics":
+        navigate(`/metrics/${item.id}`);
         return;
     }
   }
@@ -486,6 +506,8 @@ export function App() {
             <Route path="/pipelines" element={<PipelinesPage />} />
             <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
             <Route path="/registry" element={<TypeRegistryPage />} />
+            <Route path="/metrics" element={<MetricsPage />} />
+            <Route path="/metrics/:id" element={<MetricDetailPage />} />
             <Route path="/proposals/review" element={<ProposalReviewPage />} />
           </Route>
         </Route>

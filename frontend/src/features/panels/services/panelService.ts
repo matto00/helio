@@ -127,6 +127,11 @@ export async function updatePanelBinding(
   /** HEL-318: Chart static annotation folded into the same single Save PATCH —
    *  `undefined` = leave unchanged, `null` = clear, string = set. */
   annotation?: string | null,
+  /** HEL-500/HEL-553: bind-to-metric mode folded into the same single Save
+   *  PATCH — `undefined` = leave unchanged, `null` = clear, a metric id =
+   *  set. Positional tail param, matching the existing `annotation`/
+   *  `chartOptions` convention. */
+  metricId?: string | null,
 ): Promise<Panel> {
   // refreshInterval is intentionally dropped at the network boundary — the
   // backend has no schema or column for it. The slice mirrors it into Redux
@@ -142,6 +147,7 @@ export async function updatePanelBinding(
     columnWidths: tableDisplay?.columnWidths,
     chartOptions,
     annotation,
+    metricId,
   });
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;

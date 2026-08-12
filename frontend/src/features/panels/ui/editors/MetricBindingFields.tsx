@@ -4,10 +4,17 @@
 // added. Purely presentational: `BindingEditor` still owns all state (the
 // `MetricValueEditor` field/reduce state and the two `BoundOrLiteralState`
 // hooks) and the save/dirty/reset plumbing.
+//
+// HEL-500/HEL-553 — gains the bind-to-metric mode (design.md D5): when a
+// metric is selected, `MetricPicker`'s resolved measure/aggregation/format
+// replace the editable Field/Reduce controls; clearing the selection reveals
+// them again.
 
 import type { SelectOption } from "../../../../shared/ui/index";
 import { BoundOrLiteralField } from "./BoundOrLiteralField";
+import { MetricPicker } from "./MetricPicker";
 import { MetricValueEditor } from "./MetricValueEditor";
+import type { MetricBindingState } from "./useMetricBindingState";
 import type { BoundOrLiteralState } from "./useBoundOrLiteralState";
 
 interface MetricBindingFieldsProps {
@@ -18,6 +25,7 @@ interface MetricBindingFieldsProps {
   onReduceChange: (value: string) => void;
   labelState: BoundOrLiteralState;
   unitState: BoundOrLiteralState;
+  metricBinding: MetricBindingState;
 }
 
 export function MetricBindingFields({
@@ -28,16 +36,27 @@ export function MetricBindingFields({
   onReduceChange,
   labelState,
   unitState,
+  metricBinding,
 }: MetricBindingFieldsProps) {
+  const metricBound = metricBinding.selectedMetricId !== null;
   return (
     <>
-      <MetricValueEditor
-        fieldOptions={fieldOptions}
-        fieldValue={fieldValue}
-        onFieldChange={onFieldChange}
-        reduceValue={reduceValue}
-        onReduceChange={onReduceChange}
+      <MetricPicker
+        metrics={metricBinding.metrics}
+        metricsStatus={metricBinding.metricsStatus}
+        selectedMetricId={metricBinding.selectedMetricId}
+        onSelect={metricBinding.setSelectedMetricId}
+        showResolvedFields
       />
+      {!metricBound && (
+        <MetricValueEditor
+          fieldOptions={fieldOptions}
+          fieldValue={fieldValue}
+          onFieldChange={onFieldChange}
+          reduceValue={reduceValue}
+          onReduceChange={onReduceChange}
+        />
+      )}
       <div className="panel-detail-modal__data-section">
         <span className="panel-detail-modal__data-label">Label &amp; Unit</span>
         <BoundOrLiteralField

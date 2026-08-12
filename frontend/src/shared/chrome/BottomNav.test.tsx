@@ -13,7 +13,7 @@ function renderAt(pathname: string) {
 }
 
 describe("BottomNav", () => {
-  it("renders exactly the four navDestinations as tabs, in order", () => {
+  it("renders exactly the navDestinations as tabs, in order", () => {
     renderAt("/");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
@@ -28,7 +28,7 @@ describe("BottomNav", () => {
     expect(within(nav).getByRole("link", { name: "Dashboards" })).toHaveClass(
       "bottom-nav__tab--active",
     );
-    for (const label of ["Data Sources", "Data Pipelines", "Type Registry"]) {
+    for (const label of ["Data Sources", "Data Pipelines", "Type Registry", "Metrics"]) {
       expect(within(nav).getByRole("link", { name: label })).not.toHaveClass(
         "bottom-nav__tab--active",
       );

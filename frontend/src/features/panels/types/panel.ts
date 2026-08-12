@@ -105,6 +105,13 @@ export interface MetricPanelConfig {
   /** Literal display unit override — distinct from `fieldMapping.unit`,
    *  which binds to a data column. HEL-293. */
   unit?: string;
+  /** Optional binding to a stored `MetricDefinition` (HEL-500). When set, the
+   *  backend materializes the effective `dataTypeId`/`fieldMapping`/
+   *  `aggregation`/`unit` from the resolved metric — any raw field this
+   *  config already sets always overrides its metric-derived counterpart
+   *  (`MetricPanel.scala`/`PanelServiceHelpers.withMaterializedMetric`).
+   *  Absent/`null` = unbound. */
+  metricId?: string | null;
 }
 
 // ── Per-chart-type display options (HEL-248) ────────────────────────────────
@@ -165,6 +172,12 @@ export interface ChartPanelConfig {
   /** Optional static subtitle/footnote rendered beneath the chart title.
    *  Absent/blank hides it; send `null` to clear. HEL-318. */
   annotation?: string | null;
+  /** Optional binding to a stored `MetricDefinition` (HEL-500). Unlike
+   *  `MetricPanelConfig.metricId`, this is never materialized into
+   *  `fieldMapping` — a chart's axis mapping has no single unambiguous slot
+   *  for a metric's measure field (`PanelServiceHelpers.withMaterializedMetric`
+   *  is a no-op for `ChartPanel`). Absent/`null` = unbound. */
+  metricId?: string | null;
 }
 
 export interface TablePanelConfig {
@@ -179,6 +192,10 @@ export interface TablePanelConfig {
    *  in natural order; non-empty renders exactly those keys, in order,
    *  intersected with the keys present in the data. HEL-255. */
   columnOrder?: string[];
+  /** Optional binding to a stored `MetricDefinition` (HEL-500) — same
+   *  never-materialized semantics as `ChartPanelConfig.metricId`. Absent/
+   *  `null` = unbound. */
+  metricId?: string | null;
 }
 
 export interface TextPanelConfig {

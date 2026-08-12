@@ -1,0 +1,78 @@
+/* Toggle switch primitive (HEL-553 design.md D4). No dedicated switch/
+   checkbox control existed in shared/ui prior to this; built to the same
+   token language as inputs.css so it drops in anywhere a control lives. */
+
+.ui-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-toggle--disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Visually hidden but focusable — the track/thumb below is the visible
+   control; keyboard/AT interaction goes through this native checkbox. */
+.ui-toggle__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ui-toggle__track {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 20px;
+  padding: 2px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border-subtle);
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.ui-toggle__thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--app-text-muted);
+  box-shadow: var(--app-shadow-soft);
+  transition:
+    transform var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.ui-toggle__input:checked + .ui-toggle__track {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+}
+
+.ui-toggle__input:checked + .ui-toggle__track .ui-toggle__thumb {
+  transform: translateX(14px);
+  background: var(--app-accent-ink);
+}
+
+.ui-toggle__input:focus-visible + .ui-toggle__track {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.ui-toggle__label {
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}

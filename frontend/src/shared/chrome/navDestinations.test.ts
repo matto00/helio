@@ -6,17 +6,24 @@ import { navDestinations } from "./navDestinations";
 // App.test.tsx's "Main navigation" assertions for the desktop side, and
 // BottomNav.test.tsx for the phone side; both must agree with this list).
 describe("navDestinations", () => {
-  it("lists the four top-level sections in sidebar order with matching labels", () => {
+  it("lists the five top-level sections in sidebar order with matching labels", () => {
     expect(navDestinations.map((d) => d.label)).toEqual([
       "Dashboards",
       "Data Sources",
       "Data Pipelines",
       "Type Registry",
+      "Metrics",
     ]);
   });
 
   it("lists the matching route paths", () => {
-    expect(navDestinations.map((d) => d.to)).toEqual(["/", "/sources", "/pipelines", "/registry"]);
+    expect(navDestinations.map((d) => d.to)).toEqual([
+      "/",
+      "/sources",
+      "/pipelines",
+      "/registry",
+      "/metrics",
+    ]);
   });
 
   it("marks only the Dashboards destination as an exact ('end') route match", () => {
