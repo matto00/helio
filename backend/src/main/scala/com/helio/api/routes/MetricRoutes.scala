@@ -2,6 +2,7 @@ package com.helio.api.routes
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
@@ -52,6 +53,11 @@ final class MetricRoutes(
             }
           )
         },
+        path(MetricIdSegment / "usage") { id =>
+          get {
+            ServiceResponse.run(metricService.usage(id, user))(MetricUsageResponse.fromDomain)
+          }
+        },
         path(MetricIdSegment) { id =>
           concat(
             get {
@@ -63,7 +69,12 @@ final class MetricRoutes(
               }
             },
             delete {
-              ServiceResponse.runNoContent(metricService.delete(id, user))
+              // HEL-560: the count of panels unbound by this delete (via
+              // ON DELETE SET NULL, HEL-500) travels in an additive response
+              // header rather than a body — see design.md D2.
+              ServiceResponse.runNoContentWithHeader(metricService.delete(id, user)) { count =>
+                RawHeader("X-Unbound-Panel-Count", count.toString)
+              }
             }
           )
         }

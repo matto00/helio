@@ -39,6 +39,16 @@ final class MetricService(
       case None    => Left(ServiceError.NotFound("Metric not found"))
     }
 
+  /** Owner-scoped "where used" read (HEL-560 tasks.md 1.2): 404 via
+   *  `findByIdOwned` first, matching every other per-id metric route, then
+   *  the repository's usage query. */
+  def usage(id: MetricId, user: AuthenticatedUser): Future[Either[ServiceError, MetricUsage]] =
+    metricRepo.findByIdOwned(id, user).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound("Metric not found")))
+      case Some(_) =>
+        metricRepo.usage(id, user).map(panels => Right(MetricUsage(id, panels.size, panels)))
+    }
+
   // ── Create ────────────────────────────────────────────────────────────────
 
   def create(req: CreateMetricRequest, user: AuthenticatedUser): Future[Either[ServiceError, MetricDefinition]] =
@@ -124,13 +134,21 @@ final class MetricService(
 
   // ── Delete (ACL-gated) ────────────────────────────────────────────────────
 
-  def delete(id: MetricId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+  /** Deletes the metric and returns the number of panels that were bound to
+   *  it at deletion time (HEL-560 design.md D2) — those panels are unbound
+   *  via the `ON DELETE SET NULL` FK (V76/HEL-500), the count just travels
+   *  back so `MetricRoutes` can surface it in the `X-Unbound-Panel-Count`
+   *  response header. Computed BEFORE the delete so the join still resolves
+   *  the (about to be removed) `metric_id` rows. */
+  def delete(id: MetricId, user: AuthenticatedUser): Future[Either[ServiceError, Int]] =
     metricRepo.findByIdOwned(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Metric not found")))
       case Some(_) =>
-        metricRepo.delete(id, user).map {
-          case true  => Right(())
-          case false => Left(ServiceError.NotFound("Metric not found"))
+        metricRepo.countBoundPanels(id, user).flatMap { count =>
+          metricRepo.delete(id, user).map {
+            case true  => Right(count)
+            case false => Left(ServiceError.NotFound("Metric not found"))
+          }
         }
     }
 

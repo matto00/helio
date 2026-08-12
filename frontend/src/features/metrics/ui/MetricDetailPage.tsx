@@ -2,9 +2,24 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import "./MetricDetailPage.css";
+import { fetchMetricUsage } from "../services/metricService";
 import { clearCurrentMetric, deleteMetric, fetchMetricById } from "../state/metricsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { MetricEditorForm } from "./MetricEditorForm";
+
+/** `"loading"` while the usage fetch is in flight; `"error"` when it failed
+ *  (impact unknown — never silently reported as zero); a number is the
+ *  resolved bound-panel count. Mirrors `MetricListTable.tsx`'s own inline
+ *  delete-confirm usage state (HEL-560). */
+type UsageState = "loading" | "error" | number;
+
+function usageCopy(usage: UsageState): string {
+  if (usage === "loading") return "Checking how many panels are bound to this metric…";
+  if (usage === "error")
+    return "Couldn't check usage — panels bound to it will lose their resolved binding.";
+  if (usage === 0) return "This metric is not bound to any panels.";
+  return `${usage} panel${usage === 1 ? "" : "s"} bound to this metric will lose their resolved binding.`;
+}
 
 /** Metric edit page (`/metrics/:id`) — mirrors `PipelineDetailPage.tsx`'s
  *  fetch-on-mount + loading/error-guard shape (design.md D1), scaled down to
@@ -19,6 +34,7 @@ export function MetricDetailPage() {
   );
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [usage, setUsage] = useState<UsageState>("loading");
 
   useEffect(() => {
     if (id) {
@@ -31,6 +47,15 @@ export function MetricDetailPage() {
 
   function handleSaved() {
     void navigate("/metrics");
+  }
+
+  function startDelete() {
+    if (!id) return;
+    setIsConfirmingDelete(true);
+    setUsage("loading");
+    void fetchMetricUsage(id)
+      .then((result) => setUsage(result.count))
+      .catch(() => setUsage("error"));
   }
 
   async function handleDelete() {
@@ -73,7 +98,7 @@ export function MetricDetailPage() {
       <div className="metric-detail-page__danger-zone">
         {isConfirmingDelete ? (
           <div className="metric-detail-page__delete-confirm">
-            <span>Delete this metric? Panels bound to it will lose their resolved binding.</span>
+            <span>{usageCopy(usage)}</span>
             <button
               type="button"
               className="ui-modal-btn ui-modal-btn--secondary"
@@ -90,11 +115,7 @@ export function MetricDetailPage() {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            className="metric-detail-page__delete-btn"
-            onClick={() => setIsConfirmingDelete(true)}
-          >
+          <button type="button" className="metric-detail-page__delete-btn" onClick={startDelete}>
             Delete metric
           </button>
         )}

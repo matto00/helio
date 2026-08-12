@@ -1,7 +1,7 @@
 package com.helio.api.routes
 
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
@@ -41,6 +41,17 @@ object ServiceResponse extends JsonProtocols {
   def runNoContent(result: Future[Either[ServiceError, Unit]]): Route =
     onSuccess(result) {
       case Right(_) => complete(StatusCodes.NoContent)
+      case Left(e)  => completeError(e)
+    }
+
+  /** Variant of `runNoContent` for endpoints whose success path needs to
+   *  attach a header computed from the service result before completing
+   *  `204` (HEL-560: `DELETE /api/metrics/:id` returns the unbound panel
+   *  count via `X-Unbound-Panel-Count` rather than a response body, keeping
+   *  the existing body-less contract additive/non-breaking). */
+  def runNoContentWithHeader[A](result: Future[Either[ServiceError, A]])(header: A => HttpHeader): Route =
+    onSuccess(result) {
+      case Right(a) => respondWithHeader(header(a)) { complete(StatusCodes.NoContent) }
       case Left(e)  => completeError(e)
     }
 

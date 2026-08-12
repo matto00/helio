@@ -17,20 +17,24 @@ import spray.json.DefaultJsonProtocol._
  *  identically to [[MetricPanelConfig]]'s, but is NOT materialized into an
  *  effective `fieldMapping` here — a table's arbitrary column-key mapping has
  *  no unambiguous single slot a metric's one `measureField` should fill
- *  (design.md D4). */
+ *  (design.md D4).
+ *
+ *  `metricDeprecated` (HEL-560) is read-only/server-materialized — same
+ *  semantics as [[MetricPanelConfig.metricDeprecated]]. */
 final case class TablePanelConfig(
     dataTypeId: DataTypeId,
     fieldMapping: JsObject,
     columnWidths: Map[String, Int] = Map.empty,
     density: Option[String] = None,
     columnOrder: Option[List[String]] = None,
-    metricId: Option[MetricId] = None
+    metricId: Option[MetricId] = None,
+    metricDeprecated: Option[Boolean] = None
 )
 
 object TablePanelConfig {
   val Empty: TablePanelConfig = TablePanelConfig(DataTypeId(""), JsObject.empty, Map.empty, None, None, None)
 
-  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat6(TablePanelConfig.apply)
+  implicit val format: RootJsonFormat[TablePanelConfig] = jsonFormat7(TablePanelConfig.apply)
 
   def decode(json: JsValue): TablePanelConfig = json match {
     case JsObject(fields) =>

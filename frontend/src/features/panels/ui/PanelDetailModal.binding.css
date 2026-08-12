@@ -282,3 +282,19 @@
   color: var(--app-text);
   font-family: var(--font-mono);
 }
+
+/* Deprecated-metric indicator (HEL-560) — visual pattern duplicated from
+   `MetricsPage.css`'s `.metric-status--deprecated` (design.md D7: scoped
+   locally here rather than promoted to shared/ui/, since this is only the
+   second consumer). */
+
+.panel-detail-modal__metric-deprecated {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--app-warning-surface);
+  color: var(--app-warning);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}

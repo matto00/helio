@@ -4,6 +4,7 @@ import type {
   CreateMetricRequest,
   Metric,
   MetricSummary,
+  MetricUsage,
   UpdateMetricRequest,
 } from "../types/metric";
 
@@ -47,4 +48,14 @@ export async function updateMetric(id: string, request: UpdateMetricRequest): Pr
 
 export async function deleteMetric(id: string): Promise<void> {
   await httpClient.delete(`/api/metrics/${id}`);
+}
+
+/** `GET /api/metrics/:id/usage` (HEL-560) — the panels (and their owning
+ *  dashboards) currently bound to this metric, owner-scoped. Called by the
+ *  delete-confirm affordance (`MetricDetailPage.tsx`/`MetricListTable.tsx`)
+ *  when a delete is first initiated, so the real impact is shown before the
+ *  user confirms the destructive `deleteMetric` call. */
+export async function fetchMetricUsage(id: string): Promise<MetricUsage> {
+  const response = await httpClient.get<MetricUsage>(`/api/metrics/${id}/usage`);
+  return response.data;
 }

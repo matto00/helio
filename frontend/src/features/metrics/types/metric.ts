@@ -67,3 +67,21 @@ export interface UpdateMetricRequest {
   format?: MetricFormat | null;
   deprecated?: boolean;
 }
+
+/** One panel bound to a metric, within a `MetricUsage` (HEL-560). Mirrors
+ *  `MetricUsagePanelResponse` (`MetricProtocol.scala`). */
+export interface MetricUsagePanel {
+  panelId: string;
+  panelTitle: string;
+  dashboardId: string;
+  dashboardName: string;
+}
+
+/** Response shape of `GET /api/metrics/:id/usage` (HEL-560) — the panels
+ *  (and their owning dashboards) currently bound to a metric, owner-scoped.
+ *  Mirrors `MetricUsageResponse` (`MetricProtocol.scala`). */
+export interface MetricUsage {
+  metricId: string;
+  count: number;
+  panels: MetricUsagePanel[];
+}

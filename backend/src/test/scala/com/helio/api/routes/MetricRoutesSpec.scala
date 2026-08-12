@@ -5,9 +5,10 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{CreateMetricRequest, ErrorResponse, JsonProtocols, MetricResponse}
+import com.helio.api.{CreateMetricRequest, ErrorResponse, JsonProtocols, MetricResponse, MetricUsageResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{DataTypeRepository, DbContext, MetricRepository}
+import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
+import com.helio.infrastructure.{DataTypeRepository, DbContext, MetricRepository, PanelRepository}
 import com.helio.services.MetricService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -26,7 +27,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  pagination envelope, each create/update validation rejection (dataTypeId
  *  ownership/shape, measureField/allowedDimensions membership, aggregation
  *  allow-list, empty name), PATCH absent-vs-null semantics, and cross-user
- *  404s. Mirrors `AlertRuleRoutesSpec`'s embedded-Postgres shape. */
+ *  404s. Mirrors `AlertRuleRoutesSpec`'s embedded-Postgres shape. HEL-560
+ *  tasks.md 8.2 adds `GET /:id/usage` + the DELETE `X-Unbound-Panel-Count`
+ *  header coverage. */
 class MetricRoutesSpec
     extends AnyWordSpec
     with Matchers
@@ -41,6 +44,7 @@ class MetricRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var metricRepo: MetricRepository       = _
   private var dataTypeRepo: DataTypeRepository   = _
+  private var panelRepo: PanelRepository         = _
 
   private val ownerAId = UUID.randomUUID().toString
   private val ownerBId = UUID.randomUUID().toString
@@ -57,8 +61,9 @@ class MetricRoutesSpec
       .migrate()
     db          = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx     = new DbContext(db, db)(routeEc)
-    metricRepo  = new MetricRepository(ctx)(routeEc)
+    metricRepo   = new MetricRepository(ctx)(routeEc)
     dataTypeRepo = new DataTypeRepository(ctx)(routeEc)
+    panelRepo    = new PanelRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -129,6 +134,42 @@ class MetricRoutesSpec
       ownerId   = owner
     )
     await(dataTypeRepo.insert(dt, AuthenticatedUser(owner)))
+  }
+
+  /** HEL-560 tasks.md 8.2 fixtures — a dashboard owned by `owner`, and a
+   *  `MetricPanel` on it bound to `metricId` via the repository directly
+   *  (bypassing `POST /panels`, mirroring `PanelMetricBindingRoutesSpec`'s
+   *  own fixture shape). */
+  private def seedDashboard(owner: UserId): DashboardId = {
+    import PostgresProfile.api._
+    val id = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($id, 'Usage Route Test Dashboard', ${owner.value}, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent"}',
+                     '{"lg":[],"md":[],"sm":[],"xs":[]}', ${owner.value}::uuid)"""
+    ))
+    DashboardId(id)
+  }
+
+  private def seedBoundPanel(
+      metricId: MetricId,
+      dashboardId: DashboardId,
+      owner: UserId,
+      title: String = "Bound Panel"
+  ): PanelId = {
+    val panelId = PanelId(UUID.randomUUID().toString)
+    val panel = MetricPanel(
+      panelId,
+      dashboardId,
+      title,
+      ResourceMeta(owner.value, Instant.now(), Instant.now()),
+      PanelAppearance.Default,
+      owner,
+      MetricPanelConfig(dataTypeId = DataTypeId(""), fieldMapping = JsObject.empty, metricId = Some(metricId))
+    )
+    await(panelRepo.insert(panel))
+    panelId
   }
 
   private def routesFor(user: AuthenticatedUser): Route = {
@@ -404,14 +445,28 @@ class MetricRoutesSpec
 
   "DELETE /metrics/:id" should {
 
-    "return 204 for the owner and remove the metric" in {
+    "return 204 with X-Unbound-Panel-Count: 0 for an unbound metric" in {
       val dt = seedPipelineOutputDataType(UserId(ownerAId))
       val m  = createMetric(userA, dt.id.value)
       Delete(s"/metrics/${m.id}") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.NoContent
+        header("X-Unbound-Panel-Count").map(_.value()) shouldBe Some("0")
       }
       Get(s"/metrics/${m.id}") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 204 with X-Unbound-Panel-Count reflecting the bound-panel count" in {
+      val dt = seedPipelineOutputDataType(UserId(ownerAId))
+      val m  = createMetric(userA, dt.id.value)
+      val dashboardId = seedDashboard(UserId(ownerAId))
+      seedBoundPanel(MetricId(m.id), dashboardId, UserId(ownerAId), title = "P1")
+      seedBoundPanel(MetricId(m.id), dashboardId, UserId(ownerAId), title = "P2")
+
+      Delete(s"/metrics/${m.id}") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NoContent
+        header("X-Unbound-Panel-Count").map(_.value()) shouldBe Some("2")
       }
     }
 
@@ -428,6 +483,55 @@ class MetricRoutesSpec
 
     "return 404 for an unknown id" in {
       Delete(s"/metrics/${UUID.randomUUID().toString}") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  // ── HEL-560 tasks.md 8.2: GET /metrics/:id/usage ────────────────────────────
+
+  "GET /metrics/:id/usage" should {
+
+    "return 200 with the bound panels/count for the owner" in {
+      val dt = seedPipelineOutputDataType(UserId(ownerAId))
+      val m  = createMetric(userA, dt.id.value)
+      val dashboardId = seedDashboard(UserId(ownerAId))
+      val panelId = seedBoundPanel(MetricId(m.id), dashboardId, UserId(ownerAId), title = "Bound Panel")
+
+      Get(s"/metrics/${m.id}/usage") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[MetricUsageResponse]
+        resp.metricId shouldBe m.id
+        resp.count shouldBe 1
+        resp.panels should have size 1
+        resp.panels.head.panelId shouldBe panelId.value
+        resp.panels.head.panelTitle shouldBe "Bound Panel"
+        resp.panels.head.dashboardId shouldBe dashboardId.value
+      }
+    }
+
+    "return 200 with an empty panels array and count 0 for an unbound metric" in {
+      val dt = seedPipelineOutputDataType(UserId(ownerAId))
+      val m  = createMetric(userA, dt.id.value)
+
+      Get(s"/metrics/${m.id}/usage") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[MetricUsageResponse]
+        resp.count shouldBe 0
+        resp.panels shouldBe empty
+      }
+    }
+
+    "return 404 for a metric owned by a different user" in {
+      val dt = seedPipelineOutputDataType(UserId(ownerAId))
+      val m  = createMetric(userA, dt.id.value)
+      Get(s"/metrics/${m.id}/usage") ~> routesFor(userB) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 for a nonexistent metric id" in {
+      Get(s"/metrics/${UUID.randomUUID().toString}/usage") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }

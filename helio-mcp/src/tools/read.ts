@@ -279,8 +279,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "catalog (id/label/description/paramsSchema/outputRowCount/outputDescription for every " +
         "registered smart pipeline shape — see list_pipeline_shapes / create_pipeline_from_shape), " +
         "and the metrics catalog (id/name/dataTypeId/measureField/aggregation/allowedDimensions/" +
-        "format/deprecated for every metric the caller owns — see list_metrics/get_metric). Bind a " +
-        "proposal panel to one via metricId (propose_dashboard/apply_proposal) instead of " +
+        "format/deprecated for every NON-DEPRECATED metric the caller owns — a deprecated metric is " +
+        "excluded here; call list_metrics to see deprecated ones too, e.g. to un-deprecate one). " +
+        "Bind a proposal panel to one via metricId (propose_dashboard/apply_proposal) instead of " +
         "re-deriving a raw dataTypeId/fieldMapping binding. Read this first to reason about what " +
         "exists (e.g. which DataType is a single-row pipeline output, which shape ids are " +
         "available, or which metrics are already defined) instead of fanning out many calls " +

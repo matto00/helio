@@ -605,15 +605,15 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(context.metrics).toEqual([]);
   });
 
-  it("includes a deprecated metric, flagged, rather than omitting it", async () => {
+  it("excludes a deprecated metric from the grounding catalog, while an active metric alongside it stays included (HEL-560)", async () => {
+    const activeMetric = metricFixture({ id: "metric-1" });
     const deprecatedMetric = metricFixture({ id: "metric-2", deprecated: true });
-    const { api } = makeFakeApi([deprecatedMetric]);
+    const { api } = makeFakeApi([activeMetric, deprecatedMetric]);
 
     const context = await buildWorkspaceContext(api);
 
-    const entry = context.metrics.find((m) => m.id === "metric-2");
-    if (!entry) throw new Error("expected the deprecated metric to be present");
-    expect(entry.deprecated).toBe(true);
+    expect(context.metrics.find((m) => m.id === "metric-2")).toBeUndefined();
+    expect(context.metrics.find((m) => m.id === "metric-1")).toBeDefined();
   });
 
   // ── HEL-377 tasks.md 4.2 — budgetBytes wiring through buildWorkspaceContext ──

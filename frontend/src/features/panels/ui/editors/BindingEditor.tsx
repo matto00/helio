@@ -155,6 +155,20 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     // unconditionally like chartDisplay/tableDisplay above — inert (but
     // harmless) for panel types that don't render its UI.
     const metricBinding = useMetricBindingState(panel);
+    // HEL-560 — the bound metric's deprecated status for the picker's
+    // indicator. Prefers the live selected metric's `deprecated` flag (so it
+    // updates as the user changes selection); falls back to the panel's
+    // already-materialized `config.metricDeprecated` before the metrics list
+    // has loaded (or when the selection is untouched). An explicitly cleared
+    // selection (`selectedMetricId === null`) must NOT fall through to that
+    // stale panel-config value — `selectedMetric` is also `null` in that
+    // case, which `??` can't distinguish from "not loaded yet" (skeptic-
+    // final-1.md change request 1: the badge stayed visible after clearing a
+    // deprecated-bound metric mid-edit, before saving).
+    const metricDeprecated =
+      metricBinding.selectedMetricId === null
+        ? false
+        : (metricBinding.selectedMetric?.deprecated ?? panel.config.metricDeprecated ?? false);
 
     const currentAggregation: MetricAggregation | ChartAggregation | null = useMemo(() => {
       if (panel.type === "metric") {
@@ -416,6 +430,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             labelState={labelState}
             unitState={unitState}
             metricBinding={metricBinding}
+            metricDeprecated={metricDeprecated}
           />
         )}
 
@@ -430,6 +445,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             selectedMetricId={metricBinding.selectedMetricId}
             onSelect={metricBinding.setSelectedMetricId}
             showResolvedFields={false}
+            deprecated={metricDeprecated}
           />
         )}
 

@@ -259,13 +259,20 @@ object PanelServiceHelpers {
     case other           => other
   }
 
-  /** `MetricPanel`-only (HEL-500 design.md D4): materialize the effective
-   *  `dataTypeId`/`fieldMapping`/`aggregation`/`unit` from a resolved
-   *  `MetricDefinition`, with any raw field the panel's own config already
-   *  sets always overriding its metric-derived counterpart. A no-op for
-   *  `ChartPanel`/`TablePanel` (and every other kind) — their field mappings
-   *  aren't derivable from a single measure field (see `ChartPanelConfig`'s
-   *  own scaladoc). */
+  /** Materialize a resolved `MetricDefinition`'s effective fields onto a
+   *  bound-trio panel. Two independent concerns, both driven by the same
+   *  resolved `metric`:
+   *
+   *   - `MetricPanel`-only (HEL-500 design.md D4): the effective
+   *     `dataTypeId`/`fieldMapping`/`aggregation`/`unit`, with any raw field
+   *     the panel's own config already sets always overriding its
+   *     metric-derived counterpart. A no-op for `ChartPanel`/`TablePanel` —
+   *     their field mappings aren't derivable from a single measure field
+   *     (see `ChartPanelConfig`'s own scaladoc).
+   *   - `metricDeprecated` (HEL-560 design.md D6): set for ALL THREE bound
+   *     kinds (`MetricPanel`/`ChartPanel`/`TablePanel`) — deprecated
+   *     awareness applies regardless of materialization scope, since a
+   *     chart/table panel can be bound to a deprecated metric too. */
   private[services] def withMaterializedMetric(panel: Panel, metric: MetricDefinition): Panel = panel match {
     case mp: MetricPanel =>
       val effectiveDataTypeId =
@@ -278,11 +285,16 @@ object PanelServiceHelpers {
       )
       val effectiveUnit = mp.config.unit.orElse(metric.format.unit)
       mp.copy(config = mp.config.copy(
-        dataTypeId   = effectiveDataTypeId,
-        fieldMapping = effectiveFieldMapping,
-        aggregation  = effectiveAggregation,
-        unit         = effectiveUnit
+        dataTypeId       = effectiveDataTypeId,
+        fieldMapping     = effectiveFieldMapping,
+        aggregation      = effectiveAggregation,
+        unit             = effectiveUnit,
+        metricDeprecated = Some(metric.deprecated)
       ))
+    case cp: ChartPanel =>
+      cp.copy(config = cp.config.copy(metricDeprecated = Some(metric.deprecated)))
+    case tp: TablePanel =>
+      tp.copy(config = tp.config.copy(metricDeprecated = Some(metric.deprecated)))
     case other => other
   }
 

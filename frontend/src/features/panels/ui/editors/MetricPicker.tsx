@@ -27,6 +27,12 @@ interface MetricPickerProps {
    *  format read-only (design.md D5); chart/table panels never materialize
    *  (design.md D6) — pass `false` there. */
   showResolvedFields: boolean;
+  /** True when the bound metric (selected or already-saved) is deprecated —
+   *  renders a "deprecated" indicator next to the picker (HEL-560). Computed
+   *  by the caller: prefers the live selected metric's `deprecated` flag,
+   *  falling back to the panel's already-materialized
+   *  `config.metricDeprecated` before the metrics list has loaded. */
+  deprecated?: boolean;
 }
 
 export function MetricPicker({
@@ -35,6 +41,7 @@ export function MetricPicker({
   selectedMetricId,
   onSelect,
   showResolvedFields,
+  deprecated = false,
 }: MetricPickerProps) {
   const selectedMetric = metrics.find((m) => m.id === selectedMetricId) ?? null;
   const options = [
@@ -44,7 +51,10 @@ export function MetricPicker({
 
   return (
     <div className="panel-detail-modal__data-section">
-      <span className="panel-detail-modal__data-label">Bind to metric</span>
+      <span className="panel-detail-modal__data-label">
+        Bind to metric
+        {deprecated && <span className="panel-detail-modal__metric-deprecated">deprecated</span>}
+      </span>
       <Select
         ariaLabel="Metric"
         value={selectedMetricId ?? ""}

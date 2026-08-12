@@ -8,6 +8,7 @@ import {
   deleteMetric,
   fetchMetricById,
   fetchMetrics,
+  fetchMetricUsage,
   updateMetric,
 } from "./metricService";
 
@@ -112,5 +113,22 @@ describe("metricService", () => {
     await deleteMetric("m-1");
 
     expect(mockedHttpClient.delete).toHaveBeenCalledWith("/api/metrics/m-1");
+  });
+
+  it("fetchMetricUsage GETs /api/metrics/:id/usage and returns the usage summary", async () => {
+    const usage = {
+      metricId: "m-1",
+      count: 2,
+      panels: [
+        { panelId: "p-1", panelTitle: "Panel 1", dashboardId: "d-1", dashboardName: "Dash 1" },
+        { panelId: "p-2", panelTitle: "Panel 2", dashboardId: "d-2", dashboardName: "Dash 2" },
+      ],
+    };
+    mockedHttpClient.get.mockResolvedValueOnce({ data: usage });
+
+    const result = await fetchMetricUsage("m-1");
+
+    expect(mockedHttpClient.get).toHaveBeenCalledWith("/api/metrics/m-1/usage");
+    expect(result).toEqual(usage);
   });
 });
