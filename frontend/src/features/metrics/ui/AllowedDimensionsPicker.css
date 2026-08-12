@@ -1,0 +1,20 @@
+.allowed-dimensions-picker__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.allowed-dimensions-picker__option:hover {
+  background: var(--app-surface-raised);
+}
+
+.allowed-dimensions-picker__empty {
+  padding: var(--space-2) var(--space-3);
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}

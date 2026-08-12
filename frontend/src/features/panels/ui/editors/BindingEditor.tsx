@@ -21,6 +21,7 @@ import type { ChartType } from "../../../../utils/chartAppearance";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
 import { defaultBoundOrLiteralMode, type BoundOrLiteralMode } from "./BoundOrLiteralField";
 import { MetricBindingFields } from "./MetricBindingFields";
+import { MetricPicker } from "./MetricPicker";
 import { ChartAggregationFields } from "./ChartAggregationFields";
 import { ChartDisplayFields } from "./ChartDisplayFields";
 import { TableDisplayFields } from "./TableDisplayFields";
@@ -29,6 +30,7 @@ import { DataTypePicker } from "./DataTypePicker";
 import { aggFieldOptions, fieldOptions } from "./fieldOptions";
 import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
 import { useChartDisplayState } from "./useChartDisplayState";
+import { useMetricBindingState } from "./useMetricBindingState";
 import { useTableDisplayState } from "./useTableDisplayState";
 
 function isAggFn(value: string): value is AggFn {
@@ -149,6 +151,10 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
     // working map holds every type's options; the live `chartType` only decides
     // which controls render, so a type switch never drops another type's entry.
     const chartDisplay = useChartDisplayState(panel);
+    // HEL-500/HEL-553 — bind-to-metric mode state (design.md D5). Computed
+    // unconditionally like chartDisplay/tableDisplay above — inert (but
+    // harmless) for panel types that don't render its UI.
+    const metricBinding = useMetricBindingState(panel);
 
     const currentAggregation: MetricAggregation | ChartAggregation | null = useMemo(() => {
       if (panel.type === "metric") {
@@ -184,7 +190,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
       aggregationDirty ||
       (panel.type === "metric" && (labelState.dirty || unitState.dirty)) ||
       (panel.type === "table" && tableDisplay.dirty) ||
-      (panel.type === "chart" && (chartDisplay.dirty || annotationState.dirty));
+      (panel.type === "chart" && (chartDisplay.dirty || annotationState.dirty)) ||
+      metricBinding.dirty;
 
     useEffect(() => {
       if (dataTypesStatus === "idle") {
@@ -231,6 +238,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
           annotationState.reset();
           tableDisplay.reset();
           chartDisplay.reset();
+          metricBinding.reset();
           setSaveError(null);
         },
         save: async () => {
@@ -312,6 +320,9 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
                         ? annotationState.literalValue
                         : null
                     : undefined,
+                // HEL-500/HEL-553 — bind-to-metric mode rides the same single
+                // PATCH. `undefined` when the selection wasn't touched.
+                metricId: metricBinding.patchValue,
               }),
             ).unwrap();
             return { ok: true };
@@ -339,6 +350,7 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
         initialTypeId,
         initialAggYField,
         labelState,
+        metricBinding,
         panel.id,
         panel.type,
         refreshInterval,
@@ -403,6 +415,21 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onReduceChange={setAggFn}
             labelState={labelState}
             unitState={unitState}
+            metricBinding={metricBinding}
+          />
+        )}
+
+        {/* HEL-500/HEL-553 — chart/table bind-to-metric mode (design.md D6):
+            the picker sets metricId only; it never materializes into
+            fieldMapping, so the field-mapping controls above stay
+            independently editable. */}
+        {selectedType && (panel.type === "chart" || panel.type === "table") && (
+          <MetricPicker
+            metrics={metricBinding.metrics}
+            metricsStatus={metricBinding.metricsStatus}
+            selectedMetricId={metricBinding.selectedMetricId}
+            onSelect={metricBinding.setSelectedMetricId}
+            showResolvedFields={false}
           />
         )}
 

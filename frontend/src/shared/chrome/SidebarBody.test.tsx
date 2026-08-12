@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import type { DataType } from "../../features/dataTypes/types/dataType";
+import { metricsReducer } from "../../features/metrics/state/metricsSlice";
 import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice";
 import * as pipelineService from "../../features/pipelines/services/pipelineService";
 import type { PipelineSummary } from "../../features/pipelines/types/pipelineStep";
@@ -63,6 +64,7 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      metrics: metricsReducer,
     } as never,
     preloadedState: {
       dataTypes: {
@@ -74,6 +76,11 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
       pipelines: {
         items: pipelineItems,
         status: pipelineStatus,
+        error: null,
+      },
+      metrics: {
+        items: [],
+        status: "idle" as const,
         error: null,
       },
     } as never,
@@ -175,5 +182,11 @@ describe("SidebarBody — regression check for other sections", () => {
     renderAt("/pipelines");
     expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data Pipelines" })).toBeInTheDocument();
+  });
+
+  it("renders the metrics sidebar list with no badge markup", () => {
+    renderAt("/metrics");
+    expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Metrics" })).toBeInTheDocument();
   });
 });

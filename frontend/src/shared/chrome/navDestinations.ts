@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, Database, LayoutDashboard, Workflow } from "lucide-react";
+import { BookOpen, Database, Gauge, LayoutDashboard, Workflow } from "lucide-react";
 
 /** A single top-level section destination. Shared by the desktop sidebar nav
  * (`App.tsx`) and the phone `BottomNav` so the two surfaces can never drift —
@@ -18,4 +18,5 @@ export const navDestinations: NavDestination[] = [
   { to: "/sources", label: "Data Sources", icon: Database },
   { to: "/pipelines", label: "Data Pipelines", icon: Workflow },
   { to: "/registry", label: "Type Registry", icon: BookOpen },
+  { to: "/metrics", label: "Metrics", icon: Gauge },
 ];

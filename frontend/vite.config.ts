@@ -27,6 +27,15 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist,
         runtimeCaching: pwaRuntimeCaching,
+        // HEL-553: the single main JS chunk (no route-level code-splitting
+        // yet) was already at ~2.04 MiB before this change and crossed
+        // workbox's 2 MiB default `maximumFileSizeToCacheInBytes` precache
+        // limit once the Metrics feature's code landed, failing `vite
+        // build`'s SW-generation step outright. Raised with headroom for
+        // near-term growth rather than re-tuned per feature; route-level
+        // code-splitting (the plugin's own suggested alternative) is a
+        // larger, separate change.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
     }),
   ],

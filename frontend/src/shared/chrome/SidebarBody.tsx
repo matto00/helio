@@ -1,7 +1,12 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { faDatabase, faLayerGroup, faCodeBranch } from "@fortawesome/free-solid-svg-icons";
+import {
+  faDatabase,
+  faLayerGroup,
+  faCodeBranch,
+  faGaugeHigh,
+} from "@fortawesome/free-solid-svg-icons";
 
 import {
   deleteDataType,
@@ -10,6 +15,11 @@ import {
   setSelectedTypeId,
 } from "../../features/dataTypes/state/dataTypesSlice";
 import { isUnstructuredDataType } from "../../features/dataTypes/types/dataType";
+import {
+  deleteMetric,
+  fetchMetrics,
+  setCreateMetricModalOpen,
+} from "../../features/metrics/state/metricsSlice";
 import {
   deletePipeline,
   fetchPipelines,
@@ -43,6 +53,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
+  const metrics = useAppSelector((state) => state.metrics);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
@@ -55,6 +66,8 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       void dispatch(fetchPipelines());
     } else if (section === "registry" && dataTypes.status === "idle") {
       void dispatch(fetchDataTypes());
+    } else if (section === "metrics" && metrics.status === "idle") {
+      void dispatch(fetchMetrics());
     }
     // The sources section also needs pipelines loaded: the delete-confirm
     // warning counts pipelines that read from the source being deleted. The
@@ -63,7 +76,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     if ((section === "sources" || section === "registry") && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
     }
-  }, [section, dispatch, sources.status, pipelines.status, dataTypes.status]);
+  }, [section, dispatch, sources.status, pipelines.status, dataTypes.status, metrics.status]);
 
   if (section === "sources") {
     // Drive the page's selection via Redux so the sidebar acts as the source
@@ -120,6 +133,28 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     );
   }
 
+  if (section === "metrics") {
+    return (
+      <SidebarItemList
+        heading="Metrics"
+        items={metrics.items}
+        status={metrics.status}
+        error={metrics.error}
+        toHref={(item) => `/metrics/${item.id}`}
+        activeId={routeId ?? null}
+        emptyText="Define your first metric"
+        emptyIcon={faGaugeHigh}
+        emptyDescription="Metrics reuse a pipeline-output data type's measure field, aggregation, and format."
+        onAdd={() => dispatch(setCreateMetricModalOpen(true))}
+        addLabel="New metric"
+        onDelete={async (item) => {
+          await dispatch(deleteMetric(item.id));
+          if (routeId === item.id) navigate("/metrics");
+        }}
+      />
+    );
+  }
+
   if (section === "registry") {
     const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
     // Classify over the full DataType[] list here — `renderBadge`'s `item` param
@@ -171,9 +206,10 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
  * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3). */
 export function sectionFromPathname(
   pathname: string,
-): "dashboards" | "sources" | "pipelines" | "registry" {
+): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" {
   if (pathname.startsWith("/sources")) return "sources";
   if (pathname.startsWith("/pipelines")) return "pipelines";
   if (pathname.startsWith("/registry")) return "registry";
+  if (pathname.startsWith("/metrics")) return "metrics";
   return "dashboards";
 }

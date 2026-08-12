@@ -203,6 +203,10 @@ export function buildBindingPatch(args: {
    *  `undefined` omits the key (leave unchanged); `null` clears it; a non-blank
    *  string sets it. */
   annotation?: string | null;
+  /** HEL-500/HEL-553 bind-to-metric mode, folded into the same single Save
+   *  PATCH. `undefined` omits the key (leave unchanged); `null` clears the
+   *  binding; a metric id sets it. */
+  metricId?: string | null;
 }): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     dataTypeId: args.typeId,
@@ -231,6 +235,9 @@ export function buildBindingPatch(args: {
   }
   if (args.annotation !== undefined) {
     patch.annotation = args.annotation;
+  }
+  if (args.metricId !== undefined) {
+    patch.metricId = args.metricId;
   }
   return patch;
 }
