@@ -17,6 +17,9 @@ import com.helio.api.protocols._
  *  - `DashboardProtocol  extends PanelProtocol`        (DuplicateDashboardResponse + snapshot use panel types)
  *  - `PipelineProtocol   extends DataTypeProtocol`     (PipelineAnalyzeResponse uses SchemaFieldResponse)
  *  - `DataSourceProtocol extends DataTypeProtocol`     (CreateSourceResponse carries DataTypeResponse)
+ *  - `PipelineProposalProtocol extends DataSourceProtocol with PipelineStepProtocol`
+ *    (PipelineProposalSource carries the per-kind config payloads; PipelineProposal.steps
+ *    reuses CreatePipelineStepRequest verbatim — HEL-379)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
@@ -44,6 +47,7 @@ trait JsonProtocols
     with PanelProtocol
     with DashboardProtocol
     with DashboardProposalProtocol
+    with PipelineProposalProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol
