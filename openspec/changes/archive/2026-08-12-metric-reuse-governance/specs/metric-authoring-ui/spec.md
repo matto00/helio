@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Metric editor supports create, edit, deprecate, and delete, with live usage-aware delete confirmation
+### Requirement: Metric editor supports create, edit, deprecate, and delete
 
 The system SHALL provide a metric editor (`/metrics/:id` for edit, a "new" flow from the list page for
 create) with fields: name, description, a pipeline-output DataType picker, a measure-field picker (from

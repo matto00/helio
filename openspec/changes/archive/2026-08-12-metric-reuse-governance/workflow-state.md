@@ -4,8 +4,8 @@ TICKET_ID: HEL-560
 CHANGE_NAME: metric-reuse-governance
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/metric-usage-deprecation-governance/HEL-560
 BRANCH: feature/metric-usage-deprecation-governance/HEL-560
-PHASE: Evaluation
-CYCLE: 1
+PHASE: Delivery
+CYCLE: 2
 DEV_PORT: 5992
 BACKEND_PORT: 8899
 EXECUTOR_AGENT_ID: a6ff8015e4b6b0d8a
@@ -13,7 +13,7 @@ EVALUATOR_AGENT_ID: a36d01609eb21d3c9
 LAST_EVAL_VERDICT: PASS
 LAST_EVAL_REPORT: openspec/changes/metric-reuse-governance/evaluation-1.md
 SKEPTIC_CYCLE: 2
-LAST_SKEPTIC_VERDICT: REFUTE (final gate, round 1 — stale deprecated badge after clearing binding)
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate, round 2)
 AGENT_MERGE: false
 TICKET_TYPE: feature
 DESIGN_QUESTIONS: null

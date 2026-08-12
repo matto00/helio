@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: get_workspace_context advertises the metric catalog, excluding deprecated metrics
+### Requirement: get_workspace_context advertises the metric catalog
 
 `buildWorkspaceContext` SHALL include a `metrics` array — one entry per **non-deprecated** metric the
 caller owns (`deprecated !== true`), fetched via the existing `api.listMetrics()` (HEL-541) as an
