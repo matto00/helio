@@ -4,7 +4,9 @@ TICKET_ID: HEL-379
 CHANGE_NAME: pipeline-proposal-schema-protocol
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/pipeline-proposal-schema-protocol/HEL-379
 BRANCH: feature/pipeline-proposal-schema-protocol/HEL-379
-PHASE: Delivery
+PHASE: Cleanup
+PR_URL: https://github.com/matto00/helio/pull/321
+AWAITING_MERGE_CONFIRMATION: true
 CYCLE: 1
 DEV_PORT: 5811
 BACKEND_PORT: 8718
