@@ -285,6 +285,11 @@ export interface ProposalPanel {
   title: string;
   type: string;
   dataTypeId?: string;
+  /** HEL-549: additive to dataTypeId (which remains required) — binds a
+   *  metric/chart/table panel to a defined metric via the same
+   *  MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot
+   *  create_panel uses. Unsupported on collection/timeline. */
+  metricId?: string;
   fieldMapping?: Record<string, string>;
   aggregation?: MetricAggregationSpec | ChartAggregationSpec;
   content?: string;

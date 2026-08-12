@@ -41,6 +41,10 @@
           "type": "string",
           "description": "Required for metric/chart/table/collection/timeline panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
         },
+        "metricId": {
+          "type": "string",
+          "description": "Additive to dataTypeId (which remains required) — binds a metric/chart/table panel to a defined metric via the same MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot POST /api/panels uses. Unsupported on collection/timeline (and any non-data panel type); must resolve to a caller-owned, non-deprecated metric or the whole apply is rejected (400, nothing created)."
+        },
         "fieldMapping": {
           "type": "object",
           "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}. fieldMapping.label/unit bind to a data column, distinct from the top-level label/unit literal override below."

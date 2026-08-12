@@ -139,10 +139,12 @@ final class ApiRoutes(
   // safe because PanelService only touches it when a panel actually carries
   // a `metricId`.
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo)
+  // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
+  // above — only touched when a proposal panel actually carries a metricId.
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.

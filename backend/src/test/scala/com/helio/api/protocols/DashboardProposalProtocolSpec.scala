@@ -23,11 +23,13 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
       label: Option[String] = None,
       unit: Option[String] = None,
       sort: Option[String] = None,
-      config: Option[JsObject] = None
+      config: Option[JsObject] = None,
+      metricId: Option[String] = None
   ): ProposalPanel = ProposalPanel(
     title        = "Avg rating",
     `type`       = "metric",
     dataTypeId   = Some("dt-1"),
+    metricId     = metricId,
     fieldMapping = Some(JsObject("label" -> JsString("title"))),
     aggregation  = aggregation,
     content      = content,
@@ -195,6 +197,39 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     "round-trip a config object" in {
       val config = JsObject("baseType" -> JsString("metric"), "layout" -> JsString("list"))
       val p      = panel(config = Some(config))
+      p.toJson.convertTo[ProposalPanel] shouldBe p
+    }
+  }
+
+  // ── HEL-549: metricId (additive to dataTypeId) ────────────────────────────
+
+  "ProposalPanel.write/read — metricId" should {
+    "omit the metricId key when absent" in {
+      val json = panel().toJson.asJsObject
+      json.fields.keySet should not contain "metricId"
+    }
+
+    "emit the metricId value when present" in {
+      val json = panel(metricId = Some("metric-1")).toJson.asJsObject
+      json.fields("metricId") shouldBe JsString("metric-1")
+    }
+
+    "tolerate an absent metricId field" in {
+      val json = JsObject("title" -> JsString("X"), "type" -> JsString("metric"))
+      json.convertTo[ProposalPanel].metricId shouldBe None
+    }
+
+    "read a present metricId field" in {
+      val json = JsObject(
+        "title"    -> JsString("X"),
+        "type"     -> JsString("metric"),
+        "metricId" -> JsString("metric-1")
+      )
+      json.convertTo[ProposalPanel].metricId shouldBe Some("metric-1")
+    }
+
+    "round-trip a metricId field" in {
+      val p = panel(metricId = Some("metric-1"))
       p.toJson.convertTo[ProposalPanel] shouldBe p
     }
   }

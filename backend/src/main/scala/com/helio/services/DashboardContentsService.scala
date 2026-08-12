@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.api.protocols.{ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.domain.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository}
+import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +26,11 @@ final class DashboardContentsService(
     dashboardRepo: DashboardRepository,
     panelService: PanelService,
     dataTypeRepo: DataTypeRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-549: mirrors DashboardProposalService's nullable-optional wiring
+    // convention (design.md D5) — only touched when a panel actually
+    // carries a metricId.
+    metricRepo: MetricRepository
 )(implicit ec: ExecutionContext) {
 
   def replaceContents(
@@ -40,7 +44,7 @@ final class DashboardContentsService(
         validatePanels(request.panels) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
-            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo).flatMap {
+            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo, metricRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
             }
