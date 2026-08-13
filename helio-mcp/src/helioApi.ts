@@ -34,7 +34,10 @@ import type {
   Paged,
   PanelCapabilitiesResponse,
   PanelResponse,
+  PipelineAnalyzeProposalResponse,
   PipelineAnalyzeResponse,
+  PipelineProposal,
+  PipelineProposalApplyResponse,
   PipelineShapeCatalogEntryResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
@@ -264,6 +267,17 @@ export class HelioApi {
 
   analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
     return this.http.get<PipelineAnalyzeResponse>(`/api/pipelines/${pipelineId}/analyze`);
+  }
+
+  /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381,
+   *  `POST /api/pipelines/analyze-proposal`) — projects the source/step
+   *  schema without writing anything (no ids minted). Thin pass-through,
+   *  mirrors `analyzePipeline`'s style. */
+  analyzePipelineProposal(proposal: PipelineProposal): Promise<PipelineAnalyzeProposalResponse> {
+    return this.http.post<PipelineAnalyzeProposalResponse>(
+      "/api/pipelines/analyze-proposal",
+      proposal,
+    );
   }
 
   /** List every registered connector kind with its capability metadata (HEL-484) — what an agent
@@ -682,6 +696,17 @@ export class HelioApi {
       "/api/dashboards/apply-proposal",
       proposal,
     );
+  }
+
+  /** Apply a reviewed `PipelineProposal` atomically (HEL-383,
+   *  `POST /api/pipelines/apply-proposal`) — the same reviewed-artifact write
+   *  path `applyProposal` uses for dashboards. Every guardrail (SQL
+   *  read-only, inline-source name/config presence, mutual-exclusivity,
+   *  source-fetch failure) is enforced server-side and surfaced as an
+   *  ordinary non-2xx response; thin pass-through, mirrors `applyProposal`'s
+   *  style — no client-side re-validation or retry. */
+  applyPipelineProposal(proposal: PipelineProposal): Promise<PipelineProposalApplyResponse> {
+    return this.http.post<PipelineProposalApplyResponse>("/api/pipelines/apply-proposal", proposal);
   }
 
   /** Bulk-delete every data source, pipeline, and DataType owned by the caller that carries
