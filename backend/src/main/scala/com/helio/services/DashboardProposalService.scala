@@ -51,17 +51,24 @@ final class DashboardProposalService(
 
   import DashboardProposalService._
 
+  /** Structural + binding validation only — no side effects, nothing created either way
+   *  (HEL-392 design.md D1). Extracted out of `apply` (behavior-preserving: `apply` below calls
+   *  this first, then proceeds exactly as before on `Right`) so `DashboardAuthoringService` can
+   *  reject an NL-authored proposal via the EXACT SAME checks `apply` uses — one shared code path,
+   *  not a divergent copy. */
+  def validate(proposal: DashboardProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    validateStructure(proposal) match {
+      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo, metricRepo)
+    }
+
   def apply(
       proposal: DashboardProposal,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] =
-    validateStructure(proposal) match {
-      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_) =>
-        ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo, metricRepo).flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(_)  => createAll(proposal, user)
-        }
+    validate(proposal, user).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  => createAll(proposal, user)
     }
 
   /** Structural validation — no side effects; fails on the first bad panel so a

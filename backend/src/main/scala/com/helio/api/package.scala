@@ -329,4 +329,14 @@ package object api {
   val WorkspaceContextDashboard: protocols.WorkspaceContextDashboard.type = protocols.WorkspaceContextDashboard
   type WorkspaceContextResponse = protocols.WorkspaceContextResponse
   val WorkspaceContextResponse: protocols.WorkspaceContextResponse.type = protocols.WorkspaceContextResponse
+
+  // Dashboard authoring (HEL-392)
+  type AuthoringContextOptions = protocols.AuthoringContextOptions
+  val AuthoringContextOptions: protocols.AuthoringContextOptions.type = protocols.AuthoringContextOptions
+  type DashboardAuthoringRequest = protocols.DashboardAuthoringRequest
+  val DashboardAuthoringRequest: protocols.DashboardAuthoringRequest.type = protocols.DashboardAuthoringRequest
+  type DashboardAuthoringResponse = protocols.DashboardAuthoringResponse
+  val DashboardAuthoringResponse: protocols.DashboardAuthoringResponse.type = protocols.DashboardAuthoringResponse
+  type AuthoringStreamEvent = protocols.AuthoringStreamEvent
+  val AuthoringStreamEvent: protocols.AuthoringStreamEvent.type = protocols.AuthoringStreamEvent
 }
