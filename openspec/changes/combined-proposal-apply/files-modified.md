@@ -1,0 +1,19 @@
+- `schemas/combined-proposal.schema.json` — new schema: `{ pipeline, dashboard }`, both required; documents the `"$pipelineOutput"` sentinel and its blessed-slot precedence.
+- `backend/src/main/scala/com/helio/api/protocols/CombinedProposalProtocol.scala` — new `CombinedProposal`/`CombinedProposalApplyResponse` case classes + `jsonFormat2` formatters, nesting `PipelineProposal`/`DashboardProposal`/`PipelineProposalApplyResponse`/`DuplicateDashboardResponse` verbatim.
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — mixes in `CombinedProposalProtocol`; documents the new inter-trait dependency.
+- `backend/src/main/scala/com/helio/services/PipelineProposalService.scala` — adds the one new public `rollback(response, user): Future[Unit]` method (design.md D4); no existing method modified.
+- `backend/src/main/scala/com/helio/services/CombinedProposalService.scala` — new orchestration service: `OutputRefSentinel` constant, `flatIsBlessed`/`configIsBlessed` blessed-slot precedence helpers, `clearBlessedSlot`/`validateOutputRefPositions` (design.md D2), `resolveOutputRefs` (design.md D3), and `apply` (sequences pipeline apply → sentinel resolution → dashboard apply → rollback-on-dashboard-failure).
+- `backend/src/main/scala/com/helio/api/routes/CombinedProposalRoutes.scala` — new `POST /api/proposals/apply` route under a fresh top-level `proposals` prefix.
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wires `CombinedProposalService` (composing the existing `pipelineProposalService`/`proposalService`) and mounts `CombinedProposalRoutes`.
+- `backend/src/test/scala/com/helio/api/CombinedApplyProposalSpecBase.scala` — new embedded-Postgres/Flyway/real-RLS fixture with count helpers for all six resource tables.
+- `backend/src/test/scala/com/helio/api/CombinedApplyProposalSpec.scala` — happy path (7.2) + mixed sentinel/pre-existing binding (7.3) + auth.
+- `backend/src/test/scala/com/helio/api/CombinedApplyProposalDanglingRefSpec.scala` — dangling-ref rejection cases (7.4, 7.4a, 7.4b, 7.4c).
+- `backend/src/test/scala/com/helio/api/CombinedApplyProposalRollbackSpec.scala` — dashboard-phase rollback (7.5) + pipeline-phase short-circuit (7.6).
+- `backend/src/test/scala/com/helio/api/CombinedApplyProposalRegressionSpec.scala` — standalone-path regression, including literal-sentinel-as-ordinary-id rejection (7.7).
+- `helio-mcp/src/types.ts` — adds `CombinedProposal`/`CombinedProposalApplyResponse` TS types.
+- `helio-mcp/src/helioApi.ts` — adds `applyCombinedProposal` thin pass-through client method.
+- `helio-mcp/src/tools/combinedProposalHandlers.ts` — new zod-free handler module exporting `applyCombinedProposalHandler`.
+- `helio-mcp/src/tools/combinedProposal.ts` — new thin-shell tool registration for `apply_combined_proposal`, reusing `pipelineProposalInputSchema` and `panelSchema`.
+- `helio-mcp/src/tools/combinedProposalHandlers.test.ts` — call-routing test for `applyCombinedProposalHandler` (7.8).
+- `helio-mcp/src/tools/pipelineProposal.ts` — exports `pipelineProposalInputSchema` (previously module-private) so `combinedProposal.ts` can reuse it verbatim.
+- `helio-mcp/src/index.ts` — registers `registerCombinedProposalTools`.

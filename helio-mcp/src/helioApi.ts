@@ -20,6 +20,8 @@
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
   BoundPanelResponse,
+  CombinedProposal,
+  CombinedProposalApplyResponse,
   ConnectorMetadataResponse,
   CreateMetricRequest,
   CreateSourceResult,
@@ -707,6 +709,19 @@ export class HelioApi {
    *  style — no client-side re-validation or retry. */
   applyPipelineProposal(proposal: PipelineProposal): Promise<PipelineProposalApplyResponse> {
     return this.http.post<PipelineProposalApplyResponse>("/api/pipelines/apply-proposal", proposal);
+  }
+
+  /** Apply a combined pipeline+dashboard proposal atomically (HEL-387,
+   *  `POST /api/proposals/apply`) — the server applies `pipeline` via
+   *  `applyPipelineProposal`'s own atomic path, resolves any `"$pipelineOutput"`
+   *  sentinel in `dashboard`'s panels to the pipeline's real output DataType
+   *  id, then applies `dashboard` via `applyProposal`'s own atomic path,
+   *  rolling back the pipeline (and its inline source, if any) if the
+   *  dashboard phase fails. Thin pass-through, mirrors `applyProposal`'s
+   *  style — no client-side re-validation or retry; the sentinel-position
+   *  guardrail is enforced server-side only. */
+  applyCombinedProposal(combined: CombinedProposal): Promise<CombinedProposalApplyResponse> {
+    return this.http.post<CombinedProposalApplyResponse>("/api/proposals/apply", combined);
   }
 
   /** Bulk-delete every data source, pipeline, and DataType owned by the caller that carries
