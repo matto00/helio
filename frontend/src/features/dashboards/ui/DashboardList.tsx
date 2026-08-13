@@ -1,5 +1,10 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark, faTableColumns, faPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  faXmark,
+  faTableColumns,
+  faPlus,
+  faWandMagicSparkles,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
@@ -20,6 +25,7 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { TextField } from "../../../shared/ui/TextField";
+import { AuthoringChatDrawer } from "./AuthoringChatDrawer";
 
 interface DashboardListProps {
   onCollapse?: () => void;
@@ -29,6 +35,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
   const dispatch = useAppDispatch();
   const { items, selectedDashboardId, status, error } = useAppSelector((state) => state.dashboards);
   const [isCreateMode, setIsCreateMode] = useState(false);
+  const [isAuthoringOpen, setIsAuthoringOpen] = useState(false);
   const [name, setName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -155,6 +162,15 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
       <header className="dashboard-list__header">
         <h2>Dashboards</h2>
         <div className="dashboard-list__header-actions">
+          <button
+            type="button"
+            className="dashboard-list__author-ai"
+            aria-label="Author dashboard with AI"
+            title="Author with AI"
+            onClick={() => setIsAuthoringOpen(true)}
+          >
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
+          </button>
           <button
             type="button"
             className="dashboard-list__add"
@@ -355,6 +371,7 @@ export function DashboardList({ onCollapse }: DashboardListProps) {
           );
         })}
       </ul>
+      <AuthoringChatDrawer open={isAuthoringOpen} onClose={() => setIsAuthoringOpen(false)} />
     </section>
   );
 }
