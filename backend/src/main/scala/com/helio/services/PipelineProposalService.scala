@@ -1,0 +1,339 @@
+package com.helio.services
+
+import com.helio.api.protocols.{
+  CreatePipelineRequest,
+  CreatePipelineStepRequest,
+  CreateSourceRequest,
+  CreateSourceResponse,
+  DataSourceResponse,
+  PipelineProposal,
+  PipelineProposalApplyResponse,
+  PipelineProposalSource,
+  PipelineStepConfigCodec,
+  SqlCreateSourceRequest,
+  StaticDataSourceRequest
+}
+import com.helio.domain.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStepKind, SqlConnector}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository}
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
+
+/** Applies a reviewed pipeline proposal (HEL-379's schema, HEL-383's apply path).
+ *
+ *  Turns a `PipelineProposal` (an optionally-new source + ordered steps + an
+ *  output DataType contract) into real resources by composing the EXISTING
+ *  services — `SourceService`/`DataSourceService` (source, if inline),
+ *  `PipelineService` (pipeline + steps), and `PipelineRunService` (the run).
+ *  It holds no persistence logic of its own: every write runs under the
+ *  caller's RLS context via the composed services, and every delete during
+ *  rollback goes through `DataSourceService.delete` / `DataTypeService.delete`
+ *  / `PipelineService.delete` — never a raw repository call.
+ *
+ *  Atomicity: structural validation (mutual-exclusivity, inline-source
+ *  name/config presence, the SQL read-only guardrail, step type/config
+ *  decoding) all run up front with no side effects, mirroring
+ *  `DashboardProposalService.validateStructure`. If a later step still fails
+ *  (source-fetch failure, step creation, or the run itself), every
+ *  resource this call created is rolled back before the error is returned —
+ *  see design.md D5 for why the deletion order (pipeline → output DataType →
+ *  source → companion DataType) is the only order that's actually safe given
+ *  the FK-cascade asymmetries documented there. */
+final class PipelineProposalService(
+    sourceService: SourceService,
+    dataSourceService: DataSourceService,
+    pipelineService: PipelineService,
+    pipelineRunService: PipelineRunService,
+    dataTypeService: DataTypeService,
+    dataSourceRepo: DataSourceRepository,
+    dataTypeRepo: DataTypeRepository
+)(implicit ec: ExecutionContext) {
+
+  import PipelineProposalService._
+
+  def apply(
+      proposal: PipelineProposal,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, PipelineProposalApplyResponse]] =
+    validateStructure(proposal) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_) =>
+        resolveSource(proposal.source, user).flatMap {
+          case Left(err)       => Future.successful(Left(err))
+          case Right(resolved) => createPipeline(proposal, resolved, user)
+        }
+    }
+
+  // ── Structural pre-validation (design.md D1/D2) — no side effects ────────
+
+  private def validateStructure(proposal: PipelineProposal): Either[ServiceError, Unit] =
+    for {
+      _ <- requireNonBlank(proposal.pipelineName, "pipelineName")
+      _ <- requireNonBlank(proposal.outputDataTypeName, "outputDataTypeName")
+      _ <- validateSourceSelector(proposal.source)
+      _ <- validateSteps(proposal.steps)
+    } yield ()
+
+  private def requireNonBlank(value: String, field: String): Either[ServiceError, Unit] =
+    if (value.trim.isEmpty) Left(ServiceError.BadRequest(s"$field is required")) else Right(())
+
+  /** D1: `sourceId` and an inline `type` are mutually exclusive; exactly one
+   *  of the two must be set. The `sourceId` branch's existence/ownership is
+   *  checked later, at resolution time (a DB round-trip, not part of
+   *  "structural" validation). */
+  private def validateSourceSelector(source: PipelineProposalSource): Either[ServiceError, Unit] =
+    (source.sourceId, source.`type`) match {
+      case (Some(_), Some(_)) =>
+        Left(ServiceError.BadRequest("source: specify either sourceId or an inline type, not both"))
+      case (None, None) =>
+        Left(ServiceError.BadRequest("source: sourceId or inline type is required"))
+      case (Some(_), None) =>
+        Right(())
+      case (None, Some(kind)) =>
+        validateInlineSource(kind, source)
+    }
+
+  /** D2: inline `type` must be a recognized kind; `name` and the type-matched
+   *  `config` field must both be present BEFORE the `sql` query can be
+   *  inspected (the query check would NPE-by-`.get` on an absent `sqlConfig`
+   *  otherwise — round-3 skeptic finding). */
+  private def validateInlineSource(kind: String, source: PipelineProposalSource): Either[ServiceError, Unit] =
+    if (!InlineSourceKinds.contains(kind))
+      Left(ServiceError.BadRequest(s"source.type must be one of ${InlineSourceKinds.toSeq.sorted.mkString(", ")}"))
+    else if (source.name.forall(_.trim.isEmpty))
+      Left(ServiceError.BadRequest("source.name is required for an inline source"))
+    else
+      kind match {
+        case DataSourceKind.Csv     => requireConfig(source.csvConfig)
+        case DataSourceKind.RestApi => requireConfig(source.restConfig)
+        case DataSourceKind.Static  => requireConfig(source.staticConfig)
+        case DataSourceKind.Sql =>
+          source.sqlConfig match {
+            case None      => Left(ServiceError.BadRequest("source.config is required for an inline source"))
+            case Some(cfg) => SqlConnector.checkQuery(cfg.query).left.map(ServiceError.BadRequest(_))
+          }
+      }
+
+  private def requireConfig(config: Option[_]): Either[ServiceError, Unit] =
+    if (config.isDefined) Right(())
+    else Left(ServiceError.BadRequest("source.config is required for an inline source"))
+
+  /** Every step's `type` must be a recognized `PipelineStepKind`, and its
+   *  `config` must decode for that kind — catches malformed step configs
+   *  before creation begins (mirrors `preValidateBindings`'s "fail before any
+   *  side effect" contract). */
+  private def validateSteps(steps: Vector[CreatePipelineStepRequest]): Either[ServiceError, Unit] =
+    steps.zipWithIndex.foldLeft[Either[ServiceError, Unit]](Right(())) {
+      case (Left(err), _)           => Left(err)
+      case (Right(_), (step, idx))  => validateStep(step, idx)
+    }
+
+  private def validateStep(step: CreatePipelineStepRequest, idx: Int): Either[ServiceError, Unit] =
+    if (!PipelineStepKind.All.contains(step.`type`))
+      Left(ServiceError.BadRequest(
+        s"step ${idx + 1}: invalid type '${step.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
+      ))
+    else
+      PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
+        case Success(_) => Right(())
+        case Failure(_) => Left(ServiceError.BadRequest(s"step ${idx + 1}: invalid '${step.`type`}' config"))
+      }
+
+  // ── Source resolution (design.md D3/D4/D5) ───────────────────────────────
+
+  private def resolveSource(
+      source: PipelineProposalSource,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, ResolvedSource]] =
+    (source.sourceId, source.`type`) match {
+      case (Some(sourceId), _) =>
+        resolveExistingSource(sourceId, user)
+      case (None, Some(DataSourceKind.Csv)) =>
+        // D3: schema-valid but apply-time-rejected — no bytes channel exists
+        // in a JSON proposal for `DataSourceService.createCsv`'s upload path.
+        Future.successful(Left(ServiceError.UnprocessableEntity(
+          "inline csv sources are not supported by apply-proposal yet; create the CSV source separately and reference it via sourceId"
+        )))
+      case (None, Some(DataSourceKind.Sql))      => resolveSqlSource(source, user)
+      case (None, Some(DataSourceKind.RestApi))  => resolveRestSource(source, user)
+      case (None, Some(DataSourceKind.Static))   => resolveStaticSource(source, user)
+      case _ =>
+        // Unreachable: validateStructure already rejected every other shape.
+        Future.successful(Left(ServiceError.BadRequest("source: sourceId or inline type is required")))
+    }
+
+  private def resolveExistingSource(sourceId: String, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
+    dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).map {
+      case None     => Left(ServiceError.NotFound("Data source not found"))
+      case Some(ds) => Right(ResolvedSource(ds.id, responseForClient = None, createdByThisCall = false, companionDataTypeIds = Vector.empty))
+    }
+
+  private def resolveSqlSource(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
+    source.sqlConfig match {
+      case None => Future.successful(Left(ServiceError.BadRequest("source.config is required for an inline source")))
+      case Some(cfg) =>
+        sourceService.createSql(SqlCreateSourceRequest(inlineName(source), DataSourceKind.Sql, cfg), user).flatMap {
+          case Left(err)  => Future.successful(Left(err))
+          case Right(csr) => handleInlineCreated(csr, user)
+        }
+    }
+
+  private def resolveRestSource(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
+    source.restConfig match {
+      case None => Future.successful(Left(ServiceError.BadRequest("source.config is required for an inline source")))
+      case Some(cfg) =>
+        sourceService
+          .createRest(CreateSourceRequest(inlineName(source), DataSourceKind.RestApi, cfg, fieldOverrides = None), user)
+          .flatMap {
+            case Left(err)  => Future.successful(Left(err))
+            case Right(csr) => handleInlineCreated(csr, user)
+          }
+    }
+
+  private def resolveStaticSource(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
+    source.staticConfig match {
+      case None => Future.successful(Left(ServiceError.BadRequest("source.config is required for an inline source")))
+      case Some(cfg) =>
+        dataSourceService
+          .createStatic(StaticDataSourceRequest(inlineName(source), DataSourceKind.Static, cfg.columns, cfg.rows), user)
+          .flatMap {
+            case Left(err) => Future.successful(Left(err))
+            case Right(ds) =>
+              // No CreateSourceResponse envelope for static (DataSourceService.createStatic
+              // returns the bare DataSource) — capture the companion DataType's id NOW,
+              // while the source still exists, so a later rollback never has to
+              // re-derive it via findBySourceId after the source is already gone
+              // (design.md D5 — that query would return nothing post-delete).
+              dataTypeRepo.findBySourceId(ds.id, user.id).map { companions =>
+                Right(ResolvedSource(
+                  ds.id,
+                  responseForClient    = Some(DataSourceResponse.fromDomain(ds)),
+                  createdByThisCall    = true,
+                  companionDataTypeIds = companions.map(_.id)
+                ))
+              }
+          }
+    }
+
+  /** Shared `rest_api`/`sql` post-create handling (D4): a `fetchError` means
+   *  schema inference failed and no DataType was ever inserted for this
+   *  source (`CreateSourceEnvelope`'s `Left` path never calls
+   *  `dataTypeRepo.insert`) — delete the just-created source and surface the
+   *  connector's curated message unmodified, without proceeding to pipeline
+   *  creation. Otherwise capture the companion DataType id created alongside
+   *  the source, directly off the response (no extra query needed). */
+  private def handleInlineCreated(csr: CreateSourceResponse, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] = {
+    val sourceId = DataSourceId(csr.source.id)
+    csr.fetchError match {
+      case Some(err) =>
+        dataSourceService.delete(sourceId, user).map(_ => Left(ServiceError.BadGateway(err)))
+      case None =>
+        val companionIds = csr.dataType.map(dt => DataTypeId(dt.id)).toVector
+        Future.successful(Right(ResolvedSource(
+          sourceId,
+          responseForClient    = Some(csr.source),
+          createdByThisCall    = true,
+          companionDataTypeIds = companionIds
+        )))
+    }
+  }
+
+  private def inlineName(source: PipelineProposalSource): String =
+    source.name.getOrElse("").trim
+
+  // ── Pipeline + steps + run, then rollback on any failure (design.md D5/D6) ─
+
+  private def createPipeline(
+      proposal: PipelineProposal,
+      resolved: ResolvedSource,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, PipelineProposalApplyResponse]] =
+    pipelineService
+      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value, proposal.outputDataTypeName.trim), user)
+      .flatMap {
+        case Left(err) =>
+          // Nothing pipeline-side to roll back yet; the source (if this call
+          // created it) still needs cleanup.
+          rollbackSourceOnly(resolved, user).map(_ => Left(err))
+        case Right(summary) =>
+          val pipelineId = PipelineId(summary.id)
+          addSteps(pipelineId, proposal.steps, user).flatMap {
+            case Left(err) =>
+              rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
+            case Right(_) =>
+              pipelineRunService.submit(pipelineId, isDry = false, user).flatMap {
+                case Left(err) =>
+                  // D6: run failure (including the rest_api/sql Spark-submission
+                  // rejection) is "a failure at any step" — full rollback, not a
+                  // partial success with run: null.
+                  rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
+                case Right(runResult) =>
+                  Future.successful(Right(PipelineProposalApplyResponse(
+                    source            = resolved.responseForClient,
+                    pipeline          = summary,
+                    outputDataTypeId  = summary.outputDataTypeId,
+                    run               = runResult
+                  )))
+              }
+          }
+      }
+
+  /** Create steps in proposal order, short-circuiting on the first failure. */
+  private def addSteps(
+      pipelineId: PipelineId,
+      steps: Vector[CreatePipelineStepRequest],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    steps.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, step) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(_)  => pipelineService.addStep(pipelineId, step, user).map(_.map(_ => ()))
+      }
+    }
+
+  /** design.md D5's full rollback order: pipeline (cascades steps/runs) →
+   *  pipeline's output DataType (`sourceId` is always `None` by construction,
+   *  so `checkSourceLink` passes trivially) → the inline source (if this call
+   *  created it) → its companion DataType(s), using the id(s) already
+   *  captured at creation time — never re-queried after the source is gone. */
+  private def rollbackAll(
+      pipelineId: PipelineId,
+      outputDataTypeId: String,
+      resolved: ResolvedSource,
+      user: AuthenticatedUser
+  ): Future[Unit] =
+    pipelineService.delete(pipelineId, user).flatMap { _ =>
+      dataTypeService.delete(DataTypeId(outputDataTypeId), user).flatMap { _ =>
+        rollbackSourceOnly(resolved, user)
+      }
+    }
+
+  /** Deletes the inline source FIRST (nulls the companion DataType's
+   *  `sourceId` via `ON DELETE SET NULL`), then the companion DataType(s) —
+   *  `checkSourceLink` would reject the companion delete if run before the
+   *  source is gone. No-op for the `sourceId` branch (nothing was created). */
+  private def rollbackSourceOnly(resolved: ResolvedSource, user: AuthenticatedUser): Future[Unit] =
+    if (!resolved.createdByThisCall) Future.successful(())
+    else
+      dataSourceService.delete(resolved.id, user).flatMap { _ =>
+        Future.sequence(resolved.companionDataTypeIds.map(id => dataTypeService.delete(id, user))).map(_ => ())
+      }
+}
+
+object PipelineProposalService {
+
+  private val InlineSourceKinds: Set[String] =
+    Set(DataSourceKind.Csv, DataSourceKind.RestApi, DataSourceKind.Sql, DataSourceKind.Static)
+
+  /** The resolved (existing or just-created) source, plus everything a later
+   *  rollback needs so it never has to re-derive state that a prior delete
+   *  already invalidated (design.md D5). `responseForClient` is `None` for
+   *  the `sourceId` branch (nothing new to report) and `Some` for the inline
+   *  branch. */
+  private[services] final case class ResolvedSource(
+      id: DataSourceId,
+      responseForClient: Option[DataSourceResponse],
+      createdByThisCall: Boolean,
+      companionDataTypeIds: Vector[DataTypeId]
+  )
+}

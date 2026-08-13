@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -173,6 +173,14 @@ final class ApiRoutes(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
     alertEvaluationServiceOpt.orNull
+  )
+  // HEL-383: atomic pipeline-proposal apply — composes sourceService/
+  // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
+  // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
+  // read-only lookups its own scaladoc documents (no direct DB writes).
+  private val pipelineProposalService = new PipelineProposalService(
+    sourceService, dataSourceService, pipelineService, pipelineRunService, dataTypeService,
+    dataSourceRepo, dataTypeRepo
   )
   // HEL-364: compound POST /api/panels/bound — composes the four services
   // above (constructed after all of them, same DI-ordering convention this
@@ -357,6 +365,7 @@ final class ApiRoutes(
                   new PipelineShapeRoutes(pipelineShapeService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
+                  new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
