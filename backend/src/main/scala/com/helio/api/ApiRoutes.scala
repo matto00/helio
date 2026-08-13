@@ -11,7 +11,7 @@ import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -185,6 +185,11 @@ final class ApiRoutes(
     sourceService, dataSourceService, pipelineService, pipelineRunService, dataTypeService,
     dataSourceRepo, dataTypeRepo
   )
+  // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
+  // already-constructed pipelineProposalService/proposalService (the latter
+  // is DashboardProposalService, constructed above), no repository access of
+  // its own.
+  private val combinedProposalService = new CombinedProposalService(pipelineProposalService, proposalService)
   // HEL-364: compound POST /api/panels/bound — composes the four services
   // above (constructed after all of them, same DI-ordering convention this
   // file already follows) plus the repos it needs directly (dataSourceRepo
@@ -369,6 +374,10 @@ final class ApiRoutes(
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
+                  // HEL-387: brand-new top-level `proposals` prefix (design.md
+                  // D6) — shares no path space with any existing route, so
+                  // mount order relative to the others is irrelevant.
+                  new CombinedProposalRoutes(combinedProposalService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,

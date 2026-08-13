@@ -67,7 +67,11 @@ const pipelineProposalSourceSchema = z.object({
 // under `.proposal` is argument-compatible with both
 // `analyze_pipeline_proposal` and `apply_pipeline_proposal` (same shape in),
 // mirroring `propose_dashboard`'s `proposal` → `apply_proposal` precedent.
-const pipelineProposalInputSchema = {
+// Exported so `combinedProposal.ts`'s `apply_combined_proposal` (HEL-387) can
+// reuse it verbatim for its `pipeline` field instead of a second,
+// drift-prone copy — mirrors `write.ts`'s own export of
+// `boundPipelineStepSchema` for this file's `steps` field.
+export const pipelineProposalInputSchema = {
   pipelineName: z.string().min(1),
   source: pipelineProposalSourceSchema,
   outputDataTypeName: z.string().min(1),

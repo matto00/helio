@@ -569,3 +569,28 @@ export interface PipelineProposalApplyResponse {
   outputDataTypeId: string;
   run: RunResultResponse;
 }
+
+// ── Combined (pipeline + dashboard) proposal (HEL-387) — mirrors
+// `backend/.../api/protocols/CombinedProposalProtocol.scala` ────────────────
+
+/** A combined proposal — the shared Proposal → Review → Apply artifact for
+ *  `POST /api/proposals/apply`. `dashboard`'s panels may bind to `pipeline`'s
+ *  not-yet-created output DataType via the reserved `"$pipelineOutput"`
+ *  sentinel in the panel's `dataTypeId` (or, for a non-data panel,
+ *  `config.dataTypeId`) — the exact same slot `DashboardProposal` already
+ *  uses for a real DataType id. Reuses `PipelineProposal`/`DashboardProposal`
+ *  verbatim (design.md D1) — no new panel-level shape. */
+export interface CombinedProposal {
+  pipeline: PipelineProposal;
+  dashboard: DashboardProposal;
+}
+
+/** `POST /api/proposals/apply` response (HEL-387) — nests each sub-service's
+ *  own existing response shape verbatim (design.md D5), not a new flat
+ *  shape: `pipeline` matches `PipelineProposalApplyResponse` exactly;
+ *  `dashboard` matches `apply_proposal`'s own `{ dashboard, panels }`
+ *  response exactly. */
+export interface CombinedProposalApplyResponse {
+  pipeline: PipelineProposalApplyResponse;
+  dashboard: { dashboard: DashboardResponse; panels: PanelResponse[] };
+}

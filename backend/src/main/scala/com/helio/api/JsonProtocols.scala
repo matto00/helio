@@ -20,6 +20,10 @@ import com.helio.api.protocols._
  *  - `PipelineProposalProtocol extends DataSourceProtocol with PipelineStepProtocol`
  *    (PipelineProposalSource carries the per-kind config payloads; PipelineProposal.steps
  *    reuses CreatePipelineStepRequest verbatim — HEL-379)
+ *  - `CombinedProposalProtocol extends PipelineProposalProtocol with DashboardProposalProtocol
+ *    with DashboardProtocol` (CombinedProposal nests PipelineProposal + DashboardProposal
+ *    verbatim; CombinedProposalApplyResponse nests PipelineProposalApplyResponse +
+ *    DuplicateDashboardResponse verbatim — HEL-387)
  *  - `PipelineAnalyzeProposalProtocol extends PipelineAnalyzeProtocol` (reuses
  *    SchemaFieldResponse + AnalyzeStepResponse/analyzeStepResponseFormat verbatim — HEL-381)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
@@ -50,6 +54,7 @@ trait JsonProtocols
     with DashboardProtocol
     with DashboardProposalProtocol
     with PipelineProposalProtocol
+    with CombinedProposalProtocol
     with PipelineAnalyzeProposalProtocol
     with DataTypeProtocol
     with DataSourceProtocol

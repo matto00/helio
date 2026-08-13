@@ -241,6 +241,41 @@ final class PipelineProposalService(
   private def inlineName(source: PipelineProposalSource): String =
     source.name.getOrElse("").trim
 
+  // ── External rollback entry point (design.md D4, HEL-387) ────────────────
+
+  /** Undo an already-successful `apply` result FROM OUTSIDE this service —
+   *  e.g. a combined proposal (HEL-387) whose later dashboard phase fails
+   *  after this service's own `apply` already succeeded. `apply`'s own
+   *  `rollbackAll`/`rollbackSourceOnly` are private and only fire on
+   *  `apply`'s own internal failures; this is the new, additive entry point
+   *  for "this already succeeded, undo it now."
+   *
+   *  Same delete order as `rollbackAll`: pipeline (cascades steps/runs) →
+   *  output DataType → (if `response.source` is defined, meaning this
+   *  proposal's own `apply` created it inline) the source → its companion
+   *  DataType(s). Since `rollback` runs BEFORE any of ITS OWN deletes have
+   *  happened yet, a fresh `dataTypeRepo.findBySourceId` read here is safe —
+   *  unlike inside `apply`'s rollback, where that query would return nothing
+   *  once issued after the source delete (design.md D5). Composed entirely
+   *  through `pipelineService.delete`/`dataTypeService.delete`/
+   *  `dataSourceService.delete` — never a raw repository call. No existing
+   *  method in this file is modified. */
+  def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
+    pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
+      dataTypeService.delete(DataTypeId(response.outputDataTypeId), user).flatMap { _ =>
+        response.source match {
+          case None => Future.successful(())
+          case Some(source) =>
+            val sourceId = DataSourceId(source.id)
+            dataTypeRepo.findBySourceId(sourceId, user.id).flatMap { companions =>
+              dataSourceService.delete(sourceId, user).flatMap { _ =>
+                Future.sequence(companions.map(dt => dataTypeService.delete(dt.id, user))).map(_ => ())
+              }
+            }
+        }
+      }
+    }
+
   // ── Pipeline + steps + run, then rollback on any failure (design.md D5/D6) ─
 
   private def createPipeline(
