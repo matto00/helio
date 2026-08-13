@@ -513,3 +513,59 @@ export interface UpdateMetricRequest {
   format?: MetricFormat | null;
   deprecated?: boolean;
 }
+
+// ── Pipeline proposal (HEL-379/381/383/385) — mirrors
+// `backend/.../api/protocols/PipelineProposalProtocol.scala` /
+// `PipelineAnalyzeProposalProtocol.scala` ────────────────────────────────────
+
+/** `source` on the wire (design.md D1): EXACTLY one `config` key, selected by
+ *  `type` — NOT the Scala-internal `csvConfig`/`restConfig`/`sqlConfig`/
+ *  `staticConfig` four-`Option`-field shape (that split is collapsed to/from
+ *  this single key by the backend's hand-written `RootJsonFormat` and has no
+ *  wire presence). Either `sourceId` (existing-source branch) or `type`/
+ *  `name`/`config` (inline branch) is supplied — the schema does not enforce
+ *  mutual exclusivity; `propose_pipeline`'s warnings (D4) flag both-set or
+ *  neither-set client-side before an apply-time 400. */
+export interface PipelineProposalSource {
+  sourceId?: string;
+  type?: "csv" | "rest_api" | "sql" | "static";
+  name?: string;
+  config?: Record<string, unknown>;
+}
+
+/** A pipeline proposal — the shared Proposal → Review → Apply artifact for
+ *  pipelines (mirrors `DashboardProposal`). Carries no ids: nothing is
+ *  created until applied via `apply_pipeline_proposal`. `steps` reuses the
+ *  same `{type, config}` shape `add_pipeline_step`/`boundPipelineStepSchema`
+ *  (`write.ts`) already use — no new step DTO. */
+export interface PipelineProposal {
+  pipelineName: string;
+  source: PipelineProposalSource;
+  outputDataTypeName: string;
+  steps: Array<{ type: string; config: unknown }>;
+}
+
+/** `POST /api/pipelines/analyze-proposal` response (HEL-381) — the projected
+ *  source/step schema for a not-yet-created proposal, dry (no writes, no ids
+ *  minted). `steps` reuses `PipelineAnalyzeResponse["steps"]`'s exact inline
+ *  per-step shape verbatim (design.md D5) — both are produced by the same
+ *  backend `analyzeStepResponseFormat`, so no second, divergent type. */
+export interface PipelineAnalyzeProposalResponse {
+  sourceName: string;
+  outputDataTypeName: string;
+  sourceSchema: SchemaField[];
+  steps: PipelineAnalyzeResponse["steps"];
+}
+
+/** `POST /api/pipelines/apply-proposal` response (HEL-383) — every id created
+ *  by the atomic apply, plus the synchronous run result. `source` is present
+ *  only for the inline-source branch (mirrors the backend's `Option`, omitted
+ *  on the wire when absent — read as `source ?? undefined`, i.e. simply
+ *  check truthiness); the existing-sourceId branch has nothing new to report
+ *  and omits it. */
+export interface PipelineProposalApplyResponse {
+  source?: DataSourceResponse;
+  pipeline: PipelineSummaryResponse;
+  outputDataTypeId: string;
+  run: RunResultResponse;
+}

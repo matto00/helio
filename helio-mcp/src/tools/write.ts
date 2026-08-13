@@ -20,6 +20,20 @@ import {
 } from "./metricSchemas.js";
 import { panelSchema } from "./proposal.js";
 
+// Hoisted to module scope (HEL-385 design.md D3 — round-1 skeptic correction):
+// originally declared inside `registerWriteTools`, where `export` cannot
+// legally apply to a function-local `const`. The declaration closes over
+// nothing (no reference to `server`/`api`/any other local), so this
+// relocation is behavior-preserving — `create_bound_panel` below continues to
+// resolve it via normal module-scope lookup, exactly as before. Exported so
+// `pipelineProposal.ts`'s `steps` field can reuse it verbatim instead of a
+// second, drift-prone copy — mirrors this file's own existing import of
+// `panelSchema` from `proposal.ts`.
+export const boundPipelineStepSchema = z.object({
+  type: z.string().min(1),
+  config: z.record(z.unknown()).default({}),
+});
+
 function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
 }
@@ -531,11 +545,6 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     ({ panelId, dataTypeId, fieldMapping, panelType }) =>
       guarded(() => api.bindPanel(panelId, { dataTypeId, fieldMapping, panelType })),
   );
-
-  const boundPipelineStepSchema = z.object({
-    type: z.string().min(1),
-    config: z.record(z.unknown()).default({}),
-  });
 
   server.registerTool(
     "create_bound_panel",
