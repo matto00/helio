@@ -26,6 +26,13 @@ Touches: new `backend/src/main/scala/com/helio/services/` (or a new `com/helio/a
 - [ ] A max-tokens/cost guardrail rejects or bounds over-budget requests; token usage is returned for logging.
 - [ ] `CLAUDE.md` prod env-var table + `infra/.env.deploy.example` updated.
 - [ ] `sbt test` green with mocked transport; no real API call in tests.
+- [ ] (Fold-in, post-delivery follow-up A) `ClaudeClient.stream`/`HttpClaudeTransport.stream`
+      surfaces a mid-stream connection drop (a failure on the SSE byte source after streaming has
+      already started, not just a request-initiation failure) as a `ClaudeStreamEvent.Error`
+      element followed by normal stream completion — never a silent hang or an unhandled stream
+      failure with no signal. Approved by the coordinator during Phase 3 delivery review: matters
+      because HEL-395's chat UI will be a direct consumer of this streaming path, where a
+      silently-hung stream on a network blip would be a poor UX bug waiting to happen.
 
 ## Out of scope
 
@@ -36,6 +43,7 @@ Touches: new `backend/src/main/scala/com/helio/services/` (or a new `com/helio/a
 ## Dependencies
 
 * None hard (foundation). Consumed by the HEL-341 NL authoring endpoint, multi-turn state, and telemetry tickets, and available to HEL-343 refinement.
+* HEL-395 (chat UI): cited as the motivating justification for fold-in follow-up A (mid-stream SSE resilience) — HEL-395 will be a direct consumer of `ClaudeClient.stream`'s streaming path.
 
 ## Orchestrator notes (not part of the ticket)
 

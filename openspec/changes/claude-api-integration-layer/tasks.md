@@ -63,3 +63,18 @@
       boundaries still parse correctly.
 - [x] 6.4 Confirm `sbt test` is green with no real network call (no test depends on
       `ANTHROPIC_API_KEY`/live network being present).
+
+## 7. Backend: fold-in — SSE mid-stream resilience (post-delivery follow-up A, coordinator-approved)
+
+- [x] 7.1 Inside `ClaudeSseAssembler.assemble` itself (not at `HttpClaudeTransport`'s call site — a
+      call-site-only wrap wouldn't be reachable by 7.2's test pattern), wrap the returned `Source`
+      with Pekko Stream's `Source.recover`, mapping any exception to
+      `ClaudeStreamEvent.Error(ClaudeError.TransportFailure(...))` then normal completion (design.md
+      D9). Log the underlying exception (never the API key). Call site unchanged.
+- [x] 7.2 Add a `ClaudeStreamAssemblySpec` test (existing chunk-boundary-split pattern: a
+      hand-constructed `ByteString` `Source` fed directly into `assemble`): a fake byte `Source` that
+      emits a valid SSE frame then fails produces a trailing `ClaudeStreamEvent.Error` and completes
+      — never hangs, never fails the materialized `Source` unhandled.
+- [x] 7.3 Re-run `sbt test` (must stay green with no real network call) plus
+      `check:scala-quality`/`check:openspec` (expected pre-archive "complete but not archived" state,
+      per Phase-3 precedent) before this fold-in's own delivery resumes.

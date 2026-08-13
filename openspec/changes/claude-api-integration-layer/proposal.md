@@ -21,6 +21,10 @@ Claude client so those endpoints can be thin callers instead of each re-inventin
   document the new secret in `infra/.env.deploy.example` and `CLAUDE.md`'s prod env-var table.
 - No route/actor wiring into `Main.scala`/`ApiRoutes` this ticket — no consumer exists yet
   (HEL-341 is the first caller); this ticket ships the library only.
+- **Fold-in (post-delivery follow-up A, coordinator-approved):** `HttpClaudeTransport.stream`
+  surfaces a mid-stream connection drop as a `ClaudeStreamEvent.Error` element followed by normal
+  completion, instead of an unhandled stream failure — the original `.recover` only covered
+  request-initiation failures, not a failure on the byte source after streaming had already begun.
 
 ## Capabilities
 

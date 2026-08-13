@@ -119,5 +119,31 @@ class ClaudeStreamAssemblySpec extends AnyWordSpec with Matchers with ScalatestR
       events.collect { case ClaudeStreamEvent.TextDelta(t) => t } shouldBe Seq("a", "b")
       events should contain(ClaudeStreamEvent.MessageStop)
     }
+
+    // HEL-390 fold-in (post-delivery follow-up A, design.md D9): a failure on the byte Source
+    // itself *after* streaming has already started — not a request-initiation failure, which is
+    // handled separately in HttpClaudeTransport — must surface as a trailing typed error event
+    // and then complete normally, never hang and never fail the materialized Source unhandled.
+    "surface a mid-stream connection drop as a trailing error event, then complete (never hang, never fail unhandled)" in {
+      val validFrame = ByteString(textDeltaFrame("before-drop"))
+      // A single-stage `.map` that emits the valid frame then throws on the next pull — NOT
+      // `Source.single(x) ++ Source.failed(e)`, whose two-sub-source `Concat` doesn't guarantee
+      // the first element is actually delivered downstream before the second sub-source's
+      // failure propagates (confirmed by probe: that composition lost the buffered element
+      // entirely, even with no `Framing`/`recover` involved — a demand/backpressure race, not a
+      // `ClaudeSseAssembler` defect). This `.map`-based fixture drives one stage, so element 1
+      // (the frame) is pushed downstream in response to one pull, and the throw for "element 2"
+      // only happens on the *next* pull — after downstream has already processed element 1.
+      val droppedBytes: Source[ByteString, _] = Source(List(1, 2)).map {
+        case 1 => validFrame
+        case _ => throw new RuntimeException("simulated mid-stream connection drop")
+      }
+
+      val events = await(ClaudeSseAssembler.assemble(droppedBytes).runWith(Sink.seq))
+
+      events should have size 2
+      events.head shouldBe ClaudeStreamEvent.TextDelta("before-drop")
+      events(1) shouldBe ClaudeStreamEvent.Error(ClaudeError.TransportFailure("Streaming connection failed"))
+    }
   }
 }
