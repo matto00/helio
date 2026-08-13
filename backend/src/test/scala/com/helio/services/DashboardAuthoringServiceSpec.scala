@@ -1,8 +1,8 @@
 package com.helio.services
 
-import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{AuthoringStreamEvent, DashboardAuthoringRequest}
+import com.helio.api.protocols.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal}
 import com.helio.domain._
 import com.helio.infrastructure._
 import org.apache.pekko.NotUsed
@@ -21,9 +21,11 @@ import slick.jdbc.PostgresProfile.api._
 import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 /** `DashboardAuthoringService` coverage (HEL-392 tasks.md 5.2/5.3) — a stub `ClaudeTransport`
  *  (zero real network calls, mirrors `ClaudeClientSpec`'s `FakeClaudeTransport`) over a REAL,
@@ -54,6 +56,11 @@ class DashboardAuthoringServiceSpec
   private var workspaceContextService: WorkspaceContextService     = _
   private var panelCapabilityService: PanelCapabilityService       = _
   private var dashboardProposalService: DashboardProposalService   = _
+  // HEL-397: real repository over the same embedded Postgres — DashboardAuthoringService now
+  // unconditionally persists a conversation row on every successful turn (transparent side effect
+  // for single-shot callers, design.md D1), so every test below needs a working collaborator here,
+  // not a mock.
+  private var conversationRepo: AuthoringConversationRepository    = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
@@ -96,6 +103,7 @@ class DashboardAuthoringServiceSpec
     // DashboardProposalServiceValidateSpec. metricRepo: null mirrors PanelService's
     // nullable-optional wiring convention (no proposal panel here ever carries a metricId).
     dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -175,9 +183,15 @@ class DashboardAuthoringServiceSpec
   ) extends ClaudeTransport {
     val sendInvocations   = new AtomicInteger(0)
     val streamInvocations = new AtomicInteger(0)
+    // HEL-397 tasks.md 6.1: records every `send` request's messages so history-trimming tests can
+    // assert on exactly what reached the transport, not just how many times.
+    private val recordedRequests = new CopyOnWriteArrayList[ClaudeApiRequest]()
+    def sendRequests: Vector[ClaudeApiRequest] = recordedRequests.asScala.toVector
 
-    override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
+    override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] = {
+      recordedRequests.add(request)
       sendResponses(sendInvocations.getAndIncrement())
+    }
 
     override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] =
       Source(streamResponses(streamInvocations.getAndIncrement()).toList)
@@ -190,7 +204,7 @@ class DashboardAuthoringServiceSpec
   private def newAuthoringService(transport: FakeClaudeTransport, maxInputTokens: Int = 100000): DashboardAuthoringService = {
     val claudeConfig = ClaudeConfig(apiKey = "sk-ant-test", model = "claude-test", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = maxInputTokens)
     val claudeClient = new ClaudeClient(claudeConfig, transport)(routeEc)
-    new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, claudeClient)(routeEc)
+    new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, claudeClient, conversationRepo)(routeEc)
   }
 
   // HEL-392 fold-in (tasks.md 7.1/7.2/7.3): drives `mapClaudeError`'s three branches end-to-end.
@@ -480,6 +494,204 @@ class DashboardAuthoringServiceSpec
       events.head.asInstanceOf[AuthoringStreamEvent.Error].message shouldBe bufferedMessage
       streamingTransport.streamInvocations.get() shouldBe 1
       streamingTransport.sendInvocations.get() shouldBe 0
+    }
+  }
+
+  // ── Multi-turn conversations (HEL-397 tasks.md 6.1) ─────────────────────
+
+  private def seedConversation(
+      owner: AuthenticatedUser,
+      apiHistory: Vector[ClaudeMessage] = Vector(ClaudeMessage(ClaudeRole.User, "seed"), ClaudeMessage(ClaudeRole.Assistant, "seed-response")),
+      totalTokensUsed: Int = 0
+  ): AuthoringConversationRepository.AuthoringConversationRecord = {
+    val now = Instant.now()
+    val record = AuthoringConversationRepository.AuthoringConversationRecord(
+      id              = AuthoringConversationId(UUID.randomUUID().toString),
+      ownerId         = owner.id,
+      apiHistory      = apiHistory,
+      displayTurns    = Vector(AuthoringDisplayTurn("user", "seed"), AuthoringDisplayTurn("assistant", "seed-response")),
+      latestProposal  = Some(DashboardProposal("Seed", Vector.empty)),
+      totalTokensUsed = totalTokensUsed,
+      createdAt       = now,
+      updatedAt       = now
+    )
+    await(conversationRepo.create(record))
+    record
+  }
+
+  "DashboardAuthoringService — multi-turn conversations" should {
+
+    "a second turn with conversationId edits the first turn's proposal, re-validated, and the persisted turn count increases" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value)), cannedResponse(turn2Json)))
+      val service   = newAuthoringService(transport)
+
+      val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))
+      turn1.isRight shouldBe true
+      val conversationId = turn1.toOption.get.conversationId
+      conversationId should not be empty
+
+      val turn2 = await(service.author(DashboardAuthoringRequest("Rename it to Sales v2", None, Some(conversationId)), user))
+
+      turn2.isRight shouldBe true
+      turn2.map(_.proposal.dashboardName) shouldBe Right("Sales v2")
+      turn2.map(_.conversationId) shouldBe Right(conversationId)
+      transport.sendInvocations.get() shouldBe 2
+
+      val persisted = await(conversationRepo.findById(AuthoringConversationId(conversationId), user))
+      persisted shouldBe defined
+      persisted.get.displayTurns should have size 4
+      persisted.get.apiHistory   should have size 4
+      persisted.get.latestProposal.map(_.dashboardName) shouldBe Some("Sales v2")
+    }
+
+    "a continued turn's Claude request carries only the plain follow-up text, never re-embedded grounding" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+      val turn2Json = validProposalJson(dt.id.value)
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value)), cannedResponse(turn2Json)))
+      val service   = newAuthoringService(transport)
+
+      val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))
+      val conversationId = turn1.toOption.get.conversationId
+
+      await(service.author(DashboardAuthoringRequest("Make it a bar chart", None, Some(conversationId)), user))
+
+      val turn2Request = transport.sendRequests(1)
+      val turn2UserMessages = turn2Request.messages.filter(_.role == ClaudeRole.User)
+      // Turn 1's own ORIGINAL grounded message legitimately remains part of history and is
+      // correctly resent as prior context (that's how a continued conversation works) — the
+      // design.md D3 guarantee is narrower: THIS turn's own new message is the plain follow-up
+      // text only, never re-embedded grounding on top of it.
+      turn2UserMessages.last.content shouldBe "Make it a bar chart"
+      turn2Request.messages.count(_.role == ClaudeRole.User) shouldBe 2
+    }
+
+    "history-budget trimming: the transport only ever sees the trimmed subset, never the dropped oldest pair" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+
+      // One deliberately oversized turn-pair (alone comfortably exceeds DefaultMaxHistoryTokens)
+      // followed by a small, recent pair — trimming must drop the oldest and keep the newest.
+      val oldestPad = "filler " * 30000
+      val seeded = seedConversation(
+        user,
+        apiHistory = Vector(
+          ClaudeMessage(ClaudeRole.User, "OLDEST-TURN-MARKER " + oldestPad),
+          ClaudeMessage(ClaudeRole.Assistant, "OLDEST-RESPONSE-MARKER"),
+          ClaudeMessage(ClaudeRole.User, "NEWEST-TURN-MARKER"),
+          ClaudeMessage(ClaudeRole.Assistant, "NEWEST-RESPONSE-MARKER")
+        )
+      )
+
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value))))
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest("one more edit", None, Some(seeded.id.value)), user))
+
+      result.isRight shouldBe true
+      val sentMessages = transport.sendRequests.head.messages
+      sentMessages.exists(_.content.contains("OLDEST-TURN-MARKER")) shouldBe false
+      sentMessages.exists(_.content.contains("OLDEST-RESPONSE-MARKER")) shouldBe false
+      sentMessages.exists(_.content.contains("NEWEST-TURN-MARKER")) shouldBe true
+      sentMessages.exists(_.content.contains("NEWEST-RESPONSE-MARKER")) shouldBe true
+      sentMessages.last.content shouldBe "one more edit"
+
+      // Storage itself is never permanently truncated — the FULL prior history is still there,
+      // trimming only ever applied per-call (design.md D4).
+      val persisted = await(conversationRepo.findById(seeded.id, user))
+      persisted.get.apiHistory.exists(_.content.contains("OLDEST-TURN-MARKER")) shouldBe true
+    }
+
+    "an exhausted conversation rejects its next turn with 422 before any Claude call" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val seeded = seedConversation(user, totalTokensUsed = AuthoringHistoryBudget.DefaultMaxConversationTokens)
+
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest("one more edit", None, Some(seeded.id.value)), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      transport.sendInvocations.get() shouldBe 0
+    }
+
+    "a missing conversationId is rejected as NotFound, with zero transport invocations" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest("edit", None, Some(UUID.randomUUID().toString)), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.NotFound]
+      transport.sendInvocations.get() shouldBe 0
+    }
+
+    "a conversationId owned by a different user is rejected as NotFound, never continued" in {
+      val ownerA = newUser()
+      val ownerB = newUser()
+      insertPipelineOutputType(ownerB)
+      val seeded = seedConversation(ownerA)
+
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest("hijack", None, Some(seeded.id.value)), ownerB))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.NotFound]
+      transport.sendInvocations.get() shouldBe 0
+    }
+
+    "authorStreaming with conversationId continues the conversation and the terminal Result event carries the same conversationId" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+      val turn1Json = validProposalJson(dt.id.value)
+      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[]}"""
+      val turn1Transport = new FakeClaudeTransport(streamResponses = Vector(Seq(ClaudeStreamEvent.TextDelta(turn1Json), ClaudeStreamEvent.MessageStop)))
+      val turn1Service   = newAuthoringService(turn1Transport)
+      val turn1Events    = await(turn1Service.authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq))
+      val conversationId = turn1Events.collect { case r: AuthoringStreamEvent.Result => r.conversationId }.head
+
+      val turn2Transport = new FakeClaudeTransport(streamResponses = Vector(Seq(ClaudeStreamEvent.TextDelta(turn2Json), ClaudeStreamEvent.MessageStop)))
+      val turn2Service   = newAuthoringService(turn2Transport)
+      val turn2Events    = await(turn2Service.authorStreaming(DashboardAuthoringRequest("edit", None, Some(conversationId)), user).runWith(Sink.seq))
+
+      val terminal = turn2Events.collect { case r: AuthoringStreamEvent.Result => r }
+      terminal should have size 1
+      terminal.head.conversationId shouldBe conversationId
+      terminal.head.proposal.dashboardName shouldBe "Sales v2"
+    }
+
+    "getConversation returns displayTurns/latestProposal for the owner and never leaks to a different user" in {
+      val user  = newUser()
+      val other = newUser()
+      val dt    = insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value))))
+      val service   = newAuthoringService(transport)
+
+      val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))
+      val conversationId = turn1.toOption.get.conversationId
+
+      val ownerView = await(service.getConversation(AuthoringConversationId(conversationId), user))
+      ownerView.isRight shouldBe true
+      val view = ownerView.toOption.get
+      view.conversationId shouldBe conversationId
+      view.displayTurns should have size 2
+      view.displayTurns.head.role shouldBe "user"
+      view.displayTurns.head.text shouldBe goal
+      view.displayTurns.last.role shouldBe "assistant"
+      view.latestProposal.map(_.dashboardName) shouldBe Some("Sales")
+
+      val otherView = await(service.getConversation(AuthoringConversationId(conversationId), other))
+      otherView shouldBe a[Left[_, _]]
+      otherView.swap.toOption.get shouldBe a[ServiceError.NotFound]
     }
   }
 }

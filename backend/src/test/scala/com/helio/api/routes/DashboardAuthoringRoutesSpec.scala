@@ -50,6 +50,9 @@ class DashboardAuthoringRoutesSpec
   private var workspaceContextService: WorkspaceContextService   = _
   private var panelCapabilityService: PanelCapabilityService     = _
   private var dashboardProposalService: DashboardProposalService = _
+  // HEL-397: DashboardAuthoringService now unconditionally persists a conversation row on every
+  // successful turn — a real repository over the same embedded Postgres, not a mock.
+  private var conversationRepo: AuthoringConversationRepository  = _
 
   private val userId = UUID.randomUUID().toString
   private val user   = AuthenticatedUser(UserId(userId))
@@ -92,6 +95,7 @@ class DashboardAuthoringRoutesSpec
     workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
     panelCapabilityService   = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
     dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    conversationRepo         = new AuthoringConversationRepository(ctx)
 
     // Seeded ONCE (not per-test) — `user` is a single shared fixture id for this whole spec, so a
     // per-test insert would violate the `users` primary key on the second test.
@@ -130,7 +134,7 @@ class DashboardAuthoringRoutesSpec
 
   private def serviceWith(transport: ClaudeTransport): DashboardAuthoringService = {
     val claudeConfig = ClaudeConfig(apiKey = "sk-ant-test", model = "claude-test", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = 100000)
-    new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, new ClaudeClient(claudeConfig, transport)(routeEc))(routeEc)
+    new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, new ClaudeClient(claudeConfig, transport)(routeEc), conversationRepo)(routeEc)
   }
 
   private def routesFor(serviceOpt: Option[DashboardAuthoringService]): Route =
@@ -174,6 +178,55 @@ class DashboardAuthoringRoutesSpec
 
     "degrade to a clean 503 when the service is unavailable (missing ANTHROPIC_API_KEY), not a route-registration failure" in {
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(None) ~> check {
+        status shouldBe StatusCodes.ServiceUnavailable
+      }
+    }
+
+    "the response body carries an additive conversationId alongside proposal/warnings" in {
+      val validJson =
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+      val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
+
+      Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+        val obj = responseAs[String].parseJson.asJsObject
+        obj.fields.keySet should contain allOf ("proposal", "warnings", "conversationId")
+      }
+    }
+  }
+
+  // ── GET /api/authoring/conversations/:id (HEL-397 design.md D7) ─────────
+
+  "GET /api/authoring/conversations/:id" should {
+
+    "return 200 with the display-only view for a conversation the caller owns" in {
+      val validJson =
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+      val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
+
+      var conversationId: String = ""
+      Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
+        conversationId = responseAs[String].parseJson.asJsObject.fields("conversationId").convertTo[String]
+      }
+
+      Get(s"/authoring/conversations/$conversationId") ~> routesFor(Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+        val obj = responseAs[String].parseJson.asJsObject
+        obj.fields.keySet should contain allOf ("conversationId", "displayTurns")
+        obj.fields.keySet should not contain "apiHistory"
+      }
+    }
+
+    "return 404 for an unknown conversation id" in {
+      val service = serviceWith(new FakeClaudeTransport(cannedResponse("{}")))
+
+      Get(s"/authoring/conversations/${UUID.randomUUID().toString}") ~> routesFor(Some(service)) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "degrade to a clean 503 when the service is unavailable, not a route-registration failure" in {
+      Get(s"/authoring/conversations/${UUID.randomUUID().toString}") ~> routesFor(None) ~> check {
         status shouldBe StatusCodes.ServiceUnavailable
       }
     }

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/authoring-conversation.schema.json",
+  "title": "AuthoringConversationView",
+  "description": "200 response body of GET /api/authoring/conversations/:id (HEL-397 design.md D7) — the display-only subset a reloaded chat surface needs to rehydrate a visible thread. RLS-scoped to the owner; 404 for a missing or non-owned id. The server-internal apiHistory (the raw Claude conversation shape) never leaves the server — it is not part of this shape.",
+  "type": "object",
+  "required": ["conversationId", "displayTurns"],
+  "properties": {
+    "conversationId": {
+      "type": "string",
+      "description": "The id supplied in the request path, echoed back."
+    },
+    "displayTurns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AuthoringDisplayTurn" },
+      "description": "One entry per turn so far — a user turn's own typed text verbatim, or a deterministic \"Proposed \\\"<name>\\\" (<n> panel(s))\" summary for an assistant turn (never raw model JSON)."
+    },
+    "latestProposal": {
+      "$ref": "dashboard-proposal.schema.json",
+      "description": "The current working proposal — what \"review & apply\" hands off. Always present for a real conversation id in practice (a conversation row is only ever created once a turn has already succeeded)."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AuthoringDisplayTurn": {
+      "type": "object",
+      "required": ["role", "text"],
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

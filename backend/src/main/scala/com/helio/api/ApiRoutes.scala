@@ -14,7 +14,7 @@ import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
 import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -243,20 +243,29 @@ final class ApiRoutes(
   // dataTypeService (not the bare repo) — its listRows is the owner-scoping
   // choke point sample rows need.
   private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-  // HEL-392: same nullable-optional wiring pattern as alertRuleServiceOpt/... above,
-  // but gated on ClaudeConfig.fromEnv() rather than a nullable repo — a missing
-  // ANTHROPIC_API_KEY degrades ONLY this route family to a clean 503, never a
-  // startup failure (mirrors HEL-390 D6's "no forced startup requirement").
-  // Composes the already-constructed workspaceContextService/panelCapabilityService/
+  // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
+  // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence
+  // collaborator (folded into the ClaudeConfig gate below, since DashboardAuthoringService needs
+  // BOTH to be usable).
+  private val authoringConversationRepoOpt: Option[AuthoringConversationRepository] =
+    Option(dbContext).map(new AuthoringConversationRepository(_))
+  // HEL-392 (extended by HEL-397): same nullable-optional wiring pattern as alertRuleServiceOpt/...
+  // above, but gated on ClaudeConfig.fromEnv() AND authoringConversationRepoOpt rather than a bare
+  // nullable repo — either a missing ANTHROPIC_API_KEY or a missing DbContext degrades ONLY this
+  // route family to a clean 503, never a startup failure (mirrors HEL-390 D6's "no forced startup
+  // requirement"). Composes the already-constructed workspaceContextService/panelCapabilityService/
   // proposalService above, plus a fresh ClaudeClient over the production HttpClaudeTransport.
   private val dashboardAuthoringServiceOpt: Option[DashboardAuthoringService] =
-    ClaudeConfig.fromEnv() match {
-      case Left(reason) =>
+    (ClaudeConfig.fromEnv(), authoringConversationRepoOpt) match {
+      case (Left(reason), _) =>
         log.warn(s"POST /api/authoring/dashboard disabled: $reason")
         None
-      case Right(claudeConfig) =>
+      case (Right(_), None) =>
+        log.warn("POST /api/authoring/dashboard disabled: no DbContext configured")
+        None
+      case (Right(claudeConfig), Some(conversationRepo)) =>
         val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
-        Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient))
+        Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient, conversationRepo))
     }
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)

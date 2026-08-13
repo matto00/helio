@@ -121,6 +121,52 @@ describe("useDashboardAuthoringStream", () => {
     controller.close();
   });
 
+  // ── conversationId (HEL-397) ─────────────────────────────────────────────
+
+  it("POSTs conversationId in the request body when provided", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderHook(() =>
+      useDashboardAuthoringStream({
+        goal: "Make it a bar chart",
+        active: true,
+        conversationId: "conv-1",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/authoring/dashboard?stream=true",
+        expect.objectContaining({
+          body: JSON.stringify({ goal: "Make it a bar chart", conversationId: "conv-1" }),
+        }),
+      );
+    });
+
+    controller.close();
+  });
+
+  it("a terminal authoring-result event's conversationId is exposed on state.result", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      useDashboardAuthoringStream({ goal: "Sales overview", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const proposal = { dashboardName: "Sales overview", panels: [] };
+    controller.push("authoring-result", { proposal, warnings: [], conversationId: "conv-1" });
+
+    await waitFor(() => {
+      expect(result.current.result?.conversationId).toBe("conv-1");
+    });
+
+    controller.close();
+  });
+
   it("parses a terminal authoring-error event", async () => {
     const { controller, fetchMock } = createSseMock();
     global.fetch = fetchMock;

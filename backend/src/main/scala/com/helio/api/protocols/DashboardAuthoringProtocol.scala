@@ -19,20 +19,32 @@ import spray.json._
  *  omitted) falls back to the default. */
 final case class AuthoringContextOptions(budgetBytes: Option[Int])
 
-final case class DashboardAuthoringRequest(goal: String, contextOptions: Option[AuthoringContextOptions])
+/** `conversationId` (HEL-397 design.md D1) is the only new field the multi-turn conversation-state
+ *  capability adds: absent → today's single-shot behavior, unchanged; present → continues that
+ *  (owner-scoped, persisted) conversation, re-using `goal` as "this turn's message." History and
+ *  the working proposal are entirely server-owned (design.md D2) — the client never re-sends
+ *  either. */
+final case class DashboardAuthoringRequest(
+    goal: String,
+    contextOptions: Option[AuthoringContextOptions],
+    conversationId: Option[String] = None
+)
 
 /** `warnings` carries degrade-not-fail notices collected while assembling the grounding context
  *  (design.md D3 — e.g. a per-DataType panel-capability fetch that failed) — never a reason the
- *  call itself failed; a non-empty `warnings` still accompanies a real, validated `proposal`. */
-final case class DashboardAuthoringResponse(proposal: DashboardProposal, warnings: Vector[String])
+ *  call itself failed; a non-empty `warnings` still accompanies a real, validated `proposal`.
+ *  `conversationId` (HEL-397) identifies the persisted conversation this turn belongs to — pass it
+ *  back on the next call's `DashboardAuthoringRequest.conversationId` to continue refining the same
+ *  proposal. */
+final case class DashboardAuthoringResponse(proposal: DashboardProposal, warnings: Vector[String], conversationId: String)
 
 trait DashboardAuthoringProtocol extends SprayJsonSupport with DefaultJsonProtocol with DashboardProposalProtocol {
   implicit val authoringContextOptionsFormat: RootJsonFormat[AuthoringContextOptions] =
     jsonFormat1(AuthoringContextOptions.apply)
   implicit val dashboardAuthoringRequestFormat: RootJsonFormat[DashboardAuthoringRequest] =
-    jsonFormat2(DashboardAuthoringRequest.apply)
+    jsonFormat3(DashboardAuthoringRequest.apply)
   implicit val dashboardAuthoringResponseFormat: RootJsonFormat[DashboardAuthoringResponse] =
-    jsonFormat2(DashboardAuthoringResponse.apply)
+    jsonFormat3(DashboardAuthoringResponse.apply)
 }
 
 /** SSE event ADT for `POST /api/authoring/dashboard?stream=true` (design.md D7) — mirrors
@@ -45,7 +57,10 @@ sealed trait AuthoringStreamEvent
 object AuthoringStreamEvent extends DashboardProposalProtocol {
   final case class Progress(text: String) extends AuthoringStreamEvent
   final case class Status(label: String) extends AuthoringStreamEvent
-  final case class Result(proposal: DashboardProposal, warnings: Vector[String]) extends AuthoringStreamEvent
+  /** `conversationId` (HEL-397) — same additive meaning as `DashboardAuthoringResponse`'s own
+   *  field; the streaming terminal event carries it so the client can persist it for a follow-up
+   *  turn exactly like the buffered response does. */
+  final case class Result(proposal: DashboardProposal, warnings: Vector[String], conversationId: String) extends AuthoringStreamEvent
   final case class Error(message: String) extends AuthoringStreamEvent
 
   def toSseBytes(event: AuthoringStreamEvent): ByteString = event match {
@@ -53,10 +68,11 @@ object AuthoringStreamEvent extends DashboardProposalProtocol {
       frame("authoring-progress", JsObject("text" -> JsString(text)))
     case Status(label) =>
       frame("authoring-status", JsObject("label" -> JsString(label)))
-    case Result(proposal, warnings) =>
+    case Result(proposal, warnings, conversationId) =>
       frame("authoring-result", JsObject(
         "proposal" -> proposal.toJson,
-        "warnings" -> JsArray(warnings.map(JsString(_)))
+        "warnings" -> JsArray(warnings.map(JsString(_))),
+        "conversationId" -> JsString(conversationId)
       ))
     case Error(message) =>
       frame("authoring-error", JsObject("message" -> JsString(message)))

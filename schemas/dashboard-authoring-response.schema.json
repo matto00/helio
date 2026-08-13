@@ -2,15 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/dashboard-authoring-response.schema.json",
   "title": "DashboardAuthoringResponse",
-  "description": "200 response body of POST /api/authoring/dashboard (HEL-392) — a schema-valid DashboardProposal grounded in the caller's real workspace and validated via the same checks DashboardProposalService.apply uses. The proposal is NOT applied by this call — applying stays the caller's explicit, separate action via POST /api/dashboards/apply-proposal.",
+  "description": "200 response body of POST /api/authoring/dashboard (HEL-392, extended by HEL-397) — a schema-valid DashboardProposal grounded in the caller's real workspace and validated via the same checks DashboardProposalService.apply uses. The proposal is NOT applied by this call — applying stays the caller's explicit, separate action via POST /api/dashboards/apply-proposal.",
   "type": "object",
-  "required": ["proposal", "warnings"],
+  "required": ["proposal", "warnings", "conversationId"],
   "properties": {
     "proposal": { "$ref": "dashboard-proposal.schema.json" },
     "warnings": {
       "type": "array",
       "items": { "type": "string" },
       "description": "Degrade-not-fail notices collected while assembling the grounding context (e.g. a per-DataType panel-capability fetch that failed) — never a reason the call itself failed. Always present, possibly empty."
+    },
+    "conversationId": {
+      "type": "string",
+      "description": "HEL-397: identifies the persisted conversation this turn belongs to — pass it back as the next call's conversationId to continue refining the same proposal. Present on every successful response, including a fresh single-shot call (turn 1 mints a new conversation as a transparent side effect)."
     }
   },
   "additionalProperties": false
