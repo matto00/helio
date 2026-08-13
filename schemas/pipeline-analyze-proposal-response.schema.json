@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipeline-analyze-proposal-response.schema.json",
+  "title": "PipelineAnalyzeProposalResponse",
+  "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema, per-step input/output schema, and any per-step validation errors. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). The steps[] shape mirrors the ACTUAL discriminated-union wire format analyzeStepResponseFormat already emits (a `type` discriminator plus an object `config`), NOT pipeline-analyze-response.schema.json's stale `op`/string-`config` $defs.AnalyzeStep, which predates the CS2c-3a discriminated-union rework (design.md D6).",
+  "type": "object",
+  "required": ["sourceName", "outputDataTypeName", "sourceSchema", "steps"],
+  "properties": {
+    "sourceName": {
+      "type": "string"
+    },
+    "outputDataTypeName": {
+      "type": "string"
+    },
+    "sourceSchema": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SchemaField" }
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AnalyzeProposalStep" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "SchemaField": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "AnalyzeProposalStep": {
+      "type": "object",
+      "description": "Matches the actual analyzeStepResponseFormat wire shape (type discriminator + object config) -- a deliberate divergence from pipeline-analyze-response.schema.json's stale $defs.AnalyzeStep (op/string-config, pre-CS2c-3a). `config` is a permissive object (additionalProperties: true) rather than a full per-kind oneOf union across all step kinds -- more precision than this ticket's scope needs (design.md D6).",
+      "required": ["id", "position", "type", "config", "inputSchema", "outputSchema"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string", "minLength": 1 },
+        "config": { "type": "object", "additionalProperties": true },
+        "inputSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "outputSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "validationError": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
