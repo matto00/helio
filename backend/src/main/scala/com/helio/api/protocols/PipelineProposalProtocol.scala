@@ -37,11 +37,26 @@ final case class PipelineProposal(
     steps: Vector[CreatePipelineStepRequest]
 )
 
+// ── Apply-proposal response (HEL-383, design.md D7) ──────────────────────────
+//
+// `source` is `None` for the existing-sourceId branch (nothing new to report)
+// and `Some` for the inline branch — mirrors DashboardProposalService's
+// "return what was actually built" convention rather than a new envelope type.
+final case class PipelineProposalApplyResponse(
+    source: Option[DataSourceResponse],
+    pipeline: PipelineSummaryResponse,
+    outputDataTypeId: String,
+    run: RunResultResponse
+)
+
 trait PipelineProposalProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
     with DataSourceProtocol
-    with PipelineStepProtocol {
+    with PipelineStepProtocol
+    // HEL-383: apply-proposal's response carries PipelineSummaryResponse +
+    // RunResultResponse, both defined/formatted in PipelineProtocol.
+    with PipelineProtocol {
 
   /** Hand-written (not `jsonFormatN`) so the writer can pick whichever of the
    *  four per-kind `Option` fields is populated and serialize *that one* to
@@ -124,4 +139,10 @@ trait PipelineProposalProtocol
         )
       }
     }
+
+  // `source: Option[DataSourceResponse]` relies on spray-json's built-in
+  // Option handling (None omitted from the wire, not written as null) —
+  // same convention as CreateSourceResponse.fetchError / TestConnectionResponse.error.
+  implicit val pipelineProposalApplyResponseFormat: RootJsonFormat[PipelineProposalApplyResponse] =
+    jsonFormat4(PipelineProposalApplyResponse.apply)
 }
