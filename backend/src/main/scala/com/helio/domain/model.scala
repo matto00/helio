@@ -801,6 +801,10 @@ final case class AlertEvent(
 
 final case class MetricId(value: String) extends AnyVal
 
+/** HEL-397 — a server-persisted, owner-scoped, multi-turn authoring conversation (the pre-apply
+ *  refinement of a `DashboardProposal`; see `AuthoringConversationRepository`). */
+final case class AuthoringConversationId(value: String) extends AnyVal
+
 /** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
  *  purely presentational (no effect on the underlying aggregation). */
 final case class MetricFormat(

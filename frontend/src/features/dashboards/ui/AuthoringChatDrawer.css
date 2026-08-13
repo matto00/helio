@@ -106,6 +106,40 @@
   line-height: 1.5;
 }
 
+/* ── Multi-turn thread (HEL-397) — one entry per completed turn, oldest first. ──────────────── */
+
+.authoring-drawer__thread {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.authoring-drawer__turn {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+}
+
+.authoring-drawer__turn-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.authoring-drawer__turn-text {
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .authoring-drawer__form {
   display: grid;
   gap: var(--space-2);
@@ -120,9 +154,11 @@
 .authoring-drawer__actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .authoring-drawer__submit,
+.authoring-drawer__review,
 .authoring-drawer__cancel,
 .authoring-drawer__retry {
   height: var(--control-md);
@@ -152,6 +188,7 @@
   cursor: not-allowed;
 }
 
+.authoring-drawer__review,
 .authoring-drawer__cancel,
 .authoring-drawer__retry {
   border: 1px solid var(--app-border-subtle);
@@ -159,6 +196,7 @@
   color: var(--app-text-muted);
 }
 
+.authoring-drawer__review:hover,
 .authoring-drawer__cancel:hover,
 .authoring-drawer__retry:hover {
   border-color: var(--app-border-strong);
@@ -207,6 +245,7 @@
   }
 
   .authoring-drawer__submit,
+  .authoring-drawer__review,
   .authoring-drawer__cancel,
   .authoring-drawer__retry {
     min-height: 44px;

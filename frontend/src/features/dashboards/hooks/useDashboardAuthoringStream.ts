@@ -8,6 +8,12 @@ import type { AuthoringResult } from "../types/authoring";
 export interface UseDashboardAuthoringStreamOptions {
   goal: string;
   active: boolean;
+  /** HEL-397 design.md D1 — omitted for a fresh turn 1 (behaves exactly as
+   *  before this field existed); set to a prior turn's returned
+   *  `AuthoringResult.conversationId` to continue refining the same
+   *  proposal. The server owns history/the working proposal entirely — this
+   *  hook never re-sends either. */
+  conversationId?: string;
 }
 
 export interface AuthoringStreamState {
@@ -40,18 +46,20 @@ const INITIAL_STATE: AuthoringStreamState = {
 /**
  * Opens an authenticated SSE connection to
  * `POST /api/authoring/dashboard?stream=true` while `active` is true,
- * sending `{goal}` as the JSON request body. Structurally mirrors
- * `usePipelineRunEvents` (design.md D2) — `fetch` + `credentials: "include"`
- * + `AbortController` + manual SSE line-buffer parsing, never `EventSource`
- * (that hook's own doc comment explains why: no `credentials: "include"`
- * support, so the `helio_session` cookie never attaches) — but POSTs a goal
- * instead of GETing a pipeline id, and dispatches on the real HEL-392 event
- * names instead of `run-status`: `authoring-progress` (accumulate text),
- * `authoring-status` (surface the label), `authoring-result` (terminal
- * success), `authoring-error` (terminal failure).
+ * sending `{goal, conversationId}` as the JSON request body (`conversationId`
+ * HEL-397 — omitted for a fresh turn, present to continue one). Structurally
+ * mirrors `usePipelineRunEvents` (design.md D2) — `fetch` +
+ * `credentials: "include"` + `AbortController` + manual SSE line-buffer
+ * parsing, never `EventSource` (that hook's own doc comment explains why: no
+ * `credentials: "include"` support, so the `helio_session` cookie never
+ * attaches) — but POSTs a goal instead of GETing a pipeline id, and
+ * dispatches on the real HEL-392 event names instead of `run-status`:
+ * `authoring-progress` (accumulate text), `authoring-status` (surface the
+ * label), `authoring-result` (terminal success, carries `conversationId`),
+ * `authoring-error` (terminal failure).
  *
- * - Connection (re)opens whenever `active`/`goal` change to a new attempt;
- *   state resets to fresh at the start of every connection.
+ * - Connection (re)opens whenever `active`/`goal`/`conversationId` change to
+ *   a new attempt; state resets to fresh at the start of every connection.
  * - Closes (via `AbortController`) when `active` flips to false or on unmount.
  * - `connectionError` is set if the fetch fails, returns a non-SSE response,
  *   or the stream drops unexpectedly.
@@ -59,6 +67,7 @@ const INITIAL_STATE: AuthoringStreamState = {
 export function useDashboardAuthoringStream({
   goal,
   active,
+  conversationId,
 }: UseDashboardAuthoringStreamOptions): AuthoringStreamState {
   const [state, setState] = useState<AuthoringStreamState>(INITIAL_STATE);
 
@@ -85,7 +94,10 @@ export function useDashboardAuthoringStream({
           // this hook bypasses httpClient for streaming, so it must be set
           // explicitly here too.
           headers: { "Content-Type": "application/json", "X-Helio-Requested-With": "1" },
-          body: JSON.stringify({ goal }),
+          // HEL-397: `conversationId` is `undefined` for a fresh turn 1 — JSON.stringify omits
+          // an `undefined` value's key entirely, so this stays byte-identical to the pre-HEL-397
+          // body for every caller that never supplies one.
+          body: JSON.stringify({ goal, conversationId }),
           signal: controller.signal,
         });
       } catch (err) {
@@ -202,7 +214,7 @@ export function useDashboardAuthoringStream({
       unmounted = true;
       controller.abort();
     };
-  }, [active, goal]);
+  }, [active, goal, conversationId]);
 
   return state;
 }

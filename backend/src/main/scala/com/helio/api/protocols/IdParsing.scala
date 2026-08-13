@@ -25,4 +25,5 @@ object IdParsing {
   val AlertRuleIdSegment: PathMatcher1[AlertRuleId]         = Segment.map(AlertRuleId(_))
   val AlertEventIdSegment: PathMatcher1[AlertEventId]       = Segment.map(AlertEventId(_))
   val MetricIdSegment: PathMatcher1[MetricId]               = Segment.map(MetricId(_))
+  val AuthoringConversationIdSegment: PathMatcher1[AuthoringConversationId] = Segment.map(AuthoringConversationId(_))
 }
