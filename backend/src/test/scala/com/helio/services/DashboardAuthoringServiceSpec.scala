@@ -1,6 +1,6 @@
 package com.helio.services
 
-import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.{AuthoringStreamEvent, DashboardAuthoringRequest}
 import com.helio.domain._
@@ -183,11 +183,22 @@ class DashboardAuthoringServiceSpec
       Source(streamResponses(streamInvocations.getAndIncrement()).toList)
   }
 
-  private def newAuthoringService(transport: FakeClaudeTransport): DashboardAuthoringService = {
-    val claudeConfig = ClaudeConfig(apiKey = "sk-ant-test", model = "claude-test", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = 100000)
+  /** `maxInputTokens` defaults to a budget no real test prompt here approaches — task 7.1/7.3
+   *  override it down to `1` to force `ClaudeClient`'s own pre-flight `GuardrailExceeded` rejection
+   *  (a distinct code path from the empty-workspace short-circuit above: that one never reaches
+   *  `ClaudeClient` at all, this one is rejected BY `ClaudeClient.send`/`stream` itself). */
+  private def newAuthoringService(transport: FakeClaudeTransport, maxInputTokens: Int = 100000): DashboardAuthoringService = {
+    val claudeConfig = ClaudeConfig(apiKey = "sk-ant-test", model = "claude-test", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = maxInputTokens)
     val claudeClient = new ClaudeClient(claudeConfig, transport)(routeEc)
     new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, claudeClient)(routeEc)
   }
+
+  // HEL-392 fold-in (tasks.md 7.1/7.2/7.3): drives `mapClaudeError`'s three branches end-to-end.
+  private def apiErrorResponse(status: Int, body: String): Future[ClaudeApiResponse] =
+    Future.failed(ClaudeApiException(status, body))
+
+  private def transportFailureResponse(): Future[ClaudeApiResponse] =
+    Future.failed(new RuntimeException("connection refused"))
 
   private val goal = "Show total revenue"
 
@@ -276,6 +287,51 @@ class DashboardAuthoringServiceSpec
       err.message.toLowerCase should include("pipeline-output")
       transport.sendInvocations.get() shouldBe 2
     }
+
+    // HEL-392 fold-in (tasks.md 7.1) — closes the gap where spec.md's "over-budget goal... mapped
+    // to 422" scenario existed but no test ever drove ClaudeClient's own GuardrailExceeded path
+    // through DashboardAuthoringService (distinct from the empty-workspace short-circuit above,
+    // which never reaches ClaudeClient at all).
+    "map ClaudeClient's own GuardrailExceeded rejection to 422, with zero transport invocations" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport, maxInputTokens = 1)
+
+      val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      transport.sendInvocations.get() shouldBe 0
+    }
+
+    // HEL-392 fold-in (tasks.md 7.2) — spec.md's new "Upstream Claude API/transport failures SHALL
+    // surface as a Bad Gateway response" Requirement.
+    "map a transport ApiError to 502 Bad Gateway" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(Vector(apiErrorResponse(503, "upstream unavailable")))
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.BadGateway]
+      transport.sendInvocations.get() shouldBe 1
+    }
+
+    "map a transport-level failure (TransportFailure) to 502 Bad Gateway" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(Vector(transportFailureResponse()))
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.BadGateway]
+      transport.sendInvocations.get() shouldBe 1
+    }
   }
 
   // ── authorStreaming ────────────────────────────────────────────────────────
@@ -357,6 +413,73 @@ class DashboardAuthoringServiceSpec
       events.head shouldBe a[AuthoringStreamEvent.Error]
       transport.sendInvocations.get() shouldBe 0
       transport.streamInvocations.get() shouldBe 0
+    }
+
+    // HEL-392 fold-in (tasks.md 7.3, mirrors 7.1) — GuardrailExceeded is rejected by
+    // `ClaudeClient.stream` itself (`Source.single(Error(GuardrailExceeded))`, zero real
+    // `transport.stream` invocations), a distinct path from the empty-workspace short-circuit
+    // above.
+    "map ClaudeClient's own GuardrailExceeded rejection to a single terminal Error event, with zero transport invocations" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport, maxInputTokens = 1)
+
+      val events = await(service.authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq))
+
+      events should have size 1
+      events.head shouldBe a[AuthoringStreamEvent.Error]
+      transport.sendInvocations.get() shouldBe 0
+      transport.streamInvocations.get() shouldBe 0
+    }
+
+    // HEL-392 fold-in (tasks.md 7.3, mirrors 7.2) — spec.md's new "streaming call's terminal error
+    // event reflects the same mapping" Scenario: compares against the ACTUAL buffered-path message
+    // (not a hand-duplicated format string), so this stays correct even if the mapping's wording
+    // changes later.
+    "map a mid-stream ApiError to a single terminal Error event carrying the same message the buffered path maps to" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+
+      val bufferedResult = await(newAuthoringService(new FakeClaudeTransport(Vector(apiErrorResponse(503, "upstream unavailable"))))
+        .author(DashboardAuthoringRequest(goal, None), user))
+      val bufferedMessage = bufferedResult.swap.toOption.get.message
+
+      val streamingTransport = new FakeClaudeTransport(
+        streamResponses = Vector(Seq(ClaudeStreamEvent.Error(ClaudeError.ApiError(503, "upstream unavailable"))))
+      )
+      val events = await(newAuthoringService(streamingTransport).authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq))
+
+      events should have size 1
+      events.head shouldBe a[AuthoringStreamEvent.Error]
+      events.head.asInstanceOf[AuthoringStreamEvent.Error].message shouldBe bufferedMessage
+      streamingTransport.streamInvocations.get() shouldBe 1
+      streamingTransport.sendInvocations.get() shouldBe 0
+    }
+
+    "map a mid-stream TransportFailure to a single terminal Error event carrying the same message the buffered path maps to" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+
+      // ClaudeClient.send's catch-all always maps a non-ClaudeApiException failure to the FIXED
+      // literal TransportFailure("Request failed") (see ClaudeClient.scala), regardless of the
+      // original exception's own message — so the streamed fake event below uses that exact same
+      // literal, making the "same mapped message" comparison meaningful rather than coincidental.
+      val bufferedResult = await(newAuthoringService(new FakeClaudeTransport(Vector(transportFailureResponse())))
+        .author(DashboardAuthoringRequest(goal, None), user))
+      val bufferedMessage = bufferedResult.swap.toOption.get.message
+      bufferedMessage shouldBe "Request failed"
+
+      val streamingTransport = new FakeClaudeTransport(
+        streamResponses = Vector(Seq(ClaudeStreamEvent.Error(ClaudeError.TransportFailure("Request failed"))))
+      )
+      val events = await(newAuthoringService(streamingTransport).authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq))
+
+      events should have size 1
+      events.head shouldBe a[AuthoringStreamEvent.Error]
+      events.head.asInstanceOf[AuthoringStreamEvent.Error].message shouldBe bufferedMessage
+      streamingTransport.streamInvocations.get() shouldBe 1
+      streamingTransport.sendInvocations.get() shouldBe 0
     }
   }
 }

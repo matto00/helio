@@ -26,6 +26,15 @@ Touches: new authoring service + route (e.g. `POST /api/authoring/dashboard`) wi
 - [ ] Cost/token guardrail (HEL-390's `com.helio.ai.ClaudeClient`) applied per request.
 - [ ] `sbt test` green with a mocked Claude client (no real API call).
 - [ ] Backward-compat: additive endpoint; apply path + proposal schema unchanged.
+- [ ] (Fold-in, post-delivery follow-up A) `DashboardAuthoringService.mapClaudeError`'s three
+      branches (`GuardrailExceeded`/`ApiError`/`TransportFailure` → `ServiceError`) are each driven
+      end-to-end through `author`/`authorStreaming` by a dedicated test asserting the resulting HTTP
+      status. The `GuardrailExceeded` branch closes a gap where `spec.md`'s own written "over-budget
+      goal... mapped to 422" scenario existed but was never exercised; the `ApiError`/
+      `TransportFailure` branches had no `spec.md` coverage at all before this fold-in (only a
+      `design.md` Decision) — a new `spec.md` Scenario for the 502 mapping is added as part of this
+      same fold-in, per the design-gate review that caught the gap. Coordinator-approved during
+      Phase 3 delivery review.
 
 ## Out of scope
 
