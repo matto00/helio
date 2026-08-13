@@ -4,7 +4,7 @@ TICKET_ID: HEL-397
 CHANGE_NAME: authoring-conversation-state
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/authoring-conversation-state/HEL-397
 BRANCH: feature/authoring-conversation-state/HEL-397
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 2
 DEV_PORT: 5829
 BACKEND_PORT: 8736
@@ -12,17 +12,13 @@ EXECUTOR_AGENT_ID: a0ee4b951ca8cdbb3
 EVALUATOR_AGENT_ID: a1f21242593f9dda4
 LAST_EVAL_VERDICT: PASS
 LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/authoring-conversation-state/HEL-397/openspec/changes/authoring-conversation-state/evaluation-1.md
-SKEPTIC_CYCLE: 1
-LAST_SKEPTIC_VERDICT: REFUTE (final gate, round 1)
-# Final-gate REFUTE: AuthoringChatDrawer.tsx leaks completed-conversation
-# React state (thread/latestProposal/conversationId) across "Review &
-# apply" — handleReviewAndApply clears sessionStorage but not local
-# state, so reopening the SAME mounted drawer (no reload) after applying
-# one dashboard silently continues/corrupts that conversation for an
-# unrelated new goal. Live-reproduced by the skeptic against the real
-# backend; test suite structurally couldn't catch it (every RTL test
-# mounts fresh). Resuming executor with the fix, round 2 of
-# SKEPTIC_FINAL_ROUNDS=2.
+SKEPTIC_CYCLE: 2
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate, round 2)
+# Round 1 REFUTE fixed (commit d0f5e3b0) and CONFIRMed round 2 — skeptic
+# independently live-reproduced the exact repro sequence against the real
+# backend AND confirmed server-side (GET .../conversations/:id) that the
+# persisted row is genuinely isolated, not just a UI cosmetic fix.
+# Proceeding to Delivery.
 # Round 1 REFUTE: AC2's "survive a reload" wasn't deliverable by the
 # original server-owned-state design (no route/client persistence to
 # rehydrate); shipped AuthoringChatDrawer's terminal effect auto-navigates
