@@ -106,6 +106,7 @@ Key endpoints:
 - `GET/PUT/DELETE /api/pipelines/:id/schedule` — per-pipeline cron/interval schedule (data model + CRUD only; `PUT` upserts). No runtime firing yet — that's the sibling scheduler-runtime ticket (HEL-415)
 - `GET/POST /api/data-sources`
 - `GET/DELETE /api/data-sources/:id`
+- `POST /api/authoring/dashboard` — NL goal → grounded, validated `DashboardProposal` (`?stream=true` for SSE progress). Never applies the proposal; reuses `DashboardProposalService.validate`. Degrades to `503` when `ANTHROPIC_API_KEY` is unset. See HEL-392.
 - `GET /health`
 
 ### Git conventions

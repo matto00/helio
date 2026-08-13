@@ -9,9 +9,10 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
+import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -242,6 +243,21 @@ final class ApiRoutes(
   // dataTypeService (not the bare repo) — its listRows is the owner-scoping
   // choke point sample rows need.
   private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+  // HEL-392: same nullable-optional wiring pattern as alertRuleServiceOpt/... above,
+  // but gated on ClaudeConfig.fromEnv() rather than a nullable repo — a missing
+  // ANTHROPIC_API_KEY degrades ONLY this route family to a clean 503, never a
+  // startup failure (mirrors HEL-390 D6's "no forced startup requirement").
+  // Composes the already-constructed workspaceContextService/panelCapabilityService/
+  // proposalService above, plus a fresh ClaudeClient over the production HttpClaudeTransport.
+  private val dashboardAuthoringServiceOpt: Option[DashboardAuthoringService] =
+    ClaudeConfig.fromEnv() match {
+      case Left(reason) =>
+        log.warn(s"POST /api/authoring/dashboard disabled: $reason")
+        None
+      case Right(claudeConfig) =>
+        val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient))
+    }
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -400,7 +416,12 @@ final class ApiRoutes(
                   // internally gates only its `.../teardown` sub-route on the
                   // Option, so `.../context` stays reachable regardless of
                   // whether `dbContext` was supplied (design.md D2).
-                  new WorkspaceRoutes(workspaceTeardownServiceOpt, workspaceContextService, authenticatedUser).routes
+                  new WorkspaceRoutes(workspaceTeardownServiceOpt, workspaceContextService, authenticatedUser).routes,
+                  // HEL-392: mounted UNCONDITIONALLY (unlike the `.fold(reject)`-gated route
+                  // families above) — a missing ANTHROPIC_API_KEY must degrade this specific
+                  // route to a clean 503, not a bare 404 that looks like the path doesn't exist
+                  // (task 4.2). DashboardAuthoringRoutes itself handles the `None` case.
+                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser).routes
                 )
               }
             )

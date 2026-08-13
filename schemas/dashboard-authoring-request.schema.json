@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboard-authoring-request.schema.json",
+  "title": "DashboardAuthoringRequest",
+  "description": "Body of POST /api/authoring/dashboard (HEL-392) — a user's natural-language goal, grounded in the caller's real workspace (HEL-371 context + HEL-365 panel-capability menu) and authored by Claude (HEL-390) into a validated DashboardProposal. Never applies the proposal — applying stays the caller's explicit, separate action via POST /api/dashboards/apply-proposal.",
+  "type": "object",
+  "required": ["goal"],
+  "properties": {
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's natural-language description of the dashboard they want."
+    },
+    "contextOptions": { "$ref": "#/$defs/AuthoringContextOptions" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AuthoringContextOptions": {
+      "type": "object",
+      "description": "Optional overrides for the grounding-context assembly. Omitted entirely (or any field within it omitted) falls back to WorkspaceContextService's own default.",
+      "properties": {
+        "budgetBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Overrides WorkspaceContextBudget.DefaultBudgetBytes for this call's grounding context — mirrors GET /api/workspace/context's own budgetBytes query param (HEL-377)."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

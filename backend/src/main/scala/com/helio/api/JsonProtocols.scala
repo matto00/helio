@@ -36,6 +36,8 @@ import com.helio.api.protocols._
  *  - `BoundPanelProtocol extends PanelProtocol with DataSourceProtocol with PipelineProtocol`
  *    (BoundPanelRequest/Response carry PanelResponse, StaticColumnPayload, and
  *    CreatePipelineStepRequest)
+ *  - `DashboardAuthoringProtocol extends DashboardProposalProtocol` (DashboardAuthoringResponse
+ *    nests DashboardProposal verbatim — HEL-392)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -73,3 +75,4 @@ trait JsonProtocols
     with WorkspaceProtocol
     with WorkspaceContextProtocol
     with HookProtocol
+    with DashboardAuthoringProtocol
