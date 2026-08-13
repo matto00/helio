@@ -24,7 +24,7 @@ import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 
 /** `DashboardAuthoringService` coverage (HEL-392 tasks.md 5.2/5.3) — a stub `ClaudeTransport`
@@ -45,7 +45,12 @@ class DashboardAuthoringServiceSpec
     with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
-  private def routeEc: ExecutionContext                   = typedSystem.executionContext
+  // HEL-401 design.md D3: `DashboardAuthoringService`'s own `ec` is `ExecutionContextExecutor`
+  // (not the plain `ExecutionContext` this file used pre-ticket) so it can build a
+  // `MdcPropagatingExecutionContext(ec, ...)` for telemetry — `ActorSystem[_].executionContext`
+  // already IS an `ExecutionContextExecutor` at runtime; this is a compile-time-only type-signature
+  // widening (skeptic-flagged minor detail), not a behavior change.
+  private def routeEc: ExecutionContextExecutor           = typedSystem.executionContext
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
@@ -268,7 +273,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.UnprocessableEntity]
       transport.sendInvocations.get() shouldBe 2
     }
 
@@ -280,7 +285,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.UnprocessableEntity]
       transport.sendInvocations.get() shouldBe 0
       transport.streamInvocations.get() shouldBe 0
     }
@@ -296,7 +301,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      val err = result.swap.toOption.get
+      val err = result.swap.toOption.get.serviceError
       err shouldBe a[ServiceError.UnprocessableEntity]
       err.message.toLowerCase should include("pipeline-output")
       transport.sendInvocations.get() shouldBe 2
@@ -315,7 +320,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.UnprocessableEntity]
       transport.sendInvocations.get() shouldBe 0
     }
 
@@ -330,7 +335,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.BadGateway]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.BadGateway]
       transport.sendInvocations.get() shouldBe 1
     }
 
@@ -343,7 +348,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.BadGateway]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.BadGateway]
       transport.sendInvocations.get() shouldBe 1
     }
   }
@@ -457,7 +462,7 @@ class DashboardAuthoringServiceSpec
 
       val bufferedResult = await(newAuthoringService(new FakeClaudeTransport(Vector(apiErrorResponse(503, "upstream unavailable"))))
         .author(DashboardAuthoringRequest(goal, None), user))
-      val bufferedMessage = bufferedResult.swap.toOption.get.message
+      val bufferedMessage = bufferedResult.swap.toOption.get.serviceError.message
 
       val streamingTransport = new FakeClaudeTransport(
         streamResponses = Vector(Seq(ClaudeStreamEvent.Error(ClaudeError.ApiError(503, "upstream unavailable"))))
@@ -481,7 +486,7 @@ class DashboardAuthoringServiceSpec
       // literal, making the "same mapped message" comparison meaningful rather than coincidental.
       val bufferedResult = await(newAuthoringService(new FakeClaudeTransport(Vector(transportFailureResponse())))
         .author(DashboardAuthoringRequest(goal, None), user))
-      val bufferedMessage = bufferedResult.swap.toOption.get.message
+      val bufferedMessage = bufferedResult.swap.toOption.get.serviceError.message
       bufferedMessage shouldBe "Request failed"
 
       val streamingTransport = new FakeClaudeTransport(
@@ -616,7 +621,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest("one more edit", None, Some(seeded.id.value)), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.UnprocessableEntity]
       transport.sendInvocations.get() shouldBe 0
     }
 
@@ -629,7 +634,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest("edit", None, Some(UUID.randomUUID().toString)), user))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.NotFound]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.NotFound]
       transport.sendInvocations.get() shouldBe 0
     }
 
@@ -645,7 +650,7 @@ class DashboardAuthoringServiceSpec
       val result = await(service.author(DashboardAuthoringRequest("hijack", None, Some(seeded.id.value)), ownerB))
 
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.NotFound]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.NotFound]
       transport.sendInvocations.get() shouldBe 0
     }
 

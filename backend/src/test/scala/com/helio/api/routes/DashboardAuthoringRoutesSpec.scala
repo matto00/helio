@@ -25,7 +25,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
 /** HTTP-shell coverage for `POST /api/authoring/dashboard` (HEL-392 tasks.md 5.4) — the buffered
  *  and `?stream=true` paths are both wired correctly, and a `None` service (missing
@@ -41,7 +41,10 @@ class DashboardAuthoringRoutesSpec
     with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
-  private def routeEc: ExecutionContext                   = typedSystem.executionContext
+  // HEL-401 design.md D3: widened from `ExecutionContext` — `DashboardAuthoringService`/
+  // `DashboardAuthoringRoutes` both now take `ExecutionContextExecutor` so telemetry can build a
+  // `MdcPropagatingExecutionContext`; `ActorSystem[_].executionContext` already IS one at runtime.
+  private def routeEc: ExecutionContextExecutor           = typedSystem.executionContext
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _

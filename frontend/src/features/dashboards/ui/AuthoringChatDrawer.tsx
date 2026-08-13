@@ -2,15 +2,17 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faTableColumns, faXmark } from "@fortawesome/free-solid-svg-icons";
 
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import { Textarea } from "../../../shared/ui/Textarea";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { useDashboardAuthoringStream } from "../hooks/useDashboardAuthoringStream";
 import { fetchAuthoringConversation } from "../services/authoringService";
 import { summarizeAuthoringProposal } from "../utils/authoringSummary";
-import type { AuthoringDisplayTurn } from "../types/authoring";
+import { EMPTY_WORKSPACE_COPY } from "../utils/emptyWorkspaceCopy";
+import type { AuthoringDisplayTurn, AuthoringErrorKind } from "../types/authoring";
 import type { DashboardProposal } from "../types/proposal";
 import "./AuthoringChatDrawer.css";
 
@@ -24,6 +26,22 @@ type Phase = "idle" | "streaming" | "error";
 // HEL-397 design.md D7 — sessionStorage (tab-scoped), not localStorage: "survive a reload" is
 // satisfied without a stale conversation id lingering indefinitely across unrelated future tabs.
 const CONVERSATION_ID_STORAGE_KEY = "helio.authoring.conversationId";
+
+/** Per-kind error copy (HEL-401 design.md D5). `ModelFailure`/`BudgetExceeded` replace the raw
+ *  (potentially technical, e.g. an upstream API error body) server message with friendlier,
+ *  kind-specific copy; `InvalidProposal` and the `null` (outside the four defined kinds, or a
+ *  connection-level failure that never reached the server) case show the raw message verbatim —
+ *  it's already the meaningful, proposal-specific validation text in the `InvalidProposal` case. */
+function errorCopyFor(kind: AuthoringErrorKind | null, rawMessage: string): string {
+  switch (kind) {
+    case "ModelFailure":
+      return "The AI model had trouble responding. Please try again.";
+    case "BudgetExceeded":
+      return "This conversation has used its available token budget. Start a new conversation to continue.";
+    default:
+      return rawMessage;
+  }
+}
 
 /** "Author with AI" chat surface (HEL-395, extended to multi-turn by HEL-397) — a drawer overlay
  *  (design.md D1), not a new route. Streams `POST /api/authoring/dashboard?stream=true` via
@@ -43,8 +61,11 @@ export function AuthoringChatDrawer({ open, onClose }: AuthoringChatDrawerProps)
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [thread, setThread] = useState<AuthoringDisplayTurn[]>([]);
   const [latestProposal, setLatestProposal] = useState<DashboardProposal | null>(null);
+  // HEL-401 design.md D4 — the latest successful turn's authoringRequestId, forwarded to Proposal
+  // Review on "Review & apply" so a later accept/reject can correlate back to this outcome.
+  const [authoringRequestId, setAuthoringRequestId] = useState<string | null>(null);
 
-  const { statusLabel, result, error, connectionError } = useDashboardAuthoringStream({
+  const { statusLabel, result, error, errorKind, connectionError } = useDashboardAuthoringStream({
     goal: submittedGoal ?? "",
     active: submittedGoal !== null,
     conversationId: conversationId ?? undefined,
@@ -58,6 +79,9 @@ export function AuthoringChatDrawer({ open, onClose }: AuthoringChatDrawerProps)
   // attempt's now-stale error.
   const phase: Phase =
     submittedGoal === null ? "idle" : inlineError !== null ? "error" : "streaming";
+  // `errorKind` is only meaningful for a real `authoring-error` SSE event -- a `connectionError`
+  // (never reached the server) never carries one.
+  const effectiveErrorKind = error !== null ? errorKind : null;
 
   // Register with the shared single-active-overlay + global Escape handler
   // (matches MobileNavSheet's use of the same primitive). Also triggers a
@@ -119,6 +143,7 @@ export function AuthoringChatDrawer({ open, onClose }: AuthoringChatDrawerProps)
       ]);
       setLatestProposal(result.proposal);
       setConversationId(result.conversationId);
+      setAuthoringRequestId(result.authoringRequestId);
       window.sessionStorage.setItem(CONVERSATION_ID_STORAGE_KEY, result.conversationId);
       setGoal("");
       setSubmittedGoal(null);
@@ -150,20 +175,37 @@ export function AuthoringChatDrawer({ open, onClose }: AuthoringChatDrawerProps)
   // The conversation's natural endpoint (design.md D7): clears the stored conversationId (a fresh
   // "Author with AI" next time starts a new conversation) and hands the latest working proposal to
   // the existing, unmodified Proposal Review flow. Also resets the LOCAL thread/conversationId/
-  // latestProposal state (skeptic-final-1.md change request 1) — without this, reopening this same
-  // mounted drawer instance (no full page reload, e.g. after rejecting in Proposal Review and
-  // returning to `/`) would still show the just-reviewed conversation's stale thread, and an
-  // unrelated follow-up goal would be silently appended to that already-applied conversation
-  // instead of starting fresh. `handleClose` (the "X"/backdrop path) deliberately does NOT do this
-  // reset — resuming an in-progress draft on reopen there is intentional, not a bug.
+  // latestProposal state — without this, reopening this same mounted drawer instance (no full page
+  // reload, e.g. after rejecting in Proposal Review and returning to `/`) would still show the
+  // just-reviewed conversation's stale thread, and an unrelated follow-up goal would be silently
+  // appended to that already-applied conversation instead of starting fresh. `handleClose` (the
+  // "X"/backdrop path) deliberately does NOT do this reset — resuming an in-progress draft on
+  // reopen there is intentional, not a bug.
   function handleReviewAndApply() {
     if (!latestProposal) return;
     window.sessionStorage.removeItem(CONVERSATION_ID_STORAGE_KEY);
-    navigate("/proposals/review", { state: { proposal: latestProposal } });
+    // HEL-401 design.md D4 — additive, alongside `proposal`. `authoringRequestId` is always set
+    // by this point (only ever cleared together with `latestProposal`, and this branch already
+    // early-returns when `latestProposal` is null).
+    navigate("/proposals/review", { state: { proposal: latestProposal, authoringRequestId } });
     setThread([]);
     setLatestProposal(null);
     setConversationId(null);
+    setAuthoringRequestId(null);
     handleClose();
+  }
+
+  // BudgetExceeded's escape hatch (design.md D5): retrying the SAME conversation would just hit
+  // the same budget wall again, so this clears conversation state (mirrors handleReviewAndApply's
+  // own reset) rather than reusing handleReset's plain "try the same request again".
+  function handleStartNewConversation() {
+    window.sessionStorage.removeItem(CONVERSATION_ID_STORAGE_KEY);
+    setThread([]);
+    setLatestProposal(null);
+    setConversationId(null);
+    setAuthoringRequestId(null);
+    setGoal("");
+    setSubmittedGoal(null);
   }
 
   if (!open) return null;
@@ -268,12 +310,40 @@ export function AuthoringChatDrawer({ open, onClose }: AuthoringChatDrawerProps)
           </div>
         )}
 
-        {phase === "error" && (
+        {/* HEL-401 design.md D5 — EmptyWorkspace renders the shared EmptyState (variant="sidebar")
+            with the SAME copy ProposalReviewPage's own empty-state already uses, replacing the
+            InlineError + retry affordance entirely (retrying without a pipeline first would just
+            fail the same way again). */}
+        {phase === "error" && effectiveErrorKind === "EmptyWorkspace" && (
+          <EmptyState
+            variant="sidebar"
+            icon={faTableColumns}
+            title={EMPTY_WORKSPACE_COPY.title}
+            description={EMPTY_WORKSPACE_COPY.description}
+            cta={{ label: "Close", onClick: handleClose }}
+          />
+        )}
+        {phase === "error" && effectiveErrorKind !== "EmptyWorkspace" && (
           <div className="authoring-drawer__error-block">
-            <InlineError error={inlineError} />
-            <button type="button" className="authoring-drawer__retry" onClick={handleReset}>
-              Try again
-            </button>
+            <InlineError error={errorCopyFor(effectiveErrorKind, inlineError ?? "")} />
+            {effectiveErrorKind === "InvalidProposal" && (
+              <p className="authoring-drawer__error-hint">
+                Try refining your goal with more specific detail.
+              </p>
+            )}
+            {effectiveErrorKind === "BudgetExceeded" ? (
+              <button
+                type="button"
+                className="authoring-drawer__retry"
+                onClick={handleStartNewConversation}
+              >
+                Start a new conversation
+              </button>
+            ) : (
+              <button type="button" className="authoring-drawer__retry" onClick={handleReset}>
+                Try again
+              </button>
+            )}
           </div>
         )}
       </aside>

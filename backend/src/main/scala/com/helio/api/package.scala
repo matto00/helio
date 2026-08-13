@@ -339,4 +339,9 @@ package object api {
   val DashboardAuthoringResponse: protocols.DashboardAuthoringResponse.type = protocols.DashboardAuthoringResponse
   type AuthoringStreamEvent = protocols.AuthoringStreamEvent
   val AuthoringStreamEvent: protocols.AuthoringStreamEvent.type = protocols.AuthoringStreamEvent
+  // Authoring error kind + apply-outcome correlation (HEL-401)
+  type AuthoringErrorResponse = protocols.AuthoringErrorResponse
+  val AuthoringErrorResponse: protocols.AuthoringErrorResponse.type = protocols.AuthoringErrorResponse
+  type AuthoringOutcomeRequest = protocols.AuthoringOutcomeRequest
+  val AuthoringOutcomeRequest: protocols.AuthoringOutcomeRequest.type = protocols.AuthoringOutcomeRequest
 }
