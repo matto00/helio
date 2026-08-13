@@ -4,7 +4,9 @@ TICKET_ID: HEL-381
 CHANGE_NAME: dry-analyze-pipeline-proposal
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/dry-analyze-pipeline-proposal/HEL-381
 BRANCH: feature/dry-analyze-pipeline-proposal/HEL-381
-PHASE: Delivery
+PHASE: Cleanup
+PR_URL: https://github.com/matto00/helio/pull/322
+AWAITING_MERGE_CONFIRMATION: true
 CYCLE: 2
 # Cycle 2 completion was relayed via a "coordinator" chat message rather than a
 # direct task-notification, unlike every other sub-agent interaction this run.
