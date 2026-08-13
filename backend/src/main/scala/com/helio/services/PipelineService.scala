@@ -18,16 +18,21 @@ import com.helio.api.protocols.{
   JoinAnalyzeStepResponse,
   LimitAnalyzeStepResponse,
   LookupAnalyzeStepResponse,
+  PipelineAnalyzeProposalResponse,
   PipelineAnalyzeResponse,
+  PipelineProposal,
+  PipelineProposalSource,
   PipelineStepConfigCodec,
   PipelineStepResponse,
   PipelineSummaryResponse,
   PivotAnalyzeStepResponse,
   RenameAnalyzeStepResponse,
+  RestApiConfigPayload,
   SchemaFieldResponse,
   SelectAnalyzeStepResponse,
   SortAnalyzeStepResponse,
   SplitTextAnalyzeStepResponse,
+  SqlSourceConfigPayload,
   StringOpsAnalyzeStepResponse,
   UnionAnalyzeStepResponse,
   UnpivotAnalyzeStepResponse,
@@ -41,13 +46,16 @@ import com.helio.domain.{
   CastConfig,
   ChunkByTokenCountConfig,
   ComputeConfig,
+  DataFieldType,
   DataSourceId,
+  DataSourceKind,
   DateBucketConfig,
   DedupeConfig,
   ExtractHeadingsConfig,
   FillNullConfig,
   FilterConfig,
   GroupByConfig,
+  InferredSchema,
   JoinConfig,
   LimitConfig,
   LookupConfig,
@@ -57,10 +65,12 @@ import com.helio.domain.{
   PipelineStepKind,
   PivotConfig,
   RenameConfig,
+  RestApiConnector,
   SchemaField,
   SelectConfig,
   SortConfig,
   SplitTextConfig,
+  SqlConnector,
   StringOpsConfig,
   UnionConfig,
   UnpivotConfig,
@@ -93,7 +103,15 @@ final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     dataSourceRepo:   DataSourceRepository,
-    dataTypeRepo:     DataTypeRepository
+    dataTypeRepo:     DataTypeRepository,
+    // HEL-381: nullable-optional wiring mirrors the many other optional
+    // collaborators ApiRoutes.scala threads (e.g. binaryRefRepo/imageUploadRepo) —
+    // fixtures that don't pass a RestApiConnector simply can't dry-analyze an
+    // analyzeProposal request whose inline source is `rest_api` (every other
+    // branch — existing sourceId, inline sql, inline static — never touches
+    // it). ApiRoutes itself always threads the real, non-null connector (the
+    // same instance SourceService already receives).
+    connector: RestApiConnector = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -204,6 +222,157 @@ final class PipelineService(
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
     }
   }
+
+  /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381): resolve/derive the
+   *  source schema, fold the proposed steps through the same `PipelineAnalyzeService`
+   *  engine `analyze` above uses, and return the projected schema — no persistence,
+   *  no run (design.md D1).
+   *
+   *  Validates every step's `type` against `PipelineStepKind.All` *before* resolving
+   *  the source or building `stepInputs` — mirroring `addStep`'s existing guard above
+   *  — and short-circuits with `ServiceError.BadRequest` for an unrecognized kind.
+   *  Unlike an in-schema-range "bad config" (surfaced as a per-step `validationError`
+   *  in a `200`, see `toAnalyzeStepResponse`'s tolerant decode), an unrecognized `type`
+   *  has no corresponding `AnalyzeStepResponse` subtype to construct at all — the
+   *  response union is closed over registered kinds — so a hard `400` for the whole
+   *  proposal (not a per-step field) is the only representable outcome. Without this
+   *  guard, an unregistered `type` would flow through `PipelineAnalyzeService.analyze`
+   *  harmlessly (it degrades to a per-step "Unknown op" validationError there) only to
+   *  then throw inside `toAnalyzeStepResponse`'s `PipelineStepConfigCodec.decode`
+   *  re-decode — an uncaught `IllegalStateException` surfacing as an unhandled `500`,
+   *  since `schemas/pipeline-proposal.schema.json` deliberately leaves step `type`
+   *  unconstrained (checked at apply time, not by this schema) and no
+   *  `ExceptionHandler` is registered anywhere in the backend. */
+  def analyzeProposal(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeProposalResponse]] =
+    validateStepKinds(proposal.steps) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_) =>
+        resolveProposalSourceSchema(proposal, user).map {
+          case Left(err) => Left(err)
+          case Right((sourceName, sourceSchema)) =>
+            val stepInputs = proposal.steps.zipWithIndex.map { case (req, i) =>
+              PipelineAnalyzeService.PipelineStepInput(
+                id       = s"step-$i",
+                position = i,
+                op       = req.`type`,
+                config   = req.config.compactPrint
+              )
+            }
+            val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
+
+            Right(PipelineAnalyzeProposalResponse(
+              sourceName         = sourceName,
+              outputDataTypeName = proposal.outputDataTypeName,
+              sourceSchema        = sourceSchema.map(toFieldResponse),
+              steps               = analyzed.map(toAnalyzeStepResponse)
+            ))
+        }
+    }
+
+  /** Same allow-list check `addStep` already performs (`PipelineStepKind.All.contains`)
+   *  before a single step write — generalized here to every entry in a proposal's
+   *  `steps` array, since `analyzeProposal` is the first caller to feed
+   *  `toAnalyzeStepResponse` steps that never passed through that per-write gate. */
+  private def validateStepKinds(steps: Vector[CreatePipelineStepRequest]): Either[ServiceError, Unit] =
+    steps.find(s => !PipelineStepKind.All.contains(s.`type`)) match {
+      case Some(bad) =>
+        Left(ServiceError.BadRequest(
+          s"Invalid step type '${bad.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
+        ))
+      case None => Right(())
+    }
+
+  /** Resolves `proposal.source`'s schema per design.md D2 — `sourceId`, when present,
+   *  always wins over an inline `type` (checked first, before any inline branch).
+   *  Returns the resolved name (existing source's stored name, or the inline source's
+   *  declared name, falling back to `proposal.pipelineName` — design.md D4) alongside
+   *  the resolved schema. */
+  private def resolveProposalSourceSchema(
+      proposal: PipelineProposal,
+      user:     AuthenticatedUser
+  ): Future[Either[ServiceError, (String, Vector[SchemaField])]] =
+    proposal.source.sourceId match {
+      case Some(id) =>
+        dataSourceRepo.findByIdOwned(DataSourceId(id), user).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound(s"Data source not found: $id")))
+          case Some(ds) =>
+            dataTypeRepo.findBySourceId(ds.id, user.id).map { dataTypes =>
+              val schema = dataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
+              Right((ds.name, schema))
+            }
+        }
+      case None =>
+        resolveInlineSourceSchema(proposal.source, proposal.pipelineName)
+    }
+
+  /** Inline-source branch of `resolveProposalSourceSchema` (design.md D2). Every
+   *  connector-backed case (`sql`/`rest_api`/`static`) checks its matching config
+   *  `Option` for `None` *before* touching the config value — a recognized `type`
+   *  with an absent `config` is a proven-reachable, structurally-valid-per-schema
+   *  wire state (`PipelineProposalProtocol`'s hand-written reader independently maps
+   *  an absent `"config"` key to `None` per branch), never a `.get`/unguarded match
+   *  that would throw and surface as an unhandled 500. */
+  private def resolveInlineSourceSchema(
+      source:       PipelineProposalSource,
+      fallbackName: String
+  ): Future[Either[ServiceError, (String, Vector[SchemaField])]] = {
+    val name = source.name.getOrElse(fallbackName)
+    source.`type` match {
+      case Some(DataSourceKind.Sql) =>
+        source.sqlConfig match {
+          case None =>
+            Future.successful(Left(ServiceError.BadRequest("inline 'sql' source requires a 'config' object")))
+          case Some(payload) =>
+            val domainConfig = SqlSourceConfigPayload.toDomain(payload)
+            SqlConnector.checkQuery(domainConfig.query) match {
+              case Left(err) =>
+                Future.successful(Left(ServiceError.BadRequest(err)))
+              case Right(_) =>
+                SqlConnector.inferSchema(domainConfig).map {
+                  case Left(err)     => Left(ServiceError.BadGateway(err))
+                  case Right(schema) => Right((name, toSchemaFields(schema)))
+                }
+            }
+        }
+      case Some(DataSourceKind.RestApi) =>
+        source.restConfig match {
+          case None =>
+            Future.successful(Left(ServiceError.BadRequest("inline 'rest_api' source requires a 'config' object")))
+          case Some(payload) =>
+            RestApiConfigPayload.toDomain(payload) match {
+              case Left(err) =>
+                Future.successful(Left(ServiceError.BadRequest(err)))
+              case Right(domainConfig) =>
+                Option(connector) match {
+                  case None =>
+                    Future.successful(Left(ServiceError.InternalError("REST connector not configured")))
+                  case Some(c) =>
+                    c.inferSchema(domainConfig).map {
+                      case Left(err)     => Left(ServiceError.BadGateway(err))
+                      case Right(schema) => Right((name, toSchemaFields(schema)))
+                    }
+                }
+            }
+        }
+      case Some(DataSourceKind.Static) =>
+        source.staticConfig match {
+          case None =>
+            Future.successful(Left(ServiceError.BadRequest("inline 'static' source requires a 'config' object")))
+          case Some(payload) =>
+            Future.successful(Right((name, payload.columns.map(c => SchemaField(c.name, c.`type`)))))
+        }
+      case Some(DataSourceKind.Csv) =>
+        Future.successful(Left(ServiceError.BadRequest(
+          "inline csv sources cannot be dry-analyzed — upload the file first (create the source) or reference its sourceId"
+        )))
+      case _ =>
+        Future.successful(Left(ServiceError.BadRequest("source must reference an existing sourceId or declare an inline type")))
+    }
+  }
+
+  private def toSchemaFields(schema: InferredSchema): Vector[SchemaField] =
+    schema.fields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
 
   /** Map the analyze service's stringly-typed step output back into the
    *  discriminated-union wire shape by re-decoding the config blob into its

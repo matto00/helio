@@ -20,6 +20,8 @@ import com.helio.api.protocols._
  *  - `PipelineProposalProtocol extends DataSourceProtocol with PipelineStepProtocol`
  *    (PipelineProposalSource carries the per-kind config payloads; PipelineProposal.steps
  *    reuses CreatePipelineStepRequest verbatim — HEL-379)
+ *  - `PipelineAnalyzeProposalProtocol extends PipelineAnalyzeProtocol` (reuses
+ *    SchemaFieldResponse + AnalyzeStepResponse/analyzeStepResponseFormat verbatim — HEL-381)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
@@ -48,6 +50,7 @@ trait JsonProtocols
     with DashboardProtocol
     with DashboardProposalProtocol
     with PipelineProposalProtocol
+    with PipelineAnalyzeProposalProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol

@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{CreatePipelineRequest, JsonProtocols, UpdatePipelineRequest}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
+import com.helio.api.protocols.PipelineProposal
 import com.helio.domain.AuthenticatedUser
 import com.helio.services.PipelineService
 
@@ -35,6 +36,17 @@ class PipelineRoutes(
               }
             }
           )
+        },
+        // HEL-381: registered BEFORE the PipelineIdSegment branches below —
+        // PipelineIdSegment is an unconstrained Segment matcher (design.md D5)
+        // that would otherwise swallow the literal "analyze-proposal" segment
+        // as a bogus pipeline id.
+        path("analyze-proposal") {
+          post {
+            entity(as[PipelineProposal]) { proposal =>
+              ServiceResponse.run(pipelineService.analyzeProposal(proposal, user))(identity)
+            }
+          }
         },
         path(PipelineIdSegment / "analyze") { pipelineId =>
           get {

@@ -155,7 +155,10 @@ final class ApiRoutes(
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
   private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+  // HEL-381: threads the same RestApiConnector instance sourceService already
+  // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
+  // dataTypeRepo above cover every other analyzeProposal branch).
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
