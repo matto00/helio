@@ -4,16 +4,16 @@ TICKET_ID: HEL-383
 CHANGE_NAME: atomic-pipeline-proposal-apply
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/atomic-pipeline-proposal-apply/HEL-383
 BRANCH: feature/atomic-pipeline-proposal-apply/HEL-383
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 1
 DEV_PORT: 5815
 BACKEND_PORT: 8722
-EXECUTOR_AGENT_ID: —
-EVALUATOR_AGENT_ID: —
-LAST_EVAL_VERDICT: —
-LAST_EVAL_REPORT: —
-SKEPTIC_CYCLE: 0
-LAST_SKEPTIC_VERDICT: CONFIRM (design gate, human-approved round 4 after round-3 budget-exhausted escalation was resolved — see skeptic-design-4.md)
+EXECUTOR_AGENT_ID: a05d041022382410b
+EVALUATOR_AGENT_ID: aad6799e8b23e14a5
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: openspec/changes/atomic-pipeline-proposal-apply/evaluation-1.md
+SKEPTIC_CYCLE: 1
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate, round 1 — see skeptic-final-1.md)
 AGENT_MERGE: false
 TICKET_TYPE: feature
 DESIGN_QUESTIONS: null
