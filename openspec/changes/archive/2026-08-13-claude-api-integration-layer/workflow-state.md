@@ -4,16 +4,16 @@ TICKET_ID: HEL-390
 CHANGE_NAME: claude-api-integration-layer
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/claude-api-integration-layer/HEL-390
 BRANCH: feature/claude-api-integration-layer/HEL-390
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 1
 DEV_PORT: 5822
 BACKEND_PORT: 8729
-EXECUTOR_AGENT_ID: —
-EVALUATOR_AGENT_ID: —
-LAST_EVAL_VERDICT: —
-LAST_EVAL_REPORT: —
-SKEPTIC_CYCLE: 0
-LAST_SKEPTIC_VERDICT: CONFIRM (design gate, round 2)
+EXECUTOR_AGENT_ID: a1f40b6438f148de5
+EVALUATOR_AGENT_ID: a51a823c2bb5d0dd7
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/claude-api-integration-layer/HEL-390/openspec/changes/claude-api-integration-layer/evaluation-1.md
+SKEPTIC_CYCLE: 1
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate, round 1)
 AGENT_MERGE: false
 TICKET_TYPE: feature
 DESIGN_QUESTIONS: null
