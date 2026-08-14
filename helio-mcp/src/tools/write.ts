@@ -21,6 +21,7 @@ import {
 import { panelSchema } from "./proposal.js";
 import {
   buildUpdateDataTypeBody,
+  buildUpdatePanelBody,
   buildUpdatePipelineStepBody,
   computedFieldSchema,
   dataFieldSchema,
@@ -643,6 +644,96 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ panelId, appearance }) => guarded(() => api.updatePanelAppearance(panelId, appearance)),
+  );
+
+  // update_panel (HEL-627) is the general edit-in-place sibling of
+  // update_panel_appearance above (same resource, same PATCH endpoint) — the
+  // missing fifth resource in the HEL-328 edit-in-place parity set (data
+  // source/DataType/pipeline/pipeline step), registered here rather than in
+  // the `## Edit-in-place (HEL-328)` block below, whose section comment names
+  // that ticket's own fixed four-tool set.
+  server.registerTool(
+    "update_panel",
+    {
+      title: "Update panel (title/type/config/appearance)",
+      description:
+        "Partially update a panel — title, type, config, and/or appearance — in place " +
+        "(PATCH /api/panels/:id), without the delete-and-recreate round trip that churns the " +
+        "panel's id and dashboard layout position. `title`/`type`/`config`/`appearance` are each " +
+        "independently optional: an OMITTED argument leaves that field unchanged server-side.\n" +
+        "`title`, when supplied, is trimmed and rejected (400) if blank.\n" +
+        "`type`, when supplied, is validated against the panel's STORED kind: a matching value is a " +
+        "harmless no-op, a MISMATCHED value is REJECTED (400, a panel's kind is immutable once " +
+        "created) — never silently dropped or applied.\n" +
+        "`appearance` is the SAME true partial merge as update_panel_appearance (HEL-362): an " +
+        "omitted field keeps its stored value; an explicit `null` clears it. See that tool's " +
+        "description for the `chart` sub-object's own field-level merge/clear rules.\n" +
+        "`config` is decoded server-side against the panel's EXISTING stored `type` and is ALSO a " +
+        "genuine per-field partial merge — the SAME absent/null convention as `appearance` — NOT a " +
+        "wholesale replace like update_data_type's `fields`/`computedFields`. `config.dataTypeId`/" +
+        "`config.fieldMapping` are technically patchable through this tool too (every bound kind's " +
+        "config carries them), but bind_panel remains the PREFERRED tool for binding changes — it " +
+        "additionally validates the V41 pipeline-only rule and `panelType` consistency, which this " +
+        "tool does not re-check client-side.\n" +
+        "Patchable `config` fields, per the panel's stored type (all nine dispatched by " +
+        "PanelConfigCodec.applyConfigPatch):\n" +
+        "• metric — `unit`/`label`/`dataTypeId`/`fieldMapping`/`aggregation`/`metricId` (standard " +
+        "absent-unchanged/null-clear/set).\n" +
+        "• chart — `dataTypeId`/`fieldMapping`/`aggregation`/`metricId` (standard); `annotation` " +
+        "clears on `null` OR a blank/whitespace-only string, not only `null`; `chartOptions` clears " +
+        "on `null` OR a non-null object that, after per-chart-type (line/bar/pie/scatter) " +
+        "validation, carries no populated sub-field — INCLUDING a bare `{}` — so sending " +
+        '`chartOptions: {}` "just to be safe" silently WIPES existing display options rather than ' +
+        "leaving them unchanged.\n" +
+        "• table — `dataTypeId`/`fieldMapping`/`columnWidths`/`metricId` (standard); `density` " +
+        "(standard, but enum-validated — an invalid value 400s, not silently dropped); " +
+        "`columnOrder` (standard).\n" +
+        "• text/markdown — `dataTypeId`/`fieldMapping` (standard); `content` has NO null/absent " +
+        "distinction the same way the others do — omitting it leaves it unchanged, but an explicit " +
+        '`null` clears it to `""` (not "removed").\n' +
+        "• image — `caption` clears on `null` OR a blank/whitespace string (same exception shape as " +
+        'chart `annotation`); `imageUrl` clears to `""` on `null` (same shape as `content`); ' +
+        '`imageFit` RESETS to the default `"contain"` on `null` (NOT a clear-to-empty) and is ' +
+        "enum-validated on a non-null value.\n" +
+        "• collection — `dataTypeId`/`fieldMapping` (standard); `baseType` RESETS to the default " +
+        '`"metric"` on `null` (NOT a clear); `layout` RESETS to the default `"grid"` on `null` (NOT ' +
+        "a clear) and is enum-validated on a non-null value; `itemOptions` clears on `null` OR an " +
+        "empty object.\n" +
+        "• timeline — `dataTypeId`/`fieldMapping` (standard); `timelineOptions.sort` RESETS to the " +
+        'default `"asc"` on `null` OR an empty object (NOT a clear).\n' +
+        '• divider — `orientation` RESETS to the default `"horizontal"` on `null` (NOT a clear, ' +
+        "enum-validated on a non-null value); `weight`/`color` (standard).\n" +
+        "Returns the updated panel.",
+      inputSchema: {
+        panelId: z.string().min(1),
+        title: z.string().optional(),
+        // Unlike create_panel's `type` enum (which drops "divider" for
+        // agent/UI parity — divider creation is unsupported), this tool's
+        // `type` validates against an EXISTING panel's stored kind, and a
+        // divider panel can already exist (created before this tool, or via
+        // the human app) — so "divider" is included here; every one of the
+        // nine kinds below has its own documented config field list.
+        type: z
+          .enum([
+            "metric",
+            "chart",
+            "table",
+            "text",
+            "markdown",
+            "image",
+            "collection",
+            "timeline",
+            "divider",
+          ])
+          .optional(),
+        config: z.record(z.unknown()).optional(),
+        appearance: z.record(z.unknown()).optional(),
+      },
+    },
+    ({ panelId, title, type, config, appearance }) =>
+      guarded(() =>
+        api.updatePanel(panelId, buildUpdatePanelBody({ title, type, config, appearance })),
+      ),
   );
 
   // ── Workspace tag-teardown (HEL-366) ────────────────────────────────────────

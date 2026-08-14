@@ -2,7 +2,8 @@
  * HEL-328 tasks.md 5.1/5.2 — unit tests for `buildUpdateDataTypeBody`/
  * `buildUpdatePipelineStepBody`, the `update_data_type`/`update_pipeline_step`
  * tools' absent-vs-omitted PATCH body builders (design.md D3, mirroring
- * `buildUpdateMetricBody`'s coverage style — see `write.test.ts`).
+ * `buildUpdateMetricBody`'s coverage style — see `write.test.ts`). HEL-627
+ * tasks.md 2.1 adds `buildUpdatePanelBody` coverage in the same style.
  *
  * Imports from `./updateSchemas.js` (NOT `./write.js`) deliberately, for the
  * exact same reason `write.test.ts` imports `buildUpdateMetricBody` from
@@ -12,7 +13,11 @@
  * module directly avoids pulling that in.
  */
 
-import { buildUpdateDataTypeBody, buildUpdatePipelineStepBody } from "./updateSchemas.js";
+import {
+  buildUpdateDataTypeBody,
+  buildUpdatePanelBody,
+  buildUpdatePipelineStepBody,
+} from "./updateSchemas.js";
 
 describe("buildUpdateDataTypeBody", () => {
   it("omits every key when no arguments are supplied (fully empty patch)", () => {
@@ -97,5 +102,63 @@ describe("buildUpdatePipelineStepBody", () => {
 
     expect("type" in body).toBe(false);
     expect(Object.keys(body).sort()).toEqual(["config", "position"]);
+  });
+});
+
+describe("buildUpdatePanelBody", () => {
+  it("omits every key when no arguments are supplied (fully empty patch)", () => {
+    expect(buildUpdatePanelBody({})).toEqual({});
+  });
+
+  it("includes only `title` when only `title` is supplied", () => {
+    const body = buildUpdatePanelBody({ title: "Renamed panel" });
+
+    expect(body).toEqual({ title: "Renamed panel" });
+    expect("type" in body).toBe(false);
+    expect("config" in body).toBe(false);
+    expect("appearance" in body).toBe(false);
+  });
+
+  it("includes only `type` when only `type` is supplied", () => {
+    const body = buildUpdatePanelBody({ type: "metric" });
+
+    expect(body).toEqual({ type: "metric" });
+    expect("title" in body).toBe(false);
+  });
+
+  it("includes only `config` when only `config` is supplied", () => {
+    const body = buildUpdatePanelBody({ config: { unit: "USD" } });
+
+    expect(body).toEqual({ config: { unit: "USD" } });
+    expect("appearance" in body).toBe(false);
+  });
+
+  it("includes only `appearance` when only `appearance` is supplied", () => {
+    const body = buildUpdatePanelBody({ appearance: { background: "#fff" } });
+
+    expect(body).toEqual({ appearance: { background: "#fff" } });
+    expect("config" in body).toBe(false);
+  });
+
+  it("includes every supplied field simultaneously, in one body", () => {
+    const body = buildUpdatePanelBody({
+      title: "Renamed panel",
+      type: "chart",
+      config: { annotation: "Q3 actuals" },
+      appearance: { background: "#fff" },
+    });
+
+    expect(body).toEqual({
+      title: "Renamed panel",
+      type: "chart",
+      config: { annotation: "Q3 actuals" },
+      appearance: { background: "#fff" },
+    });
+  });
+
+  it("never drops an argument the caller supplied as an omitted key", () => {
+    const body = buildUpdatePanelBody({ config: { content: "# Updated" } });
+
+    expect(Object.keys(body)).toEqual(["config"]);
   });
 });

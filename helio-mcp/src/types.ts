@@ -238,6 +238,28 @@ export interface PipelineAnalyzeResponse {
   }>;
 }
 
+/** `PATCH /api/panels/:id` request body — mirrors the backend's
+ *  `UpdatePanelRequest` (`PanelProtocol.scala`). `title`/`type`/`config`/
+ *  `appearance` are each independently optional: an omitted field leaves it
+ *  unchanged server-side (`PanelServiceHelpers.resolvePatch`). `title`, when
+ *  supplied, is trimmed and rejected (400) if blank. `type`, when supplied,
+ *  must match the panel's stored `kind` — a mismatch is rejected (400, a
+ *  panel's kind is immutable); a match is a harmless no-op. `appearance` is a
+ *  genuine per-field partial merge (HEL-362) — absent keeps the stored value,
+ *  explicit `null` clears it. `config`, when provided, is decoded server-side
+ *  against the panel's EXISTING stored `type` (`PanelConfigCodec.
+ *  applyConfigPatch`) as the SAME per-field partial-merge convention as
+ *  `appearance` — NOT a wholesale replace like `UpdateDataTypeRequest`'s
+ *  `fields`/`computedFields`. This interface is the already-parsed shape the
+ *  tool builds a JSON body from; see `updateSchemas.ts`'s
+ *  `buildUpdatePanelBody`. */
+export interface UpdatePanelRequest {
+  title?: string;
+  type?: string;
+  config?: Record<string, unknown>;
+  appearance?: Record<string, unknown>;
+}
+
 /** A panel as returned by `POST /api/panels` / `PATCH /api/panels/:id`.
  *  `config` shape is keyed by `type`; passed through. */
 export interface PanelResponse {
