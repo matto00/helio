@@ -4,6 +4,7 @@ import { httpClient } from "../../../services/httpClient";
 import type {
   AuthoringConversationView,
   AuthoringGoalRequest,
+  AuthoringOutcome,
   AuthoringResult,
 } from "../types/authoring";
 
@@ -38,4 +39,18 @@ export async function fetchAuthoringConversation(
   }
 }
 
-export type { AuthoringConversationView, AuthoringGoalRequest, AuthoringResult };
+/** `POST /api/authoring/requests/:id/outcome` (HEL-401 design.md D4) — telemetry-only correlation
+ *  signal fired from `ProposalReviewPage`'s Accept (after apply succeeds) and Reject actions,
+ *  ONLY when the reviewed proposal carries an `authoringRequestId` (never for the pre-existing
+ *  MCP/demo entry paths). Fire-and-forget by design (design.md D4's own stated trade-off): a
+ *  network failure here must never block or surface an error for the real user-facing action
+ *  (apply/reject) that already completed — callers should not `await` this for correctness, only
+ *  to keep the request in flight past the calling function's own lifetime if needed. */
+export async function postAuthoringOutcome(
+  authoringRequestId: string,
+  outcome: AuthoringOutcome,
+): Promise<void> {
+  await httpClient.post(`/api/authoring/requests/${authoringRequestId}/outcome`, { outcome });
+}
+
+export type { AuthoringConversationView, AuthoringGoalRequest, AuthoringOutcome, AuthoringResult };

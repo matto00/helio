@@ -11,17 +11,35 @@ export interface AuthoringGoalRequest {
   conversationId?: string;
 }
 
+/** Mirrors `com.helio.services.AuthoringErrorKind` (HEL-401 design.md D1) — distinguishes WHY an
+ *  authoring call failed so the chat surface can branch on a real value instead of string-matching
+ *  a message. `ModelFailure`: the upstream Claude API/transport failed. `InvalidProposal`: a
+ *  repair-exhausted, still-invalid proposal. `EmptyWorkspace`: no pipeline-output DataTypes to
+ *  ground against. `BudgetExceeded`: a token/cost guardrail was exceeded. */
+export type AuthoringErrorKind =
+  | "ModelFailure"
+  | "InvalidProposal"
+  | "EmptyWorkspace"
+  | "BudgetExceeded";
+
 /** Terminal authoring outcome — mirrors `DashboardAuthoringProtocol.scala`'s
  *  `DashboardAuthoringResponse` (buffered call) and `AuthoringStreamEvent.Result`
  *  (the streamed `authoring-result` SSE event, same shape). `warnings` is
  *  exposed on `useDashboardAuthoringStream`'s state but not rendered anywhere
  *  yet — an explicit Non-Goal of design.md, not an oversight. `conversationId`
- *  (HEL-397) is passed back as the next turn's `AuthoringGoalRequest.conversationId`. */
+ *  (HEL-397) is passed back as the next turn's `AuthoringGoalRequest.conversationId`.
+ *  `authoringRequestId` (HEL-401 design.md D4) is a fresh id minted per successful call —
+ *  forwarded to Proposal Review so a later accept/reject can correlate back to this outcome. */
 export interface AuthoringResult {
   proposal: DashboardProposal;
   warnings: string[];
   conversationId: string;
+  authoringRequestId: string;
 }
+
+/** `{outcome}` accepted by `POST /api/authoring/requests/:id/outcome` (HEL-401 design.md D4) — the
+ *  telemetry-only correlation signal Proposal Review's Accept/Reject actions fire. */
+export type AuthoringOutcome = "accepted" | "rejected";
 
 /** One human-readable turn in the visible thread — mirrors
  *  `AuthoringConversationProtocol.scala`'s `AuthoringDisplayTurn` (HEL-397

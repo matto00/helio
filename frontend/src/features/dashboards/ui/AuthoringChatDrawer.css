@@ -238,6 +238,15 @@
   justify-items: start;
 }
 
+/* HEL-401 — the InvalidProposal "try refining your goal" hint, subordinate to the InlineError
+   message above it. */
+.authoring-drawer__error-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   .authoring-drawer__close {
     min-width: 44px;

@@ -19,17 +19,25 @@ const CONVERSATION_ID_STORAGE_KEY = "helio.authoring.conversationId";
 /** Renders the exact `location.state.proposal` handed off by the drawer, so
  * tests can assert the navigate() call carried the byte-identical shape
  * `ProposalReviewPage.tsx` reads (design.md D4) without mocking react-router
- * internals. A "Reject" button (skeptic-final-1.md CR1 regression test) lets
- * a test simulate returning to `/` via SPA navigation (no full page reload)
- * without touching any of the other tests' assertions -- `toHaveTextContent`
- * is a substring match, so the added button's own text is harmless to them. */
+ * internals. A "Reject" button lets a test simulate returning to `/` via SPA
+ * navigation (no full page reload) without touching any of the other tests'
+ * assertions -- `toHaveTextContent` is a substring match, so the added
+ * button's own text is harmless to them. */
 function ReviewRouteProbe() {
   const location = useLocation();
   const navigate = useNavigate();
-  const proposal = (location.state as { proposal?: DashboardProposal } | null)?.proposal;
+  const state = location.state as {
+    proposal?: DashboardProposal;
+    authoringRequestId?: string;
+  } | null;
+  const proposal = state?.proposal;
   return (
     <div data-testid="review-route">
       <span>{proposal ? JSON.stringify(proposal) : "none"}</span>
+      {/* HEL-401 design.md D4 — asserts the drawer forwards authoringRequestId alongside proposal. */}
+      <span data-testid="review-route-authoring-request-id">
+        {state?.authoringRequestId ?? "none"}
+      </span>
       <button type="button" onClick={() => navigate("/")}>
         Reject
       </button>
@@ -37,10 +45,10 @@ function ReviewRouteProbe() {
   );
 }
 
-/** skeptic-final-1.md CR1 regression harness: `AuthoringChatDrawer` is mounted OUTSIDE the
- * `<Routes>` switch (an "Open Author with AI" trigger toggles its `open` prop instead), so its
- * component instance survives a "Review & apply" -> reject -> return-to-"/" round trip exactly
- * like the real app (confirmed live by the skeptic: the drawer is never unmounted by that
+/** Regression harness for the reopened-drawer stale-thread-leak scenario: `AuthoringChatDrawer`
+ * is mounted OUTSIDE the `<Routes>` switch (an "Open Author with AI" trigger toggles its `open`
+ * prop instead), so its component instance survives a "Review & apply" -> reject ->
+ * return-to-"/" round trip exactly like the real app (the drawer is never unmounted by that
  * navigation) -- `renderDrawer`'s own harness above can't exercise this, since routing there
  * literally unmounts the drawer along with the rest of "/"'s tree. */
 function ReopenHarness() {
@@ -188,7 +196,7 @@ describe("AuthoringChatDrawer", () => {
     controller.close();
   });
 
-  it('reopening the SAME mounted drawer instance after "Review & apply" starts a genuinely fresh conversation, not the stale prior thread (skeptic-final-1.md CR1)', async () => {
+  it('reopening the SAME mounted drawer instance after "Review & apply" starts a genuinely fresh conversation, not the stale prior thread', async () => {
     const first = createSseMock();
     global.fetch = first.fetchMock;
 
@@ -425,6 +433,174 @@ describe("AuthoringChatDrawer", () => {
 
     expect(screen.getByRole("button", { name: "Generate proposal" })).toBeInTheDocument();
     expect(screen.getByLabelText("Dashboard goal")).not.toBeDisabled();
+  });
+
+  // ── Per-kind error UX (HEL-401 design.md D5) ─────────────────────────────
+
+  it("ModelFailure: shows kind-specific copy (not the raw message) and the existing retry affordance", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show weekly revenue by region" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("authoring-error", {
+      message: "Claude API error (503): upstream unavailable",
+      kind: "ModelFailure",
+    });
+
+    expect(
+      await screen.findByText("The AI model had trouble responding. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/upstream unavailable/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+
+    controller.close();
+  });
+
+  it("InvalidProposal: shows the raw validation message plus a refine hint, and the existing retry affordance", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show weekly revenue by region" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("authoring-error", {
+      message: "Panel 1 references a non-pipeline-output DataType.",
+      kind: "InvalidProposal",
+    });
+
+    expect(
+      await screen.findByText("Panel 1 references a non-pipeline-output DataType."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Try refining your goal with more specific detail."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+
+    controller.close();
+  });
+
+  it("EmptyWorkspace: renders the shared EmptyState with ProposalReviewPage's own copy, not InlineError/retry", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show weekly revenue by region" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("authoring-error", {
+      message:
+        "Nothing to build a dashboard from — the workspace has no pipeline-output data types yet. Run a pipeline first.",
+      kind: "EmptyWorkspace",
+    });
+
+    expect(await screen.findByText("No proposal to review")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Create a pipeline (source → pipeline → output type) so a dashboard can be proposed over its data, then try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+
+    controller.close();
+  });
+
+  it("BudgetExceeded: shows kind-specific copy naming the escape hatch, with a 'Start a new conversation' action (not 'Try again')", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show weekly revenue by region" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("authoring-error", {
+      message:
+        "This conversation has reached its token budget (200000 tokens). Start a new conversation to continue.",
+      kind: "BudgetExceeded",
+    });
+
+    expect(
+      await screen.findByText(
+        "This conversation has used its available token budget. Start a new conversation to continue.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start a new conversation" }));
+
+    // Resets to a fresh idle state — a subsequent submission starts a NEW conversation (no
+    // conversationId on the wire), mirroring the existing "reopen after Review & apply" reset.
+    expect(screen.getByRole("button", { name: "Generate proposal" })).toBeInTheDocument();
+
+    const second = createSseMock();
+    global.fetch = second.fetchMock;
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show a different dashboard" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+
+    await waitFor(() => {
+      expect(second.fetchMock).toHaveBeenCalledWith(
+        "/api/authoring/dashboard?stream=true",
+        expect.objectContaining({
+          body: JSON.stringify({ goal: "Show a different dashboard", conversationId: undefined }),
+        }),
+      );
+    });
+
+    controller.close();
+    second.controller.close();
+  });
+
+  // ── authoringRequestId forwarding (HEL-401 design.md D4) ─────────────────
+
+  it('"Review & apply" forwards authoringRequestId alongside proposal in location.state', async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText("Dashboard goal"), {
+      target: { value: "Show weekly revenue by region" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const proposal: DashboardProposal = { dashboardName: "Sales overview", panels: [] };
+    controller.push("authoring-result", {
+      proposal,
+      warnings: [],
+      conversationId: "conv-1",
+      authoringRequestId: "req-1",
+    });
+    await screen.findByRole("button", { name: "Review & apply" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review & apply" }));
+
+    const reviewRoute = await screen.findByTestId("review-route");
+    expect(reviewRoute).toHaveTextContent(JSON.stringify(proposal));
+    expect(screen.getByTestId("review-route-authoring-request-id")).toHaveTextContent("req-1");
+
+    controller.close();
   });
 
   it("cancelling a streaming request aborts the fetch", async () => {

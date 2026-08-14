@@ -35,8 +35,26 @@ final case class DashboardAuthoringRequest(
  *  call itself failed; a non-empty `warnings` still accompanies a real, validated `proposal`.
  *  `conversationId` (HEL-397) identifies the persisted conversation this turn belongs to — pass it
  *  back on the next call's `DashboardAuthoringRequest.conversationId` to continue refining the same
- *  proposal. */
-final case class DashboardAuthoringResponse(proposal: DashboardProposal, warnings: Vector[String], conversationId: String)
+ *  proposal. `authoringRequestId` (HEL-401 design.md D4) is a fresh UUID minted per successful call
+ *  — distinct from `conversationId` (identifies the CONVERSATION; this identifies THIS specific
+ *  authoring REQUEST) — the frontend forwards it to Proposal Review so a later accept/reject can
+ *  correlate back to this outcome via `POST /api/authoring/requests/:id/outcome`. */
+final case class DashboardAuthoringResponse(
+    proposal: DashboardProposal, warnings: Vector[String], conversationId: String, authoringRequestId: String
+)
+
+/** `POST /api/authoring/dashboard`'s structured error body (HEL-401 design.md D1) — rendered ONLY
+ *  for the ticket's four defined `AuthoringErrorKind`s by `DashboardAuthoringRoutes`'s own bespoke
+ *  completion helper (NOT `ServiceResponse.run`/`completeError`, which hardcodes the generic
+ *  `ErrorResponse` and is `private`). A failure outside those four categories (e.g. a missing/
+ *  not-owned `conversationId`) still renders the pre-existing bare `ErrorResponse(message)` shape,
+ *  unchanged — this type is additive, never a replacement for it. */
+final case class AuthoringErrorResponse(kind: String, message: String)
+
+/** `POST /api/authoring/requests/:id/outcome` (HEL-401 design.md D4, tasks.md 3.1) request body —
+ *  telemetry-only correlation signal from the Proposal Review Accept/Reject actions; this endpoint
+ *  never touches `apply-proposal`'s own persistence path. */
+final case class AuthoringOutcomeRequest(outcome: String)
 
 trait DashboardAuthoringProtocol extends SprayJsonSupport with DefaultJsonProtocol with DashboardProposalProtocol {
   implicit val authoringContextOptionsFormat: RootJsonFormat[AuthoringContextOptions] =
@@ -44,7 +62,11 @@ trait DashboardAuthoringProtocol extends SprayJsonSupport with DefaultJsonProtoc
   implicit val dashboardAuthoringRequestFormat: RootJsonFormat[DashboardAuthoringRequest] =
     jsonFormat3(DashboardAuthoringRequest.apply)
   implicit val dashboardAuthoringResponseFormat: RootJsonFormat[DashboardAuthoringResponse] =
-    jsonFormat3(DashboardAuthoringResponse.apply)
+    jsonFormat4(DashboardAuthoringResponse.apply)
+  implicit val authoringErrorResponseFormat: RootJsonFormat[AuthoringErrorResponse] =
+    jsonFormat2(AuthoringErrorResponse.apply)
+  implicit val authoringOutcomeRequestFormat: RootJsonFormat[AuthoringOutcomeRequest] =
+    jsonFormat1(AuthoringOutcomeRequest.apply)
 }
 
 /** SSE event ADT for `POST /api/authoring/dashboard?stream=true` (design.md D7) — mirrors
@@ -59,23 +81,32 @@ object AuthoringStreamEvent extends DashboardProposalProtocol {
   final case class Status(label: String) extends AuthoringStreamEvent
   /** `conversationId` (HEL-397) — same additive meaning as `DashboardAuthoringResponse`'s own
    *  field; the streaming terminal event carries it so the client can persist it for a follow-up
-   *  turn exactly like the buffered response does. */
-  final case class Result(proposal: DashboardProposal, warnings: Vector[String], conversationId: String) extends AuthoringStreamEvent
-  final case class Error(message: String) extends AuthoringStreamEvent
+   *  turn exactly like the buffered response does. `authoringRequestId` (HEL-401 design.md D4) is
+   *  the streaming path's own equivalent of `DashboardAuthoringResponse.authoringRequestId`. */
+  final case class Result(proposal: DashboardProposal, warnings: Vector[String], conversationId: String, authoringRequestId: String)
+      extends AuthoringStreamEvent
+  /** `kind` (HEL-401 design.md D1) — `None` for a failure outside the ticket's four defined
+   *  `AuthoringErrorKind` categories (e.g. a missing/not-owned `conversationId`), defaulted so
+   *  every pre-existing single-argument `Error(message)` call site keeps compiling unchanged. */
+  final case class Error(message: String, kind: Option[String] = None) extends AuthoringStreamEvent
 
   def toSseBytes(event: AuthoringStreamEvent): ByteString = event match {
     case Progress(text) =>
       frame("authoring-progress", JsObject("text" -> JsString(text)))
     case Status(label) =>
       frame("authoring-status", JsObject("label" -> JsString(label)))
-    case Result(proposal, warnings, conversationId) =>
+    case Result(proposal, warnings, conversationId, authoringRequestId) =>
       frame("authoring-result", JsObject(
         "proposal" -> proposal.toJson,
         "warnings" -> JsArray(warnings.map(JsString(_))),
-        "conversationId" -> JsString(conversationId)
+        "conversationId" -> JsString(conversationId),
+        "authoringRequestId" -> JsString(authoringRequestId)
       ))
-    case Error(message) =>
-      frame("authoring-error", JsObject("message" -> JsString(message)))
+    case Error(message, kind) =>
+      // `kind` is omitted from the JSON entirely (not `null`) when absent — additive-only, so an
+      // existing frontend parser that only ever read `message` sees byte-identical payloads for
+      // every failure outside the ticket's four defined kinds.
+      frame("authoring-error", JsObject(Map("message" -> JsString(message)) ++ kind.map("kind" -> JsString(_))))
   }
 
   private def frame(eventName: String, data: JsObject): ByteString =

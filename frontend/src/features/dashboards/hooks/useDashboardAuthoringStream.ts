@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { AUTHORING_DASHBOARD_ENDPOINT } from "../services/authoringService";
-import type { AuthoringResult } from "../types/authoring";
+import type { AuthoringErrorKind, AuthoringResult } from "../types/authoring";
 
 // -- Types ---------------------------------------------------------------
 
@@ -29,6 +29,11 @@ export interface AuthoringStreamState {
   result: AuthoringResult | null;
   /** Set once a terminal `authoring-error` event lands. */
   error: string | null;
+  /** The `authoring-error` event's `kind` field (HEL-401 design.md D1), or `null` for a failure
+   *  outside the four defined categories (e.g. a missing/foreign `conversationId`) — the chat
+   *  surface falls back to generic error UX (raw `error` message + "Try again") whenever this is
+   *  `null`, exactly as it did before this field existed. */
+  errorKind: AuthoringErrorKind | null;
   /** Set when the SSE connection cannot be established or drops mid-stream. */
   connectionError: string | null;
 }
@@ -38,6 +43,7 @@ const INITIAL_STATE: AuthoringStreamState = {
   statusLabel: null,
   result: null,
   error: null,
+  errorKind: null,
   connectionError: null,
 };
 
@@ -183,9 +189,16 @@ export function useDashboardAuthoringStream({
                 }
               } else if (currentEvent === "authoring-error") {
                 try {
-                  const parsed = JSON.parse(data) as { message: string };
+                  const parsed = JSON.parse(data) as {
+                    message: string;
+                    kind?: AuthoringErrorKind;
+                  };
                   if (!unmounted) {
-                    setState((prev) => ({ ...prev, error: parsed.message }));
+                    setState((prev) => ({
+                      ...prev,
+                      error: parsed.message,
+                      errorKind: parsed.kind ?? null,
+                    }));
                   }
                   reader.cancel();
                   return;

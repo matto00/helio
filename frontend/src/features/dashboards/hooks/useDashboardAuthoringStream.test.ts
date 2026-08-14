@@ -167,6 +167,33 @@ describe("useDashboardAuthoringStream", () => {
     controller.close();
   });
 
+  // HEL-401 design.md D4 — a fresh id minted per successful call, forwarded so a later
+  // accept/reject can correlate back to this outcome.
+  it("a terminal authoring-result event's authoringRequestId is exposed on state.result", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      useDashboardAuthoringStream({ goal: "Sales overview", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const proposal = { dashboardName: "Sales overview", panels: [] };
+    controller.push("authoring-result", {
+      proposal,
+      warnings: [],
+      conversationId: "conv-1",
+      authoringRequestId: "req-1",
+    });
+
+    await waitFor(() => {
+      expect(result.current.result?.authoringRequestId).toBe("req-1");
+    });
+
+    controller.close();
+  });
+
   it("parses a terminal authoring-error event", async () => {
     const { controller, fetchMock } = createSseMock();
     global.fetch = fetchMock;
@@ -182,6 +209,34 @@ describe("useDashboardAuthoringStream", () => {
     await waitFor(() => {
       expect(result.current.error).toBe("Claude call failed");
       expect(result.current.result).toBeNull();
+    });
+    // No `kind` field on the wire — HEL-401's addition stays null, exactly the pre-existing
+    // (this-field-didn't-exist) behavior.
+    expect(result.current.errorKind).toBeNull();
+
+    controller.close();
+  });
+
+  // HEL-401 design.md D1 — the `kind` field lets the chat surface branch without string-matching
+  // `message`.
+  it("parses a terminal authoring-error event's kind field", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      useDashboardAuthoringStream({ goal: "Sales overview", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("authoring-error", {
+      message: "This conversation has reached its token budget.",
+      kind: "BudgetExceeded",
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe("This conversation has reached its token budget.");
+      expect(result.current.errorKind).toBe("BudgetExceeded");
     });
 
     controller.close();

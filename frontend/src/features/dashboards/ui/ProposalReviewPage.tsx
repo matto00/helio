@@ -6,7 +6,9 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
 import type { DataType } from "../../dataTypes/types/dataType";
+import { postAuthoringOutcome } from "../services/authoringService";
 import { applyProposal } from "../state/dashboardsSlice";
+import { EMPTY_WORKSPACE_COPY } from "../utils/emptyWorkspaceCopy";
 import { ProposalReview, type ReviewDataType } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
 
@@ -23,7 +25,16 @@ export function ProposalReviewPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const stateProposal = (location.state as { proposal?: DashboardProposal } | null)?.proposal;
+  const routeState = location.state as {
+    proposal?: DashboardProposal;
+    authoringRequestId?: string;
+  } | null;
+  const stateProposal = routeState?.proposal;
+  // HEL-401 design.md D4 — additive, alongside `proposal`. Present only when the proposal came
+  // from a successful AI-authoring call (AuthoringChatDrawer's "Review & apply"); absent for the
+  // pre-existing MCP hand-off and demo-fixture paths, which never carry one — Accept/Reject below
+  // skip the new outcome call entirely in that case, unchanged from today's behavior.
+  const authoringRequestId = routeState?.authoringRequestId;
 
   const [dataTypes, setDataTypes] = useState<DataType[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -63,6 +74,15 @@ export function ProposalReviewPage() {
       // The thunk's fulfilled reducer inserts and selects the created dashboard
       // in the same dispatch cycle, so the sidebar list is never stale (HEL-290).
       await dispatch(applyProposal(edited)).unwrap();
+      // HEL-401 design.md D4: fired AFTER apply succeeds, only when this proposal came from a
+      // successful AI-authoring call — fire-and-forget (telemetry only, never blocks/affects the
+      // real navigation below on failure).
+      if (authoringRequestId) {
+        postAuthoringOutcome(authoringRequestId, "accepted").catch(() => {
+          // Telemetry data loss doesn't corrupt or block any real user-facing action — the apply
+          // above already completed (design.md's own stated trade-off).
+        });
+      }
       navigate("/");
     } catch (err) {
       setApplyError(typeof err === "string" ? err : "Failed to apply the proposal.");
@@ -70,7 +90,17 @@ export function ProposalReviewPage() {
     }
   };
 
-  const handleReject = () => navigate("/");
+  const handleReject = () => {
+    // HEL-401 design.md D4: fire-and-forget, closing the one confirmed gap — reject previously had
+    // no backend touchpoint at all. Only fires when this proposal came from a successful
+    // AI-authoring call, never for the pre-existing MCP/demo entry paths.
+    if (authoringRequestId) {
+      postAuthoringOutcome(authoringRequestId, "rejected").catch(() => {
+        // See handleAccept's identical rationale — telemetry loss is acceptable.
+      });
+    }
+    navigate("/");
+  };
 
   if (loadError) {
     return (
@@ -93,8 +123,8 @@ export function ProposalReviewPage() {
     return (
       <EmptyState
         icon={faTableColumns}
-        title="No proposal to review"
-        description="Create a pipeline (source → pipeline → output type) so a dashboard can be proposed over its data, then try again."
+        title={EMPTY_WORKSPACE_COPY.title}
+        description={EMPTY_WORKSPACE_COPY.description}
         cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
       />
     );

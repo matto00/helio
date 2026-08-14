@@ -18,6 +18,11 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
 
   private val log = LoggerFactory.getLogger(getClass)
 
+  /** The configured model id (HEL-401 telemetry) — never the whole `config` (whose own `toString`
+   *  is redacted anyway, but this keeps callers that only need the model id from having to reach
+   *  into `ClaudeConfig` directly). */
+  def modelId: String = config.model
+
   /** Estimates input tokens → rejects (`GuardrailExceeded`) over `config.maxInputTokens` *before*
    *  any network call; clamps requested `maxTokens` down to `config.maxOutputTokens` (never
    *  rejects for requesting too much output); delegates to `transport.send`; maps transport/API

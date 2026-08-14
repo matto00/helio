@@ -1,7 +1,7 @@
 package com.helio.api.routes
 
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
-import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
@@ -66,15 +66,22 @@ object ServiceResponse extends JsonProtocols {
       case Left(e)  => completeError(e)
     }
 
-  private def completeError(e: ServiceError): Route = e match {
-    case ServiceError.BadRequest(m)    => complete(StatusCodes.BadRequest, ErrorResponse(m))
-    case ServiceError.Unauthorized(m)  => complete(StatusCodes.Unauthorized, ErrorResponse(m))
-    case ServiceError.NotFound(m)      => complete(StatusCodes.NotFound, ErrorResponse(m))
-    case ServiceError.Forbidden(m)     => complete(StatusCodes.Forbidden, ErrorResponse(m))
-    case ServiceError.Conflict(m)            => complete(StatusCodes.Conflict, ErrorResponse(m))
-    case ServiceError.UnprocessableEntity(m) => complete(StatusCodes.UnprocessableEntity, ErrorResponse(m))
-    case ServiceError.BadGateway(m)          => complete(StatusCodes.BadGateway, ErrorResponse(m))
-    case ServiceError.InternalError(m)       => complete(StatusCodes.InternalServerError, ErrorResponse(m))
-    case ServiceError.PayloadTooLarge(m)     => complete(StatusCodes.RequestEntityTooLarge, ErrorResponse(m))
+  private def completeError(e: ServiceError): Route = complete(statusCodeFor(e), ErrorResponse(e.message))
+
+  /** Status-code mapping for each `ServiceError` variant — `private[routes]` (not `private`) so
+   *  `DashboardAuthoringRoutes`'s bespoke completion helper (HEL-401 design.md D1: `completeError`
+   *  above hardcodes the generic `ErrorResponse` and can't thread an extra `kind` field) can reuse
+   *  the SAME mapping rather than duplicating this switch — the only thing that route bypasses is
+   *  the response BODY shape, never the status-code contract every route already relies on. */
+  private[routes] def statusCodeFor(e: ServiceError): StatusCode = e match {
+    case ServiceError.BadRequest(_)          => StatusCodes.BadRequest
+    case ServiceError.Unauthorized(_)        => StatusCodes.Unauthorized
+    case ServiceError.NotFound(_)            => StatusCodes.NotFound
+    case ServiceError.Forbidden(_)           => StatusCodes.Forbidden
+    case ServiceError.Conflict(_)            => StatusCodes.Conflict
+    case ServiceError.UnprocessableEntity(_) => StatusCodes.UnprocessableEntity
+    case ServiceError.BadGateway(_)          => StatusCodes.BadGateway
+    case ServiceError.InternalError(_)       => StatusCodes.InternalServerError
+    case ServiceError.PayloadTooLarge(_)     => StatusCodes.RequestEntityTooLarge
   }
 }

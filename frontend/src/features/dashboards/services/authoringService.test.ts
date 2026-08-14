@@ -1,8 +1,8 @@
 import { httpClient } from "../../../services/httpClient";
-import { fetchAuthoringConversation } from "./authoringService";
+import { fetchAuthoringConversation, postAuthoringOutcome } from "./authoringService";
 
 jest.mock("../../../services/httpClient", () => ({
-  httpClient: { get: jest.fn() },
+  httpClient: { get: jest.fn(), post: jest.fn() },
 }));
 
 const mockedHttpClient = jest.mocked(httpClient);
@@ -49,5 +49,28 @@ describe("fetchAuthoringConversation", () => {
     mockedHttpClient.get.mockRejectedValueOnce(serverError);
 
     await expect(fetchAuthoringConversation("conv-1")).rejects.toThrow("Server Error");
+  });
+});
+
+// HEL-401 design.md D4 — POST /api/authoring/requests/:id/outcome (telemetry-only correlation).
+describe("postAuthoringOutcome", () => {
+  it("POSTs {outcome} to /api/authoring/requests/:id/outcome", async () => {
+    mockedHttpClient.post.mockResolvedValueOnce({ data: undefined });
+
+    await postAuthoringOutcome("req-1", "accepted");
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith("/api/authoring/requests/req-1/outcome", {
+      outcome: "accepted",
+    });
+  });
+
+  it("POSTs a 'rejected' outcome", async () => {
+    mockedHttpClient.post.mockResolvedValueOnce({ data: undefined });
+
+    await postAuthoringOutcome("req-2", "rejected");
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith("/api/authoring/requests/req-2/outcome", {
+      outcome: "rejected",
+    });
   });
 });
