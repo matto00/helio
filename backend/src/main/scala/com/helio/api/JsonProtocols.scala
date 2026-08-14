@@ -26,6 +26,9 @@ import com.helio.api.protocols._
  *    DuplicateDashboardResponse verbatim — HEL-387)
  *  - `PipelineAnalyzeProposalProtocol extends PipelineAnalyzeProtocol` (reuses
  *    SchemaFieldResponse + AnalyzeStepResponse/analyzeStepResponseFormat verbatim — HEL-381)
+ *  - `PatchSetProtocol extends PanelProtocol with DashboardProtocol with DataSourceProtocol
+ *    with DataTypeProtocol with PipelineProtocol with PipelineStepProtocol` (Edit's six
+ *    update-patch fields reuse each domain's existing Update*Request format verbatim — HEL-403)
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
@@ -60,6 +63,7 @@ trait JsonProtocols
     with PipelineProposalProtocol
     with CombinedProposalProtocol
     with PipelineAnalyzeProposalProtocol
+    with PatchSetProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol
