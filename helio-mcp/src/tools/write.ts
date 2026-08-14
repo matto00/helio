@@ -19,6 +19,12 @@ import {
   metricFormatSchema,
 } from "./metricSchemas.js";
 import { panelSchema } from "./proposal.js";
+import {
+  buildUpdateDataTypeBody,
+  buildUpdatePipelineStepBody,
+  computedFieldSchema,
+  dataFieldSchema,
+} from "./updateSchemas.js";
 
 // Hoisted to module scope (HEL-385 design.md D3 — round-1 skeptic correction):
 // originally declared inside `registerWriteTools`, where `export` cannot
@@ -769,6 +775,103 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
             deprecated,
           }),
         ),
+      ),
+  );
+
+  // ── Edit-in-place (HEL-328) ─────────────────────────────────────────────
+  // Each PATCHes an existing, unmodified backend endpoint — no backend
+  // changes in this ticket. Thin pass-throughs mirroring `update_metric`
+  // above; the two multi-field tools build their PATCH body via
+  // `updateSchemas.ts`'s `buildUpdate*Body` before calling `HelioApi`.
+
+  server.registerTool(
+    "update_data_source",
+    {
+      title: "Update data source (rename)",
+      description:
+        "Rename an existing data source (PATCH /api/data-sources/:id). Rename-only — the backend's " +
+        "update surface for a data source has no other mutable field today; there is no way to edit " +
+        "connection config (CSV/REST/SQL) in place via this tool, only its name. `name` is required " +
+        "(there is nothing else to patch, so an all-omitted call would be a pointless no-op). " +
+        "Returns the updated data source.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        name: z.string().min(1),
+      },
+    },
+    ({ dataSourceId, name }) => guarded(() => api.updateDataSource(dataSourceId, name)),
+  );
+
+  server.registerTool(
+    "update_data_type",
+    {
+      title: "Update DataType",
+      description:
+        "Partially update a DataType (PATCH /api/types/:id). `name`/`fields`/`computedFields` are " +
+        "each independently optional: an OMITTED argument leaves that field unchanged server-side. " +
+        "When `fields` or `computedFields` IS provided, it REPLACES the existing array WHOLESALE " +
+        "server-side (not a per-item merge) — resend the FULL desired array, including any entries " +
+        "you want to keep, not just the ones you're adding/changing. `fields` items are " +
+        "{name, displayName, dataType, nullable}; `computedFields` items are " +
+        "{name, displayName, expression, dataType} — mirroring the backend's own field shapes. " +
+        "Returns the updated DataType.",
+      inputSchema: {
+        dataTypeId: z.string().min(1),
+        name: z.string().min(1).optional(),
+        fields: z.array(dataFieldSchema).optional(),
+        computedFields: z.array(computedFieldSchema).optional(),
+      },
+    },
+    ({ dataTypeId, name, fields, computedFields }) =>
+      guarded(() =>
+        api.updateDataType(dataTypeId, buildUpdateDataTypeBody({ name, fields, computedFields })),
+      ),
+  );
+
+  server.registerTool(
+    "update_pipeline",
+    {
+      title: "Update pipeline (rename)",
+      description:
+        "Rename an existing pipeline (PATCH /api/pipelines/:id). Rename-only — the backend's update " +
+        "surface for a pipeline has exactly one, required field; there is no way to edit its " +
+        "source/output-type wiring in place via this tool, only its name. Returns the updated " +
+        "pipeline summary.",
+      inputSchema: {
+        pipelineId: z.string().min(1),
+        name: z.string().min(1),
+      },
+    },
+    ({ pipelineId, name }) => guarded(() => api.updatePipeline(pipelineId, name)),
+  );
+
+  server.registerTool(
+    "update_pipeline_step",
+    {
+      title: "Update pipeline step",
+      description:
+        "Edit an existing pipeline transform step's config and/or position in place " +
+        "(PATCH /api/pipeline-steps/:id) — without the delete_pipeline_step + add_pipeline_step " +
+        "round trip, which loses the step's original position in the ordering. `config` and " +
+        "`position` are each independently optional: an OMITTED argument leaves that field " +
+        "unchanged server-side. There is deliberately NO `type` field on this tool — the backend " +
+        "always 400s if a PATCH `type` differs from the step's existing kind ('delete the step and " +
+        "create a new one instead'), and a matching `type` is accepted but does nothing, so " +
+        "exposing it would only invite a dead-end call; a step's type is immutable once created. " +
+        "`config`, when provided, is decoded against the step's EXISTING kind — same shape/" +
+        "validation as add_pipeline_step's `config` for that type (see that tool's description for " +
+        "the full per-type config catalogue). The step's id and ordering (unless you explicitly set " +
+        "`position`) are unchanged. Call analyze_pipeline afterward to see the edited step's config " +
+        "reflected in the pipeline's projected schema.",
+      inputSchema: {
+        stepId: z.string().min(1),
+        config: z.record(z.unknown()).optional(),
+        position: z.number().int().optional(),
+      },
+    },
+    ({ stepId, config, position }) =>
+      guarded(() =>
+        api.updatePipelineStep(stepId, buildUpdatePipelineStepBody({ config, position })),
       ),
   );
 

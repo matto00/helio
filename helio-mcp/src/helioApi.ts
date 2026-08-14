@@ -49,7 +49,9 @@ import type {
   RunResultResponse,
   ShapeStepExpansionResponse,
   TeardownResponse,
+  UpdateDataTypeRequest,
   UpdateMetricRequest,
+  UpdatePipelineStepRequest,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -739,6 +741,47 @@ export class HelioApi {
    *  real teardown, since deletion is permanent. */
   teardownResources(input: { tag: string; dryRun?: boolean }): Promise<TeardownResponse> {
     return this.http.post<TeardownResponse>("/api/workspace/teardown", input);
+  }
+
+  // ── Edit-in-place (HEL-328) ──────────────────────────────────────────────
+  // Each PATCHes an existing, unmodified backend endpoint (no backend changes
+  // in this ticket). Following `updateMetric`'s convention: the `patch`
+  // argument on the two multi-field methods is the ALREADY-BUILT wire body —
+  // `write.ts`'s body-builders (`updateSchemas.ts`) do the omit-vs-absent
+  // encoding before calling these methods, so each method itself is a pure
+  // pass-through, same as every other method on this class.
+
+  /** `PATCH /api/data-sources/:id`. Rename-only (design.md D1) — the
+   *  backend's `UpdateDataSourceRequest` has no other mutable field. */
+  updateDataSource(dataSourceId: string, name: string): Promise<DataSourceResponse> {
+    return this.http.patch<DataSourceResponse>(`/api/data-sources/${dataSourceId}`, { name });
+  }
+
+  /** `PATCH /api/types/:id`. `patch` is the already-built wire body (see
+   *  section note above) — `name`/`fields`/`computedFields` each independently
+   *  patchable; `fields`/`computedFields`, when present, replace the existing
+   *  array wholesale server-side (no per-item merge). */
+  updateDataType(dataTypeId: string, patch: UpdateDataTypeRequest): Promise<DataTypeResponse> {
+    return this.http.patch<DataTypeResponse>(`/api/types/${dataTypeId}`, patch);
+  }
+
+  /** `PATCH /api/pipelines/:id`. Rename-only (design.md D1) — the backend's
+   *  `UpdatePipelineRequest` has exactly one, required field. */
+  updatePipeline(pipelineId: string, name: string): Promise<PipelineSummaryResponse> {
+    return this.http.patch<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`, { name });
+  }
+
+  /** `PATCH /api/pipeline-steps/:id`. `patch` is the already-built wire body
+   *  (see section note above) — `config`/`position` each independently
+   *  patchable; NEVER carries a `type` key (design.md D2 — the backend always
+   *  400s on a mismatched type and no-ops on a matching one, so it is
+   *  deliberately not exposed by this tool at all). `config`, when provided,
+   *  is decoded server-side against the step's EXISTING kind. */
+  updatePipelineStep(
+    stepId: string,
+    patch: UpdatePipelineStepRequest,
+  ): Promise<PipelineStepResponse> {
+    return this.http.patch<PipelineStepResponse>(`/api/pipeline-steps/${stepId}`, patch);
   }
 
   // ── Metrics (semantic layer, HEL-446/HEL-493/HEL-541) ───────────────────

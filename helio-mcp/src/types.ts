@@ -123,6 +123,23 @@ export interface DataTypeRowsResponse {
   rowCount: number;
 }
 
+/** `PATCH /api/types/:id` request body — mirrors the backend's
+ *  `UpdateDataTypeRequest`. `name`/`fields`/`computedFields` are each
+ *  independently optional: an omitted field leaves it unchanged server-side.
+ *  When `fields` or `computedFields` IS provided, `DataTypeService.applyUpdate`
+ *  replaces the existing array WHOLESALE (`request.X.map(...).getOrElse(existing.X)`
+ *  — no per-item merge), unlike this file's other partial-PATCH shapes
+ *  (`UpdateMetricRequest`, panel appearance). Item shape mirrors the backend's
+ *  `DataFieldPayload`/`ComputedFieldPayload` exactly — structurally identical
+ *  to `DataFieldResponse`/`ComputedFieldResponse`, reused here rather than
+ *  duplicated. This interface is the already-parsed shape the tool builds a
+ *  JSON body from; see `updateSchemas.ts`'s `buildUpdateDataTypeBody`. */
+export interface UpdateDataTypeRequest {
+  name?: string;
+  fields?: DataFieldResponse[];
+  computedFields?: ComputedFieldResponse[];
+}
+
 /** One column of a DataType's shape, as reported by `get_panel_capabilities`. */
 export interface PanelCapabilityColumnResponse {
   name: string;
@@ -180,6 +197,21 @@ export interface PipelineStepResponse {
   type: string;
   position: number;
   config: unknown;
+}
+
+/** `PATCH /api/pipeline-steps/:id` request body — mirrors the backend's
+ *  `UpdatePipelineStepRequest`, MINUS its `type` field (design.md D2):
+ *  `PipelineService.updateStep` always 400s on a `type` that differs from the
+ *  step's existing kind ("delete and create a new one instead") and no-ops on
+ *  a matching one, so there is no successful, meaningful MCP-layer use of it.
+ *  `config`/`position` are each independently optional — an omitted field
+ *  leaves it unchanged server-side; `config`, when provided, is decoded
+ *  against the step's EXISTING kind. This interface is the already-parsed
+ *  shape the tool builds a JSON body from; see `updateSchemas.ts`'s
+ *  `buildUpdatePipelineStepBody`. */
+export interface UpdatePipelineStepRequest {
+  config?: Record<string, unknown>;
+  position?: number;
 }
 
 export interface SchemaField {
