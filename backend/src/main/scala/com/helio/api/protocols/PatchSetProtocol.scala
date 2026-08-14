@@ -101,6 +101,15 @@ trait PatchSetProtocol
       if ((op == "update" || op == "delete") && target.id.forall(_.trim.isEmpty))
         deserializationError(s"edit target.id is required when op is '$op'")
 
+      // HEL-406 design.md D6: HEL-403's carried-over follow-up. A `delete`
+      // edit's `patch` is unused (per this file's own header doc); a
+      // populated `"patch"` key on a delete edit is rejected here — the
+      // layer that actually has the signal — rather than silently discarded
+      // before `Edit` is constructed, mirroring the `target.id` enforcement
+      // just above (same file, same reader, same error style).
+      if (op == "delete" && obj.fields.contains("patch"))
+        deserializationError("edit 'patch' must not be present when op is 'delete'")
+
       val patch = obj.fields.get("patch")
 
       val (panelPatch, dashboardPatch, dataSourcePatch, dataTypePatch, pipelinePatch, pipelineStepPatch, createPatch) =
