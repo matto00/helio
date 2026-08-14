@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/patch-set-apply-response.schema.json",
+  "title": "PatchSetApplyResponse",
+  "description": "Response body of POST /api/patch-sets/apply (HEL-406). One EditOutcome per edit in the caller's given order. When every edit applies cleanly, `failure` is absent and every outcome's status is 'applied'. When a mid-set failure triggers a rollback, `failure` carries the triggering error message and `edits` reports only the edits that were actually applied-then-compensated (design.md D3) -- see EditOutcome's own description for the status enum and the priorState/resultingState reuse-of-existing-response-shapes contract (design.md D4a/D4b).",
+  "type": "object",
+  "required": ["edits"],
+  "properties": {
+    "edits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EditOutcome" }
+    },
+    "failure": {
+      "type": "string",
+      "description": "Present only when a mid-set failure triggered a rollback; carries the failing edit's error message."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "EditOutcome": {
+      "type": "object",
+      "description": "status: applied (no rollback needed) | rolledBack (a create/update edit was undone) | recreated (a panel/pipelineStep delete-rollback restored content under a NEW id) | unrecoverable (a dashboard/dataSource/dataType/pipeline delete-rollback could not restore the resource). priorState/resultingState reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/DataTypeResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a six-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref.",
+      "required": ["index", "status"],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The edit's position in the original patch set's edits array."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["applied", "rolledBack", "recreated", "unrecoverable"]
+        },
+        "newId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The freshly minted id for a successful create, or the new id for a 'recreated' delete-rollback. Absent otherwise."
+        },
+        "priorState": {
+          "type": "object",
+          "description": "The resource's full pre-mutation state for an update/delete edit, serialized using its target kind's existing response shape. Absent for create edits."
+        },
+        "resultingState": {
+          "type": "object",
+          "description": "The resource's full post-mutation state for a successful create/update edit or a 'recreated' delete-rollback. Absent for a plain delete or an unrecoverable rollback."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

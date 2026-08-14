@@ -168,6 +168,20 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     }
   }
 
+  // ── HEL-406 design.md D6: delete-op edit with a populated patch ────────────
+  // (HEL-403's own carried-over follow-up — task 1.1/7.1.)
+
+  "Edit.read — delete-op patch rejection (HEL-406 D6)" should {
+    "raise a deserializationError when op is 'delete' and the wire JSON carries a populated patch" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("panel"), "id" -> JsString("panel-2")),
+        "op"     -> JsString("delete"),
+        "patch"  -> JsObject("title" -> JsString("Should not be here"))
+      )
+      an[DeserializationException] should be thrownBy json.convertTo[Edit]
+    }
+  }
+
   // ── HEL-403: unrecognized op/target.kind rejection ─────────────────────────
 
   "Edit.read — validation" should {
