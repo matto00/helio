@@ -51,6 +51,7 @@ import type {
   TeardownResponse,
   UpdateDataTypeRequest,
   UpdateMetricRequest,
+  UpdatePanelRequest,
   UpdatePipelineStepRequest,
 } from "./types.js";
 
@@ -641,6 +642,16 @@ export class HelioApi {
     appearance: Record<string, unknown>,
   ): Promise<PanelResponse> {
     return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, { appearance });
+  }
+
+  /** `PATCH /api/panels/:id` (HEL-627) — the general edit-in-place sibling of
+   *  `updatePanelAppearance`, covering `title`/`type`/`config`/`appearance`.
+   *  `patch` is the already-built wire body (`write.ts`'s
+   *  `buildUpdatePanelBody` does the omit-vs-absent encoding before calling
+   *  this method), so this method itself is a pure pass-through, same as
+   *  every other method on this class. */
+  updatePanel(panelId: string, patch: UpdatePanelRequest): Promise<PanelResponse> {
+    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, patch);
   }
 
   /** Create one bound panel in a single call (HEL-364, `POST /api/panels/bound`) — collapses the
