@@ -31,6 +31,8 @@ import com.helio.api.protocols._
  *    update-patch fields reuse each domain's existing Update*Request format verbatim — HEL-403)
  *  - `PatchSetApplyProtocol` has no cross-domain dependency of its own (EditOutcome's
  *    priorState/resultingState are raw JsValue) — HEL-406
+ *  - `PatchSetPreviewProtocol` has no cross-domain dependency of its own (EditPreview's
+ *    before/after are raw JsValue) — HEL-408
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
@@ -67,6 +69,7 @@ trait JsonProtocols
     with PipelineAnalyzeProposalProtocol
     with PatchSetProtocol
     with PatchSetApplyProtocol
+    with PatchSetPreviewProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol

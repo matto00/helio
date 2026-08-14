@@ -206,6 +206,31 @@ const dashboardsSlice = createSlice({
     setLayoutPending(state, action: PayloadAction<boolean>) {
       state.hasPendingLayout = action.payload;
     },
+    /** Merge an externally-mutated `Dashboard` (a full response object, not a
+     *  partial patch) into `items` — replaces an existing entry by id, or
+     *  appends when new. Mirrors `renameDashboard.fulfilled`'s exact
+     *  full-object-replace shape; used by `patchSetsSlice.applyPatchSet`
+     *  (HEL-408) to keep this slice in sync with a dashboard edit applied
+     *  through the patch-set path, which has no dedicated thunk of its own
+     *  to hang an `extraReducers` case off of. */
+    dashboardUpserted(state, action: PayloadAction<Dashboard>) {
+      const dashboard = action.payload;
+      const index = state.items.findIndex((d) => d.id === dashboard.id);
+      if (index === -1) {
+        state.items.push(dashboard);
+      } else {
+        state.items[index] = dashboard;
+      }
+    },
+    /** Remove a dashboard deleted through a path with no dedicated thunk of
+     *  its own (HEL-408's patch-set apply) — mirrors `deleteDashboard.
+     *  fulfilled`'s exact filter + reselect body. */
+    dashboardRemoved(state, action: PayloadAction<string>) {
+      state.items = state.items.filter((d) => d.id !== action.payload);
+      if (state.selectedDashboardId === action.payload) {
+        state.selectedDashboardId = getMostRecentDashboardId(state.items);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -275,6 +300,11 @@ const dashboardsSlice = createSlice({
   },
 });
 
-export const { setSelectedDashboardId, setDashboardLayoutLocally, setLayoutPending } =
-  dashboardsSlice.actions;
+export const {
+  setSelectedDashboardId,
+  setDashboardLayoutLocally,
+  setLayoutPending,
+  dashboardUpserted,
+  dashboardRemoved,
+} = dashboardsSlice.actions;
 export const dashboardsReducer = dashboardsSlice.reducer;
