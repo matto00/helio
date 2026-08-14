@@ -41,6 +41,8 @@ final class AuthoringConversationTurns(repo: AuthoringConversationRepository)(im
         apiHistory      = Vector(userMessage, ClaudeMessage(ClaudeRole.Assistant, finalResponseText)),
         displayTurns    = Vector(AuthoringDisplayTurn("user", userGoalText), AuthoringDisplayTurn("assistant", summaryFor(proposal))),
         latestProposal  = Some(proposal),
+        // HEL-411 design.md D3: this flow's own column only — never inferred, always explicit.
+        latestPatchSet  = None,
         totalTokensUsed = tokensUsed,
         createdAt       = now,
         updatedAt       = now
@@ -66,7 +68,9 @@ final class AuthoringConversationTurns(repo: AuthoringConversationRepository)(im
       user            = user,
       apiHistory      = prior.apiHistory ++ Vector(userMessage, ClaudeMessage(ClaudeRole.Assistant, finalResponseText)),
       displayTurns    = prior.displayTurns ++ Vector(AuthoringDisplayTurn("user", userGoalText), AuthoringDisplayTurn("assistant", summaryFor(proposal))),
-      latestProposal  = proposal,
+      latestProposal  = Some(proposal),
+      // HEL-411 design.md D3: this flow's own column only — never inferred, always explicit.
+      latestPatchSet  = None,
       totalTokensUsed = prior.totalTokensUsed + turnTokensUsed,
       updatedAt       = Instant.now()
     )

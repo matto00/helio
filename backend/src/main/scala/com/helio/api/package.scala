@@ -344,4 +344,12 @@ package object api {
   val AuthoringErrorResponse: protocols.AuthoringErrorResponse.type = protocols.AuthoringErrorResponse
   type AuthoringOutcomeRequest = protocols.AuthoringOutcomeRequest
   val AuthoringOutcomeRequest: protocols.AuthoringOutcomeRequest.type = protocols.AuthoringOutcomeRequest
+
+  // Conversational refinement (HEL-411)
+  type RefinementTarget = protocols.RefinementTarget
+  val RefinementTarget: protocols.RefinementTarget.type = protocols.RefinementTarget
+  type RefinementRequest = protocols.RefinementRequest
+  val RefinementRequest: protocols.RefinementRequest.type = protocols.RefinementRequest
+  type RefinementResponse = protocols.RefinementResponse
+  val RefinementResponse: protocols.RefinementResponse.type = protocols.RefinementResponse
 }

@@ -125,6 +125,20 @@ an opaque error, so the agent can diagnose and retry. Credentials (SQL
 password, REST bearer token/api-key value) are redacted server-side and never
 appear in any of these tools' results.
 
+### Refinement tools (conversational, over live state — HEL-411)
+
+| Tool                | Endpoint                                              | Purpose                                                                                                                                                                                                                                                |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `propose_patch_set` | `POST /api/refinements`                               | Turn a natural-language message into a reviewable `PatchSet`, grounded in a target dashboard/pipeline's REAL current live state + workspace-wide context — writes NOTHING. `conversationId` (optional) continues the same conversation across turns.   |
+| `apply_patch_set`   | `POST /api/patch-sets/apply` (**HEL-406**, unchanged) | Apply an accepted `PatchSet` atomically — every edit applies in order, and a mid-set failure rolls back everything already applied. Does NOT decompose into individual `update_panel`/`update_pipeline`/etc. calls — the atomic primitive, not a loop. |
+
+`propose_patch_set` + `apply_patch_set` are the conversational-refinement analogue of
+`propose_dashboard`/`apply_proposal` above, but target an EXISTING dashboard/pipeline instead of
+creating a new one, and produce N targeted edits (a `PatchSet`) instead of a whole-dashboard
+`DashboardProposal`. Typical flow: `propose_patch_set({target: {kind: "dashboard", id}, message:
+"make that a bar chart, group by month"})` → inspect/edit the returned `patchSet` → `apply_patch_set
+({patchSet})`.
+
 Plus one **resource**: `helio://workspace/context` — the same payload as
 `get_workspace_context`, so an MCP client can attach it as ambient context.
 

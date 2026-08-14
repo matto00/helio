@@ -12,7 +12,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -285,6 +285,30 @@ final class ApiRoutes(
         val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
         Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient, conversationRepo))
     }
+  // HEL-411: unconditional (not Option-guarded) — every dependency (dashboardRepo/panelRepo/
+  // pipelineService/workspaceContextService/panelCapabilityService) is already constructed
+  // unconditionally above, mirroring workspaceContextService's own "no nullable-repo gate to
+  // check" precedent (design.md D1). RefinementGrounding itself doubles as RefinementService's
+  // target-resolution + ACL check.
+  private val refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
+  // HEL-411 design.md D3/D5: SAME nullable-optional wiring pattern as dashboardAuthoringServiceOpt
+  // above, gated on the SAME ClaudeConfig.fromEnv() + authoringConversationRepoOpt (one shared
+  // conversation store, AC4 — no parallel gate). A fresh ClaudeClient/HttpClaudeTransport pair is
+  // constructed here rather than reusing dashboardAuthoringServiceOpt's local one (out of scope
+  // outside that match arm) — both are cheap, stateless wrappers over the same pooled Pekko HTTP
+  // client, so this costs nothing beyond one extra object allocation per process.
+  private val refinementServiceOpt: Option[RefinementService] =
+    (ClaudeConfig.fromEnv(), authoringConversationRepoOpt) match {
+      case (Left(reason), _) =>
+        log.warn(s"POST /api/refinements disabled: $reason")
+        None
+      case (Right(_), None) =>
+        log.warn("POST /api/refinements disabled: no DbContext configured")
+        None
+      case (Right(claudeConfig), Some(conversationRepo)) =>
+        val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        Some(new RefinementService(refinementGrounding, patchSetPreviewService, claudeClient, conversationRepo))
+    }
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
@@ -452,7 +476,11 @@ final class ApiRoutes(
                   // families above) — a missing ANTHROPIC_API_KEY must degrade this specific
                   // route to a clean 503, not a bare 404 that looks like the path doesn't exist
                   // (task 4.2). DashboardAuthoringRoutes itself handles the `None` case.
-                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser).routes
+                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser).routes,
+                  // HEL-411: mounted UNCONDITIONALLY, same reasoning as DashboardAuthoringRoutes
+                  // above — a missing ANTHROPIC_API_KEY/DbContext must degrade this route to a
+                  // clean 503, not a bare 404. RefinementRoutes itself handles the `None` case.
+                  new RefinementRoutes(refinementServiceOpt, authenticatedUser).routes
                 )
               }
             )

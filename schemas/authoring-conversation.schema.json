@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/authoring-conversation.schema.json",
   "title": "AuthoringConversationView",
-  "description": "200 response body of GET /api/authoring/conversations/:id (HEL-397 design.md D7) — the display-only subset a reloaded chat surface needs to rehydrate a visible thread. RLS-scoped to the owner; 404 for a missing or non-owned id. The server-internal apiHistory (the raw Claude conversation shape) never leaves the server — it is not part of this shape.",
+  "description": "200 response body of GET /api/authoring/conversations/:id (HEL-397 design.md D7, generalized by HEL-411 design.md D3/D4) — the display-only subset a reloaded chat surface needs to rehydrate a visible thread. RLS-scoped to the owner; 404 for a missing or non-owned id. The server-internal apiHistory (the raw Claude conversation shape) never leaves the server — it is not part of this shape. Exactly one of latestProposal/latestPatchSet is ever populated for a real conversation id (an authoring conversation carries latestProposal; a refinement conversation carries latestPatchSet) — never both.",
   "type": "object",
   "required": ["conversationId", "displayTurns"],
   "properties": {
@@ -17,7 +17,11 @@
     },
     "latestProposal": {
       "$ref": "dashboard-proposal.schema.json",
-      "description": "The current working proposal — what \"review & apply\" hands off. Always present for a real conversation id in practice (a conversation row is only ever created once a turn has already succeeded)."
+      "description": "The current working proposal for an AUTHORING conversation — what \"review & apply\" hands off. Absent for a refinement conversation."
+    },
+    "latestPatchSet": {
+      "$ref": "patch-set.schema.json",
+      "description": "The current working patch set for a REFINEMENT conversation (HEL-411) — what \"review & apply\" hands off to /patch-sets/review. Absent for an authoring conversation."
     }
   },
   "additionalProperties": false,

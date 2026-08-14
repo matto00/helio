@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/refinement-request.schema.json",
+  "title": "RefinementRequest",
+  "description": "Body of POST /api/refinements (HEL-411) — a user's natural-language message about an EXISTING dashboard/pipeline, grounded in that target's real current live state (its panels/steps) plus workspace-wide context (HEL-345) and panel-capability menus (HEL-365), and turned by Claude (HEL-390) into a validated PatchSet. Never applies the patch set — applying stays the caller's explicit, separate action via the existing POST /api/patch-sets/apply (HEL-406).",
+  "type": "object",
+  "required": ["target", "message"],
+  "properties": {
+    "target": { "$ref": "#/$defs/RefinementTarget" },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's natural-language refinement request (turn 1), or this turn's follow-up instruction when conversationId is present (turn 2+)."
+    },
+    "conversationId": {
+      "type": "string",
+      "description": "Omit for a fresh single-shot call. When present, continues that owner-scoped, persisted conversation — the server loads its history and the current working patch set; the client never re-sends either. A conversationId belonging to an authoring conversation (or owned by another user) is rejected as not found, never silently reassigned."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "RefinementTarget": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["dashboard", "pipeline"] },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,7 +1,7 @@
 package com.helio.infrastructure
 
 import com.helio.ai.{ClaudeMessage, ClaudeRole}
-import com.helio.api.protocols.{AuthoringDisplayTurn, DashboardProposal}
+import com.helio.api.protocols.{AuthoringDisplayTurn, DashboardProposal, PatchSet}
 import com.helio.domain._
 import com.helio.infrastructure.AuthoringConversationRepository.AuthoringConversationRecord
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -12,6 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.sql.SQLException
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -118,6 +119,24 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
       apiHistory      = Vector(ClaudeMessage(ClaudeRole.User, "Show total revenue"), ClaudeMessage(ClaudeRole.Assistant, """{"dashboardName":"Sales","panels":[]}""")),
       displayTurns    = Vector(AuthoringDisplayTurn("user", "Show total revenue"), AuthoringDisplayTurn("assistant", "Proposed \"Sales\" (0 panel(s))")),
       latestProposal  = Some(DashboardProposal("Sales", Vector.empty)),
+      latestPatchSet  = None,
+      totalTokensUsed = tokensUsed,
+      createdAt       = now,
+      updatedAt       = now
+    )
+  }
+
+  // HEL-411 design.md D3 — the refinement flow's own outcome column, mirroring `newRecord` exactly
+  // but the other way round: `latestPatchSet` populated, `latestProposal` empty.
+  private def newRefinementRecord(owner: UserId, tokensUsed: Int = 30): AuthoringConversationRecord = {
+    val now = Instant.now()
+    AuthoringConversationRecord(
+      id              = AuthoringConversationId(UUID.randomUUID().toString),
+      ownerId         = owner,
+      apiHistory      = Vector(ClaudeMessage(ClaudeRole.User, "Make that a bar chart"), ClaudeMessage(ClaudeRole.Assistant, """{"summary":"Change chart type","edits":[]}""")),
+      displayTurns    = Vector(AuthoringDisplayTurn("user", "Make that a bar chart"), AuthoringDisplayTurn("assistant", "Proposed 0 edits")),
+      latestProposal  = None,
+      latestPatchSet  = Some(PatchSet(Some("Change chart type"), Vector.empty)),
       totalTokensUsed = tokensUsed,
       createdAt       = now,
       updatedAt       = now
@@ -183,7 +202,8 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
         user            = userB,
         apiHistory      = record.apiHistory :+ ClaudeMessage(ClaudeRole.User, "injected"),
         displayTurns    = record.displayTurns :+ AuthoringDisplayTurn("user", "injected"),
-        latestProposal  = DashboardProposal("Hijacked", Vector.empty),
+        latestProposal  = Some(DashboardProposal("Hijacked", Vector.empty)),
+        latestPatchSet  = None,
         totalTokensUsed = 999999,
         updatedAt       = Instant.now()
       ))
@@ -208,7 +228,8 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
         user            = userA,
         apiHistory      = record.apiHistory ++ Vector(newUserMessage, newAssistant),
         displayTurns    = record.displayTurns ++ Vector(AuthoringDisplayTurn("user", "Make it a bar chart"), AuthoringDisplayTurn("assistant", "Proposed \"Sales\" (1 panel(s))")),
-        latestProposal  = DashboardProposal("Sales", Vector.empty),
+        latestProposal  = Some(DashboardProposal("Sales", Vector.empty)),
+        latestPatchSet  = None,
         totalTokensUsed = 55,
         updatedAt       = Instant.now()
       ))
@@ -226,7 +247,8 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
         user            = userA,
         apiHistory      = Vector.empty,
         displayTurns    = Vector.empty,
-        latestProposal  = DashboardProposal("Ghost", Vector.empty),
+        latestProposal  = Some(DashboardProposal("Ghost", Vector.empty)),
+        latestPatchSet  = None,
         totalTokensUsed = 0,
         updatedAt       = Instant.now()
       ))
@@ -240,6 +262,92 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
 
       val rows = await(ctx.withSystemContext(sql"SELECT id FROM authoring_conversations".as[String]))
       rows should contain(record.id.value)
+    }
+
+    // ── HEL-411 design.md D3 — the shared conversation store's dual-outcome-column additions
+    //    (tasks.md 5.2) ────────────────────────────────────────────────────────────────────────
+
+    "create then findById round-trips latest_patch_set for a refinement conversation, with latest_proposal staying NULL" in {
+      cleanDb()
+      val record = newRefinementRecord(ownerA)
+      await(repo.create(record))
+
+      val found = await(repo.findById(record.id, userA))
+      found shouldBe defined
+      found.get.latestPatchSet shouldBe record.latestPatchSet
+      found.get.latestProposal shouldBe empty
+    }
+
+    "an authoring conversation's latest_patch_set stays NULL after every turn, including turn 1" in {
+      cleanDb()
+      val record = newRecord(ownerA)
+      await(repo.create(record))
+
+      val afterTurn1 = await(repo.findById(record.id, userA))
+      afterTurn1.get.latestPatchSet shouldBe empty
+
+      val afterTurn2 = await(repo.appendTurn(
+        id              = record.id,
+        user            = userA,
+        apiHistory      = record.apiHistory,
+        displayTurns    = record.displayTurns,
+        latestProposal  = Some(DashboardProposal("Sales v2", Vector.empty)),
+        latestPatchSet  = None,
+        totalTokensUsed = record.totalTokensUsed,
+        updatedAt       = Instant.now()
+      ))
+      afterTurn2 shouldBe defined
+      afterTurn2.get.latestPatchSet shouldBe empty
+    }
+
+    "a refinement conversation's latest_proposal stays NULL after every turn, including turn 1" in {
+      cleanDb()
+      val record = newRefinementRecord(ownerA)
+      await(repo.create(record))
+
+      val afterTurn1 = await(repo.findById(record.id, userA))
+      afterTurn1.get.latestProposal shouldBe empty
+
+      val afterTurn2 = await(repo.appendTurn(
+        id              = record.id,
+        user            = userA,
+        apiHistory      = record.apiHistory,
+        displayTurns    = record.displayTurns,
+        latestProposal  = None,
+        latestPatchSet  = Some(PatchSet(Some("Turn 2 edits"), Vector.empty)),
+        totalTokensUsed = record.totalTokensUsed,
+        updatedAt       = Instant.now()
+      ))
+      afterTurn2 shouldBe defined
+      afterTurn2.get.latestProposal shouldBe empty
+    }
+
+    "the DB CHECK constraint rejects a write populating both latest_proposal and latest_patch_set" in {
+      cleanDb()
+      val id = AuthoringConversationId(UUID.randomUUID().toString).value
+      val now = Instant.now()
+
+      // Bypasses the repository entirely (raw SQL, privileged pool) — the application-layer
+      // discipline (AuthoringConversationTurns/RefinementConversationTurns each populate only their
+      // own column) is the FIRST line of defense; this asserts the DB-level backstop holds even
+      // when that discipline is circumvented (design.md D3's own stated purpose for the CHECK).
+      val insertBothPopulated = sqlu"""
+        INSERT INTO authoring_conversations
+          (id, owner_id, api_history, display_turns, latest_proposal, latest_patch_set, total_tokens_used, created_at, updated_at)
+        VALUES
+          ($id, ${ownerA.value}::uuid, '[]'::jsonb, '[]'::jsonb, '{"dashboardName":"X","panels":[]}'::jsonb,
+           '{"summary":null,"edits":[]}'::jsonb, 0, ${java.sql.Timestamp.from(now)}, ${java.sql.Timestamp.from(now)})
+      """
+
+      val thrown = intercept[SQLException] {
+        await(ctx.withSystemContext(insertBothPopulated))
+      }
+      thrown.getMessage.toLowerCase should include("constraint")
+
+      // Nothing was left half-written — the whole statement (and its implicit transaction) rolled
+      // back atomically.
+      val rows = await(ctx.withSystemContext(sql"SELECT id FROM authoring_conversations WHERE id = $id".as[String]))
+      rows shouldBe empty
     }
   }
 }
