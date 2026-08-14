@@ -16,19 +16,21 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json._
 
 import java.nio.file.Files
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-/** Route-level coverage for `POST /patch-sets/apply` (HEL-406, tasks.md
- *  7.8) — mirrors `BoundPanelRoutesSpec`'s lightweight fixture shape: a
+/** Route-level coverage for `POST /patch-sets/preview` (HEL-408, tasks.md
+ *  6.6) — mirrors `PatchSetRoutesSpec`'s lightweight fixture shape: a
  *  single (non-RLS-split) `DbContext`, hand-wired repos/services, and
  *  `PatchSetRoutes` constructed directly with an injected
- *  `AuthenticatedUser`. Service-level coverage (7.2-7.7, 7.9-7.11) lives in
- *  `PatchSetApplyServiceSpec`. */
-class PatchSetRoutesSpec
+ *  `AuthenticatedUser`. Service-level coverage (6.1-6.5, including the
+ *  RLS-dependent impact-hint assertions) lives in
+ *  `PatchSetPreviewServiceSpec`. */
+class PatchSetPreviewRoutesSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
@@ -56,9 +58,7 @@ class PatchSetRoutesSpec
   private var patchSetPreviewService: PatchSetPreviewService = _
 
   private val userAId = UUID.randomUUID().toString
-  private val userBId = UUID.randomUUID().toString
   private val userA   = AuthenticatedUser(UserId(userAId))
-  private val userB   = AuthenticatedUser(UserId(userBId))
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -87,7 +87,7 @@ class PatchSetRoutesSpec
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-routes-spec"))
+    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-preview-routes-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
@@ -116,26 +116,52 @@ class PatchSetRoutesSpec
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@helio.test"}, now())""",
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userBId::uuid, ${s"b-$userBId@helio.test"}, now())"""
-    )))
+    await(db.run(
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@helio.test"}, now())"""
+    ))
   }
 
   private def routesFor(user: AuthenticatedUser): Route =
     new PatchSetRoutes(patchSetApplyService, patchSetPreviewService, user)(typedSystem).routes
 
-  "POST /patch-sets/apply" should {
+  "POST /patch-sets/preview" should {
 
-    // Dashboard-update (not panel-update): DashboardService.update's own ACL
-    // path reads via the SHARING-AWARE dashboardRepo.findById, which hides a
-    // no-grant caller's row entirely (404, no existence leak) -- the same
-    // rule design.md D2 has this route's pre-validation reuse. (A panel
-    // update instead would 403 here, matching authorizeEditorOnDashboard's
-    // own accessChecker.requireAccess-based rule -- also "identical to the
-    // real route," just a different status for a different real rule.)
-    "reject a cross-owner edit identically to the target dashboard's own existing PATCH route -- 404, no mutation (7.8)" in {
+    "return the computed diff, and a subsequent read of every named resource shows it unchanged (6.6)" in {
+      val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Preview dashboard")), userA))._1
+      val panel = await(panelService.create(
+        CreatePanelRequest(Some(dashboard.id.value), Some("Preview panel"), Some("metric"), None), userA
+      )) match {
+        case Right(p) => p
+        case Left(e)  => fail(s"panel seed failed: $e")
+      }
+
+      val body = PatchSet(None, Vector(
+        Edit(EditTarget("panel", Some(panel.id.value)), "update",
+          Some(UpdatePanelRequest(Some("Previewed title"), None, None, None)), None, None, None, None, None, None),
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some("Previewed dashboard"), None, None)), None, None, None, None, None)
+      ))
+
+      Post("/patch-sets/preview", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[PatchSetPreviewResponse]
+        response.edits should have size 2
+        response.edits(0).after.getOrElse(fail("expected after")).convertTo[PanelResponse].title shouldBe "Previewed title"
+        response.edits(1).after.getOrElse(fail("expected after")).convertTo[DashboardResponse].name shouldBe "Previewed dashboard"
+      }
+
+      // Nothing was actually written by the preview call.
+      await(panelRepo.findByIdInternal(panel.id)).map(_.title) shouldBe Some("Preview panel")
+      await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Preview dashboard")
+    }
+
+    "reject a cross-owner edit identically to the target dashboard's own existing PATCH route -- 404, no mutation" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Owner-only dashboard")), userA))._1
+      val otherUser = AuthenticatedUser(UserId(UUID.randomUUID().toString))
+      import PostgresProfile.api._
+      await(db.run(
+        sqlu"""INSERT INTO users (id, email, created_at) VALUES (${otherUser.id.value}::uuid, ${s"b-${otherUser.id.value}@helio.test"}, now())"""
+      ))
 
       val body = PatchSet(None, Vector(Edit(
         EditTarget("dashboard", Some(dashboard.id.value)), "update",
@@ -143,7 +169,7 @@ class PatchSetRoutesSpec
         None, None, None, None, None
       )))
 
-      Post("/patch-sets/apply", body) ~> routesFor(userB) ~> check {
+      Post("/patch-sets/preview", body) ~> routesFor(otherUser) ~> check {
         status shouldBe StatusCodes.NotFound
       }
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Owner-only dashboard")

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/patch-set-preview-response.schema.json",
+  "title": "PatchSetPreviewResponse",
+  "description": "Response body of POST /api/patch-sets/preview (HEL-408). One EditPreview per edit, in the caller's given order. The preview computes each edit's before/after state and impact hints PURELY IN MEMORY -- no resource named in the patch set is ever mutated by this call. See EditPreview's own description for the before/after/impact contract (design.md D2/D3/D4).",
+  "type": "object",
+  "required": ["edits"],
+  "properties": {
+    "edits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EditPreview" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "EditPreview": {
+      "type": "object",
+      "description": "before/after reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/DataTypeResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a six-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref (mirrors patch-set-apply-response.schema.json's identical EditOutcome convention).",
+      "required": ["index", "kind", "op", "impact"],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The edit's position in the original patch set's edits array."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]
+        },
+        "op": {
+          "type": "string",
+          "enum": ["update", "delete", "create"]
+        },
+        "before": {
+          "type": "object",
+          "description": "The resource's full pre-edit state, serialized using its target kind's existing response shape. Absent for create edits."
+        },
+        "after": {
+          "type": "object",
+          "description": "The resource's projected post-edit state, computed purely in memory (no write). Absent for delete edits. A create edit's `after.id` carries the literal sentinel string \"(pending)\", never a real minted id."
+        },
+        "impact": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Cascade/staleness hints a user should know about before accepting this edit (design.md D4). Empty when the edit has no such consequence."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

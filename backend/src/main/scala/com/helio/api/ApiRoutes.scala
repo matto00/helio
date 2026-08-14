@@ -12,7 +12,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -198,6 +198,14 @@ final class ApiRoutes(
   // writes of its own.
   private val patchSetApplyService = new PatchSetApplyService(
     panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+    metricRepo, accessChecker
+  )
+  // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
+  // (same package) for pre-validation; needs only the repos/accessChecker
+  // its projection reads directly (design.md D1a/D4), never the per-resource
+  // *Service instances apply's forward path writes through.
+  private val patchSetPreviewService = new PatchSetPreviewService(
     panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
     metricRepo, accessChecker
   )
@@ -416,7 +424,7 @@ final class ApiRoutes(
                   // HEL-406: brand-new top-level `patch-sets` prefix (mirrors
                   // `proposals` above) — shares no path space with any
                   // existing route, so mount order is irrelevant.
-                  new PatchSetRoutes(patchSetApplyService, authenticatedUser).routes,
+                  new PatchSetRoutes(patchSetApplyService, patchSetPreviewService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,

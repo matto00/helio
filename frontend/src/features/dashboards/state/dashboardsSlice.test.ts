@@ -1,7 +1,9 @@
 import {
   applyProposal,
   createDashboard,
+  dashboardRemoved,
   dashboardsReducer,
+  dashboardUpserted,
   fetchDashboards,
   importDashboard,
   setDashboardLayoutLocally,
@@ -514,5 +516,121 @@ describe("dashboardsSlice", () => {
       h: 5,
     });
     expect(nextState.items[0].meta.lastUpdated).toBe("2026-04-30T10:00:00Z");
+  });
+
+  // ── dashboardUpserted / dashboardRemoved (HEL-408, patch-set apply's
+  // post-Accept cache invalidation — no dedicated thunk of its own to hang
+  // an `extraReducers` case off, unlike every other mutation above) ────────
+
+  describe("dashboardUpserted", () => {
+    it("replaces an existing dashboard by id, field-for-field", () => {
+      const initialState = dashboardsReducer(
+        undefined,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+          ],
+          "request-id",
+          undefined,
+        ),
+      );
+
+      const renamed = {
+        id: "dashboard-1",
+        name: "Renamed via patch set",
+        meta: { ...defaultMeta, lastUpdated: "2026-05-01T00:00:00Z" },
+        appearance: defaultAppearance,
+        layout: defaultLayout,
+      };
+      const nextState = dashboardsReducer(initialState, dashboardUpserted(renamed));
+
+      expect(nextState.items).toHaveLength(1);
+      expect(nextState.items[0]).toEqual(renamed);
+    });
+
+    it("appends a new dashboard when its id is not already cached", () => {
+      const initialState = dashboardsReducer(undefined, { type: "@@INIT" });
+      const created = {
+        id: "dashboard-new",
+        name: "New via patch set",
+        meta: defaultMeta,
+        appearance: defaultAppearance,
+        layout: defaultLayout,
+      };
+      const nextState = dashboardsReducer(initialState, dashboardUpserted(created));
+
+      expect(nextState.items).toEqual([created]);
+    });
+  });
+
+  describe("dashboardRemoved", () => {
+    it("removes the dashboard by id and reselects the next most-recent one", () => {
+      const initialState = dashboardsReducer(
+        undefined,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+            {
+              id: "dashboard-2",
+              name: "Executive",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+          ],
+          "request-id",
+          undefined,
+        ),
+      );
+      expect(initialState.selectedDashboardId).toBe("dashboard-1");
+
+      const nextState = dashboardsReducer(initialState, dashboardRemoved("dashboard-1"));
+
+      expect(nextState.items.map((d) => d.id)).toEqual(["dashboard-2"]);
+      expect(nextState.selectedDashboardId).toBe("dashboard-2");
+    });
+
+    it("leaves selection unchanged when the removed dashboard was not selected", () => {
+      const initialState = dashboardsReducer(
+        undefined,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+            {
+              id: "dashboard-2",
+              name: "Executive",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+          ],
+          "request-id",
+          undefined,
+        ),
+      );
+
+      const nextState = dashboardsReducer(initialState, dashboardRemoved("dashboard-2"));
+
+      expect(nextState.items.map((d) => d.id)).toEqual(["dashboard-1"]);
+      expect(nextState.selectedDashboardId).toBe("dashboard-1");
+    });
   });
 });

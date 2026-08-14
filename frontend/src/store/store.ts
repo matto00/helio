@@ -6,6 +6,7 @@ import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice"
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
+import { patchSetsReducer } from "../features/patchSets/state/patchSetsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
@@ -23,6 +24,7 @@ export const store = configureStore({
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
     metrics: metricsReducer,
+    patchSets: patchSetsReducer,
     pipelines: pipelinesReducer,
     sources: sourcesReducer,
     toasts: toastsReducer,

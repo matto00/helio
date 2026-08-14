@@ -1,0 +1,112 @@
+.patch-set-review__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.patch-set-review__section-label {
+  margin-bottom: var(--space-2);
+  color: var(--app-text-muted);
+}
+
+.patch-set-review__empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+.patch-set-review__edits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.patch-set-review__edit {
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.patch-set-review__edit-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.patch-set-review__kind {
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.patch-set-review__op {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--app-text-muted);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  white-space: nowrap;
+}
+
+.patch-set-review__impact {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.patch-set-review__impact-item {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-warning);
+}
+
+.patch-set-review__diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.patch-set-review__diff-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.patch-set-review__diff-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--app-text-muted);
+}
+
+.patch-set-review__json {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: var(--text-xs);
+  overflow: auto;
+  max-height: 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

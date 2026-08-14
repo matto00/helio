@@ -210,6 +210,29 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     ).map(_.map(rowToDomain))
   }
 
+  /** RLS-scoped detection for HEL-408's dataType-delete impact hint
+   *  (design.md D4's detection mechanism, round-2 REFUTE fix): counts panels
+   *  bound to `dataTypeId` VISIBLE to `user` under `panels_select`'s own
+   *  dashboard-ACL RLS policy (`USING (helio_can_access_dashboard(
+   *  dashboard_id))`, `V36__rls_sharing_aware_tables.sql:146-148`) --
+   *  deliberately NO `owner_id` predicate in this SQL; the RLS policy is the
+   *  ONLY scoping mechanism, so this single un-filtered query already
+   *  returns "panels bound to this type that this user can see" (owner OR
+   *  sharing grant), combining `existsBoundToAnyOwnedPanel`'s
+   *  already-known-`false` owned case with a genuinely different cross-owner
+   *  case in one call.
+   *
+   *  Run on the APP pool (`withUserContext`), never the privileged pool --
+   *  see design.md D4's "Why RLS-scoped, not privileged" for why a
+   *  privileged query here would leak an unrelated tenant's private
+   *  resource's existence via the hint text. Mirrors `DataTypeRepository.
+   *  existsBoundToAnyOwnedPanel`'s `withUserContext`/raw-SQL style,
+   *  deliberately WITHOUT its `owner_id` clause. */
+  def existsBoundToType(dataTypeId: DataTypeId, user: AuthenticatedUser): Future[Boolean] =
+    ctx.withUserContext(user.id.value)(
+      sql"SELECT COUNT(*) FROM panels WHERE type_id = ${dataTypeId.value}".as[Int].head
+    ).map(_ > 0)
+
 }
 
 object PanelRepository {
