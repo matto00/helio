@@ -14,12 +14,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRotateLeft,
   faArrowRotateRight,
+  faCommentDots,
   faSun,
   faMoon,
 } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
+import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SidebarBody, sectionFromPathname } from "../shared/chrome/SidebarBody";
 import { BottomNav } from "../shared/chrome/BottomNav";
@@ -93,6 +95,7 @@ function AppShell() {
   const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const [isMobileNavSheetOpen, setIsMobileNavSheetOpen] = useState(false);
+  const [isRefinementOpen, setIsRefinementOpen] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -397,6 +400,17 @@ function AppShell() {
               </>
             )}
             {onDashboardView && <DashboardAppearanceEditor dashboard={selectedDashboard} />}
+            {onDashboardView && selectedDashboard !== null && (
+              <button
+                type="button"
+                className="topbar-theme-btn"
+                onClick={() => setIsRefinementOpen(true)}
+                aria-label="Refine this dashboard with AI"
+                title="Refine with AI"
+              >
+                <FontAwesomeIcon icon={faCommentDots} />
+              </button>
+            )}
             <button
               type="button"
               className="topbar-theme-btn"
@@ -475,6 +489,16 @@ function AppShell() {
         onSelect={handleMobileSheetSelect}
         emptyMessage={mobileSheetEmptyMessage[mobileSection]}
       />
+      {/* HEL-411 design.md D6 — gated on selectedDashboardId !== null: RefinementChatDrawer's
+          dashboardId prop is required (the drawer always targets the currently-open dashboard,
+          never a user-typed id), so it's simply not mounted when nothing is selected. */}
+      {selectedDashboardId !== null && (
+        <RefinementChatDrawer
+          open={isRefinementOpen}
+          onClose={() => setIsRefinementOpen(false)}
+          dashboardId={selectedDashboardId}
+        />
+      )}
     </SaveStateContext.Provider>
   );
 }

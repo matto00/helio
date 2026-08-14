@@ -113,8 +113,9 @@ final class DashboardAuthoringService(
    *  Not part of the telemetry funnel (no `author`/`authorStreaming` terminal outcome here). */
   def getConversation(id: AuthoringConversationId, user: AuthenticatedUser): Future[Either[ServiceError, AuthoringConversationView]] =
     conversationRepo.findDisplayById(id, user).map {
-      case None                                       => Left(ServiceError.NotFound())
-      case Some((displayTurns, latestProposal)) => Right(AuthoringConversationView(id.value, displayTurns, latestProposal))
+      case None => Left(ServiceError.NotFound())
+      case Some((displayTurns, latestProposal, latestPatchSet)) =>
+        Right(AuthoringConversationView(id.value, displayTurns, latestProposal, latestPatchSet))
     }
 
   // ── Turn 1 (no conversationId) ─────────────────────────────────────────
@@ -212,10 +213,18 @@ final class DashboardAuthoringService(
   /** Loads a conversation for continuation — missing/not-owned → `NotFound` (design.md D2, same
    *  owner-or-404 treatment `MetricRepository` uses; no `AuthoringErrorKind` — outside the ticket's
    *  four defined categories, design.md D1); an already-exhausted per-conversation token budget →
-   *  `UnprocessableEntity` (kind `BudgetExceeded`, design.md D2) BEFORE any Claude call. */
+   *  `UnprocessableEntity` (kind `BudgetExceeded`, design.md D2) BEFORE any Claude call.
+   *
+   *  HEL-411 design.md D3a: a record belonging to the OTHER flow (here, a refinement conversation —
+   *  `latestProposal.isEmpty`, since `RefinementConversationTurns` only ever populates
+   *  `latestPatchSet`) is rejected the SAME "not found" shape an owner mismatch already gets —
+   *  checked BEFORE the token-budget branch so a cross-flow id never reaches (and never silently
+   *  reassigns) this flow's own outcome column via `appendTurn`'s unconditional column overwrite. */
   private def loadForContinuation(id: AuthoringConversationId, user: AuthenticatedUser): Future[Either[AuthoringError, AuthoringConversationRecord]] =
     conversationRepo.findById(id, user).map {
       case None => Left(AuthoringError.plain(ServiceError.NotFound()))
+      case Some(record) if record.latestProposal.isEmpty =>
+        Left(AuthoringError.plain(ServiceError.NotFound()))
       case Some(record) if record.totalTokensUsed >= AuthoringHistoryBudget.DefaultMaxConversationTokens =>
         Left(AuthoringError.kinded(
           AuthoringErrorKind.BudgetExceeded,

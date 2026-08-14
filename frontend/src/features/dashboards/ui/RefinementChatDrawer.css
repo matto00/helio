@@ -1,0 +1,258 @@
+/* ── Refine with AI chat drawer (HEL-411) ─────────────────────────────────
+ * A right-hand drawer overlay, sibling to AuthoringChatDrawer.css (design.md D6) — shares the
+ * popover z-index layer with ActionsMenu/Select/MobileNavSheet so stacking stays consistent with
+ * the rest of the app. Portalled to document.body. Structurally identical recipe to
+ * AuthoringChatDrawer.css, renamed class prefix — kept as a separate file (not a shared stylesheet)
+ * so the two drawers can diverge visually later without cross-editing. */
+
+.refinement-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover-scrim);
+  background: var(--app-overlay);
+  border: none;
+  padding: 0;
+  cursor: default;
+  animation: refinement-drawer-backdrop-in var(--app-transition) both;
+}
+
+@keyframes refinement-drawer-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.refinement-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-popover);
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Opaque per DESIGN.md — overlays never let the page bleed through. */
+  background: var(--app-surface-strong);
+  border-left: 1px solid var(--app-border-subtle);
+  box-shadow: var(--app-shadow-soft);
+  padding: var(--space-5);
+  overflow-y: auto;
+  animation: refinement-drawer-in var(--transition-slow) both;
+}
+
+@keyframes refinement-drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refinement-drawer,
+  .refinement-drawer__backdrop {
+    animation: none;
+  }
+}
+
+.refinement-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.refinement-drawer__title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.refinement-drawer__close {
+  flex-shrink: 0;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.refinement-drawer__close:hover {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.refinement-drawer__description {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Multi-turn thread — one entry per completed turn, oldest first. ────────────────────────── */
+
+.refinement-drawer__thread {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.refinement-drawer__turn {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+}
+
+.refinement-drawer__turn-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.refinement-drawer__turn-text {
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.refinement-drawer__form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.refinement-drawer__input {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.refinement-drawer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.refinement-drawer__submit,
+.refinement-drawer__review,
+.refinement-drawer__retry {
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.refinement-drawer__submit {
+  border: 1px solid transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.refinement-drawer__submit:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.refinement-drawer__submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.refinement-drawer__review,
+.refinement-drawer__retry {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.refinement-drawer__review:hover,
+.refinement-drawer__retry:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.refinement-drawer__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+.refinement-drawer__spinner {
+  flex-shrink: 0;
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--app-border-subtle);
+  border-top-color: var(--app-accent);
+  border-radius: 50%;
+  animation: refinement-drawer-spin 0.7s linear infinite;
+}
+
+@keyframes refinement-drawer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.refinement-drawer__error-block {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.refinement-drawer__error-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .refinement-drawer__close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .refinement-drawer__submit,
+  .refinement-drawer__review,
+  .refinement-drawer__retry {
+    min-height: 44px;
+  }
+}

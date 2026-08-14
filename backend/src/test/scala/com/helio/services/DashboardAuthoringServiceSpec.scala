@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal}
+import com.helio.api.protocols.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal, PatchSet}
 import com.helio.domain._
 import com.helio.infrastructure._
 import org.apache.pekko.NotUsed
@@ -516,6 +516,7 @@ class DashboardAuthoringServiceSpec
       apiHistory      = apiHistory,
       displayTurns    = Vector(AuthoringDisplayTurn("user", "seed"), AuthoringDisplayTurn("assistant", "seed-response")),
       latestProposal  = Some(DashboardProposal("Seed", Vector.empty)),
+      latestPatchSet  = None,
       totalTokensUsed = totalTokensUsed,
       createdAt       = now,
       updatedAt       = now
@@ -652,6 +653,45 @@ class DashboardAuthoringServiceSpec
       result shouldBe a[Left[_, _]]
       result.swap.toOption.get.serviceError shouldBe a[ServiceError.NotFound]
       transport.sendInvocations.get() shouldBe 0
+    }
+
+    // HEL-411 design.md D3a (tasks.md 5.4) — the symmetric counterpart of
+    // RefinementServiceSpec's own cross-flow test: a REFINEMENT conversation's id (latestProposal
+    // empty, latestPatchSet populated) must be rejected the SAME "not found" shape an owner
+    // mismatch gets when passed to `POST /api/authoring/dashboard`'s own continuation path, and
+    // MUST NOT silently reassign that row's latestProposal column via appendTurn's unconditional
+    // overwrite.
+    "a refinement conversationId passed to authoring continuation is rejected as NotFound, and leaves its latestPatchSet completely unchanged" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val originalPatchSet = PatchSet(Some("Seed refinement"), Vector.empty)
+      val now = Instant.now()
+      val refinementRecord = AuthoringConversationRepository.AuthoringConversationRecord(
+        id              = AuthoringConversationId(UUID.randomUUID().toString),
+        ownerId         = user.id,
+        apiHistory      = Vector.empty,
+        displayTurns    = Vector(AuthoringDisplayTurn("user", "seed")),
+        latestProposal  = None,
+        latestPatchSet  = Some(originalPatchSet),
+        totalTokensUsed = 0,
+        createdAt       = now,
+        updatedAt       = now
+      )
+      await(conversationRepo.create(refinementRecord))
+
+      val transport = new FakeClaudeTransport()
+      val service   = newAuthoringService(transport)
+
+      val result = await(service.author(DashboardAuthoringRequest("hijack", None, Some(refinementRecord.id.value)), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.NotFound]
+      transport.sendInvocations.get() shouldBe 0
+
+      val stillThere = await(conversationRepo.findById(refinementRecord.id, user))
+      stillThere shouldBe defined
+      stillThere.get.latestPatchSet shouldBe Some(originalPatchSet)
+      stillThere.get.latestProposal shouldBe empty
     }
 
     "authorStreaming with conversationId continues the conversation and the terminal Result event carries the same conversationId" in {

@@ -1,4 +1,5 @@
 import type { DashboardProposal } from "./proposal";
+import type { PatchSet } from "../../patchSets/types/patchSet";
 
 /** `POST /api/authoring/dashboard` request body (HEL-392, extended by HEL-397).
  *  `contextOptions` (budget tuning) is intentionally omitted — not exposed in
@@ -53,10 +54,14 @@ export interface AuthoringDisplayTurn {
 
 /** `GET /api/authoring/conversations/:id` response — mirrors
  *  `AuthoringConversationProtocol.scala`'s `AuthoringConversationView` (HEL-397
- *  design.md D7). The server-internal `apiHistory` never crosses this
- *  boundary. */
+ *  design.md D7, generalized by HEL-411 design.md D3/D4 to also carry a refinement
+ *  conversation's `latestPatchSet`). The server-internal `apiHistory` never crosses this
+ *  boundary. Exactly one of `latestProposal`/`latestPatchSet` is ever populated for a real
+ *  conversation id — an authoring drawer reads `latestProposal`, a refinement drawer reads
+ *  `latestPatchSet`; each ignores the other. */
 export interface AuthoringConversationView {
   conversationId: string;
   displayTurns: AuthoringDisplayTurn[];
   latestProposal?: DashboardProposal;
+  latestPatchSet?: PatchSet;
 }

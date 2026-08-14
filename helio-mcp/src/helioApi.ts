@@ -36,6 +36,8 @@ import type {
   Paged,
   PanelCapabilitiesResponse,
   PanelResponse,
+  PatchSet,
+  PatchSetApplyResponse,
   PipelineAnalyzeProposalResponse,
   PipelineAnalyzeResponse,
   PipelineProposal,
@@ -44,6 +46,7 @@ import type {
   PipelineStepResponse,
   PipelineSummaryResponse,
   ProposalPanel,
+  RefinementResult,
   RestAuthInput,
   RowsPreview,
   RunResultResponse,
@@ -711,6 +714,27 @@ export class HelioApi {
       "/api/dashboards/apply-proposal",
       proposal,
     );
+  }
+
+  /** `POST /api/refinements` (HEL-411) — grounds Claude in a target dashboard/pipeline's live
+   *  state and returns a validated `PatchSet`; writes NOTHING (mirrors `updatePanel`, HEL-627 — a
+   *  thin pass-through, no client-side composition). `conversationId` (design.md D3), when given,
+   *  continues that SAME conversation across turns; omitted starts a fresh one. */
+  proposePatchSet(input: {
+    target: { kind: "dashboard" | "pipeline"; id: string };
+    message: string;
+    conversationId?: string;
+  }): Promise<RefinementResult> {
+    return this.http.post<RefinementResult>("/api/refinements", input);
+  }
+
+  /** Apply an accepted `PatchSet` atomically (HEL-406, `POST /api/patch-sets/apply`) — the SAME
+   *  reviewed-artifact write path `applyProposal` uses for dashboards, reused verbatim here so a
+   *  refinement applies through the one atomic, reviewable primitive instead of N raw per-resource
+   *  PATCH calls. Thin pass-through, mirrors `applyProposal`'s style — no client-side
+   *  re-validation or retry. */
+  applyPatchSet(patchSet: PatchSet): Promise<PatchSetApplyResponse> {
+    return this.http.post<PatchSetApplyResponse>("/api/patch-sets/apply", patchSet);
   }
 
   /** Apply a reviewed `PipelineProposal` atomically (HEL-383,

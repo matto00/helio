@@ -45,8 +45,11 @@ import com.helio.api.protocols._
  *    CreatePipelineStepRequest)
  *  - `DashboardAuthoringProtocol extends DashboardProposalProtocol` (DashboardAuthoringResponse
  *    nests DashboardProposal verbatim — HEL-392)
- *  - `AuthoringConversationProtocol extends DashboardProposalProtocol` (AuthoringConversationView
- *    nests DashboardProposal verbatim — HEL-397)
+ *  - `AuthoringConversationProtocol extends DashboardProposalProtocol with PatchSetProtocol`
+ *    (AuthoringConversationView nests DashboardProposal verbatim — HEL-397 — and, since HEL-411
+ *    design.md D3/D4, PatchSet verbatim too — one shared conversation-view shape for both flows)
+ *  - `RefinementProtocol extends PatchSetProtocol` (RefinementResponse nests PatchSet verbatim —
+ *    HEL-411)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -89,3 +92,4 @@ trait JsonProtocols
     with HookProtocol
     with DashboardAuthoringProtocol
     with AuthoringConversationProtocol
+    with RefinementProtocol

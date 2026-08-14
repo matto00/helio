@@ -20,6 +20,7 @@ import { registerWriteTools } from "./tools/write.js";
 import { registerProposalTools } from "./tools/proposal.js";
 import { registerPipelineProposalTools } from "./tools/pipelineProposal.js";
 import { registerCombinedProposalTools } from "./tools/combinedProposal.js";
+import { registerRefinementTools } from "./tools/refinement.js";
 import { buildWorkspaceContext } from "./context.js";
 
 const WORKSPACE_CONTEXT_URI = "helio://workspace/context";
@@ -32,6 +33,7 @@ export function createServer(api: HelioApi): McpServer {
   registerProposalTools(server, api);
   registerPipelineProposalTools(server, api);
   registerCombinedProposalTools(server, api);
+  registerRefinementTools(server, api);
 
   // The same workspace snapshot as `get_workspace_context`, exposed as a
   // resource so MCP clients can attach it as ambient context.

@@ -648,3 +648,57 @@ export interface CombinedProposalApplyResponse {
   pipeline: PipelineProposalApplyResponse;
   dashboard: { dashboard: DashboardResponse; panels: PanelResponse[] };
 }
+
+// ── Patch set (HEL-403/406/408, consumed here by HEL-411's refinement tools)
+// — mirrors `backend/.../api/protocols/PatchSetProtocol.scala` /
+// `schemas/patch-set.schema.json` ───────────────────────────────────────────
+
+/** Identifies the resource an `Edit` applies to. `id` is required for
+ *  update/delete, absent for create (the resource does not yet exist). */
+export interface EditTarget {
+  kind: "panel" | "dashboard" | "dataSource" | "dataType" | "pipeline" | "pipelineStep";
+  id?: string;
+}
+
+/** One targeted edit. `patch`'s real shape reuses the existing per-resource
+ *  PATCH/create request shape matching `target.kind` (the same type the
+ *  matching PATCH/create endpoint already decodes) — never a new shape
+ *  invented for the patch-set wire format. Absent for `op: "delete"`. */
+export interface Edit {
+  target: EditTarget;
+  op: "update" | "delete" | "create";
+  patch?: Record<string, unknown>;
+}
+
+/** An ordered list of targeted edits — the shared Propose → Review → Apply
+ *  artifact `propose_patch_set`/`apply_patch_set` (HEL-411) hand off between
+ *  themselves, unmodified. */
+export interface PatchSet {
+  summary?: string;
+  edits: Edit[];
+}
+
+/** One edit's outcome from `POST /api/patch-sets/apply`. */
+export interface EditOutcome {
+  index: number;
+  status: "applied" | "rolledBack" | "recreated" | "unrecoverable";
+  newId?: string | null;
+  priorState?: Record<string, unknown> | null;
+  resultingState?: Record<string, unknown> | null;
+}
+
+/** `POST /api/patch-sets/apply` response (HEL-406) — `failure` is present
+ *  only when a mid-set edit failed and triggered a rollback. */
+export interface PatchSetApplyResponse {
+  edits: EditOutcome[];
+  failure?: string | null;
+}
+
+/** `POST /api/refinements` response (HEL-411) — mirrors the backend's
+ *  `RefinementResponse`. `patchSet` is already proven valid
+ *  (`PatchSetPreviewService.preview`) and unapplied; `conversationId` is
+ *  passed back to continue refining the same target across turns. */
+export interface RefinementResult {
+  patchSet: PatchSet;
+  conversationId: string;
+}
