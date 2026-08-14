@@ -69,3 +69,32 @@
       `ProposalReviewPage` suites still pass — additive fields only, no behavior change to the happy
       path or to `apply-proposal` itself.
 - [x] 5.5 `sbt test` + `npm test` + lint/format green; zero real network calls.
+
+## 6. Follow-up fold-in (post-evaluation, delivery-time approved)
+
+- [x] 6.1 Move `DashboardAuthoringService.scala`'s telemetry-outcome helpers
+      (`failWithTelemetry`/`succeedWithTelemetry`/`failStreamEvent`/`succeedStreamEvent`) into a new
+      sibling object (e.g. `AuthoringOutcomeHelpers`, defined in a new file alongside
+      `AuthoringTelemetry.scala` — NOT merged directly into the `AuthoringTelemetry` object itself,
+      whose own doc comment scopes it to pure log emission; blending in functions that also
+      construct `DashboardAuthoringResponse`/`AuthoringStreamEvent.Result` domain objects would blur
+      that). `succeedWithTelemetry`/`succeedStreamEvent` currently take the whole
+      `AttemptOutcome` case class as a parameter, which is `private` to `DashboardAuthoringService`
+      (`DashboardAuthoringService.scala:86`) and cannot be referenced from outside it — resolve this
+      by having the moved functions take `proposal`/`warnings`/`tokens` (`AttemptOutcome`'s
+      constituent fields) as separate parameters instead of the case class itself, not by widening
+      `AttemptOutcome`'s visibility. All 4 helpers move; none stay inline. Behavior-preserving only —
+      no change to what gets logged, when, or with what field values. This brings
+      `DashboardAuthoringService.scala` closer to (not reliably under, at ~415-420 lines) CONTRIBUTING.md's
+      ~400-line informational split threshold — the threshold itself is soft/informational, and AC8
+      only requires the helpers to live elsewhere, not a specific resulting line count.
+      Also thread `modelId: String` as an explicit parameter (all 4 helpers currently read
+      `claudeClient.modelId`, an instance member of `DashboardAuthoringService` that's out of scope
+      once moved — mirror `AuthoringTelemetry.emitGenerated`/`emitFailed`'s own existing `modelId:
+      String` parameter), and declare the same `(implicit ec: ExecutionContextExecutor)` those two
+      functions take, so it threads automatically from each call site.
+- [x] 6.2 Add an assertion to `AuthoringTelemetrySpec`'s "generated" outcome tests (both buffered and
+      streaming) that the captured telemetry line's `authoringRequestId` field equals the
+      `authoringRequestId` actually returned in the response — closing the one gap in test coverage
+      for design.md D4's funnel-correlation claim (the field that lets a later
+      `accepted`/`rejected` outcome line join back to its originating `generated` line).

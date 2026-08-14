@@ -21,6 +21,16 @@ regressions. This is the epic's last ticket: distinct, actionable failure UX, an
 - Frontend: distinct UX per failure kind on the chat surface (retry for `ModelFailure`, a refine
   prompt for `InvalidProposal`, the existing `EmptyState` component — reused, not reinvented — for
   `EmptyWorkspace`, a clear budget message for `BudgetExceeded`).
+- Follow-up fold-in (approved at delivery time, folded into this same change rather than a
+  separate ticket — small effort, high overlap with this diff, no future ticket in the epic to
+  defer to): relocate `DashboardAuthoringService.scala`'s telemetry-outcome helper functions into
+  a new sibling object alongside `AuthoringTelemetry.scala` (behavior-preserving; `succeedWithTelemetry`/
+  `succeedStreamEvent` take `AttemptOutcome`'s constituent fields as separate parameters rather
+  than the case class itself, which is private to `DashboardAuthoringService` — no visibility
+  widening. Brings the service closer to CONTRIBUTING.md's informational file-size threshold, not
+  reliably under it), and add the one missing `authoringRequestId` correlation assertion to
+  `AuthoringTelemetrySpec`'s "generated" outcome tests so D4's funnel-correlation claim is
+  actually test-verified end-to-end.
 
 ## Capabilities
 

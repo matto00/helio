@@ -307,11 +307,14 @@ class AuthoringTelemetrySpec
         s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)), modelId)
 
+      var responseAuthoringRequestId: String = ""
+
       JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
           val obj = responseAs[String].parseJson.asJsObject
           obj.fields.keySet should contain("authoringRequestId")
+          responseAuthoringRequestId = obj.fields("authoringRequestId").convertTo[String]
         }
 
         eventually {
@@ -325,6 +328,10 @@ class AuthoringTelemetrySpec
           lines.head.fields.keySet should contain("goalHash")
           lines.head.fields.keySet should not contain "goal"
           lines.head.fields(TraceContextDirective.TraceMdcKey) shouldBe JsString(TraceValue)
+          // design.md D4's funnel-correlation claim: the telemetry line's authoringRequestId is the
+          // SAME id the caller can later replay to POST /api/authoring/requests/:id/outcome, not
+          // just present as a key.
+          lines.head.fields("authoringRequestId") shouldBe JsString(responseAuthoringRequestId)
         }
       }
     }
@@ -401,6 +408,8 @@ class AuthoringTelemetrySpec
         s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.TextDelta(validJson), ClaudeStreamEvent.MessageStop)), modelId)
 
+      var resultAuthoringRequestId: String = ""
+
       JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
         tracedPost("/authoring/dashboard?stream=true", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
@@ -408,6 +417,7 @@ class AuthoringTelemetrySpec
           val terminal = events.filter(_._1 == "authoring-result")
           terminal should have size 1
           terminal.head._2.fields.keySet should contain("authoringRequestId")
+          resultAuthoringRequestId = terminal.head._2.fields("authoringRequestId").convertTo[String]
         }
 
         eventually {
@@ -415,6 +425,9 @@ class AuthoringTelemetrySpec
           lines should have size 1
           lines.head.fields("outcome") shouldBe JsString("generated")
           lines.head.fields(TraceContextDirective.TraceMdcKey) shouldBe JsString(TraceValue)
+          // design.md D4's funnel-correlation claim — same value the terminal Result event carries,
+          // not just present as a key.
+          lines.head.fields("authoringRequestId") shouldBe JsString(resultAuthoringRequestId)
         }
       }
     }

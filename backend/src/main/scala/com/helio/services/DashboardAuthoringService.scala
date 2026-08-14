@@ -19,7 +19,6 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.{Map => JMap}
-import java.util.UUID
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** `POST /api/authoring/dashboard` (HEL-392, extended by HEL-397, and by HEL-401 for error kinds +
@@ -126,21 +125,25 @@ final class DashboardAuthoringService(
       mdcSnapshot: JMap[String, String]
   ): Future[Either[AuthoringError, DashboardAuthoringResponse]] =
     assembleGroundedContext(user, request.contextOptions).flatMap {
-      case Left(err) => Future.successful(failWithTelemetry(err, request.goal, mdcSnapshot))
+      case Left(err) => Future.successful(AuthoringOutcomeHelpers.failWithTelemetry(mdcSnapshot, err, claudeClient.modelId, request.goal))
       case Right(ctx) =>
         val userMessage = initialUserMessage(request.goal, ctx)
         runAttempt(Vector(userMessage), user, ctx.warnings).flatMap {
-          case Left(err) => Future.successful(failWithTelemetry(err, request.goal, mdcSnapshot))
+          case Left(err) => Future.successful(AuthoringOutcomeHelpers.failWithTelemetry(mdcSnapshot, err, claudeClient.modelId, request.goal))
           case Right(outcome) =>
             turns.persistNew(user, request.goal, userMessage, outcome.finalResponseText, outcome.proposal, totalTokensOf(outcome))
-              .map(conv => Right(succeedWithTelemetry(outcome, conv.id.value, request.goal, mdcSnapshot)))
+              .map(conv =>
+                Right(AuthoringOutcomeHelpers.succeedWithTelemetry(
+                  mdcSnapshot, outcome.proposal, outcome.warnings, outcome.tokens, conv.id.value, claudeClient.modelId, request.goal
+                ))
+              )
         }
     }
 
   private def startStreaming(request: DashboardAuthoringRequest, user: AuthenticatedUser, mdcSnapshot: JMap[String, String]): Source[AuthoringStreamEvent, NotUsed] =
     Source
       .futureSource(assembleGroundedContext(user, request.contextOptions).map {
-        case Left(err) => Source.single[AuthoringStreamEvent](failStreamEvent(err, request.goal, mdcSnapshot))
+        case Left(err) => Source.single[AuthoringStreamEvent](AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, err, claudeClient.modelId, request.goal))
         case Right(ctx) =>
           val userMessage = initialUserMessage(request.goal, ctx)
           val persistTurn: AttemptOutcome => Future[Either[ServiceError, String]] = outcome =>
@@ -162,18 +165,22 @@ final class DashboardAuthoringService(
       mdcSnapshot: JMap[String, String]
   ): Future[Either[AuthoringError, DashboardAuthoringResponse]] =
     loadForContinuation(id, user).flatMap {
-      case Left(err) => Future.successful(failWithTelemetry(err, request.goal, mdcSnapshot))
+      case Left(err) => Future.successful(AuthoringOutcomeHelpers.failWithTelemetry(mdcSnapshot, err, claudeClient.modelId, request.goal))
       case Right(prior) =>
         val userMessage = ClaudeMessage(ClaudeRole.User, request.goal)
         val messages     = continuationMessages(prior, userMessage)
         // No new grounding-assembly warnings on a continued turn — grounding is only ever
         // (re-)assembled on turn 1 (design.md D3).
         runAttempt(messages, user, Vector.empty).flatMap {
-          case Left(err) => Future.successful(failWithTelemetry(err, request.goal, mdcSnapshot))
+          case Left(err) => Future.successful(AuthoringOutcomeHelpers.failWithTelemetry(mdcSnapshot, err, claudeClient.modelId, request.goal))
           case Right(outcome) =>
             turns.persistContinuation(prior, user, request.goal, userMessage, outcome.finalResponseText, outcome.proposal, totalTokensOf(outcome)).map {
-              case Some(conv) => Right(succeedWithTelemetry(outcome, conv.id.value, request.goal, mdcSnapshot))
-              case None       => failWithTelemetry(AuthoringError.plain(ServiceError.NotFound()), request.goal, mdcSnapshot)
+              case Some(conv) =>
+                Right(AuthoringOutcomeHelpers.succeedWithTelemetry(
+                  mdcSnapshot, outcome.proposal, outcome.warnings, outcome.tokens, conv.id.value, claudeClient.modelId, request.goal
+                ))
+              case None =>
+                AuthoringOutcomeHelpers.failWithTelemetry(mdcSnapshot, AuthoringError.plain(ServiceError.NotFound()), claudeClient.modelId, request.goal)
             }
         }
     }
@@ -186,7 +193,7 @@ final class DashboardAuthoringService(
   ): Source[AuthoringStreamEvent, NotUsed] =
     Source
       .futureSource(loadForContinuation(id, user).map {
-        case Left(err) => Source.single[AuthoringStreamEvent](failStreamEvent(err, request.goal, mdcSnapshot))
+        case Left(err) => Source.single[AuthoringStreamEvent](AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, err, claudeClient.modelId, request.goal))
         case Right(prior) =>
           val userMessage = ClaudeMessage(ClaudeRole.User, request.goal)
           val messages     = continuationMessages(prior, userMessage)
@@ -279,31 +286,10 @@ final class DashboardAuthoringService(
     case ClaudeError.GuardrailExceeded(reason) => AuthoringError.kinded(AuthoringErrorKind.BudgetExceeded, ServiceError.UnprocessableEntity(reason))
   }
 
-  // ── Telemetry helpers (HEL-401 design.md D3/D4) — the ONLY call sites that touch AuthoringTelemetry ──
+  // ── Telemetry (HEL-401 design.md D3/D4) — the terminal-outcome helpers themselves live in
+  //    AuthoringOutcomeHelpers (tasks.md 6.1); this class only threads modelId/goal/mdcSnapshot in. ──
 
   private def totalTokensOf(outcome: AttemptOutcome): Int = outcome.tokens.inputTokens + outcome.tokens.outputTokens
-
-  private def failWithTelemetry(err: AuthoringError, goal: String, mdcSnapshot: JMap[String, String]): Either[AuthoringError, DashboardAuthoringResponse] = {
-    AuthoringTelemetry.emitFailed(mdcSnapshot, err.kind, claudeClient.modelId, err.tokensUsed, goal)
-    Left(err)
-  }
-
-  private def succeedWithTelemetry(outcome: AttemptOutcome, conversationId: String, goal: String, mdcSnapshot: JMap[String, String]): DashboardAuthoringResponse = {
-    val authoringRequestId = UUID.randomUUID().toString
-    AuthoringTelemetry.emitGenerated(mdcSnapshot, authoringRequestId, claudeClient.modelId, outcome.proposal.panels.size, outcome.tokens, goal)
-    DashboardAuthoringResponse(outcome.proposal, outcome.warnings, conversationId, authoringRequestId)
-  }
-
-  private def failStreamEvent(err: AuthoringError, goal: String, mdcSnapshot: JMap[String, String]): AuthoringStreamEvent.Error = {
-    AuthoringTelemetry.emitFailed(mdcSnapshot, err.kind, claudeClient.modelId, err.tokensUsed, goal)
-    AuthoringStreamEvent.Error(err.serviceError.message, err.kind.map(AuthoringErrorKind.wireName))
-  }
-
-  private def succeedStreamEvent(outcome: AttemptOutcome, conversationId: String, goal: String, mdcSnapshot: JMap[String, String]): AuthoringStreamEvent.Result = {
-    val authoringRequestId = UUID.randomUUID().toString
-    AuthoringTelemetry.emitGenerated(mdcSnapshot, authoringRequestId, claudeClient.modelId, outcome.proposal.panels.size, outcome.tokens, goal)
-    AuthoringStreamEvent.Result(outcome.proposal, outcome.warnings, conversationId, authoringRequestId)
-  }
 
   // ── Buffered path ───────────────────────────────────────────────────────
 
@@ -369,7 +355,7 @@ final class DashboardAuthoringService(
         outputTokensSoFar += usage.outputTokens
         Source.empty[AuthoringStreamEvent]
       case ClaudeStreamEvent.Error(err) =>
-        Source.single[AuthoringStreamEvent](failStreamEvent(mapClaudeError(err), goal, mdcSnapshot))
+        Source.single[AuthoringStreamEvent](AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, mapClaudeError(err), claudeClient.modelId, goal))
       case ClaudeStreamEvent.MessageStop =>
         Source
           .futureSource(completeStream(initialMessages, buffer.toString, TokenUsage(inputTokensSoFar, outputTokensSoFar), user, warnings, persistTurn, goal, mdcSnapshot))
@@ -393,8 +379,12 @@ final class DashboardAuthoringService(
       case Right(proposal) =>
         val outcome = AttemptOutcome(proposal, warnings, fullText, tokensSoFar)
         persistTurn(outcome).map {
-          case Right(conversationId) => Source.single[AuthoringStreamEvent](succeedStreamEvent(outcome, conversationId, goal, mdcSnapshot))
-          case Left(serviceErr)       => Source.single[AuthoringStreamEvent](failStreamEvent(AuthoringError.plain(serviceErr), goal, mdcSnapshot))
+          case Right(conversationId) =>
+            Source.single[AuthoringStreamEvent](AuthoringOutcomeHelpers.succeedStreamEvent(
+              mdcSnapshot, outcome.proposal, outcome.warnings, outcome.tokens, conversationId, claudeClient.modelId, goal
+            ))
+          case Left(serviceErr) =>
+            Source.single[AuthoringStreamEvent](AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, AuthoringError.plain(serviceErr), claudeClient.modelId, goal))
         }
       case Left(errText) =>
         // A Status("repairing") event BEFORE the buffered (not re-streamed) repair attempt — the
@@ -420,18 +410,24 @@ final class DashboardAuthoringService(
       ClaudeMessage(ClaudeRole.Assistant, priorResponseText) :+
       ClaudeMessage(ClaudeRole.User, DashboardAuthoringPrompt.repairMessage(errorText))
     claudeClient.send(ClaudeRequest(repairMessages)).flatMap {
-      case Left(err) => Future.successful(failStreamEvent(mapClaudeError(err), goal, mdcSnapshot))
+      case Left(err) => Future.successful(AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, mapClaudeError(err), claudeClient.modelId, goal))
       case Right(resp) =>
         val tokens = TokenUsage(tokensSoFar.inputTokens + resp.usage.inputTokens, tokensSoFar.outputTokens + resp.usage.outputTokens)
         parseAndValidate(resp.text, user).flatMap {
           case Right(proposal) =>
             val outcome = AttemptOutcome(proposal, warnings, resp.text, tokens)
             persistTurn(outcome).map {
-              case Right(conversationId) => succeedStreamEvent(outcome, conversationId, goal, mdcSnapshot)
-              case Left(serviceErr)       => failStreamEvent(AuthoringError.plain(serviceErr), goal, mdcSnapshot)
+              case Right(conversationId) =>
+                AuthoringOutcomeHelpers.succeedStreamEvent(
+                  mdcSnapshot, outcome.proposal, outcome.warnings, outcome.tokens, conversationId, claudeClient.modelId, goal
+                )
+              case Left(serviceErr) =>
+                AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, AuthoringError.plain(serviceErr), claudeClient.modelId, goal)
             }
           case Left(errText2) =>
-            Future.successful(failStreamEvent(AuthoringError.kinded(AuthoringErrorKind.InvalidProposal, ServiceError.UnprocessableEntity(errText2), tokens), goal, mdcSnapshot))
+            Future.successful(AuthoringOutcomeHelpers.failStreamEvent(
+              mdcSnapshot, AuthoringError.kinded(AuthoringErrorKind.InvalidProposal, ServiceError.UnprocessableEntity(errText2), tokens), claudeClient.modelId, goal
+            ))
         }
     }
   }

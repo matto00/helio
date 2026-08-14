@@ -14,6 +14,9 @@ Touches: the chat surface + `ProposalReview` error surface (`InlineError` is alr
 * Backend Scala: map the authoring service's failure modes to distinct, structured error responses (not opaque 500s) the UI can branch on.
 * Telemetry: record each authoring request's outcome — goal (or a privacy-safe hash/length), proposal panel count, validation warnings, apply outcome (accepted/rejected/failed), model id, and token usage/cost. Emit as structured JSON logs (Cloud Logging severity + MDC, per HEL-115/HEL-116) AND/OR persist to an authoring-telemetry table. **If a table is added, Flyway migration: next available VNN, assigned at scheduling time** — verify the actual current head migration in this worktree at planning time, do not trust any version number written here as of ticket authoring. Never log the API key or raw secret material.
 * Tests: ScalaTest that each failure mode yields its distinct error + a telemetry record; Jest/RTL that the chat surface renders the right UX per error; assert no secret is logged.
+* Follow-up fold-in (post-evaluation, both approved via the delivery-time triage escalation — small effort, high overlap with this ticket's own diff, no future ticket in the epic to defer to):
+  * Move `DashboardAuthoringService.scala`'s telemetry-outcome helpers (`failWithTelemetry`/`succeedWithTelemetry`/`failStreamEvent`/`succeedStreamEvent`) into a new sibling object alongside `AuthoringTelemetry.scala`, bringing the service closer to (not reliably under — the threshold is informational, and the AC below only requires relocation, not a specific line count) CONTRIBUTING.md's ~400-line split threshold.
+  * Add a correlation assertion to `AuthoringTelemetrySpec`'s "generated" outcome tests (buffered + streaming) confirming the telemetry line's `authoringRequestId` matches the response's own — the join key that makes design.md D4's funnel-correlation claim actually verifiable end-to-end.
 
 ## Acceptance criteria
 
@@ -24,6 +27,8 @@ Touches: the chat surface + `ProposalReview` error surface (`InlineError` is alr
 - [ ] No secret/API key appears in any log or telemetry record (verified by test).
 - [ ] `sbt test` + `npm test` + lint/format green.
 - [ ] Backward-compat: additive; happy path unchanged.
+- [ ] `DashboardAuthoringService.scala`'s telemetry-outcome helpers live in a new sibling object alongside `AuthoringTelemetry.scala`, not inline in the service — all 4 (`failWithTelemetry`/`succeedWithTelemetry`/`failStreamEvent`/`succeedStreamEvent`), none left behind.
+- [ ] `AuthoringTelemetrySpec`'s "generated" outcome tests assert the telemetry line's `authoringRequestId` matches the response's own, for both buffered and streaming paths.
 
 ## Out of scope
 
