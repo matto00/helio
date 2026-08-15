@@ -232,6 +232,138 @@ describe("ActiveConversationPanel", () => {
     await waitFor(() => expect((input as HTMLTextAreaElement).value).toBe(""));
   });
 
+  // HEL-667 design.md D5/tasks.md 6.2/7.5 — a converse response with searchedWithNoResults=true
+  // decorates the resulting (real, trailing-text) assistant turn with a distinct treatment.
+  it("renders a distinct treatment for the most recent turn when searchedWithNoResults is true", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    const updatedDetail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Find our llama data" }] },
+        {
+          role: "assistant",
+          content: [{ blockType: "text", text: "I couldn't find anything — can you clarify?" }],
+        },
+      ],
+      searchedWithNoResults: true,
+    };
+    converseMock.mockResolvedValueOnce(updatedDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Find our llama data" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("I couldn't find anything — can you clarify?")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Asking a follow-up")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't finish in time")).not.toBeInTheDocument();
+  });
+
+  // HEL-667 design.md D5/tasks.md 6.2/7.5 — hopBudgetExhausted=true with a real trailing text
+  // block (Claude included preamble text alongside its never-executed 4th tool_use) decorates that
+  // SAME turn rather than adding a separate synthetic bubble.
+  it("renders a distinct treatment for the most recent turn when hopBudgetExhausted is true and a trailing text block exists", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    const updatedDetail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Build me a huge dashboard" }] },
+        {
+          role: "assistant",
+          content: [{ blockType: "text", text: "Let me check one more thing…" }],
+        },
+      ],
+      hopBudgetExhausted: true,
+    };
+    converseMock.mockResolvedValueOnce(updatedDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Build me a huge dashboard" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Let me check one more thing…")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Couldn't finish in time")).toBeInTheDocument();
+    // No separate synthetic fallback bubble — exactly one decorated turn, the real one.
+    expect(screen.getAllByText("Couldn't finish in time")).toHaveLength(1);
+  });
+
+  // HEL-667 design.md D5/tasks.md 6.2/7.5 — hopBudgetExhausted=true with NO trailing text block
+  // (the transcript's last turn is a dangling tool_use, the common case) still surfaces a clear,
+  // visible message rather than a silent failure (ticket AC).
+  it("renders a synthesized hop-budget-exhausted message when the last turn has no trailing text", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    const updatedDetail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Build me a huge dashboard" }] },
+        {
+          role: "assistant",
+          content: [{ blockType: "tool_use", id: "tu-9", name: "find", input: { query: "x" } }],
+        },
+      ],
+      hopBudgetExhausted: true,
+    };
+    converseMock.mockResolvedValueOnce(updatedDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Build me a huge dashboard" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("I couldn't find enough in 3 lookups — can you narrow this down?"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Couldn't finish in time")).toBeInTheDocument();
+    // The dangling tool_use itself also renders its own "cut short" indicator, independently.
+    expect(screen.getByText(/cut short/i)).toBeInTheDocument();
+  });
+
+  // HEL-667 design.md D5/tasks.md 7.5 — the unaffected-normal-turn case: both signals absent
+  // renders the existing, undecorated treatment.
+  it("does not decorate a normal turn when neither outcome signal is set", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    const updatedDetail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "What's our revenue?" }] },
+        { role: "assistant", content: [{ blockType: "text", text: "Revenue is $42,000." }] },
+      ],
+    };
+    converseMock.mockResolvedValueOnce(updatedDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "What's our revenue?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(screen.getByText("Revenue is $42,000.")).toBeInTheDocument());
+    expect(screen.queryByText("Couldn't finish in time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Asking a follow-up")).not.toBeInTheDocument();
+  });
+
   // HEL-665 (reopened composer ticket) tasks.md 6.8 — sending with NO conversation selected
   // creates one, explicitly selects it (design-gate round-1 fix), and converses against it in one
   // action -- the new conversation becomes the active selection, showing the sent message and its

@@ -4,14 +4,15 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.ai.{ClaudeError, ClaudeToolMessage}
+import com.helio.ai.{ClaudeContentBlock, ClaudeError, ClaudeToolMessage}
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment
 import com.helio.api.protocols._
 import com.helio.domain._
 import com.helio.infrastructure.AssistantConversationRepository._
-import com.helio.services.{AssistantConversationService, AssistantService, ServiceError}
+import com.helio.services.{AssistantConversationService, AssistantService, AssistantTelemetry, ServiceError}
 import com.helio.services.AssistantConversationService.AssistantConversationDetail
+import org.slf4j.MDC
 import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -59,6 +60,12 @@ final class AssistantConversationRoutes(
       updatedAt = record.updatedAt.toString
     )
 
+  /** `hopBudgetExhausted`/`searchedWithNoResults` stay `None` (the case class's own defaults) —
+   *  every call site EXCEPT `converseFlow`'s own re-fetch (see [[detailOfConverse]]) leaves them
+   *  unset (design.md D1: `GET`/create/append never carry either signal). Kept as a plain one-arg
+   *  function (not a defaulted-param overload of `detailOfConverse`) so it stays eta-expandable bare
+   *  at its `ServiceResponse.run(...)(detailOf)` call site below — a method with trailing defaulted
+   *  params does NOT eta-expand to a narrower function type in Scala. */
   private def detailOf(detail: AssistantConversationDetail): AssistantConversationResponse =
     AssistantConversationResponse(
       id         = detail.record.id.value,
@@ -66,6 +73,18 @@ final class AssistantConversationRoutes(
       pinned     = detail.record.pinned,
       updatedAt  = detail.record.updatedAt.toString,
       transcript = detail.transcript
+    )
+
+  /** `converseFlow`'s own re-fetch (design.md D1) — the ONE call site that actually populates
+   *  `hopBudgetExhausted`/`searchedWithNoResults` as `Some(...)`. */
+  private def detailOfConverse(
+      detail: AssistantConversationDetail,
+      hopBudgetExhausted: Boolean,
+      searchedWithNoResults: Boolean
+  ): AssistantConversationResponse =
+    detailOf(detail).copy(
+      hopBudgetExhausted    = Some(hopBudgetExhausted),
+      searchedWithNoResults = Some(searchedWithNoResults)
     )
 
   /** `ClaudeError -> ServiceError`, the identical 3-case mapping `DashboardAuthoringService
@@ -83,15 +102,21 @@ final class AssistantConversationRoutes(
    *  is a raw `JsValue` (from `service.get`) — converted to `Seq[ClaudeToolMessage]` here via the
    *  same `.convertTo[...]` idiom this file already uses twice above. On `Left(claudeError)`:
    *  mapped to a real error status via `mapClaudeError`, NOTHING persisted — the user's message is
-   *  never silently discarded nor fabricated into the transcript. On `Right(result)`: only the new
-   *  turns (`result.fullHistory.drop(history.length)`) are appended, then the conversation is
-   *  re-fetched so the response always reflects the persisted row, never a client-reconstructed
-   *  approximation. */
+   *  never silently discarded nor fabricated into the transcript, and (HEL-667 design.md D6's own
+   *  guard) no telemetry is emitted since no turn actually completed. On `Right(result)`: the
+   *  telemetry line is emitted right here (mirrors `DashboardAuthoringRoutes`'s own MDC-snapshot-at-
+   *  route-evaluation-time call-site placement — `mdcSnapshot` is captured at the very top of this
+   *  function, synchronously on the route-evaluation thread, before any `Future` chain begins), then
+   *  only the new turns (`result.fullHistory.drop(history.length)`) are appended, then the
+   *  conversation is re-fetched so the response always reflects the persisted row, never a
+   *  client-reconstructed approximation — now carrying `result`'s two turn-outcome signals
+   *  (design.md D1). */
   private def converseFlow(
       assistantService: AssistantService,
       id: AssistantConversationId,
       message: String
-  ): Future[Either[ServiceError, AssistantConversationResponse]] =
+  ): Future[Either[ServiceError, AssistantConversationResponse]] = {
+    val mdcSnapshot = MDC.getCopyOfContextMap
     service.get(user, id).flatMap {
       case Left(e) => Future.successful(Left(e))
       case Right(existing) =>
@@ -100,11 +125,34 @@ final class AssistantConversationRoutes(
           case Left(claudeError) => Future.successful(Left(mapClaudeError(claudeError)))
           case Right(result) =>
             val newTurns = result.fullHistory.drop(history.length)
+            AssistantTelemetry.emitToolLoopOutcome(
+              mdcSnapshot,
+              conversationId = id.value,
+              toolCallCount = countToolUses(newTurns),
+              hopBudgetExhausted = result.hopBudgetExhausted,
+              searchedWithNoResults = result.searchedWithNoResults,
+              modelId = assistantService.modelId,
+              tokens = result.usage
+            )
             service.appendTurn(user, id, newTurns).flatMap {
-              case Left(e)  => Future.successful(Left(e))
-              case Right(_) => service.get(user, id).map(_.map(detailOf))
+              case Left(e) => Future.successful(Left(e))
+              case Right(_) =>
+                service
+                  .get(user, id)
+                  .map(_.map(detailOfConverse(_, result.hopBudgetExhausted, result.searchedWithNoResults)))
             }
         }
+    }
+  }
+
+  /** `toolCallCount` for `AssistantTelemetry` (design.md D6, tasks.md 5.2) — counts every `tool_use`
+   *  content block across THIS call's new turns only, distinct from `AssistantTurnResult.toolCallCount`
+   *  (which counts across the whole accumulated `fullHistory`, including turns from earlier converse
+   *  calls in the same conversation). */
+  private def countToolUses(turns: Seq[ClaudeToolMessage]): Int =
+    turns.iterator.flatMap(_.content).count {
+      case _: ClaudeContentBlock.ToolUse => true
+      case _                              => false
     }
 
   val routes: Route =

@@ -35,6 +35,18 @@ interface AssistantConversationsState {
     status: "idle" | "loading" | "succeeded" | "failed";
     error: string | null;
   };
+  /** HEL-667 design.md D1/D5 — the just-completed turn's outcome signals, captured from a `POST
+   * /:id/converse` response only (`GET` never carries them — see `AssistantConversationDetail`'s
+   * own doc comment). Exposed SEPARATELY from `activeConversation.data` (rather than read directly
+   * off it) so `ActiveConversationPanel`/`MessageTurn` have one deterministic, always-defined
+   * source for "does the MOST RECENT turn need a distinct treatment", cleared the instant a new
+   * message is sent (`converse.pending`) so a stale badge never lingers into the next in-flight
+   * turn, and whenever a different conversation is loaded (`selectConversation.pending`) since the
+   * signal only ever describes a turn in THIS conversation. */
+  lastTurnOutcome: {
+    hopBudgetExhausted: boolean;
+    searchedWithNoResults: boolean;
+  } | null;
 }
 
 const initialState: AssistantConversationsState = {
@@ -47,6 +59,7 @@ const initialState: AssistantConversationsState = {
     status: "idle",
     error: null,
   },
+  lastTurnOutcome: null,
 };
 
 export const fetchConversations = createAsyncThunk<
@@ -132,6 +145,10 @@ const assistantConversationsSlice = createSlice({
       .addCase(selectConversation.pending, (state) => {
         state.activeConversation.status = "loading";
         state.activeConversation.error = null;
+        // HEL-667 design.md D5 — a different conversation's own turn-outcome signal (or none at
+        // all, for a GET) is about to replace whatever's here; never let a prior selection's badge
+        // survive into this one.
+        state.lastTurnOutcome = null;
       })
       .addCase(selectConversation.fulfilled, (state, action) => {
         state.activeConversation.data = action.payload;
@@ -146,10 +163,19 @@ const assistantConversationsSlice = createSlice({
         const idx = state.items.findIndex((c) => c.id === action.payload.id);
         if (idx !== -1) state.items[idx] = action.payload;
       })
+      .addCase(converse.pending, (state) => {
+        // HEL-667 design.md D5 tasks.md 6.3 — "cleared on the next send": a fresh message means any
+        // outcome badge describing the PREVIOUS turn is stale the instant a new one is in flight.
+        state.lastTurnOutcome = null;
+      })
       .addCase(converse.fulfilled, (state, action) => {
         state.activeConversation.data = action.payload;
         state.activeConversation.status = "succeeded";
         state.activeConversation.error = null;
+        state.lastTurnOutcome = {
+          hopBudgetExhausted: action.payload.hopBudgetExhausted ?? false,
+          searchedWithNoResults: action.payload.searchedWithNoResults ?? false,
+        };
       });
   },
 });

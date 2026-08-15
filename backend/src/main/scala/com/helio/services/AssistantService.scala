@@ -1,10 +1,12 @@
 package com.helio.services
 
 import com.helio.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
-import com.helio.api.protocols.{AssistantProtocol, AssistantTurnResult}
+import com.helio.api.protocols.{AssistantProposal, AssistantProtocol, AssistantTurnResult}
 import com.helio.domain.AuthenticatedUser
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 /** HEL-662 — the top-level assistant's (HEL-659) one entry point, superseding
  *  `DashboardAuthoringService` for the in-app assistant while reusing its validation/proposal
@@ -42,6 +44,11 @@ final class AssistantService(
    *  ticket's caller would supply `3`; never hardcoded inside `ClaudeClient` itself. */
   private val MaxHops: Int = 3
 
+  /** The configured Claude model id (HEL-667 design.md D6 telemetry) — thin passthrough so
+   *  `AssistantConversationRoutes.converseFlow` can thread it into `AssistantTelemetry` without
+   *  reaching into a `ClaudeClient` instance of its own. */
+  def modelId: String = claudeClient.modelId
+
   /** HEL-665 (reopened composer ticket, design.md D1): `Future[Either[ClaudeError,
    *  AssistantTurnResult]]`, mirroring `ClaudeClient.send`'s own existing `Either` shape — the only
    *  way to represent `ClaudeToolOutcome.Failed` (which carries no `history` at all) without either
@@ -62,12 +69,13 @@ final class AssistantService(
       tools = AssistantProtocol.assistantTools,
       maxHops = MaxHops
     )
-    // `historyWasEmpty` is captured from the CALLER-supplied `history` (before `seedHistory` folds
-    // AssistantSystemPrompt.text into it) — threaded through to `toTurnResult` so the RETURNED
-    // `fullHistory` can be desanitized back down to the plain `message`, while `request` above
-    // (what's actually sent to Claude) is completely unaffected (evaluation-1.md Change Request 1).
-    val historyWasEmpty = history.isEmpty
-    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor, historyWasEmpty, message))
+    // `history` (the CALLER-supplied prefix, before `seedHistory` folds AssistantSystemPrompt.text
+    // into it) is threaded through to `toTurnResult` for two purposes: desanitizing the RETURNED
+    // `fullHistory` back down to the plain `message` (evaluation-1.md Change Request 1), and — HEL-
+    // 667 design.md D2 — isolating this call's OWN new turns (`fullHistory.drop(history.length)`)
+    // for `searchedWithNoResults`'s "last tool call in THIS turn's new history" definition. `request`
+    // above (what's actually sent to Claude) is completely unaffected either way.
+    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor, history, message))
   }
 
   /** Folds the static [[AssistantSystemPrompt]] into the SAME message as the fresh user turn, only
@@ -75,25 +83,63 @@ final class AssistantService(
    *  constraint (no separate `system` field on `ClaudeToolRequest`; Anthropic's Messages API also
    *  requires strict user/assistant alternation, so this can never be a second, separately-appended
    *  `user` turn). A non-empty `history` is a continued conversation (HEL-663) whose turn 1 already
-   *  carried this text — never re-injected. */
+   *  carried this text — never re-injected.
+   *
+   *  skeptic-final-1.md CR1 (live-verified defect): `history`'s LAST turn can be an assistant turn
+   *  with one or more UNRESOLVED `tool_use` blocks — exactly the shape a persisted
+   *  `ClaudeToolOutcome.HopBudgetExhausted` turn has (the loop stopped before dispatching them).
+   *  Naively appending a bare text user turn directly after that violates the Messages API's
+   *  invariant that a `tool_use` must be immediately followed by a `tool_result` in the VERY NEXT
+   *  message — every subsequent `converse` call against that conversation failed identically with a
+   *  400. [[danglingToolUseIds]] detects this; when present, the synthetic `isError` `tool_result`s
+   *  (mirroring `ClaudeClient.executeTool`'s own recovery idiom, just applied to a NEVER-ATTEMPTED
+   *  call rather than a failed one) are folded into the SAME new turn as the user's message —
+   *  never a separate turn — so two consecutive `role = user` turns (which would violate the OTHER
+   *  structural invariant, strict alternation) are never produced either. */
   private def seedHistory(history: Seq[ClaudeToolMessage], message: String): Seq[ClaudeToolMessage] = {
-    val turnText = if (history.isEmpty) AssistantSystemPrompt.text + "\n\n" + message else message
-    history :+ ClaudeToolMessage.text(ClaudeRole.User, turnText)
+    val turnText  = if (history.isEmpty) AssistantSystemPrompt.text + "\n\n" + message else message
+    val danglingIds = danglingToolUseIds(history)
+    val newTurnContent: Seq[ClaudeContentBlock] =
+      danglingIds.map(id => ClaudeContentBlock.ToolResult(id, DanglingToolUseResultMessage, isError = true)) :+
+        ClaudeContentBlock.Text(turnText)
+    history :+ ClaudeToolMessage(ClaudeRole.User, newTurnContent)
   }
+
+  /** `tool_use` ids in `history`'s LAST turn with no paired `tool_result` — by construction, this
+   *  can only ever be a non-empty result when that last turn is itself an assistant turn carrying
+   *  `tool_use` blocks the loop never got to execute (a `FinalResponse` outcome's trailing turn is
+   *  always text-only; a normally-executed hop's `tool_use` is always immediately followed by its
+   *  own `tool_result` turn, which would then BE the last turn instead). Empty `Seq` (never `Set`)
+   *  to preserve original ordering deterministically in the synthetic turn built above. */
+  private def danglingToolUseIds(history: Seq[ClaudeToolMessage]): Seq[String] =
+    history.lastOption.toSeq.flatMap(_.content).collect { case tu: ClaudeContentBlock.ToolUse => tu.id }
+
+  private val DanglingToolUseResultMessage: String =
+    "Not executed — the tool-call budget was reached before this call could run."
 
   /** `FinalResponse`/`HopBudgetExhausted` both carry a real `history` — folded to `Right(...)`,
    *  `fullHistory` desanitized via [[desanitizeFirstTurn]] before being returned (design.md D1 +
    *  evaluation-1.md Change Request 1). `Failed` carries no `history` at all — folded to
-   *  `Left(error)` directly, never a value-less or fabricated `AssistantTurnResult`. */
+   *  `Left(error)` directly, never a value-less or fabricated `AssistantTurnResult`. `history` here
+   *  is `converse`'s own CALLER-supplied prefix (before `seedHistory` folded it), needed both by
+   *  [[desanitizeFirstTurn]] and by [[computeSearchedWithNoResults]] (HEL-667 design.md D2). */
   private def toTurnResult(
       outcome: ClaudeToolOutcome,
       executor: AssistantToolExecutor,
-      historyWasEmpty: Boolean,
+      history: Seq[ClaudeToolMessage],
       message: String
   ): Either[ClaudeError, AssistantTurnResult] = outcome match {
     case ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
       Right(
-        AssistantTurnResult(text, executor.proposal, toolCallCount(fullHistory), hopBudgetExhausted = false, usage, desanitizeFirstTurn(fullHistory, historyWasEmpty, message))
+        AssistantTurnResult(
+          text,
+          executor.proposal,
+          toolCallCount(fullHistory),
+          hopBudgetExhausted = false,
+          searchedWithNoResults = computeSearchedWithNoResults(executor.proposal, fullHistory, history),
+          usage,
+          desanitizeFirstTurn(fullHistory, history.isEmpty, message)
+        )
       )
     case ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
       Right(
@@ -102,13 +148,48 @@ final class AssistantService(
           executor.proposal,
           toolCallCount(fullHistory),
           hopBudgetExhausted = true,
+          searchedWithNoResults = false,
           usage,
-          desanitizeFirstTurn(fullHistory, historyWasEmpty, message)
+          desanitizeFirstTurn(fullHistory, history.isEmpty, message)
         )
       )
     case ClaudeToolOutcome.Failed(error) =>
       Left(error)
   }
+
+  /** HEL-667 design.md D2: `true` iff this turn captured no `proposal` AND the LAST tool call
+   *  executed in this turn's OWN new history (`fullHistory` minus the caller-supplied `history`
+   *  prefix — the seeded user turn plus every hop this `converse` call itself produced) was `find`
+   *  returning an empty result array. Matches by `ToolUse.id`/`ToolResult.toolUseId` across every
+   *  new turn rather than assuming a single hop: `Future.traverse`'s same-hop concurrency preserves
+   *  input order (design.md "Same-hop concurrency"), but id-based lookup is correct regardless. */
+  private def computeSearchedWithNoResults(
+      proposal: Option[AssistantProposal],
+      fullHistory: Seq[ClaudeToolMessage],
+      callerHistory: Seq[ClaudeToolMessage]
+  ): Boolean =
+    if (proposal.isDefined) false
+    else {
+      val newTurns = fullHistory.drop(callerHistory.length)
+      val toolUses = newTurns.iterator.flatMap(_.content).collect { case tu: ClaudeContentBlock.ToolUse => tu }.toVector
+      val resultsById = newTurns.iterator
+        .flatMap(_.content)
+        .collect { case tr: ClaudeContentBlock.ToolResult => tr }
+        .map(tr => tr.toolUseId -> tr)
+        .toMap
+      toolUses.lastOption.exists { lastCall =>
+        lastCall.name == "find" && resultsById.get(lastCall.id).exists(tr => !tr.isError && isEmptyJsonArray(tr.content))
+      }
+    }
+
+  /** `find`'s `ToolResult.content` is `Vector[WorkspaceResourceSummary].toJson.compactPrint`
+   *  (`AssistantToolExecutor.executeFind`) — parses defensively rather than a literal `"[]"` string
+   *  comparison, so incidental whitespace never produces a false negative. */
+  private def isEmptyJsonArray(content: String): Boolean =
+    Try(content.parseJson) match {
+      case Success(JsArray(elements)) => elements.isEmpty
+      case _                            => false
+    }
 
   /** Undoes `seedHistory`'s system-prompt folding for the value actually RETURNED by `converse`
    *  (evaluation-1.md Change Request 1 — the outbound request Claude sees, built in `converse`

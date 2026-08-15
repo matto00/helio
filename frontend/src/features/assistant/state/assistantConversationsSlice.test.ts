@@ -139,6 +139,73 @@ describe("assistantConversationsSlice reducers", () => {
     expect(nextState.activeConversation.data).toEqual(detail);
   });
 
+  // HEL-667 design.md D1/D5 — converse.fulfilled captures both new turn-outcome fields.
+  it("captures hopBudgetExhausted/searchedWithNoResults into lastTurnOutcome when converse fulfills", () => {
+    const detailWithSignals: AssistantConversationDetail = {
+      ...detail,
+      hopBudgetExhausted: true,
+      searchedWithNoResults: false,
+    };
+    const nextState = assistantConversationsReducer(
+      undefined,
+      converse.fulfilled(detailWithSignals, "req-1", { id: "conv-1", message: "Hello" }),
+    );
+    expect(nextState.lastTurnOutcome).toEqual({
+      hopBudgetExhausted: true,
+      searchedWithNoResults: false,
+    });
+  });
+
+  // HEL-667 design.md D1 — a converse response never omits the fields entirely in practice (POST
+  // always populates them), but the reducer defaults defensively to false rather than `undefined`
+  // leaking into lastTurnOutcome.
+  it("defaults lastTurnOutcome fields to false when the converse response omits them", () => {
+    const nextState = assistantConversationsReducer(
+      undefined,
+      converse.fulfilled(detail, "req-1", { id: "conv-1", message: "Hello" }),
+    );
+    expect(nextState.lastTurnOutcome).toEqual({
+      hopBudgetExhausted: false,
+      searchedWithNoResults: false,
+    });
+  });
+
+  // HEL-667 design.md D5 tasks.md 6.3 — "cleared on the next send".
+  it("clears lastTurnOutcome when converse.pending fires", () => {
+    const withOutcome = assistantConversationsReducer(
+      undefined,
+      converse.fulfilled({ ...detail, hopBudgetExhausted: true }, "req-1", {
+        id: "conv-1",
+        message: "Hello",
+      }),
+    );
+    expect(withOutcome.lastTurnOutcome).not.toBeNull();
+
+    const pending = assistantConversationsReducer(
+      withOutcome,
+      converse.pending("req-2", { id: "conv-1", message: "Another message" }),
+    );
+    expect(pending.lastTurnOutcome).toBeNull();
+  });
+
+  // HEL-667 design.md D5 — switching (or reloading) a conversation never leaks a stale badge.
+  it("clears lastTurnOutcome when selectConversation.pending fires", () => {
+    const withOutcome = assistantConversationsReducer(
+      undefined,
+      converse.fulfilled({ ...detail, searchedWithNoResults: true }, "req-1", {
+        id: "conv-1",
+        message: "Hello",
+      }),
+    );
+    expect(withOutcome.lastTurnOutcome).not.toBeNull();
+
+    const pending = assistantConversationsReducer(
+      withOutcome,
+      selectConversation.pending("req-2", "conv-2"),
+    );
+    expect(pending.lastTurnOutcome).toBeNull();
+  });
+
   it("converse.pending/rejected do NOT touch activeConversation.status -- the composer's own local state surfaces sending/errors, not a full-panel swap", () => {
     const preloaded = assistantConversationsReducer(
       undefined,

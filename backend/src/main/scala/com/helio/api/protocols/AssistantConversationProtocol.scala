@@ -39,13 +39,19 @@ final case class ConverseRequest(message: String)
 final case class AssistantConversationSummaryResponse(id: String, title: String, pinned: Boolean, updatedAt: String)
 
 /** Get-one shape (`GET /api/assistant-conversations/:id`) — summary fields plus the transcript,
- *  itself opaque JSON (see this file's header comment). */
+ *  itself opaque JSON (see this file's header comment). `hopBudgetExhausted`/`searchedWithNoResults`
+ *  (HEL-667 design.md D1) are ephemeral, converse-response-only signals describing the turn that
+ *  JUST completed: populated (`Some(...)`, whatever the boolean value) only by `POST /:id/converse`,
+ *  always `None` on `GET /:id` — never persisted facts about the conversation as a whole, and never
+ *  retrofitted onto a historical turn. */
 final case class AssistantConversationResponse(
     id: String,
     title: String,
     pinned: Boolean,
     updatedAt: String,
-    transcript: JsValue
+    transcript: JsValue,
+    hopBudgetExhausted: Option[Boolean] = None,
+    searchedWithNoResults: Option[Boolean] = None
 )
 
 trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonProtocol {
@@ -65,5 +71,5 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
     jsonFormat4(AssistantConversationSummaryResponse.apply)
 
   implicit val assistantConversationResponseFormat: RootJsonFormat[AssistantConversationResponse] =
-    jsonFormat5(AssistantConversationResponse.apply)
+    jsonFormat7(AssistantConversationResponse.apply)
 }

@@ -51,9 +51,35 @@ describe("ToolCallIndicator", () => {
     expect(screen.getByText("Failed")).toBeInTheDocument();
   });
 
-  it("shows nothing to disclose when the paired result hasn't loaded yet", () => {
+  it("shows no disclosure toggle for a cut-short (unpaired) tool_use", () => {
     render(<ToolCallIndicator toolUse={findToolUse} result={null} />);
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  // HEL-667 design.md D5/tasks.md 6.1/7.5 — a tool_use with no paired tool_result renders a
+  // distinct "cut short" treatment (the hop-cap-exhausted case), never the same appearance as a
+  // normal or errored result.
+  it("renders a distinct cut-short treatment for a tool_use with no paired tool_result", () => {
+    const { container } = render(<ToolCallIndicator toolUse={findToolUse} result={null} />);
+
+    expect(container.querySelector(".tool-call-indicator--cut-short")).toBeInTheDocument();
+    expect(container.querySelector(".tool-call-indicator--error")).not.toBeInTheDocument();
+    expect(screen.getByText(/cut short/i)).toBeInTheDocument();
+  });
+
+  it("does NOT render the cut-short treatment for a normally-resolved tool_use", () => {
+    const resolvedResult: ClaudeToolResultBlockDto = {
+      blockType: "tool_result",
+      toolUseId: "tu-1",
+      content: "[]",
+      isError: false,
+    };
+    const { container } = render(
+      <ToolCallIndicator toolUse={findToolUse} result={resolvedResult} />,
+    );
+
+    expect(container.querySelector(".tool-call-indicator--cut-short")).not.toBeInTheDocument();
+    expect(screen.queryByText(/cut short/i)).not.toBeInTheDocument();
   });
 });
