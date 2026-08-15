@@ -49,6 +49,20 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
       entity = HttpEntity(ContentTypes.`application/json`, request.toJson.compactPrint)
     )
 
+  /** `private[ai]`, not `private`, so `HttpClaudeTransportSpec` can assert on the serialized
+   *  `tools`/block-content request shape directly — without ever invoking [[sendTool]] itself,
+   *  which would require a real (or bound-local) HTTP round trip. */
+  private[ai] def buildHttpRequest(request: ClaudeApiToolRequest): HttpRequest =
+    HttpRequest(
+      method = HttpMethods.POST,
+      uri = MessagesUri,
+      headers = List(
+        RawHeader("x-api-key", apiKey),
+        RawHeader("anthropic-version", AnthropicVersion)
+      ),
+      entity = HttpEntity(ContentTypes.`application/json`, request.toJson.compactPrint)
+    )
+
   override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
     Http(system.classicSystem)
       .singleRequest(buildHttpRequest(request.copy(stream = false)), settings = poolSettings)
@@ -60,6 +74,29 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
               case Success(parsed) => Future.successful(parsed)
               case Failure(e) =>
                 log.error("Failed to parse Claude API response", e)
+                Future.failed(ClaudeApiException(response.status.intValue(), "Failed to parse Claude API response"))
+            }
+          } else {
+            Future.failed(ClaudeApiException(response.status.intValue(), body))
+          }
+        }
+      }
+
+  /** Real end-to-end wiring for the tool-use loop (design.md D4) — same `/v1/messages` endpoint as
+   *  [[send]], a request-shape variant (block-content messages + `tools`) of the same Anthropic
+   *  API, not a different endpoint. Non-streaming, mirroring [[send]] not [[stream]] (design.md
+   *  D3). */
+  override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse] =
+    Http(system.classicSystem)
+      .singleRequest(buildHttpRequest(request), settings = poolSettings)
+      .flatMap { response =>
+        response.entity.toStrict(ResponseReadTimeout).flatMap { entity =>
+          val body = entity.data.utf8String
+          if (response.status.isSuccess()) {
+            Try(body.parseJson.convertTo[ClaudeApiResponse]) match {
+              case Success(parsed) => Future.successful(parsed)
+              case Failure(e) =>
+                log.error("Failed to parse Claude API tool-use response", e)
                 Future.failed(ClaudeApiException(response.status.intValue(), "Failed to parse Claude API response"))
             }
           } else {
