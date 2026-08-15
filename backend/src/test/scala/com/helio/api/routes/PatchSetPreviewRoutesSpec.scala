@@ -95,10 +95,11 @@ class PatchSetPreviewRoutesSpec
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
+    val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker
+      metricRepo, accessChecker, applicationRepo
     )
     patchSetPreviewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,

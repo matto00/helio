@@ -805,6 +805,11 @@ final case class MetricId(value: String) extends AnyVal
  *  refinement of a `DashboardProposal`; see `AuthoringConversationRepository`). */
 final case class AuthoringConversationId(value: String) extends AnyVal
 
+/** HEL-413 — a server-persisted, owner-scoped journal record of one successfully-applied patch
+ *  set, capturing enough of its `EditOutcome`s to power `PatchSetUndoService` later (see
+ *  `PatchSetApplicationRepository`). */
+final case class PatchSetApplicationId(value: String) extends AnyVal
+
 /** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
  *  purely presentational (no effect on the underlying aggregation). */
 final case class MetricFormat(

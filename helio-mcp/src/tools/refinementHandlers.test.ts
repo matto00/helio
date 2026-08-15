@@ -10,9 +10,18 @@
  */
 
 import { HelioApiError } from "../httpClient.js";
-import type { PatchSet, PatchSetApplyResponse, RefinementResult } from "../types.js";
+import type {
+  PatchSet,
+  PatchSetApplyResponse,
+  PatchSetUndoResponse,
+  RefinementResult,
+} from "../types.js";
 import type { HelioApi } from "../helioApi.js";
-import { applyPatchSetHandler, proposePatchSetHandler } from "./refinementHandlers.js";
+import {
+  applyPatchSetHandler,
+  proposePatchSetHandler,
+  undoPatchSetHandler,
+} from "./refinementHandlers.js";
 
 const patchSet: PatchSet = {
   summary: "Rename the panel",
@@ -32,6 +41,9 @@ function makeFakeApi(overrides: Partial<Record<keyof HelioApi, unknown>> = {}): 
     },
     applyPatchSet: async () => {
       throw new Error("applyPatchSet not stubbed");
+    },
+    undoPatchSet: async () => {
+      throw new Error("undoPatchSet not stubbed");
     },
     ...overrides,
   };
@@ -119,5 +131,59 @@ describe("applyPatchSetHandler", () => {
     });
 
     await expect(applyPatchSetHandler(api, patchSet)).rejects.toThrow("panel not found");
+  });
+});
+
+describe("undoPatchSetHandler", () => {
+  it("calls api.undoPatchSet with the exact applicationId and returns its result verbatim", async () => {
+    const response: PatchSetUndoResponse = {
+      edits: [
+        { index: 0, status: "restored", resultingState: { id: "panel-1", title: "Old title" } },
+      ],
+    };
+    let calledWith: string | undefined;
+    const api = makeFakeApi({
+      undoPatchSet: async (id: string) => {
+        calledWith = id;
+        return response;
+      },
+    });
+
+    const result = await undoPatchSetHandler(api, "app-1");
+
+    expect(calledWith).toBe("app-1");
+    expect(result).toBe(response);
+  });
+
+  it("propagates a rejected api.undoPatchSet call (e.g. a conflict) as a rejected promise, verbatim, without attempting a partial undo itself", async () => {
+    const api = makeFakeApi({
+      undoPatchSet: async () => {
+        throw new HelioApiError(
+          409,
+          "/api/patch-sets/app-1/undo",
+          "edit 0 (panel update): panel panel-1 was changed since the patch set was applied",
+        );
+      },
+    });
+
+    await expect(undoPatchSetHandler(api, "app-1")).rejects.toThrow(
+      "panel panel-1 was changed since the patch set was applied",
+    );
+  });
+
+  it("propagates a nonexistent/unowned applicationId's 404 verbatim", async () => {
+    const api = makeFakeApi({
+      undoPatchSet: async () => {
+        throw new HelioApiError(
+          404,
+          "/api/patch-sets/missing/undo",
+          "Patch-set application not found",
+        );
+      },
+    });
+
+    await expect(undoPatchSetHandler(api, "missing")).rejects.toThrow(
+      "Patch-set application not found",
+    );
   });
 });

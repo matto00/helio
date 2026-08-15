@@ -1,5 +1,10 @@
 import { httpClient } from "../../../services/httpClient";
-import type { PatchSet, PatchSetApplyResponse, PatchSetPreviewResponse } from "../types/patchSet";
+import type {
+  PatchSet,
+  PatchSetApplyResponse,
+  PatchSetPreviewResponse,
+  PatchSetUndoResponse,
+} from "../types/patchSet";
 
 /** Compute a patch set's before/after diff + impact hints WITHOUT writing
  *  anything (HEL-408). Mirrors `proposalService.applyDashboardProposal`'s
@@ -17,5 +22,14 @@ export async function previewPatchSet(patchSet: PatchSet): Promise<PatchSetPrevi
  *  already-applied edit. */
 export async function applyPatchSet(patchSet: PatchSet): Promise<PatchSetApplyResponse> {
   const response = await httpClient.post<PatchSetApplyResponse>("/api/patch-sets/apply", patchSet);
+  return response.data;
+}
+
+/** Undo a previously-applied patch set (HEL-413). Atomic: either every
+ *  journaled edit restores, or (on a conflict) none does. */
+export async function undoPatchSet(applicationId: string): Promise<PatchSetUndoResponse> {
+  const response = await httpClient.post<PatchSetUndoResponse>(
+    `/api/patch-sets/${applicationId}/undo`,
+  );
   return response.data;
 }

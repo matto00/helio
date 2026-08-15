@@ -33,9 +33,20 @@ const toastsSlice = createSlice({
   name: "toasts",
   initialState,
   reducers: {
-    pushToast(state, action: PayloadAction<ToastInput>) {
-      const id = String(nextId++);
-      state.items.push({ id, ...action.payload });
+    // `prepare` (not a bare reducer) generates the id BEFORE dispatch, in the action creator
+    // itself — so a caller can read `pushToast(input).payload.id` synchronously, without a
+    // second read of store state, to correlate a LATER action (e.g. dismissing THIS toast) back
+    // to the exact toast it just pushed (skeptic-final-1.md CR2: the "Applied." toast's own
+    // Undo action needs to dismiss itself, per design.md D6). The reducer itself stays a
+    // trivial push.
+    pushToast: {
+      reducer(state, action: PayloadAction<Toast>) {
+        state.items.push(action.payload);
+      },
+      prepare(input: ToastInput) {
+        const id = String(nextId++);
+        return { payload: { id, ...input } };
+      },
     },
     dismissToast(state, action: PayloadAction<string>) {
       state.items = state.items.filter((t) => t.id !== action.payload);

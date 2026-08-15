@@ -38,6 +38,7 @@ import type {
   PanelResponse,
   PatchSet,
   PatchSetApplyResponse,
+  PatchSetUndoResponse,
   PipelineAnalyzeProposalResponse,
   PipelineAnalyzeResponse,
   PipelineProposal,
@@ -735,6 +736,16 @@ export class HelioApi {
    *  re-validation or retry. */
   applyPatchSet(patchSet: PatchSet): Promise<PatchSetApplyResponse> {
     return this.http.post<PatchSetApplyResponse>("/api/patch-sets/apply", patchSet);
+  }
+
+  /** Undo a previously-applied, journaled patch set (HEL-413, `POST /api/patch-sets/:id/undo`) —
+   *  restores every edit in the named application to its pre-apply state via the SAME per-resource
+   *  services `applyPatchSet` uses, or restores none of them (a conflict or a
+   *  structurally-unrecoverable delete edit rejects the whole call with an error, surfaced via
+   *  `HelioApiError` like any other non-2xx response). Thin pass-through, mirrors
+   *  `applyPatchSet`'s style — no client-side re-validation or retry. */
+  undoPatchSet(applicationId: string): Promise<PatchSetUndoResponse> {
+    return this.http.post<PatchSetUndoResponse>(`/api/patch-sets/${applicationId}/undo`);
   }
 
   /** Apply a reviewed `PipelineProposal` atomically (HEL-383,

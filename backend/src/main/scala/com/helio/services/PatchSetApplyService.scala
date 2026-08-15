@@ -1,17 +1,23 @@
 package com.helio.services
 
 import com.helio.api.protocols.{EditOutcome, PatchSet, PatchSetApplyResponse}
-import com.helio.domain.AuthenticatedUser
+import com.helio.domain.panels.PanelConfigCodec
+import com.helio.domain.{AuthenticatedUser, PatchSetApplicationId}
 import com.helio.infrastructure.{
   DashboardRepository,
   DataSourceRepository,
   DataTypeRepository,
   MetricRepository,
   PanelRepository,
+  PatchSetApplicationRepository,
   PipelineRepository,
   PipelineStepRepository
 }
+import PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
+import spray.json.JsValue
 
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Applies a reviewed `PatchSet` (HEL-403's schema/protocol) atomically — N
@@ -52,7 +58,12 @@ final class PatchSetApplyService(
     // `metricRepo` — only touched when an edit's config patch actually
     // carries a `metricId` (design.md D2a).
     metricRepo: MetricRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-413 design.md D2: journals a successful (no `failure`) apply so a
+    // later `PatchSetUndoService.undo` can restore it. Written synchronously,
+    // inside this class's own terminal success branch — never fire-and-forget,
+    // since the response's `applicationId` field depends on it.
+    applicationRepo: PatchSetApplicationRepository
 )(implicit ec: ExecutionContext) {
 
   private val context: PatchSetApplyContext =
@@ -75,31 +86,94 @@ final class PatchSetApplyService(
    *  `Right` — the request's atomicity guarantee was honored (nothing was
    *  left partially applied) even though the caller's requested changes
    *  didn't take effect, so the caller gets a normal response body
-   *  reporting exactly what was rolled back and why (design.md D4). */
+   *  reporting exactly what was rolled back and why (design.md D4).
+   *
+   *  Alongside `applied` (unchanged — the exact 2-tuple shape
+   *  `PatchSetApplyRollback.rollback`'s failure-path call already expects,
+   *  never widened), the loop also builds a SEPARATE, `edit.index`-keyed
+   *  `rawConfigs` accumulator (design.md D2a) — populated only for a panel
+   *  `update` edit's just-persisted raw config, via one bare
+   *  `panelRepo.findByIdInternal` fetch right after that edit's `applyOne`
+   *  call succeeds. Only the terminal SUCCESS branch reads it, to journal
+   *  the application (design.md D2); the failure path never touches it. */
   private def applyResolved(
       resolved: Vector[ResolvedEdit],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PatchSetApplyResponse]] = {
     def loop(
         remaining: Vector[ResolvedEdit],
-        applied: Vector[(ResolvedEdit, EditOutcome)]
-    ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), Vector[EditOutcome]]] =
+        applied: Vector[(ResolvedEdit, EditOutcome)],
+        rawConfigs: Map[Int, JsValue]
+    ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue])]] =
       remaining.headOption match {
-        case None => Future.successful(Right(applied.map(_._2)))
+        case None => Future.successful(Right((applied, rawConfigs)))
         case Some(edit) =>
           PatchSetApplyForward.applyOne(edit, user, services).flatMap {
-            case Left(err)      => Future.successful(Left((err, applied)))
-            case Right(outcome) => loop(remaining.tail, applied :+ (edit -> outcome))
+            case Left(err) => Future.successful(Left((err, applied)))
+            case Right(outcome) =>
+              captureRawPanelConfig(edit).flatMap { rawConfigOpt =>
+                val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
+                loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs)
+              }
           }
       }
 
-    loop(resolved, Vector.empty).flatMap {
-      case Right(outcomes) =>
-        Future.successful(Right(PatchSetApplyResponse(outcomes, failure = None)))
+    loop(resolved, Vector.empty, Map.empty).flatMap {
+      case Right((appliedAll, rawConfigs)) =>
+        journalSuccess(appliedAll, rawConfigs, user).map { applicationId =>
+          Right(PatchSetApplyResponse(appliedAll.map(_._2), failure = None, applicationId = Some(applicationId)))
+        }
       case Left((err, appliedSoFar)) =>
         PatchSetApplyRollback.rollback(appliedSoFar, user, services).map { rolledBack =>
-          Right(PatchSetApplyResponse(rolledBack, failure = Some(err.message)))
+          Right(PatchSetApplyResponse(rolledBack, failure = Some(err.message), applicationId = None))
         }
     }
+  }
+
+  /** design.md D2a: a panel `update` edit's forward apply already persisted
+   *  the RAW config (`PanelPatchApplier.apply`'s `panelRepo.replace`, ahead
+   *  of `resolveSingleBinding`'s materialization) — this re-reads that SAME
+   *  row via `findByIdInternal`, the identical unmaterialized path
+   *  `priorState` already uses, so the captured snapshot is genuinely raw
+   *  even for a bound `MetricPanel`. A `create` edit needs no fetch
+   *  (`PanelService.create` never materializes); every other kind is `None`. */
+  private def captureRawPanelConfig(edit: ResolvedEdit): Future[Option[JsValue]] =
+    edit.action match {
+      case ResolvedAction.PanelUpdate(id, _, _) =>
+        panelRepo.findByIdInternal(id).map(_.map(PanelConfigCodec.encodeConfig))
+      case _ => Future.successful(None)
+    }
+
+  /** design.md D2: journals the application ONLY once every edit has
+   *  applied cleanly (this method is only ever reached from the loop's
+   *  success branch) — a partially-rolled-back apply never reaches here.
+   *  `targetKind`/`op` are threaded from each edit's own `ResolvedEdit`
+   *  (`EditOutcome` itself doesn't carry them); `rawResultingConfig` comes
+   *  from the separate accumulator, keyed by the same `edit.index`. */
+  private def journalSuccess(
+      appliedAll: Vector[(ResolvedEdit, EditOutcome)],
+      rawConfigs: Map[Int, JsValue],
+      user: AuthenticatedUser
+  ): Future[String] = {
+    val journaledEdits = appliedAll.map { case (edit, outcome) =>
+      JournaledEdit(
+        index              = edit.index,
+        targetKind         = edit.kind,
+        op                 = edit.op,
+        priorState         = outcome.priorState,
+        resultingState     = outcome.resultingState,
+        newId              = outcome.newId,
+        rawResultingConfig = rawConfigs.get(edit.index)
+      )
+    }
+    val now = Instant.now()
+    val record = PatchSetApplicationRecord(
+      id        = PatchSetApplicationId(UUID.randomUUID().toString),
+      ownerId   = user.id,
+      appliedAt = now,
+      edits     = journaledEdits,
+      createdAt = now
+    )
+    applicationRepo.create(record).map(_.id.value)
   }
 }

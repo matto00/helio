@@ -16,7 +16,11 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { PatchSet } from "../types.js";
-import { applyPatchSetHandler, proposePatchSetHandler } from "./refinementHandlers.js";
+import {
+  applyPatchSetHandler,
+  proposePatchSetHandler,
+  undoPatchSetHandler,
+} from "./refinementHandlers.js";
 
 // Mirrors `PatchSetProtocol.scala`'s recognized `target.kind`/`op` sets — `patch` stays an
 // untyped passthrough (`z.record(z.unknown())`, absent for `op: "delete"`), same convention
@@ -101,5 +105,25 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
       },
     },
     ({ patchSet }) => guarded(() => applyPatchSetHandler(api, patchSet as PatchSet)),
+  );
+
+  server.registerTool(
+    "undo_patch_set",
+    {
+      title: "Undo a previously-applied patch set",
+      description:
+        "Undo a previously-applied PatchSet via POST /api/patch-sets/:id/undo, using the " +
+        "applicationId returned by a prior apply_patch_set call (present on its response exactly " +
+        "when that apply succeeded and was journaled). Restores every edit in that application to " +
+        "its pre-apply state, or restores NONE of them: if any touched resource changed since the " +
+        "apply, or the application contains a delete edit with no restoring create API " +
+        "(dashboard/dataSource/dataType/pipeline), the whole undo is refused and nothing is " +
+        "touched. Returns the PatchSetUndoResponse verbatim (per-edit status/newId/resultingState) " +
+        "— never attempts a partial or manual per-resource restore itself.",
+      inputSchema: {
+        applicationId: z.string().min(1),
+      },
+    },
+    ({ applicationId }) => guarded(() => undoPatchSetHandler(api, applicationId)),
   );
 }

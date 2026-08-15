@@ -62,8 +62,35 @@ export interface EditOutcome {
 }
 
 /** Response of `POST /api/patch-sets/apply`. `failure` is present only when
- *  a mid-set edit failed and triggered a rollback. */
+ *  a mid-set edit failed and triggered a rollback. `applicationId` (HEL-413)
+ *  is present exactly when `failure` is absent AND the application was
+ *  successfully journaled — `POST /api/patch-sets/:id/undo` accepts it
+ *  later to restore this apply's pre-apply state. Absent for a
+ *  partially-rolled-back apply and for any caller that predates this
+ *  field. */
 export interface PatchSetApplyResponse {
   edits: EditOutcome[];
   failure?: string | null;
+  applicationId?: string | null;
+}
+
+// ── Undo (HEL-413) ───────────────────────────────────────────────────────────
+
+/** One edit's undo outcome from `POST /api/patch-sets/:id/undo`. `status` is
+ *  one of `restored` (an `update` edit's captured pre-apply state was
+ *  reapplied, or a `create` edit's created resource was deleted),
+ *  `recreated` (a `delete` edit's resource was recreated under a NEW id —
+ *  panel/pipelineStep only), `failed` (a genuine, unforeseeable restore
+ *  failure for THIS edit), or `notAttempted` (never reached because an
+ *  earlier edit in the same reverse walk failed). */
+export interface EditUndoOutcome {
+  index: number;
+  status: "restored" | "recreated" | "failed" | "notAttempted";
+  newId?: string | null;
+  resultingState?: Record<string, unknown> | null;
+}
+
+/** Response of `POST /api/patch-sets/:id/undo`. */
+export interface PatchSetUndoResponse {
+  edits: EditUndoOutcome[];
 }

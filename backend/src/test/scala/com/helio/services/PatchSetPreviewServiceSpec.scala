@@ -161,10 +161,11 @@ class PatchSetPreviewServiceSpec
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker
     )
+    val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker
+      metricRepo, accessChecker, applicationRepo
     )
 
     seedUsers()

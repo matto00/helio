@@ -6,7 +6,9 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDashboards } from "../../dashboards/services/dashboardService";
 import { fetchPanels } from "../../panels/services/panelService";
-import { applyPatchSet, previewPatchSet } from "../state/patchSetsSlice";
+import { dismissToast } from "../../toasts/state/toastsSlice";
+import { useToast } from "../../toasts/hooks/useToast";
+import { applyPatchSet, previewPatchSet, undoPatchSet } from "../state/patchSetsSlice";
 import { PatchSetReview } from "./PatchSetReview";
 import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
 
@@ -25,6 +27,7 @@ import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
 export function PatchSetReviewPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { push: pushToast } = useToast();
   const location = useLocation();
   const routeState = location.state as { patchSet?: PatchSet } | null;
   const statePatchSet = routeState?.patchSet;
@@ -76,7 +79,43 @@ export function PatchSetReviewPage() {
     setApplying(true);
     setApplyError(null);
     try {
-      await dispatch(applyPatchSet(patchSet)).unwrap();
+      const response = await dispatch(applyPatchSet(patchSet)).unwrap();
+      // design.md D6: `applicationId` is present exactly when this apply was
+      // successfully journaled — only then is there anything for the "Undo"
+      // action to restore. `duration: 0` is REQUIRED here (not the shared
+      // `Toast` component's 4000ms default) — the default would auto-dismiss
+      // roughly 4 seconds after the user is already mid-navigation away from
+      // this page, defeating the whole point of offering Undo.
+      if (response.applicationId) {
+        const applicationId = response.applicationId;
+        // design.md D6: "dismissed only by an explicit close/Undo click, or the next successful
+        // apply's toast replacing it" — `toastId` (returned synchronously by `pushToast`'s
+        // `prepare` callback, skeptic-final-1.md CR2) lets the Undo action dismiss THIS exact
+        // toast itself, rather than leaving a stale, still-clickable "Undo" affordance around
+        // (duration: 0 means it would otherwise never auto-dismiss).
+        const toastId = pushToast({
+          variant: "success",
+          message: "Applied.",
+          duration: 0,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              dispatch(dismissToast(toastId));
+              dispatch(undoPatchSet({ applicationId, patchSet }))
+                .unwrap()
+                .then(() => {
+                  pushToast({ variant: "success", message: "Undone." });
+                })
+                .catch((err) => {
+                  pushToast({
+                    variant: "error",
+                    message: typeof err === "string" ? err : "Failed to undo the patch set.",
+                  });
+                });
+            },
+          },
+        });
+      }
       navigate("/");
     } catch (err) {
       setApplyError(typeof err === "string" ? err : "Failed to apply the patch set.");

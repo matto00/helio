@@ -42,11 +42,18 @@ final case class EditOutcome(
  *  mid-set rollback — `edits` then reports only the edits that were actually
  *  applied-then-compensated (design.md D3). `failure` is absent when every
  *  edit in the set applied cleanly, in which case every `EditOutcome.status`
- *  is `applied`. */
-final case class PatchSetApplyResponse(edits: Vector[EditOutcome], failure: Option[String])
+ *  is `applied`.
+ *
+ *  `applicationId` (HEL-413 design.md D2) is additive: present exactly when
+ *  `failure` is absent AND the application was successfully journaled —
+ *  `POST /api/patch-sets/:id/undo` accepts it later to restore this apply's
+ *  pre-apply state. `None` for a partially-rolled-back apply (nothing
+ *  coherent to undo beyond what the rollback already restored) and for any
+ *  caller that predates this field — byte-for-byte unchanged otherwise. */
+final case class PatchSetApplyResponse(edits: Vector[EditOutcome], failure: Option[String], applicationId: Option[String] = None)
 
 trait PatchSetApplyProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val editOutcomeFormat: RootJsonFormat[EditOutcome] = jsonFormat5(EditOutcome.apply)
   implicit val patchSetApplyResponseFormat: RootJsonFormat[PatchSetApplyResponse] =
-    jsonFormat2(PatchSetApplyResponse.apply)
+    jsonFormat3(PatchSetApplyResponse.apply)
 }
