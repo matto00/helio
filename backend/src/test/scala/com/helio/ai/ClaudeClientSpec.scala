@@ -10,10 +10,12 @@ import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
+import spray.json._
 
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
 /** Coverage for `ClaudeClient` against a hand-written fake `ClaudeTransport` (HEL-390 task 6.2) —
@@ -204,6 +206,197 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
 
       events shouldBe streamEvents
       transport.streamInvocations.get() shouldBe 1
+    }
+  }
+
+  // ── sendWithTools (HEL-660) ─────────────────────────────────────────────
+
+  private def toolUseResponse(id: String, name: String, input: JsValue, usage: ClaudeApiUsage = ClaudeApiUsage(10, 5)): ClaudeApiResponse =
+    ClaudeApiResponse(
+      id = s"msg_$id",
+      content = Seq(ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))),
+      stopReason = Some("tool_use"),
+      usage = usage
+    )
+
+  private def finalTextResponse(text: String, usage: ClaudeApiUsage = ClaudeApiUsage(8, 4)): ClaudeApiResponse =
+    ClaudeApiResponse(
+      id = "msg_final",
+      content = Seq(ClaudeApiContentBlock(blockType = "text", text = Some(text))),
+      stopReason = Some("end_turn"),
+      usage = usage
+    )
+
+  /** Sequenced `sendTool` responses (one per invocation, in call order) — mirrors
+   *  `DashboardAuthoringServiceSpec`'s `Vector`-of-responses + invocation-counter fake (tasks.md
+   *  4.1). Indexing past the end of the vector throws `IndexOutOfBoundsException`, which doubles as
+   *  a hard assertion that a further hop never happens — same "fake throws on the Nth call" fixture
+   *  style as HEL-392's bounded self-repair test (tasks.md 4.4). `send`/`stream` are never exercised
+   *  by these tests, so they fail loudly if `sendWithTools` ever mistakenly delegates to them. */
+  private class FakeToolTransport(sendToolResponses: Vector[Future[ClaudeApiResponse]]) extends ClaudeTransport {
+    private val invocationCount  = new AtomicInteger(0)
+    private val recordedRequests = new CopyOnWriteArrayList[ClaudeApiToolRequest]()
+
+    def toolInvocations: Int                       = invocationCount.get()
+    def toolRequests: Vector[ClaudeApiToolRequest] = recordedRequests.asScala.toVector
+
+    override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
+      Future.failed(new UnsupportedOperationException("FakeToolTransport.send is not exercised by these tests"))
+
+    override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] =
+      throw new UnsupportedOperationException("FakeToolTransport.stream is not exercised by these tests")
+
+    override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse] = {
+      recordedRequests.add(request)
+      sendToolResponses(invocationCount.getAndIncrement())
+    }
+  }
+
+  /** Resolves every `execute` call the same way (by-name, mirroring `FakeClaudeTransport`'s own
+   *  `sendResult: => Future[...]` pattern above) while recording invocation count + args, so tests
+   *  can assert both "was the executor called, how many times" and "with what". */
+  private class FakeToolExecutor(result: => Future[Either[String, String]]) extends ClaudeToolExecutor {
+    private val invocationCount = new AtomicInteger(0)
+    private val recordedCalls   = new CopyOnWriteArrayList[(String, JsValue)]()
+
+    def invocations: Int                 = invocationCount.get()
+    def calls: Vector[(String, JsValue)] = recordedCalls.asScala.toVector
+
+    override def execute(name: String, input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+      invocationCount.incrementAndGet()
+      recordedCalls.add((name, input))
+      result
+    }
+  }
+
+  private val findTool = ClaudeTool(name = "find", description = "Find a resource", inputSchema = JsObject("type" -> JsString("object")))
+
+  private def toolRequest(maxHops: Int, prompt: String = "help me"): ClaudeToolRequest =
+    ClaudeToolRequest(history = Seq(ClaudeToolMessage.text(ClaudeRole.User, prompt)), tools = Seq(findTool), maxHops = maxHops)
+
+  "ClaudeClient.sendWithTools" should {
+
+    "resolve FinalResponse with zero executor invocations when the first response has no tool_use" in {
+      val transport    = new FakeToolTransport(Vector(Future.successful(finalTextResponse("all set"))))
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("unused")))
+      val client       = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "all set"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+      toolExecutor.invocations shouldBe 0
+      transport.toolInvocations shouldBe 1
+    }
+
+    "invoke the executor exactly once on a single tool_use round trip, then resolve FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(toolUseResponse("toolu_1", "find", JsObject("query" -> JsString("revenue")))),
+          Future.successful(finalTextResponse("found it"))
+        )
+      )
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("3 rows")))
+      val client        = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      toolExecutor.invocations shouldBe 1
+      toolExecutor.calls.head._1 shouldBe "find"
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "found it"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+    }
+
+    "hard-cap at maxHops: a 4th tool_use attempt terminates gracefully, not a 5th transport call" in {
+      val toolUseFuture = Future.successful(toolUseResponse("toolu_x", "find", JsObject.empty))
+      val transport      = new FakeToolTransport(Vector.fill(4)(toolUseFuture))
+      val toolExecutor        = new FakeToolExecutor(Future.successful(Right("ok")))
+      val client          = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      toolExecutor.invocations shouldBe 3
+      transport.toolInvocations shouldBe 4
+      outcome shouldBe a[ClaudeToolOutcome.HopBudgetExhausted]
+    }
+
+    "resolve FinalResponse (not HopBudgetExhausted) when exactly maxHops tool_use round trips are followed by a final response" in {
+      val toolUseFuture = Future.successful(toolUseResponse("toolu_x", "find", JsObject.empty))
+      val transport = new FakeToolTransport(
+        Vector(toolUseFuture, toolUseFuture, toolUseFuture, Future.successful(finalTextResponse("done")))
+      )
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("ok")))
+      val client   = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      toolExecutor.invocations shouldBe 3
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "done"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+    }
+
+    "feed a Left executor result back as an isError tool_result and continue the loop to FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty)),
+          Future.successful(finalTextResponse("recovered"))
+        )
+      )
+      val toolExecutor = new FakeToolExecutor(Future.successful(Left("resource not found")))
+      val client   = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "recovered"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+
+      val secondRequest   = transport.toolRequests(1)
+      val toolResultBlock = secondRequest.messages.last.content.find(_.blockType == "tool_result")
+      toolResultBlock.flatMap(_.isError) shouldBe Some(true)
+      toolResultBlock.flatMap(_.text) shouldBe Some("resource not found")
+    }
+
+    "sum usage across hops into the FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty, usage = ClaudeApiUsage(inputTokens = 20, outputTokens = 5))),
+          Future.successful(finalTextResponse("done", usage = ClaudeApiUsage(inputTokens = 15, outputTokens = 8)))
+        )
+      )
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("ok")))
+      val client   = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(_, _, usage) => usage shouldBe TokenUsage(inputTokens = 35, outputTokens = 13)
+        case other                                          => fail(s"expected FinalResponse, got $other")
+      }
+    }
+
+    "reject a mid-loop guardrail breach with Failed(GuardrailExceeded) and no transport call for that hop" in {
+      val transport = new FakeToolTransport(Vector(Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty))))
+      val longResult = "a very long tool result that will blow the input token budget once appended to history"
+      val toolExecutor    = new FakeToolExecutor(Future.successful(Right(longResult)))
+      // Sized to admit the first hop's short prompt but not the grown history once the long
+      // tool_result is appended ahead of the second hop's guardrail check.
+      val client = new ClaudeClient(config(maxInputTokens = 10), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3, prompt = "hi"), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(_)) => succeed
+        case other                                                        => fail(s"expected Failed(GuardrailExceeded), got $other")
+      }
+      transport.toolInvocations shouldBe 1
     }
   }
 }

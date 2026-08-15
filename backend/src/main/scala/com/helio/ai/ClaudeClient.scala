@@ -3,6 +3,7 @@ package com.helio.ai
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.LoggerFactory
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -57,6 +58,131 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       case None =>
         transport.stream(toApiRequest(request, stream = true))
     }
+
+  /** Bounded, multi-turn tool-use loop (design.md D1/D5-D7): send `request.history`/`request.tools`
+   *  to the transport; when the response has no `tool_use` block, resolve `FinalResponse`; when it
+   *  has one or more and the hop budget (`request.maxHops`, a REQUIRED caller-supplied parameter —
+   *  never hardcoded here) is not yet exhausted, invoke `executor` for every `tool_use` block in
+   *  that response, append a `tool_result`-bearing turn, and recurse. `request.maxHops` round trips
+   *  is the max transport calls that may execute a tool; a response requesting tools on what would
+   *  be a `maxHops + 1`th round trip is detected — and the loop stops, with no execution and no
+   *  further transport call — after that round trip's own response already arrived (design.md D5).
+   *  Never blocks the calling thread: every branch returns/completes a `Future`. */
+  def sendWithTools(request: ClaudeToolRequest, executor: ClaudeToolExecutor): Future[ClaudeToolOutcome] = {
+
+    def loop(history: Seq[ClaudeToolMessage], hopsUsed: Int, usage: TokenUsage): Future[ClaudeToolOutcome] =
+      guardrailRejectTool(history) match {
+        case Some(reason) =>
+          Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)))
+        case None =>
+          val thisHop = hopsUsed + 1
+          transport
+            .sendTool(toApiToolRequest(request, history))
+            .transform {
+              case Success(apiResponse) =>
+                Success(Right(apiResponse))
+              case Failure(ClaudeApiException(status, body)) =>
+                log.warn(s"Claude API tool-use request failed with status $status")
+                Success(Left(ClaudeError.ApiError(status, body)))
+              case Failure(e) =>
+                log.error("Claude API tool-use request failed", e)
+                Success(Left(ClaudeError.TransportFailure("Request failed")))
+            }
+            .flatMap {
+              case Left(err) =>
+                Future.successful(ClaudeToolOutcome.Failed(err))
+              case Right(apiResponse) =>
+                val totalUsage    = addUsage(usage, apiResponse.usage)
+                val blocks        = apiResponse.content.map(toContentBlock)
+                val toolUses      = blocks.collect { case tu: ClaudeContentBlock.ToolUse => tu }
+                val assistantTurn = ClaudeToolMessage(ClaudeRole.Assistant, blocks)
+
+                if (toolUses.isEmpty) {
+                  Future.successful(
+                    ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)
+                  )
+                } else if (thisHop > request.maxHops) {
+                  Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage))
+                } else {
+                  Future
+                    .traverse(toolUses)(executeTool(executor, _))
+                    .flatMap { toolResults =>
+                      val userTurn = ClaudeToolMessage(ClaudeRole.User, toolResults)
+                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage)
+                    }
+                }
+            }
+      }
+
+    loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0))
+  }
+
+  /** Invokes the caller-supplied executor for a single `tool_use` block; a `Left` becomes an
+   *  `isError = true` `ToolResult` rather than failing the overall `Future` (design.md D7). */
+  private def executeTool(executor: ClaudeToolExecutor, toolUse: ClaudeContentBlock.ToolUse): Future[ClaudeContentBlock.ToolResult] =
+    executor.execute(toolUse.name, toolUse.input).map {
+      case Right(output)  => ClaudeContentBlock.ToolResult(toolUse.id, output, isError = false)
+      case Left(message) => ClaudeContentBlock.ToolResult(toolUse.id, message, isError = true)
+    }
+
+  private def addUsage(accumulated: TokenUsage, hop: ClaudeApiUsage): TokenUsage =
+    TokenUsage(accumulated.inputTokens + hop.inputTokens, accumulated.outputTokens + hop.outputTokens)
+
+  private def extractText(blocks: Seq[ClaudeContentBlock]): String =
+    blocks.collect { case ClaudeContentBlock.Text(text) => text }.mkString
+
+  private def toContentBlock(b: ClaudeApiContentBlock): ClaudeContentBlock = b.blockType match {
+    case "tool_use" =>
+      ClaudeContentBlock.ToolUse(b.id.getOrElse(""), b.name.getOrElse(""), b.input.getOrElse(JsObject.empty))
+    case "tool_result" =>
+      ClaudeContentBlock.ToolResult(b.toolUseId.getOrElse(""), b.text.getOrElse(""), b.isError.getOrElse(false))
+    case _ =>
+      ClaudeContentBlock.Text(b.text.getOrElse(""))
+  }
+
+  private def toApiContentBlock(b: ClaudeContentBlock): ClaudeApiContentBlock = b match {
+    case ClaudeContentBlock.Text(text) =>
+      ClaudeApiContentBlock(blockType = "text", text = Some(text))
+    case ClaudeContentBlock.ToolUse(id, name, input) =>
+      ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))
+    case ClaudeContentBlock.ToolResult(toolUseId, content, isError) =>
+      ClaudeApiContentBlock(blockType = "tool_result", text = Some(content), toolUseId = Some(toolUseId), isError = Some(isError))
+  }
+
+  private def toApiToolRequest(request: ClaudeToolRequest, history: Seq[ClaudeToolMessage]): ClaudeApiToolRequest = {
+    val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
+    ClaudeApiToolRequest(
+      model = config.model,
+      maxTokens = clampedMaxTokens,
+      messages = history.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock))),
+      temperature = request.temperature.getOrElse(config.temperature),
+      tools = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
+    )
+  }
+
+  /** Approximates block content as flattened text for the pre-flight guardrail estimate
+   *  (design.md D6) — `ClaudeTokenEstimator.estimate` takes `Seq[ClaudeMessage]` (`content:
+   *  String`), not `Seq[ClaudeToolMessage]`; this is a pre-flight guardrail, not exact billing
+   *  (real accounting always comes from the API's own `usage`, summed in [[addUsage]]). */
+  private def flattenForEstimate(history: Seq[ClaudeToolMessage]): Seq[ClaudeMessage] =
+    history.map { m =>
+      val flattened = m.content
+        .map {
+          case ClaudeContentBlock.Text(text)               => text
+          case ClaudeContentBlock.ToolUse(_, _, input)      => input.compactPrint
+          case ClaudeContentBlock.ToolResult(_, content, _) => content
+        }
+        .mkString
+      ClaudeMessage(m.role, flattened)
+    }
+
+  private def guardrailRejectTool(history: Seq[ClaudeToolMessage]): Option[String] = {
+    val estimated = ClaudeTokenEstimator.estimate(flattenForEstimate(history))
+    if (estimated > config.maxInputTokens)
+      Some(s"Estimated input tokens ($estimated) exceed the configured limit (${config.maxInputTokens})")
+    else
+      None
+  }
 
   private def guardrailReject(request: ClaudeRequest): Option[String] = {
     val estimated = ClaudeTokenEstimator.estimate(request.messages)

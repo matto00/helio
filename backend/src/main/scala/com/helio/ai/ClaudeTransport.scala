@@ -12,4 +12,15 @@ import scala.concurrent.Future
 trait ClaudeTransport {
   def send(request: ClaudeApiRequest): Future[ClaudeApiResponse]
   def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed]
+
+  /** Tool-use-loop variant of [[send]] (design.md D4). Given a **trait-level default
+   *  implementation** — not an abstract member — so the 6 pre-existing `FakeClaudeTransport` test
+   *  fakes across the codebase (`ClaudeClientSpec` plus 5 more in `com.helio.api.routes`/
+   *  `com.helio.services`, none of which ever call `sendWithTools`) keep compiling untouched;
+   *  mirrors `claudeApiRequestFormat.read`'s existing "outbound-only, throws if actually invoked"
+   *  pattern in `ClaudeProtocol.scala`. [[HttpClaudeTransport]] overrides this for real. */
+  def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse] =
+    throw new UnsupportedOperationException(
+      s"${getClass.getName} does not implement ClaudeTransport.sendTool"
+    )
 }
