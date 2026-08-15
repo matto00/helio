@@ -3,6 +3,7 @@
 
 import {
   assistantConversationsReducer,
+  converse,
   fetchConversations,
   selectConversation,
   setSelectedConversationId,
@@ -15,11 +16,13 @@ jest.mock("../services/assistantConversationsService", () => ({
   listConversations: jest.fn(),
   getConversation: jest.fn(),
   updateConversation: jest.fn(),
+  converse: jest.fn(),
 }));
 
 const listConversationsMock = jest.mocked(assistantConversationsService.listConversations);
 const getConversationMock = jest.mocked(assistantConversationsService.getConversation);
 const updateConversationMock = jest.mocked(assistantConversationsService.updateConversation);
+const converseMock = jest.mocked(assistantConversationsService.converse);
 
 const summary: AssistantConversationSummary = {
   id: "conv-1",
@@ -126,6 +129,40 @@ describe("assistantConversationsSlice reducers", () => {
     );
     expect(nextState.items[0].pinned).toBe(true);
   });
+
+  it("replaces activeConversation.data wholesale when converse fulfills, mirroring selectConversation.fulfilled", () => {
+    const nextState = assistantConversationsReducer(
+      undefined,
+      converse.fulfilled(detail, "req-1", { id: "conv-1", message: "Hello" }),
+    );
+    expect(nextState.activeConversation.status).toBe("succeeded");
+    expect(nextState.activeConversation.data).toEqual(detail);
+  });
+
+  it("converse.pending/rejected do NOT touch activeConversation.status -- the composer's own local state surfaces sending/errors, not a full-panel swap", () => {
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      selectConversation.fulfilled(detail, "req-0", "conv-1"),
+    );
+    const pending = assistantConversationsReducer(
+      preloaded,
+      converse.pending("req-1", { id: "conv-1", message: "Hello" }),
+    );
+    expect(pending.activeConversation.status).toBe("succeeded");
+    expect(pending.activeConversation.data).toEqual(detail);
+
+    const rejected = assistantConversationsReducer(
+      pending,
+      converse.rejected(
+        null,
+        "req-1",
+        { id: "conv-1", message: "Hello" },
+        "Failed to send message.",
+      ),
+    );
+    expect(rejected.activeConversation.status).toBe("succeeded");
+    expect(rejected.activeConversation.data).toEqual(detail);
+  });
 });
 
 describe("fetchConversations thunk", () => {
@@ -180,5 +217,31 @@ describe("togglePinned thunk", () => {
     await thunk(dispatch, jest.fn(), undefined);
 
     expect(updateConversationMock).toHaveBeenCalledWith("conv-1", { pinned: true });
+  });
+});
+
+describe("converse thunk", () => {
+  it("calls the converse service function with the id and message", async () => {
+    converseMock.mockResolvedValueOnce(detail);
+
+    const dispatch = jest.fn();
+    const thunk = converse({ id: "conv-1", message: "Hello" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello");
+  });
+
+  it("dispatches rejected with a fallback message on service error", async () => {
+    converseMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = converse({ id: "conv-1", message: "Hello" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "assistantConversations/converse/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toBe("network error");
   });
 });

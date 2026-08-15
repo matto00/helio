@@ -1,0 +1,78 @@
+/* ── Message composer (HEL-665, reopened composer ticket) ─────────────────────────────────────
+ * Text input + send action, rendered inside ActiveConversationPanel (both the transcript's
+ * success-state and the empty-conversation-list state, design.md D5). Button/spinner recipe
+ * mirrors RefinementChatDrawer.css's identical submit/spinner pattern. */
+
+.message-composer {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.message-composer__input {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+}
+
+.message-composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.message-composer__sending {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.message-composer__spinner {
+  flex-shrink: 0;
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--app-border-subtle);
+  border-top-color: var(--app-accent);
+  border-radius: 50%;
+  animation: message-composer-spin 0.7s linear infinite;
+}
+
+@keyframes message-composer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.message-composer__submit {
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    opacity var(--app-transition);
+}
+
+.message-composer__submit:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.message-composer__submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .message-composer__submit {
+    min-height: 44px;
+  }
+}

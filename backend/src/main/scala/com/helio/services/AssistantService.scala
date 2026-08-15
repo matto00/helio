@@ -1,6 +1,6 @@
 package com.helio.services
 
-import com.helio.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest, TokenUsage}
+import com.helio.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
 import com.helio.api.protocols.{AssistantProtocol, AssistantTurnResult}
 import com.helio.domain.AuthenticatedUser
 
@@ -42,7 +42,12 @@ final class AssistantService(
    *  ticket's caller would supply `3`; never hardcoded inside `ClaudeClient` itself. */
   private val MaxHops: Int = 3
 
-  def converse(history: Seq[ClaudeToolMessage], message: String, user: AuthenticatedUser): Future[AssistantTurnResult] = {
+  /** HEL-665 (reopened composer ticket, design.md D1): `Future[Either[ClaudeError,
+   *  AssistantTurnResult]]`, mirroring `ClaudeClient.send`'s own existing `Either` shape — the only
+   *  way to represent `ClaudeToolOutcome.Failed` (which carries no `history` at all) without either
+   *  silently discarding the user's message or fabricating a persisted "response" for a real API
+   *  failure. */
+  def converse(history: Seq[ClaudeToolMessage], message: String, user: AuthenticatedUser): Future[Either[ClaudeError, AssistantTurnResult]] = {
     val executor = new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -57,7 +62,12 @@ final class AssistantService(
       tools = AssistantProtocol.assistantTools,
       maxHops = MaxHops
     )
-    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor))
+    // `historyWasEmpty` is captured from the CALLER-supplied `history` (before `seedHistory` folds
+    // AssistantSystemPrompt.text into it) — threaded through to `toTurnResult` so the RETURNED
+    // `fullHistory` can be desanitized back down to the plain `message`, while `request` above
+    // (what's actually sent to Claude) is completely unaffected (evaluation-1.md Change Request 1).
+    val historyWasEmpty = history.isEmpty
+    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor, historyWasEmpty, message))
   }
 
   /** Folds the static [[AssistantSystemPrompt]] into the SAME message as the fresh user turn, only
@@ -71,30 +81,51 @@ final class AssistantService(
     history :+ ClaudeToolMessage.text(ClaudeRole.User, turnText)
   }
 
-  private def toTurnResult(outcome: ClaudeToolOutcome, executor: AssistantToolExecutor): AssistantTurnResult = outcome match {
+  /** `FinalResponse`/`HopBudgetExhausted` both carry a real `history` — folded to `Right(...)`,
+   *  `fullHistory` desanitized via [[desanitizeFirstTurn]] before being returned (design.md D1 +
+   *  evaluation-1.md Change Request 1). `Failed` carries no `history` at all — folded to
+   *  `Left(error)` directly, never a value-less or fabricated `AssistantTurnResult`. */
+  private def toTurnResult(
+      outcome: ClaudeToolOutcome,
+      executor: AssistantToolExecutor,
+      historyWasEmpty: Boolean,
+      message: String
+  ): Either[ClaudeError, AssistantTurnResult] = outcome match {
     case ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
-      AssistantTurnResult(text, executor.proposal, toolCallCount(fullHistory), hopBudgetExhausted = false, usage)
+      Right(
+        AssistantTurnResult(text, executor.proposal, toolCallCount(fullHistory), hopBudgetExhausted = false, usage, desanitizeFirstTurn(fullHistory, historyWasEmpty, message))
+      )
     case ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
-      AssistantTurnResult(
-        s"Reached the maximum number of tool calls ($MaxHops) without a final response.",
-        executor.proposal,
-        toolCallCount(fullHistory),
-        hopBudgetExhausted = true,
-        usage
+      Right(
+        AssistantTurnResult(
+          s"Reached the maximum number of tool calls ($MaxHops) without a final response.",
+          executor.proposal,
+          toolCallCount(fullHistory),
+          hopBudgetExhausted = true,
+          usage,
+          desanitizeFirstTurn(fullHistory, historyWasEmpty, message)
+        )
       )
     case ClaudeToolOutcome.Failed(error) =>
-      AssistantTurnResult(s"Assistant request failed: ${describeError(error)}", None, 0, hopBudgetExhausted = false, TokenUsage(0, 0))
+      Left(error)
   }
+
+  /** Undoes `seedHistory`'s system-prompt folding for the value actually RETURNED by `converse`
+   *  (evaluation-1.md Change Request 1 — the outbound request Claude sees, built in `converse`
+   *  above, is completely unaffected by this). `seedHistory` only folds `AssistantSystemPrompt.text`
+   *  into the first turn when the caller's own `history` was empty (a brand-new conversation's first
+   *  message) — that same condition (`historyWasEmpty`) is when `fullHistory.head` needs rewriting
+   *  back down to the plain `message` before this value gets persisted (`AssistantConversationRoutes
+   *  .converseFlow`'s `appendTurn`) and rendered (`MessageTurn.tsx`) verbatim. A non-empty caller
+   *  `history` never triggered the fold in the first place (`seedHistory`'s `else` branch already
+   *  appends the plain `message`), so `fullHistory` passes through unchanged. */
+  private def desanitizeFirstTurn(fullHistory: Seq[ClaudeToolMessage], historyWasEmpty: Boolean, message: String): Seq[ClaudeToolMessage] =
+    if (!historyWasEmpty || fullHistory.isEmpty) fullHistory
+    else fullHistory.updated(0, ClaudeToolMessage.text(ClaudeRole.User, message))
 
   private def toolCallCount(history: Seq[ClaudeToolMessage]): Int =
     history.iterator.flatMap(_.content).count {
       case _: ClaudeContentBlock.ToolUse => true
       case _                              => false
     }
-
-  private def describeError(error: ClaudeError): String = error match {
-    case ClaudeError.ApiError(status, body)    => s"API error ($status): $body"
-    case ClaudeError.TransportFailure(message) => message
-    case ClaudeError.GuardrailExceeded(reason) => reason
-  }
 }

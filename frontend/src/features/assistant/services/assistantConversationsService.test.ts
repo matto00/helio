@@ -4,6 +4,7 @@
 import { httpClient } from "../../../services/httpClient";
 import {
   appendTurns,
+  converse,
   createConversation,
   getConversation,
   listConversations,
@@ -85,5 +86,17 @@ describe("assistantConversationsService", () => {
       pinned: true,
     });
     expect(result.pinned).toBe(true);
+  });
+
+  it("converse POSTs to the /:id/converse sub-route with a message body and returns the refreshed detail", async () => {
+    mockedHttpClient.post.mockResolvedValueOnce({ data: detail });
+
+    const result = await converse("conv-1", "Hello");
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith(
+      "/api/assistant-conversations/conv-1/converse",
+      { message: "Hello" },
+    );
+    expect(result).toEqual(detail);
   });
 });

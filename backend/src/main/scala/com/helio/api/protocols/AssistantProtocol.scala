@@ -1,6 +1,6 @@
 package com.helio.api.protocols
 
-import com.helio.ai.{ClaudeTool, TokenUsage}
+import com.helio.ai.{ClaudeTool, ClaudeToolMessage, TokenUsage}
 import com.helio.services.WorkspaceAssistantTools
 
 // ── Top-level assistant conversation-loop types (HEL-662) ───────────────────
@@ -13,19 +13,27 @@ import com.helio.services.WorkspaceAssistantTools
 // CONTRIBUTING's file-size soft budget; `AssistantProtocol.assistantTools` (below) is still the one
 // call site an `AssistantService` needs.
 
-/** `AssistantService.converse`'s buffered result (HEL-662 tasks.md 2.1). `proposal` is the actual
- *  structured `DashboardProposal`/`PipelineProposal`/`CombinedProposal`/`PatchSet` a successful
- *  `propose_*` tool call produced during the turn — captured via `AssistantToolExecutor`'s one-shot
- *  side channel (design.md D6), never re-derived from `text`. `toolCallCount` counts every
- *  `tool_use` block actually executed across the whole turn (every hop); `hopBudgetExhausted` is
- *  `true` only for a `ClaudeToolOutcome.HopBudgetExhausted` outcome — the hard 3-hop cap was reached
- *  before a final text-only response. */
+/** `AssistantService.converse`'s buffered result (HEL-662 tasks.md 2.1; `fullHistory` added by
+ *  HEL-665's reopened composer ticket, design.md D1). `proposal` is the actual structured
+ *  `DashboardProposal`/`PipelineProposal`/`CombinedProposal`/`PatchSet` a successful `propose_*`
+ *  tool call produced during the turn — captured via `AssistantToolExecutor`'s one-shot side channel
+ *  (design.md D6), never re-derived from `text`. `toolCallCount` counts every `tool_use` block
+ *  actually executed across the whole turn (every hop); `hopBudgetExhausted` is `true` only for a
+ *  `ClaudeToolOutcome.HopBudgetExhausted` outcome — the hard 3-hop cap was reached before a final
+ *  text-only response. `fullHistory` is the caller-supplied history plus every new turn this call
+ *  produced (the user's message, any `tool_use`/`tool_result` blocks, Claude's final response) —
+ *  copied verbatim from `ClaudeToolOutcome.FinalResponse`/`HopBudgetExhausted`'s own `history` field
+ *  so a caller (`AssistantConversationRoutes`, HEL-665) can persist the conversation's continuation
+ *  without re-deriving it. Only ever constructed for a `Right` result — see
+ *  `AssistantService.converse`'s `Future[Either[ClaudeError, AssistantTurnResult]]` signature; a
+ *  `ClaudeToolOutcome.Failed` never produces one. */
 final case class AssistantTurnResult(
     text: String,
     proposal: Option[AssistantProposal],
     toolCallCount: Int,
     hopBudgetExhausted: Boolean,
-    usage: TokenUsage
+    usage: TokenUsage,
+    fullHistory: Seq[ClaudeToolMessage]
 )
 
 /** Closed union over what a successful `propose_*` tool call can produce (HEL-662 tasks.md 2.2) —

@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { isAxiosError } from "axios";
 
 import {
+  converse as converseRequest,
   getConversation as getConversationRequest,
   listConversations as listConversationsRequest,
   updateConversation as updateConversationRequest,
@@ -74,6 +75,25 @@ export const selectConversation = createAsyncThunk<
   }
 });
 
+/** `POST /:id/converse` (HEL-665, reopened composer ticket, design.md D3): on fulfillment, replaces
+ * `activeConversation.data` with the response wholesale — mirrors `selectConversation.fulfilled`'s
+ * identical update shape, no follow-up `getConversation` call needed (the route's own fetch →
+ * converse → append → re-fetch already returns the refreshed detail). Deliberately does NOT wire
+ * `pending`/`rejected` into `activeConversation.status`/`error`: those drive `ActiveConversationPanel`'s
+ * full-panel loading/error swap, which would hide the transcript AND the composer mid-send — the
+ * composer's own local sending/error state (design.md D6) is what surfaces this instead. */
+export const converse = createAsyncThunk<
+  AssistantConversationDetail,
+  { id: string; message: string },
+  { rejectValue: string }
+>("assistantConversations/converse", async ({ id, message }, { rejectWithValue }) => {
+  try {
+    return await converseRequest(id, message);
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to send message."));
+  }
+});
+
 export const togglePinned = createAsyncThunk<
   AssistantConversationSummary,
   { id: string; pinned: boolean },
@@ -125,6 +145,11 @@ const assistantConversationsSlice = createSlice({
       .addCase(togglePinned.fulfilled, (state, action) => {
         const idx = state.items.findIndex((c) => c.id === action.payload.id);
         if (idx !== -1) state.items[idx] = action.payload;
+      })
+      .addCase(converse.fulfilled, (state, action) => {
+        state.activeConversation.data = action.payload;
+        state.activeConversation.status = "succeeded";
+        state.activeConversation.error = null;
       });
   },
 });
