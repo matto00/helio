@@ -56,6 +56,9 @@ import com.helio.api.protocols._
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
  *    `PagedResult[MetricResponse]`)
+ *  - `WorkspaceResourceSearchProtocol extends WorkspaceContextProtocol with MetricProtocol`
+ *    (`WorkspaceResourceDetail` wraps 4 `WorkspaceContext*` types verbatim + the new
+ *    `WorkspaceResourceMetric`, whose `format` field reuses `MetricFormat` — HEL-661)
  *
  *  All re-exports for backward compatibility happen via `package object protocols`
  *  / wildcard import below: every case class and companion is in
@@ -92,6 +95,7 @@ trait JsonProtocols
     with BoundPanelProtocol
     with WorkspaceProtocol
     with WorkspaceContextProtocol
+    with WorkspaceResourceSearchProtocol
     with HookProtocol
     with DashboardAuthoringProtocol
     with AuthoringConversationProtocol
