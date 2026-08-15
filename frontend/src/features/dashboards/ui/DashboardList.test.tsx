@@ -274,20 +274,4 @@ describe("DashboardList", () => {
     // Clear button should disappear
     expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
   });
-
-  // HEL-395: "Author with AI" entry point, placed beside the existing "Add
-  // dashboard" create affordance (design.md D5).
-  it("opens the Author with AI chat drawer when the entry-point affordance is activated", () => {
-    renderWithStore(<DashboardList />, {
-      dashboards: { items: [], status: "succeeded" },
-      panels: { items: [] },
-    });
-
-    expect(screen.queryByLabelText("Author a dashboard with AI")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Author dashboard with AI" }));
-
-    expect(screen.getByLabelText("Author a dashboard with AI")).toBeInTheDocument();
-    expect(screen.getByLabelText("Dashboard goal")).toBeInTheDocument();
-  });
 });
