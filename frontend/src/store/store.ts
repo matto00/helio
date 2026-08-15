@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 
+import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
@@ -18,6 +19,7 @@ addToastListeners(startAppListening);
 
 export const store = configureStore({
   reducer: {
+    assistantConversations: assistantConversationsReducer,
     auth: authReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,

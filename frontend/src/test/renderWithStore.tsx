@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
+import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
@@ -18,6 +19,10 @@ import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type { User } from "../features/auth/types/user";
+import type {
+  AssistantConversationDetail,
+  AssistantConversationSummary,
+} from "../features/assistant/types";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { DataType } from "../features/dataTypes/types/dataType";
 import type { Metric, MetricSummary } from "../features/metrics/types/metric";
@@ -85,6 +90,19 @@ interface TestState {
     currentMetricStatus?: "idle" | "loading" | "succeeded" | "failed";
     currentMetricError?: string | null;
   };
+  /** HEL-664: conversation list + selection state consumed by `ChatPage.tsx`/
+   * `ActiveConversationPanel.tsx`. */
+  assistantConversations?: {
+    items?: AssistantConversationSummary[];
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    error?: string | null;
+    selectedConversationId?: string | null;
+    activeConversation?: {
+      data?: AssistantConversationDetail | null;
+      status?: "idle" | "loading" | "succeeded" | "failed";
+      error?: string | null;
+    };
+  };
 }
 
 export function renderWithStore(
@@ -97,6 +115,7 @@ export function renderWithStore(
   initialPath: string = "/",
 ) {
   const reducer = {
+    assistantConversations: assistantConversationsReducer,
     auth: authReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
@@ -175,6 +194,18 @@ export function renderWithStore(
           currentMetricStatus: preloadedState.metrics?.currentMetricStatus ?? "idle",
           currentMetricError: preloadedState.metrics?.currentMetricError ?? null,
           createModalOpen: false,
+        },
+        assistantConversations: {
+          items: preloadedState.assistantConversations?.items ?? [],
+          status: preloadedState.assistantConversations?.status ?? "idle",
+          error: preloadedState.assistantConversations?.error ?? null,
+          selectedConversationId:
+            preloadedState.assistantConversations?.selectedConversationId ?? null,
+          activeConversation: {
+            data: preloadedState.assistantConversations?.activeConversation?.data ?? null,
+            status: preloadedState.assistantConversations?.activeConversation?.status ?? "idle",
+            error: preloadedState.assistantConversations?.activeConversation?.error ?? null,
+          },
         },
       }
     : undefined;

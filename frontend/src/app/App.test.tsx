@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
+import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { listConversations as listConversationsRequest } from "../features/assistant/services/assistantConversationsService";
 import { authReducer } from "../features/auth/state/authSlice";
 import { getMeRequest } from "../features/auth/services/authService";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
@@ -53,6 +55,12 @@ jest.mock("../features/metrics/services/metricService", () => ({
   fetchMetrics: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("../features/assistant/services/assistantConversationsService", () => ({
+  listConversations: jest.fn().mockResolvedValue([]),
+  getConversation: jest.fn(),
+  updateConversation: jest.fn(),
+}));
+
 jest.mock("../features/auth/services/authService", () => ({
   getMeRequest: jest.fn().mockResolvedValue({
     id: "test-user",
@@ -79,6 +87,7 @@ const getPipelinesMock = jest.mocked(getPipelinesRequest);
 const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 const updatePanelAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
+const listConversationsMock = jest.mocked(listConversationsRequest);
 
 const defaultDashboardAppearance = {
   background: "transparent",
@@ -103,6 +112,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
 
   const store = configureStore({
     reducer: {
+      assistantConversations: assistantConversationsReducer,
       auth: authReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
@@ -157,6 +167,8 @@ describe("App", () => {
     updateDashboardAppearanceMock.mockReset();
     updateDashboardLayoutMock.mockReset();
     updatePanelAppearanceMock.mockReset();
+    listConversationsMock.mockReset();
+    listConversationsMock.mockResolvedValue([]);
     HTMLDialogElement.prototype.showModal = jest.fn(function () {
       this.setAttribute("open", "");
     });
@@ -533,6 +545,115 @@ describe("App", () => {
     );
   });
 
+  // HEL-664 (tasks.md 4.1/4.2/4.2a) — the /chat nav entry, route, and
+  // breadcrumb, mirroring the Metrics tests immediately above.
+  it("renders a Chat nav link pointing to /chat in the sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
+    const chatLink = within(sidebarNav).getByRole("link", { name: "Chat" });
+    expect(chatLink).toBeInTheDocument();
+    expect(chatLink).toHaveAttribute("href", "/chat");
+  });
+
+  it("navigates to /chat and renders ChatPage", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp();
+
+    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
+
+    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
+    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Chat" }));
+
+    await waitFor(() => expect(document.querySelector(".chat-page")).toBeInTheDocument());
+  });
+
+  it("shows 'Chat' breadcrumb when route is /chat", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/chat" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Chat"),
+    );
+  });
+
+  // skeptic-final-1.md change request 1 — `breadcrumbItemName` (App.tsx) had
+  // no "chat" arm, so the breadcrumb (and the mobile pill's "current:" label)
+  // never reflected the selected conversation's title, unlike every sibling
+  // Redux-selection section (sources/registry). Mirrors the /pipelines
+  // breadcrumb-reflects-selection test above, for both the fallback-to-first
+  // case and an explicit desktop-sidebar selection.
+  it("shows the fallback-selected (first) conversation's title in the breadcrumb when nothing is explicitly selected", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    listConversationsMock.mockResolvedValue([
+      {
+        id: "conv-1",
+        title: "Netflix dashboard build",
+        pinned: false,
+        updatedAt: "2026-08-01T00:00:00Z",
+      },
+      {
+        id: "conv-2",
+        title: "Revenue pipeline debug",
+        pinned: false,
+        updatedAt: "2026-08-02T00:00:00Z",
+      },
+    ]);
+
+    renderApp({ initialPath: "/chat" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Netflix dashboard build",
+      ),
+    );
+  });
+
+  it("updates the breadcrumb to the selected conversation's title after selecting from the desktop sidebar", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    listConversationsMock.mockResolvedValue([
+      {
+        id: "conv-1",
+        title: "Netflix dashboard build",
+        pinned: false,
+        updatedAt: "2026-08-01T00:00:00Z",
+      },
+      {
+        id: "conv-2",
+        title: "Revenue pipeline debug",
+        pinned: false,
+        updatedAt: "2026-08-02T00:00:00Z",
+      },
+    ]);
+
+    renderApp({ initialPath: "/chat" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Netflix dashboard build",
+      ),
+    );
+
+    // The phone sheet is closed here, so this is unambiguously the desktop
+    // sidebar's own conversation row button.
+    fireEvent.click(await screen.findByRole("button", { name: "Revenue pipeline debug" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Revenue pipeline debug",
+      ),
+    );
+  });
+
   // Task 5.1 — the phone section-item sheet reuses MobileNavSheet for
   // /sources, /pipelines, /registry, not just dashboards. These two tests
   // exercise the /pipelines wiring specifically: `toHref`-style navigation
@@ -594,6 +715,70 @@ describe("App", () => {
     fireEvent.click(titleButton);
 
     expect(await screen.findByText("No pipelines yet.")).toBeInTheDocument();
+  });
+
+  // HEL-664 (tasks.md 4.10/4.11, design.md D2) — chat is a Redux-selection
+  // section (like sources/registry), not navigation like pipelines: selecting
+  // via the phone sheet must dispatch the identical `setSelectedConversationId`
+  // action the desktop sidebar's `onSelect` would for the same conversation.
+  it("phone section sheet on /chat dispatches the same selection action the desktop sidebar would", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    listConversationsMock.mockResolvedValue([
+      {
+        id: "conv-1",
+        title: "Netflix dashboard build",
+        pinned: false,
+        updatedAt: "2026-08-01T00:00:00Z",
+      },
+      {
+        id: "conv-2",
+        title: "Revenue pipeline debug",
+        pinned: false,
+        updatedAt: "2026-08-02T00:00:00Z",
+      },
+    ]);
+
+    const { store } = renderApp({ initialPath: "/chat" });
+
+    const titleButton = await screen.findByRole("button", { name: /Switch chat/i });
+    fireEvent.click(titleButton);
+
+    // Scoped to the sheet's dialog: the desktop sidebar (not hidden by jsdom,
+    // which doesn't evaluate the <768px CSS gate) renders a same-named button
+    // for the identical conversation, mirroring the pipelines test's own
+    // "Revenue ETL" ambiguity note above.
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revenue pipeline debug" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        (store.getState() as { assistantConversations: { selectedConversationId: string | null } })
+          .assistantConversations.selectedConversationId,
+      ).toBe("conv-2"),
+    );
+    // skeptic-final-1.md change request 1: the mobile pill's "current:" label
+    // (and the desktop breadcrumb) must reflect the newly-selected
+    // conversation's title, not stay stuck on the section label.
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Revenue pipeline debug",
+      ),
+    );
+  });
+
+  it("phone section sheet on /chat shows a section-specific empty message when there are no conversations", async () => {
+    fetchDashboardsMock.mockResolvedValue([]);
+    fetchPanelsMock.mockResolvedValue([]);
+    listConversationsMock.mockResolvedValue([]);
+
+    renderApp({ initialPath: "/chat" });
+
+    const titleButton = await screen.findByRole("button", { name: /Switch chat/i });
+    fireEvent.click(titleButton);
+
+    expect(await screen.findByText("No conversations yet.")).toBeInTheDocument();
   });
 
   it("redirects unauthenticated user from /pipelines to /login", async () => {

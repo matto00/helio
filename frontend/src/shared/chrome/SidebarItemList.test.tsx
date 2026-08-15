@@ -106,3 +106,55 @@ describe("SidebarItemList subtitle (provenance)", () => {
     expect(screen.queryByText("RevenueRow")).not.toBeInTheDocument();
   });
 });
+
+// HEL-664 design.md D3 (design-gate round 1 fix): `renderRowAction` renders a
+// genuine sibling of the row's own selectable button, not nested inside it —
+// so a clickable control there needs no `stopPropagation()` to keep its own
+// click from also firing `onSelect`.
+describe("SidebarItemList renderRowAction", () => {
+  it("renders the row action as a sibling of the row's own button", () => {
+    render(
+      <SidebarItemList
+        heading="Chat"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+        renderRowAction={(item) => <button type="button">{`Pin ${item.name}`}</button>}
+      />,
+    );
+
+    const row = screen.getByText("Profit").closest("li");
+    expect(row?.querySelector(".dashboard-list__row-action")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin Profit" })).toBeInTheDocument();
+  });
+
+  it("clicking the row action does not also dispatch onSelect", () => {
+    const onSelect = jest.fn();
+    render(
+      <SidebarItemList
+        heading="Chat"
+        items={items}
+        status="succeeded"
+        onSelect={onSelect}
+        renderRowAction={(item) => <button type="button">{`Pin ${item.name}`}</button>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Pin Profit" }));
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("omits the row-action slot entirely when the prop is unset (other-sections guard)", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    expect(document.querySelector(".dashboard-list__row-action")).not.toBeInTheDocument();
+  });
+});

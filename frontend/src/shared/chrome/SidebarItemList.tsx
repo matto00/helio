@@ -55,6 +55,16 @@ interface SidebarItemListProps {
    * Type Registry's unstructured-type indicator). Registry-specific — other
    * sections that reuse this component should leave it unset. */
   renderBadge?: (item: SidebarItem) => ReactNode;
+  /** Optional per-row action rendered as a SIBLING of the row's own
+   * selectable button/link — the same position `ActionsMenu` renders in,
+   * just gated on this prop instead of `onDelete` (e.g. the chat section's
+   * pin/unpin toggle, HEL-664 design.md D3). A genuine sibling element, not
+   * nested inside the row's own `<button>`: unlike `renderBadge` (which
+   * renders *inside* that button), a clickable control here needs no
+   * `stopPropagation()` to keep its click from also firing `onSelect`.
+   * Additive and backward-compatible — existing callers that don't pass it
+   * are unaffected. */
+  renderRowAction?: (item: SidebarItem) => ReactNode;
 }
 
 export function SidebarItemList({
@@ -73,6 +83,7 @@ export function SidebarItemList({
   onDelete,
   deleteWarning,
   renderBadge,
+  renderRowAction,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -207,6 +218,9 @@ export function SidebarItemList({
                         />
                       ) : null}
                     </NavLink>
+                  ) : null}
+                  {renderRowAction !== undefined ? (
+                    <span className="dashboard-list__row-action">{renderRowAction(item)}</span>
                   ) : null}
                   {onDelete !== undefined && !isConfirmingDelete ? (
                     <ActionsMenu

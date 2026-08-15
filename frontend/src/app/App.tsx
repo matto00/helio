@@ -20,6 +20,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import "./App.css";
+import { ChatPage } from "../features/assistant/ui/ChatPage";
+import { setSelectedConversationId } from "../features/assistant/state/assistantConversationsSlice";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
@@ -81,6 +83,7 @@ function breadcrumbLabel(pathname: string): string {
   if (pathname.startsWith("/pipelines")) return "Data Pipelines";
   if (pathname.startsWith("/registry")) return "Type Registry";
   if (pathname.startsWith("/metrics")) return "Metrics";
+  if (pathname.startsWith("/chat")) return "Chat";
   return "Dashboards";
 }
 
@@ -102,13 +105,14 @@ function AppShell() {
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 
   // Resolve the currently-active item name for the section breadcrumb. Each
-  // section derives its selection differently (sources/types via Redux,
-  // pipelines via the route :id, dashboards via Redux), so we centralise the
-  // lookup here to keep the header concise.
+  // section derives its selection differently (sources/types/conversations via
+  // Redux, pipelines via the route :id, dashboards via Redux), so we
+  // centralise the lookup here to keep the header concise.
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const metrics = useAppSelector((state) => state.metrics);
+  const conversations = useAppSelector((state) => state.assistantConversations);
   // Registry only ever lists pipeline-bound output types (strict
   // source→pipeline→type→panel; see the sidebar's own SidebarBody.tsx) — the
   // breadcrumb and the phone sheet must agree on that same filtered set, or
@@ -136,6 +140,10 @@ function AppShell() {
     }
     if (mobileSection === "metrics" && metricRouteId !== null) {
       return metrics.items.find((m) => m.id === metricRouteId)?.name ?? null;
+    }
+    if (mobileSection === "chat") {
+      const id = conversations.selectedConversationId ?? conversations.items[0]?.id ?? null;
+      return conversations.items.find((c) => c.id === id)?.title ?? null;
     }
     return null;
   })();
@@ -189,6 +197,15 @@ function AppShell() {
           name: metric.name,
           isActive: metric.id === metricRouteId,
         }));
+      case "chat": {
+        const effectiveConversationId =
+          conversations.selectedConversationId ?? conversations.items[0]?.id ?? null;
+        return conversations.items.map((conversation) => ({
+          id: conversation.id,
+          name: conversation.title,
+          isActive: conversation.id === effectiveConversationId,
+        }));
+      }
     }
   })();
 
@@ -208,6 +225,7 @@ function AppShell() {
     pipelines: "No pipelines yet.",
     registry: "No types yet.",
     metrics: "No metrics yet.",
+    chat: "No conversations yet.",
   };
 
   function handleMobileSheetSelect(item: MobileNavSheetItem) {
@@ -226,6 +244,9 @@ function AppShell() {
         return;
       case "metrics":
         navigate(`/metrics/${item.id}`);
+        return;
+      case "chat":
+        dispatch(setSelectedConversationId(item.id));
         return;
     }
   }
@@ -533,6 +554,7 @@ export function App() {
             <Route path="/registry" element={<TypeRegistryPage />} />
             <Route path="/metrics" element={<MetricsPage />} />
             <Route path="/metrics/:id" element={<MetricDetailPage />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/proposals/review" element={<ProposalReviewPage />} />
             <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
           </Route>
