@@ -51,6 +51,31 @@ final class PipelineProposalService(
 
   import PipelineProposalService._
 
+  /** Non-mutating structural + reference validation (HEL-662 design.md D3), required by that
+   *  ticket's Hard Boundary — a `propose_pipeline` tool must never call [[apply]]. Runs the SAME
+   *  [[validateStructure]] check `apply` uses, plus — ONLY for a reference to an *existing*
+   *  `sourceId` — a read-only [[com.helio.infrastructure.DataSourceRepository.findByIdOwned]]
+   *  existence/ownership check, mirroring `DashboardProposalService.validate`'s own "binding
+   *  validation against real ids" shape. An *inline* source spec (kind=csv/rest/sql/static, no
+   *  pre-existing id) gets structural validation only — resolving/creating it is exactly what
+   *  [[resolveSource]] does, and a non-mutating validate cannot do that without itself becoming a
+   *  mutation (accepted asymmetry, see design.md Risks). */
+  def validate(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    validateStructure(proposal) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  => validateSourceReference(proposal.source, user)
+    }
+
+  private def validateSourceReference(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    source.sourceId match {
+      case None => Future.successful(Right(()))
+      case Some(sourceId) =>
+        dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).map {
+          case None    => Left(ServiceError.NotFound("Data source not found"))
+          case Some(_) => Right(())
+        }
+    }
+
   def apply(
       proposal: PipelineProposal,
       user: AuthenticatedUser
@@ -66,7 +91,7 @@ final class PipelineProposalService(
 
   // ── Structural pre-validation (design.md D1/D2) — no side effects ────────
 
-  private def validateStructure(proposal: PipelineProposal): Either[ServiceError, Unit] =
+  private[services] def validateStructure(proposal: PipelineProposal): Either[ServiceError, Unit] =
     for {
       _ <- requireNonBlank(proposal.pipelineName, "pipelineName")
       _ <- requireNonBlank(proposal.outputDataTypeName, "outputDataTypeName")

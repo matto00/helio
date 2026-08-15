@@ -3,6 +3,7 @@ package com.helio.services
 import com.helio.api.protocols.{
   CombinedProposal,
   CombinedProposalApplyResponse,
+  DashboardProposal,
   DashboardResponse,
   DashboardProposalProtocol,
   DuplicateDashboardResponse,
@@ -39,6 +40,38 @@ final class CombinedProposalService(
 )(implicit ec: ExecutionContext) {
 
   import CombinedProposalService._
+
+  /** Non-mutating validation (HEL-662 design.md D3), required by that ticket's Hard Boundary — a
+   *  `propose_combined` tool must never call [[apply]]. Runs, in order: (1) the SAME
+   *  `validateOutputRefPositions` sentinel-position check `apply` runs first, pure/in-memory; (2)
+   *  `combined.dashboard`'s structural checks, mirroring `DashboardProposalService.validateStructure`'s
+   *  exact two checks — blank `dashboardName` AND [[ProposalPanelSupport.validatePanel]] per panel
+   *  (design-gate round 1/2 fix: BOTH checks, not just one); (3) delegates the pipeline portion to
+   *  `pipelineProposalService.validate`. Deliberately does NOT attempt `preValidateBindings`'s
+   *  DB-backed `dataTypeId` resolution: dashboard panels reference the `"$pipelineOutput"` sentinel,
+   *  not a real id, until the pipeline this same proposal creates is actually applied — mirrors
+   *  `apply`'s own real sequencing (the pipeline is created before the dashboard is ever built). */
+  def validate(combined: CombinedProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    validateOutputRefPositions(combined.dashboard.panels) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_) =>
+        validateDashboardStructure(combined.dashboard) match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  => pipelineProposalService.validate(combined.pipeline, user)
+        }
+    }
+
+  private def validateDashboardStructure(dashboard: DashboardProposal): Either[ServiceError, Unit] =
+    if (dashboard.dashboardName.trim.isEmpty)
+      Left(ServiceError.BadRequest("dashboardName is required"))
+    else
+      dashboard.panels.zipWithIndex.foldLeft[Either[ServiceError, Unit]](Right(())) {
+        case (Left(err), _) => Left(err)
+        case (Right(_), (panel, idx)) =>
+          ProposalPanelSupport
+            .validatePanel(s"panel ${idx + 1} ('${panel.title}')", panel)
+            .left.map(ServiceError.BadRequest(_))
+      }
 
   def apply(
       combined: CombinedProposal,
