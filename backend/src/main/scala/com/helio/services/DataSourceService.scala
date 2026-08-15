@@ -85,6 +85,16 @@ final class DataSourceService(
   def findAll(user: AuthenticatedUser, page: Page, tag: Option[String] = None): Future[PagedResult[DataSource]] =
     dataSourceRepo.findAll(user.id, page, tag)
 
+  /** Owner-scoped single-resource read (HEL-661 design.md D3), mirroring `DataTypeService.findById`'s
+   *  exact shape over `DataSourceRepository.findByIdOwned` — needed because `WorkspaceSearchService.
+   *  getResource` must fetch a single owned resource, and today only `DataTypeService`/`MetricService`/
+   *  `PipelineService` (via `findSummaryById`) expose that at the service layer. */
+  def findById(id: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    dataSourceRepo.findByIdOwned(id, user).map {
+      case Some(ds) => Right(ds)
+      case None     => Left(ServiceError.NotFound("Data source not found"))
+    }
+
   // ── Create (Static) ───────────────────────────────────────────────────────
 
   def createStatic(req: StaticDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =

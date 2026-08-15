@@ -234,10 +234,17 @@ final class WorkspaceContextService(
       stepsError           = stepsError
     )
 
-  private def toDataSourceEntry(ds: DataSource): WorkspaceContextDataSource =
+  /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by
+   *  `WorkspaceSearchService.getResource`'s data-source dispatch, mirroring `buildPipeline`'s
+   *  existing same-package-reuse precedent. Zero behavior change. */
+  private[services] def toDataSourceEntry(ds: DataSource): WorkspaceContextDataSource =
     WorkspaceContextDataSource(id = ds.id.value, name = ds.name, `type` = ds.kind, tag = ds.tag)
 
-  /** `pipelineOutput = dt.sourceId.isEmpty` — classified directly off the
+  /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by
+   *  `WorkspaceSearchService.getResource`'s DataType dispatch, mirroring `buildPipeline`'s existing
+   *  same-package-reuse precedent. Zero behavior change.
+   *
+   *  `pipelineOutput = dt.sourceId.isEmpty` — classified directly off the
    *  domain field (design.md D7), never through a wire round-trip.
    *
    *  HEL-372: fetches bounded `sampleRows` for a pipeline-output DataType
@@ -251,7 +258,7 @@ final class WorkspaceContextService(
    *  per-id call) degrades to `sampleRows = Vector.empty` rather than failing
    *  the whole assembly — mirrors `buildPipeline`'s per-entry degrade
    *  discipline (design.md D5 of the parent HEL-371 change). */
-  private def toDataTypeEntry(dt: DataType, user: AuthenticatedUser): Future[WorkspaceContextDataType] = {
+  private[services] def toDataTypeEntry(dt: DataType, user: AuthenticatedUser): Future[WorkspaceContextDataType] = {
     // HEL-373 design.md D1: ONE shared fetch (limit = StatsRowLimit, 500)
     // serves both sampleRows and columnStats — no second query path.
     // excludeKeys is the union of Content-category field names (unchanged
@@ -713,7 +720,11 @@ final class WorkspaceContextService(
       .take(MaxJoinHints)
   }
 
-  private def toDashboardEntry(d: Dashboard): WorkspaceContextDashboard =
+  /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by
+   *  `WorkspaceSearchService`'s dashboard dispatch (both `find`'s panel-count description synthesis
+   *  and `getResource`'s dashboard detail), mirroring `buildPipeline`'s existing same-package-reuse
+   *  precedent. Zero behavior change. */
+  private[services] def toDashboardEntry(d: Dashboard): WorkspaceContextDashboard =
     WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = distinctPanelCount(d.layout))
 
   /** Distinct panel ids referenced across all four responsive breakpoints —
