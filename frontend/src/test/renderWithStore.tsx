@@ -102,6 +102,11 @@ interface TestState {
       status?: "idle" | "loading" | "succeeded" | "failed";
       error?: string | null;
     };
+    /** HEL-667 design.md D1/D5. */
+    lastTurnOutcome?: {
+      hopBudgetExhausted: boolean;
+      searchedWithNoResults: boolean;
+    } | null;
   };
 }
 
@@ -206,6 +211,7 @@ export function renderWithStore(
             status: preloadedState.assistantConversations?.activeConversation?.status ?? "idle",
             error: preloadedState.assistantConversations?.activeConversation?.error ?? null,
           },
+          lastTurnOutcome: preloadedState.assistantConversations?.lastTurnOutcome ?? null,
         },
       }
     : undefined;

@@ -36,3 +36,32 @@
   background: var(--app-surface-soft);
   border-color: var(--app-border-subtle);
 }
+
+/* Turn-outcome treatments (HEL-667 design.md D5) — decorate the assistant bubble that describes
+   the just-completed converse turn's outcome. Warning intent for a graceful give-up (the hop cap
+   was hit); info/accent intent for an active follow-up ask (find came back empty) -- distinct
+   trigger, distinct color language, never the same undecorated assistant treatment. */
+.message-turn--hop-budget-exhausted {
+  background: var(--app-warning-surface);
+  border-color: color-mix(in srgb, var(--app-warning) 60%, transparent);
+}
+
+.message-turn--searched-no-results {
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent-mid);
+}
+
+.message-turn__outcome-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+}
+
+.message-turn--hop-budget-exhausted .message-turn__outcome-note {
+  color: var(--app-warning);
+}
+
+.message-turn--searched-no-results .message-turn__outcome-note {
+  color: var(--app-accent);
+}

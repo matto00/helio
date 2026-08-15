@@ -46,7 +46,7 @@ function buildToolResultsById(
  * typing directly, never blocked behind a separate, unreachable "create conversation" step. */
 export function ActiveConversationPanel() {
   const dispatch = useAppDispatch();
-  const { items, selectedConversationId, activeConversation } = useAppSelector(
+  const { items, selectedConversationId, activeConversation, lastTurnOutcome } = useAppSelector(
     (state) => state.assistantConversations,
   );
 
@@ -104,6 +104,22 @@ export function ActiveConversationPanel() {
   const toolResultsById = buildToolResultsById(transcript);
   const proposalExtraction = extractProposal(transcript);
 
+  // HEL-667 design.md D5 — `lastTurnOutcome` describes the MOST RECENTLY completed turn (the one
+  // this very converse call just produced), never a historical one (cleared on reload/reselect —
+  // see the slice's own doc comment). `lastBlockKey` pins that treatment to the transcript's actual
+  // last content block, so it never leaks onto an earlier turn that happens to share a role.
+  const lastTurnIndex = transcript.length - 1;
+  const lastTurn = transcript[lastTurnIndex];
+  const lastBlockIndex = lastTurn ? lastTurn.content.length - 1 : -1;
+  const lastBlockKey = lastTurn ? `${lastTurnIndex}-${lastBlockIndex}` : null;
+  // A hop-cap-exhausted turn's last content block is the dangling tool_use itself (see
+  // `ClaudeClient.sendWithTools`'s own doc comment) -- there is no trailing text block to decorate
+  // in that case, so a standalone fallback bubble below is what actually carries the "couldn't
+  // finish in time" message to the user (AC: "surface a clear message... not a silent failure").
+  const lastTurnHasTrailingText = lastTurn?.content[lastBlockIndex]?.blockType === "text";
+  const showHopBudgetFallback =
+    Boolean(lastTurnOutcome?.hopBudgetExhausted) && !lastTurnHasTrailingText;
+
   return (
     <div className="active-conversation-panel">
       <h2 className="active-conversation-panel__title">{activeConversation.data.title}</h2>
@@ -118,7 +134,20 @@ export function ActiveConversationPanel() {
           turn.content.map((block, blockIndex) => {
             const key = `${turnIndex}-${blockIndex}`;
             if (block.blockType === "text") {
-              return <MessageTurn key={key} role={turn.role} text={block.text} />;
+              const isMostRecentTurn = key === lastBlockKey;
+              return (
+                <MessageTurn
+                  key={key}
+                  role={turn.role}
+                  text={block.text}
+                  hopBudgetExhausted={
+                    isMostRecentTurn && Boolean(lastTurnOutcome?.hopBudgetExhausted)
+                  }
+                  searchedWithNoResults={
+                    isMostRecentTurn && Boolean(lastTurnOutcome?.searchedWithNoResults)
+                  }
+                />
+              );
             }
             if (block.blockType === "tool_use") {
               return (
@@ -132,6 +161,13 @@ export function ActiveConversationPanel() {
             // `tool_result` blocks render via their paired `tool_use` row above, never standalone.
             return null;
           }),
+        )}
+        {showHopBudgetFallback && (
+          <MessageTurn
+            role="assistant"
+            text="I couldn't find enough in 3 lookups — can you narrow this down?"
+            hopBudgetExhausted
+          />
         )}
       </div>
       {proposalExtraction && <ProposalHandoff extraction={proposalExtraction} />}

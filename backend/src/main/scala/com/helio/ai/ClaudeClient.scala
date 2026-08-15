@@ -117,12 +117,21 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
     loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0))
   }
 
-  /** Invokes the caller-supplied executor for a single `tool_use` block; a `Left` becomes an
-   *  `isError = true` `ToolResult` rather than failing the overall `Future` (design.md D7). */
+  /** Invokes the caller-supplied executor for a single `tool_use` block; an explicit `Left` becomes
+   *  an `isError = true` `ToolResult` rather than failing the overall `Future` (design.md D7) — and
+   *  so does a THROWN exception or a FAILED inner `Future` from `executor.execute` itself (HEL-667
+   *  design.md D3): `Future(executor.execute(...))` catches a synchronous throw the same way a
+   *  failed `Future` is already caught by `.transform`'s `Failure` branch, so every failure shape
+   *  converges on the same recovery path. The recovered exception is logged at `warn` FIRST (HEL-667
+   *  design.md's own Risk mitigation) so a genuine programming-error bug in an executor stays
+   *  observable rather than silently masked as an ordinary tool failure. */
   private def executeTool(executor: ClaudeToolExecutor, toolUse: ClaudeContentBlock.ToolUse): Future[ClaudeContentBlock.ToolResult] =
-    executor.execute(toolUse.name, toolUse.input).map {
-      case Right(output)  => ClaudeContentBlock.ToolResult(toolUse.id, output, isError = false)
-      case Left(message) => ClaudeContentBlock.ToolResult(toolUse.id, message, isError = true)
+    Future(executor.execute(toolUse.name, toolUse.input)).flatMap(identity).transform {
+      case Success(Right(output)) => Success(ClaudeContentBlock.ToolResult(toolUse.id, output, isError = false))
+      case Success(Left(message)) => Success(ClaudeContentBlock.ToolResult(toolUse.id, message, isError = true))
+      case Failure(e) =>
+        log.warn(s"Tool execution failed for '${toolUse.name}' (toolUseId=${toolUse.id}); recovering as an isError tool_result", e)
+        Success(ClaudeContentBlock.ToolResult(toolUse.id, Option(e.getMessage).getOrElse(e.getClass.getName), isError = true))
     }
 
   private def addUsage(accumulated: TokenUsage, hop: ClaudeApiUsage): TokenUsage =

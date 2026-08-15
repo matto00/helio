@@ -76,3 +76,22 @@
 .tool-call-indicator--error .tool-call-indicator__label {
   color: var(--app-error);
 }
+
+/* Cut-short (HEL-667 design.md D5) — a dangling tool_use with no paired tool_result (the
+   hop-cap-exhausted case). Warning intent, deliberately distinct from --error: the loop stopped
+   gracefully, this call itself never failed. */
+.tool-call-indicator--cut-short {
+  background: var(--app-warning-surface);
+  border-color: color-mix(in srgb, var(--app-warning) 60%, transparent);
+}
+
+.tool-call-indicator--cut-short .tool-call-indicator__icon,
+.tool-call-indicator--cut-short .tool-call-indicator__label {
+  color: var(--app-warning);
+}
+
+.tool-call-indicator__cut-short-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-warning);
+}

@@ -15,9 +15,14 @@ export interface AssistantConversationSummary {
 }
 
 /** `GET /api/assistant-conversations/:id` shape — summary fields plus the
- * full transcript. */
+ * full transcript. `hopBudgetExhausted`/`searchedWithNoResults` (HEL-667
+ * design.md D1) are ephemeral signals describing the turn that just
+ * completed: present only on a `POST /:id/converse` response, always
+ * absent (`undefined`) on `GET`. */
 export interface AssistantConversationDetail extends AssistantConversationSummary {
   transcript: ClaudeToolMessageDto[];
+  hopBudgetExhausted?: boolean;
+  searchedWithNoResults?: boolean;
 }
 
 /** Mirrors `com.helio.ai.ClaudeToolMessage` — one turn of the tool-use-loop

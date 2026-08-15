@@ -364,6 +364,60 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
       toolResultBlock.flatMap(_.text) shouldBe Some("resource not found")
     }
 
+    // HEL-667 design.md D3/tasks.md 7.1 — a THROWN exception (not an explicit Left) from the
+    // executor still recovers to an isError tool_result and the loop continues, rather than failing
+    // sendWithTools's overall Future.
+    "recover a THROWN executor exception as an isError tool_result and continue the loop to FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty)),
+          Future.successful(finalTextResponse("recovered from a throw"))
+        )
+      )
+      val throwingExecutor = new ClaudeToolExecutor {
+        override def execute(name: String, input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
+          throw new RuntimeException("executor blew up synchronously")
+      }
+      val client = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), throwingExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "recovered from a throw"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+
+      val secondRequest   = transport.toolRequests(1)
+      val toolResultBlock = secondRequest.messages.last.content.find(_.blockType == "tool_result")
+      toolResultBlock.flatMap(_.isError) shouldBe Some(true)
+      toolResultBlock.flatMap(_.text) shouldBe Some("executor blew up synchronously")
+    }
+
+    // HEL-667 design.md D3/tasks.md 7.1 — a FAILED inner Future (not Future.successful(Left(...)))
+    // from the executor also recovers to an isError tool_result and the loop continues.
+    "recover a FAILED inner Future from the executor as an isError tool_result and continue the loop to FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty)),
+          Future.successful(finalTextResponse("recovered from a failed future"))
+        )
+      )
+      val toolExecutor = new FakeToolExecutor(Future.failed(new RuntimeException("upstream lookup timed out")))
+      val client        = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(text, _, _) => text shouldBe "recovered from a failed future"
+        case other                                        => fail(s"expected FinalResponse, got $other")
+      }
+
+      val secondRequest   = transport.toolRequests(1)
+      val toolResultBlock = secondRequest.messages.last.content.find(_.blockType == "tool_result")
+      toolResultBlock.flatMap(_.isError) shouldBe Some(true)
+      toolResultBlock.flatMap(_.text) shouldBe Some("upstream lookup timed out")
+    }
+
     "sum usage across hops into the FinalResponse" in {
       val transport = new FakeToolTransport(
         Vector(

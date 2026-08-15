@@ -12,8 +12,12 @@ import type { ClaudeToolResultBlockDto, ClaudeToolUseBlockDto } from "../types";
 
 interface ToolCallIndicatorProps {
   toolUse: ClaudeToolUseBlockDto;
-  /** The paired `tool_result` (matched by `toolUseId`), or `null` when the model's response with
-   *  the matching result hasn't loaded/landed in this transcript yet. */
+  /** The paired `tool_result` (matched by `toolUseId`), or `null` when no matching result exists
+   *  anywhere in the persisted transcript (HEL-667 design.md D5) — since `POST /:id/converse` is
+   *  buffered (not streamed), the transcript is never rendered mid-flight, so `null` always means
+   *  this `tool_use` was CUT SHORT (the hop-cap-exhausted case: Claude requested a tool call the
+   *  loop never executed), never "still in progress". Rendered with a distinct "cut short"
+   *  treatment, not the same appearance a genuinely pending call would use. */
   result: ClaudeToolResultBlockDto | null;
 }
 
@@ -63,12 +67,19 @@ function summarizeResult(result: ClaudeToolResultBlockDto): string {
 export function ToolCallIndicator({ toolUse, result }: ToolCallIndicatorProps) {
   const [expanded, setExpanded] = useState(false);
   const isError = result?.isError ?? false;
+  const isCutShort = result === null;
+
+  const modifierClass = isError
+    ? " tool-call-indicator--error"
+    : isCutShort
+      ? " tool-call-indicator--cut-short"
+      : "";
 
   return (
-    <div className={`tool-call-indicator${isError ? " tool-call-indicator--error" : ""}`}>
+    <div className={`tool-call-indicator${modifierClass}`}>
       <div className="tool-call-indicator__row">
         <FontAwesomeIcon
-          icon={isError ? faCircleExclamation : faWrench}
+          icon={isError || isCutShort ? faCircleExclamation : faWrench}
           className="tool-call-indicator__icon"
           aria-hidden="true"
         />
@@ -76,6 +87,11 @@ export function ToolCallIndicator({ toolUse, result }: ToolCallIndicatorProps) {
           {verbFor(toolUse.name)}: {toolUse.name}({compactInput(toolUse.input)})
         </span>
       </div>
+      {isCutShort && (
+        <span className="tool-call-indicator__cut-short-note">
+          Cut short — ran out of tool-call budget before this finished
+        </span>
+      )}
       {result && (
         <button
           type="button"

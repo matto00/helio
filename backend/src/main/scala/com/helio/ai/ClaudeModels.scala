@@ -90,8 +90,9 @@ object ClaudeContentBlock {
   final case class ToolUse(id: String, name: String, input: JsValue) extends ClaudeContentBlock
 
   /** The result fed back to Claude for a prior `ToolUse`, keyed by `toolUseId`. `isError = true`
-   *  when the executor resolved to `Left` (design.md D7) — Claude sees a failed tool call, the
-   *  overall `Future` never fails for it. */
+   *  when the executor resolved to `Left`, threw, or its `Future` failed (design.md D7, widened
+   *  HEL-667 design.md D3) — Claude sees a failed tool call, the overall `Future` never fails for
+   *  it. */
   final case class ToolResult(toolUseId: String, content: String, isError: Boolean = false) extends ClaudeContentBlock
 }
 
@@ -125,9 +126,12 @@ final case class ClaudeToolRequest(
     temperature: Option[Double] = None
 )
 
-/** Caller-supplied tool execution callback (design.md D7). A `Left` is a recoverable tool-execution
- *  failure — fed back to Claude as an `isError = true` `ToolResult` so the loop can continue, never
- *  raised as a failed `Future`. No real implementation ships with this ticket (HEL-661/662). */
+/** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`
+ *  is a recoverable tool-execution failure — fed back to Claude as an `isError = true` `ToolResult`
+ *  so the loop can continue. So is a THROWN exception from `execute` or a FAILED `Future` it
+ *  returns: `ClaudeClient.executeTool` recovers all three shapes identically, so an implementation
+ *  is free to `throw`/fail its `Future` for an unexpected error instead of hand-wrapping every
+ *  failure path in an explicit `Left` — none of them ever raise a failed `sendWithTools` `Future`. */
 trait ClaudeToolExecutor {
   def execute(name: String, input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]]
 }

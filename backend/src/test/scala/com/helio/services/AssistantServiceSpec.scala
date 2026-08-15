@@ -138,6 +138,12 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private def stubEmptyFind(dtRepo: DataTypeRepository): Unit =
     when(dtRepo.findAll(ownerId, Page.Default, None)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
 
+  // HEL-667 design.md D2/tasks.md 7.2 — a real, non-empty find result (matched against the "orders"
+  // query the findInput fixture already sends).
+  private def stubFindWithResults(dtRepo: DataTypeRepository): Unit =
+    when(dtRepo.findAll(ownerId, Page.Default, None))
+      .thenReturn(Future.successful(PagedResult(Vector(pipelineOutputDataType(outputId)), 1, 0, 200)))
+
   "converse" should {
 
     // Task 6.3 — find and propose_dashboard scripted as a SINGLE hop's two tool_use blocks
@@ -243,6 +249,116 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       result.hopBudgetExhausted shouldBe true
       result.proposal shouldBe None
       transport.toolInvocations shouldBe 4
+    }
+
+    // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 1 — a zero-result find immediately followed
+    // by a plain final answer (no propose_* call) sets searchedWithNoResults.
+    "set searchedWithNoResults for a zero-result find followed by a plain final answer" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubEmptyFind(dtRepo)
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("t1", "find", findInput)),
+        Future.successful(finalTextResponse("I couldn't find anything matching that — can you narrow it down?"))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+
+      result.searchedWithNoResults shouldBe true
+      result.hopBudgetExhausted shouldBe false
+      result.proposal shouldBe None
+    }
+
+    // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 2 — a find call that DOES return results
+    // never sets the flag, even with no proposal.
+    "not set searchedWithNoResults for a find call with results" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubFindWithResults(dtRepo)
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("t1", "find", findInput)),
+        Future.successful(finalTextResponse("Here's what I found; let me know what you'd like to build."))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+
+      result.searchedWithNoResults shouldBe false
+    }
+
+    // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 3 — a turn whose tool calls never include
+    // find (only get_resource) never sets the flag.
+    "not set searchedWithNoResults for a turn with no find call at all" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("t1", "get_resource", getResourceInput(outputId.value))),
+        Future.successful(finalTextResponse("Here's the detail you asked for."))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What is this DataType?", user))
+
+      result.searchedWithNoResults shouldBe false
+    }
+
+    // HEL-667 design.md D2 — a hop-budget-exhausted outcome never sets searchedWithNoResults, even
+    // when the last (never-executed) tool_use requested was find.
+    "not set searchedWithNoResults for a hop-budget-exhausted outcome" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubEmptyFind(dtRepo)
+
+      val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
+      val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+
+      result.hopBudgetExhausted shouldBe true
+      result.searchedWithNoResults shouldBe false
+    }
+
+    // skeptic-final-1.md CR1 (final-gate round 1, live-verified defect against the real dev backend
+    // + real Claude API) — root cause: `seedHistory` unconditionally appended the new user turn as
+    // plain text onto whatever `history` it was given. A conversation that just hit the hop cap
+    // persists a transcript whose LAST turn is an assistant turn with an UNRESOLVED `tool_use`
+    // block (exactly `ClaudeToolOutcome.HopBudgetExhausted`'s own shape) — appending a bare text
+    // user turn directly after that violates the Anthropic Messages API's structural invariant that
+    // a `tool_use` block must be immediately followed by a `tool_result` in the very next message,
+    // so EVERY subsequent `converse` call against that conversation failed identically with a 400.
+    // This test constructs that exact dangling-history shape directly (mirrors the real persisted
+    // shape without needing to script a full 4-hop sequence) and asserts the outbound request
+    // resolves the dangling tool_use in the immediately-following message, and that no two
+    // consecutive outbound messages share the same role (the OTHER structural invariant a naive
+    // "always append a separate resolving turn" fix would break, since `seedHistory` would then
+    // append its own new user turn right after an already-user-role synthetic repair turn).
+    "repair a dangling tool_use left by a prior hop-cap-exhausted turn before continuing the conversation" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val danglingHistory = Seq(
+        ClaudeToolMessage.text(ClaudeRole.User, "Build me a huge dashboard"),
+        ClaudeToolMessage(ClaudeRole.Assistant, Seq(ClaudeContentBlock.ToolUse("toolu_dangling", "find", JsObject.empty)))
+      )
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("Sure, let's narrow it down."))))
+
+      awaitRight(newService(dtRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
+
+      val outboundMessages = transport.firstReceivedRequest.messages
+      outboundMessages.zipWithIndex.foreach {
+        case (msg, idx) =>
+          msg.content.filter(_.blockType == "tool_use").flatMap(_.id).foreach { danglingId =>
+            withClue(s"tool_use '$danglingId' at message $idx must be resolved in the very next message: ") {
+              outboundMessages(idx + 1).content.flatMap(_.toolUseId) should contain(danglingId)
+            }
+          }
+      }
+      outboundMessages.map(_.role).sliding(2).foreach {
+        case Seq(a, b) => withClue("no two consecutive outbound messages may share a role: ") { a should not be b }
+        case _         => ()
+      }
     }
 
     // Task 6.1 (HEL-665 design.md D1) — a FinalResponse outcome's fullHistory includes the

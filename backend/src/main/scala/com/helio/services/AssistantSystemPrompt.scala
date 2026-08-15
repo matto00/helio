@@ -10,6 +10,14 @@ package com.helio.services
  *  behavior: the rule lives here, once, as static guidance; the data it's applied to arrives fresh
  *  per tool call.
  *
+ *  HEL-667 design.md D4: the "find turns up nothing" guidance below is ONE linked if/else, not two
+ *  separately-worded absolutes on the same trigger — a goal concrete enough to act on still gets the
+ *  original "propose anyway" push, while an underspecified goal gets its own explicit else-branch
+ *  (ask a clarifying question instead of guessing). `AssistantService.searchedWithNoResults`/HEL-667's
+ *  frontend treatment key off the DOWNSTREAM, deterministic signal (a zero-result `find` immediately
+ *  followed by a proposal-less final answer) — this prompt text itself steers, but is never
+ *  unit-tested directly (design.md's own stated Risk/Mitigation).
+ *
  *  HEL-390's `ClaudeRequest`/`ClaudeToolRequest` model only `user`/`assistant` turns, no separate
  *  `system` field (same constraint `DashboardAuthoringPrompt`'s own doc comment notes) — so
  *  `AssistantService.converse` folds this text into the conversation's first `user` turn rather than
@@ -54,6 +62,8 @@ object AssistantSystemPrompt {
       "- If the goal can only be partially satisfied from the data available, propose the " +
       "best-effort change you can build from what find/get_resource actually returned — never " +
       "invent a resource that doesn't exist.\n" +
-      "- If find turns up nothing relevant to the goal, don't give up: propose_pipeline or " +
-      "propose_combined can create the data the goal needs from scratch."
+      "- If find turns up nothing relevant to the goal: for goals concrete enough to act on, don't " +
+      "give up — propose_pipeline or propose_combined can create the data the goal needs from " +
+      "scratch. If the goal is too underspecified to confidently build a propose_pipeline/" +
+      "propose_combined call, ask a targeted clarifying question instead."
 }
