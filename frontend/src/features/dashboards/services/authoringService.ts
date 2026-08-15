@@ -1,12 +1,7 @@
 import { isAxiosError } from "axios";
 
 import { httpClient } from "../../../services/httpClient";
-import type {
-  AuthoringConversationView,
-  AuthoringGoalRequest,
-  AuthoringOutcome,
-  AuthoringResult,
-} from "../types/authoring";
+import type { AuthoringConversationView, AuthoringOutcome } from "../types/authoring";
 
 /** `GET /api/authoring/conversations/:id` (HEL-397 design.md D7) — rehydrates
  *  a conversation's visible thread after a reload. A plain `httpClient` GET
@@ -44,4 +39,4 @@ export async function postAuthoringOutcome(
   await httpClient.post(`/api/authoring/requests/${authoringRequestId}/outcome`, { outcome });
 }
 
-export type { AuthoringConversationView, AuthoringGoalRequest, AuthoringOutcome, AuthoringResult };
+export type { AuthoringConversationView, AuthoringOutcome };
