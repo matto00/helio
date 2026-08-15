@@ -24,6 +24,14 @@
   color: var(--app-text-muted);
 }
 
+/* Transcript (HEL-665 design.md D1/D2) — vertical stack of MessageTurn bubbles and
+   ToolCallIndicator rows, in transcript order. */
+.active-conversation-panel__transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* State overlays: loading, error — mirrors PanelContent.css's spinner recipe. */
 
 .active-conversation-panel--state {

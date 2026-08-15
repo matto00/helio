@@ -34,3 +34,9 @@ export type ClaudeContentBlockDto =
   | { blockType: "text"; text: string }
   | { blockType: "tool_use"; id: string; name: string; input: unknown }
   | { blockType: "tool_result"; toolUseId: string; content: string; isError: boolean };
+
+// HEL-665 — narrowed per-variant aliases, shared by MessageTurn/ToolCallIndicator/
+// proposalExtraction so every consumer of one block kind uses the same narrowed type.
+export type ClaudeTextBlockDto = Extract<ClaudeContentBlockDto, { blockType: "text" }>;
+export type ClaudeToolUseBlockDto = Extract<ClaudeContentBlockDto, { blockType: "tool_use" }>;
+export type ClaudeToolResultBlockDto = Extract<ClaudeContentBlockDto, { blockType: "tool_result" }>;

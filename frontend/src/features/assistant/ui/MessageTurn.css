@@ -1,0 +1,38 @@
+/* ── Message turn bubble (HEL-665 design.md D1) ───────────────────────────
+ * Role-based differentiation: user turns right-align with the accent wash;
+ * assistant turns left-align with the neutral recessed surface — the
+ * structural-neutral / scarce-accent split DESIGN.md §0 requires. */
+
+.message-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 80%;
+  padding: var(--space-3);
+  border-radius: var(--app-radius-lg);
+  border: 1px solid;
+}
+
+.message-turn__role {
+  color: var(--app-text-muted);
+}
+
+.message-turn__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.message-turn--user {
+  align-self: flex-end;
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent-mid);
+}
+
+.message-turn--assistant {
+  align-self: flex-start;
+  background: var(--app-surface-soft);
+  border-color: var(--app-border-subtle);
+}

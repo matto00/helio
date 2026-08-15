@@ -1,0 +1,33 @@
+/* ── Streaming text cursor (HEL-665 design.md D3) ─────────────────────────
+ * One entrance/ambient animation, respecting prefers-reduced-motion per
+ * DESIGN.md §3 Radius/Shadow/Motion. */
+
+.streaming-text {
+  white-space: pre-wrap;
+}
+
+.streaming-text__cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--app-accent);
+  animation: streaming-text-blink 1s step-end infinite;
+}
+
+@keyframes streaming-text-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-text__cursor {
+    animation: none;
+  }
+}

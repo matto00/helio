@@ -14,6 +14,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRotateLeft,
   faArrowRotateRight,
+  faComments,
   faCommentDots,
   faSun,
   faMoon,
@@ -22,6 +23,7 @@ import {
 import "./App.css";
 import { ChatPage } from "../features/assistant/ui/ChatPage";
 import { setSelectedConversationId } from "../features/assistant/state/assistantConversationsSlice";
+import { QuickLauncherOverlay } from "../features/assistant/ui/QuickLauncherOverlay";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
@@ -99,6 +101,7 @@ function AppShell() {
   const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState(false);
   const [isMobileNavSheetOpen, setIsMobileNavSheetOpen] = useState(false);
   const [isRefinementOpen, setIsRefinementOpen] = useState(false);
+  const [isQuickLauncherOpen, setIsQuickLauncherOpen] = useState(false);
   const location = useLocation();
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -277,6 +280,19 @@ function AppShell() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [pendingPanelUpdates]);
 
+  // Quick-launcher keyboard shortcut (design.md D7) -- Cmd/Ctrl+K, the conventional "quick open"
+  // binding, additive alongside the command-bar trigger button.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsQuickLauncherOpen(true);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const canUndo = useAppSelector(selectCanUndo(selectedDashboardId));
   const canRedo = useAppSelector(selectCanRedo(selectedDashboardId));
   const undoTarget = useAppSelector(selectUndoLayout(selectedDashboardId));
@@ -432,6 +448,18 @@ function AppShell() {
                 <FontAwesomeIcon icon={faCommentDots} />
               </button>
             )}
+            {/* Quick-launcher trigger (design.md D7) -- mirrors the theme-toggle button's exact
+                recipe below (same .topbar-theme-btn class), genuinely unconditional (unlike
+                "Refine with AI" above, which is gated to the dashboard view). */}
+            <button
+              type="button"
+              className="topbar-theme-btn"
+              onClick={() => setIsQuickLauncherOpen(true)}
+              aria-label="Open assistant"
+              title="Assistant (Ctrl/Cmd+K)"
+            >
+              <FontAwesomeIcon icon={faComments} />
+            </button>
             <button
               type="button"
               className="topbar-theme-btn"
@@ -520,6 +548,13 @@ function AppShell() {
           dashboardId={selectedDashboardId}
         />
       )}
+      {/* HEL-665 design.md D7 — unconditional (unlike RefinementChatDrawer above): the
+          quick-launcher has no per-route/per-dashboard dependency, matching its trigger button's
+          own unconditional visibility. */}
+      <QuickLauncherOverlay
+        open={isQuickLauncherOpen}
+        onClose={() => setIsQuickLauncherOpen(false)}
+      />
     </SaveStateContext.Provider>
   );
 }

@@ -1,0 +1,78 @@
+/* ── Tool-call progress pill (HEL-665 design.md D2) ────────────────────────
+ * Deliberately distinct from MessageTurn's bubble recipe — mono/pill for
+ * data (DESIGN.md's "mono for data" rule), not a chat bubble. */
+
+.tool-call-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-self: flex-start;
+  max-width: 80%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border-subtle);
+}
+
+.tool-call-indicator__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tool-call-indicator__icon {
+  flex-shrink: 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
+
+.tool-call-indicator__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  word-break: break-word;
+}
+
+.tool-call-indicator__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: color var(--app-transition);
+}
+
+.tool-call-indicator__toggle:hover {
+  color: var(--app-text);
+}
+
+.tool-call-indicator__detail {
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tool-call-indicator--error {
+  background: var(--app-error-surface);
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+}
+
+.tool-call-indicator--error .tool-call-indicator__icon,
+.tool-call-indicator--error .tool-call-indicator__label {
+  color: var(--app-error);
+}

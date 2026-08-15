@@ -111,4 +111,72 @@ describe("ActiveConversationPanel", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
   });
+
+  // HEL-665 tasks.md 5.2 — two tool_use blocks in one transcript turn render as two distinct
+  // progress-indicator rows.
+  it("renders two distinct tool-call indicator rows for two tool_use blocks in one turn", async () => {
+    const detail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        {
+          role: "assistant",
+          content: [
+            { blockType: "tool_use", id: "tu-1", name: "find", input: { query: "revenue" } },
+            {
+              blockType: "tool_use",
+              id: "tu-2",
+              name: "get_resource",
+              input: { id: "dt-1", type: "dataType" },
+            },
+          ],
+        },
+      ],
+    };
+    getConversationMock.mockResolvedValueOnce(detail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Searching: find(query: "revenue")')).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText('Looking up: get_resource(id: "dt-1", type: "dataType")'),
+    ).toBeInTheDocument();
+  });
+
+  // HEL-665 tasks.md 3.1 — renders ProposalHandoff when proposalExtraction finds a result.
+  it("renders the proposal hand-off card when the transcript contains a successful propose_dashboard call", async () => {
+    const proposal = { dashboardName: "Revenue", panels: [] };
+    const detail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        {
+          role: "assistant",
+          content: [
+            { blockType: "tool_use", id: "tu-1", name: "propose_dashboard", input: proposal },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              blockType: "tool_result",
+              toolUseId: "tu-1",
+              content: JSON.stringify(proposal),
+              isError: false,
+            },
+          ],
+        },
+      ],
+    };
+    getConversationMock.mockResolvedValueOnce(detail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    expect(await screen.findByText("Proposal ready")).toBeInTheDocument();
+  });
 });
