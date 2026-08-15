@@ -12,9 +12,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -261,6 +261,13 @@ final class ApiRoutes(
   // HEL-493: same optional-wiring pattern — fixtures that don't pass a
   // MetricRepository simply don't get the /api/metrics routes.
   private val metricServiceOpt            = Option(metricRepo).map(new MetricService(_, dataTypeRepo))
+  // HEL-663: same nullable-optional wiring pattern as metricServiceOpt above — fixtures that don't
+  // pass a DbContext simply don't get the /api/assistant-conversations routes mounted
+  // (assistantConversationServiceOpt.fold(reject)). fileSystem is always present (a required,
+  // non-nullable constructor param) — this is the same FileSystem instance dataSourceService/
+  // pipelineRunService/imageUploadServiceOpt already share, no new selection logic (design.md D2).
+  private val assistantConversationServiceOpt: Option[AssistantConversationService] =
+    Option(dbContext).map(ctx => new AssistantConversationService(new AssistantConversationRepository(ctx), fileSystem))
   // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineShapeService        = new PipelineShapeService()
@@ -484,6 +491,10 @@ final class ApiRoutes(
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
                   metricServiceOpt.fold(reject: Route)(svc => new MetricRoutes(svc, authenticatedUser).routes),
+                  // HEL-663: same `.fold(reject)`-gated optional-wiring pattern as metricServiceOpt
+                  // above — fixtures that don't pass a DbContext simply don't get the
+                  // /api/assistant-conversations routes mounted.
+                  assistantConversationServiceOpt.fold(reject: Route)(svc => new AssistantConversationRoutes(svc, authenticatedUser).routes),
                   // HEL-371: mounted unconditionally (not `.fold(reject)`-gated
                   // on workspaceTeardownServiceOpt like every other nullable-repo
                   // route family in this list) — WorkspaceRoutes itself now

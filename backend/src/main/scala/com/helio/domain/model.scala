@@ -810,6 +810,13 @@ final case class AuthoringConversationId(value: String) extends AnyVal
  *  `PatchSetApplicationRepository`). */
 final case class PatchSetApplicationId(value: String) extends AnyVal
 
+/** HEL-663 — a server-persisted, owner-scoped, pin-able top-level-assistant conversation (HEL-659):
+ *  a slim Postgres metadata row (title/pinned/timestamps) plus a transcript blob stored via the
+ *  existing `FileSystem` abstraction (see `AssistantConversationRepository`). Distinct from
+ *  `AuthoringConversationId` — that type is HEL-397's pre-apply `DashboardProposal`-refinement
+ *  conversation; this one is HEL-659's general-purpose assistant chat history. */
+final case class AssistantConversationId(value: String) extends AnyVal
+
 /** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
  *  purely presentational (no effect on the underlying aggregation). */
 final case class MetricFormat(

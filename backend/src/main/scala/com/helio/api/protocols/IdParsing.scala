@@ -27,4 +27,5 @@ object IdParsing {
   val MetricIdSegment: PathMatcher1[MetricId]               = Segment.map(MetricId(_))
   val AuthoringConversationIdSegment: PathMatcher1[AuthoringConversationId] = Segment.map(AuthoringConversationId(_))
   val PatchSetApplicationIdSegment: PathMatcher1[PatchSetApplicationId]     = Segment.map(PatchSetApplicationId(_))
+  val AssistantConversationIdSegment: PathMatcher1[AssistantConversationId] = Segment.map(AssistantConversationId(_))
 }
