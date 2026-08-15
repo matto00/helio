@@ -688,10 +688,30 @@ export interface EditOutcome {
 }
 
 /** `POST /api/patch-sets/apply` response (HEL-406) — `failure` is present
- *  only when a mid-set edit failed and triggered a rollback. */
+ *  only when a mid-set edit failed and triggered a rollback. `applicationId`
+ *  (HEL-413) is present exactly when `failure` is absent AND the
+ *  application was successfully journaled — pass it to `undo_patch_set` to
+ *  restore this apply's pre-apply state. */
 export interface PatchSetApplyResponse {
   edits: EditOutcome[];
   failure?: string | null;
+  applicationId?: string | null;
+}
+
+/** One edit's undo outcome from `POST /api/patch-sets/:id/undo` (HEL-413). */
+export interface EditUndoOutcome {
+  index: number;
+  status: "restored" | "recreated" | "failed" | "notAttempted";
+  newId?: string | null;
+  resultingState?: Record<string, unknown> | null;
+}
+
+/** `POST /api/patch-sets/:id/undo` response (HEL-413) — restores every
+ *  journaled edit in the named application to its pre-apply state, or none
+ *  of them (a conflict or structurally-unrecoverable delete edit rejects
+ *  the whole call before this type is ever returned). */
+export interface PatchSetUndoResponse {
+  edits: EditUndoOutcome[];
 }
 
 /** `POST /api/refinements` response (HEL-411) — mirrors the backend's

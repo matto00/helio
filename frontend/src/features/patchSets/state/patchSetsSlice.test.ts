@@ -3,11 +3,17 @@ import {
   invalidateAffectedState,
   patchSetsReducer,
   previewPatchSet,
+  undoPatchSet,
 } from "./patchSetsSlice";
 import { dashboardRemoved, dashboardUpserted } from "../../dashboards/state/dashboardsSlice";
 import { markDashboardPanelsStale } from "../../panels/state/panelsSlice";
 import type { RootState } from "../../../store/store";
-import type { PatchSet, PatchSetApplyResponse, PatchSetPreviewResponse } from "../types/patchSet";
+import type {
+  PatchSet,
+  PatchSetApplyResponse,
+  PatchSetPreviewResponse,
+  PatchSetUndoResponse,
+} from "../types/patchSet";
 
 const samplePatchSet: PatchSet = {
   edits: [{ target: { kind: "panel", id: "p-1" }, op: "update", patch: { title: "New title" } }],
@@ -104,6 +110,36 @@ describe("patchSetsSlice", () => {
     expect(state.applyError).toBe("Cannot delete DataType: one or more panels are bound to it");
   });
 
+  // ── undoPatchSet (HEL-413) ────────────────────────────────────────────────
+
+  const sampleUndoArg = { applicationId: "app-1", patchSet: samplePatchSet };
+  const sampleUndoResponse: PatchSetUndoResponse = {
+    edits: [{ index: 0, status: "restored" }],
+  };
+
+  it("marks undoStatus succeeded on undoPatchSet.fulfilled", () => {
+    const state = patchSetsReducer(
+      undefined,
+      undoPatchSet.fulfilled(sampleUndoResponse, "req-1", sampleUndoArg),
+    );
+    expect(state.undoStatus).toBe("succeeded");
+    expect(state.undoError).toBeNull();
+  });
+
+  it("marks undoStatus failed and carries the server message on undoPatchSet.rejected", () => {
+    const action = undoPatchSet.rejected(
+      new Error("Rejected"),
+      "req-1",
+      sampleUndoArg,
+      "edit 0 (panel update): panel p-1 was changed since the patch set was applied",
+    );
+    const state = patchSetsReducer(undefined, action);
+    expect(state.undoStatus).toBe("failed");
+    expect(state.undoError).toBe(
+      "edit 0 (panel update): panel p-1 was changed since the patch set was applied",
+    );
+  });
+
   // ── invalidateAffectedState (skeptic evaluation-1.md CR1 regression guard) ─
   //
   // `applyPatchSet` dispatches this after a successful apply so the SPA's
@@ -140,7 +176,7 @@ describe("patchSetsSlice", () => {
       const dispatch = mockDispatch();
       invalidateAffectedState(
         samplePatchSet,
-        sampleApplyResponse,
+        sampleApplyResponse.edits,
         dispatch,
         mockGetState("dash-1"),
       );
@@ -160,7 +196,7 @@ describe("patchSetsSlice", () => {
       const dispatch = mockDispatch();
       invalidateAffectedState(
         samplePatchSet, // targets dashboardId "dash-1" (via resultingState)
-        sampleApplyResponse,
+        sampleApplyResponse.edits,
         dispatch,
         mockGetState("dash-OTHER"), // user is viewing a DIFFERENT dashboard
       );
@@ -172,7 +208,12 @@ describe("patchSetsSlice", () => {
 
     it("does NOT re-fetch when no dashboard is currently loaded at all (loadedDashboardId null)", () => {
       const dispatch = mockDispatch();
-      invalidateAffectedState(samplePatchSet, sampleApplyResponse, dispatch, mockGetState(null));
+      invalidateAffectedState(
+        samplePatchSet,
+        sampleApplyResponse.edits,
+        dispatch,
+        mockGetState(null),
+      );
 
       expect(dispatch).not.toHaveBeenCalled();
     });
@@ -185,10 +226,61 @@ describe("patchSetsSlice", () => {
         edits: [{ index: 0, status: "applied", priorState: { id: "p-1", dashboardId: "dash-2" } }],
       };
       const dispatch = mockDispatch();
-      invalidateAffectedState(patchSet, response, dispatch, mockGetState("dash-2"));
+      invalidateAffectedState(patchSet, response.edits, dispatch, mockGetState("dash-2"));
 
       expect(dispatch).toHaveBeenCalledWith(markDashboardPanelsStale("dash-2"));
       expect(thunkDispatchCount(dispatch as unknown as jest.Mock)).toBe(1);
+    });
+
+    // skeptic-final-1.md CR1 (final-gate REFUTE): a `create` edit's UNDO deletes the created
+    // resource, so `EditUndoOutcome` carries neither `resultingState` NOR `priorState` (undo
+    // has no `priorState` field at all — nothing existed before a create). The ONLY remaining
+    // source for the touched dashboard's id is the ORIGINAL edit's own create payload.
+    it("falls back to the original edit's create-patch dashboardId when undoing a panel-create edit (no resultingState/priorState at all)", () => {
+      const patchSet: PatchSet = {
+        edits: [
+          {
+            target: { kind: "panel" },
+            op: "create",
+            patch: { dashboardId: "dash-3", title: "New panel", type: "metric" },
+          },
+        ],
+      };
+      // Shaped exactly like `PatchSetUndoService.restoreCreateUndo`'s real outcome: a
+      // create-edit's undo is `status: "restored"` with `resultingState` absent (the created
+      // resource was deleted).
+      const undoEdits = [{ index: 0, status: "restored" as const, resultingState: undefined }];
+      const dispatch = mockDispatch();
+      invalidateAffectedState(patchSet, undoEdits, dispatch, mockGetState("dash-3"));
+
+      expect(dispatch).toHaveBeenCalledWith(markDashboardPanelsStale("dash-3"));
+      expect(thunkDispatchCount(dispatch as unknown as jest.Mock)).toBe(1);
+    });
+
+    // skeptic-final-2.md CR1 (final-gate round-2 REFUTE): the panel case above has an
+    // ORIGINAL-create-patch `dashboardId` to fall back to; a dashboard has NO such fallback (it
+    // has no id anywhere until it exists) — `outcome.newId` (populated by
+    // `PatchSetUndoService.restoreCreateUndo` with the just-deleted dashboard's OWN id) is the
+    // only surviving way to know which dashboard to remove from `dashboardsSlice`.
+    it("falls back to outcome.newId when undoing a dashboard-create edit (no resultingState/priorState/patch-id at all)", () => {
+      const patchSet: PatchSet = {
+        edits: [{ target: { kind: "dashboard" }, op: "create", patch: { name: "New dashboard" } }],
+      };
+      // Shaped exactly like `PatchSetUndoService.restoreCreateUndo`'s real outcome post-fix:
+      // `status: "restored"`, `resultingState` absent, `newId` populated with the deleted
+      // dashboard's own id.
+      const undoEdits = [
+        {
+          index: 0,
+          status: "restored" as const,
+          newId: "dash-created-1",
+          resultingState: undefined,
+        },
+      ];
+      const dispatch = mockDispatch();
+      invalidateAffectedState(patchSet, undoEdits, dispatch, mockGetState(null));
+
+      expect(dispatch).toHaveBeenCalledWith(dashboardRemoved("dash-created-1"));
     });
 
     it("dispatches only ONE fetchPanels per dashboard even when multiple panel edits share it", () => {
@@ -205,7 +297,7 @@ describe("patchSetsSlice", () => {
         ],
       };
       const dispatch = mockDispatch();
-      invalidateAffectedState(patchSet, response, dispatch, mockGetState("dash-1"));
+      invalidateAffectedState(patchSet, response.edits, dispatch, mockGetState("dash-1"));
 
       // A duplicate dispatch for the SAME dashboard (the bug a naive
       // per-edit loop, rather than a deduped `Set`, would reintroduce) would
@@ -242,7 +334,7 @@ describe("patchSetsSlice", () => {
       // dashboardUpserted has no `loadedDashboardId` guard (it merges into
       // dashboardsSlice.items, unrelated to which dashboard's PANELS are
       // loaded) — `null` proves this path doesn't depend on it either.
-      invalidateAffectedState(patchSet, response, dispatch, mockGetState(null));
+      invalidateAffectedState(patchSet, response.edits, dispatch, mockGetState(null));
 
       expect(dispatch).toHaveBeenCalledWith(dashboardUpserted(dashboard));
     });
@@ -255,7 +347,7 @@ describe("patchSetsSlice", () => {
         edits: [{ index: 0, status: "applied", priorState: { id: "dash-1", name: "Gone" } }],
       };
       const dispatch = mockDispatch();
-      invalidateAffectedState(patchSet, response, dispatch, mockGetState(null));
+      invalidateAffectedState(patchSet, response.edits, dispatch, mockGetState(null));
 
       expect(dispatch).toHaveBeenCalledWith(dashboardRemoved("dash-1"));
     });
@@ -274,7 +366,7 @@ describe("patchSetsSlice", () => {
         edits: [{ index: 0, status: "applied", resultingState: { id: "ds-1", name: "Renamed" } }],
       };
       const dispatch = mockDispatch();
-      invalidateAffectedState(patchSet, response, dispatch, mockGetState("ds-1"));
+      invalidateAffectedState(patchSet, response.edits, dispatch, mockGetState("ds-1"));
 
       expect(dispatch).not.toHaveBeenCalled();
     });

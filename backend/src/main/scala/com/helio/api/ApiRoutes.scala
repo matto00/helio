@@ -12,9 +12,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -191,15 +191,21 @@ final class ApiRoutes(
   // is DashboardProposalService, constructed above), no repository access of
   // its own.
   private val combinedProposalService = new CombinedProposalService(pipelineProposalService, proposalService)
+  // HEL-413: owner-scoped journal repository `PatchSetApplyService`'s successful-apply write and
+  // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
+  // patchSetApplyService's own always-constructed pattern below) since `dbContext` being null only
+  // matters to fixtures that never exercise a genuinely successful patch-set apply/undo call.
+  private val patchSetApplicationRepo = new PatchSetApplicationRepository(dbContext)
   // HEL-406: atomic patch-set apply — composes the same, already-constructed
   // per-resource services (panelService/dashboardService/dataSourceService/
   // dataTypeService/pipelineService) plus the repos/accessChecker its
   // pre-validation pass reads directly (design.md D2/D2a); no direct DB
-  // writes of its own.
+  // writes of its own. HEL-413: also takes patchSetApplicationRepo, to
+  // journal a successful (no `failure`) apply (design.md D2).
   private val patchSetApplyService = new PatchSetApplyService(
     panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-    metricRepo, accessChecker
+    metricRepo, accessChecker, patchSetApplicationRepo
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
@@ -208,6 +214,15 @@ final class ApiRoutes(
   private val patchSetPreviewService = new PatchSetPreviewService(
     panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
     metricRepo, accessChecker
+  )
+  // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
+  // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,
+  // which undo's own Phase-1/Phase-2 passes never need -- design.md D4/D4a), plus
+  // patchSetApplicationRepo to load the journal row.
+  private val patchSetUndoService = new PatchSetUndoService(
+    panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+    patchSetApplicationRepo
   )
   // HEL-364: compound POST /api/panels/bound — composes the four services
   // above (constructed after all of them, same DI-ordering convention this
@@ -449,6 +464,10 @@ final class ApiRoutes(
                   // `proposals` above) — shares no path space with any
                   // existing route, so mount order is irrelevant.
                   new PatchSetRoutes(patchSetApplyService, patchSetPreviewService, authenticatedUser).routes,
+                  // HEL-413: brand-new `patch-sets/:id/undo` path (id = applicationId) — own
+                  // route file since it's a path-segment id, unlike apply/preview's bare
+                  // PatchSet-in-body shape; mount order relative to PatchSetRoutes is irrelevant.
+                  new PatchSetUndoRoutes(patchSetUndoService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,

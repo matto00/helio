@@ -1,18 +1,24 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
+import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { patchSetsReducer } from "../state/patchSetsSlice";
 import { fetchDashboards } from "../../dashboards/services/dashboardService";
 import { fetchPanels } from "../../panels/services/panelService";
-import { applyPatchSet, previewPatchSet } from "../services/patchSetService";
+import { applyPatchSet, previewPatchSet, undoPatchSet } from "../services/patchSetService";
 import { PatchSetReviewPage } from "./PatchSetReviewPage";
 import type { Dashboard } from "../../dashboards/types/dashboard";
 import type { Panel } from "../../panels/types/panel";
-import type { PatchSet, PatchSetApplyResponse, PatchSetPreviewResponse } from "../types/patchSet";
+import type {
+  PatchSet,
+  PatchSetApplyResponse,
+  PatchSetPreviewResponse,
+  PatchSetUndoResponse,
+} from "../types/patchSet";
 
 jest.mock("../../dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
@@ -23,12 +29,14 @@ jest.mock("../../panels/services/panelService", () => ({
 jest.mock("../services/patchSetService", () => ({
   previewPatchSet: jest.fn(),
   applyPatchSet: jest.fn(),
+  undoPatchSet: jest.fn(),
 }));
 
 const mockedFetchDashboards = jest.mocked(fetchDashboards);
 const mockedFetchPanels = jest.mocked(fetchPanels);
 const mockedPreviewPatchSet = jest.mocked(previewPatchSet);
 const mockedApplyPatchSet = jest.mocked(applyPatchSet);
+const mockedUndoPatchSet = jest.mocked(undoPatchSet);
 
 beforeAll(() => {
   // jsdom does not implement <dialog> showModal/close natively (PatchSetReview.tsx renders a
@@ -99,9 +107,25 @@ const sampleApplyResponse: PatchSetApplyResponse = {
   ],
 };
 
+// HEL-413: same edits, but journaled (applicationId present) -- the case that should surface an
+// "Undo" toast.
+const sampleApplyResponseWithApplicationId: PatchSetApplyResponse = {
+  ...sampleApplyResponse,
+  applicationId: "app-1",
+};
+
+const sampleUndoResponse: PatchSetUndoResponse = {
+  edits: [{ index: 0, status: "restored" }],
+};
+
 function makeStore() {
   return configureStore({
-    reducer: { patchSets: patchSetsReducer, panels: panelsReducer, dashboards: dashboardsReducer },
+    reducer: {
+      patchSets: patchSetsReducer,
+      panels: panelsReducer,
+      dashboards: dashboardsReducer,
+      toasts: toastsReducer,
+    },
   });
 }
 
@@ -113,8 +137,9 @@ function HomeProbe() {
 }
 
 function renderPage(routeState?: { patchSet: PatchSet }) {
-  return render(
-    <Provider store={makeStore()}>
+  const store = makeStore();
+  const result = render(
+    <Provider store={store}>
       <MemoryRouter
         initialEntries={[{ pathname: "/patch-sets/review", state: routeState ?? null }]}
       >
@@ -125,6 +150,7 @@ function renderPage(routeState?: { patchSet: PatchSet }) {
       </MemoryRouter>
     </Provider>,
   );
+  return { ...result, store };
 }
 
 beforeEach(() => {
@@ -181,6 +207,106 @@ describe("PatchSetReviewPage", () => {
     expect(mockedApplyPatchSet).toHaveBeenCalledWith(explicitPatchSet);
   });
 
+  // ── HEL-413: Undo toast ─────────────────────────────────────────────────
+
+  it("Accept pushes an Undo toast with duration 0 when the apply response carries an applicationId", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);
+
+    const { store } = renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => {
+      expect(store.getState().toasts.items).toHaveLength(1);
+    });
+    const toast = store.getState().toasts.items[0];
+    expect(toast.message).toBe("Applied.");
+    expect(toast.duration).toBe(0);
+    expect(toast.action?.label).toBe("Undo");
+  });
+
+  it("Accept does NOT push an Undo toast when the apply response carries no applicationId", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponse);
+
+    const { store } = renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-route")).toBeInTheDocument();
+    });
+    expect(store.getState().toasts.items).toHaveLength(0);
+  });
+
+  it("clicking the Undo toast action calls the undo endpoint with the applicationId, dismisses the Applied toast, and shows a follow-up toast", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);
+    mockedUndoPatchSet.mockResolvedValueOnce(sampleUndoResponse);
+
+    const { store } = renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => {
+      expect(store.getState().toasts.items).toHaveLength(1);
+    });
+    const appliedToastId = store.getState().toasts.items[0].id;
+
+    const undoAction = store.getState().toasts.items[0].action;
+    if (!undoAction) throw new Error("expected an Undo action on the toast");
+    await act(async () => {
+      undoAction.onClick();
+    });
+
+    expect(mockedUndoPatchSet).toHaveBeenCalledWith("app-1");
+    await waitFor(() => {
+      expect(store.getState().toasts.items.some((t) => t.message === "Undone.")).toBe(true);
+    });
+    // skeptic-final-1.md CR2 (final-gate REFUTE) / design.md D6: the "Applied." toast is
+    // dismissed by its own Undo click, not left behind as a stale, still-clickable affordance
+    // alongside the new "Undone." toast.
+    expect(store.getState().toasts.items.some((t) => t.id === appliedToastId)).toBe(false);
+  });
+
+  it("clicking the Undo toast action shows an error toast when the undo call is rejected (e.g. a conflict)", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);
+    mockedUndoPatchSet.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { data: { message: "Cannot undo: the panel was changed since it was applied" } },
+    });
+
+    const { store } = renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => {
+      expect(store.getState().toasts.items).toHaveLength(1);
+    });
+
+    const undoAction = store.getState().toasts.items[0].action;
+    if (!undoAction) throw new Error("expected an Undo action on the toast");
+    await act(async () => {
+      undoAction.onClick();
+    });
+
+    await waitFor(() => {
+      expect(
+        store
+          .getState()
+          .toasts.items.some(
+            (t) => t.message === "Cannot undo: the panel was changed since it was applied",
+          ),
+      ).toBe(true);
+    });
+  });
+
   // A currently-loaded panels slice, seeded via `preloadedState` — mirrors
   // what `App.tsx`'s own `fetchPanels` effect would have already populated
   // before the user ever navigated to `/patch-sets/review`.
@@ -204,6 +330,7 @@ describe("PatchSetReviewPage", () => {
         patchSets: patchSetsReducer,
         panels: panelsReducer,
         dashboards: dashboardsReducer,
+        toasts: toastsReducer,
       },
       preloadedState,
     });
@@ -289,6 +416,49 @@ describe("PatchSetReviewPage", () => {
     expect(mockedFetchPanels).not.toHaveBeenCalled();
     expect(store.getState().panels.loadedDashboardId).toBe("dash-OTHER");
     expect(store.getState().panels.items).toEqual([otherDashboardPanel]);
+  });
+
+  // HEL-413 evaluation-1.md CR2: the SAME live-reproduced stale-cache bug class as the Accept-side
+  // regression above ("Accept refreshes the touched dashboard's cached panels"), now for Undo --
+  // clicking the Undo toast action must refresh the SPA's cached panels too, not just show a
+  // follow-up toast while the grid keeps showing the pre-undo (post-apply) data.
+  it("Undo refreshes the touched dashboard's cached panels, when it IS the currently displayed one", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);
+    mockedUndoPatchSet.mockResolvedValueOnce({
+      edits: [
+        {
+          index: 0,
+          status: "restored",
+          resultingState: { id: "panel-2", dashboardId: "dash-1", title: "Original title" },
+        },
+      ],
+    });
+
+    const store = renderPageWithStore({
+      panels: preloadedPanelsState("dash-1", [{ ...demoPanel, title: "Renamed (stale)" }]),
+    });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => {
+      expect(store.getState().toasts.items).toHaveLength(1);
+    });
+    // Accept's own invalidation already fired once here -- clear the spy so the assertion below
+    // is attributable ONLY to Undo's invalidation, not a leftover call from Accept.
+    await waitFor(() => expect(mockedFetchPanels).toHaveBeenCalledWith("dash-1"));
+    mockedFetchPanels.mockClear();
+
+    const undoAction = store.getState().toasts.items[0].action;
+    if (!undoAction) throw new Error("expected an Undo action on the toast");
+    await act(async () => {
+      undoAction.onClick();
+    });
+
+    await waitFor(() => {
+      expect(mockedFetchPanels).toHaveBeenCalledWith("dash-1");
+    });
   });
 
   it("Reject navigates to / without applying", async () => {

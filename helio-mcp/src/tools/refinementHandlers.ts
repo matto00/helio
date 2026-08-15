@@ -14,7 +14,12 @@
  */
 
 import type { HelioApi } from "../helioApi.js";
-import type { PatchSet, PatchSetApplyResponse, RefinementResult } from "../types.js";
+import type {
+  PatchSet,
+  PatchSetApplyResponse,
+  PatchSetUndoResponse,
+  RefinementResult,
+} from "../types.js";
 
 /** `propose_patch_set`'s handler: calls `POST /api/refinements` via `HelioApi.proposePatchSet` —
  *  read-only, writes NOTHING (spec.md "propose_patch_set SHALL assemble and return a patch set
@@ -40,4 +45,15 @@ export function applyPatchSetHandler(
   patchSet: PatchSet,
 ): Promise<PatchSetApplyResponse> {
   return api.applyPatchSet(patchSet);
+}
+
+/** `undo_patch_set`'s handler: posts to the EXISTING `POST /api/patch-sets/:id/undo` (HEL-413) via
+ *  `HelioApi.undoPatchSet` — no client-side re-validation, no per-resource decomposition (mirrors
+ *  `applyPatchSetHandler` exactly; returns the result verbatim, including a conflict, which
+ *  surfaces as an `HelioApiError` propagated by `guarded()` in `refinement.ts`). */
+export function undoPatchSetHandler(
+  api: HelioApi,
+  applicationId: string,
+): Promise<PatchSetUndoResponse> {
+  return api.undoPatchSet(applicationId);
 }

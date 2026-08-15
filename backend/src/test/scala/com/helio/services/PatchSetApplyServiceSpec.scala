@@ -49,6 +49,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
+  private var applicationRepo: PatchSetApplicationRepository = _
 
   private var dashboardService: DashboardService   = _
   private var panelService: PanelService           = _
@@ -80,6 +81,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     permissionRepo    = new ResourcePermissionRepository(ctx)
     pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
+    applicationRepo   = new PatchSetApplicationRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
@@ -100,7 +102,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     service = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker
+      metricRepo, accessChecker, applicationRepo
     )
 
     seedUsers()
@@ -637,6 +639,85 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
           resultingJson.asJsObject.fields("id") shouldBe JsString(newId)
         case Left(err) => fail(s"expected Right, got Left($err)")
       }
+    }
+
+    // ── HEL-413 5.1: journal write ─────────────────────────────────────────
+
+    "journal a fully successful apply and return its applicationId (HEL-413 5.1a)" in {
+      val dashboard = seedDashboard(userA)
+      val panel     = seedPanel(dashboard.id, userA, "Journaled")
+      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
+        Some(UpdatePanelRequest(Some("Journaled - updated"), None, None, None)), None, None, None, None, None, None)
+      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      response.failure shouldBe None
+      val applicationId = response.applicationId.getOrElse(fail("expected applicationId"))
+
+      val record = await(applicationRepo.findById(PatchSetApplicationId(applicationId), userA)).getOrElse(fail("journal row missing"))
+      record.edits.map(_.index) shouldBe Vector(0)
+      record.edits.head.targetKind shouldBe "panel"
+      record.edits.head.op shouldBe "update"
+      record.edits.head.resultingState shouldBe defined
+    }
+
+    "journal nothing and return no applicationId for a partially-rolled-back apply (HEL-413 5.1b)" in {
+      val dashboard     = seedDashboard(userA, "Original")
+      val panelToUpdate = seedPanel(dashboard.id, userA, "Original title")
+      val edits = Vector(
+        Edit(EditTarget("panel", Some(panelToUpdate.id.value)), "update",
+          Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None, None),
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+      )
+      val response = await(service.apply(PatchSet(None, edits), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected Right, got Left($err)")
+      }
+      response.failure shouldBe defined
+      response.applicationId shouldBe None
+    }
+
+    "prune journal rows beyond the 20 most-recent per owner (HEL-413 5.1c)" in {
+      val dashboard = seedDashboard(userA, "Retention dashboard")
+      val applicationIds = (1 to 21).map { i =>
+        val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some(s"Retention $i"), None, None)), None, None, None, None, None)
+        await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+          case Right(r)  => r.applicationId.getOrElse(fail("expected applicationId"))
+          case Left(err) => fail(s"expected success, got $err")
+        }
+      }
+      await(applicationRepo.findById(PatchSetApplicationId(applicationIds.head), userA)) shouldBe None
+      await(applicationRepo.findById(PatchSetApplicationId(applicationIds.last), userA)) shouldBe defined
+    }
+
+    "journal a bound MetricPanel update's rawResultingConfig as the RAW (unmaterialized) config, distinct from resultingState's materialized effective dataTypeId (HEL-413 5.1d)" in {
+      val dashboard  = seedDashboard(userA)
+      val outputType = seedPipelineOutputType(userA, "Raw config source")
+      val metricId   = seedMetric(userA, outputType.id, "Raw config metric")
+      val panel      = seedPanel(dashboard.id, userA, "Bound panel")
+      val dataTypeId = outputType.id
+
+      val bindPatch = JsObject("metricId" -> JsString(metricId.value))
+      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
+        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None, None)
+      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      val applicationId = response.applicationId.getOrElse(fail("expected applicationId"))
+
+      // The materialized `/apply` response shows the metric's EFFECTIVE dataTypeId...
+      val materializedConfig = response.edits.head.resultingState.getOrElse(fail("expected resultingState")).asJsObject.fields("config").asJsObject
+      materializedConfig.fields("dataTypeId") shouldBe JsString(dataTypeId.value)
+
+      // ...but the journal's rawResultingConfig is the genuinely RAW, unmaterialized config -- the
+      // raw dataTypeId is still unset, since no raw override was ever patched in (design.md D2a).
+      val record    = await(applicationRepo.findById(PatchSetApplicationId(applicationId), userA)).getOrElse(fail("journal row missing"))
+      val rawConfig = record.edits.head.rawResultingConfig.getOrElse(fail("expected rawResultingConfig")).asJsObject
+      rawConfig.fields("dataTypeId") shouldBe JsString("")
     }
   }
 }

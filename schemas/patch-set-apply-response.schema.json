@@ -13,6 +13,11 @@
     "failure": {
       "type": "string",
       "description": "Present only when a mid-set failure triggered a rollback; carries the failing edit's error message."
+    },
+    "applicationId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Present exactly when `failure` is absent AND the application was successfully journaled (HEL-413). POST /api/patch-sets/:id/undo accepts it later to restore this apply's pre-apply state. Absent for a partially-rolled-back apply and for any caller that predates this field."
     }
   },
   "additionalProperties": false,

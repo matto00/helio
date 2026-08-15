@@ -77,7 +77,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V75 — metrics, direct owner (HEL-446)
     "metrics",
     // V77 — authoring_conversations, direct owner (HEL-397)
-    "authoring_conversations"
+    "authoring_conversations",
+    // V79 — patch_set_applications, direct owner (HEL-413)
+    "patch_set_applications"
   )
 
   override def beforeAll(): Unit = {

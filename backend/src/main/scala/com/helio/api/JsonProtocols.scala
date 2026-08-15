@@ -33,6 +33,8 @@ import com.helio.api.protocols._
  *    priorState/resultingState are raw JsValue) — HEL-406
  *  - `PatchSetPreviewProtocol` has no cross-domain dependency of its own (EditPreview's
  *    before/after are raw JsValue) — HEL-408
+ *  - `PatchSetUndoProtocol` has no cross-domain dependency of its own (EditUndoOutcome's
+ *    resultingState is raw JsValue) — HEL-413
  *  - `AlertRuleProtocol` has no cross-domain dependency (condition is a raw JsValue)
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
@@ -73,6 +75,7 @@ trait JsonProtocols
     with PatchSetProtocol
     with PatchSetApplyProtocol
     with PatchSetPreviewProtocol
+    with PatchSetUndoProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol

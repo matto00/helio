@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/patch-set-undo-response.schema.json",
+  "title": "PatchSetUndoResponse",
+  "description": "Response body of POST /api/patch-sets/:id/undo (HEL-413). One EditUndoOutcome per journaled edit, in ascending index order. Restores every edit in the named application to its pre-apply state, or restores none of them (a conflict, or a delete edit whose kind has no restoring create API, refuses the whole call with a 409 before this shape is ever returned -- see design.md D4/D4a).",
+  "type": "object",
+  "required": ["edits"],
+  "properties": {
+    "edits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EditUndoOutcome" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "EditUndoOutcome": {
+      "type": "object",
+      "description": "status: restored (an update edit's captured pre-apply state was reapplied, or a create edit's created resource was deleted) | recreated (a delete edit's resource was recreated under a NEW id -- panel/pipelineStep only) | failed (a genuine, unforeseeable restore failure for THIS edit) | notAttempted (never reached because an earlier edit in the same reverse walk failed -- design.md D4's narrower third guarantee tier).",
+      "required": ["index", "status"],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The journaled edit's position in the original patch set's edits array."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["restored", "recreated", "failed", "notAttempted"]
+        },
+        "newId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The new id replacing the deleted one, for a 'recreated' delete-undo. For a 'restored' create-undo, the just-deleted resource's own id (the only field on the wire that can identify which resource was removed, since resultingState/priorState are both absent once it no longer exists). Absent otherwise."
+        },
+        "resultingState": {
+          "type": "object",
+          "description": "The resource's full post-restore state for a 'restored' update or a 'recreated' delete-undo, serialized using its target kind's existing response shape. Absent for a 'restored' create-undo (the resource was deleted), a 'failed', or a 'notAttempted' edit."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
