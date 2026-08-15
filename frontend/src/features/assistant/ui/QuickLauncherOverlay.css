@@ -1,0 +1,14 @@
+/* ── Quick-launcher overlay (HEL-665 design.md D6/D7) ─────────────────────*/
+
+.quick-launcher-overlay__browse-link {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--app-accent);
+  text-decoration: none;
+}
+
+.quick-launcher-overlay__browse-link:hover {
+  text-decoration: underline;
+}

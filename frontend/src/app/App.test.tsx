@@ -4,7 +4,10 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
-import { listConversations as listConversationsRequest } from "../features/assistant/services/assistantConversationsService";
+import {
+  getConversation as getConversationRequest,
+  listConversations as listConversationsRequest,
+} from "../features/assistant/services/assistantConversationsService";
 import { authReducer } from "../features/auth/state/authSlice";
 import { getMeRequest } from "../features/auth/services/authService";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
@@ -88,6 +91,7 @@ const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceReque
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 const updatePanelAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const listConversationsMock = jest.mocked(listConversationsRequest);
+const getConversationMock = jest.mocked(getConversationRequest);
 
 const defaultDashboardAppearance = {
   background: "transparent",
@@ -169,6 +173,7 @@ describe("App", () => {
     updatePanelAppearanceMock.mockReset();
     listConversationsMock.mockReset();
     listConversationsMock.mockResolvedValue([]);
+    getConversationMock.mockReset();
     HTMLDialogElement.prototype.showModal = jest.fn(function () {
       this.setAttribute("open", "");
     });
@@ -862,5 +867,120 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
     expect(updatePanelAppearanceMock).not.toHaveBeenCalled();
+  });
+
+  // HEL-665 tasks.md 5.9-5.14 — the command-bar quick-launcher trigger + overlay (design.md D5-D7).
+  describe("quick-launcher", () => {
+    // A real, non-empty conversation (rather than an empty list) so every test below can wait for
+    // its content to settle -- the fetch-and-select round trip resolving is what the awaited
+    // assertion actually depends on, keeping every state update inside act().
+    beforeEach(() => {
+      listConversationsMock.mockResolvedValue([
+        {
+          id: "conv-1",
+          title: "Netflix dashboard build",
+          pinned: false,
+          updatedAt: "2026-08-01T00:00:00Z",
+        },
+      ]);
+      getConversationMock.mockResolvedValue({
+        id: "conv-1",
+        title: "Netflix dashboard build",
+        pinned: false,
+        updatedAt: "2026-08-01T00:00:00Z",
+        transcript: [{ role: "user", content: [{ blockType: "text", text: "Hello there" }] }],
+      });
+    });
+
+    it("shows the quick-launcher trigger on a non-chat route", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+
+      expect(await screen.findByRole("button", { name: "Open assistant" })).toBeInTheDocument();
+    });
+
+    it("clicking the trigger opens the overlay without changing the URL", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+
+      const trigger = await screen.findByRole("button", { name: "Open assistant" });
+      fireEvent.click(trigger);
+
+      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
+      expect(dialog).toHaveAttribute("open");
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
+        "Data Pipelines",
+      );
+      await screen.findByText("Hello there");
+    });
+
+    it("opens the overlay via the Cmd/Ctrl+K keyboard shortcut", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+      await screen.findByRole("button", { name: "Open assistant" });
+
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
+      expect(dialog).toHaveAttribute("open");
+      await screen.findByText("Hello there");
+    });
+
+    it("closes the overlay on Escape", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+      fireEvent.click(await screen.findByRole("button", { name: "Open assistant" }));
+
+      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
+      expect(dialog).toHaveAttribute("open");
+      await screen.findByText("Hello there");
+
+      fireEvent.keyDown(window, { key: "Escape" });
+
+      await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+    });
+
+    it("the Browse all conversations link navigates to /chat and closes the overlay", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+      fireEvent.click(await screen.findByRole("button", { name: "Open assistant" }));
+
+      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
+      await screen.findByText("Hello there");
+      fireEvent.click(screen.getByRole("link", { name: "Browse all conversations →" }));
+
+      await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+      await waitFor(() => expect(document.querySelector(".chat-page")).toBeInTheDocument());
+    });
+
+    it("shows the same active conversation the /chat nav page shows for the same selection", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/chat" });
+
+      // /chat itself shows the shared conversation content.
+      await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
+
+      // Navigate away, then open the quick-launcher from a different route — the SAME Redux
+      // slice/component means the same content renders again, with no second independent copy.
+      const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
+      fireEvent.click(within(sidebarNav).getByRole("link", { name: "Data Pipelines" }));
+      await waitFor(() => expect(screen.queryByText("Hello there")).not.toBeInTheDocument());
+
+      fireEvent.click(await screen.findByRole("button", { name: "Open assistant" }));
+
+      await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
+    });
   });
 });
