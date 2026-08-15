@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/append-assistant-conversation-turn-request.schema.json",
+  "title": "AppendAssistantConversationTurnRequest",
+  "description": "Request body of POST /api/assistant-conversations/:id/messages (HEL-663). Appends one or more Claude tool-message turns onto an existing, owned conversation -- the server re-writes the WHOLE transcript blob (no partial/append-in-place, design.md D2), never an incremental patch.",
+  "type": "object",
+  "required": ["turns"],
+  "properties": {
+    "turns": {
+      "type": "array",
+      "description": "One or more turns, each shaped like ClaudeToolMessage (com.helio.ai): { role: string, content: [...] }. Opaque to this schema (server-validated).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "content": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["role", "content"]
+      }
+    }
+  },
+  "additionalProperties": false
+}

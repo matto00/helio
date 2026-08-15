@@ -52,6 +52,8 @@ import com.helio.api.protocols._
  *    design.md D3/D4, PatchSet verbatim too — one shared conversation-view shape for both flows)
  *  - `RefinementProtocol extends PatchSetProtocol` (RefinementResponse nests PatchSet verbatim —
  *    HEL-411)
+ *  - `AssistantConversationProtocol` has no cross-domain dependency (`transcript` is a raw
+ *    `JsValue` — HEL-663)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -100,3 +102,4 @@ trait JsonProtocols
     with DashboardAuthoringProtocol
     with AuthoringConversationProtocol
     with RefinementProtocol
+    with AssistantConversationProtocol

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/assistant-conversation.schema.json",
+  "title": "AssistantConversationResponse",
+  "description": "Response body of GET /api/assistant-conversations/:id (HEL-663) and POST /api/assistant-conversations (create) -- the summary fields plus the full transcript. The transcript crosses the wire as opaque JSON (an array of ClaudeToolMessage-shaped objects, com.helio.ai) rather than a strictly-typed shape -- see AssistantConversationProtocol.scala's header comment for why. RLS-scoped to the owner; 404 for a missing or non-owned id.",
+  "type": "object",
+  "required": ["id", "title", "pinned", "updatedAt", "transcript"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "pinned": { "type": "boolean" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "transcript": {
+      "type": "array",
+      "description": "The full conversation transcript -- an array of ClaudeToolMessage-shaped turns: { role: string, content: [...] }.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "content": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["role", "content"]
+      }
+    }
+  },
+  "additionalProperties": false
+}

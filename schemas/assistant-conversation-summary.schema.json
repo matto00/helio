@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/assistant-conversation-summary.schema.json",
+  "title": "AssistantConversationSummaryResponse",
+  "description": "List-item shape of GET /api/assistant-conversations (HEL-663) and the response body of POST /api/assistant-conversations/:id/messages and PATCH /api/assistant-conversations/:id -- deliberately compact, no transcript (design.md D5). The list itself is ordered pinned DESC, updatedAt DESC and defaults to at most the 10 most recent (pinned-first) conversations when no explicit limit is requested -- a route-local default distinct from this codebase's shared page-size default (200).",
+  "type": "object",
+  "required": ["id", "title", "pinned", "updatedAt"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "pinned": { "type": "boolean" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
