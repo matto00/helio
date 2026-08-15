@@ -28,6 +28,12 @@ final case class AppendAssistantConversationTurnRequest(turns: Vector[JsValue])
  *  Both fields are plain `Option` (absent = unchanged); a rename is permanent, never re-derived. */
 final case class UpdateAssistantConversationRequest(pinned: Option[Boolean], title: Option[String])
 
+/** `POST /api/assistant-conversations/:id/converse` request (HEL-665 reopened composer ticket,
+ *  design.md D7) — the one new user-typed message to send. Reuses the existing
+ *  [[AssistantConversationResponse]] shape for the return value; no new response type needed, since
+ *  the endpoint returns exactly what `GET /:id` already returns. */
+final case class ConverseRequest(message: String)
+
 /** List-item shape (`GET /api/assistant-conversations`) — deliberately compact, no transcript
  *  (design.md D5). */
 final case class AssistantConversationSummaryResponse(id: String, title: String, pinned: Boolean, updatedAt: String)
@@ -51,6 +57,9 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
 
   implicit val updateAssistantConversationRequestFormat: RootJsonFormat[UpdateAssistantConversationRequest] =
     jsonFormat2(UpdateAssistantConversationRequest.apply)
+
+  implicit val converseRequestFormat: RootJsonFormat[ConverseRequest] =
+    jsonFormat1(ConverseRequest.apply)
 
   implicit val assistantConversationSummaryResponseFormat: RootJsonFormat[AssistantConversationSummaryResponse] =
     jsonFormat4(AssistantConversationSummaryResponse.apply)

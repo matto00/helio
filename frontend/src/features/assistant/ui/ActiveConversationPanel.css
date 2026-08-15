@@ -32,6 +32,15 @@
   gap: var(--space-3);
 }
 
+/* Empty-conversation-list state (HEL-665 reopened composer ticket, design.md D5) — EmptyState's own
+   visual is unchanged; MessageComposer renders below it, additive, so a first-time user can start a
+   conversation by typing directly. */
+.active-conversation-panel--empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* State overlays: loading, error — mirrors PanelContent.css's spinner recipe. */
 
 .active-conversation-panel--state {

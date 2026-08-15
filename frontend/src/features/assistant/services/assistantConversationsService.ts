@@ -61,3 +61,15 @@ export async function updateConversation(
   );
   return response.data;
 }
+
+/** `POST /:id/converse` (HEL-665, reopened composer ticket) — sends one typed message and returns
+ * the refreshed conversation detail (the whole transcript, already including the new user turn and
+ * Claude's response, per `AssistantConversationRoutes`'s fetch → converse → append → re-fetch
+ * flow). No follow-up `getConversation` call needed. */
+export async function converse(id: string, message: string): Promise<AssistantConversationDetail> {
+  const response = await httpClient.post<AssistantConversationDetail>(
+    `${BASE_PATH}/${id}/converse`,
+    { message },
+  );
+  return response.data;
+}

@@ -6,6 +6,7 @@ import { selectConversation } from "../state/assistantConversationsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { extractProposal } from "../proposalExtraction";
+import { MessageComposer } from "./MessageComposer";
 import { MessageTurn } from "./MessageTurn";
 import { ProposalHandoff } from "./ProposalHandoff";
 import { ToolCallIndicator } from "./ToolCallIndicator";
@@ -37,7 +38,12 @@ function buildToolResultsById(
  * (`QuickLauncherOverlay.tsx`) — the same component reading the same Redux slice is what makes the
  * two entry points "one coherent visual system" (design.md D5). Derives the selected conversation
  * with fallback to the first item, mirroring `SourcesPage.tsx`/`TypeRegistryBrowser.tsx`'s pattern,
- * and implements DESIGN.md §7's 3 required UI states. */
+ * and implements DESIGN.md §7's 3 required UI states.
+ *
+ * `MessageComposer` (HEL-665, reopened composer ticket, design.md D5) renders as the LAST child of
+ * the success-state tree (after the transcript/`ProposalHandoff`), and ALSO alongside `EmptyState`
+ * when `effectiveId === null` — so a first-time user with zero conversations can start one by
+ * typing directly, never blocked behind a separate, unreachable "create conversation" step. */
 export function ActiveConversationPanel() {
   const dispatch = useAppDispatch();
   const { items, selectedConversationId, activeConversation } = useAppSelector(
@@ -54,12 +60,15 @@ export function ActiveConversationPanel() {
 
   if (effectiveId === null) {
     return (
-      <EmptyState
-        variant="main"
-        icon={faComments}
-        title="No conversations yet"
-        description="Start a conversation to see it here."
-      />
+      <div className="active-conversation-panel active-conversation-panel--empty">
+        <EmptyState
+          variant="main"
+          icon={faComments}
+          title="No conversations yet"
+          description="Start a conversation to see it here."
+        />
+        <MessageComposer conversationId={null} />
+      </div>
     );
   }
 
@@ -126,6 +135,7 @@ export function ActiveConversationPanel() {
         )}
       </div>
       {proposalExtraction && <ProposalHandoff extraction={proposalExtraction} />}
+      <MessageComposer conversationId={effectiveId} />
     </div>
   );
 }

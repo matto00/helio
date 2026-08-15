@@ -14,6 +14,7 @@ import spray.json._
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -29,6 +30,15 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private def await[A](f: Future[A]): A = Await.result(f, 5.seconds)
+
+  /** HEL-665 (reopened composer ticket, design.md D1): `converse` now returns `Future[Either[
+   *  ClaudeError, AssistantTurnResult]]` — every success-path test unwraps the `Right` here
+   *  (mechanical update, no behavioral change to any already-passing assertion). */
+  private def awaitRight(f: Future[Either[ClaudeError, AssistantTurnResult]]): AssistantTurnResult =
+    await(f) match {
+      case Right(result) => result
+      case Left(err)      => fail(s"expected Right(AssistantTurnResult), got Left($err)")
+    }
 
   private def config(): ClaudeConfig =
     ClaudeConfig(apiKey = "sk-ant-test-should-never-be-used", model = "claude-opus-4-8", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = 100000)
@@ -90,12 +100,21 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     private val invocationCount = new AtomicInteger(0)
     def toolInvocations: Int    = invocationCount.get()
 
+    // Captures every outbound request this fake actually received (evaluation-1.md CR1
+    // regression coverage) — lets a test assert the OUTBOUND request Claude sees is unaffected by
+    // the `fullHistory` desanitization fix, i.e. seedHistory's system-prompt fold still reaches the
+    // transport even though it no longer leaks into the RETURNED/persisted value.
+    private val received = new ConcurrentLinkedQueue[ClaudeApiToolRequest]()
+    def firstReceivedRequest: ClaudeApiToolRequest = received.peek()
+
     override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
       Future.failed(new UnsupportedOperationException("FakeToolTransport.send is not exercised by these tests"))
     override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] =
       throw new UnsupportedOperationException("FakeToolTransport.stream is not exercised by these tests")
-    override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse] =
+    override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse] = {
+      received.add(request)
       responses(invocationCount.getAndIncrement())
+    }
   }
 
   // ── Fixture wiring — mirrors AssistantToolExecutorSpec's "mocked repos, real service" style ──
@@ -137,7 +156,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Here's your dashboard proposal."))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.proposal shouldBe Some(AssistantProposal.Dashboard(expected))
       transport.toolInvocations shouldBe 2
@@ -159,7 +178,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("No existing data — proposing a new pipeline."))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
 
       result.proposal shouldBe Some(AssistantProposal.Pipeline(expected))
       transport.toolInvocations shouldBe 3
@@ -179,7 +198,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Here's what I found; let me know what you'd like to build."))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
 
       result.proposal shouldBe None
       result.text should include("what you'd like to build")
@@ -203,7 +222,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Proposing a new pipeline instead."))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.proposal shouldBe Some(AssistantProposal.Pipeline(accepted))
     }
@@ -219,11 +238,94 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
       val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.proposal shouldBe None
       transport.toolInvocations shouldBe 4
+    }
+
+    // Task 6.1 (HEL-665 design.md D1) — a FinalResponse outcome's fullHistory includes the
+    // original (empty) history, the new user message turn, and Claude's final response turn, in
+    // order. Also locks in evaluation-1.md CR1 (cycle 2): the first turn's content is EXACTLY the
+    // caller-supplied message, never AssistantSystemPrompt.text folded in.
+    "populate fullHistory with the new user turn and Claude's final response, in order" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(finalTextResponse("Here you go."))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
+
+      result.fullHistory should have size 2
+      result.fullHistory.head.role shouldBe ClaudeRole.User
+      result.fullHistory.head.content shouldBe Seq(ClaudeContentBlock.Text("Hello"))
+      result.fullHistory.last.role shouldBe ClaudeRole.Assistant
+      result.fullHistory.last.content should contain(ClaudeContentBlock.Text("Here you go."))
+    }
+
+    // evaluation-1.md Change Request 1 (cycle 2, live-verified defect) — dedicated regression
+    // coverage. Root cause: `seedHistory` folds `AssistantSystemPrompt.text + "\n\n" + message`
+    // into the SAME ClaudeToolMessage used as the first turn whenever the caller-supplied `history`
+    // is empty (a brand-new conversation's first message — exactly AC4's own scenario); before the
+    // fix, that literal seeded text flowed straight through into `AssistantTurnResult.fullHistory`
+    // (now persisted via `AssistantConversationRoutes.converseFlow`'s `appendTurn` and rendered
+    // verbatim by `MessageTurn.tsx`). This test asserts BOTH sides of the fix: the RETURNED/
+    // persisted value never leaks the system prompt, AND the OUTBOUND request Claude actually
+    // receives still carries it unchanged (no regression to response quality).
+    "never leak AssistantSystemPrompt.text into fullHistory's first turn for an empty-history call, while the outbound request to Claude is unaffected" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(finalTextResponse("Hi there!"))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What's our revenue?", user))
+
+      // RETURNED/persisted/rendered value: exactly the typed message, nothing else.
+      result.fullHistory.head.content shouldBe Seq(ClaudeContentBlock.Text("What's our revenue?"))
+
+      // OUTBOUND request Claude actually received: system prompt still folded in (unaffected by
+      // the fix) -- the fold must survive, only the RETURNED value changes.
+      val outboundFirstTurnText = transport.firstReceivedRequest.messages.head.content.flatMap(_.text).mkString
+      outboundFirstTurnText should include(AssistantSystemPrompt.text)
+      outboundFirstTurnText should include("What's our revenue?")
+    }
+
+    // Task 6.2 (HEL-665 design.md D1) — fullHistory is populated (not empty/partial) even when the
+    // hop budget is exhausted, mirroring task 6.7's own 4-tool_use-attempt scripted sequence.
+    "populate fullHistory even when the hop budget is exhausted" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubEmptyFind(dtRepo)
+
+      val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
+      val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+
+      result.hopBudgetExhausted shouldBe true
+      result.fullHistory should not be empty
+      result.fullHistory.size should be > 1
+    }
+
+    // Task 6.2a (HEL-665 design.md D1, design-gate round-1 fix) — a ClaudeToolOutcome.Failed
+    // outcome (here: a transport-level API failure) yields Left(claudeError), never a value-less
+    // or fabricated Right(AssistantTurnResult).
+    "yield Left(claudeError) for a real transport/API failure, never a fabricated result" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val transport = new FakeToolTransport(Vector(
+        Future.failed(ClaudeApiException(500, "internal server error"))
+      ))
+
+      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
+
+      result shouldBe Left(ClaudeError.ApiError(500, "internal server error"))
     }
 
     // Task 6.12 — a single hop with TWO successful propose_* tool_use calls still ends with exactly
@@ -242,7 +344,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Done."))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Help me out", user))
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Help me out", user))
 
       result.proposal shouldBe defined
       transport.toolInvocations shouldBe 2

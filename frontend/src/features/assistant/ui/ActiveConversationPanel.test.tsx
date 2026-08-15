@@ -1,6 +1,10 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { getConversation as getConversationRequest } from "../services/assistantConversationsService";
+import {
+  converse as converseRequest,
+  createConversation as createConversationRequest,
+  getConversation as getConversationRequest,
+} from "../services/assistantConversationsService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import type { AssistantConversationDetail, AssistantConversationSummary } from "../types";
 import { ActiveConversationPanel } from "./ActiveConversationPanel";
@@ -9,9 +13,13 @@ jest.mock("../services/assistantConversationsService", () => ({
   listConversations: jest.fn(),
   getConversation: jest.fn(),
   updateConversation: jest.fn(),
+  createConversation: jest.fn(),
+  converse: jest.fn(),
 }));
 
 const getConversationMock = jest.mocked(getConversationRequest);
+const createConversationMock = jest.mocked(createConversationRequest);
+const converseMock = jest.mocked(converseRequest);
 
 const summaryOne: AssistantConversationSummary = {
   id: "conv-1",
@@ -43,12 +51,24 @@ function detailOf(
 describe("ActiveConversationPanel", () => {
   beforeEach(() => {
     getConversationMock.mockReset();
+    createConversationMock.mockReset();
+    converseMock.mockReset();
   });
 
   it("shows EmptyState when there are no conversations to select", () => {
     renderWithStore(<ActiveConversationPanel />, { assistantConversations: { items: [] } });
 
     expect(screen.getByText("No conversations yet")).toBeInTheDocument();
+  });
+
+  // HEL-665 (reopened composer ticket) tasks.md 5.3/6.1 — the composer renders alongside
+  // EmptyState, not behind a separate, unreachable "create conversation" step.
+  it("renders the message composer alongside EmptyState when there are no conversations", () => {
+    renderWithStore(<ActiveConversationPanel />, { assistantConversations: { items: [] } });
+
+    expect(screen.getByText("No conversations yet")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
   });
 
   it("fetches the selected conversation's detail and renders its title and message count", async () => {
@@ -178,5 +198,104 @@ describe("ActiveConversationPanel", () => {
     });
 
     expect(await screen.findByText("Proposal ready")).toBeInTheDocument();
+  });
+
+  // HEL-665 (reopened composer ticket) tasks.md 6.7 — sending a message on an EXISTING
+  // conversation renders the new turns via the same MessageTurn component already used for
+  // pre-existing turns, no separate rendering path.
+  it("renders the new turns via MessageTurn after sending a message on an existing conversation", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    const updatedDetail: AssistantConversationDetail = {
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "What's our revenue?" }] },
+        { role: "assistant", content: [{ blockType: "text", text: "Revenue is $42,000." }] },
+      ],
+    };
+    converseMock.mockResolvedValueOnce(updatedDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "What's our revenue?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "What's our revenue?");
+    await waitFor(() => expect(screen.getByText("What's our revenue?")).toBeInTheDocument());
+    expect(screen.getByText("Revenue is $42,000.")).toBeInTheDocument();
+    // The composer clears its input on a successful send (a separate local-state render pass from
+    // the Redux-driven transcript update above, so assert it independently).
+    await waitFor(() => expect((input as HTMLTextAreaElement).value).toBe(""));
+  });
+
+  // HEL-665 (reopened composer ticket) tasks.md 6.8 — sending with NO conversation selected
+  // creates one, explicitly selects it (design-gate round-1 fix), and converses against it in one
+  // action -- the new conversation becomes the active selection, showing the sent message and its
+  // response. The auto-select GET the newly-selected id triggers is left deliberately unresolved
+  // here (skeptic round-2's documented benign near-concurrency, tasks.md 6.10) so this test
+  // deterministically exercises the converse response alone.
+  it("creates a conversation and sends to it when none is currently selected", async () => {
+    createConversationMock.mockResolvedValueOnce({
+      id: "new-conv",
+      title: "New conversation",
+      pinned: false,
+      updatedAt: "2026-08-01T00:00:00Z",
+      transcript: [],
+    });
+    getConversationMock.mockReturnValueOnce(new Promise(() => {})); // never resolves
+    const newConversationDetail: AssistantConversationDetail = {
+      id: "new-conv",
+      title: "New conversation",
+      pinned: false,
+      updatedAt: "2026-08-01T00:01:00Z",
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Hello there" }] },
+        { role: "assistant", content: [{ blockType: "text", text: "Hi! How can I help?" }] },
+      ],
+    };
+    converseMock.mockResolvedValueOnce(newConversationDetail);
+
+    const { store } = renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [] },
+    });
+
+    const input = screen.getByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Hello there" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(createConversationMock).toHaveBeenCalledWith({}));
+    await waitFor(() =>
+      expect(store.getState().assistantConversations.selectedConversationId).toBe("new-conv"),
+    );
+    await waitFor(() => expect(converseMock).toHaveBeenCalledWith("new-conv", "Hello there"));
+    await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
+    expect(screen.getByText("Hi! How can I help?")).toBeInTheDocument();
+  });
+
+  // HEL-665 (reopened composer ticket) tasks.md 6.9 — a failed converse call surfaces a visible
+  // error, never a silent failure, and does NOT clear the typed input so the user can retry
+  // without retyping.
+  it("shows a visible error and preserves the typed input when converse fails", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    converseMock.mockRejectedValueOnce(new Error("Claude API error (502): upstream unavailable"));
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Trigger a failure" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Claude API error (502): upstream unavailable")).toBeInTheDocument(),
+    );
+    expect((input as HTMLTextAreaElement).value).toBe("Trigger a failure");
   });
 });

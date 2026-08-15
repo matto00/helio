@@ -12,7 +12,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
@@ -332,6 +332,28 @@ final class ApiRoutes(
         Some(new RefinementService(refinementGrounding, patchSetPreviewService, claudeClient, conversationRepo))
     }
 
+  // HEL-665 (reopened composer ticket) design.md D2: SAME nullable-optional wiring pattern as
+  // dashboardAuthoringServiceOpt/refinementServiceOpt above, gated on ClaudeConfig.fromEnv() AND
+  // metricServiceOpt (metricServiceOpt is a genuinely NEW gating dimension neither of those two
+  // needs — WorkspaceSearchService's 5th dependency, metricService, only exists behind that
+  // nullable-metricRepo gate, independent of dbContext). Constructs WorkspaceSearchService (HEL-661)
+  // for the first time anywhere in this file. A fresh ClaudeClient/HttpClaudeTransport pair is
+  // constructed here (never shared), mirroring both sibling *ServiceOpt vals' own "fresh client per
+  // service" convention exactly.
+  private val assistantServiceOpt: Option[AssistantService] =
+    (ClaudeConfig.fromEnv(), metricServiceOpt) match {
+      case (Left(reason), _) =>
+        log.warn(s"POST /api/assistant-conversations/:id/converse disabled: $reason")
+        None
+      case (Right(_), None) =>
+        log.warn("POST /api/assistant-conversations/:id/converse disabled: no MetricRepository configured")
+        None
+      case (Right(claudeConfig), Some(metricService)) =>
+        val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, dataTypeService, pipelineService, metricService, workspaceContextService)
+        Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService))
+    }
+
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
 
@@ -493,8 +515,12 @@ final class ApiRoutes(
                   metricServiceOpt.fold(reject: Route)(svc => new MetricRoutes(svc, authenticatedUser).routes),
                   // HEL-663: same `.fold(reject)`-gated optional-wiring pattern as metricServiceOpt
                   // above — fixtures that don't pass a DbContext simply don't get the
-                  // /api/assistant-conversations routes mounted.
-                  assistantConversationServiceOpt.fold(reject: Route)(svc => new AssistantConversationRoutes(svc, authenticatedUser).routes),
+                  // /api/assistant-conversations routes mounted. HEL-665 (reopened composer ticket)
+                  // design.md D3/D4: assistantServiceOpt is passed in as a SECOND, independently
+                  // nullable dependency — the whole route family stays gated on dbContext alone
+                  // (Pattern A, unaffected); only the new POST /:id/converse route additionally
+                  // checks assistantServiceOpt and degrades to its own 503 when it's None.
+                  assistantConversationServiceOpt.fold(reject: Route)(svc => new AssistantConversationRoutes(svc, assistantServiceOpt, authenticatedUser).routes),
                   // HEL-371: mounted unconditionally (not `.fold(reject)`-gated
                   // on workspaceTeardownServiceOpt like every other nullable-repo
                   // route family in this list) — WorkspaceRoutes itself now
