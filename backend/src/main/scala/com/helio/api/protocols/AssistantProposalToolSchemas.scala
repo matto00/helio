@@ -1,0 +1,212 @@
+package com.helio.api.protocols
+
+import com.helio.ai.ClaudeTool
+import spray.json.{JsArray, JsObject, JsString}
+
+/** JSON-Schema `inputSchema`s for the 4 `propose_*` `ClaudeTool`s (HEL-662 tasks.md 2.4) — each
+ *  mirrors the matching JSON Schema file under `schemas/` closely enough for Claude's
+ *  function-calling contract (property names/types/enums), reusing the SAME hand-rolled-`JsObject`
+ *  style `WorkspaceAssistantTools` already established for `find`/`get_resource`. Not a byte-for-byte
+ *  copy of the JSON Schema files: `$defs`/`$ref`/`additionalProperties: false` are 2020-12 machinery
+ *  a tool-call `input_schema` doesn't need — nested fragments are inlined directly instead.
+ *
+ *  `private[protocols]`: only `AssistantProtocol` (same package, `object AssistantProtocol extends
+ *  AssistantProposalToolSchemas`) needs these vals directly; split into this file purely to keep
+ *  `AssistantProtocol.scala` inside CONTRIBUTING's ~250-line soft budget. */
+private[protocols] trait AssistantProposalToolSchemas {
+
+  // ── ProposalPanel / DashboardProposal (schemas/dashboard-proposal.schema.json) ─────────────────
+
+  private val ProposalPanelLayoutSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "x" -> JsObject("type" -> JsString("integer")),
+      "y" -> JsObject("type" -> JsString("integer")),
+      "w" -> JsObject("type" -> JsString("integer")),
+      "h" -> JsObject("type" -> JsString("integer"))
+    ),
+    "required" -> JsArray(Vector("x", "y", "w", "h").map(JsString(_)))
+  )
+
+  private val ProposalPanelSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "title" -> JsObject("type" -> JsString("string")),
+      "type" -> enumSchema("metric", "chart", "table", "text", "markdown", "image", "collection", "timeline"),
+      "dataTypeId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Required for metric/chart/table/collection/timeline panels; must be an existing " +
+            "pipeline-output DataType id returned by find/get_resource (or, inside propose_combined " +
+            "only, the literal sentinel \"$pipelineOutput\")."
+        )
+      ),
+      "metricId"     -> JsObject("type" -> JsString("string")),
+      "fieldMapping" -> JsObject("type" -> JsString("object")),
+      "aggregation"  -> JsObject("type" -> JsString("object")),
+      "content"      -> JsObject("type" -> JsString("string")),
+      "url"          -> JsObject("type" -> JsString("string")),
+      "orientation"  -> enumSchema("horizontal", "vertical"),
+      "chartType"    -> enumSchema("bar", "line", "pie", "scatter"),
+      "xAxisLabel"   -> JsObject("type" -> JsString("string")),
+      "yAxisLabel"   -> JsObject("type" -> JsString("string")),
+      "seriesColors" -> JsObject("type" -> JsString("array"), "items" -> JsObject("type" -> JsString("string"))),
+      "label"        -> JsObject("type" -> JsString("string")),
+      "unit"         -> JsObject("type" -> JsString("string")),
+      "sort"         -> enumSchema("asc", "desc"),
+      "layout"       -> ProposalPanelLayoutSchema,
+      "config"       -> JsObject("type" -> JsString("object"))
+    ),
+    "required" -> JsArray(Vector(JsString("title"), JsString("type")))
+  )
+
+  private val DashboardProposalSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "dashboardName" -> JsObject("type" -> JsString("string")),
+      "panels"        -> JsObject("type" -> JsString("array"), "items" -> ProposalPanelSchema)
+    ),
+    "required" -> JsArray(Vector(JsString("dashboardName"), JsString("panels")))
+  )
+
+  // ── PipelineProposal (schemas/pipeline-proposal.schema.json) ───────────────────────────────────
+
+  private val PipelineProposalSourceSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "sourceId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString("Existing-source branch — id of a caller-owned DataSource to reuse as-is.")
+      ),
+      "type" -> JsObject(
+        "type" -> JsString("string"),
+        "enum" -> JsArray(Vector("csv", "rest_api", "sql", "static").map(JsString(_))),
+        "description" -> JsString(
+          "Inline-source branch — mutually exclusive with sourceId. csv is not supported by " +
+            "propose_pipeline/validate: it requires an uploaded file byte stream this tool has no channel for."
+        )
+      ),
+      "name" -> JsObject("type" -> JsString("string"), "description" -> JsString("Inline-source branch — the new source's display name.")),
+      "config" -> JsObject(
+        "type" -> JsString("object"),
+        "description" -> JsString(
+          "Inline-source branch — the per-kind config payload selected by type: rest_api " +
+            "{url, method?, auth?, headers?}; sql {dialect, host, port, database, user, password, query}; " +
+            "static {columns, rows}."
+        )
+      )
+    )
+  )
+
+  private val PipelineProposalStepSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "type"   -> JsObject("type" -> JsString("string")),
+      "config" -> JsObject("type" -> JsString("object"))
+    ),
+    "required" -> JsArray(Vector(JsString("type"), JsString("config")))
+  )
+
+  private val PipelineProposalSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "pipelineName"       -> JsObject("type" -> JsString("string")),
+      "source"              -> PipelineProposalSourceSchema,
+      "outputDataTypeName" -> JsObject("type" -> JsString("string")),
+      "steps"               -> JsObject("type" -> JsString("array"), "items" -> PipelineProposalStepSchema)
+    ),
+    "required" -> JsArray(Vector("pipelineName", "source", "outputDataTypeName", "steps").map(JsString(_)))
+  )
+
+  // ── CombinedProposal (schemas/combined-proposal.schema.json) ───────────────────────────────────
+
+  private val CombinedProposalSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "pipeline"  -> PipelineProposalSchema,
+      "dashboard" -> DashboardProposalSchema
+    ),
+    "required" -> JsArray(Vector(JsString("pipeline"), JsString("dashboard")))
+  )
+
+  // ── PatchSet (schemas/patch-set.schema.json) ────────────────────────────────────────────────────
+
+  private val EditTargetSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "kind" -> enumSchema("panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"),
+      "id"   -> JsObject("type" -> JsString("string"))
+    ),
+    "required" -> JsArray(Vector(JsString("kind")))
+  )
+
+  private val EditSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "target" -> EditTargetSchema,
+      "op"     -> enumSchema("update", "delete", "create"),
+      "patch" -> JsObject(
+        "type" -> JsString("object"),
+        "description" -> JsString(
+          "Partial update/create body matching target.kind's existing update-request/create-request " +
+            "shape. Absent for delete edits. target.id is required for update/delete."
+        )
+      )
+    ),
+    "required" -> JsArray(Vector(JsString("target"), JsString("op")))
+  )
+
+  private val PatchSetSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "summary" -> JsObject("type" -> JsString("string")),
+      "edits"   -> JsObject("type" -> JsString("array"), "items" -> EditSchema)
+    ),
+    "required" -> JsArray(Vector(JsString("edits")))
+  )
+
+  // ── Tools ────────────────────────────────────────────────────────────────────────────────────
+
+  val proposeDashboardTool: ClaudeTool = ClaudeTool(
+    name = "propose_dashboard",
+    description =
+      "Propose a new dashboard (name + panels) bound to EXISTING pipeline-output DataTypes. " +
+        "Validated but NEVER created — the user reviews and applies it separately. Use when the " +
+        "workspace already has data that answers the goal; check get_resource's panelCapabilities " +
+        "for a DataType before proposing a panel kind against it.",
+    inputSchema = DashboardProposalSchema
+  )
+
+  val proposePipelineTool: ClaudeTool = ClaudeTool(
+    name = "propose_pipeline",
+    description =
+      "Propose a new pipeline (source + ordered transform steps + output DataType name). " +
+        "Validated but NEVER created. Use when find turns up no existing DataType that can answer " +
+        "the goal.",
+    inputSchema = PipelineProposalSchema
+  )
+
+  val proposeCombinedTool: ClaudeTool = ClaudeTool(
+    name = "propose_combined",
+    description =
+      "Propose a new pipeline AND a dashboard bound to its not-yet-created output, in one atomic " +
+        "proposal. A dashboard panel binds to this call's own pipeline by setting its dataTypeId " +
+        "(or, for a non-data panel, config.dataTypeId) to the literal sentinel string " +
+        "\"$pipelineOutput\". Validated but NEVER created. Use instead of propose_pipeline alone " +
+        "when the user also wants a dashboard built from the new pipeline's output in the same turn.",
+    inputSchema = CombinedProposalSchema
+  )
+
+  val proposePatchSetTool: ClaudeTool = ClaudeTool(
+    name = "propose_patch_set",
+    description =
+      "Propose an ordered list of targeted edits (update/delete/create) against one or more " +
+        "EXISTING resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep). Previewed " +
+        "but NEVER applied. Use when the goal is refining something that already exists rather than " +
+        "creating something new.",
+    inputSchema = PatchSetSchema
+  )
+
+  private def enumSchema(values: String*): JsObject =
+    JsObject("type" -> JsString("string"), "enum" -> JsArray(values.map(JsString(_)).toVector))
+}
