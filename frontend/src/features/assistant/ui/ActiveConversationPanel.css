@@ -1,0 +1,62 @@
+.active-conversation-panel {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-card);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.active-conversation-panel__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+.active-conversation-panel__meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+/* State overlays: loading, error — mirrors PanelContent.css's spinner recipe. */
+
+.active-conversation-panel--state {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.active-conversation-panel--error {
+  color: var(--app-error);
+}
+
+.active-conversation-panel__spinner {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--app-border-subtle);
+  border-top-color: var(--app-accent);
+  border-radius: 50%;
+  animation: active-conversation-panel-spin 0.7s linear infinite;
+}
+
+@keyframes active-conversation-panel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.active-conversation-panel__state-label {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.active-conversation-panel--error .active-conversation-panel__state-label {
+  color: var(--app-error);
+}

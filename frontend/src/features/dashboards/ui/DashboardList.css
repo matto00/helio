@@ -262,6 +262,43 @@
   outline-offset: 1px;
 }
 
+/* ── Per-row action slot (SidebarItemList's `renderRowAction`, HEL-664 design.md D3) ──
+   A genuine sibling of the row's own button, in the same row-flex as
+   ActionsMenu — but, unlike ActionsMenu, always visible (not hover-gated):
+   a pin/unpin toggle is a persistent, at-a-glance signal, not a rare
+   destructive action tucked behind a kebab menu. */
+.dashboard-list__row-action {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.dashboard-list__row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.dashboard-list__row-action-btn:hover {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.dashboard-list__row-action-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+}
+
 .dashboard-list__delete-confirm-row {
   display: flex;
   flex-direction: column;
@@ -459,6 +496,15 @@
   font-weight: var(--weight-medium);
   background: var(--app-accent-surface);
   color: var(--app-info);
+}
+
+/* ── Chat conversation-list pin indicator (renderBadge, HEL-664) ──
+   Chat-specific — other sections that reuse this component leave
+   `renderBadge` unset, mirroring the registry badge's own precedent above. */
+.dashboard-list__pin-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--app-accent);
 }
 
 .dashboard-list__active-dot {

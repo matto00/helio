@@ -1,8 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
+import { assistantConversationsReducer } from "../../features/assistant/state/assistantConversationsSlice";
+import * as assistantConversationsService from "../../features/assistant/services/assistantConversationsService";
+import type { AssistantConversationSummary } from "../../features/assistant/types";
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import type { DataType } from "../../features/dataTypes/types/dataType";
 import { metricsReducer } from "../../features/metrics/state/metricsSlice";
@@ -16,11 +19,22 @@ jest.mock("../../features/pipelines/services/pipelineService", () => ({
   getPipelines: jest.fn(),
 }));
 
+jest.mock("../../features/assistant/services/assistantConversationsService", () => ({
+  listConversations: jest.fn(),
+  getConversation: jest.fn(),
+  updateConversation: jest.fn(),
+}));
+
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
+const listConversationsMock = jest.mocked(assistantConversationsService.listConversations);
+const updateConversationMock = jest.mocked(assistantConversationsService.updateConversation);
 
 beforeEach(() => {
   getPipelinesMock.mockReset();
   getPipelinesMock.mockResolvedValue([]);
+  listConversationsMock.mockReset();
+  listConversationsMock.mockResolvedValue([]);
+  updateConversationMock.mockReset();
 });
 
 function buildDataType(overrides: Partial<DataType>): DataType {
@@ -55,16 +69,24 @@ function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
 interface StoreOptions {
   pipelineItems?: PipelineSummary[];
   pipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
+  conversationItems?: AssistantConversationSummary[];
+  conversationStatus?: "idle" | "loading" | "succeeded" | "failed";
 }
 
 function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
-  const { pipelineItems = [], pipelineStatus = "idle" } = options;
+  const {
+    pipelineItems = [],
+    pipelineStatus = "idle",
+    conversationItems = [],
+    conversationStatus = "idle",
+  } = options;
   return configureStore({
     reducer: {
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
       metrics: metricsReducer,
+      assistantConversations: assistantConversationsReducer,
     } as never,
     preloadedState: {
       dataTypes: {
@@ -83,19 +105,29 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
         status: "idle" as const,
         error: null,
       },
+      assistantConversations: {
+        items: conversationItems,
+        status: conversationStatus,
+        error: null,
+        selectedConversationId: null,
+        activeConversation: { data: null, status: "idle" as const, error: null },
+      },
     } as never,
   });
 }
 
 function renderAt(path: string, dataTypeItems: DataType[] = [], options: StoreOptions = {}) {
   const store = makeStore(dataTypeItems, options);
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Provider store={store}>
-        <SidebarBody onCollapse={() => {}} />
-      </Provider>
-    </MemoryRouter>,
-  );
+  return {
+    store,
+    ...render(
+      <MemoryRouter initialEntries={[path]}>
+        <Provider store={store}>
+          <SidebarBody onCollapse={() => {}} />
+        </Provider>
+      </MemoryRouter>,
+    ),
+  };
 }
 
 describe("SidebarBody registry section — unstructured-type badge", () => {
@@ -188,5 +220,100 @@ describe("SidebarBody — regression check for other sections", () => {
     renderAt("/metrics");
     expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Metrics" })).toBeInTheDocument();
+  });
+});
+
+function buildConversation(
+  overrides: Partial<AssistantConversationSummary>,
+): AssistantConversationSummary {
+  return {
+    id: "conv-1",
+    title: "Netflix dashboard build",
+    pinned: false,
+    updatedAt: "2026-08-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("SidebarBody chat section — conversation list (HEL-664)", () => {
+  it("renders conversations in the exact order the API returned them, no client re-sort", () => {
+    // A pinned conversation with an OLDER updatedAt than the unpinned one —
+    // if the list re-sorted by updatedAt client-side, "Older pinned" would
+    // render second; server order (design.md D3) keeps it first.
+    const items = [
+      buildConversation({ id: "conv-pinned", title: "Older pinned", pinned: true }),
+      buildConversation({ id: "conv-recent", title: "Newer unpinned", pinned: false }),
+    ];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const names = screen.getAllByText(/Older pinned|Newer unpinned/).map((el) => el.textContent);
+    expect(names).toEqual(["Older pinned", "Newer unpinned"]);
+  });
+
+  it("shows a pin indicator on pinned items only", () => {
+    const items = [
+      buildConversation({ id: "conv-pinned", title: "Pinned one", pinned: true }),
+      buildConversation({ id: "conv-plain", title: "Plain one", pinned: false }),
+    ];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const pinnedRow = screen.getByText("Pinned one").closest("li");
+    const plainRow = screen.getByText("Plain one").closest("li");
+    expect(pinnedRow?.querySelector('[data-testid="pin-badge"]')).toBeInTheDocument();
+    expect(plainRow?.querySelector('[data-testid="pin-badge"]')).not.toBeInTheDocument();
+  });
+
+  it("renders no delete affordance for conversations (HEL-663 has no delete endpoint)", () => {
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    expect(screen.queryByRole("button", { name: /actions$/ })).not.toBeInTheDocument();
+  });
+
+  it("pinning a conversation sends PATCH {pinned: true} and shows the pinned indicator", async () => {
+    updateConversationMock.mockResolvedValueOnce({
+      id: "conv-1",
+      title: "Netflix dashboard build",
+      pinned: true,
+      updatedAt: "2026-08-01T00:00:00Z",
+    });
+    const items = [buildConversation({ pinned: false })];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Pin Netflix dashboard build" }));
+
+    await waitFor(() =>
+      expect(updateConversationMock).toHaveBeenCalledWith("conv-1", { pinned: true }),
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByText("Netflix dashboard build")
+          .closest("li")
+          ?.querySelector('[data-testid="pin-badge"]'),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("clicking the pin/unpin row action does not also select the conversation", async () => {
+    updateConversationMock.mockResolvedValueOnce({
+      id: "conv-1",
+      title: "Netflix dashboard build",
+      pinned: true,
+      updatedAt: "2026-08-01T00:00:00Z",
+    });
+    const items = [buildConversation({ pinned: false })];
+    const { store } = renderAt("/chat", [], {
+      conversationItems: items,
+      conversationStatus: "succeeded",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Pin Netflix dashboard build" }));
+
+    await waitFor(() => expect(updateConversationMock).toHaveBeenCalled());
+    expect(
+      (store.getState() as { assistantConversations: { selectedConversationId: string | null } })
+        .assistantConversations.selectedConversationId,
+    ).toBeNull();
   });
 });

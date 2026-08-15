@@ -1,13 +1,20 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Pin, PinOff } from "lucide-react";
 
 import {
   faDatabase,
+  faComments,
   faLayerGroup,
   faCodeBranch,
   faGaugeHigh,
 } from "@fortawesome/free-solid-svg-icons";
 
+import {
+  fetchConversations,
+  setSelectedConversationId,
+  togglePinned,
+} from "../../features/assistant/state/assistantConversationsSlice";
 import {
   deleteDataType,
   fetchDataTypes,
@@ -54,6 +61,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const pipelines = useAppSelector((state) => state.pipelines);
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const metrics = useAppSelector((state) => state.metrics);
+  const conversations = useAppSelector((state) => state.assistantConversations);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
@@ -68,6 +76,8 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       void dispatch(fetchDataTypes());
     } else if (section === "metrics" && metrics.status === "idle") {
       void dispatch(fetchMetrics());
+    } else if (section === "chat" && conversations.status === "idle") {
+      void dispatch(fetchConversations());
     }
     // The sources section also needs pipelines loaded: the delete-confirm
     // warning counts pipelines that read from the source being deleted. The
@@ -76,7 +86,15 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     if ((section === "sources" || section === "registry") && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
     }
-  }, [section, dispatch, sources.status, pipelines.status, dataTypes.status, metrics.status]);
+  }, [
+    section,
+    dispatch,
+    sources.status,
+    pipelines.status,
+    dataTypes.status,
+    metrics.status,
+    conversations.status,
+  ]);
 
   if (section === "sources") {
     // Drive the page's selection via Redux so the sidebar acts as the source
@@ -198,6 +216,61 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     );
   }
 
+  if (section === "chat") {
+    // Server-ordered (`pinned DESC, updatedAt DESC`, HEL-663) — rendered
+    // exactly as returned, no client-side re-sort (design.md D3).
+    const conversationItems: SidebarItem[] = conversations.items.map((conversation) => ({
+      id: conversation.id,
+      name: conversation.title,
+    }));
+    const pinnedIds = new Set(
+      conversations.items.filter((conversation) => conversation.pinned).map((c) => c.id),
+    );
+    const effectiveConversationId =
+      conversations.selectedConversationId ?? conversations.items[0]?.id ?? null;
+    return (
+      <SidebarItemList
+        heading="Chat"
+        items={conversationItems}
+        status={conversations.status}
+        error={conversations.error}
+        onSelect={(item) => dispatch(setSelectedConversationId(item.id))}
+        activeId={effectiveConversationId}
+        emptyText="No conversations yet"
+        emptyIcon={faComments}
+        emptyDescription="Start a conversation to see it here."
+        // No `onDelete` — HEL-663's API has no delete endpoint (design.md D3).
+        renderBadge={(item) =>
+          pinnedIds.has(item.id) ? (
+            <Pin
+              className="dashboard-list__pin-badge"
+              size={12}
+              aria-label="Pinned"
+              data-testid="pin-badge"
+            />
+          ) : null
+        }
+        renderRowAction={(item) => {
+          const pinned = pinnedIds.has(item.id);
+          return (
+            <button
+              type="button"
+              className="dashboard-list__row-action-btn"
+              aria-label={pinned ? `Unpin ${item.name}` : `Pin ${item.name}`}
+              onClick={() => dispatch(togglePinned({ id: item.id, pinned: !pinned }))}
+            >
+              {pinned ? (
+                <PinOff size={14} aria-hidden="true" />
+              ) : (
+                <Pin size={14} aria-hidden="true" />
+              )}
+            </button>
+          );
+        }}
+      />
+    );
+  }
+
   return <DashboardList onCollapse={onCollapse} />;
 }
 
@@ -206,10 +279,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
  * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3). */
 export function sectionFromPathname(
   pathname: string,
-): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" {
+): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" | "chat" {
   if (pathname.startsWith("/sources")) return "sources";
   if (pathname.startsWith("/pipelines")) return "pipelines";
   if (pathname.startsWith("/registry")) return "registry";
   if (pathname.startsWith("/metrics")) return "metrics";
+  if (pathname.startsWith("/chat")) return "chat";
   return "dashboards";
 }
