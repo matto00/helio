@@ -27,6 +27,7 @@ import com.helio.domain.{
   UserSession
 }
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.api.protocols.PutAgentPreferencesRequest
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -3214,6 +3215,26 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val expansions = responseAs[Vector[ShapeStepExpansionResponse]]
         expansions.map(_.kind) shouldBe Vector("aggregate")
+      }
+    }
+
+    // HEL-472 (420-A): composed-route-tree coverage for /api/preferences — proves the request
+    // is rejected by the AuthDirectives layer itself (before ever reaching
+    // agentPreferencesServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't
+    // wire an AgentPreferencesRepository. Full GET/PUT round-trip coverage (default object,
+    // full-replace semantics) lives in the isolated `AgentPreferencesRoutesSpec`.
+    "return 401 for GET /api/preferences without Authorization (HEL-472)" in {
+      Get("/api/preferences") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for PUT /api/preferences without Authorization (HEL-472)" in {
+      val body = PutAgentPreferencesRequest(None, None, None, None)
+      Put("/api/preferences", body) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
       }
     }
 

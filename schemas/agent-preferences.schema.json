@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/agent-preferences.schema.json",
+  "title": "AgentPreferencesResponse",
+  "description": "The caller's agent-authoring preference defaults, as returned by GET/PUT /api/preferences (HEL-472 / 420-A). An absent optional field means no default has been stored for it (GET) or clears a previously-stored value (PUT, full replace); `extras` is always present, an empty object `{}` when nothing has been stored there.",
+  "type": "object",
+  "properties": {
+    "defaultSeriesColors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "defaultPanelStyle": {
+      "type": "object"
+    },
+    "namingConventions": {
+      "type": "object"
+    },
+    "extras": {
+      "type": "object"
+    }
+  },
+  "required": ["extras"],
+  "additionalProperties": false
+}

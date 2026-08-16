@@ -12,9 +12,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
+import com.helio.services.{AgentPreferencesService, AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.{AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -100,7 +100,13 @@ final class ApiRoutes(
     // fixtures that don't pass a MetricRepository simply don't get the
     // /api/metrics routes mounted (metricServiceOpt.fold(reject)). Appended
     // last for the same purely-additive reason.
-    metricRepo: MetricRepository = null
+    metricRepo: MetricRepository = null,
+    // HEL-472 (420-A): same nullable-optional wiring pattern as the repos
+    // above — fixtures that don't pass an AgentPreferencesRepository simply
+    // don't get the /api/preferences routes mounted
+    // (agentPreferencesServiceOpt.fold(reject)). Appended last for the same
+    // purely-additive reason.
+    agentPreferencesRepo: AgentPreferencesRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -261,6 +267,10 @@ final class ApiRoutes(
   // HEL-493: same optional-wiring pattern — fixtures that don't pass a
   // MetricRepository simply don't get the /api/metrics routes.
   private val metricServiceOpt            = Option(metricRepo).map(new MetricService(_, dataTypeRepo))
+  // HEL-472 (420-A): same optional-wiring pattern — fixtures that don't pass
+  // an AgentPreferencesRepository simply don't get the /api/preferences
+  // routes.
+  private val agentPreferencesServiceOpt  = Option(agentPreferencesRepo).map(new AgentPreferencesService(_))
   // HEL-663: same nullable-optional wiring pattern as metricServiceOpt above — fixtures that don't
   // pass a DbContext simply don't get the /api/assistant-conversations routes mounted
   // (assistantConversationServiceOpt.fold(reject)). fileSystem is always present (a required,
@@ -536,7 +546,12 @@ final class ApiRoutes(
                   // HEL-411: mounted UNCONDITIONALLY, same reasoning as DashboardAuthoringRoutes
                   // above — a missing ANTHROPIC_API_KEY/DbContext must degrade this route to a
                   // clean 503, not a bare 404. RefinementRoutes itself handles the `None` case.
-                  new RefinementRoutes(refinementServiceOpt, authenticatedUser).routes
+                  new RefinementRoutes(refinementServiceOpt, authenticatedUser).routes,
+                  // HEL-472 (420-A): same `.fold(reject)`-gated optional-wiring pattern as
+                  // metricServiceOpt above — fixtures that don't pass an
+                  // AgentPreferencesRepository simply don't get the /api/preferences routes
+                  // mounted.
+                  agentPreferencesServiceOpt.fold(reject: Route)(svc => new AgentPreferencesRoutes(svc, authenticatedUser).routes)
                 )
               }
             )

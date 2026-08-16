@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -45,6 +46,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   private var appDb:        JdbcBackend.Database = _   // helio_app_test (non-superuser)
   private var ctx: DbContext = _
   private var imageUploadRepo: ImageUploadRepository = _   // HEL-246
+  private var agentPreferencesRepo: AgentPreferencesRepository = _   // HEL-472 (420-A)
 
   /** Two synthetic owner UUIDs whose rows must never bleed across user contexts. */
   private val ownerA = UserId(UUID.randomUUID().toString)
@@ -109,6 +111,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
 
     ctx = new DbContext(appDb, privilegedDb)
     imageUploadRepo = new ImageUploadRepository(ctx)
+    agentPreferencesRepo = new AgentPreferencesRepository(ctx)
 
     // Seed user rows so pipelines.owner_id FK references are satisfied.
     await(ctx.withSystemContext(DBIO.seq(
@@ -134,7 +137,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
    *  privileged pool so RLS does not interfere with the cleanup. */
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads CASCADE"
+      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads, agent_preferences CASCADE"
     ))
 
   // ── Helper: seed via withSystemContext (BYPASSRLS) so setup is never ──────
@@ -354,6 +357,92 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       ))
 
       rows.toSet should contain allOf (idA, idB)
+    }
+  }
+
+  // ── agent_preferences RLS (HEL-472 / 420-A) ──────────────────────────────
+
+  /** Seed via `AgentPreferencesRepository.put` (not raw SQL like the `seedSource`/`seedDataType`
+   *  helpers above) — this is the real write path, so the assertions below prove the
+   *  repository's `withUserContext` call actually goes through the V81 owner RLS policy rather
+   *  than merely asserting the policy exists (mirrors `seedImageUpload` above). */
+  private def seedAgentPreferences(ownerId: UserId, note: String): AgentPreferences = {
+    val prefs = AgentPreferences(
+      userId              = ownerId,
+      defaultSeriesColors = Some(Vector("#123456")),
+      defaultPanelStyle   = Some(JsObject("background" -> JsString("dark"))),
+      namingConventions   = None,
+      extras              = JsObject("note" -> JsString(note))
+    )
+    await(agentPreferencesRepo.put(ownerId, prefs))
+  }
+
+  "RLS on agent_preferences" should {
+
+    "AgentPreferencesRepository.put runs in the caller's own context — ownerA sees only their own row" in {
+      cleanDb()
+      seedAgentPreferences(ownerA, "a")
+      seedAgentPreferences(ownerB, "b")
+
+      val rows = await(ctx.withUserContext(ownerA.value)(
+        sql"SELECT user_id::text FROM agent_preferences".as[String]
+      ))
+
+      rows.toSet shouldBe Set(ownerA.value)
+      rows should not contain ownerB.value
+    }
+
+    "withUserContext(ownerB) cannot see ownerA's row" in {
+      cleanDb()
+      seedAgentPreferences(ownerA, "a")
+      seedAgentPreferences(ownerB, "b")
+
+      val rows = await(ctx.withUserContext(ownerB.value)(
+        sql"SELECT user_id::text FROM agent_preferences".as[String]
+      ))
+
+      rows should not contain ownerA.value
+    }
+
+    "ownerA's context cannot overwrite ownerB's row via AgentPreferencesRepository.put" in {
+      cleanDb()
+      seedAgentPreferences(ownerB, "original")
+
+      // ownerA attempts to upsert a row keyed to ownerB's user_id, but put() always runs under
+      // withUserContext(the userId argument) — so this exercises the RLS policy from ownerB's
+      // own write context, which is the only context AgentPreferencesRepository.put ever uses
+      // (design.md Decision 3: never withSystemContext). A genuine cross-user overwrite attempt
+      // (ownerA's SESSION writing a row claiming ownerB's user_id) is rejected by the USING
+      // clause's implicit WITH CHECK when attempted directly against the app pool.
+      val attempted = intercept[Exception] {
+        Await.result(
+          appDb.run(DBIO.seq(
+            sql"SELECT set_config('app.current_user_id', ${ownerA.value}, true)".as[String],
+            sqlu"""INSERT INTO agent_preferences (user_id, preferences, updated_at)
+                   VALUES (${ownerB.value}::uuid, '{"extras":{"note":"hijacked"}}'::jsonb, now())
+                   ON CONFLICT (user_id) DO UPDATE SET preferences = EXCLUDED.preferences"""
+          ).transactionally),
+          10.seconds
+        )
+      }
+      attempted should not be null
+
+      val stillOwnerBs = await(ctx.withSystemContext(
+        sql"SELECT preferences::text FROM agent_preferences WHERE user_id = ${ownerB.value}::uuid".as[String].head
+      ))
+      stillOwnerBs should include("original")
+    }
+
+    "withSystemContext (privileged pool) sees all rows regardless of owner" in {
+      cleanDb()
+      seedAgentPreferences(ownerA, "a")
+      seedAgentPreferences(ownerB, "b")
+
+      val rows = await(ctx.withSystemContext(
+        sql"SELECT user_id::text FROM agent_preferences".as[String]
+      ))
+
+      rows.toSet should contain allOf (ownerA.value, ownerB.value)
     }
   }
 
