@@ -35,7 +35,8 @@ final case class RenameStep(
     position: Int,
     config: RenameConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = RenameStep.Kind
 

@@ -53,7 +53,8 @@ final case class UnionStep(
     position: Int,
     config: UnionConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = UnionStep.Kind
 

@@ -100,7 +100,16 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
         s.position    shouldBe 0
         s.createdAt   shouldBe now
         s.updatedAt   shouldBe now
+        // HEL-412: every subtype's `enabled` constructor param defaults to
+        // true — pre-existing 6-arg call sites (like every one above) are
+        // unaffected by the field's addition.
+        s.enabled     shouldBe true
       }
+    }
+
+    // HEL-412: the `enabled` param threads through explicitly when supplied.
+    "enabled threads through explicitly when constructed with enabled = false" in {
+      RenameStep(id, pid, 0, RenameConfig(Map.empty), now, now, enabled = false).enabled shouldBe false
     }
 
     "every subtype's kind matches PipelineStepKind.All" in {

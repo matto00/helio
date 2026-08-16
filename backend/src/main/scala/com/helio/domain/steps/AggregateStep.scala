@@ -58,7 +58,8 @@ final case class AggregateStep(
     position: Int,
     config: AggregateConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AggregateStep.Kind
 

@@ -145,6 +145,11 @@ class PipelineStepRoutesSpec
   private def reqWithPosition(base: JsObject, position: Int): JsObject =
     JsObject(base.fields + ("position" -> JsNumber(position)))
 
+  // HEL-412: merge an optional `enabled` flag into a request body built by one
+  // of the *Req() helpers above.
+  private def reqWithEnabled(base: JsObject, enabled: Boolean): JsObject =
+    JsObject(base.fields + ("enabled" -> JsBoolean(enabled)))
+
   // Exact request body the "+ Add transformation step" picker sends on lookup-step
   // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
   // defaultConfigFor("lookup"). HEL-386 change request 2 regression coverage.
@@ -780,6 +785,137 @@ class PipelineStepRoutesSpec
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         val steps = responseAs[Vector[PipelineStepResponse]]
         steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 1), (idC, 2), (idF, 3))
+      }
+    }
+
+    // ── HEL-412: enabled flag (create/PATCH round-trip) ──────────────────────
+
+    "POST without enabled creates an enabled step" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].enabled shouldBe true
+      }
+    }
+
+    "POST with enabled: false creates a disabled step" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", reqWithEnabled(renameReq(), enabled = false)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].enabled shouldBe false
+      }
+    }
+
+    "PATCH enabled toggles and round-trips across a re-GET" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      Patch(s"/pipeline-steps/$stepId", JsObject("enabled" -> JsBoolean(false))) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PipelineStepResponse].enabled shouldBe false
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]].head.enabled shouldBe false
+      }
+
+      Patch(s"/pipeline-steps/$stepId", JsObject("enabled" -> JsBoolean(true))) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PipelineStepResponse].enabled shouldBe true
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]].head.enabled shouldBe true
+      }
+    }
+
+    "PATCH config only leaves enabled unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", reqWithEnabled(renameReq(), enabled = false)) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      val patchBody = JsObject("config" -> JsObject("renames" -> JsObject("foo" -> JsString("bar"))))
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PipelineStepResponse].enabled shouldBe false
+      }
+    }
+
+    // ── HEL-412: POST /pipeline-steps/:id/duplicate ──────────────────────────
+
+    "POST /pipeline-steps/:id/duplicate clones the step directly after the original" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      var cloneId = ""
+      Post(s"/pipeline-steps/$idA/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.`type` shouldBe "rename"
+        resp.enabled shouldBe true
+        resp.position shouldBe 1
+        cloneId = resp.id
+        cloneId should not be idA
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(_.id) shouldBe Vector(idA, cloneId, idB)
+        steps.map(_.position) shouldBe Vector(0, 1, 2)
+      }
+    }
+
+    "POST /pipeline-steps/:id/duplicate on a disabled step yields a disabled clone" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", reqWithEnabled(renameReq(), enabled = false)) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      Post(s"/pipeline-steps/$stepId/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[PipelineStepResponse].enabled shouldBe false
+      }
+    }
+
+    "POST /pipeline-steps/:id/duplicate preserves the original's config" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      val patchedConfig = JsObject("renames" -> JsObject("foo" -> JsString("bar")))
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      Patch(s"/pipeline-steps/$stepId", JsObject("config" -> patchedConfig)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Post(s"/pipeline-steps/$stepId/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val clone = responseAs[PipelineStepResponse].asInstanceOf[RenameStepResponse]
+        clone.config.renames shouldBe Map("foo" -> "bar")
+      }
+    }
+
+    "POST /pipeline-steps/:id/duplicate returns 404 for an unknown step id" in {
+      Post("/pipeline-steps/nonexistent-id/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "POST /pipeline-steps/:id/duplicate returns 403 for a viewer grantee" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      grantViewer(pid)
+
+      Post(s"/pipeline-steps/$stepId/duplicate") ~> routesFor(viewerUser) ~> check {
+        status shouldBe StatusCodes.Forbidden
       }
     }
   }

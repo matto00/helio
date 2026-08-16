@@ -400,6 +400,16 @@
   border-color: color-mix(in srgb, var(--app-error) 50%, transparent);
 }
 
+/* HEL-412 (design.md Decision 6) — a disabled step renders muted: reduced
+ * opacity on the icon/label/body (token-only — no new color), never on the
+ * header's actions cluster (drag handle / move / toggle / duplicate stay
+ * fully legible so the step can always be re-enabled or removed). */
+.pipeline-detail-page__step-card--disabled .pipeline-detail-page__step-card-icon,
+.pipeline-detail-page__step-card--disabled .pipeline-detail-page__step-card-label,
+.pipeline-detail-page__step-card--disabled .pipeline-detail-page__step-card-body {
+  opacity: 0.6;
+}
+
 /* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>` — the
  * expand-toggle `<button>` and the drag-handle/Move-buttons actions cluster
  * are siblings inside it, not one nested inside the other. */
@@ -436,7 +446,9 @@
 }
 
 .pipeline-detail-page__step-card-drag-handle,
-.pipeline-detail-page__step-card-move-btn {
+.pipeline-detail-page__step-card-move-btn,
+.pipeline-detail-page__step-card-toggle-enabled-btn,
+.pipeline-detail-page__step-card-duplicate-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -460,7 +472,9 @@
 }
 
 .pipeline-detail-page__step-card-drag-handle:hover,
-.pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
+.pipeline-detail-page__step-card-move-btn:hover:not(:disabled),
+.pipeline-detail-page__step-card-toggle-enabled-btn:hover,
+.pipeline-detail-page__step-card-duplicate-btn:hover {
   background: var(--app-surface-raised);
   color: var(--app-text);
 }
@@ -468,6 +482,15 @@
 .pipeline-detail-page__step-card-move-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* HEL-412 — a disabled step's toggle button stays legible (not muted by the
+ * `--disabled` card modifier below, which only mutes the label/icon/body) so
+ * "re-enable" is always readable. `aria-pressed` marks the active (disabled)
+ * state with the accent, mirroring the toggle-switch precedent's checked
+ * state without introducing a new control. */
+.pipeline-detail-page__step-card-toggle-enabled-btn[aria-pressed="true"] {
+  color: var(--app-accent);
 }
 
 /* Drop-indicator line rendered between step cards while dragging (HEL-407). */

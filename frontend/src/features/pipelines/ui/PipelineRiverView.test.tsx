@@ -24,11 +24,30 @@ const stepA: Step = {
   opType: FILTER_OP,
   label: "Filter rows",
   config: { combinator: "AND", conditions: [] },
+  enabled: true,
 };
-const stepB: Step = { id: "b", opType: LIMIT_OP, label: "Limit rows", config: { count: 100 } };
-const stepC: Step = { id: "c", opType: SORT_OP, label: "Sort rows", config: { sortBy: [] } };
+const stepB: Step = {
+  id: "b",
+  opType: LIMIT_OP,
+  label: "Limit rows",
+  config: { count: 100 },
+  enabled: true,
+};
+const stepC: Step = {
+  id: "c",
+  opType: SORT_OP,
+  label: "Sort rows",
+  config: { sortBy: [] },
+  enabled: true,
+};
 // Fourth step for the CR1 downward-multi-position regression fixture below.
-const stepD: Step = { id: "d", opType: CAST_OP, label: "Cast type", config: { casts: {} } };
+const stepD: Step = {
+  id: "d",
+  opType: CAST_OP,
+  label: "Cast type",
+  config: { casts: {} },
+  enabled: true,
+};
 
 function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> = {}) {
   return {
@@ -48,6 +67,8 @@ function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> 
     runStepRowCounts: null,
     onInstantiateShape: jest.fn(async () => {}),
     onReorderSteps: jest.fn(),
+    onToggleStepEnabled: jest.fn(),
+    onDuplicateStep: jest.fn(),
     ...overrides,
   };
 }
@@ -238,5 +259,41 @@ describe("PipelineRiverView insert-at-position (HEL-410 design.md Decision 5)", 
     // dropdown at a time); `dropdownOpen` itself stays parent-controlled
     // (a mock here), so no menu remains mounted from either picker.
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-412 — RiverView delegates the disable/enable toggle and duplicate
+// actions straight through to the page (persistence lives there, mirroring
+// onRemoveStep/onReorderSteps); it also computes `enabledBits` from its own
+// `steps` prop and threads the same string to every card.
+describe("PipelineRiverView disable/duplicate delegation (HEL-412)", () => {
+  it("clicking Disable step on a card invokes onToggleStepEnabled(stepId, false)", () => {
+    const onToggleStepEnabled = jest.fn();
+    render(<PipelineRiverView {...baseProps({ onToggleStepEnabled })} />);
+
+    fireEvent.click(within(sectionFor("Limit rows")).getByRole("button", { name: "Disable step" }));
+
+    expect(onToggleStepEnabled).toHaveBeenCalledWith("b", false);
+  });
+
+  it("a disabled step's card shows Enable step (label reflects the next state)", () => {
+    render(
+      <PipelineRiverView {...baseProps({ steps: [stepA, { ...stepB, enabled: false }, stepC] })} />,
+    );
+
+    expect(
+      within(sectionFor("Limit rows")).getByRole("button", { name: "Enable step" }),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking Duplicate step on a card invokes onDuplicateStep(stepId)", () => {
+    const onDuplicateStep = jest.fn();
+    render(<PipelineRiverView {...baseProps({ onDuplicateStep })} />);
+
+    fireEvent.click(
+      within(sectionFor("Filter rows")).getByRole("button", { name: "Duplicate step" }),
+    );
+
+    expect(onDuplicateStep).toHaveBeenCalledWith("a");
   });
 });

@@ -445,5 +445,34 @@ class BoundPanelRoutesSpec
         boundTypeId should not be companionTypeId.value
       }
     }
+
+    // HEL-412 (design.md Decision 3, boundary v): `BoundPanelService.projectSchema`
+    // excludes a step definition carrying `enabled: false` from the gate's schema
+    // projection — a `select` step that WOULD drop the numeric field, if it ran,
+    // is treated as absent, so the metric binding still succeeds.
+    "a disabled select step is excluded from the binding-gate schema projection" in {
+      val dashboardId = seedDashboard(userAId)
+      val body =
+        s"""{
+           |  "dashboardId": "${dashboardId.value}",
+           |  "source": {
+           |    "name": "Quarterly Sales 2",
+           |    "columns": [{"name":"region","type":"string"},{"name":"revenue","type":"integer"}],
+           |    "rows": [["North",320],["South",210]]
+           |  },
+           |  "pipeline": {"outputDataTypeName": "Disabled Select Output", "steps": [
+           |    {"type":"select","config":{"fields":["region"]},"enabled":false}
+           |  ]},
+           |  "panel": {"type": "metric", "title": "Total Revenue"},
+           |  "fieldMapping": {"value": "revenue"}
+           |}""".stripMargin
+      Post("/panels/bound", json(body)) ~> boundPanelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[BoundPanelResponse]
+        // The disabled select step never ran during the real (non-dry) run
+        // either -- revenue survives in the persisted output rows too.
+        await(dataTypeRowRepo.listRows(resp.dataTypeId)).flatMap(_.fields.keys) should contain("revenue")
+      }
+    }
   }
 }

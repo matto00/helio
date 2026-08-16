@@ -23,4 +23,7 @@ export interface Step {
   opType: OpType;
   label: string;
   config: PipelineStepConfig;
+  // HEL-412 — persisted disable/enable flag. Always a real boolean here
+  // (normalized from the wire's `enabled ?? true` before a Step is built).
+  enabled: boolean;
 }

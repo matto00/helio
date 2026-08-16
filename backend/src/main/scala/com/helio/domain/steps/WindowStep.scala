@@ -82,7 +82,8 @@ final case class WindowStep(
     position: Int,
     config: WindowConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = WindowStep.Kind
 

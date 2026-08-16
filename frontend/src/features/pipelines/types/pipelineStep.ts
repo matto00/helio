@@ -152,6 +152,11 @@ interface BasePipelineStep {
   position: number;
   createdAt: string;
   updatedAt: string;
+  // HEL-412: the backend always serializes `enabled` (never omitted), but
+  // this field stays `Option`-shaped on the wire type per the codebase's
+  // spray-json Option-omission precedent — normalized to a real boolean
+  // (`enabled ?? true`) at the service boundary in `pipelineService.ts`.
+  enabled?: boolean;
 }
 
 export interface RenameStep extends BasePipelineStep {

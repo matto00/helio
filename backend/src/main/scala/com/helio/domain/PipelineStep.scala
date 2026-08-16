@@ -45,6 +45,13 @@ trait PipelineStep {
   def createdAt: Instant
   def updatedAt: Instant
 
+  /** Persisted disable/enable flag (HEL-412). Defaults `true` on every
+   *  subtype's constructor so pre-existing positional call sites (tests,
+   *  DemoData, etc.) that predate this field are unaffected. A disabled step
+   *  is dropped from execution, analysis, and preview — see
+   *  `pipeline-step-lifecycle` spec. */
+  def enabled: Boolean
+
   /** Apply this step to the input rows.
    *
    *  Polymorphic per kind — pure-sync steps wrap their result in

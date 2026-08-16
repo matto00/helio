@@ -12,8 +12,9 @@ import scala.util.{Failure, Success}
 
 /** Persistence layer for `pipeline_steps`.
  *
- *  The on-disk shape (`id, pipeline_id, position, op, config, created_at,
- *  updated_at` — config stored as JSON text) is unchanged. CS2c-3a moves the
+ *  The on-disk shape (`id, pipeline_id, position, op, config, enabled,
+ *  created_at, updated_at` — config stored as JSON text) is unchanged except
+ *  for `enabled` (HEL-412, V86, `NOT NULL DEFAULT true`). CS2c-3a moves the
  *  typed-ADT dispatch into `rowToDomain` / `domainToRow`: the repo speaks
  *  [[PipelineStep]] sealed-trait values across its public API, and reads /
  *  writes the typed `*Config` via [[PipelineStepConfigCodec]].
@@ -60,14 +61,14 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * `pipelines.owner_id`. Running inside `withUserContext` means the policy
     * evaluates correctly: the new step is only insertable if the parent pipeline
     * is owned by the caller. */
-  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser): Future[PipelineStep] = {
+  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser, enabled: Boolean = true): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
       maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, now, now)
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
       _        <- stepsTable += row
     } yield rowToDomain(row)
     ctx.withUserContext(user.id.value)(action.transactionally)
@@ -77,7 +78,13 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * the caller does not own the parent pipeline. Cross-type PATCH is rejected
     * at the service boundary; here `kind` stays whatever the persisted row
     * carries. */
-  def update(id: PipelineStepId, config: Option[Any], position: Option[Int], user: AuthenticatedUser): Future[Option[PipelineStep]] = {
+  def update(
+      id: PipelineStepId,
+      config: Option[Any],
+      position: Option[Int],
+      user: AuthenticatedUser,
+      enabled: Option[Boolean] = None
+  ): Future[Option[PipelineStep]] = {
     val now       = Instant.now()
     val ownerUuid = UUID.fromString(user.id.value)
     val ownedQuery = for {
@@ -96,6 +103,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           val newRow = row.copy(
             config    = newConfig,
             position  = position.getOrElse(row.position),
+            enabled   = enabled.getOrElse(row.enabled),
             updatedAt = now
           )
           stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
@@ -149,14 +157,14 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /** ACL-bypassing insert. Safe to call only after the caller's editor or
     * owner access has been confirmed by PipelineService via findByIdShared. */
-  def insertInternal(pipelineId: PipelineId, kind: String, config: Any): Future[PipelineStep] = {
+  def insertInternal(pipelineId: PipelineId, kind: String, config: Any, enabled: Boolean = true): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
       maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, now, now)
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
       _        <- stepsTable += row
     } yield rowToDomain(row)
     ctx.withSystemContext(action.transactionally)
@@ -164,7 +172,12 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /** ACL-bypassing update. Safe to call only after the caller's editor or
     * owner access has been confirmed by PipelineService via findByIdShared. */
-  def updateInternal(id: PipelineStepId, config: Option[Any], position: Option[Int]): Future[Option[PipelineStep]] = {
+  def updateInternal(
+      id: PipelineStepId,
+      config: Option[Any],
+      position: Option[Int],
+      enabled: Option[Boolean] = None
+  ): Future[Option[PipelineStep]] = {
     val now = Instant.now()
     val action = for {
       existing <- stepsTable.filter(_.id === id.value).result.headOption
@@ -178,6 +191,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           val newRow = row.copy(
             config    = newConfig,
             position  = position.getOrElse(row.position),
+            enabled   = enabled.getOrElse(row.enabled),
             updatedAt = now
           )
           stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
@@ -195,11 +209,11 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * transaction (the `reorderInternal` idiom above). This also heals any
     * pre-existing position gaps left by deleteStep (HEL-407 finding) as a
     * side effect. Returns the created step, whose final position is `index`. */
-  def insertAtInternal(pipelineId: PipelineId, kind: String, config: Any, index: Int): Future[PipelineStep] = {
+  def insertAtInternal(pipelineId: PipelineId, kind: String, config: Any, index: Int, enabled: Boolean = true): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
-    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, now, now)
+    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now)
     val action = for {
       existing <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
       ordered   = existing.toVector.patch(index, Vector(newRow), 0)
@@ -244,29 +258,29 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val stepId = PipelineStepId(row.id)
     val pid    = PipelineId(row.pipelineId)
     PipelineStepConfigCodec.decode(row.op, row.config) match {
-      case Success(cfg: RenameConfig)    => RenameStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: FilterConfig)    => FilterStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: JoinConfig)      => JoinStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: ComputeConfig)   => ComputeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: GroupByConfig)   => GroupByStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: CastConfig)      => CastStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: SelectConfig)    => SelectStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: LimitConfig)     => LimitStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: SortConfig)      => SortStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: AggregateConfig) => AggregateStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: SplitTextConfig) => SplitTextStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: ExtractHeadingsConfig) => ExtractHeadingsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: DateBucketConfig) => DateBucketStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: FillNullConfig) => FillNullStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
-      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
+      case Success(cfg: RenameConfig)    => RenameStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: FilterConfig)    => FilterStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: JoinConfig)      => JoinStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ComputeConfig)   => ComputeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: GroupByConfig)   => GroupByStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: CastConfig)      => CastStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SelectConfig)    => SelectStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: LimitConfig)     => LimitStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SortConfig)      => SortStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: AggregateConfig) => AggregateStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SplitTextConfig) => SplitTextStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ExtractHeadingsConfig) => ExtractHeadingsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: DateBucketConfig) => DateBucketStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: FillNullConfig) => FillNullStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"
@@ -294,6 +308,7 @@ object PipelineStepRepository {
       position: Int,
       op: String,
       config: String,
+      enabled: Boolean,
       createdAt: Instant,
       updatedAt: Instant
   )
@@ -304,9 +319,10 @@ object PipelineStepRepository {
     def position   = column[Int]("position")
     def op         = column[String]("op")
     def config     = column[String]("config")
+    def enabled    = column[Boolean]("enabled")
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
 
-    def * = (id, pipelineId, position, op, config, createdAt, updatedAt).mapTo[PipelineStepRow]
+    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt).mapTo[PipelineStepRow]
   }
 }

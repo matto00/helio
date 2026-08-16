@@ -39,6 +39,7 @@ function makeStep(overrides: Partial<Step> = {}): Step {
     opType: LIMIT_OP_TYPE,
     label: "Limit rows",
     config: { count: 5 },
+    enabled: true,
     ...overrides,
   };
 }
@@ -61,6 +62,9 @@ function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
     rowCount: null,
     onStepDragStart: jest.fn(),
     onStepDragEnd: jest.fn(),
+    onToggleEnabled: jest.fn(),
+    onDuplicate: jest.fn(),
+    enabledBits: "1",
     ...overrides,
   };
 }
@@ -277,6 +281,118 @@ describe("StepCard preview — refresh on reorder (HEL-407)", () => {
     });
 
     expect(fetchStepPreviewMock).not.toHaveBeenCalled();
+  });
+});
+
+// HEL-412 (design.md Decision 8) — `enabledBits` is the join of every step's
+// enabled flag, passed identically to every card; toggling ANY step changes
+// it for ALL cards, so an open preview refreshes even when this card's own
+// config and stepIndex are untouched.
+describe("StepCard preview — refresh on enabledBits change (HEL-412)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  it("re-fetches exactly once, debounced, when enabledBits changes (config/stepIndex unchanged)", async () => {
+    fetchStepPreviewMock.mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+
+    const { rerender } = render(<StepCard {...baseProps({ enabledBits: "10" })} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    // Some OTHER step in the list toggled — this card's own config/index
+    // didn't change, only the shared enabledBits string.
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ enabledBits: "11" })} />);
+    });
+
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// HEL-412 evaluation-1.md CR1/CR2 — a disabled→enabled transition must never
+// take the immediate/undebounced "activation" fetch path: it races the same
+// click's own enable PATCH in `PipelineDetailPage.handleToggleStepEnabled`
+// (see the fuller integration-level repro in `PipelineDetailPage.test.tsx`'s
+// "PipelineDetailPage step preview" describe block). These tests pin the
+// exact effect-level invariant at the point of the fix.
+describe("StepCard preview — re-enable does not race the enable PATCH (HEL-412 evaluation-1.md CR1)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  it("re-enabling (single-step pipeline: config/enabledBits round-trip to the same fingerprint) still debounces, never fetches immediately", async () => {
+    fetchStepPreviewMock.mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+
+    // A single-step pipeline: enabledBits is "1" both before disabling and
+    // after re-enabling — the composed fingerprint round-trips to the exact
+    // same string, which is the trap a naive "does the fingerprint match
+    // what I last fetched?" short-circuit would fall into.
+    const { rerender } = render(<StepCard {...baseProps({ enabledBits: "1" })} />);
+    await click("Limit rows");
+    await click("Preview data");
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    // Optimistic disable (mirrors PipelineDetailPage.handleToggleStepEnabled's
+    // synchronous flip, before its PATCH resolves).
+    await act(async () => {
+      rerender(
+        <StepCard {...baseProps({ step: makeStep({ enabled: false }), enabledBits: "0" })} />,
+      );
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    // Optimistic re-enable — the exact same click-driven flip the race
+    // condition depends on. Must NOT fetch before the debounce elapses.
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ enabledBits: "1" })} />);
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(499);
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a step disabled+previewOpen from mount (never fetched while disabled) still debounces on re-enable, never fetches immediately", async () => {
+    fetchStepPreviewMock.mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+    window.localStorage.setItem("helio-step-preview-open", "true");
+
+    // Mounts already disabled — the preview tray is logically "open"
+    // (persisted preference) but rendered nothing (gated on step.enabled),
+    // so no fetch has ever been dispatched: `lastFetchedFingerprint` is
+    // still its initial `null`.
+    const { rerender } = render(
+      <StepCard {...baseProps({ step: makeStep({ enabled: false }), enabledBits: "0" })} />,
+    );
+    await click("Limit rows");
+    expect(fetchStepPreviewMock).not.toHaveBeenCalled();
+
+    // Enable — must debounce, not fetch immediately, even though this is
+    // technically the card's first-ever activation (fingerprint ref is null).
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ enabledBits: "1" })} />);
+    });
+    expect(fetchStepPreviewMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -581,6 +697,7 @@ describe("StepCard validationError surfacing (skeptic-final-1.md CR1)", () => {
       opType: { id: "compute", label: "Compute column", icon: LIMIT_OP_TYPE.icon },
       label: "Compute column",
       config: { column: "revenue_per_user", expression: "$revenue / $users", type: "number" },
+      enabled: true,
     };
 
     render(
@@ -646,5 +763,83 @@ describe("StepCard — errored card marking (HEL-409)", () => {
       screen.queryByRole("img", { name: "Step has a validation error" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Unknown field(s): 'full_name'")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-412 — disable/enable toggle + duplicate action, both siblings of the
+// drag/Move controls in the header actions cluster (design.md Decision 6).
+// Persistence itself is page-owned (PipelineDetailPage.test.tsx); these
+// tests cover what StepCard renders and delegates.
+describe("StepCard disable/enable + duplicate (HEL-412)", () => {
+  it("an enabled step shows a 'Disable step' button that calls onToggleEnabled(id, false)", () => {
+    const onToggleEnabled = jest.fn();
+    render(<StepCard {...baseProps({ onToggleEnabled })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
+
+    expect(onToggleEnabled).toHaveBeenCalledWith("step-1", false);
+  });
+
+  it("a disabled step shows an 'Enable step' button that calls onToggleEnabled(id, true)", () => {
+    const onToggleEnabled = jest.fn();
+    render(<StepCard {...baseProps({ step: makeStep({ enabled: false }), onToggleEnabled })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Enable step" }));
+
+    expect(onToggleEnabled).toHaveBeenCalledWith("step-1", true);
+  });
+
+  it("Duplicate step calls onDuplicate(id)", () => {
+    const onDuplicate = jest.fn();
+    render(<StepCard {...baseProps({ onDuplicate })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate step" }));
+
+    expect(onDuplicate).toHaveBeenCalledWith("step-1");
+  });
+
+  it("a disabled step renders the --disabled card modifier and hides the preview control", async () => {
+    const { container } = render(
+      <StepCard {...baseProps({ step: makeStep({ enabled: false }) })} />,
+    );
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--disabled"),
+    ).toBeInTheDocument();
+
+    await click("Limit rows");
+    expect(screen.queryByRole("button", { name: "Preview data" })).not.toBeInTheDocument();
+  });
+
+  it("an enabled step does not render the --disabled card modifier and shows the preview control", async () => {
+    const { container } = render(<StepCard {...baseProps()} />);
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--disabled"),
+    ).not.toBeInTheDocument();
+
+    await click("Limit rows");
+    expect(screen.getByRole("button", { name: "Preview data" })).toBeInTheDocument();
+  });
+
+  it("the config editor stays visible and editable for a disabled step (disabling is about execution, not locking)", async () => {
+    render(<StepCard {...baseProps({ step: makeStep({ enabled: false }) })} />);
+
+    await click("Limit rows");
+
+    // LimitConfig's numeric input is still present and enabled.
+    expect(screen.getByRole("spinbutton")).toBeEnabled();
+  });
+
+  it("a disabled step shows no error chip when it has no validationError (no analyze entry)", () => {
+    render(
+      <StepCard
+        {...baseProps({ step: makeStep({ enabled: false }), validationError: undefined })}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("img", { name: "Step has a validation error" }),
+    ).not.toBeInTheDocument();
   });
 });

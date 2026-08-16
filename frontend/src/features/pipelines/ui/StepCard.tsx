@@ -8,7 +8,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronDown,
   faChevronUp,
+  faCopy,
   faGripVertical,
+  faPowerOff,
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -110,6 +112,16 @@ interface StepCardProps {
    *  first/last position rather than StepCard reasoning about bounds. */
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** HEL-412 — persists the disable/enable toggle; the page owns the
+   *  optimistic flip + revert-on-failure convention. */
+  onToggleEnabled: (stepId: string, enabled: boolean) => void;
+  /** HEL-412 — invokes the duplicate endpoint; the page owns splicing the
+   *  clone in after the original. */
+  onDuplicate: (stepId: string) => void;
+  /** HEL-412 — the join of every step's enabled flag (design.md Decision 8),
+   *  folded into the preview fingerprint so a toggle anywhere refreshes every
+   *  open preview tray, not just this card's own. */
+  enabledBits: string;
 }
 
 export function StepCard({
@@ -127,6 +139,9 @@ export function StepCard({
   onStepDragEnd,
   onMoveUp,
   onMoveDown,
+  onToggleEnabled,
+  onDuplicate,
+  enabledBits,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -142,17 +157,41 @@ export function StepCard({
   // just-expanded card): fetch immediately, no debounce. A non-null value
   // that differs from the current fingerprint means the config changed while
   // the preview was active: debounce the re-fetch. Resets to `null` whenever
-  // the preview deactivates (hidden or card collapsed) so reopening always
-  // fetches fresh.
+  // the preview deactivates by the USER's own action (hidden or card
+  // collapsed) so reopening always fetches fresh. Deliberately NOT reset when
+  // a step is merely disabled (see the `step.enabled` branch below) — HEL-412
+  // evaluation-1.md CR1.
   const lastFetchedFingerprint = useRef<string | null>(null);
+  // HEL-412 evaluation-1.md CR1 — tracks whether the step was enabled on the
+  // previous run of this effect, so a false→true transition can be detected
+  // and routed through the debounced path even when `lastFetchedFingerprint`
+  // happens to be `null` (e.g. the step was disabled+expanded+previewOpen
+  // from a stale localStorage preference before ever fetching once).
+  const wasEnabledRef = useRef(step.enabled);
   // HEL-407 (design.md Decision 9) — the UI `Step` type has no persisted
   // `position` field, so a reorder alone wouldn't change `step.config` and
   // would silently leave a stale preview. Fold `stepIndex` into the
   // fingerprint: a reorder changes the index, which re-triggers the same
   // debounced re-fetch below.
-  const configFingerprint = `${stepIndex}:${JSON.stringify(step.config)}`;
+  // HEL-412 (design.md Decision 8) — `enabledBits` is folded in too: toggling
+  // ANY step's enabled state can change what an enabled step's preview
+  // prefix actually executes (a disabled step upstream is now skipped, or a
+  // just-re-enabled one now runs), so every open preview refreshes on any
+  // toggle, not just this card's own.
+  const configFingerprint = `${stepIndex}:${enabledBits}:${JSON.stringify(step.config)}`;
 
   useEffect(() => {
+    const wasEnabled = wasEnabledRef.current;
+    wasEnabledRef.current = step.enabled;
+
+    // A disabled step's preview is unavailable (its control is hidden) —
+    // skip the fetch entirely rather than hitting the backend's defensive
+    // 422 ("step is disabled"). Deliberately does NOT touch
+    // `lastFetchedFingerprint` here (HEL-412 evaluation-1.md CR1): disabling
+    // is not a user-initiated "close the tray" action, so re-enabling must
+    // not look like a fresh activation.
+    if (!step.enabled) return;
+
     const active = expanded && previewOpen;
     if (!active) {
       lastFetchedFingerprint.current = null;
@@ -171,6 +210,26 @@ export function StepCard({
       } finally {
         setPreviewLoading(false);
       }
+    }
+
+    // HEL-412 evaluation-1.md CR1 — a disabled→enabled transition must NEVER
+    // take the immediate/undebounced "activation" branch below: the
+    // optimistic enable flip in `PipelineDetailPage.handleToggleStepEnabled`
+    // fires this same re-render before its own PATCH has resolved, so an
+    // immediate GET can reach the backend (and get a defensive 422) before
+    // the enable commits server-side. Always debounce-refetch instead — even
+    // when `configFingerprint` happens to equal what was last fetched (a
+    // single-step pipeline's `enabledBits`/config round-trip back to the
+    // exact same string across a disable→enable cycle), because the
+    // underlying server-side reality genuinely changed (skip → run): a
+    // fingerprint-equality short-circuit here would leave the preview stuck
+    // on stale-but-textually-identical data.
+    if (!wasEnabled) {
+      const handle = window.setTimeout(() => {
+        lastFetchedFingerprint.current = configFingerprint;
+        void runFetch();
+      }, PREVIEW_REFRESH_DEBOUNCE_MS);
+      return () => window.clearTimeout(handle);
     }
 
     if (lastFetchedFingerprint.current === null) {
@@ -192,7 +251,7 @@ export function StepCard({
       void runFetch();
     }, PREVIEW_REFRESH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [expanded, previewOpen, pipelineId, step.id, configFingerprint]);
+  }, [expanded, previewOpen, step.enabled, pipelineId, step.id, configFingerprint]);
 
   function handlePreviewToggle() {
     setPreviewOpen((prev) => {
@@ -261,7 +320,8 @@ export function StepCard({
   return (
     <div
       // `--errored` mirrors the `--expanded` modifier (design.md Decision 1).
-      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}${validationError ? " pipeline-detail-page__step-card--errored" : ""}`}
+      // `--disabled` (HEL-412) mutes the card when the step is toggled off.
+      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}${validationError ? " pipeline-detail-page__step-card--errored" : ""}${!step.enabled ? " pipeline-detail-page__step-card--disabled" : ""}`}
     >
       {/* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>`.
        * The expand-toggle `<button>` keeps its content/semantics unchanged
@@ -336,6 +396,27 @@ export function StepCard({
             onClick={onMoveDown}
           >
             <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
+          </button>
+          {/* HEL-412 (design.md Decision 6) — sibling of the toggle/drag/move
+           * controls above, never nested inside another button. The
+           * accessible name flips with state; the icon stays constant
+           * (mirrors the Move up/down buttons, which don't swap icons either). */}
+          <button
+            type="button"
+            className="pipeline-detail-page__step-card-toggle-enabled-btn"
+            aria-label={step.enabled ? "Disable step" : "Enable step"}
+            aria-pressed={!step.enabled}
+            onClick={() => onToggleEnabled(step.id, !step.enabled)}
+          >
+            <FontAwesomeIcon icon={faPowerOff} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="pipeline-detail-page__step-card-duplicate-btn"
+            aria-label="Duplicate step"
+            onClick={() => onDuplicate(step.id)}
+          >
+            <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -474,14 +555,19 @@ export function StepCard({
             </p>
           )}
           <div className="pipeline-detail-page__step-card-actions">
-            <button
-              type="button"
-              className="pipeline-detail-page__step-card-preview-btn"
-              onClick={handlePreviewToggle}
-              aria-expanded={previewOpen}
-            >
-              {previewOpen ? "Hide preview" : "Preview data"}
-            </button>
+            {/* HEL-412 (design.md Decision 6) — preview is unavailable for a
+             * disabled step (it doesn't run), so the control is hidden
+             * entirely rather than shown disabled. */}
+            {step.enabled && (
+              <button
+                type="button"
+                className="pipeline-detail-page__step-card-preview-btn"
+                onClick={handlePreviewToggle}
+                aria-expanded={previewOpen}
+              >
+                {previewOpen ? "Hide preview" : "Preview data"}
+              </button>
+            )}
             <button
               type="button"
               className="pipeline-detail-page__step-card-remove-btn"
@@ -491,7 +577,7 @@ export function StepCard({
             </button>
           </div>
 
-          {previewOpen && (
+          {previewOpen && step.enabled && (
             <div className="pipeline-detail-page__step-preview">
               {analyzeOutputSchema.length > 0 && (
                 <div

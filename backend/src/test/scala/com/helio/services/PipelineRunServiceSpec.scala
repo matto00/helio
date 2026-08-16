@@ -372,6 +372,93 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
+  // ── HEL-412: disabled steps are skipped during run/dry-run ────────────────
+
+  "PipelineRunService (HEL-412 disable/enable)" should {
+
+    "skips a disabled step during a real run" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      rows should have size 2
+      rows.foreach { row =>
+        row.fields.keySet should contain("name")
+        row.fields.keySet should not contain "renamed_name"
+      }
+    }
+
+    "applies an enabled step during a real run (control)" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = true))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      rows should have size 2
+      rows.foreach { row =>
+        row.fields.keySet should contain("renamed_name")
+        row.fields.keySet should not contain "name"
+      }
+    }
+
+    "skips a disabled step during a dry run" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
+
+      val result = await(service.submit(pid, isDry = true, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.rows.foreach { row =>
+        row.fields.keySet should contain("name")
+        row.fields.keySet should not contain "renamed_name"
+      }
+    }
+
+    "an all-disabled pipeline behaves as a zero-step source passthrough" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
+      await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser, enabled = false))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      rows should have size 2
+      // A pipeline with only disabled steps behaves like a zero-step
+      // pipeline: both original source columns survive (the `select` step,
+      // if it had run, would have dropped `score`).
+      rows.foreach { row =>
+        row.fields.keySet should contain allOf ("name", "score")
+      }
+    }
+
+    "re-enabling a disabled step restores it, config intact" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val step = await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
+
+      await(stepRepo.updateInternal(step.id, config = None, position = None, enabled = Some(true)))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      rows.foreach(_.fields.keySet should contain("renamed_name"))
+    }
+  }
+
   // ── HEL-462: schema-drift baseline persistence ────────────────────────────
 
   "PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)" should {

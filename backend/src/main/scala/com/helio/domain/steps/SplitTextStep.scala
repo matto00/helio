@@ -51,7 +51,8 @@ final case class SplitTextStep(
     position: Int,
     config: SplitTextConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = SplitTextStep.Kind
 

@@ -21,133 +21,139 @@ sealed trait PipelineStepResponse {
   def createdAt: String
   def updatedAt: String
   def `type`: String
+  /** HEL-412: persisted disable/enable flag — always serialized (additive,
+   *  never omitted on the wire). */
+  def enabled: Boolean
 }
 
 final case class RenameStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: RenameConfig
+    createdAt: String, updatedAt: String, config: RenameConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Rename }
 
 final case class FilterStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: FilterConfig
+    createdAt: String, updatedAt: String, config: FilterConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Filter }
 
 final case class JoinStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: JoinConfig
+    createdAt: String, updatedAt: String, config: JoinConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Join }
 
 final case class ComputeStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: ComputeConfig
+    createdAt: String, updatedAt: String, config: ComputeConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Compute }
 
 final case class GroupByStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: GroupByConfig
+    createdAt: String, updatedAt: String, config: GroupByConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.GroupBy }
 
 final case class CastStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: CastConfig
+    createdAt: String, updatedAt: String, config: CastConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Cast }
 
 final case class SelectStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: SelectConfig
+    createdAt: String, updatedAt: String, config: SelectConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Select }
 
 final case class LimitStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: LimitConfig
+    createdAt: String, updatedAt: String, config: LimitConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Limit }
 
 final case class SortStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: SortConfig
+    createdAt: String, updatedAt: String, config: SortConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Sort }
 
 final case class AggregateStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: AggregateConfig
+    createdAt: String, updatedAt: String, config: AggregateConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Aggregate }
 
 final case class SplitTextStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: SplitTextConfig
+    createdAt: String, updatedAt: String, config: SplitTextConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.SplitText }
 
 final case class ExtractHeadingsStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: ExtractHeadingsConfig
+    createdAt: String, updatedAt: String, config: ExtractHeadingsConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.ExtractHeadings }
 
 final case class ChunkByTokenCountStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: ChunkByTokenCountConfig
+    createdAt: String, updatedAt: String, config: ChunkByTokenCountConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.ChunkByTokenCount }
 
 final case class DateBucketStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: DateBucketConfig
+    createdAt: String, updatedAt: String, config: DateBucketConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.DateBucket }
 
 final case class PivotStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: PivotConfig
+    createdAt: String, updatedAt: String, config: PivotConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Pivot }
 
 final case class WindowStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: WindowConfig
+    createdAt: String, updatedAt: String, config: WindowConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Window }
 
 final case class UnpivotStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: UnpivotConfig
+    createdAt: String, updatedAt: String, config: UnpivotConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Unpivot }
 
 final case class DedupeStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: DedupeConfig
+    createdAt: String, updatedAt: String, config: DedupeConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Dedupe }
 
 final case class FillNullStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: FillNullConfig
+    createdAt: String, updatedAt: String, config: FillNullConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.FillNull }
 
 final case class StringOpsStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: StringOpsConfig
+    createdAt: String, updatedAt: String, config: StringOpsConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.StringOps }
 
 final case class UnionStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: UnionConfig
+    createdAt: String, updatedAt: String, config: UnionConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Union }
 
 final case class LookupStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: LookupConfig
+    createdAt: String, updatedAt: String, config: LookupConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Lookup }
 
 final case class AssertStepResponse(
     id: String, pipelineId: String, position: Int,
-    createdAt: String, updatedAt: String, config: AssertConfig
+    createdAt: String, updatedAt: String, config: AssertConfig, enabled: Boolean = true
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Assert }
 
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. `position` is an OPTIONAL list index
  *  (HEL-410) into the pipeline's current position-sorted step list: absent
  *  means append (the pre-existing behavior); present means insert-at,
- *  validated at the service layer as `0 <= position <= count`. */
-final case class CreatePipelineStepRequest(`type`: String, config: JsObject, position: Option[Int] = None)
+ *  validated at the service layer as `0 <= position <= count`. `enabled`
+ *  (HEL-412) is OPTIONAL and defaults to `true` (created enabled) when
+ *  absent. */
+final case class CreatePipelineStepRequest(`type`: String, config: JsObject, position: Option[Int] = None, enabled: Option[Boolean] = None)
 
 /** PATCH request — `type` is optional. If present and different from the
- *  persisted row's kind, the service returns 400 (cross-type PATCH locked). */
-final case class UpdatePipelineStepRequest(`type`: Option[String], config: Option[JsObject], position: Option[Int])
+ *  persisted row's kind, the service returns 400 (cross-type PATCH locked).
+ *  `enabled` (HEL-412) is OPTIONAL: absent means no change. */
+final case class UpdatePipelineStepRequest(`type`: Option[String], config: Option[JsObject], position: Option[Int], enabled: Option[Boolean] = None)
 
 /** `PUT /api/pipelines/:id/steps/order` body (HEL-407) — the pipeline's step
  *  ids in their new relative order. Must be exactly a permutation of the
@@ -158,29 +164,29 @@ final case class ReorderPipelineStepsRequest(stepIds: Seq[String])
 object PipelineStepResponse {
   /** Project the domain ADT into the discriminated-union wire response. */
   def fromDomain(step: PipelineStep): PipelineStepResponse = step match {
-    case s: RenameStep    => RenameStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: FilterStep    => FilterStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: JoinStep      => JoinStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: ComputeStep   => ComputeStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: GroupByStep   => GroupByStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: CastStep      => CastStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: SelectStep    => SelectStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: LimitStep     => LimitStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: SortStep      => SortStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: AggregateStep => AggregateStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: SplitTextStep => SplitTextStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: ExtractHeadingsStep => ExtractHeadingsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: ChunkByTokenCountStep => ChunkByTokenCountStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: DateBucketStep => DateBucketStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: PivotStep      => PivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: WindowStep     => WindowStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: UnpivotStep    => UnpivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: DedupeStep     => DedupeStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: FillNullStep   => FillNullStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: StringOpsStep  => StringOpsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: UnionStep      => UnionStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: LookupStep     => LookupStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
-    case s: AssertStep     => AssertStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
+    case s: RenameStep    => RenameStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: FilterStep    => FilterStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: JoinStep      => JoinStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: ComputeStep   => ComputeStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: GroupByStep   => GroupByStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: CastStep      => CastStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: SelectStep    => SelectStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: LimitStep     => LimitStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: SortStep      => SortStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: AggregateStep => AggregateStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: SplitTextStep => SplitTextStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: ExtractHeadingsStep => ExtractHeadingsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: ChunkByTokenCountStep => ChunkByTokenCountStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: DateBucketStep => DateBucketStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: PivotStep      => PivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: WindowStep     => WindowStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: UnpivotStep    => UnpivotStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: DedupeStep     => DedupeStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: FillNullStep   => FillNullStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: StringOpsStep  => StringOpsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: UnionStep      => UnionStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: LookupStep     => LookupStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
+    case s: AssertStep     => AssertStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled)
   }
 }
 
@@ -195,7 +201,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   //
   // Each step module exposes its own RootJsonFormat as `SomeConfig.format`.
   // The protocol-trait scope needs them as `implicit val` to satisfy the
-  // jsonFormat6-derived response formatters below.
+  // jsonFormat7-derived response formatters below.
   implicit val renameConfigFormat: RootJsonFormat[RenameConfig]       = RenameConfig.format
   implicit val filterConditionFormat: RootJsonFormat[FilterCondition] = FilterCondition.format
   implicit val filterConfigFormat: RootJsonFormat[FilterConfig]       = FilterConfig.format
@@ -226,29 +232,29 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val assertConfigFormat: RootJsonFormat[AssertConfig] = AssertConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
-  private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
-  private val filterStepResponseFormat: RootJsonFormat[FilterStepResponse]       = jsonFormat6(FilterStepResponse.apply)
-  private val joinStepResponseFormat: RootJsonFormat[JoinStepResponse]           = jsonFormat6(JoinStepResponse.apply)
-  private val computeStepResponseFormat: RootJsonFormat[ComputeStepResponse]     = jsonFormat6(ComputeStepResponse.apply)
-  private val groupByStepResponseFormat: RootJsonFormat[GroupByStepResponse]     = jsonFormat6(GroupByStepResponse.apply)
-  private val castStepResponseFormat: RootJsonFormat[CastStepResponse]           = jsonFormat6(CastStepResponse.apply)
-  private val selectStepResponseFormat: RootJsonFormat[SelectStepResponse]       = jsonFormat6(SelectStepResponse.apply)
-  private val limitStepResponseFormat: RootJsonFormat[LimitStepResponse]         = jsonFormat6(LimitStepResponse.apply)
-  private val sortStepResponseFormat: RootJsonFormat[SortStepResponse]           = jsonFormat6(SortStepResponse.apply)
-  private val aggregateStepResponseFormat: RootJsonFormat[AggregateStepResponse] = jsonFormat6(AggregateStepResponse.apply)
-  private val splitTextStepResponseFormat: RootJsonFormat[SplitTextStepResponse] = jsonFormat6(SplitTextStepResponse.apply)
-  private val extractHeadingsStepResponseFormat: RootJsonFormat[ExtractHeadingsStepResponse] = jsonFormat6(ExtractHeadingsStepResponse.apply)
-  private val chunkByTokenCountStepResponseFormat: RootJsonFormat[ChunkByTokenCountStepResponse] = jsonFormat6(ChunkByTokenCountStepResponse.apply)
-  private val dateBucketStepResponseFormat: RootJsonFormat[DateBucketStepResponse] = jsonFormat6(DateBucketStepResponse.apply)
-  private val pivotStepResponseFormat: RootJsonFormat[PivotStepResponse] = jsonFormat6(PivotStepResponse.apply)
-  private val windowStepResponseFormat: RootJsonFormat[WindowStepResponse] = jsonFormat6(WindowStepResponse.apply)
-  private val unpivotStepResponseFormat: RootJsonFormat[UnpivotStepResponse] = jsonFormat6(UnpivotStepResponse.apply)
-  private val dedupeStepResponseFormat: RootJsonFormat[DedupeStepResponse] = jsonFormat6(DedupeStepResponse.apply)
-  private val fillNullStepResponseFormat: RootJsonFormat[FillNullStepResponse] = jsonFormat6(FillNullStepResponse.apply)
-  private val stringOpsStepResponseFormat: RootJsonFormat[StringOpsStepResponse] = jsonFormat6(StringOpsStepResponse.apply)
-  private val unionStepResponseFormat: RootJsonFormat[UnionStepResponse] = jsonFormat6(UnionStepResponse.apply)
-  private val lookupStepResponseFormat: RootJsonFormat[LookupStepResponse] = jsonFormat6(LookupStepResponse.apply)
-  private val assertStepResponseFormat: RootJsonFormat[AssertStepResponse] = jsonFormat6(AssertStepResponse.apply)
+  private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat7(RenameStepResponse.apply)
+  private val filterStepResponseFormat: RootJsonFormat[FilterStepResponse]       = jsonFormat7(FilterStepResponse.apply)
+  private val joinStepResponseFormat: RootJsonFormat[JoinStepResponse]           = jsonFormat7(JoinStepResponse.apply)
+  private val computeStepResponseFormat: RootJsonFormat[ComputeStepResponse]     = jsonFormat7(ComputeStepResponse.apply)
+  private val groupByStepResponseFormat: RootJsonFormat[GroupByStepResponse]     = jsonFormat7(GroupByStepResponse.apply)
+  private val castStepResponseFormat: RootJsonFormat[CastStepResponse]           = jsonFormat7(CastStepResponse.apply)
+  private val selectStepResponseFormat: RootJsonFormat[SelectStepResponse]       = jsonFormat7(SelectStepResponse.apply)
+  private val limitStepResponseFormat: RootJsonFormat[LimitStepResponse]         = jsonFormat7(LimitStepResponse.apply)
+  private val sortStepResponseFormat: RootJsonFormat[SortStepResponse]           = jsonFormat7(SortStepResponse.apply)
+  private val aggregateStepResponseFormat: RootJsonFormat[AggregateStepResponse] = jsonFormat7(AggregateStepResponse.apply)
+  private val splitTextStepResponseFormat: RootJsonFormat[SplitTextStepResponse] = jsonFormat7(SplitTextStepResponse.apply)
+  private val extractHeadingsStepResponseFormat: RootJsonFormat[ExtractHeadingsStepResponse] = jsonFormat7(ExtractHeadingsStepResponse.apply)
+  private val chunkByTokenCountStepResponseFormat: RootJsonFormat[ChunkByTokenCountStepResponse] = jsonFormat7(ChunkByTokenCountStepResponse.apply)
+  private val dateBucketStepResponseFormat: RootJsonFormat[DateBucketStepResponse] = jsonFormat7(DateBucketStepResponse.apply)
+  private val pivotStepResponseFormat: RootJsonFormat[PivotStepResponse] = jsonFormat7(PivotStepResponse.apply)
+  private val windowStepResponseFormat: RootJsonFormat[WindowStepResponse] = jsonFormat7(WindowStepResponse.apply)
+  private val unpivotStepResponseFormat: RootJsonFormat[UnpivotStepResponse] = jsonFormat7(UnpivotStepResponse.apply)
+  private val dedupeStepResponseFormat: RootJsonFormat[DedupeStepResponse] = jsonFormat7(DedupeStepResponse.apply)
+  private val fillNullStepResponseFormat: RootJsonFormat[FillNullStepResponse] = jsonFormat7(FillNullStepResponse.apply)
+  private val stringOpsStepResponseFormat: RootJsonFormat[StringOpsStepResponse] = jsonFormat7(StringOpsStepResponse.apply)
+  private val unionStepResponseFormat: RootJsonFormat[UnionStepResponse] = jsonFormat7(UnionStepResponse.apply)
+  private val lookupStepResponseFormat: RootJsonFormat[LookupStepResponse] = jsonFormat7(LookupStepResponse.apply)
+  private val assertStepResponseFormat: RootJsonFormat[AssertStepResponse] = jsonFormat7(AssertStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -313,7 +319,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat3(CreatePipelineStepRequest.apply)
-  implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat4(CreatePipelineStepRequest.apply)
+  implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat4(UpdatePipelineStepRequest.apply)
   implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
 }

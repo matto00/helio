@@ -202,10 +202,20 @@ final class PipelineService(
     combined.flatMap {
       case (Some(summary), Some(pipeline)) =>
         // Safe: access confirmed by findByIdShared above.
-        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { steps =>
+        // HEL-412/HEL-462 merge: keep HEAD's `allSteps` naming (the unconflicted
+        // `val steps = allSteps.filter(_.enabled)` below depends on it) and
+        // origin/main's `.flatMap`/`deriveSourceSchema` (required by the
+        // schema-drift continuation this block now returns — see the merge
+        // commit body for the full rationale, including why the drift capture/
+        // compare sides never need an enabled-vs-full-list decision at all).
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
           dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).flatMap { sourceDataTypes =>
             val sourceSchema: Vector[SchemaField] = PipelineAnalyzeService.deriveSourceSchema(sourceDataTypes)
 
+            // HEL-412 (design.md Decision 3, boundary iii): disabled steps are
+            // dropped before analysis — the response therefore contains
+            // per-step entries for enabled steps only.
+            val steps = allSteps.filter(_.enabled)
             val stepInputs = steps.map(s =>
               PipelineAnalyzeService.PipelineStepInput(
                 id       = s.id.value,
@@ -291,7 +301,11 @@ final class PipelineService(
         resolveProposalSourceSchema(proposal, user).map {
           case Left(err) => Left(err)
           case Right((sourceName, sourceSchema)) =>
-            val stepInputs = proposal.steps.zipWithIndex.map { case (req, i) =>
+            // HEL-412 (design.md Decision 3, boundary iv): a proposal step
+            // carrying `enabled: false` is treated as absent, matching what
+            // the live analyze endpoint would report once applied.
+            val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
+            val stepInputs = enabledSteps.zipWithIndex.map { case (req, i) =>
               PipelineAnalyzeService.PipelineStepInput(
                 id       = s"step-$i",
                 position = i,
@@ -567,27 +581,32 @@ final class PipelineService(
       pipelineId:  PipelineId,
       req:         CreatePipelineStepRequest,
       typedConfig: Any
-  ): Future[Either[ServiceError, PipelineStepResponse]] = req.position match {
-    case None =>
-      pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
-        .map(step => Right(PipelineStepResponse.fromDomain(step)))
-        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-    case Some(index) =>
-      // Safe: editor/owner access confirmed by the caller. Use internal list
-      // (no owner-JOIN) so editor grantees are not blocked by the V35
-      // pipeline_steps RLS owner-JOIN policy. Read close to the insert below.
-      pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
-        val count = current.size
-        if (index < 0 || index > count) {
-          Future.successful(Left(ServiceError.UnprocessableEntity(
-            s"position must be between 0 and $count (the pipeline's current step count)"
-          )))
-        } else {
-          pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index)
-            .map(step => Right(PipelineStepResponse.fromDomain(step)))
-            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+  ): Future[Either[ServiceError, PipelineStepResponse]] = {
+    // HEL-412: absent `enabled` creates an enabled step (the pre-existing
+    // implicit behavior, made explicit).
+    val enabled = req.enabled.getOrElse(true)
+    req.position match {
+      case None =>
+        pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig, enabled)
+          .map(step => Right(PipelineStepResponse.fromDomain(step)))
+          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+      case Some(index) =>
+        // Safe: editor/owner access confirmed by the caller. Use internal list
+        // (no owner-JOIN) so editor grantees are not blocked by the V35
+        // pipeline_steps RLS owner-JOIN policy. Read close to the insert below.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+          val count = current.size
+          if (index < 0 || index > count) {
+            Future.successful(Left(ServiceError.UnprocessableEntity(
+              s"position must be between 0 and $count (the pipeline's current step count)"
+            )))
+          } else {
+            pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index, enabled)
+              .map(step => Right(PipelineStepResponse.fromDomain(step)))
+              .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+          }
         }
-      }
+    }
   }
 
   /** Step update — requires Editor or Owner. Viewer grantees get 403. */
@@ -622,7 +641,7 @@ final class PipelineService(
                     req.config match {
                       case None =>
                         // Safe: editor/owner access confirmed. Use internal update.
-                        pipelineStepRepo.updateInternal(stepId, config = None, position = req.position)
+                        pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled)
                           .map {
                             case Some(step) => Right(PipelineStepResponse.fromDomain(step))
                             case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
@@ -680,7 +699,7 @@ final class PipelineService(
                               case Left(err) => Future.successful(Left(err))
                               case Right(_)  =>
                                 // Safe: editor/owner access confirmed. Use internal update.
-                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position)
+                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled)
                                   .map {
                                     case Some(step) => Right(PipelineStepResponse.fromDomain(step))
                                     case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
@@ -754,6 +773,55 @@ final class PipelineService(
                   .map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
                   .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
               }
+            }
+        }
+    }
+
+  /** Duplicate a step (HEL-412) — requires Editor or Owner. Viewer grantees
+   *  get 403; an unknown or invisible step masks as 404 (design.md
+   *  Decision 4, the `updateStep` ACL pattern verbatim). Clones `kind`,
+   *  `config`, and `enabled`, and inserts the clone directly after the
+   *  original via `insertAtInternal` (HEL-410's transactional renumber). */
+  def duplicateStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
+    pipelineStepRepo.findByIdInternal(stepId).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+      case Some(existing) =>
+        pipelineRepo.findByIdShared(PipelineId(existing.pipelineId.value), Some(user)).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+          case Some(pipeline) =>
+            val editorCheckF: Future[Either[ServiceError, Unit]] =
+              if (pipeline.ownerId.value == user.id.value) Future.successful(Right(()))
+              else requireEditorAccess(pipeline.id, user)
+
+            editorCheckF.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  =>
+                // design.md Decision 5: round-trip the persisted config through
+                // the same typed encode/decode `addStep` uses — an unparseable
+                // legacy row fails loudly (500-classified) rather than cloning
+                // garbage.
+                PipelineStepConfigCodec.decode(existing.kind, PipelineStepConfigCodec.encode(existing)) match {
+                  case Failure(ex) =>
+                    log.error(s"duplicateStep: config round-trip failed for step ${stepId.value} (kind='${existing.kind}')", ex)
+                    Future.successful(Left(ServiceError.InternalError(s"Invalid '${existing.kind}' config")))
+                  case Success(typedConfig) =>
+                    // Safe: editor/owner access confirmed above. Use internal list
+                    // so editor grantees are not blocked by the V35 pipeline_steps
+                    // RLS owner-JOIN policy. Read close to the insert below.
+                    pipelineStepRepo.listByPipelineInternal(pipeline.id).flatMap { current =>
+                      current.sortBy(_.position).indexWhere(_.id.value == stepId.value) match {
+                        case -1 =>
+                          Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+                        case originalListIndex =>
+                          pipelineStepRepo
+                            .insertAtInternal(pipeline.id, existing.kind, typedConfig, originalListIndex + 1, existing.enabled)
+                            .map(step => Right(PipelineStepResponse.fromDomain(step)))
+                            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                      }
+                    }
+                }
             }
         }
     }

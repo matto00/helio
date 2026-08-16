@@ -127,7 +127,11 @@ final class BoundPanelService(
     }
 
   private def projectSchema(steps: Vector[CreatePipelineStepRequest], sourceSchema: Vector[SchemaField]): Vector[SchemaField] = {
-    val stepInputs = steps.zipWithIndex.map { case (step, idx) =>
+    // HEL-412 (design.md Decision 3, boundary v): a step definition carrying
+    // `enabled: false` is treated as absent, mirroring the live analyze
+    // endpoint's own exclusion.
+    val enabledSteps = steps.filter(_.enabled.getOrElse(true))
+    val stepInputs = enabledSteps.zipWithIndex.map { case (step, idx) =>
       PipelineAnalyzeService.PipelineStepInput(id = idx.toString, position = idx, op = step.`type`, config = step.config.compactPrint)
     }
     PipelineAnalyzeService.analyze(stepInputs, sourceSchema).lastOption.map(_.outputSchema).getOrElse(sourceSchema)

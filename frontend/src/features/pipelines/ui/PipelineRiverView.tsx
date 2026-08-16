@@ -44,6 +44,14 @@ interface PipelineRiverViewProps {
    *  up/down click; `PipelineDetailPage.handleReorderSteps` owns persistence
    *  + reconciliation (design.md Decision 7). */
   onReorderSteps: (newOrder: Step[]) => void;
+  /** HEL-412 — persists the disable/enable toggle for one step;
+   *  `PipelineDetailPage.handleToggleStepEnabled` owns the optimistic flip +
+   *  revert-on-failure convention. */
+  onToggleStepEnabled: (stepId: string, enabled: boolean) => void;
+  /** HEL-412 — invokes the duplicate endpoint for one step;
+   *  `PipelineDetailPage.handleDuplicateStep` owns splicing the clone in
+   *  after the original. */
+  onDuplicateStep: (stepId: string) => void;
 }
 
 /** Returns a copy of `items` with the element at `fromIndex` moved to end up
@@ -73,6 +81,8 @@ export function PipelineRiverView({
   runStepRowCounts,
   onInstantiateShape,
   onReorderSteps,
+  onToggleStepEnabled,
+  onDuplicateStep,
 }: PipelineRiverViewProps) {
   // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
   // single ref anchors the portalled OpDropdown to whichever button is showing.
@@ -155,6 +165,11 @@ export function PipelineRiverView({
     if (index === steps.length - 1) return;
     onReorderSteps(moveStep(steps, index, index + 1));
   }
+
+  // HEL-412 (design.md Decision 8) — one bit per step, same string passed to
+  // every StepCard's preview fingerprint: any toggle anywhere refreshes
+  // every open preview tray.
+  const enabledBits = steps.map((s) => (s.enabled ? "1" : "0")).join("");
 
   // HEL-410 — one gap per list index (0 = before the first step; gap `i` sits
   // between step `i-1` and step `i`). Wraps the existing `RibbonSegment` so
@@ -245,6 +260,9 @@ export function PipelineRiverView({
                     onStepDragEnd={handleStepDragEnd}
                     onMoveUp={idx > 0 ? () => handleMoveUp(idx) : undefined}
                     onMoveDown={idx < steps.length - 1 ? () => handleMoveDown(idx) : undefined}
+                    onToggleEnabled={onToggleStepEnabled}
+                    onDuplicate={onDuplicateStep}
+                    enabledBits={enabledBits}
                   />
                   {idx < steps.length - 1 && renderGap(idx + 1)}
                 </div>

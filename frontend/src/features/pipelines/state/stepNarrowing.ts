@@ -220,6 +220,9 @@ export function makeStep(opType: OpType): Step {
     opType,
     label: opType.label,
     config: defaultConfigFor(opType.id),
+    // A freshly created (not-yet-persisted) step is always enabled — there's
+    // no UI affordance to create a disabled step directly.
+    enabled: true,
   };
 }
 
@@ -233,6 +236,11 @@ export function pipelineStepToStep(ps: PipelineStep): Step {
     opType,
     label: opType.label,
     config: ps.config,
+    // HEL-412: normalize-at-boundary default, mirroring
+    // `pipelineService.ts`'s `enabled ?? true` (belt-and-suspenders — this
+    // helper is also called with the raw response of create/duplicate calls
+    // that don't route through a dedicated normalizer).
+    enabled: ps.enabled ?? true,
   };
 }
 
