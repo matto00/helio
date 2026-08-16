@@ -46,6 +46,13 @@ final class AgentMemoryService(repo: AgentMemoryRepository)(implicit ec: Executi
   def list(user: AuthenticatedUser): Future[Either[ServiceError, Seq[AgentMemoryEntry]]] =
     repo.list(user).map(entries => Right(entries))
 
+  /** Bumps `lastUsedAt` to now -- a thin delegate to `AgentMemoryRepository.touch` (HEL-521 /
+   *  420-C), called by `WorkspaceContextService.assemble` for every memory entry it surfaces in
+   *  `agentContext.memory`, so 420-B's LRU eviction order reflects real usage. A no-op (not an
+   *  error) for an unknown or cross-user id, mirroring the repository's own no-op semantics. */
+  def touch(id: AgentMemoryId, user: AuthenticatedUser): Future[Unit] =
+    repo.touch(id, user)
+
   /** Existence-not-leaked: unknown and cross-user ids both map to 404. */
   def delete(id: AgentMemoryId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     repo.delete(id, user).map {

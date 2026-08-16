@@ -19,14 +19,21 @@ import {
   DEFAULT_BUDGET_BYTES,
   normalizedNameTokens,
   paginationTruncatedResources,
+  rankMemoryEntries,
   sanitizeSampleRows,
   type ColumnStats,
   type SemanticRole,
   type WorkspaceContext,
   type WorkspaceContextJoinHint,
 } from "./context.js";
-import type { HelioApi } from "./helioApi.js";
-import type { DataTypeResponse, MetricResponse } from "./types.js";
+import { HelioApi } from "./helioApi.js";
+import type { HelioHttpClient } from "./httpClient.js";
+import type {
+  AgentMemoryEntryResponse,
+  AgentPreferencesResponse,
+  DataTypeResponse,
+  MetricResponse,
+} from "./types.js";
 
 /** `noUncheckedIndexedAccess` (helio-mcp's tsconfig) types `arr[0]` as
  *  `T | undefined` — this narrows it once per test rather than repeating
@@ -489,6 +496,10 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
       listPipelines: async () => [],
       listPipelineShapes: async () => [],
       listMetrics: async () => ({ items: metrics, total: metrics.length, offset: 0, limit: 200 }),
+      // HEL-521 (420-C): default empty fixtures — dedicated coverage lives in the
+      // "buildWorkspaceContext — agentContext wiring" describe block below.
+      getAgentPreferences: async () => ({ extras: {} }),
+      listAgentMemory: async () => [],
       getDataTypeRows: async (
         dataTypeId: string,
         limit?: number,
@@ -642,6 +653,193 @@ describe("buildWorkspaceContext — sampleRows wiring", () => {
     expect(context.joinHints).toEqual([]);
     // Resources themselves are still present — never dropped to chase budget.
     expect(context.dataTypes.map((dt) => dt.id).sort()).toEqual(["dt-companion", "dt-output"]);
+  });
+});
+
+/**
+ * HEL-521 (420-C) tasks.md 7.4 — MCP-side coverage for `agentContext`'s fetch, ranking, and
+ * degrade-on-failure behavior (design.md Decision 6), plus the no-touch requirement (design.md
+ * Decision 4): `buildWorkspaceContext`'s MCP read path must never write to `/api/agent/memory`.
+ */
+describe("rankMemoryEntries", () => {
+  function memoryEntry(
+    id: string,
+    lastUsedAt?: string,
+    createdAt = "2026-01-01T00:00:00Z",
+  ): AgentMemoryEntryResponse {
+    return { id, kind: "fact", content: `content-${id}`, createdAt, lastUsedAt };
+  }
+
+  it("orders touched entries most-recently-used first", () => {
+    const older = memoryEntry("older", "2026-01-01T00:00:00Z");
+    const newer = memoryEntry("newer", "2026-01-03T00:00:00Z");
+    const middle = memoryEntry("middle", "2026-01-02T00:00:00Z");
+
+    const ranked = rankMemoryEntries([older, newer, middle]);
+
+    expect(ranked.map((e) => e.id)).toEqual(["newer", "middle", "older"]);
+  });
+
+  it("puts never-used entries (lastUsedAt absent) after every touched entry, preserving their incoming order", () => {
+    const touched = memoryEntry("touched", "2026-01-01T00:00:00Z");
+    const neverUsedFirst = memoryEntry("never-used-first");
+    const neverUsedSecond = memoryEntry("never-used-second");
+
+    const ranked = rankMemoryEntries([neverUsedFirst, neverUsedSecond, touched]);
+
+    expect(ranked.map((e) => e.id)).toEqual(["touched", "never-used-first", "never-used-second"]);
+  });
+
+  it("does not truncate to the top-20 cap itself — that's the caller's job", () => {
+    const entries = Array.from({ length: 25 }, (_, i) => memoryEntry(`e${i}`));
+    expect(rankMemoryEntries(entries)).toHaveLength(25);
+  });
+});
+
+describe("buildWorkspaceContext — agentContext wiring (HEL-521, 420-C)", () => {
+  function emptyPage<T>(): { items: T[]; total: number; offset: number; limit: number } {
+    return { items: [], total: 0, offset: 0, limit: 200 };
+  }
+
+  /** A minimal fake covering every call `buildWorkspaceContext` makes OTHER than the two
+   *  agent-context endpoints (empty workspace — this block's assertions are entirely about
+   *  `agentContext`, not the DataType/pipeline machinery already covered above). */
+  function baseFakeApi(): Record<string, unknown> {
+    return {
+      listDataSources: async () => emptyPage(),
+      listDataTypes: async () => emptyPage(),
+      listDashboards: async () => emptyPage(),
+      listPipelines: async () => [],
+      listPipelineShapes: async () => [],
+      listMetrics: async () => emptyPage(),
+    };
+  }
+
+  function memoryEntry(
+    id: string,
+    createdAt: string,
+    lastUsedAt?: string,
+  ): AgentMemoryEntryResponse {
+    return { id, kind: "fact", content: `content-${id}`, createdAt, lastUsedAt };
+  }
+
+  it("populates agentContext.preferences and agentContext.memory (top-20, ranked) from the two agent endpoints", async () => {
+    const preferences: AgentPreferencesResponse = {
+      defaultSeriesColors: ["#abcabc"],
+      extras: { k: "v" },
+    };
+    // Built newest-createdAt-first (e24 newest .. e0 oldest) -- mirrors the real
+    // GET /api/agent/memory endpoint's own contract, which rankMemoryEntries's never-used tail
+    // relies on (it preserves incoming order rather than re-sorting by createdAt itself).
+    const entries = Array.from({ length: 25 }, (_, i) =>
+      memoryEntry(`e${24 - i}`, `2026-01-${String(25 - i).padStart(2, "0")}T00:00:00Z`),
+    );
+    const fake = {
+      ...baseFakeApi(),
+      getAgentPreferences: async () => preferences,
+      listAgentMemory: async () => entries,
+    };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.agentContext.preferences).toEqual(preferences);
+    expect(context.agentContext.memory).toHaveLength(20);
+    // All 25 fixtures are never-used (lastUsedAt absent) — rankMemoryEntries preserves
+    // listAgentMemory's own (newest-createdAt-first, per the real endpoint's contract) order, so
+    // the top 20 are e24..e5.
+    expect(context.agentContext.memory.map((e) => e.id)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `e${24 - i}`),
+    );
+  });
+
+  it("degrades agentContext.preferences to the empty default when getAgentPreferences fails, without failing the whole call", async () => {
+    const fake = {
+      ...baseFakeApi(),
+      getAgentPreferences: async () => {
+        throw new Error("boom");
+      },
+      listAgentMemory: async () => [],
+    };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.agentContext.preferences).toEqual({ extras: {} });
+    expect(context.agentContext.memory).toEqual([]);
+    // The rest of the workspace snapshot is intact, not just agentContext.
+    expect(context.counts).toEqual({ dataSources: 0, dataTypes: 0, pipelines: 0, dashboards: 0 });
+  });
+
+  it("degrades agentContext.memory to [] when listAgentMemory fails, without failing the whole call", async () => {
+    const preferences: AgentPreferencesResponse = { extras: {} };
+    const fake = {
+      ...baseFakeApi(),
+      getAgentPreferences: async () => preferences,
+      listAgentMemory: async () => {
+        throw new Error("boom");
+      },
+    };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.agentContext.preferences).toEqual(preferences);
+    expect(context.agentContext.memory).toEqual([]);
+  });
+
+  it("reports agentContext.preferences: {extras: {}} / memory: [] for a caller with neither stored", async () => {
+    const fake = {
+      ...baseFakeApi(),
+      getAgentPreferences: async () => ({ extras: {} }),
+      listAgentMemory: async () => [],
+    };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.agentContext).toEqual({ preferences: { extras: {} }, memory: [] });
+  });
+
+  it("never issues a write call (post/put/patch/delete) against /api/agent/memory or /api/preferences from the MCP read path", async () => {
+    const httpCalls: Array<{ method: string; path: string }> = [];
+    const fakeHttp = {
+      get: async (path: string) => {
+        httpCalls.push({ method: "GET", path });
+        if (path === "/api/preferences") return { extras: {} };
+        if (path === "/api/agent/memory") return [];
+        return emptyPage();
+      },
+      post: async (path: string) => {
+        httpCalls.push({ method: "POST", path });
+        throw new Error(`unexpected POST to ${path}`);
+      },
+      put: async (path: string) => {
+        httpCalls.push({ method: "PUT", path });
+        throw new Error(`unexpected PUT to ${path}`);
+      },
+      patch: async (path: string) => {
+        httpCalls.push({ method: "PATCH", path });
+        throw new Error(`unexpected PATCH to ${path}`);
+      },
+      delete: async (path: string) => {
+        httpCalls.push({ method: "DELETE", path });
+        throw new Error(`unexpected DELETE to ${path}`);
+      },
+    };
+    const api = new HelioApi(fakeHttp as unknown as HelioHttpClient);
+    const spiedFake = {
+      ...baseFakeApi(),
+      getAgentPreferences: () => api.getAgentPreferences(),
+      listAgentMemory: () => api.listAgentMemory(),
+    };
+
+    await buildWorkspaceContext(spiedFake as unknown as HelioApi);
+
+    const agentCalls = httpCalls.filter(
+      (c) => c.path === "/api/agent/memory" || c.path === "/api/preferences",
+    );
+    expect(agentCalls).toEqual([
+      { method: "GET", path: "/api/preferences" },
+      { method: "GET", path: "/api/agent/memory" },
+    ]);
+    expect(agentCalls.every((c) => c.method === "GET")).toBe(true);
   });
 });
 
@@ -1143,6 +1341,7 @@ describe("cross-language parity fixture (HEL-374 tasks.md 5.3)", () => {
           structuralFloorExceedsBudget: false,
           paginationTruncatedResources: [],
         },
+        agentContext: { preferences: { extras: {} }, memory: [] },
       };
 
       const naturalSize = applyBudget(context, Number.MAX_SAFE_INTEGER, []).truncation
@@ -1257,6 +1456,7 @@ describe("applyBudget", () => {
         structuralFloorExceedsBudget: false,
         paginationTruncatedResources: [],
       },
+      agentContext: { preferences: { extras: {} }, memory: [] },
     };
   }
 

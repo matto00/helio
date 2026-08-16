@@ -44,7 +44,9 @@ export function createServer(api: HelioApi): McpServer {
       title: "Helio workspace context",
       description:
         "Compact snapshot of the authenticated user's data sources, DataTypes (with columns), " +
-        "pipelines (with steps), and dashboards.",
+        "pipelines (with steps), dashboards, and agentContext (the user's stored agent-authoring " +
+        "preferences plus up to 20 of their most-recently-useful memory entries, most-recently-" +
+        "useful first — fetching it never updates any entry's lastUsedAt).",
       mimeType: "application/json",
     },
     async (uri) => {

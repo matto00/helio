@@ -17,7 +17,13 @@
  */
 
 import type { HelioApi } from "./helioApi.js";
-import type { DataFieldResponse, MetricFormat, RowCountContractResponse } from "./types.js";
+import type {
+  AgentMemoryEntryResponse,
+  AgentPreferencesResponse,
+  DataFieldResponse,
+  MetricFormat,
+  RowCountContractResponse,
+} from "./types.js";
 
 /** Flatten a `RowCountContractResponse` discriminated union to a display string (HEL-400
  *  design.md Decision 5): `"exactly-one"`, `"at-most-param:<paramName>"`, or `"unbounded"`. */
@@ -30,6 +36,59 @@ function flattenRowCount(rowCount: RowCountContractResponse): string {
     case "unbounded":
       return "unbounded";
   }
+}
+
+// ── Agent context (HEL-521, 420-C) ───────────────────────────────────────
+//
+// An INDEPENDENT TypeScript implementation of the identical top-N ranking
+// `WorkspaceContextService.rankMemoryEntries`/`AgentMemoryTopN` (Scala)
+// enforces — no shared runtime between the backend and helio-mcp, so parity
+// is achieved by duplicating the rule (same N, independently defined, design.md
+// Decision 6) and testing each side separately. This path NEVER calls a write
+// endpoint against `/api/agent/memory` — touching a surfaced entry's
+// `lastUsedAt` is reserved for the backend NL-authoring grounding path only
+// (design.md Decision 4).
+
+/** Surfaced-memory cap — mirrors the backend's `WorkspaceContextService.AgentMemoryTopN`
+ *  (same value, independently defined per design.md Decision 6). */
+const AGENT_MEMORY_TOP_N = 20;
+
+/** The all-empty `agentContext.preferences` default — used when the preferences fetch fails
+ *  (design.md Decision 6's "degrade that one section to empty" contract), mirroring the
+ *  backend's `WorkspaceContextAgentSection.empty.preferences`. */
+const AGENT_PREFERENCES_EMPTY: AgentPreferencesResponse = { extras: {} };
+
+/** Ranks `entries` most-recently-useful first: entries with a `lastUsedAt` sorted descending by
+ *  that timestamp, followed by never-used (`lastUsedAt` absent) entries in their incoming order
+ *  (mirrors the backend's `rankMemoryEntries` — "nulls-last"; `listAgentMemory` already returns
+ *  newest-`createdAt`-first). Does NOT truncate to `AGENT_MEMORY_TOP_N` itself — callers
+ *  `.slice()` separately, so this stays independently unit-testable against an unbounded input. */
+export function rankMemoryEntries(entries: AgentMemoryEntryResponse[]): AgentMemoryEntryResponse[] {
+  const touched: AgentMemoryEntryResponse[] = [];
+  const neverUsed: AgentMemoryEntryResponse[] = [];
+  for (const entry of entries) {
+    if (entry.lastUsedAt !== undefined) touched.push(entry);
+    else neverUsed.push(entry);
+  }
+  touched.sort((a, b) => Date.parse(b.lastUsedAt as string) - Date.parse(a.lastUsedAt as string));
+  return [...touched, ...neverUsed];
+}
+
+/** Fetches `agentContext`'s two sources via their OWN separate, independently `.catch`-guarded
+ *  calls (design.md Decision 6) — explicitly NOT folded into `buildWorkspaceContext`'s existing
+ *  fail-fast `Promise.all([...])`, since a rejection there would fail the WHOLE
+ *  `get_workspace_context` call instead of degrading only this section (mirrors the existing
+ *  per-pipeline `stepsError` degrade-not-fail precedent, also its own isolated `catch`, not
+ *  inside that same `Promise.all`). Never calls `touch` — this is a pure read. */
+export async function buildAgentContext(api: HelioApi): Promise<WorkspaceContext["agentContext"]> {
+  const [preferences, rawMemory] = await Promise.all([
+    api.getAgentPreferences().catch(() => AGENT_PREFERENCES_EMPTY),
+    api.listAgentMemory().catch(() => [] as AgentMemoryEntryResponse[]),
+  ]);
+  return {
+    preferences,
+    memory: rankMemoryEntries(rawMemory).slice(0, AGENT_MEMORY_TOP_N),
+  };
 }
 
 // ── Sample rows (HEL-372 design.md D3/D6) ────────────────────────────────
@@ -971,6 +1030,18 @@ export interface WorkspaceContext {
   joinHints: WorkspaceContextJoinHint[];
   /** HEL-377: the deterministic byte-budget outcome — see `applyBudget`. ALWAYS present. */
   truncation: WorkspaceContextTruncation;
+  /** HEL-521 (420-C): the caller's agent-authoring preferences plus up to 20 of their
+   *  most-recently-useful `AgentMemoryEntry` records, ranked by `lastUsedAt` descending
+   *  (never-used entries last) — mirrors the backend's `WorkspaceContextResponse.agentContext`.
+   *  ALWAYS present (an object, never omitted) — degrades to an empty/all-default `preferences`
+   *  object and/or an empty `memory` array when the corresponding fetch fails (see
+   *  `buildAgentContext`). Fetching this NEVER touches any memory entry's `lastUsedAt` —
+   *  touching is reserved for the backend NL-authoring grounding path only (design.md
+   *  Decision 4). */
+  agentContext: {
+    preferences: AgentPreferencesResponse;
+    memory: AgentMemoryEntryResponse[];
+  };
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -996,6 +1067,12 @@ export async function buildWorkspaceContext(
   api: HelioApi,
   budgetBytes: number = DEFAULT_BUDGET_BYTES,
 ): Promise<WorkspaceContext> {
+  // HEL-521 (420-C) design.md Decision 6: kicked off here (concurrently with the fail-fast
+  // Promise.all below) but deliberately NOT a member of that array — buildAgentContext's own
+  // two fetches are already independently `.catch`-guarded, so a rejection here can never fail
+  // this whole call, only degrade `agentContext`'s corresponding section.
+  const agentContextPromise = buildAgentContext(api);
+
   const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes, metricsPage] =
     await Promise.all([
       api.listDataSources(),
@@ -1085,6 +1162,8 @@ export async function buildWorkspaceContext(
     }),
   );
 
+  const agentContext = await agentContextPromise;
+
   const context: WorkspaceContext = {
     generatedAt: new Date().toISOString(),
     counts: {
@@ -1137,6 +1216,7 @@ export async function buildWorkspaceContext(
     // HEL-377: overwritten unconditionally by `applyBudget` below — see
     // `PLACEHOLDER_TRUNCATION`.
     truncation: PLACEHOLDER_TRUNCATION,
+    agentContext,
   };
 
   return applyBudget(

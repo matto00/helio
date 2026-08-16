@@ -722,3 +722,30 @@ export interface RefinementResult {
   patchSet: PatchSet;
   conversationId: string;
 }
+
+// ── Agent preferences + memory (HEL-472/478/521, 420-A/B/C) — mirrors
+// `backend/.../api/protocols/AgentPreferencesProtocol.scala` /
+// `AgentMemoryProtocol.scala` ─────────────────────────────────────────────
+
+/** `GET /api/preferences` response — mirrors the backend's
+ *  `AgentPreferencesResponse`. Every field except `extras` is `Option` on the
+ *  Scala side and OMITTED on the wire when unset (spray-json drops
+ *  `Option = None`), so each is `?:` here; `extras` is always present, an
+ *  empty object `{}` when nothing has been stored there. */
+export interface AgentPreferencesResponse {
+  defaultSeriesColors?: string[];
+  defaultPanelStyle?: Record<string, unknown>;
+  namingConventions?: Record<string, unknown>;
+  extras: Record<string, unknown>;
+}
+
+/** `GET`/`POST /api/agent/memory` entry — mirrors the backend's
+ *  `AgentMemoryEntryResponse`. `lastUsedAt` is omitted on the wire (not
+ *  `null`) for a never-used entry — spray-json drops `Option = None`. */
+export interface AgentMemoryEntryResponse {
+  id: string;
+  kind: string;
+  content: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}

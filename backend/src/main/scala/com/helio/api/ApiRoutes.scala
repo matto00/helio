@@ -300,8 +300,18 @@ final class ApiRoutes(
   // pipelineService) is already constructed unconditionally above, so there is
   // no nullable-repo gate to check (design.md D2). HEL-372 design.md D7: takes
   // dataTypeService (not the bare repo) — its listRows is the owner-scoping
-  // choke point sample rows need.
-  private val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+  // choke point sample rows need. HEL-521 (420-C): reuses the EXISTING
+  // agentPreferencesServiceOpt/agentMemoryServiceOpt values already constructed above (420-A/
+  // 420-B) — no new repo/service construction here, just threading the two already-Option-guarded
+  // collaborators into this one construction site (design.md Decision 2).
+  private val workspaceContextService = new WorkspaceContextService(
+    dashboardService,
+    dataSourceService,
+    dataTypeService,
+    pipelineService,
+    agentPreferencesServiceOpt,
+    agentMemoryServiceOpt
+  )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence
   // collaborator (folded into the ClaudeConfig gate below, since DashboardAuthoringService needs

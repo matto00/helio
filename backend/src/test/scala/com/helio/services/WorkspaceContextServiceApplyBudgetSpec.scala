@@ -76,7 +76,8 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
       pipelines = Vector.empty,
       dashboards = Vector.empty,
       joinHints = joinHints,
-      truncation = WorkspaceContextBudget.PlaceholderTruncation
+      truncation = WorkspaceContextBudget.PlaceholderTruncation,
+      agentContext = WorkspaceContextAgentSection.empty
     )
 
   private val threeDataTypes: Vector[WorkspaceContextDataType] =

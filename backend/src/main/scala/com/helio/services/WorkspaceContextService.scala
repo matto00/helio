@@ -1,8 +1,11 @@
 package com.helio.services
 
 import com.helio.api.protocols.{
+  AgentMemoryEntryResponse,
+  AgentPreferencesResponse,
   AnalyzeStepResponse,
   PipelineSummaryResponse,
+  WorkspaceContextAgentSection,
   WorkspaceContextColumn,
   WorkspaceContextColumnStats,
   WorkspaceContextComputedColumn,
@@ -16,6 +19,7 @@ import com.helio.api.protocols.{
   WorkspaceContextResponse
 }
 import com.helio.domain.{
+  AgentMemoryEntry,
   AuthenticatedUser,
   DashboardLayout,
   DataField,
@@ -47,12 +51,20 @@ import scala.math.BigDecimal.RoundingMode
  *  `DataTypeRepository` (design.md D7) — `findAll` is still exactly what
  *  `DataTypeRepository.findAll` did, but `listRows`'s owner-scoping choke
  *  point (`findByIdOwned`) only exists on the service, and sample rows need
- *  it. */
+ *  it.
+ *
+ *  HEL-521 (420-C) design.md Decision 2: `agentPreferencesServiceOpt`/`agentMemoryServiceOpt` are
+ *  `Option`-guarded, trailing, default-`None` constructor params -- mirrors
+ *  `WorkspaceRoutes`'s existing `workspaceTeardownServiceOpt` nullability precedent, and the
+ *  default keeps every existing 4-arg construction site (tests, `ApiRoutes`) compiling unchanged.
+ *  When either is `None`, `assemble` produces an empty `agentContext` rather than failing. */
 final class WorkspaceContextService(
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
     dataTypeService: DataTypeService,
-    pipelineService: PipelineService
+    pipelineService: PipelineService,
+    agentPreferencesServiceOpt: Option[AgentPreferencesService] = None,
+    agentMemoryServiceOpt: Option[AgentMemoryService] = None
 )(implicit ec: ExecutionContext) {
 
   /** Bounded sample-row count per pipeline-output DataType (design.md D1/D3)
@@ -125,6 +137,13 @@ final class WorkspaceContextService(
    *  approved tunable, no existing codebase precedent. */
   private val MinDistinctForFullConfidence: Int = 20
 
+  /** `agentContext.memory`'s surfaced-entry cap (HEL-521 / 420-C design.md Decision 3) -- a fifth
+   *  of `AgentMemoryService`'s own 100-entry-per-user hard cap, keeping the section compact per
+   *  the ticket's AC4 while still surfacing a meaningful slice. Independently mirrored (same
+   *  value, separately defined -- design.md Risks) by `helio-mcp/src/context.ts`'s own top-N
+   *  memory constant. Self-approved tunable, no existing codebase precedent. */
+  private val AgentMemoryTopN: Int = 20
+
   /** Assembles one snapshot of the caller's workspace. `dataSources`/
    *  `dataTypes`/`dashboards` use `Page.Default` (200 — design.md D3, parity
    *  with the MCP's own unparameterized fan-out); `counts` always reports
@@ -145,10 +164,11 @@ final class WorkspaceContextService(
       user: AuthenticatedUser,
       budgetBytes: Int = WorkspaceContextBudget.DefaultBudgetBytes
   ): Future[WorkspaceContextResponse] = {
-    val sourcesF    = dataSourceService.findAll(user, Page.Default)
-    val typesF      = dataTypeService.findAll(user, Page.Default)
-    val dashboardsF = dashboardService.findAll(user, Page.Default)
-    val summariesF  = pipelineService.listSummaries(user)
+    val sourcesF      = dataSourceService.findAll(user, Page.Default)
+    val typesF        = dataTypeService.findAll(user, Page.Default)
+    val dashboardsF   = dashboardService.findAll(user, Page.Default)
+    val summariesF    = pipelineService.listSummaries(user)
+    val agentContextF = buildAgentContext(user)
 
     for {
       sourcesPage    <- sourcesF
@@ -157,6 +177,7 @@ final class WorkspaceContextService(
       summaries      <- summariesF
       pipelines      <- Future.traverse(summaries)(buildPipeline(_, user))
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
+      agentContext   <- agentContextF
     } yield {
       val assembled = WorkspaceContextResponse(
         generatedAt = Instant.now().toString,
@@ -173,11 +194,51 @@ final class WorkspaceContextService(
         // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER the
         // traverse above completes — `dataTypes` is the exact structure already
         // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
-        joinHints = computeJoinHints(dataTypes),
-        truncation = WorkspaceContextBudget.PlaceholderTruncation
+        joinHints    = computeJoinHints(dataTypes),
+        truncation   = WorkspaceContextBudget.PlaceholderTruncation,
+        agentContext = agentContext
       )
       WorkspaceContextBudget.apply(assembled, budgetBytes, sourcesPage, typesPage, dashboardsPage)
     }
+  }
+
+  /** HEL-521 (420-C) design.md Decision 2/3: composes the caller's `AgentPreferences` + top-N
+   *  most-recently-useful `AgentMemoryEntry` records into one `WorkspaceContextAgentSection`,
+   *  touching every surfaced memory entry (design.md Decision 4 -- ONLY this path ever calls
+   *  `AgentMemoryService.touch`, never the MCP read path). Produces
+   *  `WorkspaceContextAgentSection.empty` when EITHER `agentPreferencesServiceOpt` or
+   *  `agentMemoryServiceOpt` is `None` (tasks.md 2.2) -- a partially-wired environment degrades to
+   *  fully empty, not a half-populated section. The wire response carries the pre-touch
+   *  `lastUsedAt` values (design.md Decision 3's "re-sorted here, not re-fetched") -- `touch`'s
+   *  effect is only ever observable on a LATER `list`/`assemble` call, never this same one. */
+  private def buildAgentContext(user: AuthenticatedUser): Future[WorkspaceContextAgentSection] =
+    (agentPreferencesServiceOpt, agentMemoryServiceOpt) match {
+      case (Some(preferencesService), Some(memoryService)) =>
+        for {
+          preferences <- preferencesService.get(user)
+          entries     <- memoryService.list(user).map(_.getOrElse(Seq.empty))
+          surfaced     = rankMemoryEntries(entries).take(AgentMemoryTopN)
+          _           <- Future.traverse(surfaced)(entry => memoryService.touch(entry.id, user))
+        } yield WorkspaceContextAgentSection(
+          preferences = AgentPreferencesResponse.fromDomain(preferences),
+          memory      = surfaced.map(AgentMemoryEntryResponse.fromDomain)
+        )
+      case _ => Future.successful(WorkspaceContextAgentSection.empty)
+    }
+
+  /** Ranks `entries` most-recently-useful first: entries with a `lastUsedAt` sorted descending by
+   *  that timestamp, followed by never-used (`lastUsedAt = None`) entries in their incoming order
+   *  (design.md Decision 3 -- "nulls-last"; `AgentMemoryService.list` already returns
+   *  newest-`createdAt`-first, so the never-used tail stays deterministic without a second sort
+   *  key). Does NOT truncate to `AgentMemoryTopN` itself -- callers `.take()` separately, so this
+   *  stays independently unit-testable against an unbounded input.
+   *
+   *  `private[services]` so `WorkspaceContextServiceSpec` can unit-test the ranking directly,
+   *  mirroring `computeJoinHints`'s existing testability precedent. */
+  private[services] def rankMemoryEntries(entries: Seq[AgentMemoryEntry]): Vector[AgentMemoryEntry] = {
+    val (touched, neverUsed) = entries.partition(_.lastUsedAt.isDefined)
+    val touchedDesc           = touched.sortBy(_.lastUsedAt.get.toEpochMilli)(Ordering.Long.reverse)
+    (touchedDesc ++ neverUsed).toVector
   }
 
   /** Per-pipeline `analyze` fan-out (design.md D5 — parallel via
