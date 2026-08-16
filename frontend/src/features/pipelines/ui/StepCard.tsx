@@ -1,9 +1,9 @@
 // StepCard — one expandable card per pipeline step on the PipelineDetailPage.
 // Owns the per-step editor surface (delegating to the kind-specific editors)
-// and the local "preview data" panel. Per-op editor state + PATCH-on-change
-// persistence live in `useStepCardState`.
+// and the local, inline "preview data" panel (rows + output schema — HEL-404).
+// Per-op editor state + PATCH-on-change persistence live in `useStepCardState`.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { useStepCardState } from "../hooks/useStepCardState";
@@ -34,6 +34,37 @@ import { UnionConfig } from "./UnionConfig";
 import { UnpivotConfig } from "./UnpivotConfig";
 import { WindowConfig } from "./WindowConfig";
 
+// HEL-404 — persistent per-user "preview open" preference. One global key
+// (not per-step, see design.md Decision 3): the last explicit open/hide
+// choice becomes the default for every StepCard, so expanding any card
+// auto-opens its preview once the user has opted in. Follows theme.ts's
+// storage-key + read-at-init precedent; the try/catch guard here is our own
+// hardening (theme.ts only guards `typeof window`).
+const PREVIEW_OPEN_STORAGE_KEY = "helio-step-preview-open";
+
+/** 500ms > the 300ms analyze debounce in PipelineDetailPage, so the analyze
+ *  round-trip and any config-PATCH burst settle first (design.md Decision 2). */
+const PREVIEW_REFRESH_DEBOUNCE_MS = 500;
+
+function readStoredPreviewOpen(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PREVIEW_OPEN_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredPreviewOpen(value: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PREVIEW_OPEN_STORAGE_KEY, value ? "true" : "false");
+  } catch {
+    // Storage unavailable (private browsing, quota, disabled) — the
+    // in-memory preview state still works for the current session.
+  }
+}
+
 interface StepCardProps {
   step: Step;
   pipelineId: string;
@@ -42,6 +73,10 @@ interface StepCardProps {
   analyzeColumns: string[];
   /** Full schema fields from the analyze endpoint's inputSchema — used by FilterConfig for type-aware value input. */
   analyzeSchema: SchemaField[];
+  /** HEL-404 — this step's output schema (name + type) from the analyze endpoint,
+   *  rendered inline in the preview tray alongside the sample rows. Empty when
+   *  analyze data for the step is unavailable (pending/failed/unknown step id). */
+  analyzeOutputSchema: SchemaField[];
   /** This step's analyze-time `validationError`, if any (currently only rendered by
    *  the "compute" op's editor — see `ComputeFieldConfig`). */
   validationError?: string;
@@ -57,35 +92,89 @@ export function StepCard({
   onRemove,
   analyzeColumns,
   analyzeSchema,
+  analyzeOutputSchema,
   validationError,
   onConfigChange,
   rowCount,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Preview state (component-local, transient)
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // Preview state (component-local, transient rows/loading/error; previewOpen
+  // is the one piece that persists — see PREVIEW_OPEN_STORAGE_KEY above).
+  const [previewOpen, setPreviewOpen] = useState<boolean>(() => readStoredPreviewOpen());
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  async function handlePreviewToggle() {
-    if (previewOpen) {
-      setPreviewOpen(false);
+  // HEL-404 — tracks the config fingerprint the preview was last fetched for.
+  // `null` means "not fetched since preview last activated" (fresh open or
+  // just-expanded card): fetch immediately, no debounce. A non-null value
+  // that differs from the current fingerprint means the config changed while
+  // the preview was active: debounce the re-fetch. Resets to `null` whenever
+  // the preview deactivates (hidden or card collapsed) so reopening always
+  // fetches fresh.
+  const lastFetchedFingerprint = useRef<string | null>(null);
+  const configFingerprint = JSON.stringify(step.config);
+
+  useEffect(() => {
+    const active = expanded && previewOpen;
+    if (!active) {
+      lastFetchedFingerprint.current = null;
       return;
     }
-    setPreviewOpen(true);
-    setPreviewLoading(true);
-    setPreviewError(null);
-    try {
-      const result: StepPreviewResponse = await fetchStepPreview(pipelineId, step.id);
-      setPreviewRows(result.rows);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Preview failed";
-      setPreviewError(message);
-    } finally {
-      setPreviewLoading(false);
+
+    async function runFetch() {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      try {
+        const result: StepPreviewResponse = await fetchStepPreview(pipelineId, step.id);
+        setPreviewRows(result.rows);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Preview failed";
+        setPreviewError(message);
+      } finally {
+        setPreviewLoading(false);
+      }
     }
+
+    if (lastFetchedFingerprint.current === null) {
+      // Activation: fetch immediately, no debounce.
+      lastFetchedFingerprint.current = configFingerprint;
+      void runFetch();
+      return;
+    }
+
+    if (lastFetchedFingerprint.current === configFingerprint) {
+      // Already fetched for this config — nothing changed.
+      return;
+    }
+
+    // Config changed while active: debounce the re-fetch so a PATCH burst
+    // (and the analyze round-trip that feeds the schema strip) settles first.
+    const handle = window.setTimeout(() => {
+      lastFetchedFingerprint.current = configFingerprint;
+      void runFetch();
+    }, PREVIEW_REFRESH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [expanded, previewOpen, pipelineId, step.id, configFingerprint]);
+
+  function handlePreviewToggle() {
+    setPreviewOpen((prev) => {
+      const next = !prev;
+      writeStoredPreviewOpen(next);
+      return next;
+    });
+  }
+
+  function handleHeaderClick() {
+    if (!expanded) {
+      // Collapsed → expanded transition: re-sync from localStorage. All
+      // StepCards mount unconditionally (only the body is gated on
+      // `expanded`), so a mount-time-only read would miss a preference
+      // change a sibling card made earlier in the same session.
+      setPreviewOpen(readStoredPreviewOpen());
+    }
+    setExpanded((prev) => !prev);
   }
 
   const {
@@ -140,7 +229,7 @@ export function StepCard({
       <button
         type="button"
         className="pipeline-detail-page__step-card-header"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={handleHeaderClick}
         aria-expanded={expanded}
       >
         <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
@@ -299,7 +388,7 @@ export function StepCard({
             <button
               type="button"
               className="pipeline-detail-page__step-card-preview-btn"
-              onClick={() => void handlePreviewToggle()}
+              onClick={handlePreviewToggle}
               aria-expanded={previewOpen}
             >
               {previewOpen ? "Hide preview" : "Preview data"}
@@ -315,6 +404,24 @@ export function StepCard({
 
           {previewOpen && (
             <div className="pipeline-detail-page__step-preview">
+              {analyzeOutputSchema.length > 0 && (
+                <div
+                  className="pipeline-detail-page__step-preview-schema"
+                  aria-label="Output schema"
+                >
+                  {analyzeOutputSchema.map((field) => (
+                    <span
+                      key={field.name}
+                      className="pipeline-detail-page__step-preview-schema-chip"
+                    >
+                      {field.name}
+                      <span className="pipeline-detail-page__step-preview-schema-chip-type">
+                        : {field.type}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
               {previewLoading ? (
                 <p className="pipeline-detail-page__step-preview-loading">Loading preview…</p>
               ) : previewError !== null ? (

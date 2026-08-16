@@ -482,6 +482,28 @@
   padding-top: 10px;
 }
 
+/* HEL-404 — output schema chip strip, rendered above the preview rows grid. */
+.pipeline-detail-page__step-preview-schema {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.pipeline-detail-page__step-preview-schema-chip {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 2px 7px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__step-preview-schema-chip-type {
+  color: var(--app-text-muted);
+}
+
 .pipeline-detail-page__step-preview-loading,
 .pipeline-detail-page__step-preview-error {
   font-size: var(--text-xs);
