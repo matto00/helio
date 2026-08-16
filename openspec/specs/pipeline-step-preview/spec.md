@@ -51,7 +51,8 @@ The frontend StepCard component SHALL:
 - Persist the open/closed preview preference per user (localStorage), so a user who left the
   preview open gets an auto-opened preview on subsequently expanded step cards
 - Re-fetch the preview rows automatically, debounced, after the step's persisted config changes
-  while the preview is active — without requiring a manual close/reopen or a full pipeline run
+  **or the step's position in the editor's step list changes (reorder)** while the preview is
+  active — without requiring a manual close/reopen or a full pipeline run
 
 #### Scenario: Preview shows sample rows and output schema together
 - **WHEN** the user activates the preview on an expanded StepCard for a pipeline with static data
@@ -70,6 +71,12 @@ The frontend StepCard component SHALL:
   a new config
 - **THEN** the preview rows re-fetch automatically after a debounce interval, without the user
   toggling the preview or running the pipeline
+
+#### Scenario: Preview refreshes after a reorder
+- **WHEN** the preview is active on a step and the step's position in the step list changes via
+  a reorder
+- **THEN** the preview rows re-fetch automatically after a debounce interval, reflecting the
+  step's new upstream prefix
 
 #### Scenario: Closed preview does not refresh on config edits
 - **WHEN** the preview is closed and the user edits the step's config
