@@ -6,15 +6,18 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
+import com.helio.api.protocols.{SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.{AuthenticatedUser, ChunkByTokenCountConfig, ExtractHeadingsConfig, PipelineId, SelectConfig, SplitTextConfig, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
+import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json._
 
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -219,6 +222,104 @@ class PipelineAnalyzeRoutesSpec
         resp.sourceSchema shouldBe empty
         resp.steps shouldBe empty
       }
+    }
+
+    // ── HEL-462: schema-drift surfacing ────────────────────────────────────
+
+    "(a) omit sourceSchemaDrift when the pipeline has never run successfully (no baseline)" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeResponse]
+        resp.sourceSchemaDrift shouldBe None
+      }
+    }
+
+    "omit sourceSchemaDrift when the current source schema matches the last successful run's baseline" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineRepo.updateLastSourceSchema(
+        PipelineId(pid),
+        """[{"name":"order_id","type":"string"},{"name":"amount","type":"number"}]""",
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeResponse]
+        resp.sourceSchemaDrift shouldBe None
+      }
+    }
+
+    "(b)(c) report removed and type-changed columns against the last successful run's baseline" in {
+      cleanPipelines()
+      // Current source schema: "order_id" (string), "amount" (integer) — no "created_at".
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"integer","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      // Baseline: "order_id" (string), "amount" (number), "created_at" (string).
+      await(pipelineRepo.updateLastSourceSchema(
+        PipelineId(pid),
+        """[{"name":"order_id","type":"string"},{"name":"amount","type":"number"},{"name":"created_at","type":"string"}]""",
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp  = responseAs[PipelineAnalyzeResponse]
+        val drift = resp.sourceSchemaDrift
+        drift shouldBe defined
+        drift.get.addedColumns shouldBe empty
+        drift.get.removedColumns shouldBe Vector(SchemaFieldResponse("created_at", "string"))
+        drift.get.typeChangedColumns shouldBe Vector(TypeChangedColumnResponse("amount", previousType = "number", currentType = "integer"))
+      }
+    }
+  }
+
+  "pipelineAnalyzeResponseFormat output (HEL-462 sourceSchemaDrift)" should {
+
+    "validate cleanly against schemas/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated" in {
+      val response = PipelineAnalyzeResponse(
+        id                   = "pipeline-1",
+        name                 = "Orders",
+        sourceDataSourceName = "orders-source",
+        outputDataTypeName   = "Orders Output",
+        outputDataTypeId     = "dt-1",
+        sourceSchema         = Vector(SchemaFieldResponse("order_id", "string")),
+        steps                = Vector.empty,
+        sourceSchemaDrift    = Some(SourceSchemaDriftResponse(
+          addedColumns       = Vector(SchemaFieldResponse("region", "string")),
+          removedColumns     = Vector(SchemaFieldResponse("created_at", "string")),
+          typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "number", currentType = "integer"))
+        ))
+      )
+
+      val schema = JsonSchemaValidation.compile("pipeline-analyze-response.schema.json")
+      val errors = JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint)
+      errors shouldBe empty
+    }
+
+    "omit sourceSchemaDrift entirely from the serialized JSON when None" in {
+      val response = PipelineAnalyzeResponse(
+        id                   = "pipeline-1",
+        name                 = "Orders",
+        sourceDataSourceName = "orders-source",
+        outputDataTypeName   = "Orders Output",
+        outputDataTypeId     = "dt-1",
+        sourceSchema         = Vector.empty,
+        steps                = Vector.empty,
+        sourceSchemaDrift    = None
+      )
+
+      val json = response.toJson.compactPrint
+      json should not include "sourceSchemaDrift"
+
+      val schema = JsonSchemaValidation.compile("pipeline-analyze-response.schema.json")
+      val errors = JsonSchemaValidation.validationErrors(schema, json)
+      errors shouldBe empty
     }
   }
 }
