@@ -2,7 +2,14 @@ module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
   testMatch: ["**/?(*.)+(spec|test).[tj]s?(x)"],
-  testPathIgnorePatterns: ["/node_modules/", "/openspec/", "/.cursor/", "/frontend/", "/e2e/"],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "/openspec/",
+    "/.cursor/",
+    "/frontend/",
+    "/e2e/",
+    "/helio-mcp/dist/",
+  ],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: { "^(\\.{1,2}/.*)\\.js$": "$1" },
 };
