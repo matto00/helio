@@ -356,6 +356,13 @@
   background: var(--app-surface-raised);
 }
 
+/* HEL-409 (design.md Decision 1) — error accent on the card itself, visible
+ * collapsed or expanded; placed after `--expanded` so it wins the border-color
+ * tie when a card is both errored and expanded. */
+.pipeline-detail-page__step-card--errored {
+  border-color: color-mix(in srgb, var(--app-error) 50%, transparent);
+}
+
 /* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>` — the
  * expand-toggle `<button>` and the drag-handle/Move-buttons actions cluster
  * are siblings inside it, not one nested inside the other. */
@@ -449,6 +456,16 @@
   font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--app-text-muted);
+}
+
+/* HEL-409 (design.md Decision 2) — header indicator for an errored step,
+ * icon-only so it stays compact at narrow widths (design.md Risks). */
+.pipeline-detail-page__step-card-error-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--app-error);
 }
 
 .pipeline-detail-page__step-card-chevron {

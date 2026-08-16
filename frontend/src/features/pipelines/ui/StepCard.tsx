@@ -5,7 +5,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronDown, faChevronUp, faGripVertical } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronDown,
+  faChevronUp,
+  faGripVertical,
+  faTriangleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { DataGrid } from "../../../shared/ui/index";
@@ -255,7 +260,8 @@ export function StepCard({
 
   return (
     <div
-      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
+      // `--errored` mirrors the `--expanded` modifier (design.md Decision 1).
+      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}${validationError ? " pipeline-detail-page__step-card--errored" : ""}`}
     >
       {/* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>`.
        * The expand-toggle `<button>` keeps its content/semantics unchanged
@@ -275,6 +281,16 @@ export function StepCard({
             <FontAwesomeIcon icon={step.opType.icon} />
           </span>
           <span className="pipeline-detail-page__step-card-label">{step.label}</span>
+          {/* Non-interactive chip, like the count chip below (design.md Decision 2). */}
+          {validationError && (
+            <span
+              className="pipeline-detail-page__step-card-error-chip"
+              role="img"
+              aria-label="Step has a validation error"
+            >
+              <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
+            </span>
+          )}
           {rowCount !== null && (
             <span className="pipeline-detail-page__step-card-count">
               {rowCount.toLocaleString()} rows
