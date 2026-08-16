@@ -9,6 +9,7 @@ import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { patchSetsReducer } from "../features/patchSets/state/patchSetsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
@@ -28,6 +29,7 @@ export const store = configureStore({
     metrics: metricsReducer,
     patchSets: patchSetsReducer,
     pipelines: pipelinesReducer,
+    settings: settingsReducer,
     sources: sourcesReducer,
     toasts: toastsReducer,
   },

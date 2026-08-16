@@ -13,6 +13,7 @@ import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlic
 import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
@@ -128,6 +129,7 @@ export function renderWithStore(
     dataTypes: dataTypesReducer,
     metrics: metricsReducer,
     pipelines: pipelinesReducer,
+    settings: settingsReducer,
     sources: sourcesReducer,
     toasts: toastsReducer,
   };

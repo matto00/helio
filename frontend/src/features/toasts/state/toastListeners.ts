@@ -9,6 +9,7 @@
  *   - sources: createSqlSource, createStaticSource, deleteSource, inferSqlSource
  *   - dataTypes: deleteDataType
  *   - pipelines: createPipeline, deletePipeline, submitPipelineRun
+ *   - settings: deleteAgentMemoryEntry, clearAgentMemory
  *
  * Successes (user-initiated, non-trivial):
  *   - dashboards: createDashboard, deleteDashboard, duplicateDashboard, importDashboard
@@ -16,6 +17,7 @@
  *   - sources: createSqlSource, createStaticSource, deleteSource
  *   - dataTypes: deleteDataType
  *   - pipelines: createPipeline, deletePipeline
+ *   - settings: deleteAgentMemoryEntry, clearAgentMemory
  *
  * Silent (kept silent — automatic/background):
  *   - updateDashboardAppearance, updateDashboardLayout, renameDashboard,
@@ -24,7 +26,10 @@
  *     updatePanelDivider, updatePanelsBatch,
  *     updateSource, updateDataType, analyzePipeline, updatePipeline,
  *     fetchPanelPage, fetchDashboards, fetchSources, fetchDataTypes,
- *     fetchPipelines, fetchPipeline, fetchPipelineSteps, fetchPipelineRunHistory
+ *     fetchPipelines, fetchPipeline, fetchPipelineSteps, fetchPipelineRunHistory,
+ *     fetchPreferences, fetchAgentMemory (fetch-on-mount, same as the other
+ *     fetch* entries above), savePreferences (explicit "Save preferences"
+ *     button + inline dirty-state UI -- same analogue as updatePanelAppearance)
  */
 
 import type { AppStartListening } from "../../../store/listenerMiddleware";
@@ -63,6 +68,12 @@ import {
   deletePipeline,
   submitPipelineRun,
 } from "../../pipelines/state/pipelinesSlice";
+
+// Settings (agent memory)
+import {
+  clearAgentMemoryThunk,
+  deleteAgentMemoryEntryThunk,
+} from "../../settings/state/settingsSlice";
 
 export function addToastListeners(startListening: AppStartListening) {
   // ── Dashboards ──────────────────────────────────────────────────────────
@@ -388,6 +399,46 @@ export function addToastListeners(startListening: AppStartListening) {
         pushToast({
           variant: "error",
           message: action.payload ?? "Failed to start pipeline run.",
+        }),
+      );
+    },
+  });
+
+  // ── Settings (agent memory) ─────────────────────────────────────────────
+
+  startListening({
+    actionCreator: deleteAgentMemoryEntryThunk.fulfilled,
+    effect: (_, { dispatch }) => {
+      dispatch(pushToast({ variant: "success", message: "Memory entry deleted." }));
+    },
+  });
+
+  startListening({
+    actionCreator: deleteAgentMemoryEntryThunk.rejected,
+    effect: (action, { dispatch }) => {
+      dispatch(
+        pushToast({
+          variant: "error",
+          message: action.payload ?? "Failed to delete memory entry.",
+        }),
+      );
+    },
+  });
+
+  startListening({
+    actionCreator: clearAgentMemoryThunk.fulfilled,
+    effect: (_, { dispatch }) => {
+      dispatch(pushToast({ variant: "success", message: "Agent memory cleared." }));
+    },
+  });
+
+  startListening({
+    actionCreator: clearAgentMemoryThunk.rejected,
+    effect: (action, { dispatch }) => {
+      dispatch(
+        pushToast({
+          variant: "error",
+          message: action.payload ?? "Failed to clear agent memory.",
         }),
       );
     },
