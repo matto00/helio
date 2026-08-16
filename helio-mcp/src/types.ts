@@ -199,6 +199,48 @@ export interface PipelineStepResponse {
   config: unknown;
 }
 
+/** One failing assertion rule's detail (HEL-576/HEL-581) — mirrors the
+ *  backend's `AssertionFailureDetail`. `field`/`message` are Scala `Option`s
+ *  and OMITTED on the wire when `None` (spray-json drops `Option = None`),
+ *  so each is `?:` here. */
+export interface AssertionFailureDetailResponse {
+  kind: string;
+  field?: string;
+  severity: string;
+  message?: string;
+}
+
+/** Per-run pass/fail-by-severity assertion summary (HEL-576/HEL-581) —
+ *  mirrors the backend's `AssertionSummary`. Every field is REQUIRED on the
+ *  wire (backed by a Scala default value, not an `Option`) — zero-valued
+ *  (`passed: 0, warnFailed: 0, errorFailed: 0, failures: []`) for a run with
+ *  no `assert` steps, never omitted. */
+export interface AssertionSummaryResponse {
+  passed: number;
+  warnFailed: number;
+  errorFailed: number;
+  failures: AssertionFailureDetailResponse[];
+}
+
+/** `GET /api/pipelines/:id/run-history` entry (HEL-581) — mirrors the
+ *  backend's `PipelineRunRecord`, sorted most-recent-first (`startedAt
+ *  DESC`). `completedAt`/`rowCount`/`errorLog`/`triggeredByTokenId` are
+ *  Scala `Option`s and OMITTED on the wire when `None`, so each is `?:`
+ *  here; `assertions` is non-optional (backed by a default value, not an
+ *  `Option`) and always present. */
+export interface PipelineRunRecordResponse {
+  id: string;
+  pipelineId: string;
+  status: string;
+  startedAt: string;
+  completedAt?: string;
+  rowCount?: number;
+  errorLog?: string;
+  triggerSource: string;
+  triggeredByTokenId?: string;
+  assertions: AssertionSummaryResponse;
+}
+
 /** `PATCH /api/pipeline-steps/:id` request body — mirrors the backend's
  *  `UpdatePipelineStepRequest`, MINUS its `type` field (design.md D2):
  *  `PipelineService.updateStep` always 400s on a `type` that differs from the

@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
+import { addPipelineStepHandler } from "./assertSchemas.js";
 import {
   buildUpdateMetricBody,
   metricAggregationSchema,
@@ -272,8 +273,22 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "join, row count never changes). `columns` DOES appear in analyze_pipeline's output " +
         "schema, appended typed string as a documented best-effort (the reference source's real " +
         "schema isn't resolved by analyze_pipeline — verify actual types with preview/run). A " +
-        "missing/unresolvable `referenceDataSourceId` fails at execute time naming the problem. " +
-        "Use analyze_pipeline to " +
+        "missing/unresolvable `referenceDataSourceId` fails at execute time naming the problem; " +
+        "assert → {rules: [{kind, field?, params, severity}]} — evaluates data-trustworthiness " +
+        "rules against the rows at this step's position and records one pass/fail result per rule " +
+        "(row data itself passes through unchanged; results surface later via " +
+        "get_workspace_context's lastRunAssertions). Six v1 `kind`s, each with its own required " +
+        "`field`/`params` shape (validated client-side by a dedicated Zod schema BEFORE any " +
+        "network call — an invalid rule shape is rejected with no request reaching the backend): " +
+        "notNull {field} — fails if `field` is null/absent on any row (params: {}); " +
+        "unique {field} — fails if any two rows share the same non-null `field` value (params: {}); " +
+        "range {field, params: {min?, max?}} — fails if `field`'s numeric value falls outside the " +
+        "given bound(s) (at least one of min/max required); " +
+        "rowCountMin {params: {count}} / rowCountMax {params: {count}} — dataset-level row-count " +
+        "checks; `field` is NOT used and must be omitted for these two kinds; " +
+        "regex {field, params: {pattern}} — fails if `field`'s value doesn't match `pattern` " +
+        "(partial match, like String.find). Every rule additionally requires `severity`: " +
+        '"warn" or "error". Use analyze_pipeline to ' +
         "see each step's resulting output columns.",
       inputSchema: {
         pipelineId: z.string().min(1),
@@ -282,7 +297,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ pipelineId, type, config }) =>
-      guarded(() => api.addPipelineStep(pipelineId, { type, config })),
+      guarded(() => addPipelineStepHandler(api, { pipelineId, type, config })),
   );
 
   server.registerTool(
