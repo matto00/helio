@@ -42,6 +42,14 @@ class AgentPreferencesRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
       table.insertOrUpdate(domainToRow(prefs))
     ).map(_ => prefs)
 
+  /** `memoryEnabled` (HEL-531 / 420-E) decodes to `true` when absent from the stored JSONB -- the
+   *  same additive-field fallback discipline `extras` already established. This is distinct from
+   *  `AgentPreferencesService.get`'s own no-row-at-all default (`DefaultMemoryEnabled`, env-var
+   *  overridable): a stored row that predates this ticket only ever has the original four fields
+   *  serialized, and since no opt-out ever existed before now, decoding that absence as `true`
+   *  preserves the caller's actual prior behavior exactly -- this decode-time fallback is
+   *  deliberately hardcoded, never `sys.env`-read, mirroring `extras`'s own hardcoded
+   *  `JsObject.empty` fallback. */
   private def rowToDomain(row: AgentPreferencesRow): AgentPreferences = {
     val fields = row.preferences.parseJson.asJsObject.fields
     AgentPreferences(
@@ -49,7 +57,8 @@ class AgentPreferencesRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
       defaultSeriesColors = fields.get("defaultSeriesColors").map(_.convertTo[Vector[String]]),
       defaultPanelStyle   = fields.get("defaultPanelStyle").collect { case o: JsObject => o },
       namingConventions   = fields.get("namingConventions").collect { case o: JsObject => o },
-      extras              = fields.get("extras").collect { case o: JsObject => o }.getOrElse(JsObject.empty)
+      extras              = fields.get("extras").collect { case o: JsObject => o }.getOrElse(JsObject.empty),
+      memoryEnabled       = fields.get("memoryEnabled").collect { case JsBoolean(b) => b }.getOrElse(true)
     )
   }
 
@@ -63,6 +72,7 @@ class AgentPreferencesRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
     prefs.defaultPanelStyle.foreach(v => fields += "defaultPanelStyle" -> v)
     prefs.namingConventions.foreach(v => fields += "namingConventions" -> v)
     fields += "extras" -> prefs.extras
+    fields += "memoryEnabled" -> JsBoolean(prefs.memoryEnabled)
     AgentPreferencesRow(
       userId      = UUID.fromString(prefs.userId.value),
       preferences = JsObject(fields.result()).compactPrint,

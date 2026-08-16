@@ -15,32 +15,43 @@ import scala.concurrent.{ExecutionContext, Future}
  *  caller (`AgentMemoryService`) supplies `cap` so the constant lives at the service layer, not
  *  hardcoded into this repository's query -- see design.md's Risks section. Every method runs
  *  under [[DbContext.withUserContext]]; there is no privileged/pre-auth read path here (unlike
- *  `ApiTokenRepository`'s authentication lookups). */
+ *  `ApiTokenRepository`'s authentication lookups).
+ *
+ *  HEL-531 (420-E): `list`/`add` both prune the caller's expired rows FIRST, under the SAME
+ *  `withUserContext` action, before running their main query (design.md Decision 6) -- the
+ *  caller (`AgentMemoryService`) supplies `retentionDays`, mirroring `cap`'s existing
+ *  threaded-from-the-service-layer pattern; never hardcoded or `sys.env`-read here. */
 class AgentMemoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import AgentMemoryRepository._
 
   private val table = TableQuery[AgentMemoryTable]
 
-  /** Insert `entry`, then -- in the SAME transaction -- if the owner's resulting row count
-   *  exceeds `cap`, delete exactly one existing row: the one with the oldest `last_used_at`
-   *  (an entry with no `last_used_at` is evicted before any entry that has one, i.e.
+  /** Prune the caller's rows whose `created_at` is older than `retentionDays`, THEN -- in the
+   *  SAME transaction -- insert `entry`, then if the owner's resulting row count exceeds `cap`,
+   *  delete exactly one existing row: the one with the oldest `last_used_at` (an entry with no
+   *  `last_used_at` is evicted before any entry that has one, i.e.
    *  `ORDER BY last_used_at ASC NULLS FIRST`), falling back to oldest `created_at` as the
-   *  tiebreak (design.md Decision 3). */
-  def add(entry: AgentMemoryEntry, cap: Int): Future[AgentMemoryEntry] = {
+   *  tiebreak (design.md Decision 3). Pruning FIRST means an expired entry never counts toward
+   *  cap pressure (design.md Decision 6's "pruning runs before cap-and-evict" scenario). */
+  def add(entry: AgentMemoryEntry, cap: Int, retentionDays: Int): Future[AgentMemoryEntry] = {
     val ownerUuid = UUID.fromString(entry.ownerId.value)
     val newRowId  = UUID.fromString(entry.id.value)
-    val action = (table += toRow(entry)) andThen evictIfOverCap(ownerUuid, newRowId, cap)
+    val action = pruneExpired(ownerUuid, retentionDays) andThen
+      (table += toRow(entry)) andThen
+      evictIfOverCap(ownerUuid, newRowId, cap)
     ctx.withUserContext(entry.ownerId.value)(action).map(_ => entry)
   }
 
   /** All of the caller's entries, newest-first by `created_at` -- matches
-   *  `ApiTokenRepository.list`'s explicit ordering convention. */
-  def list(user: AuthenticatedUser): Future[Seq[AgentMemoryEntry]] = {
+   *  `ApiTokenRepository.list`'s explicit ordering convention. Prunes the caller's expired rows
+   *  FIRST, in the same transaction, before selecting (design.md Decision 6) -- an over-age entry
+   *  is both excluded from the result AND deleted. */
+  def list(user: AuthenticatedUser, retentionDays: Int): Future[Seq[AgentMemoryEntry]] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    ctx.withUserContext(user.id.value)(
+    val action = pruneExpired(ownerUuid, retentionDays) andThen
       table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
-    ).map(_.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(action).map(_.map(rowToDomain))
   }
 
   /** Updates `last_used_at` to now. A no-op (not an error) for an unknown or cross-user id --
@@ -71,6 +82,16 @@ class AgentMemoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(
       table.filter(_.ownerId === ownerUuid).delete
     )
+  }
+
+  /** Deletes the owner's rows whose `created_at` is older than `retentionDays` (design.md
+   *  Decision 6) -- age-since-`created_at`, deliberately independent of `last_used_at`
+   *  (`touch` never extends or resets retention). Not a public method -- always invoked as the
+   *  first step of `list`/`add`'s own action, under the SAME `withUserContext` transaction those
+   *  callers already run in. */
+  private def pruneExpired(ownerUuid: UUID, retentionDays: Int): DBIO[Int] = {
+    val cutoff = Instant.now().minusSeconds(retentionDays.toLong * 86400L)
+    table.filter(m => m.ownerId === ownerUuid && m.createdAt < cutoff).delete
   }
 
   /** `excludeId` is the row `add` just inserted in the same transaction (design.md Decision 3's

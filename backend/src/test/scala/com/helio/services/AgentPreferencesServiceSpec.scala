@@ -18,7 +18,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-472 (420-A) — `AgentPreferencesService` get-returns-defaults-when-absent and
  *  put-is-a-full-replace (tasks.md 2.2/4.1). Owner isolation itself is covered by
  *  `RlsOwnerTablesSpec`'s `agent_preferences` section; this spec exercises the service's own
- *  defaulting/replace semantics against a single user. */
+ *  defaulting/replace semantics against a single user.
+ *
+ *  HEL-531 (420-E) tasks.md 5.1 — also exercises the `memoryEnabled` opt-out: `get`'s
+ *  default-true behavior, `put`'s carry-forward-unchanged behavior (design.md Decision 2), and
+ *  `setMemoryEnabled`'s dedicated write path. */
 class AgentPreferencesServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
@@ -61,7 +65,12 @@ class AgentPreferencesServiceSpec extends AnyWordSpec with Matchers with BeforeA
 
     "return an all-empty default when the caller has no stored row" in {
       cleanDb()
-      await(service.get(user1)) shouldBe AgentPreferences.empty(owner1)
+      await(service.get(user1)) shouldBe AgentPreferences.empty(owner1, AgentPreferencesService.DefaultMemoryEnabled)
+    }
+
+    "default memoryEnabled to true for a new user with no stored row (HEL-531 / 420-E)" in {
+      cleanDb()
+      await(service.get(user1)).memoryEnabled shouldBe true
     }
 
     "return the stored preferences once put has been called" in {
@@ -130,6 +139,65 @@ class AgentPreferencesServiceSpec extends AnyWordSpec with Matchers with BeforeA
 
       // A subsequent get reflects the replace, not the first put's values.
       await(service.get(user1)) shouldBe replaced
+    }
+
+    // ── HEL-531 (420-E) tasks.md 5.1 — memoryEnabled carry-forward ──────────
+
+    "preserve a previously-opted-out caller's memoryEnabled while updating the other four fields " +
+      "(design.md Decision 2)" in {
+        cleanDb()
+        await(service.setMemoryEnabled(user1, enabled = false))
+
+        val result = await(service.put(user1, PutAgentPreferencesRequest(
+          defaultSeriesColors = Some(Vector("#abcabc")), defaultPanelStyle = None, namingConventions = None, extras = None
+        )))
+
+        result.memoryEnabled shouldBe false
+        result.defaultSeriesColors shouldBe Some(Vector("#abcabc"))
+        await(service.get(user1)).memoryEnabled shouldBe false
+      }
+
+    "preserve memoryEnabled = true across a put when the caller never opted out" in {
+      cleanDb()
+      val result = await(service.put(user1, PutAgentPreferencesRequest(None, None, None, None)))
+      result.memoryEnabled shouldBe true
+    }
+  }
+
+  "AgentPreferencesService.setMemoryEnabled" should {
+
+    "persist the flag and leave the other four fields unchanged when opting out after a prior put" in {
+      cleanDb()
+      await(service.put(user1, PutAgentPreferencesRequest(
+        defaultSeriesColors = Some(Vector("#abcabc")),
+        defaultPanelStyle   = Some(JsObject("background" -> JsString("dark"))),
+        namingConventions   = Some(JsObject("titleCase" -> JsBoolean(true))),
+        extras              = Some(JsObject("k" -> JsString("v")))
+      )))
+
+      val result = await(service.setMemoryEnabled(user1, enabled = false))
+
+      result.memoryEnabled shouldBe false
+      result.defaultSeriesColors shouldBe Some(Vector("#abcabc"))
+      result.defaultPanelStyle shouldBe Some(JsObject("background" -> JsString("dark")))
+      result.namingConventions shouldBe Some(JsObject("titleCase" -> JsBoolean(true)))
+      result.extras shouldBe JsObject("k" -> JsString("v"))
+
+      await(service.get(user1)) shouldBe result
+    }
+
+    "persist the flag and leave the other four fields unchanged when opting back in" in {
+      cleanDb()
+      await(service.setMemoryEnabled(user1, enabled = false))
+      await(service.put(user1, PutAgentPreferencesRequest(
+        defaultSeriesColors = Some(Vector("#111111")), defaultPanelStyle = None, namingConventions = None, extras = None
+      )))
+
+      val result = await(service.setMemoryEnabled(user1, enabled = true))
+
+      result.memoryEnabled shouldBe true
+      result.defaultSeriesColors shouldBe Some(Vector("#111111"))
+      await(service.get(user1)).memoryEnabled shouldBe true
     }
   }
 }

@@ -889,21 +889,28 @@ final case class MetricUsage(
  *
  *  `updated_at` is deliberately NOT a field here (design.md Decision 4a): it is a
  *  repository-internal audit column `AgentPreferencesRepository` sets on every upsert and never
- *  reads back — no consumer in this ticket's scope needs it on the domain/wire shape. */
+ *  reads back — no consumer in this ticket's scope needs it on the domain/wire shape.
+ *
+ *  `memoryEnabled` (HEL-531 / 420-E) — the agent-memory opt-out flag; `true` unless the caller has
+ *  explicitly opted out via `PUT /api/preferences/memory-enabled` (design.md Decision 1/3). */
 final case class AgentPreferences(
     userId: UserId,
     defaultSeriesColors: Option[Vector[String]],
     defaultPanelStyle: Option[JsObject],
     namingConventions: Option[JsObject],
-    extras: JsObject
+    extras: JsObject,
+    memoryEnabled: Boolean
 )
 
 object AgentPreferences {
 
   /** The default returned by `AgentPreferencesService.get` when no row has been stored yet for a
-   *  user (design.md Decision 3) — every optional field unset, `extras` an empty object. */
-  def empty(userId: UserId): AgentPreferences =
-    AgentPreferences(userId, None, None, None, JsObject.empty)
+   *  user (design.md Decision 3) — every optional field unset, `extras` an empty object,
+   *  `memoryEnabled` taken as an explicit parameter (HEL-531 design.md Decision 3: the domain
+   *  layer stays pure, no `sys.env` reached from here — the env-var-overridable default lives in
+   *  `AgentPreferencesService`). */
+  def empty(userId: UserId, memoryEnabled: Boolean): AgentPreferences =
+    AgentPreferences(userId, None, None, None, JsObject.empty, memoryEnabled)
 }
 
 final case class AgentMemoryId(value: String) extends AnyVal

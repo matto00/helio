@@ -74,7 +74,8 @@ class AgentPreferencesRepositorySpec extends AnyWordSpec with Matchers with Befo
         defaultSeriesColors = Some(Vector("#ff0000", "#00ff00")),
         defaultPanelStyle   = Some(JsObject("background" -> JsString("dark"))),
         namingConventions   = Some(JsObject("titleCase" -> JsBoolean(true))),
-        extras              = JsObject("favoriteChart" -> JsString("bar"))
+        extras              = JsObject("favoriteChart" -> JsString("bar")),
+        memoryEnabled       = true
       )
 
       val persisted = await(repo.put(owner1, prefs))
@@ -91,18 +92,23 @@ class AgentPreferencesRepositorySpec extends AnyWordSpec with Matchers with Befo
         defaultSeriesColors = Some(Vector("#111111")),
         defaultPanelStyle   = Some(JsObject("background" -> JsString("light"))),
         namingConventions   = Some(JsObject("titleCase" -> JsBoolean(false))),
-        extras              = JsObject("note" -> JsString("first"))
+        extras              = JsObject("note" -> JsString("first")),
+        memoryEnabled       = true
       )
       await(repo.put(owner1, first))
 
       // Second put omits defaultPanelStyle/namingConventions/extras entirely (None/empty) --
-      // a full replace must clear them, not retain the first put's values.
+      // a full replace must clear them, not retain the first put's values. memoryEnabled flips to
+      // `false` here too, proving BOTH values round-trip correctly across a real replace (HEL-531
+      // / 420-E) -- this repository-level test writes AgentPreferences directly, unlike
+      // AgentPreferencesServiceSpec's own put-preserves-memoryEnabled coverage.
       val second = AgentPreferences(
         userId              = owner1,
         defaultSeriesColors = Some(Vector("#222222")),
         defaultPanelStyle   = None,
         namingConventions   = None,
-        extras              = JsObject.empty
+        extras              = JsObject.empty,
+        memoryEnabled       = false
       )
       await(repo.put(owner1, second))
 
@@ -116,10 +122,25 @@ class AgentPreferencesRepositorySpec extends AnyWordSpec with Matchers with Befo
 
     "an empty AgentPreferences round-trips as all-None/empty-extras" in {
       cleanDb(); seedUser(owner1Id)
-      val empty = AgentPreferences.empty(owner1)
+      val empty = AgentPreferences.empty(owner1, memoryEnabled = true)
       await(repo.put(owner1, empty))
 
       await(repo.get(owner1)) shouldBe Some(empty)
+    }
+
+    // HEL-531 (420-E): a row written before this ticket only ever has the original four fields
+    // serialized (no `memoryEnabled` key at all) -- decoding that absence must fall back to
+    // `true` (preserving the caller's actual prior behavior), not fail or silently default to
+    // `false`.
+    "decode a pre-existing row with no memoryEnabled key in its JSONB as memoryEnabled = true" in {
+      cleanDb(); seedUser(owner1Id)
+      import PostgresProfile.api._
+      await(db.run(
+        sqlu"""INSERT INTO agent_preferences (user_id, preferences, updated_at)
+               VALUES ($owner1Id::uuid, '{"extras": {}}', now())"""
+      ))
+
+      await(repo.get(owner1)).map(_.memoryEnabled) shouldBe Some(true)
     }
   }
 }

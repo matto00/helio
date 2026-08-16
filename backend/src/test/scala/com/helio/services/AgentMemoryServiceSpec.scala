@@ -2,7 +2,7 @@ package com.helio.services
 
 import com.helio.api.protocols.CreateAgentMemoryRequest
 import com.helio.domain.{AgentMemoryId, AgentMemoryKind, AuthenticatedUser, UserId}
-import com.helio.infrastructure.{AgentMemoryRepository, DbContext}
+import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, DbContext}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -16,14 +16,18 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-478 (420-B) — `AgentMemoryService.add`'s `kind`/blank-`content` validation (tasks.md
  *  4.2). Cap-and-evict mechanics themselves are covered by `AgentMemoryRepositorySpec`; RLS
- *  owner-isolation by `RlsOwnerTablesSpec`'s `agent_memory` section. */
+ *  owner-isolation by `RlsOwnerTablesSpec`'s `agent_memory` section.
+ *
+ *  HEL-531 (420-E) tasks.md 5.2 — also exercises the `memoryEnabled` opt-out: `add` is a no-op
+ *  (no row persisted, still success) when disabled, and behaves normally when enabled. */
 class AgentMemoryServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var service: AgentMemoryService        = _
+  private var embeddedPostgres: EmbeddedPostgres           = _
+  private var db: JdbcBackend.Database                     = _
+  private var service: AgentMemoryService                  = _
+  private var agentPreferencesService: AgentPreferencesService = _
 
   private val owner1Id = UUID.randomUUID().toString
   private val owner1   = UserId(owner1Id)
@@ -38,8 +42,10 @@ class AgentMemoryServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       .load()
       .migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val repo = new AgentMemoryRepository(new DbContext(db, db))
-    service = new AgentMemoryService(repo)
+    val ctx = new DbContext(db, db)
+    val repo = new AgentMemoryRepository(ctx)
+    agentPreferencesService = new AgentPreferencesService(new AgentPreferencesRepository(ctx))
+    service = new AgentMemoryService(repo, agentPreferencesService)
   }
 
   override def afterAll(): Unit = {
@@ -51,6 +57,7 @@ class AgentMemoryServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM agent_memory"))
+    await(db.run(sqlu"DELETE FROM agent_preferences"))
     await(db.run(sqlu"DELETE FROM users"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($owner1Id::uuid, ${s"$owner1Id@helio.test"}, now())"""))
   }
@@ -110,6 +117,29 @@ class AgentMemoryServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       cleanDb()
       val result = await(service.add(CreateAgentMemoryRequest("fact", "  padded content  "), user1))
       result.map(_.content) shouldBe Right("padded content")
+    }
+
+    // ── HEL-531 (420-E) tasks.md 5.2 — memoryEnabled opt-out ────────────────
+
+    "be a no-op when memoryEnabled is false: no row persisted, still a normal success response" in {
+      cleanDb()
+      await(agentPreferencesService.setMemoryEnabled(user1, enabled = false))
+
+      val result = await(service.add(CreateAgentMemoryRequest("fact", "should not be captured"), user1))
+      result shouldBe a[Right[_, _]]
+      result.map(_.content) shouldBe Right("should not be captured")
+
+      await(service.list(user1)) shouldBe Right(Seq.empty)
+    }
+
+    "behave normally (persists) when memoryEnabled is true (the default)" in {
+      cleanDb()
+      await(agentPreferencesService.setMemoryEnabled(user1, enabled = true))
+
+      val result = await(service.add(CreateAgentMemoryRequest("fact", "captured normally"), user1))
+      result.map(_.content) shouldBe Right("captured normally")
+
+      await(service.list(user1)).map(_.map(_.content)) shouldBe Right(Seq("captured normally"))
     }
   }
 

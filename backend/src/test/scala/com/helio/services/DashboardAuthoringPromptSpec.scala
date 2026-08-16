@@ -21,7 +21,7 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
 
     "return an empty string for a caller with an extras-only-empty preferences object and no memory" in {
       val agentContext = WorkspaceContextAgentSection(
-        preferences = AgentPreferencesResponse(None, None, None, JsObject.empty),
+        preferences = AgentPreferencesResponse(None, None, None, JsObject.empty, memoryEnabled = true),
         memory      = Vector.empty
       )
       DashboardAuthoringPrompt.agentContextSection(agentContext) shouldBe ""
@@ -33,7 +33,8 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
           defaultSeriesColors = Some(Vector("#abcabc", "#123456")),
           defaultPanelStyle   = None,
           namingConventions   = None,
-          extras              = JsObject.empty
+          extras              = JsObject.empty,
+          memoryEnabled       = true
         ),
         memory = Vector.empty
       )
@@ -45,7 +46,7 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
 
     "include a memory bullet list when memory is non-empty, and no preferences section" in {
       val agentContext = WorkspaceContextAgentSection(
-        preferences = AgentPreferencesResponse(None, None, None, JsObject.empty),
+        preferences = AgentPreferencesResponse(None, None, None, JsObject.empty, memoryEnabled = true),
         memory      = Vector(memoryEntry("m1", "fact", "user loves Netflix dashboards"), memoryEntry("m2", "goal", "always add sentiment coloring"))
       )
       val section = DashboardAuthoringPrompt.agentContextSection(agentContext)
@@ -57,7 +58,7 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
 
     "include both a preferences summary and a memory bullet list when both are present" in {
       val agentContext = WorkspaceContextAgentSection(
-        preferences = AgentPreferencesResponse(Some(Vector("#abcabc")), None, None, JsObject("k" -> JsString("v"))),
+        preferences = AgentPreferencesResponse(Some(Vector("#abcabc")), None, None, JsObject("k" -> JsString("v")), memoryEnabled = true),
         memory      = Vector(memoryEntry("m1", "preference-note", "prefers dark backgrounds"))
       )
       val section = DashboardAuthoringPrompt.agentContextSection(agentContext)
@@ -83,7 +84,7 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
 
     "include the rendered agentContext section after the grounding section when non-empty" in {
       val agentContext = WorkspaceContextAgentSection(
-        preferences = AgentPreferencesResponse(Some(Vector("#abcabc")), None, None, JsObject.empty),
+        preferences = AgentPreferencesResponse(Some(Vector("#abcabc")), None, None, JsObject.empty, memoryEnabled = true),
         memory      = Vector(memoryEntry("m1", "fact", "user loves Netflix dashboards"))
       )
       val message = DashboardAuthoringPrompt.userMessage(

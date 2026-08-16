@@ -374,7 +374,8 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       defaultSeriesColors = Some(Vector("#123456")),
       defaultPanelStyle   = Some(JsObject("background" -> JsString("dark"))),
       namingConventions   = None,
-      extras              = JsObject("note" -> JsString(note))
+      extras              = JsObject("note" -> JsString(note)),
+      memoryEnabled       = true
     )
     await(agentPreferencesRepo.put(ownerId, prefs))
   }
@@ -464,7 +465,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       createdAt  = Instant.now(),
       lastUsedAt = None
     )
-    await(agentMemoryRepo.add(entry, cap = 100))
+    await(agentMemoryRepo.add(entry, cap = 100, retentionDays = 36500))
   }
 
   "RLS on agent_memory" should {

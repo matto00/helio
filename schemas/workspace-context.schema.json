@@ -365,11 +365,14 @@
         },
         "extras": {
           "type": "object"
+        },
+        "memoryEnabled": {
+          "type": "boolean"
         }
       },
-      "required": ["extras"],
+      "required": ["extras", "memoryEnabled"],
       "additionalProperties": false,
-      "description": "Mirrors schemas/agent-preferences.schema.json's AgentPreferencesResponse shape (HEL-472 / 420-A) — duplicated here (not $ref'd cross-file) so this schema stays self-contained, matching every other $defs entry in this file. An absent optional field means no default has been stored for it; extras is always present, an empty object {} when nothing has been stored there."
+      "description": "Mirrors schemas/agent-preferences.schema.json's AgentPreferencesResponse shape (HEL-472 / 420-A; memoryEnabled added HEL-531 / 420-E) — duplicated here (not $ref'd cross-file) so this schema stays self-contained, matching every other $defs entry in this file. An absent optional field means no default has been stored for it; extras/memoryEnabled are always present, memoryEnabled defaulting to true."
     },
     "AgentMemoryEntry": {
       "type": "object",
