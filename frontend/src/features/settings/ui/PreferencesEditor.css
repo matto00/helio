@@ -1,0 +1,197 @@
+.preferences-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 640px;
+}
+
+.preferences-editor__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.preferences-editor__section-heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+/* ── Series color swatches ── */
+
+.preferences-editor__swatch-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preferences-editor__swatch-row {
+  display: grid;
+  grid-template-columns: var(--control-md) 1fr var(--control-md);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.preferences-editor__swatch-row input[type="color"] {
+  width: var(--control-md);
+  height: var(--control-md);
+  padding: 0;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ── Panel style row/slider (mirrors AppearanceEditor.tsx's recipe) ── */
+
+.preferences-editor__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.preferences-editor__field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.preferences-editor__field input[type="color"] {
+  width: 100%;
+  min-height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.preferences-editor__slider {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.preferences-editor__slider input[type="range"] {
+  width: 100%;
+}
+
+.preferences-editor__slider strong {
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}
+
+/* ── Naming convention rows ── */
+
+.preferences-editor__row-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preferences-editor__kv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr var(--control-md);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.preferences-editor__empty-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+/* ── Shared row-action buttons ── */
+
+.preferences-editor__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.preferences-editor__icon-btn:hover {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+.preferences-editor__add-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: var(--control-sm);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.preferences-editor__add-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+/* ── Save action ── */
+
+.preferences-editor__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.preferences-editor__save-btn {
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.preferences-editor__save-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.preferences-editor__save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

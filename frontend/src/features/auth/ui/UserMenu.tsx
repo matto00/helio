@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faSun, faMoon, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
+import {
+  faUser,
+  faSun,
+  faMoon,
+  faGear,
+  faArrowRightFromBracket,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
@@ -46,6 +52,7 @@ interface UserMenuProps {
   toggleTheme: () => void;
   accentColor: string;
   setAccentColor: (hex: string) => void;
+  onNavigateToSettings: () => void;
   onLogout: () => void;
 }
 
@@ -55,6 +62,7 @@ export function UserMenu({
   toggleTheme,
   accentColor,
   setAccentColor,
+  onNavigateToSettings,
   onLogout,
 }: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
@@ -131,6 +139,20 @@ export function UserMenu({
                 <span className="user-menu__section-label">Accent color</span>
                 <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
               </div>
+              <div className="user-menu__divider" />
+              <button
+                type="button"
+                role="menuitem"
+                className="user-menu__item user-menu__item--settings"
+                onClick={() => {
+                  close();
+                  onNavigateToSettings();
+                }}
+                aria-label="Settings"
+              >
+                <FontAwesomeIcon icon={faGear} />
+                Settings
+              </button>
               <div className="user-menu__divider" />
               <button
                 type="button"

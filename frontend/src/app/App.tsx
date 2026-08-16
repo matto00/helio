@@ -39,6 +39,7 @@ import { MetricDetailPage } from "../features/metrics/ui/MetricDetailPage";
 import { MetricsPage } from "../features/metrics/ui/MetricsPage";
 import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage";
 import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
+import { SettingsPage } from "../features/settings/ui/SettingsPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
 import { ProposalReviewPage } from "../features/dashboards/ui/ProposalReviewPage";
@@ -86,6 +87,7 @@ function breadcrumbLabel(pathname: string): string {
   if (pathname.startsWith("/registry")) return "Type Registry";
   if (pathname.startsWith("/metrics")) return "Metrics";
   if (pathname.startsWith("/chat")) return "Chat";
+  if (pathname.startsWith("/settings")) return "Settings";
   return "Dashboards";
 }
 
@@ -476,6 +478,7 @@ function AppShell() {
                 toggleTheme={toggleTheme}
                 accentColor={accentColor}
                 setAccentColor={setAccentColor}
+                onNavigateToSettings={() => navigate("/settings")}
                 onLogout={() => void handleLogout()}
               />
             )}
@@ -590,6 +593,7 @@ export function App() {
             <Route path="/metrics" element={<MetricsPage />} />
             <Route path="/metrics/:id" element={<MetricDetailPage />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/proposals/review" element={<ProposalReviewPage />} />
             <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
           </Route>

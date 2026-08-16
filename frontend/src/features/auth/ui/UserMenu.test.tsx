@@ -15,6 +15,7 @@ function renderMenu(overrides: Partial<User> = {}) {
   const toggleTheme = jest.fn();
   const onLogout = jest.fn();
   const setAccentColor = jest.fn();
+  const onNavigateToSettings = jest.fn();
   const utils = render(
     <UserMenu
       currentUser={user}
@@ -22,10 +23,11 @@ function renderMenu(overrides: Partial<User> = {}) {
       toggleTheme={toggleTheme}
       accentColor="#f97316"
       setAccentColor={setAccentColor}
+      onNavigateToSettings={onNavigateToSettings}
       onLogout={onLogout}
     />,
   );
-  return { ...utils, toggleTheme, onLogout, setAccentColor };
+  return { ...utils, toggleTheme, onLogout, setAccentColor, onNavigateToSettings };
 }
 
 describe("UserMenu", () => {
@@ -108,6 +110,14 @@ describe("UserMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onNavigateToSettings and closes the popover when Settings is clicked", () => {
+    const { onNavigateToSettings } = renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(onNavigateToSettings).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("renders accent color picker inside popover", () => {
