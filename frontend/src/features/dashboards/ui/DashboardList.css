@@ -186,6 +186,23 @@
 
 .dashboard-list__items {
   display: grid;
+  /* `minmax(0, 1fr)` (not the bare implicit `auto` column CSS Grid defaults
+     to) caps the single column at the container's available width instead
+     of auto-sizing to the widest row's max-content width. Without this, a
+     grid item's automatic minimum size is its own min-content size, and
+     `.dashboard-list__name`'s `white-space: nowrap` makes that min-content
+     size equal its FULL unwrapped text width — so every row (regardless of
+     its own text length) gets stretched to the widest sibling's width, the
+     already-correct ellipsis chain below never gets a narrower box to
+     truncate against, and `.dashboard-list` (overflow-y: auto, which per
+     the CSS single-axis-overflow rule also computes overflow-x: auto)
+     horizontal-scrolls instead of clipping. Skeptic-verified defect, HEL-693
+     final-gate round 1: a rename row's full-width `TextField` auto-focus
+     scrolled to the input's *end*, hiding nearly the whole field. Pre-dates
+     this ticket (existing pin-only rows already overflowed) but this
+     ticket's new `.focus()` call is what turns the dormant overflow into a
+     broken interaction — see the `preventScroll` note below too. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   margin: 0;
   padding: 0;
@@ -196,6 +213,11 @@
   display: flex;
   align-items: stretch;
   gap: var(--space-2);
+  /* Grid item — without this, the item's own automatic minimum width
+     (content-based) can still force it wider than its now-capped grid
+     track/area. Completes the min-width:0 chain that already exists on
+     every descendant down to `.dashboard-list__name` (see above). */
+  min-width: 0;
 }
 
 /* The SidebarItemList wraps each row in a column so the delete-confirm UI
@@ -210,6 +232,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* Flex item (cross-axis stretch, in the `.dashboard-list__item--row`
+     column-direction parent) — same min-width:0 chain link as the parent
+     `.dashboard-list__item` above. */
+  min-width: 0;
 }
 
 .dashboard-list__item .dashboard-list__button,
@@ -261,6 +287,7 @@
 .dashboard-list__row-action {
   flex-shrink: 0;
   display: inline-flex;
+  gap: var(--space-1);
 }
 
 .dashboard-list__row-action-btn {
@@ -288,6 +315,53 @@
 .dashboard-list__row-action-btn:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 1px;
+}
+
+/* ── SidebarItemList inline row-rename (`onRename`, HEL-693 design.md D3) ──
+   A full-row swap: replaces the selectable button/NavLink and row actions
+   while a row is being renamed. Metrics mirror `.dashboard-list__filter-input`
+   above (the styling reference per design.md D3) — NOT the taller, accent-
+   bordered `.dashboard-list__rename-input` further down this file, which is
+   DashboardList.tsx's own unrelated ActionsMenu-triggered rename. */
+.dashboard-list__row-rename {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-list__row-rename-input {
+  width: 100%;
+  min-height: var(--control-sm);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-size: var(--text-xs);
+  padding: 0 var(--space-2);
+  transition:
+    border-color var(--app-transition),
+    box-shadow var(--app-transition);
+}
+
+.dashboard-list__row-rename-input:focus-visible {
+  outline: none;
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px var(--app-accent-dim);
+}
+
+.dashboard-list__row-rename-input[aria-invalid="true"] {
+  border-color: var(--app-error);
+}
+
+.dashboard-list__row-rename-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboard-list__row-rename-error {
+  margin: 0;
+  padding: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--app-error);
 }
 
 .dashboard-list__delete-confirm-row {

@@ -332,3 +332,143 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
     ).toBeNull();
   });
 });
+
+describe("SidebarBody chat section — inline rename (HEL-693)", () => {
+  function openRename() {
+    fireEvent.click(screen.getByRole("button", { name: "Rename Netflix dashboard build" }));
+    return screen.getByRole("textbox", { name: "Rename Netflix dashboard build" });
+  }
+
+  it("renaming a conversation sends PATCH {title} and shows the new title (Enter commit path)", async () => {
+    updateConversationMock.mockResolvedValueOnce({
+      id: "conv-1",
+      title: "New title",
+      pinned: false,
+      updatedAt: "2026-08-01T00:00:00Z",
+    });
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.change(input, { target: { value: "New title" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(updateConversationMock).toHaveBeenCalledWith("conv-1", { title: "New title" }),
+    );
+    await waitFor(() => expect(screen.getByText("New title")).toBeInTheDocument());
+  });
+
+  it("Escape cancels a rename with no PATCH and restores the original title", () => {
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.change(input, { target: { value: "Changed title" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(updateConversationMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Netflix dashboard build")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Rename Netflix dashboard build" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a blank-after-trim title commits nothing and marks the input invalid", () => {
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(updateConversationMock).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("committing an unchanged title exits edit mode with no PATCH", () => {
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(updateConversationMock).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("textbox", { name: "Rename Netflix dashboard build" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Netflix dashboard build")).toBeInTheDocument();
+  });
+
+  it("a failed rename keeps the row editable and shows a role=alert error", async () => {
+    updateConversationMock.mockRejectedValueOnce(new Error("Failed to rename conversation."));
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.change(input, { target: { value: "New title" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => expect(updateConversationMock).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to rename conversation."),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Rename Netflix dashboard build" }),
+    ).toBeInTheDocument();
+  });
+
+  // Evaluator Change Request 1 (evaluation-2.md) — a failed save re-enables
+  // the input but, before this fix, never restored focus: DOM focus landed
+  // on <body>, stranding a keyboard-only user (Escape became a no-op until
+  // focus was manually reacquired via mouse/Tab). Real browsers blur a
+  // focused element the instant it becomes `disabled` (per the evaluator's
+  // live-browser repro); jsdom does not model this -- probed directly:
+  // neither disabling a focused input nor calling `.blur()` on it while
+  // disabled changes `document.activeElement` in jsdom. A plain "is the
+  // input focused after the reject" assertion would therefore pass even
+  // without the fix, since jsdom would simply never have lost focus in the
+  // first place. Simulate the real-browser outcome by moving focus to
+  // another real, focusable element (confirmed via the same probe: focusing
+  // a *different* element does reliably move `document.activeElement` in
+  // jsdom) before the request settles.
+  it("a failed rename restores focus to the rename input so a keyboard-only user can retry or Escape", async () => {
+    let rejectPatch!: (err: Error) => void;
+    updateConversationMock.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectPatch = reject;
+        }),
+    );
+    const items = [buildConversation({})];
+    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+
+    const input = openRename();
+    fireEvent.change(input, { target: { value: "New title" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => expect(input).toBeDisabled());
+    screen.getByRole("button", { name: "New chat" }).focus();
+    expect(input).not.toHaveFocus();
+
+    rejectPatch(new Error("Failed to rename conversation."));
+
+    await waitFor(() => expect(input).not.toBeDisabled());
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it("clicking the rename action does not also select the conversation", () => {
+    const items = [buildConversation({})];
+    const { store } = renderAt("/chat", [], {
+      conversationItems: items,
+      conversationStatus: "succeeded",
+    });
+
+    openRename();
+
+    expect(
+      (store.getState() as { assistantConversations: { selectedConversationId: string | null } })
+        .assistantConversations.selectedConversationId,
+    ).toBeNull();
+  });
+});

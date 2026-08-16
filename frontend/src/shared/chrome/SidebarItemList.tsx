@@ -2,8 +2,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
-import type { ReactNode } from "react";
-import { useState } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import "../../features/dashboards/ui/DashboardList.css";
@@ -63,8 +63,25 @@ interface SidebarItemListProps {
    * renders *inside* that button), a clickable control here needs no
    * `stopPropagation()` to keep its click from also firing `onSelect`.
    * Additive and backward-compatible — existing callers that don't pass it
-   * are unaffected. */
-  renderRowAction?: (item: SidebarItem) => ReactNode;
+   * are unaffected. The second `helpers` argument is likewise additive
+   * (HEL-693 design.md D2): existing single-argument callers compile and
+   * behave unchanged; a caller that wants inline rename (see `onRename`
+   * below) wires a row action's `onClick` to `helpers.startRename()`. */
+  renderRowAction?: (item: SidebarItem, helpers: { startRename: () => void }) => ReactNode;
+  /** Opt-in inline rename (HEL-693 design.md D2). When provided, the row that
+   * `helpers.startRename()` (see `renderRowAction`) was called for swaps into
+   * an editable text input pre-filled with the current name — a full-row
+   * swap, not a squeezed-in confirm panel (design.md D3). Enter commits the
+   * trimmed value by calling this with the new name; Escape and blur cancel
+   * without calling it. A trimmed value identical to `item.name` also cancels
+   * without calling it (design.md D4 — a no-op rename should not touch
+   * `updatedAt`). While the returned promise is pending the input is
+   * disabled; on resolve the row exits edit mode; on reject it stays in edit
+   * mode and shows the rejection's message as a `role="alert"` line below the
+   * row (design.md D5) — callers should reject with a human-readable message
+   * (e.g. `dispatch(thunk(...)).unwrap()`, which rejects with the thunk's
+   * `rejectValue`). */
+  onRename?: (item: SidebarItem, name: string) => Promise<void>;
 }
 
 export function SidebarItemList({
@@ -84,14 +101,106 @@ export function SidebarItemList({
   deleteWarning,
   renderBadge,
   renderRowAction,
+  onRename,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameInvalid, setRenameInvalid] = useState(false);
+  const [renameStatus, setRenameStatus] = useState<"idle" | "saving">("idle");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const normalizedQuery = filterQuery.toLowerCase().trim();
   const filtered =
     normalizedQuery.length === 0
       ? items
       : items.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+
+  // Auto-focus + select-all on entering edit mode (design.md D3), and again
+  // after a failed save re-enables the input (evaluator Change Request 1,
+  // HEL-693 cycle 2): a failed save keeps the same `renamingId` but flips
+  // `renameStatus` back to "idle", so `renameStatus` is a dependency too —
+  // otherwise a keyboard-only user is stranded on `<body>` with no way to
+  // Escape/retype without a mouse. Deliberately an effect rather than a
+  // direct `.focus()` call in `commitRename`'s catch block: React batches
+  // `setRenameStatus`, so the DOM element is still `disabled` (unfocusable)
+  // at the point that call would run — an effect is guaranteed to run only
+  // after React has committed the re-enabled input.
+  //
+  // `{ preventScroll: true }` (skeptic Change Request 1, final-gate round 1):
+  // the row being renamed was just clicked, so it's already the vertically
+  // in-view row — the only reason `.focus()` would trigger a scroll here is
+  // the horizontal overflow the `DashboardList.css` grid-track fix (see that
+  // file's `.dashboard-list__items` comment) now resolves at the root. This
+  // is defense-in-depth on top of that CSS fix, not a replacement for it:
+  // it stops the browser's default "scroll the focus target into view"
+  // behavior outright, so even an edge case the width fix doesn't fully
+  // anticipate can no longer scroll the input's end into view and hide its
+  // start from the user.
+  useEffect(() => {
+    if (renamingId !== null && renameStatus === "idle") {
+      renameInputRef.current?.focus({ preventScroll: true });
+      renameInputRef.current?.select();
+    }
+  }, [renamingId, renameStatus]);
+
+  function startRename(item: SidebarItem) {
+    setConfirmDeleteId(null);
+    setRenamingId(item.id);
+    setRenameValue(item.name);
+    setRenameInvalid(false);
+    setRenameStatus("idle");
+    setRenameError(null);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue("");
+    setRenameInvalid(false);
+    setRenameStatus("idle");
+    setRenameError(null);
+  }
+
+  async function commitRename(item: SidebarItem) {
+    const trimmed = renameValue.trim();
+    if (trimmed.length === 0) {
+      // Blank-after-trim never saves (design.md D4) — stay in edit mode so
+      // the user can fix it or Escape out.
+      setRenameInvalid(true);
+      return;
+    }
+    if (trimmed === item.name) {
+      // No-op rename — exit without a PATCH (design.md D4).
+      cancelRename();
+      return;
+    }
+    setRenameStatus("saving");
+    setRenameError(null);
+    try {
+      await onRename?.(item, trimmed);
+      cancelRename();
+    } catch (err) {
+      setRenameStatus("idle");
+      // RTK's `dispatch(thunk(...)).unwrap()` (the documented `onRename` shape, design.md D5)
+      // throws the thunk's string `rejectValue` directly, not an `Error` — so a plain string
+      // must be checked first or the server's message is silently dropped in favor of the
+      // generic fallback below.
+      setRenameError(
+        typeof err === "string" ? err : err instanceof Error ? err.message : "Failed to rename.",
+      );
+    }
+  }
+
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>, item: SidebarItem) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commitRename(item);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelRename();
+    }
+  }
 
   function renderEmpty() {
     if (normalizedQuery.length > 0) {
@@ -177,64 +286,103 @@ export function SidebarItemList({
               : "dashboard-list__button";
             const activeLabel = heading.toLowerCase().replace(/s$/, "");
             const isConfirmingDelete = confirmDeleteId === item.id;
+            const isRenaming = renamingId === item.id;
             return (
               <li key={item.id} className="dashboard-list__item dashboard-list__item--row">
                 <div className="dashboard-list__item-row">
-                  {onSelect !== undefined ? (
-                    <button
-                      type="button"
-                      className={
-                        item.subtitle !== undefined
-                          ? `${className} dashboard-list__button--stacked`
-                          : className
-                      }
-                      aria-pressed={isActive}
-                      onClick={() => onSelect(item)}
-                    >
-                      {renderItemText(item, renderBadge)}
-                      {isActive ? (
-                        <span
-                          className="dashboard-list__active-dot"
-                          aria-label={`Active ${activeLabel}`}
+                  {isRenaming ? (
+                    // Full-row swap (design.md D3) — the selectable button/NavLink and row
+                    // actions are replaced, not squeezed alongside, while renaming.
+                    <div className="dashboard-list__row-rename">
+                      <TextField
+                        ref={renameInputRef}
+                        className="dashboard-list__row-rename-input"
+                        type="text"
+                        value={renameValue}
+                        disabled={renameStatus === "saving"}
+                        aria-label={`Rename ${item.name}`}
+                        aria-invalid={renameInvalid ? true : undefined}
+                        onChange={(event) => {
+                          setRenameValue(event.target.value);
+                          setRenameInvalid(false);
+                        }}
+                        onKeyDown={(event) => handleRenameKeyDown(event, item)}
+                        onBlur={() => {
+                          // Disabling the input while a save is in flight blurs it (a disabled
+                          // element can't hold focus) — that's not a user-initiated blur, so it
+                          // must not cancel the in-flight rename (design.md D5).
+                          if (renameStatus === "saving") return;
+                          cancelRename();
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      {onSelect !== undefined ? (
+                        <button
+                          type="button"
+                          className={
+                            item.subtitle !== undefined
+                              ? `${className} dashboard-list__button--stacked`
+                              : className
+                          }
+                          aria-pressed={isActive}
+                          onClick={() => onSelect(item)}
+                        >
+                          {renderItemText(item, renderBadge)}
+                          {isActive ? (
+                            <span
+                              className="dashboard-list__active-dot"
+                              aria-label={`Active ${activeLabel}`}
+                            />
+                          ) : null}
+                        </button>
+                      ) : toHref !== undefined ? (
+                        <NavLink
+                          to={toHref(item)}
+                          className={({ isActive: routeActive }) => {
+                            const base =
+                              routeActive || isActive ? className : "dashboard-list__button";
+                            return item.subtitle !== undefined
+                              ? `${base} dashboard-list__button--stacked`
+                              : base;
+                          }}
+                          end
+                        >
+                          {renderItemText(item, renderBadge)}
+                          {isActive ? (
+                            <span
+                              className="dashboard-list__active-dot"
+                              aria-label={`Active ${activeLabel}`}
+                            />
+                          ) : null}
+                        </NavLink>
+                      ) : null}
+                      {renderRowAction !== undefined ? (
+                        <span className="dashboard-list__row-action">
+                          {renderRowAction(item, { startRename: () => startRename(item) })}
+                        </span>
+                      ) : null}
+                      {onDelete !== undefined && !isConfirmingDelete ? (
+                        <ActionsMenu
+                          label={`${item.name} actions`}
+                          items={[
+                            {
+                              label: "Delete",
+                              onClick: () => setConfirmDeleteId(item.id),
+                              danger: true,
+                            },
+                          ]}
                         />
                       ) : null}
-                    </button>
-                  ) : toHref !== undefined ? (
-                    <NavLink
-                      to={toHref(item)}
-                      className={({ isActive: routeActive }) => {
-                        const base = routeActive || isActive ? className : "dashboard-list__button";
-                        return item.subtitle !== undefined
-                          ? `${base} dashboard-list__button--stacked`
-                          : base;
-                      }}
-                      end
-                    >
-                      {renderItemText(item, renderBadge)}
-                      {isActive ? (
-                        <span
-                          className="dashboard-list__active-dot"
-                          aria-label={`Active ${activeLabel}`}
-                        />
-                      ) : null}
-                    </NavLink>
-                  ) : null}
-                  {renderRowAction !== undefined ? (
-                    <span className="dashboard-list__row-action">{renderRowAction(item)}</span>
-                  ) : null}
-                  {onDelete !== undefined && !isConfirmingDelete ? (
-                    <ActionsMenu
-                      label={`${item.name} actions`}
-                      items={[
-                        {
-                          label: "Delete",
-                          onClick: () => setConfirmDeleteId(item.id),
-                          danger: true,
-                        },
-                      ]}
-                    />
-                  ) : null}
+                    </>
+                  )}
                 </div>
+                {isRenaming && renameError !== null ? (
+                  <p className="dashboard-list__row-rename-error" role="alert">
+                    {renameError}
+                  </p>
+                ) : null}
                 {isConfirmingDelete ? (
                   <div className="dashboard-list__delete-confirm-row">
                     {(() => {
