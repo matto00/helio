@@ -20,6 +20,7 @@ import type { HelioApi } from "./helioApi.js";
 import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
+  AssertionSummaryResponse,
   DataFieldResponse,
   MetricFormat,
   RowCountContractResponse,
@@ -57,6 +58,20 @@ const AGENT_MEMORY_TOP_N = 20;
  *  (design.md Decision 6's "degrade that one section to empty" contract), mirroring the
  *  backend's `WorkspaceContextAgentSection.empty.preferences`. */
 const AGENT_PREFERENCES_EMPTY: AgentPreferencesResponse = { extras: {} };
+
+// ── Assertion trustworthiness (HEL-581 design.md Decisions 3/4) ──────────
+
+/** The zero-valued `lastRunAssertions` default — used when a pipeline has no
+ *  `assert` step, has never run, or its run-history fetch itself fails.
+ *  Mirrors the backend's own zero-valued `AssertionSummary()` default and
+ *  this file's `AGENT_PREFERENCES_EMPTY` precedent for a shared "always
+ *  present, empty when there's nothing to report" constant. */
+const ZERO_ASSERTION_SUMMARY: AssertionSummaryResponse = {
+  passed: 0,
+  warnFailed: 0,
+  errorFailed: 0,
+  failures: [],
+};
 
 /** Ranks `entries` most-recently-useful first: entries with a `lastUsedAt` sorted descending by
  *  that timestamp, followed by never-used (`lastUsedAt` absent) entries in their incoming order
@@ -986,6 +1001,15 @@ export interface WorkspaceContext {
     }>;
     /** set when the analyze fan-out for this pipeline failed */
     stepsError?: string;
+    /** HEL-581: the pipeline's latest-run assertion trustworthiness summary, sourced from
+     *  GET /api/pipelines/:id/run-history's most-recent entry's `assertions` field. ALWAYS
+     *  present (never omitted) — zero-valued (`{passed:0,warnFailed:0,errorFailed:0,failures:[]}`)
+     *  when the pipeline has no `assert` step, has never run, or the run-history fetch itself
+     *  fails — mirrors this file's own "ALWAYS present" convention (sampleRows/columnStats/
+     *  joinHints/metrics). Fetched in its OWN independent try/catch, separate from `steps`/
+     *  `stepsError` (design.md Decision 3) — a run-history failure degrades only this field,
+     *  never blanking out `steps` or producing a misleading `stepsError`. */
+    lastRunAssertions: AssertionSummaryResponse;
   }>;
   dashboards: Array<{ id: string; name: string; panelCount: number }>;
   /** Smart pipeline shape catalog (HEL-391/402) — the shape vocabulary a planning agent can pick
@@ -1098,20 +1122,38 @@ export async function buildWorkspaceContext(
         lastRunRowCount: summary.lastRunRowCount,
         tag: summary.tag ?? null,
       };
-      try {
-        const analyzed = await api.analyzePipeline(summary.id);
-        return {
-          ...base,
-          steps: analyzed.steps.map((step) => ({
-            position: step.position,
-            type: step.type,
-            outputColumns: step.outputSchema.map((f) => f.name),
-            validationError: step.validationError,
-          })),
-        };
-      } catch (err) {
-        return { ...base, steps: [], stepsError: (err as Error).message };
-      }
+      // HEL-581 design.md Decision 3: `analyzePipeline` (steps/stepsError) and
+      // `getPipelineRunHistory` (lastRunAssertions) are fetched concurrently
+      // via Promise.all, but each in its OWN independent try/catch — a
+      // run-history-specific failure must never blank out `steps` or produce
+      // a misleading `stepsError`, and vice versa.
+      const [stepsResult, lastRunAssertions] = await Promise.all([
+        (async () => {
+          try {
+            const analyzed = await api.analyzePipeline(summary.id);
+            return {
+              steps: analyzed.steps.map((step) => ({
+                position: step.position,
+                type: step.type,
+                outputColumns: step.outputSchema.map((f) => f.name),
+                validationError: step.validationError,
+              })),
+            };
+          } catch (err) {
+            return { steps: [], stepsError: (err as Error).message };
+          }
+        })(),
+        (async () => {
+          try {
+            const history = await api.getPipelineRunHistory(summary.id);
+            return history[0]?.assertions ?? ZERO_ASSERTION_SUMMARY;
+          } catch {
+            return ZERO_ASSERTION_SUMMARY;
+          }
+        })(),
+      ]);
+
+      return { ...base, ...stepsResult, lastRunAssertions };
     }),
   );
 

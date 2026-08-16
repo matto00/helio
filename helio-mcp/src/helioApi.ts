@@ -45,6 +45,7 @@ import type {
   PipelineAnalyzeResponse,
   PipelineProposal,
   PipelineProposalApplyResponse,
+  PipelineRunRecordResponse,
   PipelineShapeCatalogEntryResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
@@ -278,6 +279,14 @@ export class HelioApi {
 
   analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
     return this.http.get<PipelineAnalyzeResponse>(`/api/pipelines/${pipelineId}/analyze`);
+  }
+
+  /** Persisted run history for a pipeline, most-recent-first (`startedAt
+   *  DESC`), each entry carrying its own `assertions` summary (HEL-576/
+   *  HEL-581, `GET /api/pipelines/:id/run-history`). Thin pass-through,
+   *  mirrors `analyzePipeline`'s style — no reshaping. */
+  getPipelineRunHistory(pipelineId: string): Promise<PipelineRunRecordResponse[]> {
+    return this.http.get<PipelineRunRecordResponse[]>(`/api/pipelines/${pipelineId}/run-history`);
   }
 
   /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381,

@@ -31,8 +31,11 @@ import type { HelioHttpClient } from "./httpClient.js";
 import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
+  AssertionSummaryResponse,
   DataTypeResponse,
   MetricResponse,
+  PipelineRunRecordResponse,
+  PipelineSummaryResponse,
 } from "./types.js";
 
 /** `noUncheckedIndexedAccess` (helio-mcp's tsconfig) types `arr[0]` as
@@ -1639,6 +1642,7 @@ describe("applyBudget", () => {
           lastRunRowCount: 100,
           tag: null,
           steps: [{ position: 0, type: "cast", outputColumns: ["amount"], validationError: null }],
+          lastRunAssertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
         },
       ],
       dashboards: [{ id: "dash-1", name: "Overview", panelCount: 4 }],
@@ -1793,4 +1797,189 @@ describe("paginationTruncatedResources", () => {
       "dashboards",
     ]);
   });
+});
+
+/**
+ * HEL-581 tasks.md 4.2 — `buildWorkspaceContext`'s `pipelines[].lastRunAssertions` wiring
+ * (design.md Decisions 3/4): sourced from `GET /api/pipelines/:id/run-history`'s FIRST
+ * (most-recent) entry's `assertions` field, fetched in its OWN independent try/catch from
+ * `analyzePipeline`'s (steps/stepsError) — a failure in either fetch degrades only that
+ * fetch's own field, never the other's.
+ */
+describe("buildWorkspaceContext — lastRunAssertions wiring (HEL-581)", () => {
+  const ZERO_SUMMARY: AssertionSummaryResponse = {
+    passed: 0,
+    warnFailed: 0,
+    errorFailed: 0,
+    failures: [],
+  };
+
+  function emptyPage<T>(): { items: T[]; total: number; offset: number; limit: number } {
+    return { items: [], total: 0, offset: 0, limit: 200 };
+  }
+
+  function pipelineSummaryFixture(
+    overrides: Partial<PipelineSummaryResponse> = {},
+  ): PipelineSummaryResponse {
+    return {
+      id: "pipeline-1",
+      name: "Revenue pipeline",
+      sourceDataSourceId: "source-1",
+      sourceDataSourceName: "Source 1",
+      outputDataTypeName: "Revenue",
+      outputDataTypeId: "type-1",
+      lastRunStatus: "succeeded",
+      lastRunAt: "2026-01-01T00:00:00Z",
+      lastRunRowCount: 10,
+      ...overrides,
+    };
+  }
+
+  function runRecordFixture(
+    assertions: AssertionSummaryResponse,
+    overrides: Partial<PipelineRunRecordResponse> = {},
+  ): PipelineRunRecordResponse {
+    return {
+      id: "run-1",
+      pipelineId: "pipeline-1",
+      status: "succeeded",
+      startedAt: "2026-01-02T00:00:00Z",
+      triggerSource: "manual",
+      assertions,
+      ...overrides,
+    };
+  }
+
+  /** A minimal fake covering every call `buildWorkspaceContext` makes for a workspace with
+   *  exactly one pipeline and nothing else (dataTypes/dataSources/dashboards/metrics/shapes
+   *  all empty) — this block's assertions are entirely about `lastRunAssertions`, mirroring
+   *  the "buildWorkspaceContext — agentContext wiring" block's `baseFakeApi` precedent above. */
+  function baseFakeApi(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      listDataSources: async () => emptyPage(),
+      listDataTypes: async () => emptyPage(),
+      listDashboards: async () => emptyPage(),
+      listPipelines: async () => [pipelineSummaryFixture()],
+      listPipelineShapes: async () => [],
+      listMetrics: async () => emptyPage(),
+      getAgentPreferences: async () => ({ extras: {} }),
+      listAgentMemory: async () => [],
+      analyzePipeline: async () => ({
+        id: "pipeline-1",
+        name: "Revenue pipeline",
+        sourceDataSourceName: "Source 1",
+        outputDataTypeName: "Revenue",
+        outputDataTypeId: "type-1",
+        sourceSchema: [],
+        steps: [],
+      }),
+      ...overrides,
+    };
+  }
+
+  function findPipeline(context: WorkspaceContext, id = "pipeline-1") {
+    const pipeline = context.pipelines.find((p) => p.id === id);
+    if (!pipeline) throw new Error(`${id} missing from context.pipelines`);
+    return pipeline;
+  }
+
+  it("reflects a pipeline's most-recent run's assertions (spec.md scenario: one error-severity failure)", async () => {
+    const latest: AssertionSummaryResponse = {
+      passed: 2,
+      warnFailed: 0,
+      errorFailed: 1,
+      failures: [
+        {
+          kind: "notNull",
+          field: "email",
+          severity: "error",
+          message: "Field 'email' has 3 row(s) with a null value",
+        },
+      ],
+    };
+    const older: AssertionSummaryResponse = {
+      passed: 5,
+      warnFailed: 0,
+      errorFailed: 0,
+      failures: [],
+    };
+    const fake = baseFakeApi({
+      // Most-recent-first — the SECOND entry (older) must be ignored.
+      getPipelineRunHistory: async () => [
+        runRecordFixture(latest, { id: "run-2", startedAt: "2026-01-03T00:00:00Z" }),
+        runRecordFixture(older, { id: "run-1", startedAt: "2026-01-02T00:00:00Z" }),
+      ],
+    });
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+    const pipeline = findPipeline(context);
+
+    expect(pipeline.lastRunAssertions).toEqual(latest);
+    expect(pipeline.lastRunAssertions.errorFailed).toBe(1);
+  });
+
+  it("is zero-valued (not omitted) for a pipeline with no assert steps (run-history's own zero-valued assertions)", async () => {
+    const fake = baseFakeApi({
+      getPipelineRunHistory: async () => [runRecordFixture(ZERO_SUMMARY)],
+    });
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+    const pipeline = findPipeline(context);
+
+    expect(pipeline.lastRunAssertions).toEqual(ZERO_SUMMARY);
+  });
+
+  it("is zero-valued (not omitted) for a pipeline with no runs yet (empty run-history array)", async () => {
+    const fake = baseFakeApi({ getPipelineRunHistory: async () => [] });
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+    const pipeline = findPipeline(context);
+
+    expect(pipeline.lastRunAssertions).toEqual(ZERO_SUMMARY);
+  });
+
+  it(
+    "degrades lastRunAssertions to zero-valued (not failing the whole call) when " +
+      "getPipelineRunHistory rejects, WITHOUT affecting steps/stepsError (design.md Decision 3)",
+    async () => {
+      const fake = baseFakeApi({
+        getPipelineRunHistory: async () => {
+          throw new Error("run-history boom");
+        },
+      });
+
+      const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+      const pipeline = findPipeline(context);
+
+      expect(pipeline.lastRunAssertions).toEqual(ZERO_SUMMARY);
+      expect(pipeline.stepsError).toBeUndefined();
+      expect(pipeline.steps).toEqual([]);
+    },
+  );
+
+  it(
+    "degrades steps/stepsError independently when analyzePipeline rejects, WITHOUT affecting " +
+      "lastRunAssertions (design.md Decision 3, the sibling isolation direction)",
+    async () => {
+      const summary: AssertionSummaryResponse = {
+        passed: 3,
+        warnFailed: 1,
+        errorFailed: 0,
+        failures: [{ kind: "range", field: "amount", severity: "warn", message: "out of range" }],
+      };
+      const fake = baseFakeApi({
+        analyzePipeline: async () => {
+          throw new Error("analyze boom");
+        },
+        getPipelineRunHistory: async () => [runRecordFixture(summary)],
+      });
+
+      const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+      const pipeline = findPipeline(context);
+
+      expect(pipeline.stepsError).toBe("analyze boom");
+      expect(pipeline.steps).toEqual([]);
+      expect(pipeline.lastRunAssertions).toEqual(summary);
+    },
+  );
 });

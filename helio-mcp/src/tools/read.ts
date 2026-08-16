@@ -282,7 +282,14 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "format/deprecated for every NON-DEPRECATED metric the caller owns — a deprecated metric is " +
         "excluded here; call list_metrics to see deprecated ones too, e.g. to un-deprecate one). " +
         "Bind a proposal panel to one via metricId (propose_dashboard/apply_proposal) instead of " +
-        "re-deriving a raw dataTypeId/fieldMapping binding. Also includes agentContext: the " +
+        "re-deriving a raw dataTypeId/fieldMapping binding. Each pipeline entry's " +
+        "lastRunAssertions (HEL-581) is the trustworthiness signal for whether that pipeline's " +
+        "MOST RECENT run's data can be trusted: passed/warnFailed/errorFailed counts plus a " +
+        "failures list (kind/field/severity/message) naming which assert rules failed. Reason " +
+        "about a dashboard's data quality by checking a bound DataType's producing pipeline's " +
+        "lastRunAssertions.errorFailed before treating its last run's rows as reliable — always " +
+        "present and zero-valued (not omitted) for a pipeline with no assert step or no runs yet. " +
+        "Also includes agentContext: the " +
         "authenticated token owner's stored agent-authoring preferences plus up to 20 of their " +
         "most-recently-useful memory entries (facts/goals/preference-notes), most-recently-useful " +
         "first — read this to reason about how the user generally likes dashboards built, without a " +
