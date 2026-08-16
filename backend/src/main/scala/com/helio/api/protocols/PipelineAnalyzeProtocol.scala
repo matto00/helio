@@ -185,6 +185,20 @@ final case class AssertAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Assert }
 
+// ── Schema-drift wire types (HEL-462, design D6) ───────────────────────────
+
+final case class TypeChangedColumnResponse(name: String, previousType: String, currentType: String)
+
+final case class SourceSchemaDriftResponse(
+    addedColumns:       Vector[SchemaFieldResponse],
+    removedColumns:     Vector[SchemaFieldResponse],
+    typeChangedColumns: Vector[TypeChangedColumnResponse]
+)
+
+/** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
+ *  when there is no baseline yet — i.e. the pipeline has never run
+ *  successfully — or the current source schema matches the baseline exactly.
+ *  spray-json omits `None` on the wire. */
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -192,7 +206,8 @@ final case class PipelineAnalyzeResponse(
     outputDataTypeName:   String,
     outputDataTypeId:     String,
     sourceSchema:         Vector[SchemaFieldResponse],
-    steps:                Vector[AnalyzeStepResponse]
+    steps:                Vector[AnalyzeStepResponse],
+    sourceSchemaDrift:    Option[SourceSchemaDriftResponse] = None
 )
 
 /** `PipelineAnalyzeProtocol extends DataTypeProtocol with PipelineStepProtocol`
@@ -290,5 +305,9 @@ trait PipelineAnalyzeProtocol
       }
   }
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat7(PipelineAnalyzeResponse.apply)
+  // HEL-462: schema-drift wire formats.
+  implicit val typeChangedColumnResponseFormat: RootJsonFormat[TypeChangedColumnResponse] = jsonFormat3(TypeChangedColumnResponse.apply)
+  implicit val sourceSchemaDriftResponseFormat: RootJsonFormat[SourceSchemaDriftResponse] = jsonFormat3(SourceSchemaDriftResponse.apply)
+
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat8(PipelineAnalyzeResponse.apply)
 }

@@ -15,16 +15,20 @@ import com.helio.domain.{
   BinaryRef,
   DataField,
   DataSource,
+  DataSourceId,
   DataTypeId,
   InProcessPipelineEngine,
   Pipeline,
+  PipelineAnalyzeService,
   PipelineId,
   PipelineRowJson,
   PipelineRunId,
   PipelineStep,
   RestSource,
+  SchemaField,
   SqlSource
 }
+import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.{
   BinaryRefRepository,
   DataSourceRepository,
@@ -39,6 +43,7 @@ import com.helio.infrastructure.PipelineRunRepository.PipelineRunAssertionRow
 import com.helio.spark.PipelineRunCache
 import org.slf4j.LoggerFactory
 import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 import java.time.Instant
 import java.util.UUID
@@ -379,7 +384,7 @@ final class PipelineRunService(
         // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
-          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+          else onRunSuccess(pipeline.outputDataTypeId, pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
         followUp.map { blockedSummary =>
           val response = RunResultResponse(
             jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
@@ -440,18 +445,19 @@ final class PipelineRunService(
    *  for `errorLog`, surfaced to `executeRun` so `RunResultResponse` can
    *  report `blocked`/`blockedReason` without recomputing it (Decision 8). */
   private def onRunSuccess(
-      outputDataTypeId: DataTypeId,
-      pipelineId:       PipelineId,
-      runId:            PipelineRunId,
-      pidStr:           String,
-      resultRows:       Seq[Map[String, Any]],
-      jsRows:           Vector[JsObject],
-      user:             AuthenticatedUser,
-      assertionResults: Vector[AssertionResult]
+      outputDataTypeId:   DataTypeId,
+      sourceDataSourceId: DataSourceId,
+      pipelineId:         PipelineId,
+      runId:              PipelineRunId,
+      pidStr:             String,
+      resultRows:         Seq[Map[String, Any]],
+      jsRows:             Vector[JsObject],
+      user:               AuthenticatedUser,
+      assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
+    else onUnblockedRunSuccess(outputDataTypeId, sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -488,14 +494,15 @@ final class PipelineRunService(
   /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
    *  behavior — a pure insertion point above this method, not a rewrite. */
   private def onUnblockedRunSuccess(
-      outputDataTypeId: DataTypeId,
-      pipelineId:       PipelineId,
-      runId:            PipelineRunId,
-      pidStr:           String,
-      resultRows:       Seq[Map[String, Any]],
-      jsRows:           Vector[JsObject],
-      user:             AuthenticatedUser,
-      assertionResults: Vector[AssertionResult]
+      outputDataTypeId:   DataTypeId,
+      sourceDataSourceId: DataSourceId,
+      pipelineId:         PipelineId,
+      runId:              PipelineRunId,
+      pidStr:             String,
+      resultRows:         Seq[Map[String, Any]],
+      jsRows:             Vector[JsObject],
+      user:               AuthenticatedUser,
+      assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
@@ -539,6 +546,24 @@ final class PipelineRunService(
     // `pipeline_runs` row exists before this real-run success path runs —
     // no ordering constraint here (unlike onDryRunSuccess above).
     val assertionsInsert = persistAssertions(runId, assertionResults)
+    // HEL-462 (design D4): best-effort schema-drift baseline capture — the
+    // current source schema (same derivation `PipelineService.analyze` uses)
+    // becomes the new `last_source_schema` baseline. Only real, non-dry
+    // successes reach this method (`onDryRunSuccess` never calls it), which
+    // is exactly "a successful run" in the ticket's sense. `recoverWith`
+    // ensures a resolution/write failure here never fails or blocks the run.
+    val baselineUpsert: Future[Unit] =
+      if (dataTypeRepo != null)
+        dataTypeRepo.findBySourceId(sourceDataSourceId, user.id)
+          .map(PipelineAnalyzeService.deriveSourceSchema)
+          .flatMap { schema: Vector[SchemaField] =>
+            pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
+          }
+          .recoverWith { case ex =>
+            log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
+            Future.successful(())
+          }
+      else Future.successful(())
     for {
       _ <- schemaUpsert
       _ <- rowsUpsert
@@ -547,6 +572,7 @@ final class PipelineRunService(
       _ <- updateMeta
       _ <- updateRun
       _ <- assertionsInsert
+      _ <- baselineUpsert
     } yield None
   }
 

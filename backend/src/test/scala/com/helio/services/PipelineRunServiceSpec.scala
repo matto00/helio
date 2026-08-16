@@ -1,6 +1,7 @@
 package com.helio.services
 
 import com.helio.domain._
+import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.{
   DataSourceRepository,
   DataTypeRepository,
@@ -18,7 +19,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.{JsNumber, JsObject}
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 import java.nio.file.Paths
 import java.time.Instant
@@ -100,6 +102,27 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
                VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
     )))
     PipelineId(pid)
+  }
+
+  /** HEL-462: inserts the companion source DataType (`source_id = dsId`) that
+   *  `PipelineAnalyzeService.deriveSourceSchema` reads via `findBySourceId` —
+   *  `seedPipeline`/`seedDsWithData` alone leave the source without one.
+   *  Returns the new DataType's id (for `updateSourceDataTypeFields` below). */
+  private def seedSourceDataType(dsId: String, fieldsJson: String): String = {
+    import PostgresProfile.api._
+    val dtId = UUID.randomUUID().toString
+    await(db.run(sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
+             VALUES ($dtId, $dsId, 'source-dt', $fieldsJson, 1, '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dtId
+  }
+
+  /** Simulates a source re-inference (`SourceService.refresh`) changing the
+   *  *existing* source DataType's declared fields in place — a source has at
+   *  most one companion DataType (per `deriveSourceSchema`'s doc), so drift
+   *  scenarios update this row rather than insert a second one. */
+  private def updateSourceDataTypeFields(dtId: String, fieldsJson: String): Unit = {
+    import PostgresProfile.api._
+    await(db.run(sqlu"UPDATE data_types SET fields = $fieldsJson, updated_at = now() WHERE id = $dtId"))
   }
 
   /** Grants `role` on `pipelineId` to a freshly-created user, returning that
@@ -346,6 +369,68 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val results = await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runs.head.id)))
       results should have size 1
       results.head.passed shouldBe false
+    }
+  }
+
+  // ── HEL-462: schema-drift baseline persistence ────────────────────────────
+
+  "PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)" should {
+
+    "persists last_source_schema (matching the source DataType's declared fields) on a successful real run" in {
+      val dsId = seedDsWithData()
+      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true},{"name":"score","displayName":"score","dataType":"double","nullable":true}]""")
+      val pid  = seedPipeline(dsId)
+
+      await(pipelineRepo.findLastSourceSchema(pid, dummyUser)) shouldBe None
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val baselineJson = await(pipelineRepo.findLastSourceSchema(pid, dummyUser))
+      baselineJson shouldBe defined
+      val baseline = baselineJson.get.parseJson.convertTo[Vector[SchemaField]]
+      baseline should contain theSameElementsAs Vector(SchemaField("name", "string"), SchemaField("score", "double"))
+    }
+
+    "does not persist a schema-drift baseline on a successful dry run" in {
+      val dsId = seedDsWithData()
+      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = true, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      await(pipelineRepo.findLastSourceSchema(pid, dummyUser)) shouldBe None
+    }
+
+    "does not persist a schema-drift baseline when the run is blocked by an error-severity assertion" in {
+      val dsId = seedDsWithData()
+      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.blocked shouldBe true
+
+      await(pipelineRepo.findLastSourceSchema(pid, dummyUser)) shouldBe None
+    }
+
+    "overwrites a stale baseline with the latest source schema on a subsequent successful run" in {
+      val dsId = seedDsWithData()
+      val sourceDtId = seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      val pid  = seedPipeline(dsId)
+
+      await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
+      val firstBaseline = await(pipelineRepo.findLastSourceSchema(pid, dummyUser)).get.parseJson.convertTo[Vector[SchemaField]]
+      firstBaseline shouldBe Vector(SchemaField("name", "string"))
+
+      // Source schema changes out from under the pipeline (column added).
+      updateSourceDataTypeFields(sourceDtId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true},{"name":"region","displayName":"region","dataType":"string","nullable":true}]""")
+
+      await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
+      val secondBaseline = await(pipelineRepo.findLastSourceSchema(pid, dummyUser)).get.parseJson.convertTo[Vector[SchemaField]]
+      secondBaseline should contain theSameElementsAs Vector(SchemaField("name", "string"), SchemaField("region", "string"))
     }
   }
 
