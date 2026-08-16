@@ -4,15 +4,15 @@ TICKET_ID: HEL-462
 CHANGE_NAME: pipeline-schema-drift-detection
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/pipeline-schema-drift-detection/HEL-462
 BRANCH: feature/pipeline-schema-drift-detection/HEL-462
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 2
 DEV_PORT: 5894
 BACKEND_PORT: 8801
 EXECUTOR_AGENT_ID: ad4a92f84c468b361
 EVALUATOR_AGENT_ID: a24cf38ee020c22b8
 LAST_EVAL_VERDICT: PASS
-LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/pipeline-schema-drift-detection/HEL-462/openspec/changes/pipeline-schema-drift-detection/evaluation-1.md
-SKEPTIC_CYCLE: 1
+LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/pipeline-schema-drift-detection/HEL-462/openspec/changes/pipeline-schema-drift-detection/evaluation-2.md
+SKEPTIC_CYCLE: 2
 LAST_SKEPTIC_VERDICT: CONFIRM
 AGENT_MERGE: false
 TICKET_TYPE: feature
@@ -29,17 +29,16 @@ PENDING_ESCALATION: null
 
 # FOLLOW-UP TRIAGE RESOLVED (parent answer 2026-08-16, escalation.answered recorded):
 #   1) service-file split -> standalone -> HEL-689 filed
-#   2) malformed-baseline tolerant-parse test -> FOLD-IN (in progress, this state)
+#   2) malformed-baseline tolerant-parse test -> FOLD-IN -> COMPLETE (see below)
 #   3) grantee last-run/baseline write gap -> standalone -> HEL-690 filed
-# FOLD-IN STATE: change un-archived (git mv back to openspec/changes/), plan revised
-# (ticket.md AC + proposal/design/tasks section 6), openspec validate clean. Next:
-# design-gate skeptic on revised plan -> executor (warm resume ad4a92f84c468b361, task 6.x)
-# -> evaluator (warm resume a24cf38ee020c22b8) -> fresh final-gate skeptic -> re-archive
-# with --skip-specs (NO spec-requirement change; first archive already merged deltas —
-# naive re-archive would collide) -> push to PR #364 -> notify parent for merge.
+# FOLD-IN COMPLETE: design gate REFUTE(skeptic-design-2) -> revised -> CONFIRM
+# (skeptic-design-3); executor cycle 2 commit 395f0f84 (test-only, sbt 3061/3061);
+# evaluator cycle-2 PASS (evaluation-2.md); final gate invocation 2 CONFIRM
+# (skeptic-final-2.md; V85 still unique vs origin/main). Next: re-archive with
+# --skip-specs, commit, push to PR #364, notify parent for merge.
 # DELIVERY STATE: PR https://github.com/matto00/helio/pull/364 open; parent holds merge
-# until fold-in lands. Implementation commit bdec2540, archive commit 808f4d68.
-# Evaluator PASS (cycle 1), final-gate skeptic CONFIRM (round 1) — pre-fold-in.
+# until fold-in lands (now ready). Commits: bdec2540 (impl), 808f4d68 (archive),
+# 395f0f84 (fold-in test + un-archive), + re-archive commit pending.
 
 # Run-specific notes (facts, not procedure):
 # - Next available Flyway migration at branch time: V85 (both HEAD 6612e291 and
