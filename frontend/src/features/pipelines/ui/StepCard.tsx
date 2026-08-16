@@ -10,6 +10,7 @@ import { useStepCardState } from "../hooks/useStepCardState";
 import { DataGrid } from "../../../shared/ui/index";
 import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
+import { renamesOf } from "../state/stepNarrowing";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./AggregateConfig";
@@ -29,6 +30,7 @@ import { RenameFieldsConfig } from "./RenameFieldsConfig";
 import { SortConfig } from "./SortConfig";
 import { SelectFieldsConfig } from "./SelectFieldsConfig";
 import { SplitTextConfig } from "./SplitTextConfig";
+import { StepSchemaDiffChips } from "./StepSchemaDiffChips";
 import { StringOpsConfig } from "./StringOpsConfig";
 import { UnionConfig } from "./UnionConfig";
 import { UnpivotConfig } from "./UnpivotConfig";
@@ -251,6 +253,11 @@ export function StepCard({
 
       {expanded && (
         <div className="pipeline-detail-page__step-card-body">
+          <StepSchemaDiffChips
+            input={analyzeSchema}
+            output={analyzeOutputSchema}
+            renames={step.opType.id === "rename" ? renamesOf(step) : undefined}
+          />
           {step.opType.id === "select" ? (
             <SelectFieldsConfig
               columns={analyzeColumns}
@@ -367,22 +374,9 @@ export function StepCard({
               onChange={onAssertChange}
             />
           ) : (
-            <>
-              <p className="pipeline-detail-page__step-card-desc">
-                Configure this {step.opType.label.toLowerCase()} step.
-              </p>
-              <div className="pipeline-detail-page__step-card-diff">
-                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--added">
-                  + col_a
-                </span>
-                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--removed">
-                  − col_b
-                </span>
-                <span className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--changed">
-                  ~ col_c
-                </span>
-              </div>
-            </>
+            <p className="pipeline-detail-page__step-card-desc">
+              Configure this {step.opType.label.toLowerCase()} step.
+            </p>
           )}
           <div className="pipeline-detail-page__step-card-actions">
             <button

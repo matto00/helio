@@ -442,6 +442,12 @@
   border: 1px solid var(--app-accent-mid);
 }
 
+.pipeline-detail-page__step-card-diff-chip--renamed {
+  background: var(--app-warning-surface);
+  color: var(--app-warning);
+  border: 1px solid color-mix(in srgb, var(--app-warning) 35%, transparent);
+}
+
 .pipeline-detail-page__step-card-actions {
   display: flex;
   gap: 8px;
