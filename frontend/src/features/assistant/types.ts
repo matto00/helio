@@ -18,11 +18,15 @@ export interface AssistantConversationSummary {
  * full transcript. `hopBudgetExhausted`/`searchedWithNoResults` (HEL-667
  * design.md D1) are ephemeral signals describing the turn that just
  * completed: present only on a `POST /:id/converse` response, always
- * absent (`undefined`) on `GET`. */
+ * absent (`undefined`) on `GET`. `lastIdempotencyKey` (HEL-698 design.md D5)
+ * is, unlike those two, a PERSISTED fact -- the key of the most recent keyed
+ * append -- so it's present on both `GET` and converse responses, and is
+ * what client-side send reconciliation compares against. */
 export interface AssistantConversationDetail extends AssistantConversationSummary {
   transcript: ClaudeToolMessageDto[];
   hopBudgetExhausted?: boolean;
   searchedWithNoResults?: boolean;
+  lastIdempotencyKey?: string;
 }
 
 /** Mirrors `com.helio.ai.ClaudeToolMessage` — one turn of the tool-use-loop

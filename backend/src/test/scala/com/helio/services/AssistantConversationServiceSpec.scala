@@ -124,6 +124,43 @@ class AssistantConversationServiceSpec extends AnyWordSpec with Matchers with Be
     }
   }
 
+  // ── HEL-698 idempotency key (design.md D3 append-time check) ────────────────
+  "AssistantConversationService.appendTurn idempotency key" should {
+
+    "a keyed append records the key on the returned record" in {
+      cleanDb()
+      val detail = await(service.create(user, Some(userText("Hello")), title = None))
+
+      val appended = await(service.appendTurn(user, detail.record.id, Seq(userText("Follow-up")), Some("key-1")))
+      appended shouldBe a[Right[_, _]]
+      appended.toOption.get.lastIdempotencyKey shouldBe Some("key-1")
+    }
+
+    "a matching-key append no-ops -- the transcript stays unchanged and the existing record is returned" in {
+      cleanDb()
+      val detail = await(service.create(user, Some(userText("Hello")), title = None))
+      val first = await(service.appendTurn(user, detail.record.id, Seq(userText("Follow-up")), Some("key-1")))
+      first shouldBe a[Right[_, _]]
+
+      val replay = await(service.appendTurn(user, detail.record.id, Seq(userText("Should never land")), Some("key-1")))
+      replay shouldBe Right(first.toOption.get)
+
+      val fetched = await(service.get(user, detail.record.id))
+      val transcript = fetched.toOption.get.transcript.convertTo[Vector[ClaudeToolMessage]]
+      transcript should have size 2 // Hello + Follow-up only, not the replayed "Should never land"
+    }
+
+    "a keyless append leaves a previously-set key in place" in {
+      cleanDb()
+      val detail = await(service.create(user, Some(userText("Hello")), title = None))
+      await(service.appendTurn(user, detail.record.id, Seq(userText("Keyed")), Some("key-1")))
+
+      val keyless = await(service.appendTurn(user, detail.record.id, Seq(userText("Keyless"))))
+      keyless shouldBe a[Right[_, _]]
+      keyless.toOption.get.lastIdempotencyKey shouldBe Some("key-1")
+    }
+  }
+
   "AssistantConversationService.setPinned + list" should {
 
     "reflect pinned: true in a subsequent list call after PATCH-equivalent setPinned (tasks.md 6.2)" in {

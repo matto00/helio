@@ -24,24 +24,26 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
 
   private def rowToRecord(row: AssistantConversationRow): AssistantConversationRecord =
     AssistantConversationRecord(
-      id         = AssistantConversationId(row.id),
-      ownerId    = UserId(row.ownerId.toString),
-      title      = row.title,
-      pinned     = row.pinned,
-      gcsBodyRef = row.gcsBodyRef,
-      createdAt  = row.createdAt,
-      updatedAt  = row.updatedAt
+      id                 = AssistantConversationId(row.id),
+      ownerId            = UserId(row.ownerId.toString),
+      title              = row.title,
+      pinned             = row.pinned,
+      gcsBodyRef         = row.gcsBodyRef,
+      createdAt          = row.createdAt,
+      updatedAt          = row.updatedAt,
+      lastIdempotencyKey = row.lastIdempotencyKey
     )
 
   private def recordToRow(r: AssistantConversationRecord): AssistantConversationRow =
     AssistantConversationRow(
-      id         = r.id.value,
-      ownerId    = UUID.fromString(r.ownerId.value),
-      title      = r.title,
-      pinned     = r.pinned,
-      gcsBodyRef = r.gcsBodyRef,
-      createdAt  = r.createdAt,
-      updatedAt  = r.updatedAt
+      id                 = r.id.value,
+      ownerId            = UUID.fromString(r.ownerId.value),
+      title              = r.title,
+      pinned             = r.pinned,
+      gcsBodyRef         = r.gcsBodyRef,
+      createdAt          = r.createdAt,
+      updatedAt          = r.updatedAt,
+      lastIdempotencyKey = r.lastIdempotencyKey
     )
 
   /** Inserts a brand-new conversation row. Runs in `record.ownerId`'s user context so the V80 RLS
@@ -110,15 +112,27 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
    *  (design.md D2/tasks.md 4.3) — updates `gcs_body_ref` (stable in practice, since the blob's path
    *  is derived from the conversation id, but threaded through explicitly rather than assumed) and
    *  `updated_at` together, which is what feeds the list endpoint's recency ordering. Returns `None`
-   *  for a missing/foreign-owned id. */
-  def touchUpdatedAt(id: AssistantConversationId, ownerId: UserId, gcsBodyRef: String): Future[Option[AssistantConversationRecord]] = {
+   *  for a missing/foreign-owned id.
+   *
+   *  `lastIdempotencyKey` (HEL-698 design.md D2/D3): `Some(key)` writes `last_idempotency_key` in the
+   *  SAME update tuple as `gcs_body_ref`/`updated_at` — key and metadata touch land atomically.
+   *  `None` (the default — every pre-HEL-698 call site keeps working unchanged) leaves the column
+   *  UNTOUCHED: an unrelated keyless append must never un-protect an outstanding keyed retry. */
+  def touchUpdatedAt(
+      id: AssistantConversationId,
+      ownerId: UserId,
+      gcsBodyRef: String,
+      lastIdempotencyKey: Option[String] = None
+  ): Future[Option[AssistantConversationRecord]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
     val now = Instant.now()
-    val action = table
-      .filter(r => r.id === id.value && r.ownerId === ownerUuid)
-      .map(r => (r.gcsBodyRef, r.updatedAt))
-      .update((gcsBodyRef, now))
-      .andThen(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
+    val filtered = table.filter(r => r.id === id.value && r.ownerId === ownerUuid)
+    val updateAction = lastIdempotencyKey match {
+      case Some(key) => filtered.map(r => (r.gcsBodyRef, r.updatedAt, r.lastIdempotencyKey)).update((gcsBodyRef, now, Some(key)))
+      case None      => filtered.map(r => (r.gcsBodyRef, r.updatedAt)).update((gcsBodyRef, now))
+    }
+    val action = updateAction
+      .andThen(filtered.result.headOption)
       .map(_.map(rowToRecord))
     ctx.withUserContext(ownerId.value)(action)
   }
@@ -190,7 +204,10 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
   /** The repository-facing shape — value-class-typed, mirrors `AuthoringConversationRecord`'s role
    *  for `AuthoringConversationRepository`. `gcsBodyRef` is the transcript blob's `FileSystem` path
    *  (`assistant-conversations/{userId}/{conversationId}.json`, design.md D2) — never the blob's
-   *  content itself, which this repository never reads. */
+   *  content itself, which this repository never reads. `lastIdempotencyKey` (HEL-698 design.md D2)
+   *  is the key of the most recent KEYED append — `None` until the first keyed append ever occurs;
+   *  defaults to `None` so `AssistantConversationService.create`'s existing named-arg construction
+   *  site needs no change. */
   final case class AssistantConversationRecord(
       id: AssistantConversationId,
       ownerId: UserId,
@@ -198,7 +215,8 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       pinned: Boolean,
       gcsBodyRef: String,
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      lastIdempotencyKey: Option[String] = None
   )
 
   private[infrastructure] case class AssistantConversationRow(
@@ -208,19 +226,23 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       pinned: Boolean,
       gcsBodyRef: String,
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      lastIdempotencyKey: Option[String]
   )
 
   private[infrastructure] class AssistantConversationTable(tag: Tag)
       extends Table[AssistantConversationRow](tag, "assistant_conversations") {
-    def id         = column[String]("id", O.PrimaryKey)
-    def ownerId    = column[UUID]("owner_id")
-    def title      = column[String]("title")
-    def pinned     = column[Boolean]("pinned")
-    def gcsBodyRef = column[String]("gcs_body_ref")
-    def createdAt  = column[Instant]("created_at")
-    def updatedAt  = column[Instant]("updated_at")
+    def id                 = column[String]("id", O.PrimaryKey)
+    def ownerId            = column[UUID]("owner_id")
+    def title              = column[String]("title")
+    def pinned             = column[Boolean]("pinned")
+    def gcsBodyRef         = column[String]("gcs_body_ref")
+    def createdAt          = column[Instant]("created_at")
+    def updatedAt          = column[Instant]("updated_at")
+    def lastIdempotencyKey = column[Option[String]]("last_idempotency_key")
 
-    def * = (id, ownerId, title, pinned, gcsBodyRef, createdAt, updatedAt).mapTo[AssistantConversationRow]
+    def * =
+      (id, ownerId, title, pinned, gcsBodyRef, createdAt, updatedAt, lastIdempotencyKey)
+        .mapTo[AssistantConversationRow]
   }
 }

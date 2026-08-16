@@ -29,6 +29,10 @@
     "searchedWithNoResults": {
       "type": "boolean",
       "description": "HEL-667: true when the just-completed converse turn's last tool call was a zero-result find immediately followed by a final answer with no captured proposal. Only present on a POST /:id/converse response; absent on GET."
+    },
+    "lastIdempotencyKey": {
+      "type": "string",
+      "description": "HEL-698: the idempotency key of the most recent KEYED append -- unlike hopBudgetExhausted/searchedWithNoResults, this IS a persisted fact about the conversation, so it is populated on BOTH GET and converse responses. Absent until the first keyed append occurs."
     }
   },
   "additionalProperties": false

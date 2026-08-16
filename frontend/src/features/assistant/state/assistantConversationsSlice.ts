@@ -106,18 +106,38 @@ export const selectConversation = createAsyncThunk<
  * converse → append → re-fetch already returns the refreshed detail). Deliberately does NOT wire
  * `pending`/`rejected` into `activeConversation.status`/`error`: those drive `ActiveConversationPanel`'s
  * full-panel loading/error swap, which would hide the transcript AND the composer mid-send — the
- * composer's own local sending/error state (design.md D6) is what surfaces this instead. */
+ * composer's own local sending/error state (design.md D6) is what surfaces this instead.
+ *
+ * `idempotencyKey` (HEL-698 design.md D6) — threaded straight through to `converseRequest`. On a
+ * converse REJECTION, reconciliation kicks in before giving up: re-fetch the conversation and
+ * compare its `lastIdempotencyKey` against the key this call sent. A match proves the send landed
+ * server-side (and, by `appendTurn`'s blob-write atomicity, Claude's reply landed with it) — return
+ * the fetched detail so the thunk FULFILLS exactly as a successful `converse` would (transcript
+ * replaces wholesale, composer clears its input, no error banner). No match, no key, or a failed
+ * reconciliation fetch all fall through to the original rejection — preserving today's failure UX,
+ * with a retry now idempotency-protected via the key. */
 export const converse = createAsyncThunk<
   AssistantConversationDetail,
-  { id: string; message: string },
+  { id: string; message: string; idempotencyKey?: string },
   { rejectValue: string }
->("assistantConversations/converse", async ({ id, message }, { rejectWithValue }) => {
-  try {
-    return await converseRequest(id, message);
-  } catch (err: unknown) {
-    return rejectWithValue(extractErrorMessage(err, "Failed to send message."));
-  }
-});
+>(
+  "assistantConversations/converse",
+  async ({ id, message, idempotencyKey }, { rejectWithValue }) => {
+    try {
+      return await converseRequest(id, message, idempotencyKey);
+    } catch (err: unknown) {
+      const originalMessage = extractErrorMessage(err, "Failed to send message.");
+      if (idempotencyKey === undefined) return rejectWithValue(originalMessage);
+      try {
+        const reconciled = await getConversationRequest(id);
+        if (reconciled.lastIdempotencyKey === idempotencyKey) return reconciled;
+      } catch {
+        // Reconciliation fetch itself failed -- fall through to the original rejection below.
+      }
+      return rejectWithValue(originalMessage);
+    }
+  },
+);
 
 export const togglePinned = createAsyncThunk<
   AssistantConversationSummary,

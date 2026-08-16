@@ -65,11 +65,19 @@ export async function updateConversation(
 /** `POST /:id/converse` (HEL-665, reopened composer ticket) — sends one typed message and returns
  * the refreshed conversation detail (the whole transcript, already including the new user turn and
  * Claude's response, per `AssistantConversationRoutes`'s fetch → converse → append → re-fetch
- * flow). No follow-up `getConversation` call needed. */
-export async function converse(id: string, message: string): Promise<AssistantConversationDetail> {
+ * flow). No follow-up `getConversation` call needed.
+ *
+ * `idempotencyKey` (HEL-698 design.md D5/D6) — optional client-generated retry key. Omitted from
+ * the request body entirely when `undefined` (mirrors every other optional field in this file),
+ * matching the backend's `Option[String]` -> spray-json-omits-`None` wire contract. */
+export async function converse(
+  id: string,
+  message: string,
+  idempotencyKey?: string,
+): Promise<AssistantConversationDetail> {
   const response = await httpClient.post<AssistantConversationDetail>(
     `${BASE_PATH}/${id}/converse`,
-    { message },
+    { message, idempotencyKey },
   );
   return response.data;
 }

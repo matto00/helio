@@ -151,4 +151,19 @@ object RequestValidation {
 
   private def normalizeText(value: Option[String], defaultValue: String): String =
     value.map(_.trim).filter(_.nonEmpty).getOrElse(defaultValue)
+
+  /** HEL-698 design.md D5: `ConverseRequest.idempotencyKey` normalization — trimmed, a blank value
+   *  treated as absent (a client sending `""` should behave exactly like sending no key at all,
+   *  never a literal empty-string idempotency key), longer than `MaxIdempotencyKeyLength` rejected
+   *  outright (bound junk, mirrors this file's own normalize-first posture). */
+  val MaxIdempotencyKeyLength = 128
+
+  def validateIdempotencyKey(key: Option[String]): Either[String, Option[String]] = {
+    val trimmed = key.map(_.trim).filter(_.nonEmpty)
+    trimmed match {
+      case Some(k) if k.length > MaxIdempotencyKeyLength =>
+        Left(s"idempotencyKey must be at most $MaxIdempotencyKeyLength characters")
+      case other => Right(other)
+    }
+  }
 }
