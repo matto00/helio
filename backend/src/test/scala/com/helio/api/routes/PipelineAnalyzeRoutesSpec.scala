@@ -277,6 +277,23 @@ class PipelineAnalyzeRoutesSpec
         drift.get.typeChangedColumns shouldBe Vector(TypeChangedColumnResponse("amount", previousType = "number", currentType = "integer"))
       }
     }
+
+    "(HEL-462 fold-in) omit sourceSchemaDrift and surface no error when the persisted baseline is syntactically-valid but not schema-array-shaped JSON" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      // A bare JSON string — valid JSON (the JSONB column would reject truly
+      // invalid JSON at write time), but not the `[{name,type}]` shape
+      // `parseBaselineSchema` expects. Exercises design D5's tolerant-parse
+      // failure branch via a real DB round-trip, not a mock.
+      await(pipelineRepo.updateLastSourceSchema(PipelineId(pid), "\"not-json\"", dummyUser))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeResponse]
+        resp.sourceSchemaDrift shouldBe None
+      }
+    }
   }
 
   "pipelineAnalyzeResponseFormat output (HEL-462 sourceSchemaDrift)" should {

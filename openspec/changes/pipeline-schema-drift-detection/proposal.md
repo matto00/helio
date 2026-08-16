@@ -18,6 +18,8 @@ successful run and reports drift against it at analyze time.
 - `GET /api/pipelines/:id/analyze` response gains an optional `sourceSchemaDrift` object, computed at analyze
   time; absent when there is no baseline (never a successful run) or no drift.
 - `schemas/pipeline-analyze-response.schema.json` updated (optional property — not added to `required`).
+- (Fold-in, approved post-review) Direct unit-test coverage for the malformed-baseline tolerant-parse branch
+  (design D5's "malformed → no baseline, warn") — test-only; no behavior or spec-requirement change.
 
 ## Capabilities
 

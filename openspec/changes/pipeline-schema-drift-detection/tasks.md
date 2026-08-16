@@ -47,3 +47,14 @@
 - [x] 5.3 Run-success persistence coverage: unit-level test that the success path invokes baseline persistence
       and the dry-run path does not (mock/stub repo level, matching existing `PipelineRunService` test style).
 - [x] 5.4 `sbt test` green; frontend untouched (no lint surface expected); `openspec validate` clean.
+
+## 6. Fold-in: malformed-baseline tolerant-parse test (approved post-review 2026-08-16)
+
+- [x] 6.1 Direct test for design D5's malformed-baseline branch: extend `PipelineAnalyzeRoutesSpec` with a new
+      case alongside the existing baseline-seeding tests (lines ~241-268), seeding the baseline via
+      `pipelineRepo.updateLastSourceSchema(pid, "\"not-json\"", user)` — syntactically valid JSON (a bare JSON
+      string; the JSONB column rejects literally-invalid JSON at write time) but not schema-array-shaped, so it
+      exercises `parseBaselineSchema`'s tolerant-parse failure branch via a real DB round-trip. Real
+      `EmbeddedPostgres` seeding, NO mocking (matches the file's mock-free convention). Assert analyze yields
+      200 with no `sourceSchemaDrift` member and no error. Test-only; no production-code change expected.
+- [x] 6.2 Re-run gates: full `sbt test` green, `npm run check:schemas` clean; commit.

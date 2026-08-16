@@ -92,3 +92,12 @@ Optional property on `pipeline-analyze-response.schema.json` — NOT added to `r
   performs owner-scoped writes (`user` param) — no new RLS surface.
 - Tests: ScalaTest on `PipelineSchemaDrift.diff` covering AC (a)/(b)/(c) + no-drift; schema-validation coverage
   via the repo's existing JSON-schema test harness for the analyze response.
+- Fold-in (approved post-review 2026-08-16): D5's malformed-baseline tolerant-parse branch gets a direct test —
+  extend `PipelineAnalyzeRoutesSpec` with a case alongside the existing baseline-seeding tests (lines ~241-268),
+  seeding via `pipelineRepo.updateLastSourceSchema(pid, "\"not-json\"", user)`: a value that is syntactically
+  valid JSON (a bare JSON string — `pipelines.last_source_schema` is a real JSONB column, so Postgres rejects
+  literally-invalid JSON at write time) but not schema-array-shaped, so it reaches `parseBaselineSchema`'s
+  `.convertTo[Vector[SchemaField]]` failure branch through a real DB round-trip. Real-`EmbeddedPostgres` fixture
+  seeding, NO mocking (the file's convention is mock-free). Assert: 200 with no `sourceSchemaDrift` member, no
+  error. Test-only addition; the behavior is unchanged and already specified by D5 and the pipeline-analyze-api
+  spec delta, so no spec requirement changes (re-archive uses `--skip-specs`).

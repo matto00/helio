@@ -20,6 +20,9 @@ Source-schema inference already exists: `SchemaInferenceEngine.scala` and the an
 - [ ] A ScalaTest proves: (a) no drift reported on first run; (b) a removed source column is reported in `removedColumns`; (c) a type change is reported in `typeChangedColumns`.
 - [ ] `schemas/pipeline-analyze-response.schema.json` updated and validated against the response.
 - [ ] Additive/backward-compatible: existing analyze consumers ignoring the new field are unaffected; `sbt test` passes.
+- [ ] (Fold-in, approved post-review 2026-08-16) A direct unit test covers the malformed-baseline tolerant-parse
+      branch: a persisted `last_source_schema` value that is not valid schema JSON (e.g. `"not-json"`) is treated
+      as no baseline — analyze returns 200 with no `sourceSchemaDrift` member and no error.
 
 ## Out of scope
 
