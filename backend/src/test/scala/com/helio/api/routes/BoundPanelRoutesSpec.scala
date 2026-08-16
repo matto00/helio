@@ -346,6 +346,39 @@ class BoundPanelRoutesSpec
       await(dataSourceRepo.findByIdOwned(restSourceId, userA)) shouldBe defined
     }
 
+    "clean up the pipeline and the inline-created source on a run blocked by an error-severity assertion" in {
+      val dashboardId         = seedDashboard(userAId)
+      val sourceCountBefore   = await(dataSourceRepo.findAll(userA.id, Page(0, 200))).total
+      val pipelineCountBefore = await(pipelineRepo.listSummaries(userA)).size
+
+      // HEL-570 (design.md Decision 8): the pipeline's own run succeeds (no
+      // exception) but is BLOCKED by the assert step's error-severity
+      // rowCountMax rule (2 rows > count: 1) — a brand-new first-run pipeline
+      // has no prior-good snapshot, so BoundPanelService must treat this
+      // identically to a run failure: same "run"-stage cleanup, no panel ever
+      // bound to the never-populated output DataType.
+      val body =
+        s"""{
+           |  "dashboardId": "${dashboardId.value}",
+           |  "source": {
+           |    "name": "Assert Blocked",
+           |    "columns": [{"name":"revenue","type":"integer"}],
+           |    "rows": [[5],[10]]
+           |  },
+           |  "pipeline": {"outputDataTypeName": "Assert Blocked Output", "steps": [
+           |    {"type":"assert","config":{"rules":[{"kind":"rowCountMax","params":{"count":1},"severity":"error"}]}}
+           |  ]},
+           |  "panel": {"type": "metric", "title": "Should Not Exist"},
+           |  "fieldMapping": {"value": "revenue"}
+           |}""".stripMargin
+      Post("/panels/bound", json(body)) ~> boundPanelRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include("[run]")
+      }
+      await(dataSourceRepo.findAll(userA.id, Page(0, 200))).total shouldBe sourceCountBefore
+      await(pipelineRepo.listSummaries(userA)).size shouldBe pipelineCountBefore
+    }
+
     "reject a cross-tenant sourceDataSourceId with 404, not 403 — no resource created" in {
       val (otherSourceId, _) = seedStaticSourceWithCompanion(userBId, revenueField)
       val dashboardId          = seedDashboard(userAId)

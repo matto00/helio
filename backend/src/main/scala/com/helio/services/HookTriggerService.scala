@@ -77,9 +77,14 @@ final class HookTriggerService(
       )
       .map(_.map { result =>
         // executeRun's only success (Right) branch always corresponds to a
-        // completed, successful run -- a failed run returns Left instead
-        // (see PipelineRunService.executeRun's Failure branch) -- so
-        // "succeeded" is the only status a Right result here can represent.
-        HookTriggerResponse(result.runId.getOrElse(pipelineId.value), pipelineId.value, "succeeded")
+        // completed run -- a failed run returns Left instead (see
+        // PipelineRunService.executeRun's Failure branch) -- but a `Right`
+        // result can still be blocked by the assert fail-policy (HEL-570,
+        // design.md Decision 8a): `result.blocked` distinguishes that case.
+        // No rollback here -- a hook-triggered run always re-runs an
+        // existing pipeline, so the prior DataType snapshot is already
+        // correct regardless of this run's outcome.
+        val status = if (result.blocked) "failed" else "succeeded"
+        HookTriggerResponse(result.runId.getOrElse(pipelineId.value), pipelineId.value, status)
       })
 }

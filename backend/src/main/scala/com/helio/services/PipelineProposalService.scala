@@ -327,6 +327,15 @@ final class PipelineProposalService(
                   // rejection) is "a failure at any step" — full rollback, not a
                   // partial success with run: null.
                   rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
+                // HEL-570 (design.md Decision 8): a blocked run returns `Right`
+                // with the output DataType never populated — treated identically
+                // to a run failure for rollback purposes, since a "success"
+                // response here would point the caller at an empty DataType.
+                // Must be checked BEFORE the unguarded `Right(runResult)` case.
+                case Right(runResult) if runResult.blocked =>
+                  rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(
+                    ServiceError.UnprocessableEntity(runResult.blockedReason.getOrElse("Run blocked by an assertion failure"))
+                  ))
                 case Right(runResult) =>
                   Future.successful(Right(PipelineProposalApplyResponse(
                     source            = resolved.responseForClient,

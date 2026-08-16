@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/hook-run-response.schema.json",
   "title": "HookTriggerResponse",
-  "description": "Response for POST /api/hooks/run (HEL-369). `status` is \"succeeded\" for a freshly-triggered run, or the current status of an already in-flight run when the trigger collapsed into it (duplicate-trigger handling, design.md Decision 6).",
+  "description": "Response for POST /api/hooks/run (HEL-369). `status` is \"succeeded\" for a freshly-triggered run that completed without being blocked, \"failed\" for a freshly-triggered run blocked by an error-severity assertion failure (HEL-570), or the current status of an already in-flight run when the trigger collapsed into it (duplicate-trigger handling, design.md Decision 6).",
   "type": "object",
   "properties": {
     "runId": {

@@ -18,7 +18,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.JsObject
+import spray.json.{JsNumber, JsObject}
 
 import java.nio.file.Paths
 import java.time.Instant
@@ -123,6 +123,12 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private val passingAssertRule = AssertRule("notNull", Some("name"), JsObject.empty, "error")
 
+  // HEL-570: `seedDsWithData` always produces exactly 2 rows (alice, bob) —
+  // a dataset-level `rowCountMax` rule with `count = 1` fails deterministically
+  // regardless of column values, independent of the notNull-style fixtures above.
+  private val blockingErrorRule = AssertRule("rowCountMax", None, JsObject("count" -> JsNumber(1)), "error")
+  private val nonBlockingWarnRule = AssertRule("rowCountMax", None, JsObject("count" -> JsNumber(1)), "warn")
+
   /** A step whose `evaluate` throws synchronously — `StringOpsStep.apply`
    *  requires `pattern` for `extractRegex` and throws `IllegalArgumentException`
    *  when it's absent. Scala's `Future.flatMap` catches a synchronous
@@ -225,6 +231,121 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe a[Right[_, _]]
 
       await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
+    }
+  }
+
+  "PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)" should {
+
+    "does not update the DataType schema or rows when blocked by an error-severity assertion, preserving the prior snapshot" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+
+      // Establish a prior-good snapshot with no assert step at all.
+      val firstRun = await(service.submit(pid, isDry = false, dummyUser))
+      firstRun shouldBe a[Right[_, _]]
+      firstRun.toOption.get.blocked shouldBe false
+
+      val priorDt   = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
+      val priorRows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      priorRows should not be empty
+
+      await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
+
+      val blockedRun = await(service.submit(pid, isDry = false, dummyUser))
+      blockedRun shouldBe a[Right[_, _]]
+      val response = blockedRun.toOption.get
+      response.blocked shouldBe true
+      response.blockedReason shouldBe defined
+
+      val afterDt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
+      afterDt.fields  shouldBe priorDt.fields
+      afterDt.version shouldBe priorDt.version
+      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) shouldBe priorRows
+    }
+
+    "completes normally and updates the DataType when only a warn-severity assertion fails" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      await(stepRepo.insert(pid, "assert", AssertConfig(Vector(nonBlockingWarnRule)), dummyUser))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+      response.blocked shouldBe false
+      response.blockedReason shouldBe None
+
+      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
+      dt.fields should not be empty
+      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should have size 2
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.head.status shouldBe "succeeded"
+
+      val assertions = await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runs.head.id)))
+      assertions should have size 1
+      assertions.head.passed   shouldBe false
+      assertions.head.severity shouldBe "warn"
+    }
+
+    "marks a blocked run's terminal status failed with an errorLog naming the failing rule, not the generic exception placeholder" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "failed"
+      runs.head.rowCount shouldBe None
+      runs.head.errorLog shouldBe defined
+      runs.head.errorLog.get should include("rowCountMax")
+      runs.head.errorLog.get should not include "Pipeline execution failed"
+
+      val pipeline = await(pipelineRepo.findByIdInternal(pid)).get
+      pipeline.lastRunStatus shouldBe Some("failed")
+    }
+
+    "persists ALL evaluated assertion results for a blocked run — passing, warn, and the blocking error alike" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(
+        pid, "assert",
+        AssertConfig(Vector(passingAssertRule, nonBlockingWarnRule, blockingErrorRule)),
+        dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val runId = result.toOption.get.runId.get
+
+      val results = await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runId)))
+      results should have size 3
+      results.map(_.passed) should contain theSameElementsAs Vector(true, false, false)
+      results.map(_.severity) should contain theSameElementsAs Vector("error", "warn", "error")
+    }
+
+    "a dry run with a failing error-severity assertion still completes with status dry_run, unaffected by the fail policy" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
+
+      val result = await(service.submit(pid, isDry = true, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+      response.blocked shouldBe false
+      response.blockedReason shouldBe None
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "dry_run"
+
+      val results = await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runs.head.id)))
+      results should have size 1
+      results.head.passed shouldBe false
     }
   }
 }

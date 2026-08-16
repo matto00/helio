@@ -156,6 +156,32 @@ class HookRoutesSpec
     pid
   }
 
+  /** Seed a pipeline (as above) with a two-row static source and one `assert`
+   *  step whose `rowCountMax` rule (`count: 1`, severity `error`) fails
+   *  deterministically (2 rows > 1) -- HEL-570's fail-policy fixture. Written
+   *  directly to `pipeline_steps` (config text mirrors what
+   *  `AssertStep.companion.encodeConfig` would produce) since this route spec
+   *  has no `PipelineStepRepository` handle wired up for a user-context insert. */
+  private def seedPipelineWithBlockingAssert(ownerUserId: String): String = {
+    val dsId     = UUID.randomUUID().toString
+    val dtId     = UUID.randomUUID().toString
+    val pid      = UUID.randomUUID().toString
+    val stepId   = UUID.randomUUID().toString
+    val dsConfig = """{"columns":[{"name":"name","type":"string"}],"rows":[["a"],["b"]]}"""
+    val stepConfig = """{"rules":[{"kind":"rowCountMax","severity":"error","params":{"count":1}}]}"""
+    await(ctx.withSystemContext(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($dsId, 'ds', 'static', $dsConfig, $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
+             VALUES ($dtId, 'dt', '[]', 1, $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at)
+             VALUES ($stepId, $pid, 0, 'assert', $stepConfig, now(), now())"""
+    )))
+    pid
+  }
+
   "POST /api/hooks/run" should {
 
     "trigger a pipeline with an unscoped PAT, return a runId, and record it as external in run-history (8.3/8.4)" in {
@@ -266,6 +292,34 @@ class HookRoutesSpec
         sql"SELECT COUNT(*) FROM pipeline_runs WHERE pipeline_id = $pid".as[Int].head
       ))
       runCount shouldBe 1
+    }
+
+    "report status failed (not succeeded) for a run blocked by an error-severity assertion (HEL-570)" in {
+      cleanDb()
+      val pid      = seedPipelineWithBlockingAssert(userIdA)
+      val (_, raw) = createPat(sessionA, "assert-hook")
+
+      Post("/api/hooks/run", jsonEntity(s"""{"pipelineId":"$pid"}""")).addHeader(bearer(raw)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val fields = responseAs[String].parseJson.asJsObject.fields
+        fields("pipelineId").convertTo[String] shouldBe pid
+        fields("status").convertTo[String] shouldBe "failed"
+      }
+
+      Get(s"/api/pipelines/$pid/run-history").addHeader(sessionCookie(sessionA)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val records = responseAs[Vector[PipelineRunRecord]]
+        records should have size 1
+        records.head.status shouldBe "failed"
+        records.head.errorLog shouldBe defined
+        records.head.errorLog.get should include("rowCountMax")
+        records.head.errorLog.get should not include "Pipeline execution failed"
+      }
+
+      val lastRunStatus = await(ctx.withSystemContext(
+        sql"SELECT last_run_status FROM pipelines WHERE id = $pid".as[Option[String]].head
+      ))
+      lastRunStatus shouldBe Some("failed")
     }
   }
 }

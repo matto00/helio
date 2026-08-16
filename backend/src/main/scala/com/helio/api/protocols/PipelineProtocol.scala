@@ -53,13 +53,20 @@ final case class PipelineRunRecord(
 )
 /** `runId` (HEL-369) surfaces the persisted run's id so `HookTriggerService`
  *  can return it to an external caller; `None` only for `previewStep`
- *  (no run is persisted for a step preview). */
+ *  (no run is persisted for a step preview). `blocked`/`blockedReason`
+ *  (HEL-570, design.md Decision 8): `blocked` is `true` when the run
+ *  completed execution without exception but was withheld from writing the
+ *  output DataType by the assert fail-policy (see `pipeline-assert-fail-policy`);
+ *  `blockedReason` carries the same summary persisted as the run's `errorLog`.
+ *  Both default-valued so no existing positional construction breaks. */
 final case class RunResultResponse(
     rows: Vector[JsObject],
     rowCount: Int,
     stepRowCounts: Map[String, Long] = Map.empty,
     sourceRowCount: Long = 0L,
-    runId: Option[String] = None
+    runId: Option[String] = None,
+    blocked: Boolean = false,
+    blockedReason: Option[String] = None
 )
 
 /** `PipelineProtocol extends DataTypeProtocol with PipelineStepProtocol with
@@ -107,5 +114,5 @@ trait PipelineProtocol
     }
   }
 
-  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat5(RunResultResponse.apply)
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat7(RunResultResponse.apply)
 }
