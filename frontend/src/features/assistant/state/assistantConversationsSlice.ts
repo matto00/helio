@@ -9,6 +9,11 @@ import {
 } from "../services/assistantConversationsService";
 import type { AssistantConversationDetail, AssistantConversationSummary } from "../types";
 
+function toSummary(detail: AssistantConversationDetail): AssistantConversationSummary {
+  const { id, title, pinned, updatedAt } = detail;
+  return { id, title, pinned, updatedAt };
+}
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
     const data = err.response?.data as Record<string, unknown> | undefined;
@@ -137,6 +142,17 @@ const assistantConversationsSlice = createSlice({
     startNewConversation(state) {
       state.startingNewConversation = true;
     },
+    /** `MessageComposer`'s null-`conversationId` send path calls `createConversation` directly
+     *  (outside any thunk lifecycle here), so the sidebar's `items` list -- populated once by
+     *  `fetchConversations` on mount -- never otherwise learns a new conversation exists. Inserts it
+     *  directly rather than a full refetch, at the position matching the backend's own list order
+     *  (`AssistantConversationRepository`: `ORDER BY pinned DESC, updated_at DESC`) -- a fresh,
+     *  unpinned conversation goes after any existing pinned ones, not always at index 0. */
+    conversationCreated(state, action: { payload: AssistantConversationDetail }) {
+      const insertAt = state.items.findIndex((item) => !item.pinned);
+      const index = insertAt === -1 ? state.items.length : insertAt;
+      state.items.splice(index, 0, toSummary(action.payload));
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -191,6 +207,6 @@ const assistantConversationsSlice = createSlice({
   },
 });
 
-export const { setSelectedConversationId, startNewConversation } =
+export const { setSelectedConversationId, startNewConversation, conversationCreated } =
   assistantConversationsSlice.actions;
 export const assistantConversationsReducer = assistantConversationsSlice.reducer;

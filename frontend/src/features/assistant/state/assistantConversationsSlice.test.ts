@@ -3,6 +3,7 @@
 
 import {
   assistantConversationsReducer,
+  conversationCreated,
   converse,
   fetchConversations,
   selectConversation,
@@ -220,6 +221,61 @@ describe("assistantConversationsSlice reducers", () => {
       selectConversation.pending("req-2", "conv-2"),
     );
     expect(pending.lastTurnOutcome).toBeNull();
+  });
+
+  // HEL-696: MessageComposer's null-conversationId send path creates a conversation outside any
+  // thunk, so the sidebar needs this reducer to learn about it directly (no fetchConversations
+  // round trip).
+  it("conversationCreated inserts a new unpinned conversation at the front when there are no pinned items", () => {
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      fetchConversations.fulfilled([summary], "req-0"),
+    );
+    const created: AssistantConversationDetail = {
+      id: "conv-new",
+      title: "New conversation",
+      pinned: false,
+      updatedAt: "2026-08-16T00:00:00Z",
+      transcript: [],
+    };
+    const nextState = assistantConversationsReducer(preloaded, conversationCreated(created));
+    expect(nextState.items.map((item) => item.id)).toEqual(["conv-new", "conv-1"]);
+  });
+
+  it("conversationCreated inserts after existing pinned items, matching the backend's pinned-first, updatedAt-desc order", () => {
+    const pinned = { ...summary, id: "conv-pinned", pinned: true };
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      fetchConversations.fulfilled([pinned, summary], "req-0"),
+    );
+    const created: AssistantConversationDetail = {
+      id: "conv-new",
+      title: "New conversation",
+      pinned: false,
+      updatedAt: "2026-08-16T00:00:00Z",
+      transcript: [],
+    };
+    const nextState = assistantConversationsReducer(preloaded, conversationCreated(created));
+    expect(nextState.items.map((item) => item.id)).toEqual(["conv-pinned", "conv-new", "conv-1"]);
+  });
+
+  it("conversationCreated stores only summary fields, dropping the detail's transcript", () => {
+    const created: AssistantConversationDetail = {
+      id: "conv-new",
+      title: "New conversation",
+      pinned: false,
+      updatedAt: "2026-08-16T00:00:00Z",
+      transcript: [{ role: "user", content: [{ blockType: "text", text: "Hi" }] }],
+    };
+    const nextState = assistantConversationsReducer(undefined, conversationCreated(created));
+    expect(nextState.items).toEqual([
+      {
+        id: "conv-new",
+        title: "New conversation",
+        pinned: false,
+        updatedAt: "2026-08-16T00:00:00Z",
+      },
+    ]);
   });
 
   it("converse.pending/rejected do NOT touch activeConversation.status -- the composer's own local state surfaces sending/errors, not a full-panel swap", () => {
