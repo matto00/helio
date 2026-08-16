@@ -139,8 +139,11 @@ final case class AssertStepResponse(
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Assert }
 
 /** Create request — the `type` discriminator selects which subtype's config
- *  shape `config` must conform to. */
-final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
+ *  shape `config` must conform to. `position` is an OPTIONAL list index
+ *  (HEL-410) into the pipeline's current position-sorted step list: absent
+ *  means append (the pre-existing behavior); present means insert-at,
+ *  validated at the service layer as `0 <= position <= count`. */
+final case class CreatePipelineStepRequest(`type`: String, config: JsObject, position: Option[Int] = None)
 
 /** PATCH request — `type` is optional. If present and different from the
  *  persisted row's kind, the service returns 400 (cross-type PATCH locked). */
@@ -310,7 +313,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat2(CreatePipelineStepRequest.apply)
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat3(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
   implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
 }

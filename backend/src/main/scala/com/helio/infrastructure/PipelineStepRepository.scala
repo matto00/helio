@@ -186,6 +186,32 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
+  /** ACL-bypassing insert-at-index (HEL-410). Safe to call only after the
+    * caller's editor or owner access has been confirmed by PipelineService via
+    * findByIdShared, and after the service has validated `0 <= index <= count`
+    * against a freshly-read step count. Builds the full target order — the
+    * pipeline's existing steps sorted by position, with the new row spliced
+    * in at `index` — and renumbers every step's position 0..n within a single
+    * transaction (the `reorderInternal` idiom above). This also heals any
+    * pre-existing position gaps left by deleteStep (HEL-407 finding) as a
+    * side effect. Returns the created step, whose final position is `index`. */
+  def insertAtInternal(pipelineId: PipelineId, kind: String, config: Any, index: Int): Future[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val newId      = UUID.randomUUID().toString
+    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, now, now)
+    val action = for {
+      existing <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+      ordered   = existing.toVector.patch(index, Vector(newRow), 0)
+      updates   = ordered.zipWithIndex.map {
+        case (row, i) if row.id == newId => stepsTable += row.copy(position = i)
+        case (row, i)                    => stepsTable.filter(_.id === row.id).map(s => (s.position, s.updatedAt)).update((i, now))
+      }
+      _        <- DBIO.sequence(updates)
+    } yield rowToDomain(newRow.copy(position = index))
+    ctx.withSystemContext(action.transactionally)
+  }
+
   /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService
     * via findByIdShared, and after the service has confirmed `orderedIds` is

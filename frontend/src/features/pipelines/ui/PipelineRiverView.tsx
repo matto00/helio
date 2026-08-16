@@ -6,6 +6,8 @@
 
 import { Fragment, useRef, useState } from "react";
 import type { DragEvent } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
@@ -22,6 +24,10 @@ interface PipelineRiverViewProps {
   openDropdown: () => void;
   closeDropdown: () => void;
   onAddStep: (opType: OpType) => void;
+  /** HEL-410 — invoked with the selected op and the list index to insert at
+   *  (0 = before the first step); `PipelineDetailPage.handleInsertStep` owns
+   *  the optimistic splice + persistence, mirroring `onAddStep`. */
+  onInsertStep: (opType: OpType, index: number) => void;
   onRemoveStep: (stepId: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
@@ -57,6 +63,7 @@ export function PipelineRiverView({
   openDropdown,
   closeDropdown,
   onAddStep,
+  onInsertStep,
   onRemoveStep,
   getAnalyzeColumns,
   getAnalyzeSchema,
@@ -71,6 +78,32 @@ export function PipelineRiverView({
   // single ref anchors the portalled OpDropdown to whichever button is showing.
   const addStepButtonRef = useRef<HTMLButtonElement>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
+
+  // HEL-410 — gap "insert step here" affordance (design.md Decision 5): one
+  // compact "+" button per gap (before the first card + between each pair;
+  // after-last stays the existing add row). The gap count is dynamic, so
+  // (unlike `addStepButtonRef` above) a single fixed `useRef` anchor can't
+  // work — but reading a ref's `.current` during render is disallowed
+  // (react-hooks/refs). `insertAnchorEl` is STATE instead, set from the
+  // click event's `currentTarget` (available synchronously in the handler,
+  // not during render) and read freely during render like any other state.
+  const [insertDropdownAt, setInsertDropdownAt] = useState<number | null>(null);
+  const [insertAnchorEl, setInsertAnchorEl] = useState<HTMLButtonElement | null>(null);
+
+  function openBottomDropdown() {
+    // Only one dropdown open at a time — opening the add-row picker closes
+    // any open gap picker.
+    setInsertDropdownAt(null);
+    openDropdown();
+  }
+
+  function openGapDropdown(index: number, anchorEl: HTMLButtonElement) {
+    // Only one dropdown open at a time — opening a gap picker closes the
+    // add-row picker.
+    closeDropdown();
+    setInsertDropdownAt(index);
+    setInsertAnchorEl(anchorEl);
+  }
 
   // HEL-407 — drag-reorder state (design.md Decision 5): `draggedIndex` is
   // set by the StepCard drag handle (the sole `draggable` element) via
@@ -123,6 +156,34 @@ export function PipelineRiverView({
     onReorderSteps(moveStep(steps, index, index + 1));
   }
 
+  // HEL-410 — one gap per list index (0 = before the first step; gap `i` sits
+  // between step `i-1` and step `i`). Wraps the existing `RibbonSegment` so
+  // the connecting-ribbon visual is unchanged; the insert button is
+  // absolutely positioned over it (token-only CSS) and does not affect the
+  // drop-indicator, which is a separate sibling rendered only while dragging.
+  function renderGap(index: number) {
+    return (
+      <div className="pipeline-detail-page__gap" key={`gap-${index}`}>
+        <RibbonSegment />
+        <button
+          type="button"
+          className="pipeline-detail-page__gap-insert-btn"
+          aria-label="Insert step here"
+          onClick={(e) => openGapDropdown(index, e.currentTarget)}
+        >
+          <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
+        </button>
+        {insertDropdownAt === index && (
+          <OpDropdown
+            anchorRef={{ current: insertAnchorEl }}
+            onSelect={(opType) => onInsertStep(opType, index)}
+            onClose={() => setInsertDropdownAt(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="pipeline-detail-page__river">
       <div className="pipeline-detail-page__river-inner">
@@ -136,7 +197,7 @@ export function PipelineRiverView({
                 ref={addStepButtonRef}
                 type="button"
                 className="pipeline-detail-page__add-step-btn"
-                onClick={openDropdown}
+                onClick={openBottomDropdown}
               >
                 + Add step
               </button>
@@ -158,7 +219,7 @@ export function PipelineRiverView({
           </div>
         ) : (
           <>
-            <RibbonSegment />
+            {renderGap(0)}
             {steps.map((step, idx) => (
               <Fragment key={step.id}>
                 {draggedIndex !== null && overIndex === idx && (
@@ -185,7 +246,7 @@ export function PipelineRiverView({
                     onMoveUp={idx > 0 ? () => handleMoveUp(idx) : undefined}
                     onMoveDown={idx < steps.length - 1 ? () => handleMoveDown(idx) : undefined}
                   />
-                  {idx < steps.length - 1 && <RibbonSegment />}
+                  {idx < steps.length - 1 && renderGap(idx + 1)}
                 </div>
               </Fragment>
             ))}
@@ -194,7 +255,7 @@ export function PipelineRiverView({
                 ref={addStepButtonRef}
                 type="button"
                 className="pipeline-detail-page__add-step-dashed-btn"
-                onClick={openDropdown}
+                onClick={openBottomDropdown}
               >
                 + Add transformation step
               </button>
