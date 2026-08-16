@@ -136,6 +136,15 @@ export interface LookupConfig {
   lookupKey: string;
   columns: string[];
 }
+export interface AssertRule {
+  kind: string;
+  field?: string | null;
+  params: Record<string, unknown>;
+  severity: string;
+}
+export interface AssertConfig {
+  rules: AssertRule[];
+}
 
 interface BasePipelineStep {
   id: string;
@@ -233,6 +242,10 @@ export interface LookupStep extends BasePipelineStep {
   type: "lookup";
   config: LookupConfig;
 }
+export interface AssertStep extends BasePipelineStep {
+  type: "assert";
+  config: AssertConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -256,7 +269,8 @@ export type PipelineStep =
   | FillNullStep
   | StringOpsStep
   | UnionStep
-  | LookupStep;
+  | LookupStep
+  | AssertStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -280,7 +294,8 @@ export type PipelineStepConfig =
   | FillNullConfig
   | StringOpsConfig
   | UnionConfig
-  | LookupConfig;
+  | LookupConfig
+  | AssertConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -387,6 +402,10 @@ export interface LookupAnalyzeStep extends BaseAnalyzeStep {
   type: "lookup";
   config: LookupConfig;
 }
+export interface AssertAnalyzeStep extends BaseAnalyzeStep {
+  type: "assert";
+  config: AssertConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -410,7 +429,8 @@ export type AnalyzeStepResult =
   | FillNullAnalyzeStep
   | StringOpsAnalyzeStep
   | UnionAnalyzeStep
-  | LookupAnalyzeStep;
+  | LookupAnalyzeStep
+  | AssertAnalyzeStep;
 
 export interface PipelineAnalyzeResponse {
   id: string;

@@ -3,6 +3,8 @@ package com.helio.api.protocols
 import com.helio.domain.{
   AggregateConfig,
   AggregateStep,
+  AssertConfig,
+  AssertStep,
   CastConfig,
   CastStep,
   ChunkByTokenCountConfig,
@@ -116,6 +118,7 @@ object PipelineStepConfigCodec {
     case c: StringOpsConfig  => PipelineStep.Registry(PipelineStepKind.StringOps).encodeConfig(c)
     case c: UnionConfig      => PipelineStep.Registry(PipelineStepKind.Union).encodeConfig(c)
     case c: LookupConfig     => PipelineStep.Registry(PipelineStepKind.Lookup).encodeConfig(c)
+    case c: AssertConfig     => PipelineStep.Registry(PipelineStepKind.Assert).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
@@ -158,6 +161,7 @@ object PipelineStepConfigCodec {
     case s: StringOpsStep  => s.config
     case s: UnionStep      => s.config
     case s: LookupStep     => s.config
+    case s: AssertStep     => s.config
   }
 
 }

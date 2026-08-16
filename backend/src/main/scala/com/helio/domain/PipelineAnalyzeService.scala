@@ -85,6 +85,7 @@ object PipelineAnalyzeService {
       case "unpivot"                    => inferUnpivot(config, inputSchema)
       case "stringops"                  => inferStringOps(config, inputSchema)
       case "lookup"                     => inferLookup(config, inputSchema)
+      case "assert"                     => inferAssert(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -437,6 +438,64 @@ object PipelineAnalyzeService {
         schema.filterNot(_.name == col) :+ SchemaField(name = col, `type` = "string")
       }
     } (inputSchema)
+
+  /** assert (HEL-454 / 419-A) — design.md Decision 5: a dedicated dispatch
+   *  case (not the blanket identity group `filter`/`limit`/`sort`/`dedupe`/
+   *  `fillnull`/`union` share), since `assert` always returns `inputSchema`
+   *  unchanged but *can* emit a `validationError` — closer in shape to
+   *  `inferPivot`/`inferUnpivot`'s validate-but-stay-identity pattern than to
+   *  `splittext`'s validate-and-reshape pattern. Every rule's kind/severity/
+   *  field problems are aggregated into one `validationError` message
+   *  (matching `inferPivot`/`inferUnpivot`'s multi-field aggregation), not
+   *  short-circuited on the first bad rule. `notNull`/`unique`/`range`/
+   *  `regex` require `field` and are checked against `inputSchema`;
+   *  `rowCountMin`/`rowCountMax` are dataset-level and are never checked
+   *  against `field` (design.md Decision 4). No `params` shape validation —
+   *  that's 419-B's job (design.md Decision 6). */
+  private def inferAssert(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json       = config.parseJson.asJsObject
+      val rules      = json.fields.get("rules").map(_.convertTo[Vector[JsValue]]).getOrElse(Vector.empty[JsValue])
+      val fieldNames = inputSchema.map(_.name).toSet
+
+      val problems = rules.zipWithIndex.flatMap { case (ruleJson, idx) =>
+        val obj      = ruleJson.asJsObject
+        val kind     = obj.fields.get("kind").collect { case JsString(s) => s }.getOrElse("")
+        val field    = obj.fields.get("field").collect { case JsString(s) => s }
+        val severity = obj.fields.get("severity").collect { case JsString(s) => s }.getOrElse("")
+
+        val kindProblem =
+          if (!AssertRuleKinds.contains(kind)) Some(s"rule ${idx + 1}: invalid kind '$kind'") else None
+        val severityProblem =
+          if (severity != "warn" && severity != "error") Some(s"rule ${idx + 1}: invalid severity '$severity'") else None
+        val fieldProblem =
+          if (AssertFieldRequiredKinds.contains(kind)) {
+            field match {
+              case None                               => Some(s"rule ${idx + 1}: missing field")
+              case Some(f) if !fieldNames.contains(f) => Some(s"rule ${idx + 1}: unknown field '$f'")
+              case _                                  => None
+            }
+          } else None
+
+        Vector(kindProblem, severityProblem, fieldProblem).flatten
+      }
+
+      if (problems.isEmpty) (inputSchema, None)
+      else (inputSchema, Some(problems.mkString("; ")))
+    } catch {
+      case ex: Exception =>
+        // HEL-311: keep the "<op> config error" category, drop the raw
+        // exception tail; log the detail.
+        log.warn("assert config error", ex)
+        (inputSchema, Some("assert config error"))
+    }
+
+  /** Rule kinds that reference a specific `field` (design.md Decision 4). */
+  private val AssertFieldRequiredKinds: Set[String] = Set("notNull", "unique", "range", "regex")
+
+  /** All six v1 assert rule kinds — `AssertFieldRequiredKinds` plus the
+   *  dataset-level `rowCountMin`/`rowCountMax`. */
+  private val AssertRuleKinds: Set[String] = AssertFieldRequiredKinds ++ Set("rowCountMin", "rowCountMax")
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

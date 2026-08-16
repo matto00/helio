@@ -54,7 +54,7 @@
     },
     "PipelineProposalStep": {
       "type": "object",
-      "description": "Same {type, config} shape POST /api/pipelines/:id/steps and add_pipeline_step already accept. `type` is intentionally left unconstrained here (not enumerated) — the backend's step-kind registry (PipelineStepKind.All) is the authoritative allow-list, checked at apply time, not by this schema. Current op set (for readability only, not exhaustive as the registry grows): rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup.",
+      "description": "Same {type, config} shape POST /api/pipelines/:id/steps and add_pipeline_step already accept. `type` is intentionally left unconstrained here (not enumerated) — the backend's step-kind registry (PipelineStepKind.All) is the authoritative allow-list, checked at apply time, not by this schema. Current op set (for readability only, not exhaustive as the registry grows): rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assert.",
       "required": ["type", "config"],
       "properties": {
         "type": { "type": "string", "minLength": 1 },

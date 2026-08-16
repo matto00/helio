@@ -133,6 +133,11 @@ final case class LookupStepResponse(
     createdAt: String, updatedAt: String, config: LookupConfig
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Lookup }
 
+final case class AssertStepResponse(
+    id: String, pipelineId: String, position: Int,
+    createdAt: String, updatedAt: String, config: AssertConfig
+) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Assert }
+
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
@@ -166,6 +171,7 @@ object PipelineStepResponse {
     case s: StringOpsStep  => StringOpsStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: UnionStep      => UnionStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
     case s: LookupStep     => LookupStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
+    case s: AssertStep     => AssertStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config)
   }
 }
 
@@ -207,6 +213,8 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val stringOpsConfigFormat: RootJsonFormat[StringOpsConfig] = StringOpsConfig.format
   implicit val unionConfigFormat: RootJsonFormat[UnionConfig] = UnionConfig.format
   implicit val lookupConfigFormat: RootJsonFormat[LookupConfig] = LookupConfig.format
+  implicit val assertRuleFormat: RootJsonFormat[AssertRule] = AssertRule.format
+  implicit val assertConfigFormat: RootJsonFormat[AssertConfig] = AssertConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat6(RenameStepResponse.apply)
@@ -231,6 +239,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val stringOpsStepResponseFormat: RootJsonFormat[StringOpsStepResponse] = jsonFormat6(StringOpsStepResponse.apply)
   private val unionStepResponseFormat: RootJsonFormat[UnionStepResponse] = jsonFormat6(UnionStepResponse.apply)
   private val lookupStepResponseFormat: RootJsonFormat[LookupStepResponse] = jsonFormat6(LookupStepResponse.apply)
+  private val assertStepResponseFormat: RootJsonFormat[AssertStepResponse] = jsonFormat6(AssertStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -260,6 +269,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case o: StringOpsStepResponse  => stringOpsStepResponseFormat.write(o).asJsObject
         case u: UnionStepResponse      => unionStepResponseFormat.write(u).asJsObject
         case l: LookupStepResponse     => lookupStepResponseFormat.write(l).asJsObject
+        case a: AssertStepResponse     => assertStepResponseFormat.write(a).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -288,6 +298,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case Some(JsString(PipelineStepKind.StringOps))  => stringOpsStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Union))      => unionStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.Lookup))     => lookupStepResponseFormat.read(json)
+        case Some(JsString(PipelineStepKind.Assert))     => assertStepResponseFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown PipelineStep type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on PipelineStep")
       }

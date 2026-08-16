@@ -13,6 +13,7 @@ import type { StepPreviewResponse } from "../services/pipelineService";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./AggregateConfig";
+import { AssertConfig } from "./AssertConfig";
 import { CastFieldsConfig } from "./CastFieldsConfig";
 import { ChunkByTokenCountConfig } from "./ChunkByTokenCountConfig";
 import { ComputeFieldConfig } from "./ComputeFieldConfig";
@@ -108,6 +109,7 @@ export function StepCard({
     stringOpsConfig,
     unionConfig,
     lookupConfig,
+    assertConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -128,6 +130,7 @@ export function StepCard({
     onStringOpsChange,
     onUnionChange,
     onLookupChange,
+    onAssertChange,
   } = useStepCardState(step, onConfigChange);
 
   return (
@@ -267,6 +270,12 @@ export function StepCard({
               config={lookupConfig}
               analyzeSchema={analyzeSchema}
               onChange={onLookupChange}
+            />
+          ) : step.opType.id === "assert" ? (
+            <AssertConfig
+              config={assertConfig}
+              analyzeSchema={analyzeSchema}
+              onChange={onAssertChange}
             />
           ) : (
             <>

@@ -52,6 +52,8 @@ package object domain {
   val  UnionStep      = steps.UnionStep
   type LookupStep     = steps.LookupStep
   val  LookupStep     = steps.LookupStep
+  type AssertStep     = steps.AssertStep
+  val  AssertStep     = steps.AssertStep
 
   // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
@@ -106,4 +108,8 @@ package object domain {
   val  UnionConfig      = steps.UnionConfig
   type LookupConfig     = steps.LookupConfig
   val  LookupConfig     = steps.LookupConfig
+  type AssertRule       = steps.AssertRule
+  val  AssertRule       = steps.AssertRule
+  type AssertConfig     = steps.AssertConfig
+  val  AssertConfig     = steps.AssertConfig
 }
