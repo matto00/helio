@@ -215,6 +215,43 @@
   flex-direction: column;
 }
 
+/* ── Gap insert affordance (HEL-410) — wraps a `RibbonSegment`; the ribbon's
+ * own layout/height is unchanged, so this does not affect the HEL-407
+ * drop-indicator (a separate sibling rendered above the step-section). ── */
+.pipeline-detail-page__gap {
+  position: relative;
+}
+
+.pipeline-detail-page__gap-insert-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__gap-insert-btn:hover,
+.pipeline-detail-page__gap-insert-btn:focus-visible {
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent-mid);
+  color: var(--app-accent);
+}
+
 /* ── Empty state ── */
 .pipeline-detail-page__empty-state {
   display: flex;

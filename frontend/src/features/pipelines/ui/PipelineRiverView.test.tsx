@@ -38,6 +38,7 @@ function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> 
     openDropdown: jest.fn(),
     closeDropdown: jest.fn(),
     onAddStep: jest.fn(),
+    onInsertStep: jest.fn(),
     onRemoveStep: jest.fn(),
     getAnalyzeColumns: () => [],
     getAnalyzeSchema: () => [],
@@ -186,5 +187,56 @@ describe("PipelineRiverView Move up/down (HEL-407 design.md Decision 6)", () => 
     expect(onReorderSteps).toHaveBeenCalledTimes(1);
     const newOrder = onReorderSteps.mock.calls[0][0] as Step[];
     expect(newOrder.map((s) => s.id)).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("PipelineRiverView insert-at-position (HEL-410 design.md Decision 5)", () => {
+  it("renders one gap insert button per step, including before the first step", () => {
+    render(<PipelineRiverView {...baseProps()} />);
+
+    // 3 steps -> 3 gaps: before A, between A/B, between B/C. After-last stays
+    // the existing "+ Add transformation step" row, not a gap button.
+    expect(screen.getAllByRole("button", { name: "Insert step here" })).toHaveLength(3);
+  });
+
+  it("clicking a gap button opens the op picker anchored at that gap", () => {
+    render(<PipelineRiverView {...baseProps()} />);
+
+    const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+    fireEvent.click(gapButtons[1]); // gap between Filter and Limit
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("selecting an op from a gap's dropdown invokes onInsertStep with that gap's index", () => {
+    const onInsertStep = jest.fn();
+    render(<PipelineRiverView {...baseProps({ onInsertStep })} />);
+
+    const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+    fireEvent.click(gapButtons[1]); // gap index 1 (between Filter and Limit)
+    fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+    expect(onInsertStep).toHaveBeenCalledTimes(1);
+    const [opType, index] = onInsertStep.mock.calls[0];
+    expect(opType.id).toBe("cast");
+    expect(index).toBe(1);
+  });
+
+  it("opening the bottom add-step dropdown closes an open gap dropdown, and vice versa", () => {
+    const closeDropdown = jest.fn();
+    const openDropdown = jest.fn();
+    render(<PipelineRiverView {...baseProps({ closeDropdown, openDropdown })} />);
+
+    const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+    fireEvent.click(gapButtons[0]);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(closeDropdown).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
+    expect(openDropdown).toHaveBeenCalledTimes(1);
+    // The gap dropdown closed as part of the bottom-row open (only one
+    // dropdown at a time); `dropdownOpen` itself stays parent-controlled
+    // (a mock here), so no menu remains mounted from either picker.
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

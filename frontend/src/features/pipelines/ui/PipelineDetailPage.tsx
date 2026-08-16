@@ -294,14 +294,36 @@ export function PipelineDetailPage() {
     );
   }
 
-  async function handleAddStep(opType: OpType) {
+  // HEL-410 — generalizes the former `handleAddStep` to insert at any list
+  // index (0 = before the first step): optimistic splice at `index` → create
+  // with `position` → reconcile the temp step in place on success → keep the
+  // temp + toast on failure (the existing append-failure convention,
+  // unchanged). `index === steps.length` at call time is exactly the append
+  // case (the gap affordance below never offers an index that high — its
+  // last gap sits before the final step, not after it), so `position` is
+  // omitted from the network call there and the wire payload stays
+  // byte-identical to the pre-HEL-410 append request (design.md Decision 6).
+  // `isAppend` and `index` are both read from the same closure snapshot,
+  // synchronously before the `await` below, so there is no risk of the
+  // append check disagreeing with the index that was actually spliced in.
+  async function handleInsertStep(opType: OpType, index: number) {
     if (!id) return;
     setStepsInitialized(true);
     const tempStep = makeStep(opType);
-    setSteps((prev) => [...prev, tempStep]);
+    const isAppend = index >= steps.length;
+    setSteps((prev) => {
+      const next = [...prev];
+      next.splice(index, 0, tempStep);
+      return next;
+    });
     try {
       const initialConfig = defaultConfigFor(opType.id);
-      const persisted = await createPipelineStep(id, opType.id as PipelineStepKind, initialConfig);
+      const persisted = await createPipelineStep(
+        id,
+        opType.id as PipelineStepKind,
+        initialConfig,
+        isAppend ? undefined : index,
+      );
       setSteps((prev) =>
         prev.map((s) => (s.id === tempStep.id ? pipelineStepToStep(persisted) : s)),
       );
@@ -315,6 +337,10 @@ export function PipelineDetailPage() {
         message: `Failed to add ${opType.label.toLowerCase()} step: ${message}`,
       });
     }
+  }
+
+  function handleAddStep(opType: OpType) {
+    void handleInsertStep(opType, steps.length);
   }
 
   // HEL-402 — "Start from a shape": sequentially persists each of a shape's
@@ -507,6 +533,7 @@ export function PipelineDetailPage() {
         openDropdown={() => setDropdownOpenAt("bottom")}
         closeDropdown={() => setDropdownOpenAt(null)}
         onAddStep={handleAddStep}
+        onInsertStep={(opType, index) => void handleInsertStep(opType, index)}
         onRemoveStep={handleRemoveStep}
         getAnalyzeColumns={getAnalyzeColumns}
         getAnalyzeSchema={getAnalyzeSchema}

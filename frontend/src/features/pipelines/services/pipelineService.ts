@@ -57,15 +57,21 @@ export async function deletePipeline(id: string): Promise<void> {
 
 /** CS2c-3a — `type` discriminator + typed `config` object. The old
  *  stringified-JSON `config` path is gone; callers pass typed configs
- *  directly. */
+ *  directly.
+ *
+ *  HEL-410: `position` is an optional list index into the pipeline's current
+ *  step order (0 = first, count = append). Omitted from the payload when
+ *  undefined so the wire stays byte-identical for the existing append path. */
 export async function createPipelineStep(
   pipelineId: string,
   type: PipelineStepKind,
   config: PipelineStepConfig,
+  position?: number,
 ): Promise<PipelineStep> {
   const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
     type,
     config,
+    ...(position === undefined ? {} : { position }),
   });
   return response.data;
 }

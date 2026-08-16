@@ -507,17 +507,48 @@ final class PipelineService(
                     case Left(err) => Future.successful(Left(err))
                     case Right(_) =>
                       // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
-                      pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
-                        .map(step => Right(PipelineStepResponse.fromDomain(step)))
-                        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                      persistNewStep(pipelineId, req, typedConfig)
                   }
                 case Some(_) =>
                   // Owner path — use internal insert (same as before, owner already confirmed)
-                  pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
-                    .map(step => Right(PipelineStepResponse.fromDomain(step)))
-                    .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                  persistNewStep(pipelineId, req, typedConfig)
               }
           }
+      }
+  }
+
+  /** Shared persist branch for `addStep` (HEL-410) — called only after the
+    * caller's editor-or-owner access has been confirmed by both branches
+    * above. `req.position` absent keeps the pre-existing append behavior
+    * (`insertInternal`, untouched); present validates it as a list index
+    * (`0 <= position <= count`, count read fresh immediately before the
+    * insert) and, if in range, inserts + renumbers via `insertAtInternal`.
+    * Out-of-range values return 422 with nothing persisted — the same
+    * ServiceError variant `reorderSteps` uses for its own staleness check. */
+  private def persistNewStep(
+      pipelineId:  PipelineId,
+      req:         CreatePipelineStepRequest,
+      typedConfig: Any
+  ): Future[Either[ServiceError, PipelineStepResponse]] = req.position match {
+    case None =>
+      pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig)
+        .map(step => Right(PipelineStepResponse.fromDomain(step)))
+        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+    case Some(index) =>
+      // Safe: editor/owner access confirmed by the caller. Use internal list
+      // (no owner-JOIN) so editor grantees are not blocked by the V35
+      // pipeline_steps RLS owner-JOIN policy. Read close to the insert below.
+      pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+        val count = current.size
+        if (index < 0 || index > count) {
+          Future.successful(Left(ServiceError.UnprocessableEntity(
+            s"position must be between 0 and $count (the pipeline's current step count)"
+          )))
+        } else {
+          pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index)
+            .map(step => Right(PipelineStepResponse.fromDomain(step)))
+            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        }
       }
   }
 

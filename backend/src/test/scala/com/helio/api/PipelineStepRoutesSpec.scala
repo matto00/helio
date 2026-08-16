@@ -140,6 +140,11 @@ class PipelineStepRoutesSpec
       "columns"               -> JsArray(JsString("label"))
     )
   )
+  // HEL-410: merge an optional `position` list-index into a request body built by
+  // one of the *Req() helpers above.
+  private def reqWithPosition(base: JsObject, position: Int): JsObject =
+    JsObject(base.fields + ("position" -> JsNumber(position)))
+
   // Exact request body the "+ Add transformation step" picker sends on lookup-step
   // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
   // defaultConfigFor("lookup"). HEL-386 change request 2 regression coverage.
@@ -648,6 +653,133 @@ class PipelineStepRoutesSpec
         val steps = responseAs[Vector[PipelineStepResponse]]
         steps.find(_.id == idA).map(_.position) shouldBe Some(0)
         steps.find(_.id == idB).map(_.position) shouldBe Some(1)
+      }
+    }
+
+    // ── HEL-410: POST /pipelines/:id/steps with optional `position` (insert-at) ──
+
+    "POST with position: 0 inserts before all existing steps and shifts them down" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      var newId = ""
+      Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 0)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.position shouldBe 0
+        newId = resp.id
+      }
+
+      // Persists and survives reload — a subsequent GET reflects the shifted order.
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(s => (s.id, s.position)) shouldBe Vector((newId, 0), (idA, 1), (idB, 2))
+      }
+    }
+
+    "POST with position in the middle shifts only later steps down" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB, idC = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
+
+      var newId = ""
+      Post(s"/pipelines/$pid/steps", reqWithPosition(selectReq(), 1)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.position shouldBe 1
+        newId = resp.id
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 1), (idB, 2), (idC, 3))
+      }
+    }
+
+    "POST with position equal to the current step count behaves like append" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      var newId = ""
+      Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 2)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.position shouldBe 2
+        newId = resp.id
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (idB, 1), (newId, 2))
+      }
+    }
+
+    "POST with negative position returns 422 and persists nothing" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+
+      Post(s"/pipelines/$pid/steps", reqWithPosition(filterReq(), -1)) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]] should have size 1
+      }
+    }
+
+    "POST with position greater than the current step count returns 422 and persists nothing" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+
+      Post(s"/pipelines/$pid/steps", reqWithPosition(filterReq(), 5)) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]] should have size 1
+      }
+    }
+
+    // HEL-407 finding: deleteStep never renumbers, so positions can be non-contiguous
+    // (e.g. 0, 2, 5 after deletions). insert-at must be correct under gaps: it reads
+    // the sorted step list (not raw positions), splices the new row in at the given
+    // list index, and renumbers every step contiguously 0..n as a side effect.
+    "POST with position heals pre-existing position gaps into a contiguous order" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB, idC, idD, idE, idF = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id } // pos 0
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id } // pos 1
+      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id } // pos 2
+      Post(s"/pipelines/$pid/steps", selectReq()) ~> routes ~> check { idD = responseAs[PipelineStepResponse].id } // pos 3
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idE = responseAs[PipelineStepResponse].id } // pos 4
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idF = responseAs[PipelineStepResponse].id } // pos 5
+
+      Delete(s"/pipeline-steps/$idB") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
+      Delete(s"/pipeline-steps/$idD") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
+      Delete(s"/pipeline-steps/$idE") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (idC, 2), (idF, 5))
+      }
+
+      var newId = ""
+      Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 1)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        newId = responseAs[PipelineStepResponse].id
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 1), (idC, 2), (idF, 3))
       }
     }
   }

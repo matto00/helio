@@ -578,6 +578,179 @@ describe("PipelineDetailPage", () => {
     );
   });
 
+  // HEL-410 (design.md Decisions 5-6) — the gap "insert step here" affordance:
+  // page-local `handleInsertStep` generalizes the append-only `handleAddStep`
+  // to splice at an arbitrary list index and pass `position` on the create
+  // call; `handleAddStep` delegates to it with `steps.length` and omits
+  // `position` so the append wire payload stays byte-identical. Tasks 3.1/3.3.
+  describe("insert-at-position (HEL-410)", () => {
+    const persistedRename: PipelineStep = {
+      id: "x1",
+      pipelineId: "pipe-1",
+      position: 0,
+      type: "rename",
+      config: { renames: {} },
+      createdAt: "",
+      updatedAt: "",
+    };
+    const persistedFilter: PipelineStep = {
+      id: "y1",
+      pipelineId: "pipe-1",
+      position: 1,
+      type: "filter",
+      config: { combinator: "AND", conditions: [] },
+      createdAt: "",
+      updatedAt: "",
+    };
+    const persistedCast: PipelineStep = {
+      id: "new-step-1",
+      pipelineId: "pipe-1",
+      position: 0,
+      type: "cast",
+      config: { casts: {} },
+      createdAt: "",
+      updatedAt: "",
+    };
+
+    function stepLabels(container: HTMLElement): string[] {
+      return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+        (el) => el.textContent ?? "",
+      );
+    }
+
+    beforeEach(() => {
+      getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
+    });
+
+    it("inserting before the first step renders the new card first and calls the service with position 0", async () => {
+      createPipelineStepMock.mockResolvedValueOnce(persistedCast);
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // 2 persisted steps -> 2 gaps: before Rename (index 0), between Rename
+      // and Filter (index 1). After-last stays the existing add row.
+      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+      expect(gapButtons).toHaveLength(2);
+      fireEvent.click(gapButtons[0]);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+      // Optimistic — renders immediately, before the POST settles.
+      expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
+
+      await waitFor(() => {
+        expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "cast", { casts: {} }, 0);
+      });
+    });
+
+    it("inserting between two steps renders the new card in the middle and calls the service with the gap's index", async () => {
+      createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+      fireEvent.click(gapButtons[1]);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+      expect(stepLabels(container)).toEqual(["Rename column", "Cast type", "Filter rows"]);
+
+      await waitFor(() => {
+        expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "cast", { casts: {} }, 1);
+      });
+    });
+
+    it("the append path (bottom add-step control) still calls the service without a position argument", async () => {
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Limit rows/i }));
+
+      expect(stepLabels(container)).toEqual(["Rename column", "Filter rows", "Limit rows"]);
+
+      await waitFor(() => {
+        expect(createPipelineStepMock).toHaveBeenCalledWith(
+          "pipe-1",
+          "limit",
+          expect.anything(),
+          undefined,
+        );
+      });
+    });
+
+    it("a failed insert keeps the optimistic temp step in place and surfaces an error toast", async () => {
+      createPipelineStepMock.mockRejectedValueOnce(new Error("Conflict"));
+      const store = makeStore();
+      const { container } = renderDetailPage("pipe-1", store);
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+      fireEvent.click(gapButtons[0]);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+      expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
+
+      await waitFor(() => {
+        const toasts = store.getState().toasts.items;
+        expect(toasts).toHaveLength(1);
+        expect(toasts[0].variant).toBe("error");
+        expect(toasts[0].message).toMatch(/failed to add cast type step/i);
+      });
+      // Temp step stays visible (kept, not rolled back) — the existing
+      // append-failure convention, unchanged by the generalization to insert.
+      expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
+    });
+
+    it("an insert changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
+      createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // Let the mount-triggered fingerprint settle before taking the baseline.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      });
+      const callsBeforeInsert = analyzePipelineMock.mock.calls.length;
+
+      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+      fireEvent.click(gapButtons[1]);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+      await waitFor(() =>
+        expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeInsert),
+      );
+    });
+
+    // HEL-407 (design.md Decision 9): StepCard folds `stepIndex` into its
+    // preview fingerprint so a position-only change re-fetches an already-open
+    // preview. An insert shifts every later step's `stepIndex` — verify that
+    // machinery composes with insert (implement nothing new; assert only).
+    it("a step after the insert point gets a new stepIndex, refreshing its open preview", async () => {
+      fetchStepPreviewMock.mockResolvedValue({ rows: [], rowCount: 0 });
+      createPipelineStepMock.mockResolvedValueOnce(persistedCast);
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // Open Filter's card and activate its preview — Filter is stepIndex 1.
+      fireEvent.click(screen.getByRole("button", { name: /Filter rows/i, expanded: false }));
+      fireEvent.click(await screen.findByRole("button", { name: "Preview data" }));
+      await waitFor(() => {
+        expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "y1");
+      });
+      const callsBeforeInsert = fetchStepPreviewMock.mock.calls.length;
+
+      // Insert a new step before Filter (gap index 1) — Filter's stepIndex
+      // shifts from 1 to 2, changing its `${stepIndex}:config` fingerprint.
+      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+      fireEvent.click(gapButtons[1]);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+      await waitFor(
+        () => expect(fetchStepPreviewMock.mock.calls.length).toBeGreaterThan(callsBeforeInsert),
+        { timeout: 2000 },
+      );
+    });
+  });
+
   it("output name field is editable — input appears on click", async () => {
     const store = makeStore([], {
       currentPipeline: {
