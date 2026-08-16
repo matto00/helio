@@ -131,6 +131,22 @@ export const togglePinned = createAsyncThunk<
   }
 });
 
+/** HEL-693 design.md D6 — mirrors `togglePinned`'s shape, but rejects with the server's message
+ * (via `extractErrorMessage`) rather than a constant: a rename failure is surfaced inline next to
+ * the row being edited (`SidebarItemList`'s `onRename` error state), so the caller benefits from
+ * knowing *why* it failed the way `selectConversation`/`converse` already do. */
+export const renameConversation = createAsyncThunk<
+  AssistantConversationSummary,
+  { id: string; title: string },
+  { rejectValue: string }
+>("assistantConversations/renameConversation", async ({ id, title }, { rejectWithValue }) => {
+  try {
+    return await updateConversationRequest(id, { title });
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to rename conversation."));
+  }
+});
+
 const assistantConversationsSlice = createSlice({
   name: "assistantConversations",
   initialState,
@@ -189,6 +205,16 @@ const assistantConversationsSlice = createSlice({
       .addCase(togglePinned.fulfilled, (state, action) => {
         const idx = state.items.findIndex((c) => c.id === action.payload.id);
         if (idx !== -1) state.items[idx] = action.payload;
+      })
+      .addCase(renameConversation.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((c) => c.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
+        // Keeps the active-conversation panel heading (which reads
+        // `activeConversation.data.title` directly, not `items`) in sync when the
+        // renamed row is the one currently open (design.md D6).
+        if (state.activeConversation.data?.id === action.payload.id) {
+          state.activeConversation.data.title = action.payload.title;
+        }
       })
       .addCase(converse.pending, (state) => {
         // HEL-667 design.md D5 tasks.md 6.3 — "cleared on the next send": a fresh message means any
