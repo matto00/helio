@@ -905,3 +905,43 @@ object AgentPreferences {
   def empty(userId: UserId): AgentPreferences =
     AgentPreferences(userId, None, None, None, JsObject.empty)
 }
+
+final case class AgentMemoryId(value: String) extends AnyVal
+
+/** HEL-478 (420-B, Agent Memory & Preferences) — the free-form-memory half of the epic, sibling
+ *  to the structured `AgentPreferences` store (420-A). `kind` is a closed allow-list
+ *  (`fact`/`goal`/`preference-note`, see [[AgentMemoryKind]]); `content` is free text. Multi-row
+ *  per owner (like `ApiToken`), not a single-row-per-user JSONB blob (unlike
+ *  `AgentPreferences`) — see design.md Decision 1. `lastUsedAt` drives the per-user cap's
+ *  oldest-`lastUsedAt`-then-`createdAt` eviction ordering (design.md Decision 3). */
+final case class AgentMemoryEntry(
+    id: AgentMemoryId,
+    ownerId: UserId,
+    kind: AgentMemoryKind,
+    content: String,
+    createdAt: Instant,
+    lastUsedAt: Option[Instant]
+)
+
+/** Closed allow-list for `AgentMemoryEntry.kind` — mirrors `ScheduleKind`'s `fromString`/
+ *  `asString` pattern (enum validation kept in Scala, not Postgres; see V82's migration
+ *  comment). */
+sealed trait AgentMemoryKind
+object AgentMemoryKind {
+  case object Fact           extends AgentMemoryKind
+  case object Goal           extends AgentMemoryKind
+  case object PreferenceNote extends AgentMemoryKind
+
+  def fromString(s: String): Either[String, AgentMemoryKind] = s match {
+    case "fact"            => Right(Fact)
+    case "goal"            => Right(Goal)
+    case "preference-note" => Right(PreferenceNote)
+    case other             => Left(s"Unknown agent memory kind: '$other'. Valid values: fact, goal, preference-note")
+  }
+
+  def asString(k: AgentMemoryKind): String = k match {
+    case Fact           => "fact"
+    case Goal           => "goal"
+    case PreferenceNote => "preference-note"
+  }
+}

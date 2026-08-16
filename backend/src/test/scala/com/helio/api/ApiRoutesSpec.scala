@@ -27,7 +27,7 @@ import com.helio.domain.{
   UserSession
 }
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.api.protocols.PutAgentPreferencesRequest
+import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -3233,6 +3233,40 @@ class ApiRoutesSpec
     "return 401 for PUT /api/preferences without Authorization (HEL-472)" in {
       val body = PutAgentPreferencesRequest(None, None, None, None)
       Put("/api/preferences", body) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    // HEL-478 (420-B): composed-route-tree coverage for /api/agent/memory — proves the request
+    // is rejected by the AuthDirectives layer itself (before ever reaching
+    // agentMemoryServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't wire
+    // an AgentMemoryRepository. Full CRUD coverage (create-then-list, invalid-kind 400,
+    // delete-then-404, clear-then-empty) lives in the isolated `AgentMemoryRoutesSpec`.
+    "return 401 for GET /api/agent/memory without Authorization (HEL-478)" in {
+      Get("/api/agent/memory") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for POST /api/agent/memory without Authorization (HEL-478)" in {
+      Post("/api/agent/memory", CreateAgentMemoryRequest("fact", "something")) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for DELETE /api/agent/memory/:id without Authorization (HEL-478)" in {
+      import java.util.UUID
+      Delete(s"/api/agent/memory/${UUID.randomUUID()}") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for DELETE /api/agent/memory (clear all) without Authorization (HEL-478)" in {
+      Delete("/api/agent/memory") ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
         responseAs[ErrorResponse].message shouldBe "Unauthorized"
       }
