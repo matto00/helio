@@ -4,7 +4,12 @@
 TBD - created by archiving change overwrite-mode-snapshot. Update Purpose after archive.
 ## Requirements
 ### Requirement: DataType row snapshot is persisted after a successful non-dry run
-After a successful non-dry pipeline run the backend SHALL atomically replace all rows in `data_type_rows` for the output DataType with the new pipeline output. The replacement SHALL be atomic: the DELETE and bulk INSERT SHALL execute within a single database transaction so that the old snapshot survives if the INSERT fails.
+The backend SHALL atomically replace all rows in `data_type_rows` for the output DataType with the new
+pipeline output after a successful non-dry pipeline run, UNLESS the run is blocked by an error-severity
+assertion failure (see `pipeline-assert-fail-policy`), in which case `data_type_rows` SHALL be left
+completely unchanged — the previously-persisted snapshot remains the current one. When the replacement
+does occur, it SHALL be atomic: the DELETE and bulk INSERT SHALL execute within a single database
+transaction so that the old snapshot survives if the INSERT fails.
 
 #### Scenario: First run populates snapshot
 - **WHEN** `POST /api/pipelines/:id/run` succeeds and no prior snapshot exists
@@ -21,6 +26,11 @@ After a successful non-dry pipeline run the backend SHALL atomically replace all
 #### Scenario: Dry run does not modify snapshot
 - **WHEN** `POST /api/pipelines/:id/run?dry=true` is called successfully
 - **THEN** `data_type_rows` for the DataType is unchanged
+
+#### Scenario: Run blocked by an error-severity assertion does not modify snapshot
+- **WHEN** a non-dry run's `assert` step has an error-severity rule that fails
+- **THEN** `data_type_rows` for the output DataType is byte-for-byte unchanged from before the run —
+  neither deleted nor replaced
 
 ### Requirement: Stored snapshot rows are retrievable via GET /api/data-types/:id/rows
 The backend SHALL expose `GET /api/data-types/:id/rows` returning the current snapshot as `{ rows: [...], rowCount: N }` where each element is the JSONB row object. If no snapshot exists the response SHALL be `{ rows: [], rowCount: 0 }`.

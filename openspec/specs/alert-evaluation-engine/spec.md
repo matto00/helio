@@ -116,10 +116,13 @@ skipped per the zero-rows scenario above) and the current evaluation does not br
 - **THEN** no `AlertEvent` is created, updated, or resolved
 
 ### Requirement: Evaluation never fails the triggering pipeline run
-A run that fails before reaching the row-write step SHALL produce no evaluation and no
-`AlertEvent` changes. Once invoked, an exception raised while evaluating one rule, or while
-evaluating rules for a `DataTypeId` overall, SHALL be logged and SHALL NOT propagate to the
-caller in a way that fails or rolls back the triggering pipeline run.
+The system SHALL produce no evaluation and no `AlertEvent` changes for a run that fails before reaching
+the row-write step, or that reaches `onRunSuccess` but is blocked by the assert fail-policy before the
+row-write step (see `pipeline-assert-fail-policy`) — evaluating rules against rows that were never
+actually written to the DataType would fire alerts referencing values no dashboard ever displays. Once invoked, an
+exception raised while evaluating one rule, or while evaluating rules for a `DataTypeId` overall, SHALL
+be logged and SHALL NOT propagate to the caller in a way that fails or rolls back the triggering
+pipeline run.
 
 #### Scenario: A failed pipeline run creates no events
 - **WHEN** a pipeline run fails before `onRunSuccess` is reached
@@ -134,6 +137,12 @@ caller in a way that fails or rolls back the triggering pipeline run.
 - **WHEN** `evaluateForDataType` raises an exception (e.g. an unexpected repository failure)
 - **THEN** `PipelineRunService.onRunSuccess`'s returned `Future` still succeeds and the pipeline
   run is recorded as `succeeded`
+
+#### Scenario: A run blocked by the assert fail-policy creates no events
+- **WHEN** `onRunSuccess` is reached but the run is blocked by an error-severity assertion failure
+  before the row-write step
+- **THEN** `evaluateForDataType` is never invoked and no `AlertEvent` is created, even though
+  `onRunSuccess` itself was reached (unlike an execution failure, which never reaches it)
 
 ### Requirement: Fired/resolved events are logged for future delivery consumption
 For every event created, refreshed, or resolved by this engine, the system SHALL emit a

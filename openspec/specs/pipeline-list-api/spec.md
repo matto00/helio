@@ -12,7 +12,9 @@ via a Flyway migration.
 
 `last_run_status` and `last_run_at` SHALL be written by the pipeline execution engine on every
 non-dry run attempt: set to `"succeeded"` and the completion timestamp on success, or `"failed"`
-and the failure timestamp on error.
+and the failure timestamp on error. A run blocked by an error-severity assertion failure (see
+`pipeline-assert-fail-policy`) SHALL also set `last_run_status` to `"failed"`, even though step
+execution itself completed without exception — no third `last_run_status` value is introduced.
 
 #### Scenario: Pipelines table is created on migration
 - **WHEN** the backend starts and Flyway runs pending migrations
@@ -29,6 +31,12 @@ and the failure timestamp on error.
 #### Scenario: last_run_status is not updated on a dry run
 - **WHEN** `POST /api/pipelines/:id/run?dry=true` is called
 - **THEN** `pipelines.last_run_status` and `last_run_at` remain unchanged
+
+#### Scenario: last_run_status is set to failed for a run blocked by an assertion failure
+- **WHEN** a non-dry run completes step execution without exception, but an `assert` step's
+  error-severity rule fails
+- **THEN** `pipelines.last_run_status` is `"failed"` (not `"succeeded"`) and `last_run_at` is a recent
+  timestamp
 
 ### Requirement: GET /api/pipelines returns pipeline summaries
 The backend SHALL expose `GET /api/pipelines` that returns a JSON array of pipeline summary objects.

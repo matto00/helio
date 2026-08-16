@@ -72,7 +72,7 @@ are recorded and the run proceeds unchanged. This is what makes an "alive" agent
 ## Impact
 
 - Backend only: `services/PipelineRunService.scala` (`onRunSuccess`'s body split into a blocked branch
-  and the existing succeeded branch, return type `Future[Unit]` → `Future[Boolean]`; a new private
+  and the existing succeeded branch, return type `Future[Unit]` → `Future[Option[String]]`; a new private
   summarization helper), `services/BoundPanelService.scala` and `services/PipelineProposalService.scala`
   (one new `blocked`-checking guard each, reusing existing cleanup/rollback paths),
   `api/protocols/PipelineProtocol.scala` (`RunResultResponse` gains two default-valued fields,
