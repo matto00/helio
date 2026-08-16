@@ -509,6 +509,7 @@ describe("PipelineDetailPage", () => {
       rowCount: 42,
       errorLog: null,
       triggerSource: "manual",
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -526,6 +527,7 @@ describe("PipelineDetailPage", () => {
       rowCount: 10,
       errorLog: null,
       triggerSource: "manual",
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -543,6 +545,7 @@ describe("PipelineDetailPage", () => {
       rowCount: 10,
       errorLog: null,
       triggerSource: "scheduled",
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -560,6 +563,7 @@ describe("PipelineDetailPage", () => {
       rowCount: null,
       errorLog: "out of memory error",
       triggerSource: "scheduled",
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -1399,6 +1403,7 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
       rowCount: 5,
       errorLog: null,
       triggerSource: "manual",
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
     renderDetailPage("pipe-1", store);
@@ -1529,6 +1534,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       rowCount: null,
       errorLog: null,
       triggerSource: "manual" as const,
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
@@ -1548,6 +1554,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       rowCount: null,
       errorLog: null,
       triggerSource: "manual" as const,
+      assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);

@@ -26,6 +26,15 @@ export interface DataType {
   updatedAt: string;
 }
 
+/** `GET /api/types/:id/assertion-status` response (HEL-576): whether the
+ * DataType's owning pipeline's latest NON-DRY run had an error-severity
+ * assertion failure. Fetched/cached per `dataTypeId` in `dataTypesSlice`. */
+export interface AssertionStatusResponse {
+  dataTypeId: string;
+  invalid: boolean;
+  failedRuleCount: number;
+}
+
 /** Wire values for the `FieldTypeCategory.Content` field types (HEL-217):
  * `DataFieldType.asString` produces these for content-backed fields. */
 const CONTENT_FIELD_DATA_TYPES = new Set(["string-body", "binary-ref"]);

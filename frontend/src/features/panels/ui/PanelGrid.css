@@ -199,6 +199,15 @@
   text-transform: uppercase;
 }
 
+/* HEL-576: informational "invalid data" badge — the panel's bound DataType's
+ * latest pipeline run had an error-severity assertion failure. Same chip
+ * recipe as .panel-grid-card__type-badge, just intent-colored. */
+.panel-grid-card__type-badge--invalid {
+  border-color: color-mix(in srgb, var(--app-error) 40%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
 .panel-grid-card__title-area {
   flex: 1;
   min-width: 0;

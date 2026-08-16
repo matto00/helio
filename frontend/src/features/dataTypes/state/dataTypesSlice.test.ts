@@ -1,10 +1,15 @@
+import { configureStore } from "@reduxjs/toolkit";
+
 import {
   dataTypesReducer,
   deleteDataType,
+  fetchAssertionStatus,
   fetchDataTypes,
+  selectAssertionInvalid,
   selectPipelineOutputDataTypes,
   updateDataType,
 } from "./dataTypesSlice";
+import * as dataTypeService from "../services/dataTypeService";
 import type { RootState } from "../../../store/store";
 
 const testDataType = {
@@ -51,6 +56,8 @@ describe("deleteDataType", () => {
     status: "succeeded" as const,
     error: null,
     selectedTypeId: null,
+    assertionStatusByDataTypeId: {},
+    assertionStatusPendingIds: {},
   };
 
   it("removes the data type from items when fulfilled", () => {
@@ -91,6 +98,8 @@ describe("updateDataType", () => {
       status: "succeeded" as const,
       error: null,
       selectedTypeId: null,
+      assertionStatusByDataTypeId: {},
+      assertionStatusPendingIds: {},
     };
     const updatedType = { ...testDataType, name: "Updated Metrics" };
     const nextState = dataTypesReducer(
@@ -165,5 +174,86 @@ describe("selectPipelineOutputDataTypes", () => {
     const second = selectPipelineOutputDataTypes(stateAfter);
     expect(second).not.toBe(first);
     expect(second).toEqual([pipelineOutputType]);
+  });
+});
+
+// HEL-576 (design.md Decision 8) — the assertion-status thunk dedupes
+// concurrent/repeated fetches for the same dataTypeId.
+describe("fetchAssertionStatus", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("dedupes two concurrently-dispatched fetches for the same dataTypeId into one request", async () => {
+    const spy = jest.spyOn(dataTypeService, "fetchAssertionStatus").mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: true,
+      failedRuleCount: 2,
+    });
+    const store = configureStore({ reducer: { dataTypes: dataTypesReducer } });
+
+    await Promise.all([
+      // @ts-expect-error — test store has fewer slices than the full RootState
+      store.dispatch(fetchAssertionStatus("dt-1")),
+      // @ts-expect-error — test store has fewer slices than the full RootState
+      store.dispatch(fetchAssertionStatus("dt-1")),
+    ]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(store.getState().dataTypes.assertionStatusByDataTypeId["dt-1"]).toEqual({
+      invalid: true,
+      failedRuleCount: 2,
+    });
+  });
+
+  it("is a no-op for a dataTypeId whose status is already cached", async () => {
+    const spy = jest.spyOn(dataTypeService, "fetchAssertionStatus").mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+    const store = configureStore({ reducer: { dataTypes: dataTypesReducer } });
+
+    // @ts-expect-error — test store has fewer slices than the full RootState
+    await store.dispatch(fetchAssertionStatus("dt-1"));
+    // @ts-expect-error — test store has fewer slices than the full RootState
+    await store.dispatch(fetchAssertionStatus("dt-1"));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches independently for distinct dataTypeIds", async () => {
+    const spy = jest
+      .spyOn(dataTypeService, "fetchAssertionStatus")
+      .mockImplementation(async (id) => ({ dataTypeId: id, invalid: false, failedRuleCount: 0 }));
+    const store = configureStore({ reducer: { dataTypes: dataTypesReducer } });
+
+    // @ts-expect-error — test store has fewer slices than the full RootState
+    await store.dispatch(fetchAssertionStatus("dt-1"));
+    // @ts-expect-error — test store has fewer slices than the full RootState
+    await store.dispatch(fetchAssertionStatus("dt-2"));
+
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledWith("dt-1");
+    expect(spy).toHaveBeenCalledWith("dt-2");
+  });
+});
+
+describe("selectAssertionInvalid", () => {
+  it("returns false for a null dataTypeId", () => {
+    const state = { dataTypes: { assertionStatusByDataTypeId: {} } } as unknown as RootState;
+    expect(selectAssertionInvalid(state, null)).toBe(false);
+  });
+
+  it("returns false when the status is not yet cached", () => {
+    const state = { dataTypes: { assertionStatusByDataTypeId: {} } } as unknown as RootState;
+    expect(selectAssertionInvalid(state, "dt-1")).toBe(false);
+  });
+
+  it("returns the cached invalid value", () => {
+    const state = {
+      dataTypes: { assertionStatusByDataTypeId: { "dt-1": { invalid: true, failedRuleCount: 3 } } },
+    } as unknown as RootState;
+    expect(selectAssertionInvalid(state, "dt-1")).toBe(true);
   });
 });

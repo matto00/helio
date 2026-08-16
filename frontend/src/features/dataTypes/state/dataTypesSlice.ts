@@ -4,6 +4,7 @@ import {
   fetchDataTypes as fetchDataTypesRequest,
   updateDataType as updateDataTypeRequest,
   deleteDataType as deleteDataTypeRequest,
+  fetchAssertionStatus as fetchAssertionStatusRequest,
 } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import type { RootState } from "../../../store/store";
@@ -15,6 +16,14 @@ interface DataTypesState {
   /** Explicit user selection in the sidebar. Null means "fall back to first
    * item" — the page derives the effective selection so it's never blank. */
   selectedTypeId: string | null;
+  /** HEL-576: per-DataType assertion-status cache (design.md Decision 8) —
+   * `undefined` means "not yet fetched"; `fetchAssertionStatus`'s `condition`
+   * uses `assertionStatusPendingIds` (below) to dedupe in-flight fetches. */
+  assertionStatusByDataTypeId: Record<
+    string,
+    { invalid: boolean; failedRuleCount: number } | undefined
+  >;
+  assertionStatusPendingIds: Record<string, boolean>;
 }
 
 const initialState: DataTypesState = {
@@ -22,6 +31,8 @@ const initialState: DataTypesState = {
   status: "idle",
   error: null,
   selectedTypeId: null,
+  assertionStatusByDataTypeId: {},
+  assertionStatusPendingIds: {},
 };
 
 export const updateDataType = createAsyncThunk<
@@ -68,6 +79,33 @@ export const fetchDataTypes = createAsyncThunk<DataType[], void, { rejectValue: 
   },
 );
 
+/** HEL-576 (design.md Decision 8): fetches once per distinct `dataTypeId` —
+ * a no-op via `condition` when the status is already cached or a fetch is
+ * already in flight, so N panels bound to the same DataType share one
+ * request. */
+export const fetchAssertionStatus = createAsyncThunk<
+  { dataTypeId: string; invalid: boolean; failedRuleCount: number },
+  string,
+  { state: RootState; rejectValue: string }
+>(
+  "dataTypes/fetchAssertionStatus",
+  async (dataTypeId, { rejectWithValue }) => {
+    try {
+      return await fetchAssertionStatusRequest(dataTypeId);
+    } catch {
+      return rejectWithValue("Failed to load assertion status.");
+    }
+  },
+  {
+    condition: (dataTypeId, { getState }) => {
+      const { dataTypes } = getState();
+      if (dataTypes.assertionStatusPendingIds[dataTypeId]) return false;
+      if (dataTypes.assertionStatusByDataTypeId[dataTypeId] !== undefined) return false;
+      return true;
+    },
+  },
+);
+
 const dataTypesSlice = createSlice({
   name: "dataTypes",
   initialState,
@@ -97,6 +135,19 @@ const dataTypesSlice = createSlice({
       })
       .addCase(deleteDataType.fulfilled, (state, action) => {
         state.items = state.items.filter((dt) => dt.id !== action.payload);
+      })
+      .addCase(fetchAssertionStatus.pending, (state, action) => {
+        state.assertionStatusPendingIds[action.meta.arg] = true;
+      })
+      .addCase(fetchAssertionStatus.fulfilled, (state, action) => {
+        state.assertionStatusPendingIds[action.meta.arg] = false;
+        state.assertionStatusByDataTypeId[action.payload.dataTypeId] = {
+          invalid: action.payload.invalid,
+          failedRuleCount: action.payload.failedRuleCount,
+        };
+      })
+      .addCase(fetchAssertionStatus.rejected, (state, action) => {
+        state.assertionStatusPendingIds[action.meta.arg] = false;
       });
   },
 });
@@ -119,3 +170,12 @@ export const selectPipelineOutputDataTypes: (state: RootState) => DataType[] = c
   (state: RootState) => state.dataTypes.items,
   (items) => items.filter((dt) => dt.sourceId === null),
 );
+
+/** HEL-576: `true` when `dataTypeId`'s cached assertion status reports
+ * `invalid: true`; `false` when unbound, valid, or not yet fetched — the
+ * badge simply doesn't render until the fetch resolves (design.md
+ * Decision 8's "degrades safely" precedent). */
+export function selectAssertionInvalid(state: RootState, dataTypeId: string | null): boolean {
+  if (dataTypeId === null) return false;
+  return state.dataTypes.assertionStatusByDataTypeId[dataTypeId]?.invalid ?? false;
+}

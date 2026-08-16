@@ -36,10 +36,35 @@ final case class RunStatusResponse(
     error: Option[String],
     rowCount: Option[Int] = None
 )
+/** One failing assertion rule's detail (HEL-576, design.md Decision 1) --
+ *  `AssertionSummary.failures` carries only the FAILED results; a passing
+ *  result is just a count, never a detail. Mirrors
+ *  `PipelineRunAssertionRow`'s `kind`/`field`/`severity`/`message` shape,
+ *  minus `stepId`/`passed`/`observed` (not needed by the Run History UI's
+ *  expandable failing-rules list). */
+final case class AssertionFailureDetail(
+    kind: String,
+    field: Option[String],
+    severity: String,
+    message: Option[String]
+)
+/** Per-run pass/fail-by-severity assertion summary (HEL-576, design.md
+ *  Decision 1). Non-optional and zero-valued (not `Option`-wrapped) for a run
+ *  with no `assert` steps -- mirrors `stepRowCounts: Map[String, Long] =
+ *  Map.empty`'s existing empty-collection-default convention rather than
+ *  introducing a new "maybe absent" pattern for the frontend to null-check. */
+final case class AssertionSummary(
+    passed: Int = 0,
+    warnFailed: Int = 0,
+    errorFailed: Int = 0,
+    failures: Vector[AssertionFailureDetail] = Vector.empty
+)
 /** `triggeredByTokenId` (HEL-369): the id of the PAT that authenticated an
  *  external trigger (`POST /api/hooks/run`), or absent for every other
  *  trigger source -- the audit read path this ticket's acceptance criteria
- *  ask for (no new endpoint; existing `GET /api/pipelines/:id/run-history`). */
+ *  ask for (no new endpoint; existing `GET /api/pipelines/:id/run-history`).
+ *  `assertions` (HEL-576, design.md Decision 1): the run's pass/fail-by-
+ *  severity assertion summary, zero-valued for a run with no `assert` steps. */
 final case class PipelineRunRecord(
     id: String,
     pipelineId: String,
@@ -49,7 +74,17 @@ final case class PipelineRunRecord(
     rowCount: Option[Int],
     errorLog: Option[String],
     triggerSource: String,
-    triggeredByTokenId: Option[String] = None
+    triggeredByTokenId: Option[String] = None,
+    assertions: AssertionSummary = AssertionSummary()
+)
+/** `GET /api/types/:id/assertion-status` response (HEL-576, design.md
+ *  Decision 6): `invalid` is true when the DataType's owning pipeline's
+ *  latest NON-DRY run has at least one persisted error-severity failed
+ *  assertion; `failedRuleCount` is the count of such failures. */
+final case class AssertionStatusResponse(
+    dataTypeId: String,
+    invalid: Boolean,
+    failedRuleCount: Int
 )
 /** `runId` (HEL-369) surfaces the persisted run's id so `HookTriggerService`
  *  can return it to an external caller; `None` only for `previewStep`
@@ -89,7 +124,12 @@ trait PipelineProtocol
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
 
   // Run formats
-  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat9(PipelineRunRecord.apply)
+  implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
+    jsonFormat4(AssertionFailureDetail.apply)
+  implicit val assertionSummaryFormat: RootJsonFormat[AssertionSummary]           = jsonFormat4(AssertionSummary.apply)
+  implicit val assertionStatusResponseFormat: RootJsonFormat[AssertionStatusResponse] =
+    jsonFormat3(AssertionStatusResponse.apply)
+  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat10(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {

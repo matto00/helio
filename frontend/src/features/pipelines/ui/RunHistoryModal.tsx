@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import "./RunHistoryModal.css";
-import type { PipelineRunRecord } from "../types/pipelineStep";
+import type { AssertionSummary, PipelineRunRecord } from "../types/pipelineStep";
 import { Modal } from "../../../shared/ui/Modal";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
@@ -48,8 +48,56 @@ function TriggerSourceBadge({
   );
 }
 
+// HEL-576: only rendered when at least one rule was evaluated — a
+// zero-valued summary means the pipeline had no `assert` steps at all, and
+// showing "0 passed, 0 error, 0 warn" on every ordinary run would be pure
+// noise (DESIGN.md §0: "nothing gratuitous").
+function AssertionSummaryBadge({ summary }: { summary: AssertionSummary }) {
+  const total = summary.passed + summary.warnFailed + summary.errorFailed;
+  if (total === 0) return null;
+  return (
+    <span className="run-history-modal__assertions">
+      {summary.passed} passed
+      {summary.errorFailed > 0 && (
+        <span className="run-history-modal__assertions-error"> · {summary.errorFailed} error</span>
+      )}
+      {summary.warnFailed > 0 && (
+        <span className="run-history-modal__assertions-warn"> · {summary.warnFailed} warn</span>
+      )}
+    </span>
+  );
+}
+
+function AssertionFailureList({ summary }: { summary: AssertionSummary }) {
+  if (summary.failures.length === 0) return null;
+  return (
+    <ul className="run-history-modal__assertion-failures">
+      {summary.failures.map((failure, idx) => (
+        <li
+          key={`${failure.kind}-${failure.field ?? ""}-${idx}`}
+          className={`run-history-modal__assertion-failure run-history-modal__assertion-failure--${failure.severity}`}
+        >
+          <span className="run-history-modal__assertion-failure-kind">
+            {failure.kind}
+            {failure.field ? ` (${failure.field})` : ""}
+          </span>
+          {failure.message && (
+            <span className="run-history-modal__assertion-failure-message">{failure.message}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RunRow({ run }: { run: PipelineRunRecord }) {
   const [expanded, setExpanded] = useState(false);
+  // HEL-576 (design.md Decision 10): broadened from `status === "failed" &&
+  // errorLog` alone so a successful run with warn/error assertion failures
+  // (or a blocked run whose failing rules are the whole story) can also be
+  // expanded.
+  const hasFailingAssertions = run.assertions.failures.length > 0;
+  const canExpand = (run.status === "failed" && Boolean(run.errorLog)) || hasFailingAssertions;
   return (
     <div className="run-history-modal__row">
       <div className="run-history-modal__row-summary">
@@ -64,7 +112,8 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
         </span>
         <StatusBadge status={run.status} />
         <TriggerSourceBadge triggerSource={run.triggerSource} />
-        {run.status === "failed" && run.errorLog && (
+        <AssertionSummaryBadge summary={run.assertions} />
+        {canExpand && (
           <button
             type="button"
             className="run-history-modal__row-toggle"
@@ -75,8 +124,11 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
           </button>
         )}
       </div>
-      {expanded && run.errorLog && (
-        <pre className="run-history-modal__row-error">{run.errorLog}</pre>
+      {expanded && (
+        <>
+          {run.errorLog && <pre className="run-history-modal__row-error">{run.errorLog}</pre>}
+          <AssertionFailureList summary={run.assertions} />
+        </>
       )}
     </div>
   );
