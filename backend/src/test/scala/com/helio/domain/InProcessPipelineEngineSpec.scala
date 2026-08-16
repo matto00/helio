@@ -52,6 +52,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
       case c: StringOpsConfig => StringOpsStep(id, pid, 0, c, now, now)
       case c: UnionConfig    => UnionStep(id, pid, 0, c, now, now)
       case c: LookupConfig   => LookupStep(id, pid, 0, c, now, now)
+      case c: AssertConfig   => AssertStep(id, pid, 0, c, now, now)
       case other              => throw new MatchError("Unexpected config type: " + other.getClass.getName)
     }
   }
@@ -2089,6 +2090,35 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
         Await.result(engine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage should include ("Unable to read image dimensions")
+    }
+
+    // ── HEL-509 (419-B): executeWithStepCounts' assertionSink threading ───────
+
+    "assert: an assert step records its AssertionResults into a caller-supplied AssertionSink" in {
+      val sink = new AssertionSink
+      val cfg  = """{"rules":[{"kind":"notNull","field":"name","params":{},"severity":"error"}]}"""
+      val step = makeStep("assert", cfg)
+      Await.result(engine.executeWithStepCounts(sampleRows, Seq(step), null, sink), 5.seconds)
+      sink.results should have size 1
+      sink.results.head.passed shouldBe true
+    }
+
+    "assert: existing callers with no assertionSink argument are unaffected (fresh, discarded sink)" in {
+      val cfg  = """{"rules":[{"kind":"rowCountMin","params":{"count":100},"severity":"error"}]}"""
+      val step = makeStep("assert", cfg)
+      // No assertionSink argument — default applies. The assert step still
+      // evaluates (and would fail, 3 < 100) but there's no way to observe
+      // the result; the important assertion is that execution completes
+      // normally and row output is unaffected.
+      val result = run(sampleRows, step)
+      result shouldBe sampleRows
+    }
+
+    "assert: execute()'s delegation (.map(_._1)) is unaffected by the new optional parameter" in {
+      val cfg  = """{"rules":[{"kind":"notNull","field":"name","params":{},"severity":"error"}]}"""
+      val step = makeStep("assert", cfg)
+      val result = Await.result(engine.execute(sampleRows, Seq(step), null), 5.seconds)
+      result shouldBe sampleRows
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────
