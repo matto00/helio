@@ -24,6 +24,9 @@ interface PipelineRiverViewProps {
   onRemoveStep: (stepId: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
+  /** HEL-404 — per-step output schema (name + type), sourced from the analyze
+   *  endpoint's outputSchema; threaded into StepCard's inline preview tray. */
+  getAnalyzeOutputSchema: (stepId: string) => SchemaField[];
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   onStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
@@ -42,6 +45,7 @@ export function PipelineRiverView({
   onRemoveStep,
   getAnalyzeColumns,
   getAnalyzeSchema,
+  getAnalyzeOutputSchema,
   getAnalyzeValidationError,
   onStepConfigChange,
   runStepRowCounts,
@@ -96,6 +100,7 @@ export function PipelineRiverView({
                   onRemove={onRemoveStep}
                   analyzeColumns={getAnalyzeColumns(step.id)}
                   analyzeSchema={getAnalyzeSchema(step.id)}
+                  analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
                   validationError={getAnalyzeValidationError(step.id)}
                   onConfigChange={onStepConfigChange}
                   rowCount={runStepRowCounts?.[step.id] ?? null}

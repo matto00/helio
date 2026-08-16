@@ -1209,6 +1209,11 @@ const persistedPreviewStep: PipelineStep = {
 
 describe("PipelineDetailPage step preview", () => {
   beforeEach(() => {
+    // HEL-404 — StepCard's previewOpen now defaults from
+    // localStorage("helio-step-preview-open"); start each test clean so a
+    // prior test's toggle doesn't leak into the next one (same precedent as
+    // theme.test.ts / ThemeProvider.test.tsx / App.test.tsx).
+    window.localStorage.clear();
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
     getPipelineStepsMock.mockResolvedValue([persistedPreviewStep]);

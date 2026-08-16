@@ -217,6 +217,17 @@ export function PipelineDetailPage() {
     return analyzeStep ? analyzeStep.inputSchema : [];
   }
 
+  // HEL-404 — mirror of getAnalyzeSchema, reading outputSchema instead of
+  // inputSchema, so StepCard can render the step's output schema inline in
+  // its preview tray without any new backend call.
+  function getAnalyzeOutputSchema(stepId: string): SchemaField[] {
+    if (!analyzeResult) return [];
+    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
+      (s) => s.id === stepId,
+    );
+    return analyzeStep ? analyzeStep.outputSchema : [];
+  }
+
   function getAnalyzeValidationError(stepId: string): string | undefined {
     if (!analyzeResult) return undefined;
     const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
@@ -457,6 +468,7 @@ export function PipelineDetailPage() {
         onRemoveStep={handleRemoveStep}
         getAnalyzeColumns={getAnalyzeColumns}
         getAnalyzeSchema={getAnalyzeSchema}
+        getAnalyzeOutputSchema={getAnalyzeOutputSchema}
         getAnalyzeValidationError={getAnalyzeValidationError}
         onStepConfigChange={handleStepConfigChange}
         runStepRowCounts={runStepRowCounts}
