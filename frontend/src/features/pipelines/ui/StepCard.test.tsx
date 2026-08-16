@@ -10,11 +10,12 @@
 
 import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { faLink } from "@fortawesome/free-solid-svg-icons";
 
 import { StepCard } from "./StepCard";
 import { OP_TYPES } from "../state/stepNarrowing";
 import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
-import type { Step } from "../types/step";
+import type { OpType, Step } from "../types/step";
 import type { SchemaField } from "../types/pipelineStep";
 
 jest.mock("../services/pipelineService", () => ({
@@ -26,6 +27,11 @@ const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 
 const LIMIT_OP_TYPE = OP_TYPES.find((op) => op.id === "limit")!;
+const SELECT_OP_TYPE = OP_TYPES.find((op) => op.id === "select")!;
+const RENAME_OP_TYPE = OP_TYPES.find((op) => op.id === "rename")!;
+// Mirrors stepNarrowing.ts's internal (unexported) JOIN_OP_TYPE — join has no
+// dedicated editor, so it exercises StepCard's no-editor fallback branch.
+const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: faLink };
 
 function makeStep(overrides: Partial<Step> = {}): Step {
   return {
@@ -276,5 +282,118 @@ describe("StepCard preview — cross-card same-session preference (3.4)", () => 
     await click("Card two");
 
     expect(screen.getAllByRole("button", { name: "Hide preview" })).toHaveLength(2);
+  });
+});
+
+describe("StepCard — real schema diff chips (HEL-405)", () => {
+  it("renders all four diff kinds for a step with analyze data", async () => {
+    // input: a (retyped), b (renamed → b2), e (dropped)
+    // output: a (retyped), b2 (renamed), d (added)
+    const step = makeStep({
+      opType: RENAME_OP_TYPE,
+      label: "Rename column",
+      config: { renames: { b: "b2" } },
+    });
+    const analyzeSchema: SchemaField[] = [
+      { name: "a", type: "string" },
+      { name: "b", type: "string" },
+      { name: "e", type: "string" },
+    ];
+    const analyzeOutputSchema: SchemaField[] = [
+      { name: "a", type: "number" },
+      { name: "b2", type: "string" },
+      { name: "d", type: "string" },
+    ];
+
+    const { container } = render(
+      <StepCard {...baseProps({ step, analyzeSchema, analyzeOutputSchema })} />,
+    );
+    await click("Rename column");
+
+    const addedChip = container.querySelector(".pipeline-detail-page__step-card-diff-chip--added");
+    const droppedChip = container.querySelector(
+      ".pipeline-detail-page__step-card-diff-chip--removed",
+    );
+    const retypedChip = container.querySelector(
+      ".pipeline-detail-page__step-card-diff-chip--changed",
+    );
+    const renamedChip = container.querySelector(
+      ".pipeline-detail-page__step-card-diff-chip--renamed",
+    );
+
+    expect(addedChip).toHaveTextContent("+ d");
+    expect(droppedChip).toHaveTextContent("− e");
+    expect(retypedChip).toHaveTextContent("~ a: string→number");
+    expect(renamedChip).toHaveTextContent("b → b2");
+  });
+
+  it("renders diff chips for an op with a dedicated editor (select)", async () => {
+    const step = makeStep({
+      opType: SELECT_OP_TYPE,
+      label: "Select fields",
+      config: { fields: [] },
+    });
+    const analyzeSchema: SchemaField[] = [{ name: "x", type: "string" }];
+    const analyzeOutputSchema: SchemaField[] = [{ name: "y", type: "string" }];
+
+    const { container } = render(
+      <StepCard
+        {...baseProps({ step, analyzeColumns: ["x"], analyzeSchema, analyzeOutputSchema })}
+      />,
+    );
+    await click("Select fields");
+
+    // The diff strip is present alongside the select-fields editor — proves
+    // it renders above the op-editor branch for ops with a dedicated editor,
+    // not only the no-editor fallback.
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-diff-chip--added"),
+    ).toHaveTextContent("+ y");
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toHaveTextContent("− x");
+    expect(screen.getByRole("checkbox", { name: "x" })).toBeInTheDocument();
+  });
+
+  it("renders no diff chips (and no empty container) when the schemas are identical", async () => {
+    const schema: SchemaField[] = [{ name: "a", type: "string" }];
+    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+
+    const { container } = render(
+      <StepCard {...baseProps({ step, analyzeSchema: schema, analyzeOutputSchema: schema })} />,
+    );
+    await click("Join tables");
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-diff"),
+    ).not.toBeInTheDocument();
+    // Fallback branch's desc text still renders — only the placeholder chips were removed.
+    expect(screen.getByText("Configure this join tables step.")).toBeInTheDocument();
+  });
+
+  it("renders no diff chips when analyze data is unavailable for the step", async () => {
+    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+
+    const { container } = render(
+      <StepCard {...baseProps({ step, analyzeSchema: [], analyzeOutputSchema: [] })} />,
+    );
+    await click("Join tables");
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-diff"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("never renders the hardcoded col_a/col_b/col_c placeholder", async () => {
+    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+    const analyzeSchema: SchemaField[] = [{ name: "col_a", type: "string" }];
+    const analyzeOutputSchema: SchemaField[] = [{ name: "col_x", type: "string" }];
+
+    render(<StepCard {...baseProps({ step, analyzeSchema, analyzeOutputSchema })} />);
+    await click("Join tables");
+
+    expect(screen.queryByText("+ col_a")).not.toBeInTheDocument();
+    expect(screen.queryByText(/col_b/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/col_c/)).not.toBeInTheDocument();
   });
 });
