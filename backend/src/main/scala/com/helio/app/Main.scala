@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.{ApiRoutes, CookieConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.{RestApiConnector, SystemClock}
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.{AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, MetricRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.helio.services.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
 
@@ -69,6 +69,8 @@ object Main {
       val pipelineScheduleRepo = new PipelineScheduleRepository(ctx)
       // HEL-493: /api/metrics REST layer on top of HEL-446's MetricRepository.
       val metricRepo         = new MetricRepository(ctx)
+      // HEL-472 (420-A): /api/preferences persistence for the in-app agent's authoring defaults.
+      val agentPreferencesRepo = new AgentPreferencesRepository(ctx)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()
@@ -139,7 +141,8 @@ object Main {
         alertEventRepo = alertEventRepo,
         pipelineScheduleRepo = pipelineScheduleRepo,
         dbContext = ctx,
-        metricRepo = metricRepo
+        metricRepo = metricRepo,
+        agentPreferencesRepo = agentPreferencesRepo
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so

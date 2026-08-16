@@ -54,6 +54,7 @@ import com.helio.api.protocols._
  *    HEL-411)
  *  - `AssistantConversationProtocol` has no cross-domain dependency (`transcript` is a raw
  *    `JsValue` — HEL-663)
+ *  - `AgentPreferencesProtocol` has no cross-domain dependency (HEL-472 / 420-A)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -103,3 +104,4 @@ trait JsonProtocols
     with AuthoringConversationProtocol
     with RefinementProtocol
     with AssistantConversationProtocol
+    with AgentPreferencesProtocol

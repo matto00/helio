@@ -878,3 +878,30 @@ final case class MetricUsage(
     count: Int,
     panels: Vector[MetricUsagePanel]
 )
+
+/** HEL-472 (420-A, Agent Memory & Preferences) — a per-user, schema-bounded store of
+ *  agent-authoring defaults (series colors, default panel styling, naming conventions), plus a
+ *  JSONB `extras` escape hatch for forward-compat. Deliberately named `AgentPreferences` (not the
+ *  ticket's literal `UserPreferences`) to avoid colliding with the existing, unrelated
+ *  UI-theming feature of that name (`com.helio.api.protocols.AuthProtocol.UserPreferences` /
+ *  `UserPreferenceRepository` / `users.preferences` / `PATCH /api/users/me/update`) — see
+ *  ticket.md "Escalation Resolution" and design.md "Planner Notes".
+ *
+ *  `updated_at` is deliberately NOT a field here (design.md Decision 4a): it is a
+ *  repository-internal audit column `AgentPreferencesRepository` sets on every upsert and never
+ *  reads back — no consumer in this ticket's scope needs it on the domain/wire shape. */
+final case class AgentPreferences(
+    userId: UserId,
+    defaultSeriesColors: Option[Vector[String]],
+    defaultPanelStyle: Option[JsObject],
+    namingConventions: Option[JsObject],
+    extras: JsObject
+)
+
+object AgentPreferences {
+
+  /** The default returned by `AgentPreferencesService.get` when no row has been stored yet for a
+   *  user (design.md Decision 3) — every optional field unset, `extras` an empty object. */
+  def empty(userId: UserId): AgentPreferences =
+    AgentPreferences(userId, None, None, None, JsObject.empty)
+}
