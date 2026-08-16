@@ -216,6 +216,17 @@ final class BoundPanelService(
       case Left(err) =>
         cleanup(Some(outputDataTypeId), inlineSourceIdOf(sourceId, inlineSource), user)
           .map(_ => Left(stageError("run", err)))
+      // HEL-570 (design.md Decision 8): a blocked first run returns `Right`
+      // with no rows ever written to the output DataType — there is no
+      // prior-good snapshot to fall back on for a brand-new pipeline, so this
+      // is treated identically to a `Left` run failure: same cleanup path,
+      // same stage-tagged error shape. Must be checked BEFORE the unguarded
+      // `Right(_)` case below.
+      case Right(r) if r.blocked =>
+        cleanup(Some(outputDataTypeId), inlineSourceIdOf(sourceId, inlineSource), user)
+          .map(_ => Left(stageError("run", ServiceError.UnprocessableEntity(
+            r.blockedReason.getOrElse("Run blocked by an assertion failure")
+          ))))
       case Right(_) =>
         createPanel(request, gate, user, sourceId, inlineSource, pipelineId, outputDataTypeId)
     }

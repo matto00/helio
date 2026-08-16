@@ -41,6 +41,24 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       allCounts() shouldBe before
     }
 
+    "roll back the pipeline, its output type, and an inline source when the run is blocked by an error-severity assertion" in {
+      val before = allCounts()
+      // HEL-570 (design.md Decision 8): the run itself completes execution
+      // without exception, but the `assert` step's error-severity rowCountMax
+      // rule fails (2 rows > count: 1) — treated identically to a run
+      // failure for rollback purposes, since the proposal's output DataType
+      // was never actually populated either way.
+      val body =
+        s"""{"pipelineName":"Assert Blocked","source":{"type":"static","name":"Assert Blocked Source",
+           |"config":{"columns":[{"name":"revenue","type":"integer"}],"rows":[[5],[10]]}},
+           |"outputDataTypeName":"O",
+           |"steps":[{"type":"assert","config":{"rules":[{"kind":"rowCountMax","params":{"count":1},"severity":"error"}]}}]}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+      allCounts() shouldBe before
+    }
+
     "roll back an inline static source (and its companion type) when a later addStep fails" in {
       val before = allCounts()
       val body =

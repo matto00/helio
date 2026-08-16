@@ -325,11 +325,21 @@ final class PipelineRunService(
         // HEL-369: `runId` was already generated above for insertRun/insertDryRun;
         // surfacing it here is what lets HookTriggerService return it to the
         // external caller (design.md Decision 5).
-        val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value))
-        val followUp: Future[Unit] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results)
+        // HEL-570: `followUp` also carries the fail-policy's block decision
+        // (`None` = not blocked, `Some(summary)` = blocked — design.md
+        // Decision 8) so `RunResultResponse.blocked`/`blockedReason` can be
+        // populated without a second computation of the summary. A dry run
+        // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
+        val followUp: Future[Option[String]] =
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
           else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
-        followUp.map(_ => Right(response))
+        followUp.map { blockedSummary =>
+          val response = RunResultResponse(
+            jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
+            blocked = blockedSummary.isDefined, blockedReason = blockedSummary
+          )
+          Right(response)
+        }
     }
   }
 
@@ -372,6 +382,16 @@ final class PipelineRunService(
     else Future.successful(())
   }
 
+  /** HEL-570 (design.md Decisions 1-4, 8): computes `blockingFailures` first
+   *  and branches into two paths before any write. When at least one
+   *  `error`-severity assertion failed, the run is BLOCKED: only the terminal
+   *  status/history writes run (`updateMeta`/`updateRun`/`assertionsInsert`),
+   *  and `schemaUpsert`/`rowsUpsert`/`binaryRefsUpsert`/`alertEvaluation` are
+   *  skipped entirely so the prior DataType snapshot is untouched. Otherwise
+   *  the existing succeeded path runs completely unchanged. Returns `None`
+   *  when not blocked, `Some(summary)` when blocked — the same summary used
+   *  for `errorLog`, surfaced to `executeRun` so `RunResultResponse` can
+   *  report `blocked`/`blockedReason` without recomputing it (Decision 8). */
   private def onRunSuccess(
       outputDataTypeId: DataTypeId,
       pipelineId:       PipelineId,
@@ -381,7 +401,55 @@ final class PipelineRunService(
       jsRows:           Vector[JsObject],
       user:             AuthenticatedUser,
       assertionResults: Vector[AssertionResult]
-  ): Future[Unit] = {
+  ): Future[Option[String]] = {
+    val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
+    if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
+    else onUnblockedRunSuccess(outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
+  }
+
+  /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
+   *  with a real, structured `errorLog` (not the generic exception-path
+   *  placeholder), `rowCount = None` (nothing was written, mirroring the
+   *  execution-failure branch's own convention), and the FULL assertion
+   *  results vector persisted unconditionally (419-B's existing behavior,
+   *  unchanged). The DataType schema/row/binary-ref writes and alert
+   *  evaluation are never invoked. */
+  private def onBlockedRun(
+      pipelineId:       PipelineId,
+      runId:            PipelineRunId,
+      pidStr:           String,
+      user:             AuthenticatedUser,
+      assertionResults: Vector[AssertionResult],
+      blockingFailures: Vector[AssertionResult]
+  ): Future[Option[String]] = {
+    val summary = summarizeBlockingFailures(blockingFailures)
+    publish(pidStr, RunStatusEvent("failed", errorLog = Some(summary)))
+    val now = Instant.now()
+    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user).map(_ => ())
+    val updateRun =
+      if (pipelineRunRepo != null)
+        pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user).map(_ => ())
+      else Future.successful(())
+    val assertionsInsert = persistAssertions(runId, assertionResults)
+    for {
+      _ <- updateMeta
+      _ <- updateRun
+      _ <- assertionsInsert
+    } yield Some(summary)
+  }
+
+  /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
+   *  behavior — a pure insertion point above this method, not a rewrite. */
+  private def onUnblockedRunSuccess(
+      outputDataTypeId: DataTypeId,
+      pipelineId:       PipelineId,
+      runId:            PipelineRunId,
+      pidStr:           String,
+      resultRows:       Seq[Map[String, Any]],
+      jsRows:           Vector[JsObject],
+      user:             AuthenticatedUser,
+      assertionResults: Vector[AssertionResult]
+  ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
     val schemaUpsert =
@@ -432,7 +500,20 @@ final class PipelineRunService(
       _ <- updateMeta
       _ <- updateRun
       _ <- assertionsInsert
-    } yield ()
+    } yield None
+  }
+
+  /** design.md Decision 2: joins each blocking failure's `kind`/`field`/
+   *  `message` into one readable line — a real, structured summary (not the
+   *  generic exception-path placeholder), used both for `errorLog` and for
+   *  `RunResultResponse.blockedReason`. */
+  private def summarizeBlockingFailures(failures: Vector[AssertionResult]): String = {
+    val details = failures.map { f =>
+      val fieldPart = f.field.map(fld => s"($fld)").getOrElse("")
+      val messagePart = f.message.getOrElse("assertion failed")
+      s"${f.kind}$fieldPart: $messagePart"
+    }.mkString("; ")
+    s"Run blocked: ${failures.size} error-severity assertion(s) failed — $details"
   }
 
   /** Extract every `binary-ref`-shaped field value from `rows` into

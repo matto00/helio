@@ -1,8 +1,5 @@
-# datatype-row-snapshot Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change overwrite-mode-snapshot. Update Purpose after archive.
-## Requirements
 ### Requirement: DataType row snapshot is persisted after a successful non-dry run
 The backend SHALL atomically replace all rows in `data_type_rows` for the output DataType with the new
 pipeline output after a successful non-dry pipeline run, UNLESS the run is blocked by an error-severity
@@ -31,19 +28,3 @@ transaction so that the old snapshot survives if the INSERT fails.
 - **WHEN** a non-dry run's `assert` step has an error-severity rule that fails
 - **THEN** `data_type_rows` for the output DataType is byte-for-byte unchanged from before the run —
   neither deleted nor replaced
-
-### Requirement: Stored snapshot rows are retrievable via GET /api/data-types/:id/rows
-The backend SHALL expose `GET /api/data-types/:id/rows` returning the current snapshot as `{ rows: [...], rowCount: N }` where each element is the JSONB row object. If no snapshot exists the response SHALL be `{ rows: [], rowCount: 0 }`.
-
-#### Scenario: Returns stored rows
-- **WHEN** a successful run has previously stored rows for a DataType and `GET /api/data-types/:id/rows` is called
-- **THEN** the response is `200 OK` with `{ rows: [...], rowCount: N }` matching the stored snapshot
-
-#### Scenario: Returns empty for DataType with no snapshot
-- **WHEN** `GET /api/data-types/:id/rows` is called for a DataType that has never had a run
-- **THEN** the response is `200 OK` with `{ rows: [], rowCount: 0 }`
-
-#### Scenario: Returns 404 for unknown DataType
-- **WHEN** `GET /api/data-types/:id/rows` is called with a DataType id that does not exist
-- **THEN** the response is `404 Not Found`
-
