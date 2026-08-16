@@ -83,7 +83,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V80 — assistant_conversations, direct owner (HEL-663)
     "assistant_conversations",
     // V81 — agent_preferences, direct owner (user_id is itself the PK) (HEL-472 / 420-A)
-    "agent_preferences"
+    "agent_preferences",
+    // V82 — agent_memory, direct owner (HEL-478 / 420-B)
+    "agent_memory"
   )
 
   override def beforeAll(): Unit = {

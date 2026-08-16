@@ -47,6 +47,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   private var ctx: DbContext = _
   private var imageUploadRepo: ImageUploadRepository = _   // HEL-246
   private var agentPreferencesRepo: AgentPreferencesRepository = _   // HEL-472 (420-A)
+  private var agentMemoryRepo: AgentMemoryRepository = _   // HEL-478 (420-B)
 
   /** Two synthetic owner UUIDs whose rows must never bleed across user contexts. */
   private val ownerA = UserId(UUID.randomUUID().toString)
@@ -112,6 +113,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     ctx = new DbContext(appDb, privilegedDb)
     imageUploadRepo = new ImageUploadRepository(ctx)
     agentPreferencesRepo = new AgentPreferencesRepository(ctx)
+    agentMemoryRepo = new AgentMemoryRepository(ctx)
 
     // Seed user rows so pipelines.owner_id FK references are satisfied.
     await(ctx.withSystemContext(DBIO.seq(
@@ -137,7 +139,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
    *  privileged pool so RLS does not interfere with the cleanup. */
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads, agent_preferences CASCADE"
+      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads, agent_preferences, agent_memory CASCADE"
     ))
 
   // ── Helper: seed via withSystemContext (BYPASSRLS) so setup is never ──────
@@ -443,6 +445,92 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       ))
 
       rows.toSet should contain allOf (ownerA.value, ownerB.value)
+    }
+  }
+
+  // ── agent_memory RLS (HEL-478 / 420-B) ───────────────────────────────────
+
+  /** Seed via `AgentMemoryRepository.add` (not raw SQL like the `seedSource`/`seedDataType`
+   *  helpers above) — this is the real write path, so the assertions below prove the
+   *  repository's `withUserContext` call actually goes through the V82 owner RLS policy rather
+   *  than merely asserting the policy exists (mirrors `seedImageUpload`/`seedAgentPreferences`
+   *  above). */
+  private def seedAgentMemory(ownerId: UserId, content: String): AgentMemoryEntry = {
+    val entry = AgentMemoryEntry(
+      id         = AgentMemoryId(UUID.randomUUID().toString),
+      ownerId    = ownerId,
+      kind       = AgentMemoryKind.Fact,
+      content    = content,
+      createdAt  = Instant.now(),
+      lastUsedAt = None
+    )
+    await(agentMemoryRepo.add(entry, cap = 100))
+  }
+
+  "RLS on agent_memory" should {
+
+    "AgentMemoryRepository.add runs in the caller's own context — ownerA sees only their own entries" in {
+      cleanDb()
+      val entryA = seedAgentMemory(ownerA, "a")
+      val entryB = seedAgentMemory(ownerB, "b")
+
+      val rows = await(ctx.withUserContext(ownerA.value)(
+        sql"SELECT id::text FROM agent_memory".as[String]
+      ))
+
+      rows.toSet shouldBe Set(entryA.id.value)
+      rows should not contain entryB.id.value
+    }
+
+    "withUserContext(ownerB) cannot see ownerA's entries" in {
+      cleanDb()
+      val entryA = seedAgentMemory(ownerA, "a")
+      seedAgentMemory(ownerB, "b")
+
+      val rows = await(ctx.withUserContext(ownerB.value)(
+        sql"SELECT id::text FROM agent_memory".as[String]
+      ))
+
+      rows should not contain entryA.id.value
+    }
+
+    "ownerA's context cannot delete ownerB's entry via AgentMemoryRepository.delete" in {
+      cleanDb()
+      val entryB = seedAgentMemory(ownerB, "b")
+
+      val deleted = await(agentMemoryRepo.delete(entryB.id, AuthenticatedUser(ownerA)))
+      deleted shouldBe false
+
+      val stillThere = await(ctx.withSystemContext(
+        sql"SELECT id::text FROM agent_memory WHERE id = ${entryB.id.value}::uuid".as[String]
+      ))
+      stillThere shouldBe Seq(entryB.id.value)
+    }
+
+    "ownerA's context cannot clear ownerB's entries via AgentMemoryRepository.clear" in {
+      cleanDb()
+      seedAgentMemory(ownerA, "a")
+      seedAgentMemory(ownerB, "b")
+
+      val clearedByA = await(agentMemoryRepo.clear(AuthenticatedUser(ownerA)))
+      clearedByA shouldBe 1
+
+      val ownerBCount = await(ctx.withSystemContext(
+        sql"SELECT COUNT(*) FROM agent_memory WHERE owner_id = ${ownerB.value}::uuid".as[Int].head
+      ))
+      ownerBCount shouldBe 1
+    }
+
+    "withSystemContext (privileged pool) sees all entries regardless of owner" in {
+      cleanDb()
+      val entryA = seedAgentMemory(ownerA, "a")
+      val entryB = seedAgentMemory(ownerB, "b")
+
+      val rows = await(ctx.withSystemContext(
+        sql"SELECT id::text FROM agent_memory".as[String]
+      ))
+
+      rows.toSet should contain allOf (entryA.id.value, entryB.id.value)
     }
   }
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/agent-memory.schema.json",
+  "title": "AgentMemoryEntryResponse",
+  "description": "A stored free-form agent-memory entry (HEL-478 / 420-B), as returned by GET/POST /api/agent/memory. Never contains ownerId.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["fact", "goal", "preference-note"]
+    },
+    "content": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastUsedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["id", "kind", "content", "createdAt"],
+  "additionalProperties": false
+}
