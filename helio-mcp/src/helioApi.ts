@@ -19,6 +19,8 @@
 
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
+  AgentMemoryEntryResponse,
+  AgentPreferencesResponse,
   BoundPanelResponse,
   CombinedProposal,
   CombinedProposalApplyResponse,
@@ -314,6 +316,24 @@ export class HelioApi {
    *  unknown id 404s, surfaced verbatim by the tool's `guarded` handler. */
   getMetric(metricId: string): Promise<MetricResponse> {
     return this.http.get<MetricResponse>(`/api/metrics/${metricId}`);
+  }
+
+  // ── Agent preferences + memory (HEL-521, 420-C) ─────────────────────────
+
+  /** Get the authenticated token owner's agent-authoring preferences
+   *  (`GET /api/preferences`, HEL-472 / 420-A). Thin pass-through, no
+   *  reshaping — consumed by `buildWorkspaceContext`'s `agentContext`. */
+  getAgentPreferences(): Promise<AgentPreferencesResponse> {
+    return this.http.get<AgentPreferencesResponse>("/api/preferences");
+  }
+
+  /** List the authenticated token owner's stored agent-memory entries
+   *  (`GET /api/agent/memory`, HEL-478 / 420-B), newest-`createdAt`-first.
+   *  Thin pass-through, no reshaping — `buildWorkspaceContext` re-sorts and
+   *  caps this itself (design.md Decision 6); this method never writes
+   *  (never calls `touch`). */
+  listAgentMemory(): Promise<AgentMemoryEntryResponse[]> {
+    return this.http.get<AgentMemoryEntryResponse[]>("/api/agent/memory");
   }
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────

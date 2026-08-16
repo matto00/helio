@@ -134,6 +134,26 @@ final case class WorkspaceContextPipeline(
 
 final case class WorkspaceContextDashboard(id: String, name: String, panelCount: Int)
 
+/** HEL-521 (420-C): the caller's agent-authoring preferences plus up to 20 of their
+ *  most-recently-useful `AgentMemoryEntry` records, ranked by `lastUsedAt` descending (an entry
+ *  with no `lastUsedAt` ranks below every entry that has one) -- see
+ *  `WorkspaceContextService`'s design.md Decision 2/3. ALWAYS present on `WorkspaceContextResponse`
+ *  -- never `Option`-wrapped -- defaulting to `WorkspaceContextAgentSection.empty` when the caller
+ *  has stored neither, or when the underlying `AgentPreferencesService`/`AgentMemoryService` are
+ *  not wired (design.md Decision 2). */
+final case class WorkspaceContextAgentSection(
+    preferences: AgentPreferencesResponse,
+    memory: Vector[AgentMemoryEntryResponse]
+)
+
+object WorkspaceContextAgentSection {
+  val empty: WorkspaceContextAgentSection =
+    WorkspaceContextAgentSection(
+      preferences = AgentPreferencesResponse(None, None, None, JsObject.empty),
+      memory      = Vector.empty
+    )
+}
+
 /** Deterministic budgeting outcome (HEL-377 design.md D6) — reports
  *  whether/how `WorkspaceContextBudget.apply` shrank `sampleRows`/
  *  `exampleValues`/`joinHints` to fit `budgetBytes`, so a downstream consumer
@@ -171,7 +191,10 @@ final case class WorkspaceContextTruncation(
  *  stateless/code-level with no RLS story).
  *
  *  `truncation` (HEL-377): the deterministic byte-budget outcome — see
- *  `WorkspaceContextTruncation`. */
+ *  `WorkspaceContextTruncation`.
+ *
+ *  `agentContext` (HEL-521 / 420-C): the caller's agent-authoring preferences + bounded memory —
+ *  see `WorkspaceContextAgentSection`. Additive field, no signature change to `assemble` itself. */
 final case class WorkspaceContextResponse(
     generatedAt: String,
     counts: WorkspaceContextCounts,
@@ -180,10 +203,11 @@ final case class WorkspaceContextResponse(
     pipelines: Vector[WorkspaceContextPipeline],
     dashboards: Vector[WorkspaceContextDashboard],
     joinHints: Vector[WorkspaceContextJoinHint],
-    truncation: WorkspaceContextTruncation
+    truncation: WorkspaceContextTruncation,
+    agentContext: WorkspaceContextAgentSection
 )
 
-trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol with AgentPreferencesProtocol with AgentMemoryProtocol {
   implicit val workspaceContextCountsFormat: RootJsonFormat[WorkspaceContextCounts] =
     jsonFormat4(WorkspaceContextCounts.apply)
   implicit val workspaceContextDataSourceFormat: RootJsonFormat[WorkspaceContextDataSource] =
@@ -209,6 +233,8 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
     jsonFormat3(WorkspaceContextDashboard.apply)
   implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =
     jsonFormat9(WorkspaceContextTruncation.apply)
+  implicit val workspaceContextAgentSectionFormat: RootJsonFormat[WorkspaceContextAgentSection] =
+    jsonFormat2(WorkspaceContextAgentSection.apply)
   implicit val workspaceContextResponseFormat: RootJsonFormat[WorkspaceContextResponse] =
-    jsonFormat8(WorkspaceContextResponse.apply)
+    jsonFormat9(WorkspaceContextResponse.apply)
 }

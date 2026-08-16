@@ -155,7 +155,10 @@ final class DashboardAuthoringService(
       .mapMaterializedValue(_ => NotUsed)
 
   private def initialUserMessage(goal: String, ctx: GroundedContext): ClaudeMessage =
-    ClaudeMessage(ClaudeRole.User, DashboardAuthoringPrompt.userMessage(goal, pipelineOutputTypes(ctx.workspace), ctx.capabilities))
+    ClaudeMessage(
+      ClaudeRole.User,
+      DashboardAuthoringPrompt.userMessage(goal, pipelineOutputTypes(ctx.workspace), ctx.capabilities, ctx.workspace.agentContext)
+    )
 
   // ── Continued turns (conversationId present, design.md D2) ────────────
 

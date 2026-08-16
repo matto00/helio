@@ -1,6 +1,6 @@
 package com.helio.services
 
-import com.helio.api.protocols.{PanelCapabilitiesResponse, WorkspaceContextDataType}
+import com.helio.api.protocols.{AgentPreferencesResponse, PanelCapabilitiesResponse, WorkspaceContextAgentSection, WorkspaceContextDataType}
 
 /** Builds the natural-language prompt `DashboardAuthoringService` sends to `ClaudeClient`
  *  (HEL-392 design.md D4) — kept in its own file so neither this nor `DashboardAuthoringService`
@@ -74,12 +74,51 @@ object DashboardAuthoringPrompt {
     if (bindableKinds.isEmpty) "none bindable" else bindableKinds.mkString("; ")
   }
 
+  /** HEL-521 (420-C) design.md Decision 5: a compact "the user generally prefers/knows..." block,
+   *  appended after `groundingSection`'s existing output -- kept as its own small,
+   *  self-contained function rather than interleaved with the per-DataType grounding text, so it
+   *  reads as its own paragraph to the model and `groundingSection`'s existing, already-tested
+   *  signature stays untouched. Returns `""` when BOTH `preferences` and `memory` are empty (spec
+   *  scenario "Prompt omits the section cleanly when agentContext is empty" -- never a bare header
+   *  with nothing under it). `private[services]` so `DashboardAuthoringPromptSpec` can unit-test
+   *  it directly. */
+  private[services] def agentContextSection(agentContext: WorkspaceContextAgentSection): String = {
+    val preferencesLine = preferencesSummary(agentContext.preferences)
+    val memoryLines      = agentContext.memory.map(m => s"- (${m.kind}) ${m.content}")
+
+    if (preferencesLine.isEmpty && memoryLines.isEmpty) ""
+    else {
+      val sections = Vector(
+        preferencesLine.map(line => s"User preferences: $line"),
+        if (memoryLines.isEmpty) None
+        else Some("Remembered facts/goals/preferences about this user:\n" + memoryLines.mkString("\n"))
+      ).flatten
+      sections.mkString("\n\n")
+    }
+  }
+
+  /** `None` when every field is empty/absent -- `extras` is always a present `JsObject` on the
+   *  wire (never `Option`), so an empty `{}` there must NOT by itself make this `Some("")`. */
+  private def preferencesSummary(prefs: AgentPreferencesResponse): Option[String] = {
+    val bits = Vector(
+      prefs.defaultSeriesColors.filter(_.nonEmpty).map(colors => s"default series colors: ${colors.mkString(", ")}"),
+      prefs.defaultPanelStyle.filter(_.fields.nonEmpty).map(style => s"default panel style: ${style.compactPrint}"),
+      prefs.namingConventions.filter(_.fields.nonEmpty).map(nc => s"naming conventions: ${nc.compactPrint}"),
+      if (prefs.extras.fields.nonEmpty) Some(s"other preferences: ${prefs.extras.compactPrint}") else None
+    ).flatten
+    if (bits.isEmpty) None else Some(bits.mkString("; "))
+  }
+
   def userMessage(
       goal: String,
       dataTypes: Vector[WorkspaceContextDataType],
-      capabilities: Map[String, PanelCapabilitiesResponse]
-  ): String =
-    Instructions + "\n\n" + groundingSection(dataTypes, capabilities) + "\n\nUser goal: " + goal
+      capabilities: Map[String, PanelCapabilitiesResponse],
+      agentContext: WorkspaceContextAgentSection
+  ): String = {
+    val agentSection = agentContextSection(agentContext)
+    val groundingWithAgent = if (agentSection.isEmpty) groundingSection(dataTypes, capabilities) else groundingSection(dataTypes, capabilities) + "\n\n" + agentSection
+    Instructions + "\n\n" + groundingWithAgent + "\n\nUser goal: " + goal
+  }
 
   /** Design.md D5's single repair round-trip: fed back alongside the model's own prior response
    *  (as an `assistant` message) so the model sees exactly what it said and exactly why it was
