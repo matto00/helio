@@ -69,8 +69,11 @@ function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
  *  a resolved (or already-settled) promise makes is flushed before the next
  *  assertion. Safe for never-resolving mocks too — `act` only drains
  *  already-queued microtasks, it does not block on unrelated pending
- *  promises. */
-async function click(name: string) {
+ *  promises. A RegExp matcher is needed for the toggle button once a step
+ *  has a `validationError`: the HEL-409 header chip's `aria-label` bleeds
+ *  into the button's own accessible-name computation (nested `role="img"`
+ *  content, not `aria-hidden`), so its name is no longer the label alone. */
+async function click(name: string | RegExp) {
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name }));
   });
@@ -559,7 +562,7 @@ describe("StepCard validationError surfacing (skeptic-final-1.md CR1)", () => {
   it("a non-compute step with a validationError shows the error text in the expanded card", async () => {
     render(<StepCard {...baseProps({ validationError: "Unknown field(s): 'full_name'" })} />);
 
-    await click("Limit rows");
+    await click(/Limit rows/);
 
     expect(screen.getByText("Unknown field(s): 'full_name'")).toBeInTheDocument();
   });
@@ -589,8 +592,59 @@ describe("StepCard validationError surfacing (skeptic-final-1.md CR1)", () => {
       />,
     );
 
-    await click("Compute column");
+    await click(/Compute column/);
 
     expect(screen.getAllByText("Unknown field(s): 'revenue'")).toHaveLength(1);
+  });
+});
+
+// HEL-409 — the collapsed-card list marking (AC2): a card with a
+// validationError must be visually distinguishable without expanding it.
+describe("StepCard — errored card marking (HEL-409)", () => {
+  it("a collapsed errored step shows the --errored class and an accessible header indicator", () => {
+    const { container } = render(
+      <StepCard {...baseProps({ validationError: "Unknown field(s): 'full_name'" })} />,
+    );
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--errored"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Step has a validation error" })).toBeInTheDocument();
+  });
+
+  it("a collapsed valid step shows neither the --errored class nor the header indicator", () => {
+    const { container } = render(<StepCard {...baseProps()} />);
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--errored"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("img", { name: "Step has a validation error" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears the accent, indicator, and inline message together when the analyze refresh removes the error", async () => {
+    const { container, rerender } = render(
+      <StepCard {...baseProps({ validationError: "Unknown field(s): 'full_name'" })} />,
+    );
+    await click(/Limit rows/);
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--errored"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Step has a validation error" })).toBeInTheDocument();
+    expect(screen.getByText("Unknown field(s): 'full_name'")).toBeInTheDocument();
+
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ validationError: undefined })} />);
+    });
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--errored"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("img", { name: "Step has a validation error" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Unknown field(s): 'full_name'")).not.toBeInTheDocument();
   });
 });
