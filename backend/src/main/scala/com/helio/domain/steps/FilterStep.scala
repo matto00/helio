@@ -48,7 +48,8 @@ final case class FilterStep(
     position: Int,
     config: FilterConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = FilterStep.Kind
 

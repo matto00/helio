@@ -43,7 +43,8 @@ final case class SortStep(
     position: Int,
     config: SortConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = SortStep.Kind
 

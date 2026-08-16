@@ -43,18 +43,29 @@ class PipelineStepRoutes(pipelineService: PipelineService, user: AuthenticatedUs
       )
     },
     pathPrefix("pipeline-steps" / PipelineStepIdSegment) { stepId =>
-      pathEndOrSingleSlash {
-        concat(
-          patch {
-            entity(as[UpdatePipelineStepRequest]) { req =>
-              ServiceResponse.run(pipelineService.updateStep(stepId, req, user))(identity)
+      concat(
+        pathEndOrSingleSlash {
+          concat(
+            patch {
+              entity(as[UpdatePipelineStepRequest]) { req =>
+                ServiceResponse.run(pipelineService.updateStep(stepId, req, user))(identity)
+              }
+            },
+            delete {
+              ServiceResponse.runNoContent(pipelineService.deleteStep(stepId, user))
             }
-          },
-          delete {
-            ServiceResponse.runNoContent(pipelineService.deleteStep(stepId, user))
+          )
+        },
+        // HEL-412: POST /api/pipeline-steps/:id/duplicate — clone kind+config+enabled,
+        // inserted directly after the original.
+        path("duplicate") {
+          post {
+            ServiceResponse.run(pipelineService.duplicateStep(stepId, user)) { resp =>
+              StatusCodes.Created -> resp
+            }
           }
-        )
-      }
+        }
+      )
     }
   )
 }

@@ -61,7 +61,8 @@ final case class UnpivotStep(
     position: Int,
     config: UnpivotConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = UnpivotStep.Kind
 

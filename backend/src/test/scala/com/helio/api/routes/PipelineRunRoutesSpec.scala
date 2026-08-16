@@ -399,6 +399,34 @@ class PipelineRunRoutesSpec
       }
     }
 
+    // HEL-412 (design.md Decision 3): the preview prefix skips disabled steps.
+    "GET /pipelines/:id/steps/:stepId/preview excludes a disabled step from the executed prefix" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "limit", LimitConfig(1), dummyUser, enabled = false))
+      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        // The disabled limit(1) never ran, so both source rows survive.
+        resp.rowCount shouldBe 2
+      }
+    }
+
+    // HEL-412 (design.md Decision 3): previewing a disabled step itself is rejected.
+    "GET /pipelines/:id/steps/:stepId/preview returns 422 when the target step is disabled" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser, enabled = false))
+      Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val resp = responseAs[ErrorResponse]
+        resp.message should include("disabled")
+      }
+    }
+
     "POST /pipelines/:id/run (non-dry, success) inserts a pipeline_runs row with status succeeded" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()

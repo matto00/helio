@@ -35,7 +35,9 @@ import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import {
   createPipelineStep,
   deletePipelineStep,
+  duplicatePipelineStep,
   reorderPipelineSteps,
+  updatePipelineStepEnabled,
 } from "../services/pipelineService";
 import { useToast } from "../../toasts/hooks/useToast";
 import type {
@@ -176,8 +178,11 @@ export function PipelineDetailPage() {
   // re-analyze.
   // Serialize the typed config for the fingerprint — JSON.stringify here
   // is purely a comparison-shape helper, not a wire-format serialization.
+  // HEL-412 (design.md Decision 8): `enabled` is folded in too — a toggle
+  // changes the analyze endpoint's step list (a disabled step drops out
+  // entirely), so it must re-trigger analyze exactly like a config edit does.
   const stepsFingerprint = steps
-    .map((s) => `${s.id}:${s.opType.id}:${JSON.stringify(s.config)}`)
+    .map((s) => `${s.id}:${s.opType.id}:${s.enabled}:${JSON.stringify(s.config)}`)
     .join("|");
   useEffect(() => {
     if (!id || steps.length === 0) return;
@@ -426,6 +431,46 @@ export function PipelineDetailPage() {
     }
   }
 
+  // HEL-412 — optimistic flip → PATCH `{enabled}` → reconcile from the
+  // response; revert + toast on failure (the reorder handler's precedent
+  // above: a silently-lost disable is worse than a snap-back).
+  async function handleToggleStepEnabled(stepId: string, enabled: boolean) {
+    const previousSteps = steps;
+    setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, enabled } : s)));
+    try {
+      const persisted = await updatePipelineStepEnabled(stepId, enabled);
+      setSteps((prev) => prev.map((s) => (s.id === stepId ? pipelineStepToStep(persisted) : s)));
+    } catch (err: unknown) {
+      setSteps(previousSteps);
+      const message = err instanceof Error ? err.message : "Failed to update step.";
+      pushToast({
+        variant: "error",
+        message: `Failed to ${enabled ? "enable" : "disable"} step: ${message}`,
+      });
+    }
+  }
+
+  // HEL-412 — call the duplicate endpoint, then splice the clone in directly
+  // after the original (server already renumbered positions; local order is
+  // what renders). Non-optimistic by design (design.md Decision 7) — there's
+  // no user-entered config to preserve ahead of the response, so a temp-step
+  // placeholder buys nothing for a single fast POST.
+  async function handleDuplicateStep(stepId: string) {
+    try {
+      const created = await duplicatePipelineStep(stepId);
+      setSteps((prev) => {
+        const index = prev.findIndex((s) => s.id === stepId);
+        if (index === -1) return prev;
+        const next = [...prev];
+        next.splice(index + 1, 0, pipelineStepToStep(created));
+        return next;
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to duplicate step.";
+      pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
+    }
+  }
+
   async function handleRunPipeline() {
     if (!id) return;
     setSseActive(true);
@@ -543,6 +588,8 @@ export function PipelineDetailPage() {
         runStepRowCounts={runStepRowCounts}
         onInstantiateShape={handleInstantiateShape}
         onReorderSteps={(newOrder) => void handleReorderSteps(newOrder)}
+        onToggleStepEnabled={(stepId, enabled) => void handleToggleStepEnabled(stepId, enabled)}
+        onDuplicateStep={(stepId) => void handleDuplicateStep(stepId)}
       />
 
       {/* ── Footer bar ── */}

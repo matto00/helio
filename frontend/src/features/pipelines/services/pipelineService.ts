@@ -41,9 +41,18 @@ export async function getPipelineById(id: string): Promise<PipelineSummary> {
   return response.data;
 }
 
+/** HEL-412: `enabled` is always serialized by the backend, but this
+ *  normalizes defensively at the service boundary anyway — mirrors
+ *  `normalizeSchedule`/`normalizeRunRecord`'s existing Option-omission
+ *  precedent above rather than trusting every caller to special-case
+ *  `undefined`. */
+function normalizePipelineStep(step: PipelineStep): PipelineStep {
+  return { ...step, enabled: step.enabled ?? true };
+}
+
 export async function getPipelineSteps(id: string): Promise<PipelineStep[]> {
   const response = await httpClient.get<PipelineStep[]>(`/api/pipelines/${id}/steps`);
-  return response.data;
+  return response.data.map(normalizePipelineStep);
 }
 
 export async function updatePipeline(id: string, name: string): Promise<PipelineSummary> {
@@ -73,7 +82,7 @@ export async function createPipelineStep(
     config,
     ...(position === undefined ? {} : { position }),
   });
-  return response.data;
+  return normalizePipelineStep(response.data);
 }
 
 export async function updatePipelineStep(
@@ -83,7 +92,28 @@ export async function updatePipelineStep(
   const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
     config,
   });
-  return response.data;
+  return normalizePipelineStep(response.data);
+}
+
+/** HEL-412 — `PATCH /api/pipeline-steps/:id` with `{enabled}` only. Kept as
+ *  a sibling function (not an options object on `updatePipelineStep`) so the
+ *  existing config-only signature stays intact for `useStepCardState`'s
+ *  per-op-kind editors. */
+export async function updatePipelineStepEnabled(
+  stepId: string,
+  enabled: boolean,
+): Promise<PipelineStep> {
+  const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
+    enabled,
+  });
+  return normalizePipelineStep(response.data);
+}
+
+/** HEL-412 — `POST /api/pipeline-steps/:id/duplicate` (no request body).
+ *  Returns the created clone, positioned directly after the original. */
+export async function duplicatePipelineStep(stepId: string): Promise<PipelineStep> {
+  const response = await httpClient.post<PipelineStep>(`/api/pipeline-steps/${stepId}/duplicate`);
+  return normalizePipelineStep(response.data);
 }
 
 export async function deletePipelineStep(stepId: string): Promise<void> {
@@ -102,7 +132,7 @@ export async function reorderPipelineSteps(
     `/api/pipelines/${pipelineId}/steps/order`,
     { stepIds },
   );
-  return response.data;
+  return response.data.map(normalizePipelineStep);
 }
 
 export interface RunResult {

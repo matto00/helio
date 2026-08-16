@@ -32,7 +32,8 @@ final case class SelectStep(
     position: Int,
     config: SelectConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = SelectStep.Kind
 

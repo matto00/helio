@@ -135,9 +135,12 @@ final class PipelineRunService(
           case _ =>
             // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
             // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
+            // HEL-412 (design.md Decision 3, boundaries i/ii): both full runs and
+            // dry runs execute the enabled-only step list — a disabled step is
+            // dropped as if it were absent.
             pipelineStepRepo
               .listByPipelineInternal(pipelineId)
-              .flatMap(steps => executeRun(pipeline, dataSource, steps, isDry, user, triggerSource, triggeredByTokenId))
+              .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps.filter(_.enabled), isDry, user, triggerSource, triggeredByTokenId))
         }
     }
 
@@ -169,8 +172,16 @@ final class PipelineRunService(
                   sortedSteps.indexWhere(_.id.value == stepId) match {
                     case -1 =>
                       Future.successful(Left(ServiceError.NotFound("Step not found: " + stepId)))
+                    // HEL-412 (design.md Decision 3, boundary "previewStep"): previewing
+                    // a disabled step itself is rejected — the UI never offers this
+                    // (disabled cards hide their preview control), so this is a
+                    // defensive backstop.
+                    case k if !sortedSteps(k).enabled =>
+                      Future.successful(Left(ServiceError.UnprocessableEntity("step is disabled")))
                     case k =>
-                      val slicedSteps = sortedSteps.take(k + 1)
+                      // Disabled steps are excluded from the executed prefix — the
+                      // preview reflects the pipeline as it would actually run.
+                      val slicedSteps = sortedSteps.take(k + 1).filter(_.enabled)
                       engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
                         engine
                           .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)

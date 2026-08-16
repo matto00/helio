@@ -90,7 +90,8 @@ final case class AssertStep(
     position: Int,
     config: AssertConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AssertStep.Kind
 

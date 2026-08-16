@@ -4,20 +4,27 @@
 // exists for any op today), so this file focuses on the union additions.
 // HEL-386 extends this file with the equivalent lookup coverage (task 6.6).
 
-import { OP_TYPES, defaultConfigFor, lookupConfigOf, unionConfigOf } from "./stepNarrowing";
-import type { LookupConfig, UnionConfig } from "../types/pipelineStep";
+import {
+  OP_TYPES,
+  defaultConfigFor,
+  lookupConfigOf,
+  makeStep,
+  pipelineStepToStep,
+  unionConfigOf,
+} from "./stepNarrowing";
+import type { LookupConfig, PipelineStep, UnionConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 
 function makeUnionStep(config: UnionConfig): Step {
   const opType = OP_TYPES.find((op) => op.id === "union");
   if (!opType) throw new Error("union missing from OP_TYPES");
-  return { id: "step-1", opType, label: opType.label, config };
+  return { id: "step-1", opType, label: opType.label, config, enabled: true };
 }
 
 function makeLookupStep(config: LookupConfig): Step {
   const opType = OP_TYPES.find((op) => op.id === "lookup");
   if (!opType) throw new Error("lookup missing from OP_TYPES");
-  return { id: "step-1", opType, label: opType.label, config };
+  return { id: "step-1", opType, label: opType.label, config, enabled: true };
 }
 
 describe("stepNarrowing — union", () => {
@@ -42,6 +49,7 @@ describe("stepNarrowing — union", () => {
       opType: nonUnionOpType,
       label: nonUnionOpType.label,
       config: { fields: [] },
+      enabled: true,
     };
     expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "", mode: "byPosition" });
   });
@@ -92,6 +100,7 @@ describe("stepNarrowing — lookup", () => {
       opType: nonLookupOpType,
       label: nonLookupOpType.label,
       config: { fields: [] },
+      enabled: true,
     };
     expect(lookupConfigOf(step)).toEqual({
       referenceDataSourceId: "",
@@ -99,5 +108,40 @@ describe("stepNarrowing — lookup", () => {
       lookupKey: "",
       columns: [],
     });
+  });
+});
+
+// HEL-412 — `Step.enabled` normalize-at-boundary default.
+describe("stepNarrowing — enabled (HEL-412)", () => {
+  it("makeStep seeds a freshly created step as enabled", () => {
+    const opType = OP_TYPES.find((op) => op.id === "select")!;
+    expect(makeStep(opType).enabled).toBe(true);
+  });
+
+  it("pipelineStepToStep maps a persisted step's enabled flag straight through", () => {
+    const ps: PipelineStep = {
+      id: "s1",
+      pipelineId: "p1",
+      position: 0,
+      type: "select",
+      config: { fields: [] },
+      createdAt: "",
+      updatedAt: "",
+      enabled: false,
+    };
+    expect(pipelineStepToStep(ps).enabled).toBe(false);
+  });
+
+  it("pipelineStepToStep defaults enabled to true when the wire field is absent", () => {
+    const ps: PipelineStep = {
+      id: "s1",
+      pipelineId: "p1",
+      position: 0,
+      type: "select",
+      config: { fields: [] },
+      createdAt: "",
+      updatedAt: "",
+    };
+    expect(pipelineStepToStep(ps).enabled).toBe(true);
   });
 });

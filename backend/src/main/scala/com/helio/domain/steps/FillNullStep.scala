@@ -62,7 +62,8 @@ final case class FillNullStep(
     position: Int,
     config: FillNullConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = FillNullStep.Kind
 

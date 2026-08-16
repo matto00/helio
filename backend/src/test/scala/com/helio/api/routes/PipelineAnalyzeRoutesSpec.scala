@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
-import com.helio.domain.{AuthenticatedUser, ChunkByTokenCountConfig, ExtractHeadingsConfig, PipelineId, SelectConfig, SplitTextConfig, UserId}
+import com.helio.domain.{AuthenticatedUser, ChunkByTokenCountConfig, ExtractHeadingsConfig, PipelineId, RenameConfig, SelectConfig, SplitTextConfig, UserId}
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
 import com.helio.services.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -205,6 +205,30 @@ class PipelineAnalyzeRoutesSpec
         step.inputSchema.map(_.name)  should contain allOf ("content", "order_id")
         step.outputSchema.map(_.name) should contain allOf ("content", "order_id", "chunkIndex", "tokenCount")
         step.validationError shouldBe None
+      }
+    }
+
+    // HEL-412 (design.md Decision 3, boundary iii): the analyze response
+    // contains entries for enabled steps only — a disabled step is dropped
+    // exactly as if it were absent.
+    "return 200 excluding a disabled step from the response entirely" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      await(pipelineStepRepo.insert(PipelineId(pid), "rename", RenameConfig(Map("order_id" -> "id")), dummyUser, enabled = false))
+      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp: PipelineAnalyzeResponse = responseAs[PipelineAnalyzeResponse]
+
+        resp.steps should have size 1
+        val step: AnalyzeStepResponse = resp.steps(0)
+        step.`type` shouldBe "select"
+        // The disabled rename never ran, so `order_id` (not `id`) is what
+        // flows into the surviving select step's input schema.
+        step.inputSchema.map(_.name) should contain allOf ("order_id", "amount")
       }
     }
 

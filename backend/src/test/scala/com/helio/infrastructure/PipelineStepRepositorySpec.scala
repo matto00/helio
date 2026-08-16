@@ -120,6 +120,55 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       val join = steps.head.asInstanceOf[JoinStep]
       join.config shouldBe joinConfig
     }
+
+    // HEL-412: a row inserted via raw SQL that never mentions the `enabled`
+    // column (the exact shape a pre-migration existing row has) picks up the
+    // migration's `NOT NULL DEFAULT true` — proving existing rows survive the
+    // migration as enabled, unaffected.
+    "a row inserted without an explicit enabled value defaults to enabled = true" in {
+      val pid = seedPipeline()
+      insertRawStep(pid, "rename", "{}", position = 0)
+
+      val steps = await(stepRepo.listByPipeline(pid, systemUser))
+      steps should have size 1
+      steps.head.enabled shouldBe true
+    }
+  }
+
+  // ── HEL-412: enabled flag persistence ─────────────────────────────────────
+
+  "PipelineStepRepository (HEL-412 enabled)" should {
+
+    "insert with enabled = false persists a disabled step" in {
+      val pid = seedPipeline()
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser, enabled = false))
+      step.enabled shouldBe false
+
+      val reread = await(stepRepo.listByPipeline(pid, systemUser))
+      reread.head.enabled shouldBe false
+    }
+
+    "insertAtInternal clones the enabled flag onto the new row" in {
+      val pid = seedPipeline()
+      val created = await(stepRepo.insertAtInternal(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), index = 0, enabled = false))
+      created.enabled shouldBe false
+    }
+
+    "update toggles enabled and leaves it unchanged when omitted" in {
+      val pid  = seedPipeline()
+      val step = await(stepRepo.insert(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
+      step.enabled shouldBe true
+
+      val disabled = await(stepRepo.update(step.id, config = None, position = None, user = systemUser, enabled = Some(false))).get
+      disabled.enabled shouldBe false
+
+      // Omitting `enabled` on a subsequent update leaves it unchanged (still false).
+      val configOnly = await(stepRepo.update(step.id, config = Some(RenameConfig(Map("a" -> "b"))), position = None, user = systemUser)).get
+      configOnly.enabled shouldBe false
+
+      val reenabled = await(stepRepo.update(step.id, config = None, position = None, user = systemUser, enabled = Some(true))).get
+      reenabled.enabled shouldBe true
+    }
   }
 
   // ── HEL-265 CS2: cross-user ACL enforcement (JOIN to pipelines.owner_id) ──

@@ -9,15 +9,18 @@
 
 import { httpClient } from "../../../services/httpClient";
 import {
+  duplicatePipelineStep,
   expandPipelineShape,
   fetchRunHistory,
   getPipelineSchedule,
   getPipelineShapeCatalog,
+  getPipelineSteps,
   putPipelineSchedule,
+  updatePipelineStepEnabled,
 } from "./pipelineService";
 
 jest.mock("../../../services/httpClient", () => ({
-  httpClient: { get: jest.fn(), put: jest.fn(), post: jest.fn() },
+  httpClient: { get: jest.fn(), put: jest.fn(), post: jest.fn(), patch: jest.fn() },
 }));
 
 const mockedHttpClient = jest.mocked(httpClient);
@@ -166,5 +169,60 @@ describe("pipelineService shape catalog + expand", () => {
     mockedHttpClient.post.mockRejectedValueOnce(rejection);
 
     await expect(expandPipelineShape("single-row", { mode: "aggregate" })).rejects.toBe(rejection);
+  });
+});
+
+// HEL-412 — `enabled` normalize-at-boundary (`enabled ?? true`) + the two new
+// step endpoints (PATCH {enabled}, POST duplicate). The backend always sends
+// `enabled`, but this mirrors the schedule/run-history normalization above
+// rather than trusting every caller/fixture to include it.
+describe("pipelineService enabled normalization + duplicate (HEL-412)", () => {
+  const wireStepMissingEnabled = {
+    id: "step-1",
+    pipelineId: "p-1",
+    position: 0,
+    type: "select",
+    config: { fields: [] },
+    createdAt: "2026-07-01T00:00:00Z",
+    updatedAt: "2026-07-01T00:00:00Z",
+  };
+
+  it("getPipelineSteps defaults a missing enabled field to true", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({ data: [wireStepMissingEnabled] });
+
+    const result = await getPipelineSteps("p-1");
+
+    expect(result[0].enabled).toBe(true);
+    expect("enabled" in wireStepMissingEnabled).toBe(false);
+  });
+
+  it("getPipelineSteps preserves a present enabled: false", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({
+      data: [{ ...wireStepMissingEnabled, enabled: false }],
+    });
+
+    const result = await getPipelineSteps("p-1");
+
+    expect(result[0].enabled).toBe(false);
+  });
+
+  it("updatePipelineStepEnabled PATCHes {enabled} and normalizes the response", async () => {
+    mockedHttpClient.patch.mockResolvedValueOnce({ data: wireStepMissingEnabled });
+
+    const result = await updatePipelineStepEnabled("step-1", false);
+
+    expect(mockedHttpClient.patch).toHaveBeenCalledWith("/api/pipeline-steps/step-1", {
+      enabled: false,
+    });
+    expect(result.enabled).toBe(true); // normalized from the (missing-field) mock response
+  });
+
+  it("duplicatePipelineStep POSTs with no body and normalizes the response", async () => {
+    mockedHttpClient.post.mockResolvedValueOnce({ data: wireStepMissingEnabled });
+
+    const result = await duplicatePipelineStep("step-1");
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith("/api/pipeline-steps/step-1/duplicate");
+    expect(result.enabled).toBe(true);
   });
 });

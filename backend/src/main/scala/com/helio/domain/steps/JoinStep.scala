@@ -41,7 +41,8 @@ final case class JoinStep(
     position: Int,
     config: JoinConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = JoinStep.Kind
 

@@ -43,7 +43,8 @@ final case class ComputeStep(
     position: Int,
     config: ComputeConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = ComputeStep.Kind
 

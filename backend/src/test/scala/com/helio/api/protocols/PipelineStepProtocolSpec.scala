@@ -59,6 +59,17 @@ class PipelineStepProtocolSpec extends AnyWordSpec with Matchers with JsonProtoc
       }
     }
 
+    // HEL-412: `enabled` is always serialized (never omitted), and a false
+    // value round-trips faithfully — not silently coerced to the default true.
+    "write always includes the enabled field, and a disabled step round-trips as false" in {
+      val enabled: PipelineStepResponse  = RenameStepResponse("s", "p", 0, now, now, RenameConfig(Map.empty), enabled = true)
+      val disabled: PipelineStepResponse = RenameStepResponse("s", "p", 0, now, now, RenameConfig(Map.empty), enabled = false)
+
+      enabled.toJson.asJsObject.fields("enabled") shouldBe JsBoolean(true)
+      disabled.toJson.asJsObject.fields("enabled") shouldBe JsBoolean(false)
+      disabled.toJson.convertTo[PipelineStepResponse] shouldBe disabled
+    }
+
     "read rejects an unknown type discriminator" in {
       val bad = JsObject("type" -> JsString("bogus"), "id" -> JsString("s"))
       a [DeserializationException] should be thrownBy bad.convertTo[PipelineStepResponse]

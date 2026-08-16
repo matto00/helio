@@ -31,6 +31,8 @@ import {
   getPipelineShapeCatalog,
   expandPipelineShape,
   reorderPipelineSteps,
+  updatePipelineStepEnabled,
+  duplicatePipelineStep,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -59,6 +61,8 @@ jest.mock("../services/pipelineService", () => ({
   getPipelineShapeCatalog: jest.fn(),
   expandPipelineShape: jest.fn(),
   reorderPipelineSteps: jest.fn(),
+  updatePipelineStepEnabled: jest.fn(),
+  duplicatePipelineStep: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -77,6 +81,8 @@ const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
 const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
 const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
 const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
+const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
+const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
  *  `isAxiosError` guard (design D4/D5). */
@@ -576,6 +582,156 @@ describe("PipelineDetailPage", () => {
     await waitFor(() =>
       expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeReorder),
     );
+  });
+
+  // HEL-412 — page-local `handleToggleStepEnabled`/`handleDuplicateStep`:
+  // optimistic flip → PATCH → reconcile / revert-on-failure for the toggle
+  // (mirrors handleReorderSteps' convention); non-optimistic POST → splice
+  // for duplicate (design.md Decision 7). Tasks 3.4/4.1.
+  describe("disable/enable + duplicate (HEL-412)", () => {
+    const persistedRename: PipelineStep = {
+      id: "x1",
+      pipelineId: "pipe-1",
+      position: 0,
+      type: "rename",
+      config: { renames: {} },
+      createdAt: "",
+      updatedAt: "",
+      enabled: true,
+    };
+    const persistedFilter: PipelineStep = {
+      id: "y1",
+      pipelineId: "pipe-1",
+      position: 1,
+      type: "filter",
+      config: { combinator: "AND", conditions: [] },
+      createdAt: "",
+      updatedAt: "",
+      enabled: true,
+    };
+
+    beforeEach(() => {
+      getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
+    });
+
+    it("toggling disable mutes the card optimistically, persists via updatePipelineStepEnabled, and hides the preview control", async () => {
+      let resolveToggle!: (step: PipelineStep) => void;
+      updatePipelineStepEnabledMock.mockReturnValueOnce(
+        new Promise<PipelineStep>((resolve) => {
+          resolveToggle = resolve;
+        }),
+      );
+
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // Expand both cards so their preview controls (only rendered while
+      // expanded) are in view for the assertion below.
+      fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+      fireEvent.click(screen.getByRole("button", { name: /Filter rows/i, expanded: false }));
+      expect(screen.getAllByRole("button", { name: "Preview data" })).toHaveLength(2);
+
+      fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+
+      // Optimistic — muted immediately, before the PATCH resolves.
+      expect(
+        container.querySelector(".pipeline-detail-page__step-card--disabled"),
+      ).toBeInTheDocument();
+      expect(updatePipelineStepEnabledMock).toHaveBeenCalledWith("x1", false);
+      expect(screen.getByRole("button", { name: "Enable step" })).toBeInTheDocument();
+      // Only one "Preview data" button remains — the muted card's control is
+      // hidden entirely, the still-enabled sibling's stays.
+      expect(screen.getAllByRole("button", { name: "Preview data" })).toHaveLength(1);
+
+      await act(async () => {
+        resolveToggle({ ...persistedRename, enabled: false });
+      });
+
+      expect(
+        container.querySelector(".pipeline-detail-page__step-card--disabled"),
+      ).toBeInTheDocument();
+    });
+
+    it("a failed toggle reverts the optimistic flip and surfaces an error toast", async () => {
+      updatePipelineStepEnabledMock.mockRejectedValueOnce(new Error("Conflict"));
+      const store = makeStore();
+      const { container } = renderDetailPage("pipe-1", store);
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+      });
+
+      expect(
+        container.querySelector(".pipeline-detail-page__step-card--disabled"),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Disable step" })).toHaveLength(2);
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].variant).toBe("error");
+      expect(toasts[0].message).toMatch(/failed to disable step/i);
+    });
+
+    it("duplicate splices the clone directly after the original", async () => {
+      duplicatePipelineStepMock.mockResolvedValueOnce({
+        ...persistedRename,
+        id: "x1-clone",
+      });
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      function stepLabels(): string[] {
+        return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+          (el) => el.textContent ?? "",
+        );
+      }
+      expect(stepLabels()).toEqual(["Rename column", "Filter rows"]);
+
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+      });
+
+      expect(duplicatePipelineStepMock).toHaveBeenCalledWith("x1");
+      expect(stepLabels()).toEqual(["Rename column", "Rename column", "Filter rows"]);
+    });
+
+    it("a failed duplicate leaves the step list unchanged and surfaces an error toast", async () => {
+      duplicatePipelineStepMock.mockRejectedValueOnce(new Error("Server error"));
+      const store = makeStore();
+      const { container } = renderDetailPage("pipe-1", store);
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+      });
+
+      const labels = Array.from(
+        container.querySelectorAll(".pipeline-detail-page__step-card-label"),
+      ).map((el) => el.textContent ?? "");
+      expect(labels).toEqual(["Rename column", "Filter rows"]);
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].variant).toBe("error");
+      expect(toasts[0].message).toMatch(/failed to duplicate step/i);
+    });
+
+    it("toggling a step changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
+      updatePipelineStepEnabledMock.mockResolvedValueOnce({ ...persistedRename, enabled: false });
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // Let the mount-triggered fingerprint settle before taking the baseline.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      });
+      const callsBeforeToggle = analyzePipelineMock.mock.calls.length;
+
+      fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+
+      await waitFor(() =>
+        expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeToggle),
+      );
+    });
   });
 
   // HEL-410 (design.md Decisions 5-6) — the gap "insert step here" affordance:
@@ -1669,6 +1825,78 @@ describe("PipelineDetailPage step preview", () => {
     await waitFor(() => {
       expect(screen.queryByText("alice")).not.toBeInTheDocument();
     });
+  });
+
+  // HEL-412 evaluation-1.md CR1/CR2 — re-enabling a step whose preview panel
+  // is open must not race the enable PATCH: StepCard's preview-refresh
+  // effect must debounce the re-fetch (never take the undebounced
+  // "activation" path) so the GET can't reach the backend's defensive 422
+  // ("step is disabled") before the PATCH commits. Uses fake timers + a
+  // deferred PATCH promise so this actually exercises wire-timing ordering
+  // rather than jsdom's synchronous mock resolution (which can't see the
+  // race — see evaluation-1.md Phase 1 AC4 note).
+  it("re-enabling a step with its preview open debounces the refetch instead of racing the enable PATCH", async () => {
+    renderDetailPage("pipe-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
+    await act(async () => {
+      fireEvent.click(previewBtn);
+    });
+    await waitFor(() => expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1));
+
+    // Disable the step first — fully settled, not the case under test.
+    updatePipelineStepEnabledMock.mockResolvedValueOnce({
+      ...persistedPreviewStep,
+      enabled: false,
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
+    });
+    expect(screen.getByRole("button", { name: "Enable step" })).toBeInTheDocument();
+
+    // Switch to fake timers to control the debounce window precisely for
+    // the re-enable step under test.
+    jest.useFakeTimers();
+    try {
+      let resolveEnable!: (step: PipelineStep) => void;
+      updatePipelineStepEnabledMock.mockReturnValueOnce(
+        new Promise<PipelineStep>((resolve) => {
+          resolveEnable = resolve;
+        }),
+      );
+      const fetchCallsBeforeReEnable = fetchStepPreviewMock.mock.calls.length;
+
+      fireEvent.click(screen.getByRole("button", { name: "Enable step" }));
+
+      // The optimistic flip has already happened (StepCard re-renders with
+      // step.enabled: true) but the fix must NOT dispatch a preview fetch
+      // immediately — before the debounce window and before the PATCH
+      // resolves. This is exactly the race the evaluator reproduced live
+      // (2/2): a naive immediate GET reaches the backend before the PATCH
+      // commits and gets 422'd.
+      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable);
+
+      // Resolve the enable PATCH only now, well after the click — mirrors
+      // the live repro's ordering.
+      await act(async () => {
+        resolveEnable({ ...persistedPreviewStep, enabled: true });
+      });
+      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable);
+
+      // Only once the full debounce window elapses does the refresh fire —
+      // by which point any real PATCH has long since committed.
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable + 1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

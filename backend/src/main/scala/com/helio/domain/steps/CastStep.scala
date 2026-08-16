@@ -37,7 +37,8 @@ final case class CastStep(
     position: Int,
     config: CastConfig,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = CastStep.Kind
 

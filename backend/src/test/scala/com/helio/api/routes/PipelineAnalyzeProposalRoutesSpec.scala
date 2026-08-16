@@ -200,6 +200,45 @@ class PipelineAnalyzeProposalRoutesSpec
       pipelineStepCount() shouldBe beforeSteps
     }
 
+    // HEL-412 (design.md Decision 3, boundary iv): a proposal step definition
+    // carrying `enabled: false` is excluded exactly as a persisted disabled
+    // step is — the response contains no entry for it, and later steps see
+    // the schema as if it never ran.
+    "excludes a proposal step definition carrying enabled: false" in {
+      cleanAll()
+      val fields =
+        """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},
+          | {"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]""".stripMargin
+      val dsId = seedDataSource(dummyUser.id.value, "orders-source", fields)
+
+      val proposal = PipelineProposal(
+        pipelineName       = "Orders pipeline",
+        source              = noInlineSource.copy(sourceId = Some(dsId)),
+        outputDataTypeName = "Orders Output",
+        steps = Vector(
+          CreatePipelineStepRequest(
+            `type`  = "select",
+            config  = JsObject("fields" -> JsArray(JsString("order_id"))),
+            enabled = Some(false)
+          ),
+          CreatePipelineStepRequest(
+            `type` = "select",
+            config = JsObject("fields" -> JsArray(JsString("order_id"), JsString("amount")))
+          )
+        )
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        // Only the enabled second step appears; its input schema is the full
+        // source schema, proving the disabled first step never ran.
+        resp.steps should have size 1
+        resp.steps.head.inputSchema.map(_.name) should contain allOf ("order_id", "amount")
+        resp.steps.head.outputSchema.map(_.name) should contain allOf ("order_id", "amount")
+      }
+    }
+
     "return the schema derived from an inline static source's declared columns, with no connector call (3.3)" in {
       cleanAll()
       val counter = new AtomicInteger(0)
