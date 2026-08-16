@@ -67,7 +67,12 @@ final case class PipelineExecutionContext(
      *  [[steps.UnionStep]] (to pull a second source's rows — static / csv).
      *  Lives on the context so the engine can decide the loader implementation without
      *  every step file needing to know about it. */
-    loadSource: DataSource => Future[Seq[Map[String, Any]]]
+    loadSource: DataSource => Future[Seq[Map[String, Any]]],
+    /** Mutable output sink [[steps.AssertStep]] records its evaluated
+     *  [[AssertionResult]]s into (HEL-509 / 419-B, design.md Decision 4).
+     *  Defaults to a fresh, unread sink so every existing direct construction
+     *  of this context is unaffected. */
+    assertionSink: AssertionSink = new AssertionSink
 )
 
 object PipelineStep {

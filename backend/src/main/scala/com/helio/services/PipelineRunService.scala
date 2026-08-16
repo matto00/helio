@@ -3,6 +3,8 @@ package com.helio.services
 import com.helio.api.protocols.{PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.{
+  AssertionResult,
+  AssertionSink,
   AuthenticatedUser,
   BinaryRef,
   DataField,
@@ -256,10 +258,16 @@ final class PipelineRunService(
       triggerSource:      String,
       triggeredByTokenId: Option[String] = None
   ): Future[Either[ServiceError, RunResultResponse]] = {
-    val pipelineId = pipeline.id
-    val runId      = PipelineRunId(UUID.randomUUID().toString)
-    val startAt    = Instant.now()
-    val pidStr     = pipelineId.value
+    val pipelineId     = pipeline.id
+    val runId          = PipelineRunId(UUID.randomUUID().toString)
+    val startAt        = Instant.now()
+    val pidStr         = pipelineId.value
+    // HEL-509 (419-B): caller-supplied output parameter every `assert` step's
+    // evaluated results are recorded into (design.md Decision 4) — constructed
+    // here, before the engine call, so a mid-pipeline failure still leaves
+    // `assertionSink.results` populated with whatever was evaluated up to
+    // that point.
+    val assertionSink = new AssertionSink
 
     publish(pidStr, RunStatusEvent("queued"))
 
@@ -276,7 +284,7 @@ final class PipelineRunService(
     val runFuture = preExec.flatMap { _ =>
       engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
         engine
-          .executeWithStepCounts(sourceRows, steps, dataSourceRepo)
+          .executeWithStepCounts(sourceRows, steps, dataSourceRepo, assertionSink)
           .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
       }
     }
@@ -292,6 +300,11 @@ final class PipelineRunService(
         val errMsg = "Pipeline execution failed"
         publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
         val failWork: Future[Unit] =
+          // HEL-509 (419-B, design.md Decision 4): a failed dry run has no
+          // `pipeline_runs` row to attach assertion results to (a dry run's
+          // row is inserted only on success, see onDryRunSuccess below) — the
+          // `insertAssertions` call below MUST stay nested inside this
+          // existing `if (!isDry)` guard, never called unconditionally.
           if (!isDry) {
             val updateRun =
               if (pipelineRunRepo != null)
@@ -299,7 +312,9 @@ final class PipelineRunService(
               else Future.successful(())
             updateRun.flatMap { _ =>
               pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user)
-            }.map(_ => ())
+            }.flatMap { _ =>
+              persistAssertions(runId, assertionSink.results)
+            }
           } else Future.successful(())
         failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
 
@@ -312,19 +327,35 @@ final class PipelineRunService(
         // external caller (design.md Decision 5).
         val response = RunResultResponse(jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value))
         val followUp: Future[Unit] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user)
-          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user)
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results)
+          else onRunSuccess(pipeline.outputDataTypeId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
         followUp.map(_ => Right(response))
     }
   }
 
+  /** Best-effort persistence of assertion results — wrapped in `recoverWith`
+   *  at every call site (design.md Decision 4a), mirroring the file's
+   *  existing `insertRun`/`deleteOldRuns` and `insertDryRun`/
+   *  `deleteOldDryRuns` best-effort pattern. `insertRun`/`insertDryRun`
+   *  already silently no-op for a caller who does not own the parent
+   *  pipeline (e.g. an editor grantee triggering a run via
+   *  `POST /api/pipelines/:id/run`), leaving no `pipeline_runs` row for
+   *  `insertAssertions` to FK against — without this guard, that would turn
+   *  today's silent no-op into an unhandled failed `Future`. Skips the call
+   *  entirely when there is nothing to persist. */
+  private def persistAssertions(runId: PipelineRunId, results: Vector[AssertionResult]): Future[Unit] =
+    if (pipelineRunRepo != null && results.nonEmpty)
+      pipelineRunRepo.insertAssertions(runId, results).recoverWith { case _ => Future.successful(()) }
+    else Future.successful(())
+
   private def onDryRunSuccess(
-      pipelineId: PipelineId,
-      runId:      PipelineRunId,
-      startAt:    Instant,
-      pidStr:     String,
-      rowCount:   Int,
-      user:       AuthenticatedUser
+      pipelineId:       PipelineId,
+      runId:            PipelineRunId,
+      startAt:          Instant,
+      pidStr:           String,
+      rowCount:         Int,
+      user:             AuthenticatedUser,
+      assertionResults: Vector[AssertionResult]
   ): Future[Unit] = {
     publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount)))
     if (pipelineRunRepo != null)
@@ -332,7 +363,12 @@ final class PipelineRunService(
         .insertDryRun(runId, pipelineId, startAt, rowCount, user)
         .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
         .recoverWith { case _ => Future.successful(()) }
-        .map(_ => ())
+        // HEL-509 (419-B, design.md Decision 5): insertAssertions must be
+        // sequenced AFTER insertDryRun's own row insert completes — the FK
+        // needs the parent `pipeline_runs` row to exist first. This dry run's
+        // row is inserted above (unlike the real-run path, where insertRun
+        // already ran during preExec).
+        .flatMap(_ => persistAssertions(runId, assertionResults))
     else Future.successful(())
   }
 
@@ -343,7 +379,8 @@ final class PipelineRunService(
       pidStr:           String,
       resultRows:       Seq[Map[String, Any]],
       jsRows:           Vector[JsObject],
-      user:             AuthenticatedUser
+      user:             AuthenticatedUser,
+      assertionResults: Vector[AssertionResult]
   ): Future[Unit] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
@@ -383,6 +420,10 @@ final class PipelineRunService(
       if (pipelineRunRepo != null)
         pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user).map(_ => ())
       else Future.successful(())
+    // HEL-509 (419-B): insertRun already ran during preExec, so the parent
+    // `pipeline_runs` row exists before this real-run success path runs —
+    // no ordering constraint here (unlike onDryRunSuccess above).
+    val assertionsInsert = persistAssertions(runId, assertionResults)
     for {
       _ <- schemaUpsert
       _ <- rowsUpsert
@@ -390,6 +431,7 @@ final class PipelineRunService(
       _ <- alertEvaluation
       _ <- updateMeta
       _ <- updateRun
+      _ <- assertionsInsert
     } yield ()
   }
 

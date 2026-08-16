@@ -25,13 +25,21 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
     executeWithStepCounts(rows, steps, dataSourceRepo).map(_._1)
 
   /** Run the pipeline, returning both the final rows and the per-step output
-   *  row counts (keyed by step id). */
+   *  row counts (keyed by step id).
+   *
+   *  `assertionSink` (HEL-509 / 419-B, design.md Decision 4) is an optional
+   *  caller-supplied output parameter every `assert` step's evaluated
+   *  [[AssertionResult]]s are recorded into. Defaults to a fresh, discarded
+   *  sink so existing callers (`previewStep`, `execute`) are unaffected —
+   *  assert steps still evaluate their rules during a preview, the same
+   *  computation as before, just unread. */
   def executeWithStepCounts(
       rows: Seq[Row],
       steps: Seq[PipelineStep],
-      dataSourceRepo: DataSourceRepository
+      dataSourceRepo: DataSourceRepository,
+      assertionSink: AssertionSink = new AssertionSink
   ): Future[(Seq[Row], Map[String, Long])] = {
-    val ctx = makeContext(dataSourceRepo)
+    val ctx = makeContext(dataSourceRepo, assertionSink)
     val initial: Future[(Seq[Row], Map[String, Long])] =
       Future.successful((rows, Map.empty[String, Long]))
     steps.foldLeft(initial) { (acc, step) =>
@@ -106,10 +114,11 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
   /** Build the execution context handed to every step. `loadSource` closes
    *  over the engine's own [[loadRows]] so each step can re-enter the same
    *  source-loading dispatch without needing the engine reference itself. */
-  private def makeContext(dataSourceRepo: DataSourceRepository): PipelineExecutionContext =
+  private def makeContext(dataSourceRepo: DataSourceRepository, assertionSink: AssertionSink): PipelineExecutionContext =
     PipelineExecutionContext(
       dataSourceRepo = dataSourceRepo,
-      loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo)
+      loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo),
+      assertionSink  = assertionSink
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

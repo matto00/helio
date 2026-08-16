@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{AuthenticatedUser, PipelineId, PipelineRunId, UserId}
+import com.helio.domain.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -323,6 +323,85 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       after should have size 15
       after.count(_.status == "dry_run") shouldBe 5
       after.count(_.status != "dry_run") shouldBe 10
+    }
+
+    // ── HEL-509 (419-B): pipeline_run_assertions ────────────────────────────
+
+    def sampleResults(): Vector[AssertionResult] = Vector(
+      AssertionResult("step-1", "notNull", Some("email"), "error", passed = true, observed = Some("0 nulls"), message = None),
+      AssertionResult("step-1", "rowCountMin", None, "warn", passed = false, observed = Some("3 rows"), message = Some("below minimum"))
+    )
+
+    "insertAssertions persists one row per AssertionResult, linked to the run" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+
+      await(pipelineRunRepo.insertAssertions(runId, sampleResults()))
+
+      val rows = await(pipelineRunRepo.listAssertionsByRunInternal(runId))
+      rows should have size 2
+      rows.map(_.kind) should contain allOf ("notNull", "rowCountMin")
+      val notNullRow = rows.find(_.kind == "notNull").get
+      notNullRow.runId    shouldBe runId.value
+      notNullRow.stepId   shouldBe "step-1"
+      notNullRow.field    shouldBe Some("email")
+      notNullRow.severity shouldBe "error"
+      notNullRow.passed   shouldBe true
+      notNullRow.observed shouldBe Some("0 nulls")
+      notNullRow.message  shouldBe None
+      val rowCountRow = rows.find(_.kind == "rowCountMin").get
+      rowCountRow.field   shouldBe None
+      rowCountRow.passed  shouldBe false
+      rowCountRow.message shouldBe Some("below minimum")
+    }
+
+    "insertAssertions is a no-op for an empty results sequence" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+
+      await(pipelineRunRepo.insertAssertions(runId, Vector.empty))
+
+      await(pipelineRunRepo.listAssertionsByRunInternal(runId)) shouldBe empty
+    }
+
+    "listAssertionsByRun (owner-scoped) returns the persisted results for the owning user" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+      await(pipelineRunRepo.insertAssertions(runId, sampleResults()))
+
+      val rows = await(pipelineRunRepo.listAssertionsByRun(runId, systemUser))
+      rows should have size 2
+    }
+
+    "listAssertionsByRun (owner-scoped) returns empty for a non-owner (CS2 parity)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+      await(pipelineRunRepo.insertAssertions(runId, sampleResults()))
+
+      await(pipelineRunRepo.listAssertionsByRun(runId, otherUser)) shouldBe empty
+      // Owner's view is unaffected by the non-owner's read attempt.
+      await(pipelineRunRepo.listAssertionsByRun(runId, systemUser)) should have size 2
+    }
+
+    "listAssertionsByRunInternal (system-context) returns results regardless of caller identity" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+      await(pipelineRunRepo.insertAssertions(runId, sampleResults()))
+
+      await(pipelineRunRepo.listAssertionsByRunInternal(runId)) should have size 2
+    }
+
+    "listAssertionsByRunInternal returns empty for a run with no assertion results" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
+
+      await(pipelineRunRepo.listAssertionsByRunInternal(runId)) shouldBe empty
     }
   }
 }

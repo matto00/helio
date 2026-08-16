@@ -1,6 +1,6 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{AuthenticatedUser, PipelineId, PipelineRunId}
+import com.helio.domain.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId}
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -25,8 +25,9 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import PipelineRunRepository._
 
-  private val runsTable      = TableQuery[PipelineRunTable]
-  private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
+  private val runsTable       = TableQuery[PipelineRunTable]
+  private val pipelinesTable  = TableQuery[PipelineRepository.PipelineTable]
+  private val assertionsTable = TableQuery[PipelineRunAssertionTable]
 
   private def pipelineOwnedAction(pipelineId: PipelineId, user: AuthenticatedUser) = {
     val ownerUuid = UUID.fromString(user.id.value)
@@ -236,6 +237,52 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).result.headOption
     )
+
+  // ── HEL-509 (419-B): pipeline_run_assertions ──────────────────────────────
+
+  /** Privileged insert for the [[AssertionResult]]s evaluated during a run
+    * (design.md Decision 6 — always `withSystemContext`, mirroring
+    * `insertRunInternal`'s privileged pattern; the run itself was already
+    * inserted owner-scoped, so there is no meaningfully-different ownership
+    * check to perform here). No-op for an empty `results`. */
+  def insertAssertions(runId: PipelineRunId, results: Seq[AssertionResult]): Future[Unit] =
+    if (results.isEmpty) Future.successful(())
+    else {
+      val rows = results.map { r =>
+        PipelineRunAssertionRow(
+          id       = UUID.randomUUID().toString,
+          runId    = runId.value,
+          stepId   = r.stepId,
+          kind     = r.kind,
+          field    = r.field,
+          severity = r.severity,
+          passed   = r.passed,
+          observed = r.observed,
+          message  = r.message
+        )
+      }
+      ctx.withSystemContext(assertionsTable ++= rows).map(_ => ())
+    }
+
+  /** Owner-scoped list of assertion results for a run, via JOIN through the
+    * parent `pipeline_runs` row to `pipelines.owner_id`. Empty vector when
+    * the caller does not own the parent pipeline. */
+  def listAssertionsByRun(runId: PipelineRunId, user: AuthenticatedUser): Future[Vector[PipelineRunAssertionRow]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      a        <- assertionsTable if a.runId === runId.value
+      run      <- runsTable if run.id === a.runId
+      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+    } yield a
+    ctx.withUserContext(user.id.value)(query.result).map(_.toVector)
+  }
+
+  /** ACL-bypassing list of assertion results for a run. Safe to call only
+    * after the caller's run/pipeline access has been confirmed at the
+    * service layer (mirrors `listByPipelineInternal` — a future
+    * grantee-aware caller's job to wire up, per design.md Decision 6). */
+  def listAssertionsByRunInternal(runId: PipelineRunId): Future[Vector[PipelineRunAssertionRow]] =
+    ctx.withSystemContext(assertionsTable.filter(_.runId === runId.value).result).map(_.toVector)
 }
 
 object PipelineRunRepository {
@@ -268,5 +315,33 @@ object PipelineRunRepository {
     def triggeredByTokenId = column[Option[UUID]]("triggered_by_token_id")
 
     def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId).mapTo[PipelineRunRow]
+  }
+
+  // ── HEL-509 (419-B): pipeline_run_assertions ──────────────────────────────
+
+  case class PipelineRunAssertionRow(
+      id: String,
+      runId: String,
+      stepId: String,
+      kind: String,
+      field: Option[String],
+      severity: String,
+      passed: Boolean,
+      observed: Option[String],
+      message: Option[String]
+  )
+
+  class PipelineRunAssertionTable(tag: Tag) extends Table[PipelineRunAssertionRow](tag, "pipeline_run_assertions") {
+    def id       = column[String]("id", O.PrimaryKey)
+    def runId    = column[String]("run_id")
+    def stepId   = column[String]("step_id")
+    def kind     = column[String]("kind")
+    def field    = column[Option[String]]("field")
+    def severity = column[String]("severity")
+    def passed   = column[Boolean]("passed")
+    def observed = column[Option[String]]("observed")
+    def message  = column[Option[String]]("message")
+
+    def * = (id, runId, stepId, kind, field, severity, passed, observed, message).mapTo[PipelineRunAssertionRow]
   }
 }
