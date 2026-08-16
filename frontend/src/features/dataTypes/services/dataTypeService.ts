@@ -1,4 +1,9 @@
-import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
+import type {
+  AssertionStatusResponse,
+  ComputedField,
+  DataType,
+  DataTypeField,
+} from "../types/dataType";
 import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
 
@@ -61,4 +66,14 @@ export async function fetchDataTypeRows(id: string): Promise<DataTypeRowsRespons
 
 export async function deleteDataType(id: string): Promise<void> {
   await httpClient.delete(`/api/types/${id}`);
+}
+
+/** HEL-576: `invalid`/`failedRuleCount` are non-optional in the Scala wire
+ *  shape, so no absent-field normalization is needed here (unlike `sourceId`
+ *  above). */
+export async function fetchAssertionStatus(id: string): Promise<AssertionStatusResponse> {
+  const response = await httpClient.get<AssertionStatusResponse>(
+    `/api/types/${id}/assertion-status`,
+  );
+  return response.data;
 }

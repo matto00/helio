@@ -7,17 +7,19 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataTypeIdSegment
 import com.helio.domain._
-import com.helio.services.{DataTypeService, PanelCapabilityService}
+import com.helio.services.{DataTypeService, PanelCapabilityService, PipelineRunService}
 
 import scala.concurrent.ExecutionContextExecutor
 
 /** Thin HTTP shell for `/api/types`. CRUD logic in [[DataTypeService]];
  *  `/panel-capabilities` logic in [[PanelCapabilityService]] (design.md D6 —
  *  folded into this router rather than a new file, mirroring `/rows` and
- *  `/validate-expression`). */
+ *  `/validate-expression`). `/assertion-status` logic in [[PipelineRunService]]
+ *  (HEL-576, design.md Decision 7 — same folding rationale). */
 final class DataTypeRoutes(
     dataTypeService: DataTypeService,
     panelCapabilityService: PanelCapabilityService,
+    pipelineRunService: PipelineRunService,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -97,6 +99,18 @@ final class DataTypeRoutes(
         path(DataTypeIdSegment / "panel-capabilities") { id =>
           get {
             ServiceResponse.run(panelCapabilityService.getCapabilities(id, user))(identity)
+          }
+        },
+        // HEL-576: ACL-gated via the same dataTypeService.findById(id, user)
+        // check `/rows` already uses (design.md Decision 7) before delegating
+        // to the privileged PipelineRunService.assertionStatusForDataType.
+        path(DataTypeIdSegment / "assertion-status") { id =>
+          get {
+            ServiceResponse.runWith(dataTypeService.findById(id, user)) { _ =>
+              onSuccess(pipelineRunService.assertionStatusForDataType(id)) { status =>
+                complete(status)
+              }
+            }
           }
         },
         path(DataTypeIdSegment) { id =>

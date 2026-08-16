@@ -228,6 +228,13 @@ package object api {
   val PipelineRunRecord: protocols.PipelineRunRecord.type = protocols.PipelineRunRecord
   type RunResultResponse = protocols.RunResultResponse
   val RunResultResponse: protocols.RunResultResponse.type = protocols.RunResultResponse
+  // Assertion summary (HEL-576)
+  type AssertionFailureDetail = protocols.AssertionFailureDetail
+  val AssertionFailureDetail: protocols.AssertionFailureDetail.type = protocols.AssertionFailureDetail
+  type AssertionSummary = protocols.AssertionSummary
+  val AssertionSummary: protocols.AssertionSummary.type = protocols.AssertionSummary
+  type AssertionStatusResponse = protocols.AssertionStatusResponse
+  val AssertionStatusResponse: protocols.AssertionStatusResponse.type = protocols.AssertionStatusResponse
 
   // Image upload (HEL-246)
   type ImageUploadResponse = protocols.ImageUploadResponse

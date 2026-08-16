@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/data-type-assertion-status.schema.json",
+  "title": "AssertionStatusResponse",
+  "description": "Response for GET /api/types/:id/assertion-status (HEL-576). `invalid` is true when the DataType's owning pipeline's latest NON-DRY run has at least one persisted error-severity failed assertion -- a dry run is never considered. `failedRuleCount` is the count of such failures.",
+  "type": "object",
+  "properties": {
+    "dataTypeId": { "type": "string" },
+    "invalid": { "type": "boolean" },
+    "failedRuleCount": { "type": "integer" }
+  },
+  "required": ["dataTypeId", "invalid", "failedRuleCount"],
+  "additionalProperties": false
+}

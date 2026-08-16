@@ -509,7 +509,7 @@ final class ApiRoutes(
                   new BoundPanelRoutes(boundPanelService, authenticatedUser).routes,
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
-                  new DataTypeRoutes(dataTypeService, panelCapabilityService, authenticatedUser).routes,
+                  new DataTypeRoutes(dataTypeService, panelCapabilityService, pipelineRunService, authenticatedUser).routes,
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                   new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,

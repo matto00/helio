@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, type CSSProperties } from "react";
+import React, { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { getDataTypeId } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
+import { fetchAssertionStatus, selectAssertionInvalid } from "../../dataTypes/state/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -160,6 +161,17 @@ export const PanelCard = React.memo(function PanelCard({
 }: PanelCardProps) {
   const dispatch = useAppDispatch();
 
+  // HEL-576: fetch the bound DataType's assertion status (deduped in the
+  // slice — see `fetchAssertionStatus`'s `condition` — so N panels bound to
+  // the same DataType share one request) and read whether it's invalid.
+  const dataTypeId = getDataTypeId(panel);
+  const isDataInvalid = useAppSelector((state) => selectAssertionInvalid(state, dataTypeId));
+  useEffect(() => {
+    if (dataTypeId) {
+      void dispatch(fetchAssertionStatus(dataTypeId));
+    }
+  }, [dispatch, dataTypeId]);
+
   // 2.2 — Memoize style to avoid a new object identity on every render.
   const style = useMemo(
     () => getPanelCardStyle(panel.appearance, theme),
@@ -282,6 +294,14 @@ export const PanelCard = React.memo(function PanelCard({
       <PanelCardBody panel={panel} frozen={isDragging} />
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
+        {isDataInvalid && (
+          <span
+            className="panel-grid-card__type-badge panel-grid-card__type-badge--invalid"
+            title="The latest pipeline run for this panel's data failed an assertion rule"
+          >
+            Invalid data
+          </span>
+        )}
         <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
       </div>
     </article>

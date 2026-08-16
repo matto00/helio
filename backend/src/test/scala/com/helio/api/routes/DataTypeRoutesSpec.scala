@@ -5,10 +5,19 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{DataTypeRowsResponse, ErrorResponse, JsonProtocols}
-import com.helio.domain.{AuthenticatedUser, DataField, DataType, DataTypeId, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext}
-import com.helio.services.{DataTypeService, PanelCapabilityService}
+import com.helio.api.{AssertionStatusResponse, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
+import com.helio.domain.{AssertionResult, AuthenticatedUser, DataField, DataType, DataTypeId, PipelineId, PipelineRunId, UserId}
+import com.helio.infrastructure.{
+  DataSourceRepository,
+  DataTypeRepository,
+  DataTypeRowRepository,
+  DbContext,
+  PipelineRepository,
+  PipelineRunRepository,
+  PipelineStepRepository
+}
+import com.helio.services.{DataTypeService, PanelCapabilityService, PipelineRunService}
+import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -37,6 +46,9 @@ class DataTypeRoutesSpec
   private var dataTypeRepo: DataTypeRepository     = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
   private var dataSourceRepo: DataSourceRepository = _
+  private var pipelineRepo: PipelineRepository     = _
+  private var pipelineStepRepo: PipelineStepRepository = _
+  private var pipelineRunRepo: PipelineRunRepository = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -53,6 +65,9 @@ class DataTypeRoutesSpec
     dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
     dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
     dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
+    pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -65,7 +80,14 @@ class DataTypeRoutesSpec
     implicit val ec: ExecutionContext = routeEc
     val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val capabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    new DataTypeRoutes(service, capabilityService, dummyUser)(typedSystem).routes
+    // HEL-576: registry/fileSystem are safely null — this spec never exercises
+    // a real run/dry-run/SSE path, only the assertion-status read (mirrors
+    // PipelineRunServiceSpec's own `registry = null` fixture pattern).
+    val pipelineRunService = new PipelineRunService(
+      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
+      dataTypeRowRepo, new PipelineRunCache(), registry = null, fileSystem = null
+    )
+    new DataTypeRoutes(service, capabilityService, pipelineRunService, dummyUser)(typedSystem).routes
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -108,6 +130,24 @@ class DataTypeRoutesSpec
     val fields = (0 until 3).map(i => DataField(s"col$i", s"col$i", "string", nullable = false)).toVector :+
       DataField("body", "Body", "string-body", nullable = true)
     seedDataTypeWithFields(fields)
+  }
+
+  /** HEL-576: a pipeline whose `output_data_type_id` is `dtId` — the join
+   *  target `findLatestRunIdByOutputDataTypeIdInternal` resolves through. */
+  private def seedPipelineForDataType(dtId: String): PipelineId = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+               (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}',
+                 '00000000-0000-0000-0000-000000000001', now(), now())""",
+      sqlu"""INSERT INTO pipelines
+               (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+    )))
+    PipelineId(pid)
   }
 
   // ── Tests ────────────────────────────────────────────────────────────────────
@@ -294,6 +334,92 @@ class DataTypeRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[DataTypeRowsResponse]
         resp.rows.head.fields.keySet shouldBe Set("col0", "col1", "col2", "body")
+      }
+    }
+  }
+
+  // ── HEL-576: GET /types/:id/assertion-status ────────────────────────────
+
+  "GET /types/:id/assertion-status" should {
+
+    "return 404 when the DataType does not exist" in {
+      Get("/types/nonexistent-dt-id/assertion-status") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return invalid: false, failedRuleCount: 0 for a DataType whose pipeline has never had a run" in {
+      val dtId = seedDataType()
+      Get(s"/types/$dtId/assertion-status") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AssertionStatusResponse]
+        resp.dataTypeId      shouldBe dtId
+        resp.invalid         shouldBe false
+        resp.failedRuleCount shouldBe 0
+      }
+    }
+
+    "return invalid: true with failedRuleCount when the latest run has an error-severity failure" in {
+      val dtId  = seedDataType()
+      val pid   = seedPipelineForDataType(dtId)
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now(), rowCount = Some(1)))
+      await(pipelineRunRepo.insertAssertions(runId, Vector(
+        AssertionResult("step-1", "notNull", Some("email"), "error", passed = false, observed = None, message = Some("null found")),
+        AssertionResult("step-1", "rowCountMin", None, "warn", passed = false, observed = None, message = Some("low"))
+      )))
+
+      Get(s"/types/$dtId/assertion-status") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AssertionStatusResponse]
+        resp.invalid         shouldBe true
+        resp.failedRuleCount shouldBe 1
+      }
+    }
+
+    "return invalid: false for a run with only warn-severity failures" in {
+      val dtId  = seedDataType()
+      val pid   = seedPipelineForDataType(dtId)
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now(), rowCount = Some(1)))
+      await(pipelineRunRepo.insertAssertions(runId, Vector(
+        AssertionResult("step-1", "rowCountMin", None, "warn", passed = false, observed = None, message = Some("low"))
+      )))
+
+      Get(s"/types/$dtId/assertion-status") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AssertionStatusResponse]
+        resp.invalid         shouldBe false
+        resp.failedRuleCount shouldBe 0
+      }
+    }
+
+    // Dedicated case from the design gate's round-1 REFUTE: a dry run must
+    // never be mistaken for the "latest run" this route bases its answer on.
+    "a dry run with a failing error-severity assertion after a clean real run does not flip invalid to true" in {
+      val dtId = seedDataType()
+      val pid  = seedPipelineForDataType(dtId)
+
+      val realRunId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(realRunId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(realRunId, "succeeded", Instant.now(), rowCount = Some(2)))
+      await(pipelineRunRepo.insertAssertions(realRunId, Vector(
+        AssertionResult("step-1", "notNull", Some("email"), "error", passed = true, observed = None, message = None)
+      )))
+
+      val dryRunId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertDryRunInternal(dryRunId, pid, Instant.now().plusSeconds(60), rowCount = 2))
+      await(pipelineRunRepo.insertAssertions(dryRunId, Vector(
+        AssertionResult("step-1", "notNull", Some("email"), "error", passed = false, observed = None, message = Some("null found"))
+      )))
+
+      Get(s"/types/$dtId/assertion-status") ~> makeRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AssertionStatusResponse]
+        resp.invalid         shouldBe false
+        resp.failedRuleCount shouldBe 0
       }
     }
   }

@@ -71,6 +71,11 @@ interface TestState {
     items?: DataType[];
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
+    /** HEL-576: pre-seed a DataType's cached assertion status. */
+    assertionStatusByDataTypeId?: Record<
+      string,
+      { invalid: boolean; failedRuleCount: number } | undefined
+    >;
   };
   sources?: {
     items?: DataSource[];
@@ -176,6 +181,13 @@ export function renderWithStore(
           items: preloadedState.dataTypes?.items ?? [],
           status: preloadedState.dataTypes?.status ?? "idle",
           error: preloadedState.dataTypes?.error ?? null,
+          selectedTypeId: null,
+          // HEL-576: PanelCard's assertion-status selector reads these two
+          // fields unconditionally for any bound panel — omitting them here
+          // would throw ("Cannot read properties of undefined") the moment a
+          // caller passes ANY preloadedState (which replaces this whole slice).
+          assertionStatusByDataTypeId: preloadedState.dataTypes?.assertionStatusByDataTypeId ?? {},
+          assertionStatusPendingIds: {},
         },
         sources: {
           items: preloadedState.sources?.items ?? [],

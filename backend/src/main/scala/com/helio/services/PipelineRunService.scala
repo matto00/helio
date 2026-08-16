@@ -1,6 +1,12 @@
 package com.helio.services
 
-import com.helio.api.protocols.{PipelineRunRecord, RunResultResponse}
+import com.helio.api.protocols.{
+  AssertionFailureDetail,
+  AssertionStatusResponse,
+  AssertionSummary,
+  PipelineRunRecord,
+  RunResultResponse
+}
 import com.helio.api.routes.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.{
   AssertionResult,
@@ -29,6 +35,7 @@ import com.helio.infrastructure.{
   PipelineRunRepository,
   PipelineStepRepository
 }
+import com.helio.infrastructure.PipelineRunRepository.PipelineRunAssertionRow
 import com.helio.spark.PipelineRunCache
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -200,7 +207,13 @@ final class PipelineRunService(
     }
 
   /** Persisted run history for a pipeline.
-   *  HEL-279: sharing-aware — owner, editor, and viewer grantees can read history. */
+   *  HEL-279: sharing-aware — owner, editor, and viewer grantees can read history.
+   *  HEL-576 (design.md Decision 2): each run's `AssertionSummary` is fetched via
+   *  one `listAssertionsByRunInternal` call per run, issued concurrently by
+   *  `Future.traverse` (not sequentially) -- bounded by the existing ~10 real +
+   *  ~10 dry run retention caps (`deleteOldRunsInternal`/`deleteOldDryRunsInternal`),
+   *  so at most ~20 concurrent calls per request. Not a scaling risk at that bound;
+   *  see design.md's Risks/Trade-offs for why a bulk join isn't warranted here. */
   def history(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =
     if (pipelineRunRepo == null) Future.successful(Right(Vector.empty))
     else
@@ -210,22 +223,56 @@ final class PipelineRunService(
         case Some(_) =>
           // Safe: access confirmed by findByIdShared. Use system context to bypass the
           // V35 pipeline_runs RLS owner-JOIN so grantees can read run records.
-          pipelineRunRepo.listByPipelineInternal(pipelineId).map { rows =>
-            Right(rows.map { r =>
-              PipelineRunRecord(
-                id                 = r.id,
-                pipelineId         = r.pipelineId,
-                status             = r.status,
-                startedAt          = r.startedAt.toString,
-                completedAt        = r.completedAt.map(_.toString),
-                rowCount           = r.rowCount,
-                errorLog           = r.errorLog,
-                triggerSource      = r.triggerSource,
-                triggeredByTokenId = r.triggeredByTokenId.map(_.toString)
-              )
-            })
+          pipelineRunRepo.listByPipelineInternal(pipelineId).flatMap { rows =>
+            Future.traverse(rows) { r =>
+              pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(r.id)).map { assertionRows =>
+                PipelineRunRecord(
+                  id                 = r.id,
+                  pipelineId         = r.pipelineId,
+                  status             = r.status,
+                  startedAt          = r.startedAt.toString,
+                  completedAt        = r.completedAt.map(_.toString),
+                  rowCount           = r.rowCount,
+                  errorLog           = r.errorLog,
+                  triggerSource      = r.triggerSource,
+                  triggeredByTokenId = r.triggeredByTokenId.map(_.toString),
+                  assertions         = summarizeAssertions(assertionRows)
+                )
+              }
+            }.map(Right(_))
           }
       }
+
+  /** Per-run pass/fail-by-severity summary (design.md Decision 1): `failures`
+   *  carries only the FAILED results -- a passing result is just a count. */
+  private def summarizeAssertions(rows: Vector[PipelineRunAssertionRow]): AssertionSummary = {
+    val failed = rows.filterNot(_.passed)
+    AssertionSummary(
+      passed      = rows.count(_.passed),
+      warnFailed  = failed.count(_.severity == "warn"),
+      errorFailed = failed.count(_.severity == "error"),
+      failures    = failed.map(r => AssertionFailureDetail(r.kind, r.field, r.severity, r.message))
+    )
+  }
+
+  /** Composes [[PipelineRunRepository.findLatestRunIdByOutputDataTypeIdInternal]]
+   *  with [[PipelineRunRepository.listAssertionsByRunInternal]] (design.md
+   *  Decision 6): no latest (non-dry) run means the DataType has never been
+   *  written by a real run, so `invalid = false`; otherwise `invalid` is true
+   *  when the latest run has at least one persisted error-severity failed
+   *  assertion. ACL is enforced by the caller (`DataTypeRoutes`, mirroring
+   *  `findLastRunAtByOutputDataTypeId`'s own documented pattern) -- this method
+   *  itself is privileged/unchecked. */
+  def assertionStatusForDataType(dataTypeId: DataTypeId): Future[AssertionStatusResponse] =
+    pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dataTypeId).flatMap {
+      case None =>
+        Future.successful(AssertionStatusResponse(dataTypeId.value, invalid = false, failedRuleCount = 0))
+      case Some(runId) =>
+        pipelineRunRepo.listAssertionsByRunInternal(runId).map { rows =>
+          val errorFailures = rows.count(r => r.severity == "error" && !r.passed)
+          AssertionStatusResponse(dataTypeId.value, invalid = errorFailures > 0, failedRuleCount = errorFailures)
+        }
+    }
 
   /** SSE event stream (delegates to the registry). Routes wrap this into the
    *  `text/event-stream` HTTP response. */

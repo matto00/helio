@@ -473,6 +473,24 @@ export interface RunStatusResponse {
   error?: string;
 }
 
+// HEL-576: `AssertionSummary` is always present on `PipelineRunRecord`,
+// zero-valued (not absent/undefined) for a run with no `assert` steps —
+// mirrors the backend's `AssertionSummary` default-valued convention so
+// consumers never need to null-check it.
+export interface AssertionFailureDetail {
+  kind: string;
+  field: string | null;
+  severity: "warn" | "error";
+  message: string | null;
+}
+
+export interface AssertionSummary {
+  passed: number;
+  warnFailed: number;
+  errorFailed: number;
+  failures: AssertionFailureDetail[];
+}
+
 export interface PipelineRunRecord {
   id: string;
   pipelineId: string;
@@ -482,6 +500,7 @@ export interface PipelineRunRecord {
   rowCount: number | null;
   errorLog: string | null;
   triggerSource: "manual" | "scheduled" | "external";
+  assertions: AssertionSummary;
 }
 
 // ── Pipeline sharing types ────────────────────────────────────────────────────

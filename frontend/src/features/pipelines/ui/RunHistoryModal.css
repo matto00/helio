@@ -116,3 +116,57 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* HEL-576: per-run assertion pass/fail-by-severity summary */
+
+.run-history-modal__assertions {
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.run-history-modal__assertions-error {
+  color: var(--app-error);
+}
+
+.run-history-modal__assertions-warn {
+  color: var(--app-warning);
+}
+
+.run-history-modal__assertion-failures {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run-history-modal__assertion-failure {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-sm);
+  border-left: 2px solid var(--app-border-strong);
+  background: var(--app-surface-soft);
+  font-size: var(--text-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.run-history-modal__assertion-failure--error {
+  border-left-color: var(--app-error);
+}
+
+.run-history-modal__assertion-failure--warn {
+  border-left-color: var(--app-warning);
+}
+
+.run-history-modal__assertion-failure-kind {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+}
+
+.run-history-modal__assertion-failure-message {
+  color: var(--app-text-muted);
+}

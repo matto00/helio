@@ -9,8 +9,18 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataSourceResponse, JsonProtocols}
 import com.helio.domain.PagedResult
 import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem}
-import com.helio.services.{DataSourceService, DataTypeService, PanelCapabilityService, PanelService, SourceService}
+import com.helio.infrastructure.{
+  DataSourceRepository,
+  DataTypeRepository,
+  DataTypeRowRepository,
+  DbContext,
+  LocalFileSystem,
+  PipelineRepository,
+  PipelineRunRepository,
+  PipelineStepRepository
+}
+import com.helio.services.{DataSourceService, DataTypeService, PanelCapabilityService, PanelService, PipelineRunService, SourceService}
+import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -45,6 +55,9 @@ class DataTypeDataSourceAclSpec
   private var dataTypeRepo: DataTypeRepository       = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
   private var dataSourceRepo: DataSourceRepository   = _
+  private var pipelineRepo: PipelineRepository       = _
+  private var pipelineStepRepo: PipelineStepRepository = _
+  private var pipelineRunRepo: PipelineRunRepository = _
 
   // Two distinct authenticated users — `userA` owns the resources under test;
   // `userB` is the cross-user probe. Both must exist in the `users` table so
@@ -65,6 +78,9 @@ class DataTypeDataSourceAclSpec
     dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
     dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
     dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
+    pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -113,7 +129,15 @@ class DataTypeDataSourceAclSpec
     implicit val ec: ExecutionContext = routeEc
     val svc = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    new DataTypeRoutes(svc, capabilitySvc, user)(typedSystem).routes
+    // HEL-576: assertion-status route needs a PipelineRunService — none of
+    // this file's tests exercise a real run/dry-run/SSE path, so registry
+    // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own
+    // `registry = null` fixture pattern).
+    val pipelineRunService = new PipelineRunService(
+      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
+      dataTypeRowRepo, new PipelineRunCache(), registry = null, fileSystem = null
+    )
+    new DataTypeRoutes(svc, capabilitySvc, pipelineRunService, user)(typedSystem).routes
   }
 
   private def dataSourceRoutesFor(user: AuthenticatedUser): Route = {
@@ -164,6 +188,21 @@ class DataTypeDataSourceAclSpec
     "return 404 for a cross-user caller (HEL-242 leak closed)" in {
       val dtId = seedOwnedDataType(userAId)
       Get(s"/types/${dtId.value}/rows") ~> dataTypeRoutesFor(userB) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  "GET /types/:id/assertion-status" should {
+    "return 200 for the owner" in {
+      val dtId = seedOwnedDataType(userAId)
+      Get(s"/types/${dtId.value}/assertion-status") ~> dataTypeRoutesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+    "return 404 for a cross-user caller" in {
+      val dtId = seedOwnedDataType(userAId)
+      Get(s"/types/${dtId.value}/assertion-status") ~> dataTypeRoutesFor(userB) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }

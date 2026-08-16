@@ -1,4 +1,5 @@
 import type {
+  AssertionSummary,
   GrantRole,
   PermissionGrant,
   Pipeline,
@@ -108,16 +109,27 @@ export async function fetchRunStatus(
   return response.data;
 }
 
+/** Zero-valued fallback for a run's `assertions` summary — mirrors the
+ *  backend's own `AssertionSummary()` default (HEL-576, design.md Decision 1). */
+const EMPTY_ASSERTION_SUMMARY: AssertionSummary = {
+  passed: 0,
+  warnFailed: 0,
+  errorFailed: 0,
+  failures: [],
+};
+
 /** HEL-417: `triggerSource` is server-side-defaulted and non-optional in the
  *  Scala wire shape, so a compliant backend always sends it — but normalize
  *  defensively at this boundary anyway (a legacy/mocked response omitting the
  *  field would otherwise surface as `undefined` in the UI) rather than trust
  *  every caller to special-case it, mirroring `normalizeSchedule`'s
- *  Option=None-omission precedent above. */
+ *  Option=None-omission precedent above. `assertions` (HEL-576) gets the same
+ *  defensive treatment. */
 function normalizeRunRecord(run: PipelineRunRecord): PipelineRunRecord {
   return {
     ...run,
     triggerSource: run.triggerSource ?? "manual",
+    assertions: run.assertions ?? EMPTY_ASSERTION_SUMMARY,
   };
 }
 

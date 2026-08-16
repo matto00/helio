@@ -348,4 +348,50 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       results.head.passed shouldBe false
     }
   }
+
+  // ── HEL-576: history()'s per-run AssertionSummary ─────────────────────────
+
+  "PipelineRunService.history (HEL-576 assertion summary)" should {
+
+    "reports accurate passed/warnFailed/errorFailed counts and only the FAILED results' details" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(
+        pid, "assert",
+        AssertConfig(Vector(passingAssertRule, nonBlockingWarnRule, blockingErrorRule)),
+        dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val history = await(service.history(pid, dummyUser))
+      history shouldBe a[Right[_, _]]
+      val records = history.toOption.get
+      records should have size 1
+      val summary = records.head.assertions
+      summary.passed      shouldBe 1
+      summary.warnFailed   shouldBe 1
+      summary.errorFailed shouldBe 1
+      summary.failures should have size 2
+      summary.failures.map(_.severity) should contain theSameElementsAs Vector("warn", "error")
+    }
+
+    "reports a zero-valued summary for a run with no assert steps" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val history = await(service.history(pid, dummyUser))
+      val records = history.toOption.get
+      records should have size 1
+      val summary = records.head.assertions
+      summary.passed      shouldBe 0
+      summary.warnFailed   shouldBe 0
+      summary.errorFailed shouldBe 0
+      summary.failures shouldBe empty
+    }
+  }
 }

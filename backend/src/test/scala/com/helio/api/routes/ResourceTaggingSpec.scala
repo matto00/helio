@@ -9,6 +9,7 @@ import com.helio.api.{AccessCheckerImpl, DataSourceResponse, JsonProtocols, Pipe
 import com.helio.domain._
 import com.helio.infrastructure._
 import com.helio.services._
+import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -50,6 +51,7 @@ class ResourceTaggingSpec
   private var dataTypeRowRepo: DataTypeRowRepository = _
   private var pipelineRepo: PipelineRepository     = _
   private var pipelineStepRepo: PipelineStepRepository = _
+  private var pipelineRunRepo: PipelineRunRepository = _
 
   private val userAId = UUID.randomUUID().toString
   private val userBId = UUID.randomUUID().toString
@@ -69,6 +71,7 @@ class ResourceTaggingSpec
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
+    pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -107,7 +110,15 @@ class ResourceTaggingSpec
     implicit val ec: ExecutionContext = routeEc
     val svc           = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    new DataTypeRoutes(svc, capabilitySvc, user)(typedSystem).routes
+    // HEL-576: assertion-status route needs a PipelineRunService — none of
+    // this file's tests exercise a real run/dry-run/SSE path, so registry
+    // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own
+    // `registry = null` fixture pattern).
+    val pipelineRunService = new PipelineRunService(
+      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
+      dataTypeRowRepo, new PipelineRunCache(), registry = null, fileSystem = null
+    )
+    new DataTypeRoutes(svc, capabilitySvc, pipelineRunService, user)(typedSystem).routes
   }
 
   private def workspaceRoutesFor(user: AuthenticatedUser): Route = {

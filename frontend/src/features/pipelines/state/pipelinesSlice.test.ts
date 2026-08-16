@@ -346,6 +346,7 @@ describe("fetchPipelineRunHistory", () => {
     rowCount: 42,
     errorLog: null,
     triggerSource: "manual" as const,
+    assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
   };
 
   beforeEach(() => {
