@@ -32,7 +32,11 @@ import { defaultConfigFor, makeStep, pipelineStepToStep } from "../state/stepNar
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "../hooks/usePipelineRunEvents";
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
-import { createPipelineStep, deletePipelineStep } from "../services/pipelineService";
+import {
+  createPipelineStep,
+  deletePipelineStep,
+  reorderPipelineSteps,
+} from "../services/pipelineService";
 import { useToast } from "../../toasts/hooks/useToast";
 import type {
   AnalyzeStepResult,
@@ -358,6 +362,44 @@ export function PipelineDetailPage() {
     }
   }
 
+  // HEL-407 — drag/keyboard reorder handler (design.md Decision 7). `newOrder`
+  // is the full reordered `Step[]` computed by `PipelineRiverView` (drop or
+  // Move up/down). The page owns persistence, mirroring every other step
+  // mutation here (local `setSteps` + a plain service call, not a thunk):
+  // (a) snapshot the previous order, (b) reorder optimistically, (c) PUT the
+  // *persisted* step ids only, (d) reconcile the response into the optimistic
+  // order by id on success, (e) revert + toast on failure — never a silently
+  // lost reorder.
+  async function handleReorderSteps(newOrder: Step[]) {
+    if (!id) return;
+    const previousOrder = steps;
+    setSteps(newOrder);
+    // Temp (`step-N`) steps have no backend row yet — a still-in-flight POST
+    // from handleAddStep/handleInstantiateShape. Sending one would fail the
+    // server's set-equality check, so exclude them (mirrors handleRemoveStep's
+    // temp-id no-op convention above).
+    const persistedIds = newOrder.filter((s) => !s.id.startsWith("step-")).map((s) => s.id);
+    try {
+      const response = await reorderPipelineSteps(id, persistedIds);
+      // Reconcile by mapping over the *optimistic* newOrder, replacing each
+      // persisted entry with its corresponding response entry by id. Never
+      // `setSteps(response.map(...))` wholesale — the response contains only
+      // persisted steps, so a wholesale replace would drop any temp step
+      // still mid-flight.
+      setSteps(
+        newOrder.map((s) => {
+          if (s.id.startsWith("step-")) return s;
+          const persisted = response.find((r) => r.id === s.id);
+          return persisted ? pipelineStepToStep(persisted) : s;
+        }),
+      );
+    } catch (err: unknown) {
+      setSteps(previousOrder);
+      const message = err instanceof Error ? err.message : "Failed to reorder steps.";
+      pushToast({ variant: "error", message: `Failed to reorder steps: ${message}` });
+    }
+  }
+
   async function handleRunPipeline() {
     if (!id) return;
     setSseActive(true);
@@ -473,6 +515,7 @@ export function PipelineDetailPage() {
         onStepConfigChange={handleStepConfigChange}
         runStepRowCounts={runStepRowCounts}
         onInstantiateShape={handleInstantiateShape}
+        onReorderSteps={(newOrder) => void handleReorderSteps(newOrder)}
       />
 
       {/* ── Footer bar ── */}

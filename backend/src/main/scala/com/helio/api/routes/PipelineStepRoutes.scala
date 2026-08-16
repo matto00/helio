@@ -3,7 +3,7 @@ package com.helio.api.routes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{CreatePipelineStepRequest, JsonProtocols, UpdatePipelineStepRequest}
+import com.helio.api.{CreatePipelineStepRequest, JsonProtocols, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.IdParsing.{PipelineIdSegment, PipelineStepIdSegment}
 import com.helio.domain.AuthenticatedUser
 import com.helio.services.PipelineService
@@ -17,20 +17,30 @@ class PipelineStepRoutes(pipelineService: PipelineService, user: AuthenticatedUs
 
   val routes: Route = concat(
     pathPrefix("pipelines" / PipelineIdSegment / "steps") { pipelineId =>
-      pathEndOrSingleSlash {
-        concat(
-          get {
-            ServiceResponse.run(pipelineService.listSteps(pipelineId, user))(identity)
-          },
-          post {
-            entity(as[CreatePipelineStepRequest]) { req =>
-              ServiceResponse.run(pipelineService.addStep(pipelineId, req, user)) { resp =>
-                StatusCodes.Created -> resp
+      concat(
+        pathEndOrSingleSlash {
+          concat(
+            get {
+              ServiceResponse.run(pipelineService.listSteps(pipelineId, user))(identity)
+            },
+            post {
+              entity(as[CreatePipelineStepRequest]) { req =>
+                ServiceResponse.run(pipelineService.addStep(pipelineId, req, user)) { resp =>
+                  StatusCodes.Created -> resp
+                }
               }
             }
+          )
+        },
+        // HEL-407: PUT /api/pipelines/:id/steps/order — atomic batch reorder.
+        path("order") {
+          put {
+            entity(as[ReorderPipelineStepsRequest]) { req =>
+              ServiceResponse.run(pipelineService.reorderSteps(pipelineId, req, user))(identity)
+            }
           }
-        )
-      }
+        }
+      )
     },
     pathPrefix("pipeline-steps" / PipelineStepIdSegment) { stepId =>
       pathEndOrSingleSlash {

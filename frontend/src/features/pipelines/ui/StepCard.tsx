@@ -5,9 +5,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChevronDown, faChevronUp, faGripVertical } from "@fortawesome/free-solid-svg-icons";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { DataGrid } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
 import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
 import { renamesOf } from "../state/stepNarrowing";
@@ -69,6 +71,12 @@ function writeStoredPreviewOpen(value: boolean): void {
 
 interface StepCardProps {
   step: Step;
+  /** HEL-407 — this step's index in the editor's step list. Threaded down so
+   *  the Move up/down buttons know when to disable (design.md Decision 6),
+   *  the drag handle can report which step is being dragged (Decision 5),
+   *  and the preview-refresh fingerprint can pick up a reorder even though
+   *  the UI `Step` type has no persisted `position` field (Decision 9). */
+  stepIndex: number;
   pipelineId: string;
   onRemove: (id: string) => void;
   /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig/RenameFieldsConfig/CastFieldsConfig. */
@@ -79,17 +87,29 @@ interface StepCardProps {
    *  rendered inline in the preview tray alongside the sample rows. Empty when
    *  analyze data for the step is unavailable (pending/failed/unknown step id). */
   analyzeOutputSchema: SchemaField[];
-  /** This step's analyze-time `validationError`, if any (currently only rendered by
-   *  the "compute" op's editor — see `ComputeFieldConfig`). */
+  /** This step's analyze-time `validationError`, if any. Rendered generically via
+   *  `InlineError` in the expanded card body (skeptic-final-1.md CR1) for every op
+   *  except `compute`, which renders it itself inline below the expression input
+   *  (`ComputeFieldConfig`) — kept there for its more specific placement, not
+   *  double-rendered. */
   validationError?: string;
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   /** Output row count from the last run, if available. Null hides the chip. */
   rowCount: number | null;
+  /** HEL-407 — the drag handle is the SOLE draggable element (design.md
+   *  Decision 5); RiverView owns drop targeting on its own card wrapper. */
+  onStepDragStart: (index: number) => void;
+  onStepDragEnd: () => void;
+  /** Undefined disables the button — RiverView omits the handler at the
+   *  first/last position rather than StepCard reasoning about bounds. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 export function StepCard({
   step,
+  stepIndex,
   pipelineId,
   onRemove,
   analyzeColumns,
@@ -98,6 +118,10 @@ export function StepCard({
   validationError,
   onConfigChange,
   rowCount,
+  onStepDragStart,
+  onStepDragEnd,
+  onMoveUp,
+  onMoveDown,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -116,7 +140,12 @@ export function StepCard({
   // the preview deactivates (hidden or card collapsed) so reopening always
   // fetches fresh.
   const lastFetchedFingerprint = useRef<string | null>(null);
-  const configFingerprint = JSON.stringify(step.config);
+  // HEL-407 (design.md Decision 9) — the UI `Step` type has no persisted
+  // `position` field, so a reorder alone wouldn't change `step.config` and
+  // would silently leave a stale preview. Fold `stepIndex` into the
+  // fingerprint: a reorder changes the index, which re-triggers the same
+  // debounced re-fetch below.
+  const configFingerprint = `${stepIndex}:${JSON.stringify(step.config)}`;
 
   useEffect(() => {
     const active = expanded && previewOpen;
@@ -228,28 +257,72 @@ export function StepCard({
     <div
       className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}`}
     >
-      <button
-        type="button"
-        className="pipeline-detail-page__step-card-header"
-        onClick={handleHeaderClick}
-        aria-expanded={expanded}
-      >
-        <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
-          <FontAwesomeIcon icon={step.opType.icon} />
-        </span>
-        <span className="pipeline-detail-page__step-card-label">{step.label}</span>
-        {rowCount !== null && (
-          <span className="pipeline-detail-page__step-card-count">
-            {rowCount.toLocaleString()} rows
-          </span>
-        )}
-        <span
-          className={`pipeline-detail-page__step-card-chevron${expanded ? " pipeline-detail-page__step-card-chevron--open" : ""}`}
-          aria-hidden="true"
+      {/* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>`.
+       * The expand-toggle `<button>` keeps its content/semantics unchanged
+       * (aria-expanded, native keyboard activation) and stretches via
+       * `flex: 1`; the drag handle + Move buttons are SIBLINGS — never
+       * nested inside the toggle — following the
+       * `SidebarItemList.renderRowAction` precedent (no `stopPropagation`
+       * needed since the controls aren't inside another button). */}
+      <div className="pipeline-detail-page__step-card-header">
+        <button
+          type="button"
+          className="pipeline-detail-page__step-card-toggle"
+          onClick={handleHeaderClick}
+          aria-expanded={expanded}
         >
-          ▾
-        </span>
-      </button>
+          <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
+            <FontAwesomeIcon icon={step.opType.icon} />
+          </span>
+          <span className="pipeline-detail-page__step-card-label">{step.label}</span>
+          {rowCount !== null && (
+            <span className="pipeline-detail-page__step-card-count">
+              {rowCount.toLocaleString()} rows
+            </span>
+          )}
+          <span
+            className={`pipeline-detail-page__step-card-chevron${expanded ? " pipeline-detail-page__step-card-chevron--open" : ""}`}
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </button>
+        <div className="pipeline-detail-page__step-card-actions-cluster">
+          {/* design.md Decision 5 — the drag handle is an `aria-hidden`
+           * mouse/touch-only drag surface, not a focusable control: the
+           * keyboard-accessible reorder path is the Move up/down buttons
+           * below, not this handle. A focusable-but-hidden element would be
+           * an accessibility anti-pattern (phantom tab-stop excluded from
+           * the a11y tree), so this is a `<span>`, not a `<button>`. */}
+          <span
+            className="pipeline-detail-page__step-card-drag-handle"
+            aria-hidden="true"
+            draggable
+            onDragStart={() => onStepDragStart(stepIndex)}
+            onDragEnd={onStepDragEnd}
+          >
+            <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
+          </span>
+          <button
+            type="button"
+            className="pipeline-detail-page__step-card-move-btn"
+            aria-label="Move step up"
+            disabled={onMoveUp === undefined}
+            onClick={onMoveUp}
+          >
+            <FontAwesomeIcon icon={faChevronUp} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="pipeline-detail-page__step-card-move-btn"
+            aria-label="Move step down"
+            disabled={onMoveDown === undefined}
+            onClick={onMoveDown}
+          >
+            <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
       {expanded && (
         <div className="pipeline-detail-page__step-card-body">
@@ -258,6 +331,12 @@ export function StepCard({
             output={analyzeOutputSchema}
             renames={step.opType.id === "rename" ? renamesOf(step) : undefined}
           />
+          {/* skeptic-final-1.md CR1 — a reorder-invalidated step must surface its
+           * validationError regardless of op type (AC2 "surfacing"); previously
+           * only the `compute` op rendered it (inline below its expression
+           * input via `ComputeFieldConfig`, kept as-is below — excluded here
+           * so it isn't rendered twice). */}
+          {step.opType.id !== "compute" && <InlineError error={validationError ?? null} />}
           {step.opType.id === "select" ? (
             <SelectFieldsConfig
               columns={analyzeColumns}
