@@ -356,17 +356,82 @@
   background: var(--app-surface-raised);
 }
 
+/* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>` — the
+ * expand-toggle `<button>` and the drag-handle/Move-buttons actions cluster
+ * are siblings inside it, not one nested inside the other. */
 .pipeline-detail-page__step-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   width: 100%;
   padding: 10px 14px;
+}
+
+.pipeline-detail-page__step-card-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  padding: 0;
   background: transparent;
   border: none;
   cursor: pointer;
   text-align: left;
   color: var(--app-text);
+}
+
+/* ── Reorder controls (HEL-407) — drag handle + Move up/down, sibling
+ * actions cluster per the `SidebarItemList.renderRowAction` precedent. ──
+ * 24px matches DESIGN.md's "inline mini icon-buttons inside dense rows". */
+.pipeline-detail-page__step-card-actions-cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-page__step-card-drag-handle,
+.pipeline-detail-page__step-card-move-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.pipeline-detail-page__step-card-drag-handle {
+  cursor: grab;
+}
+
+.pipeline-detail-page__step-card-drag-handle:active {
+  cursor: grabbing;
+}
+
+.pipeline-detail-page__step-card-drag-handle:hover,
+.pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__step-card-move-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Drop-indicator line rendered between step cards while dragging (HEL-407). */
+.pipeline-detail-page__drop-indicator {
+  height: 2px;
+  margin: 0 var(--space-3);
+  border-radius: 1px;
+  background: var(--app-accent);
 }
 
 .pipeline-detail-page__step-card-icon {

@@ -186,6 +186,25 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
+  /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
+    * caller's editor or owner access has been confirmed by PipelineService
+    * via findByIdShared, and after the service has confirmed `orderedIds` is
+    * exactly a permutation of the pipeline's current step ids. Sets
+    * `position = index` for every id in `orderedIds` within a single
+    * transaction, then re-reads the pipeline's steps in the new position
+    * order. */
+  def reorderInternal(pipelineId: PipelineId, orderedIds: Seq[PipelineStepId]): Future[Vector[PipelineStep]] = {
+    val now = Instant.now()
+    val updates = orderedIds.zipWithIndex.map { case (id, index) =>
+      stepsTable.filter(_.id === id.value).map(s => (s.position, s.updatedAt)).update((index, now))
+    }
+    val action = for {
+      _    <- DBIO.sequence(updates)
+      rows <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+    } yield rows.toVector.map(rowToDomain)
+    ctx.withSystemContext(action.transactionally)
+  }
+
   /** ACL-bypassing delete. Safe to call only after the caller's editor or
     * owner access has been confirmed by PipelineService via findByIdShared. */
   def deleteInternal(id: PipelineStepId): Future[Boolean] =

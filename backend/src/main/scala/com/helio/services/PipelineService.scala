@@ -28,6 +28,7 @@ import com.helio.api.protocols.{
   PipelineSummaryResponse,
   PivotAnalyzeStepResponse,
   RenameAnalyzeStepResponse,
+  ReorderPipelineStepsRequest,
   RestApiConfigPayload,
   SchemaFieldResponse,
   SelectAnalyzeStepResponse,
@@ -647,6 +648,43 @@ final class PipelineService(
                   case true  => Right(())
                   case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                 }
+            }
+        }
+    }
+
+  /** Atomic batch reorder (HEL-407) — requires Editor or Owner. Viewer
+   *  grantees get 403. `req.stepIds` must be exactly a permutation of the
+   *  pipeline's current step ids (set equality + length); otherwise 422.
+   *  On success, every step's `position` is set to its index in `stepIds`
+   *  within a single repository transaction. */
+  def reorderSteps(pipelineId: PipelineId, req: ReorderPipelineStepsRequest, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(pipeline) =>
+        val editorCheckF: Future[Either[ServiceError, Unit]] =
+          if (pipeline.ownerId.value == user.id.value) Future.successful(Right(()))
+          else requireEditorAccess(pipeline.id, user)
+
+        editorCheckF.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            // Safe: editor/owner access confirmed above. Use internal variant
+            // so editor grantees are not blocked by the V35 pipeline_steps
+            // RLS owner-JOIN policy.
+            pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+              val currentIds   = current.map(_.id.value).toSet
+              val requestedIds = req.stepIds.toSet
+              if (req.stepIds.size != current.size || requestedIds != currentIds) {
+                Future.successful(Left(ServiceError.UnprocessableEntity(
+                  "stepIds must be exactly a permutation of the pipeline's current step ids"
+                )))
+              } else {
+                // Safe: editor/owner access confirmed above. Use internal reorder.
+                pipelineStepRepo.reorderInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
+                  .map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+              }
             }
         }
     }

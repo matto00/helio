@@ -146,6 +146,12 @@ final case class CreatePipelineStepRequest(`type`: String, config: JsObject)
  *  persisted row's kind, the service returns 400 (cross-type PATCH locked). */
 final case class UpdatePipelineStepRequest(`type`: Option[String], config: Option[JsObject], position: Option[Int])
 
+/** `PUT /api/pipelines/:id/steps/order` body (HEL-407) — the pipeline's step
+ *  ids in their new relative order. Must be exactly a permutation of the
+ *  pipeline's current step ids (validated at the service layer); on success
+ *  every step's `position` is set to its index in `stepIds`. */
+final case class ReorderPipelineStepsRequest(stepIds: Seq[String])
+
 object PipelineStepResponse {
   /** Project the domain ADT into the discriminated-union wire response. */
   def fromDomain(step: PipelineStep): PipelineStepResponse = step match {
@@ -306,4 +312,5 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat2(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat3(UpdatePipelineStepRequest.apply)
+  implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
 }

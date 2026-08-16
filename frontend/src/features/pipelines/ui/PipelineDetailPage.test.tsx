@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render } from "@testing-library/react";
 import { Provider } from "react-redux";
@@ -30,6 +30,7 @@ import {
   deletePipelineSchedule,
   getPipelineShapeCatalog,
   expandPipelineShape,
+  reorderPipelineSteps,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -57,6 +58,7 @@ jest.mock("../services/pipelineService", () => ({
   deletePipelineSchedule: jest.fn(),
   getPipelineShapeCatalog: jest.fn(),
   expandPipelineShape: jest.fn(),
+  reorderPipelineSteps: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -74,6 +76,7 @@ const putPipelineScheduleMock = jest.mocked(putPipelineSchedule);
 const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
 const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
 const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
+const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
  *  `isAxiosError` guard (design D4/D5). */
@@ -417,6 +420,162 @@ describe("PipelineDetailPage", () => {
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
     await waitFor(() => expect(deletePipelineStepMock).toHaveBeenCalledWith("abc-123-def"));
+  });
+
+  // HEL-407 (design.md Decision 7) — page-local `handleReorderSteps`: snapshot
+  // → optimistic reorder → persisted-ids-only PUT → reconcile by id on
+  // success → revert + toast on failure. Task 3.1.
+  describe("reorder (HEL-407)", () => {
+    const persistedRename: PipelineStep = {
+      id: "x1",
+      pipelineId: "pipe-1",
+      position: 0,
+      type: "rename",
+      config: { renames: {} },
+      createdAt: "",
+      updatedAt: "",
+    };
+    const persistedFilter: PipelineStep = {
+      id: "y1",
+      pipelineId: "pipe-1",
+      position: 1,
+      type: "filter",
+      config: { combinator: "AND", conditions: [] },
+      createdAt: "",
+      updatedAt: "",
+    };
+
+    function stepLabels(container: HTMLElement): string[] {
+      return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+        (el) => el.textContent ?? "",
+      );
+    }
+
+    beforeEach(() => {
+      getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
+    });
+
+    it("reorders optimistically, calls the service with persisted ids only, and reconciles temp steps stay in place", async () => {
+      // A temp step whose POST never settles during this test — it must
+      // never disappear from view across the reorder.
+      createPipelineStepMock.mockReturnValueOnce(new Promise<never>(() => {}));
+
+      const { container } = renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Limit rows/i }));
+      expect(stepLabels(container)).toEqual(["Rename column", "Filter rows", "Limit rows"]);
+
+      let resolveReorder!: (steps: PipelineStep[]) => void;
+      reorderPipelineStepsMock.mockReturnValueOnce(
+        new Promise<PipelineStep[]>((resolve) => {
+          resolveReorder = resolve;
+        }),
+      );
+
+      const filterSection = screen
+        .getByRole("button", { name: /Filter rows/i, expanded: false })
+        .closest(".pipeline-detail-page__step-section");
+      expect(filterSection).not.toBeNull();
+      fireEvent.click(
+        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      );
+
+      // Optimistic — order updates immediately, before the PUT resolves. The
+      // temp "Limit rows" step (still POSTing) is excluded from the call but
+      // stays visible in place, at the end.
+      expect(stepLabels(container)).toEqual(["Filter rows", "Rename column", "Limit rows"]);
+      expect(reorderPipelineStepsMock).toHaveBeenCalledWith("pipe-1", ["y1", "x1"]);
+
+      await act(async () => {
+        resolveReorder([
+          { ...persistedFilter, position: 0 },
+          { ...persistedRename, position: 1 },
+        ]);
+      });
+
+      // Reconciled from the response — still correct, temp step never vanished.
+      expect(stepLabels(container)).toEqual(["Filter rows", "Rename column", "Limit rows"]);
+    });
+
+    it("a failed reorder reverts to the previous order and surfaces an error toast", async () => {
+      reorderPipelineStepsMock.mockRejectedValueOnce(new Error("Conflict"));
+      const store = makeStore();
+      const { container } = renderDetailPage("pipe-1", store);
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      expect(stepLabels(container)).toEqual(["Rename column", "Filter rows"]);
+
+      const filterSection = screen
+        .getByRole("button", { name: /Filter rows/i, expanded: false })
+        .closest(".pipeline-detail-page__step-section");
+      expect(filterSection).not.toBeNull();
+
+      await act(async () => {
+        fireEvent.click(
+          within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+        );
+      });
+
+      // Reverted to the pre-reorder order.
+      expect(stepLabels(container)).toEqual(["Rename column", "Filter rows"]);
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].variant).toBe("error");
+      expect(toasts[0].message).toMatch(/failed to reorder steps/i);
+    });
+  });
+
+  // HEL-407 (design.md Decision 8) — reorder needs no new analyze-trigger
+  // code: `stepsFingerprint` is order-sensitive, so the existing debounced
+  // effect fires on its own. Task 3.3. Real timers (matching every other
+  // test in this file) — the debounce is exercised by actually waiting it
+  // out rather than faking timers around the page's async initial-load
+  // thunks, which this file never does elsewhere.
+  it("a reorder changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "x1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "y1",
+        pipelineId: "pipe-1",
+        position: 1,
+        type: "filter",
+        config: { combinator: "AND", conditions: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    reorderPipelineStepsMock.mockResolvedValue([]);
+
+    renderDetailPage();
+    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+    // Let the mount-triggered fingerprint settle before taking the baseline.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const callsBeforeReorder = analyzePipelineMock.mock.calls.length;
+
+    const filterSection = screen
+      .getByRole("button", { name: /Filter rows/i, expanded: false })
+      .closest(".pipeline-detail-page__step-section");
+    expect(filterSection).not.toBeNull();
+    fireEvent.click(
+      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+    );
+
+    await waitFor(() =>
+      expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeReorder),
+    );
   });
 
   it("output name field is editable — input appears on click", async () => {

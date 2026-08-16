@@ -84,6 +84,21 @@ export async function deletePipelineStep(stepId: string): Promise<void> {
   await httpClient.delete(`/api/pipeline-steps/${stepId}`);
 }
 
+/** HEL-407 — `PUT /api/pipelines/:id/steps/order`. `stepIds` is the
+ *  pipeline's persisted step ids in their new relative order (a full,
+ *  idempotent replacement — must be exactly a permutation of the pipeline's
+ *  current step ids). Returns the full reordered step list. */
+export async function reorderPipelineSteps(
+  pipelineId: string,
+  stepIds: string[],
+): Promise<PipelineStep[]> {
+  const response = await httpClient.put<PipelineStep[]>(
+    `/api/pipelines/${pipelineId}/steps/order`,
+    { stepIds },
+  );
+  return response.data;
+}
+
 export interface RunResult {
   rowCount: number;
   rows: Record<string, unknown>[];

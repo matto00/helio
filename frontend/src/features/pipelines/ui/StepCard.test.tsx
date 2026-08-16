@@ -51,6 +51,7 @@ const outputSchema: SchemaField[] = [
 function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
   return {
     step: makeStep(),
+    stepIndex: 0,
     pipelineId: "pipe-1",
     onRemove: jest.fn(),
     analyzeColumns: [],
@@ -58,6 +59,8 @@ function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
     analyzeOutputSchema: outputSchema,
     onConfigChange: jest.fn(),
     rowCount: null,
+    onStepDragStart: jest.fn(),
+    onStepDragEnd: jest.fn(),
     ...overrides,
   };
 }
@@ -207,6 +210,63 @@ describe("StepCard preview — refresh on edit (3.2)", () => {
 
     await act(async () => {
       rerender(<StepCard {...baseProps({ step: makeStep({ config: { count: 10 } }) })} />);
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(fetchStepPreviewMock).not.toHaveBeenCalled();
+  });
+});
+
+// HEL-407 (design.md Decision 9) — a reorder changes a step's list index but
+// not its `config`, so the preview-refresh fingerprint folds in `stepIndex`
+// too. Task 3.4.
+describe("StepCard preview — refresh on reorder (HEL-407)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  it("re-fetches exactly once, debounced, when stepIndex changes while the preview is open (config unchanged)", async () => {
+    fetchStepPreviewMock.mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+
+    const { rerender } = render(<StepCard {...baseProps({ stepIndex: 0 })} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    // Same step, same config — only its position in the list moved.
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ stepIndex: 2 })} />);
+    });
+
+    // Not yet — still inside the debounce window.
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(2);
+
+    // A further re-render at the *same* index should not trigger another fetch.
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ stepIndex: 2 })} />);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fetch when stepIndex changes while the preview is closed", async () => {
+    const { rerender } = render(<StepCard {...baseProps({ stepIndex: 0 })} />);
+    await click("Limit rows");
+
+    await act(async () => {
+      rerender(<StepCard {...baseProps({ stepIndex: 2 })} />);
     });
 
     await act(async () => {
@@ -395,5 +455,142 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
     expect(screen.queryByText("+ col_a")).not.toBeInTheDocument();
     expect(screen.queryByText(/col_b/)).not.toBeInTheDocument();
     expect(screen.queryByText(/col_c/)).not.toBeInTheDocument();
+  });
+});
+
+// HEL-407 (design.md Decision 4) — the header is now a wrapper `<div>` with
+// the expand-toggle `<button>` and a sibling drag-handle/Move-buttons
+// actions cluster. These guard the regression the restructure exists to
+// avoid: new controls nested inside the toggle would bubble clicks into it.
+describe("StepCard header restructure — sibling controls (HEL-407)", () => {
+  it("clicking Move step up does not toggle expand/collapse", async () => {
+    const onMoveUp = jest.fn();
+    render(<StepCard {...baseProps({ onMoveUp })} />);
+
+    await click("Limit rows");
+    expect(screen.getByRole("button", { name: "Limit rows", expanded: true })).toBeInTheDocument();
+
+    await click("Move step up");
+
+    expect(onMoveUp).toHaveBeenCalledTimes(1);
+    // Still expanded — the Move click neither toggled collapse nor bubbled
+    // into the toggle button.
+    expect(screen.getByRole("button", { name: "Limit rows", expanded: true })).toBeInTheDocument();
+  });
+
+  it("clicking Move step down does not toggle expand/collapse", async () => {
+    const onMoveDown = jest.fn();
+    render(<StepCard {...baseProps({ onMoveDown })} />);
+
+    // Starts collapsed — clicking Move down must not expand it.
+    await click("Move step down");
+
+    expect(onMoveDown).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Limit rows", expanded: false })).toBeInTheDocument();
+  });
+
+  it("Move buttons are disabled when their handler prop is undefined (first/last position)", () => {
+    render(<StepCard {...baseProps({ onMoveUp: undefined, onMoveDown: undefined })} />);
+
+    expect(screen.getByRole("button", { name: "Move step up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move step down" })).toBeDisabled();
+  });
+
+  it("the expand toggle is still a native <button> with aria-expanded after the restructure", async () => {
+    render(<StepCard {...baseProps()} />);
+
+    // Native <button> semantics (not a div-based pseudo-button) is exactly
+    // what preserves keyboard (Enter/Space) activation for free — the
+    // property design.md Decision 4 requires the restructure to keep.
+    const toggle = screen.getByRole("button", { name: "Limit rows", expanded: false });
+    expect(toggle.tagName).toBe("BUTTON");
+
+    await click("Limit rows");
+
+    expect(screen.getByRole("button", { name: "Limit rows", expanded: true })).toBeInTheDocument();
+  });
+
+  it("the drag handle and Move buttons are siblings of the toggle, not nested inside it", async () => {
+    const { container } = render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+
+    const toggle = screen.getByRole("button", { name: "Limit rows", expanded: true });
+    // design.md Decision 5 — the drag handle is `aria-hidden` (mouse/touch-
+    // only; the Move buttons are the keyboard path), so it's queried by
+    // class, not accessible role.
+    const dragHandle = container.querySelector(".pipeline-detail-page__step-card-drag-handle");
+    const header = container.querySelector(".pipeline-detail-page__step-card-header");
+
+    expect(dragHandle).not.toBeNull();
+    expect(toggle.contains(dragHandle)).toBe(false);
+    expect(header?.contains(toggle)).toBe(true);
+    expect(header?.contains(dragHandle as Node)).toBe(true);
+  });
+
+  it("the drag handle is excluded from the accessibility tree (aria-hidden) — the Move buttons are the keyboard path", async () => {
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+
+    expect(screen.queryByRole("button", { name: /Drag to reorder/i })).not.toBeInTheDocument();
+  });
+
+  it("the drag handle fires onStepDragStart(stepIndex) / onStepDragEnd() from its own drag events", () => {
+    const onStepDragStart = jest.fn();
+    const onStepDragEnd = jest.fn();
+    const { container } = render(
+      <StepCard {...baseProps({ stepIndex: 2, onStepDragStart, onStepDragEnd })} />,
+    );
+
+    const dragHandle = container.querySelector(".pipeline-detail-page__step-card-drag-handle");
+    expect(dragHandle).not.toBeNull();
+    fireEvent.dragStart(dragHandle as Element);
+    expect(onStepDragStart).toHaveBeenCalledWith(2);
+
+    fireEvent.dragEnd(dragHandle as Element);
+    expect(onStepDragEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
+// skeptic-final-1.md CR1 — a reorder-invalidated step must surface its
+// validationError regardless of op type (AC2's "surfacing" half). Before
+// this fix, `validationError` was only ever rendered by `ComputeFieldConfig`
+// — every other op silently dropped it.
+describe("StepCard validationError surfacing (skeptic-final-1.md CR1)", () => {
+  it("a non-compute step with a validationError shows the error text in the expanded card", async () => {
+    render(<StepCard {...baseProps({ validationError: "Unknown field(s): 'full_name'" })} />);
+
+    await click("Limit rows");
+
+    expect(screen.getByText("Unknown field(s): 'full_name'")).toBeInTheDocument();
+  });
+
+  it("renders nothing extra when validationError is absent", async () => {
+    const { container } = render(<StepCard {...baseProps()} />);
+
+    await click("Limit rows");
+
+    expect(container.querySelector(".inline-error")).not.toBeInTheDocument();
+  });
+
+  it("a compute step renders the error once, not twice, via its own contextual placement", async () => {
+    const computeStep: Step = {
+      id: "step-1",
+      opType: { id: "compute", label: "Compute column", icon: LIMIT_OP_TYPE.icon },
+      label: "Compute column",
+      config: { column: "revenue_per_user", expression: "$revenue / $users", type: "number" },
+    };
+
+    render(
+      <StepCard
+        {...baseProps({
+          step: computeStep,
+          validationError: "Unknown field(s): 'revenue'",
+        })}
+      />,
+    );
+
+    await click("Compute column");
+
+    expect(screen.getAllByText("Unknown field(s): 'revenue'")).toHaveLength(1);
   });
 });

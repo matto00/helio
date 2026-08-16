@@ -85,11 +85,26 @@ class PipelineStepRoutesSpec
   }
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+  private val viewerUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000002"))
 
-  private def routes: Route = {
+  private def routes: Route = routesFor(dummyUser)
+
+  private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = typedSystem.executionContext
     val service = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
-    new PipelineStepRoutes(service, dummyUser).routes
+    new PipelineStepRoutes(service, user).routes
+  }
+
+  // -- HEL-407 fixture: grant `viewerUser` a viewer-only role on `pipelineId` --
+  private def grantViewer(pipelineId: String): Unit = {
+    import PostgresProfile.api._
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO users (id, email, created_at)
+             VALUES (${viewerUser.id.value}::uuid, 'viewer@test.local', now())
+             ON CONFLICT DO NOTHING""",
+      sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+             VALUES ('pipeline', $pipelineId, ${viewerUser.id.value}::uuid, 'viewer', now())"""
+    )))
   }
 
   // ── Request body helpers (CS2c-3a discriminated-union shape) ─────────────
@@ -535,6 +550,104 @@ class PipelineStepRoutesSpec
       Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         responseAs[PipelineStepResponse].`type` shouldBe "chunkbytokencount"
+      }
+    }
+
+    // ── HEL-407: PUT /pipelines/:id/steps/order (atomic batch reorder) ──────
+
+    "PUT /pipelines/:id/steps/order reorders steps and reindexes positions 0..n-1" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB, idC = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idC), JsString(idA), JsString(idB)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(_.id) shouldBe Vector(idC, idA, idB)
+        steps.map(_.position) shouldBe Vector(0, 1, 2)
+      }
+
+      // Persists and survives reload — a subsequent GET reflects the new order.
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(_.id) shouldBe Vector(idC, idA, idB)
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order returns 404 for unknown pipeline id" in {
+      val body = JsObject("stepIds" -> JsArray())
+      Put("/pipelines/nonexistent-pipeline/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order returns 403 for a viewer grantee" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      grantViewer(pid)
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idA)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routesFor(viewerUser) ~> check {
+        status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order returns 422 when stepIds omits an existing step" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idA)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order returns 422 when stepIds contains an unknown id" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idA), JsString("nonexistent-step-id")))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order returns 422 when stepIds repeats an id" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idA), JsString(idA)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+    }
+
+    "PUT /pipelines/:id/steps/order failed reorder (422) leaves positions unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+
+      val body = JsObject("stepIds" -> JsArray(JsString(idB), JsString("nonexistent-step-id")))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.find(_.id == idA).map(_.position) shouldBe Some(0)
+        steps.find(_.id == idB).map(_.position) shouldBe Some(1)
       }
     }
   }

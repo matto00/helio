@@ -212,6 +212,9 @@ package object api {
   val CreatePipelineStepRequest: protocols.CreatePipelineStepRequest.type = protocols.CreatePipelineStepRequest
   type UpdatePipelineStepRequest = protocols.UpdatePipelineStepRequest
   val UpdatePipelineStepRequest: protocols.UpdatePipelineStepRequest.type = protocols.UpdatePipelineStepRequest
+  // Batch step reorder (HEL-407)
+  type ReorderPipelineStepsRequest = protocols.ReorderPipelineStepsRequest
+  val ReorderPipelineStepsRequest: protocols.ReorderPipelineStepsRequest.type = protocols.ReorderPipelineStepsRequest
   type PipelineStepResponse = protocols.PipelineStepResponse
   val PipelineStepResponse: protocols.PipelineStepResponse.type = protocols.PipelineStepResponse
   type AnalyzeStepResponse = protocols.AnalyzeStepResponse
