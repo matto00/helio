@@ -361,6 +361,62 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       }
     }
 
+    // HEL-667 ticket.md "Post-delivery fold-in" (tasks.md 8.1) — final-gate skeptic round 2 flagged
+    // that the test above only constructs ONE dangling tool_use block; danglingToolUseIds collects
+    // over the ENTIRE last turn's content via `.collect` (not `.headOption`), so this mirrors that
+    // test's exact structure/assertions but with THREE unresolved tool_use blocks in the SAME
+    // hop-cap-exhausted assistant turn (multi-tool-use hops are real — task 6.3's own
+    // multiToolUseResponse fixture scripts one) — locks in that every dangling block gets its own
+    // paired synthetic isError tool_result, not just the first.
+    "repair MULTIPLE dangling tool_use blocks left by a prior hop-cap-exhausted turn before continuing the conversation" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val danglingHistory = Seq(
+        ClaudeToolMessage.text(ClaudeRole.User, "Build me a huge dashboard"),
+        ClaudeToolMessage(
+          ClaudeRole.Assistant,
+          Seq(
+            ClaudeContentBlock.ToolUse("toolu_dangling_1", "find", JsObject.empty),
+            ClaudeContentBlock.ToolUse("toolu_dangling_2", "get_resource", getResourceInput(outputId.value)),
+            ClaudeContentBlock.ToolUse("toolu_dangling_3", "find", findInput)
+          )
+        )
+      )
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("Sure, let's narrow it down."))))
+
+      awaitRight(newService(dtRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
+
+      val outboundMessages = transport.firstReceivedRequest.messages
+      val danglingTurnIdx  = outboundMessages.indexWhere(_.content.exists(_.id.contains("toolu_dangling_1")))
+      danglingTurnIdx should be >= 0
+      val repairTurn = outboundMessages(danglingTurnIdx + 1)
+
+      // Every dangling id from the assistant turn gets its OWN paired tool_result in the very next
+      // message, not just the first — the exact defect class a `.headOption`-based fix would leave
+      // toolu_dangling_2/3 unresolved for, which would still 400 on the very next `converse` call.
+      Seq("toolu_dangling_1", "toolu_dangling_2", "toolu_dangling_3").foreach { danglingId =>
+        withClue(s"tool_use '$danglingId' must be resolved in the immediately-following message: ") {
+          repairTurn.content.flatMap(_.toolUseId) should contain(danglingId)
+        }
+      }
+      // Each paired tool_result is a synthetic isError block (mirrors ClaudeClient.executeTool's own
+      // recovery idiom, applied here to a never-attempted call rather than a failed one).
+      repairTurn.content.count(_.blockType == "tool_result") shouldBe 3
+      repairTurn.content.filter(_.blockType == "tool_result").foreach { block =>
+        withClue(s"tool_result for '${block.toolUseId}' must be marked isError: ") {
+          block.isError shouldBe Some(true)
+        }
+      }
+
+      // The other structural invariant (strict user/assistant alternation) must still hold with
+      // multiple dangling blocks folded into a single repair turn.
+      outboundMessages.map(_.role).sliding(2).foreach {
+        case Seq(a, b) => withClue("no two consecutive outbound messages may share a role: ") { a should not be b }
+        case _         => ()
+      }
+    }
+
     // Task 6.1 (HEL-665 design.md D1) — a FinalResponse outcome's fullHistory includes the
     // original (empty) history, the new user message turn, and Claude's final response turn, in
     // order. Also locks in evaluation-1.md CR1 (cycle 2): the first turn's content is EXACTLY the
