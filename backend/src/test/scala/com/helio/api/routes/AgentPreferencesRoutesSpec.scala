@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.{AgentPreferencesResponse, PutAgentPreferencesRequest}
+import com.helio.api.protocols.{AgentPreferencesResponse, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
 import com.helio.domain.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.{AgentPreferencesRepository, DbContext}
 import com.helio.services.AgentPreferencesService
@@ -24,7 +24,14 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-472 (420-A) — HTTP-layer coverage for `GET`/`PUT /api/preferences`: default-object
  *  response when nothing is stored, round-trip of every field, and 401 without auth
- *  (tasks.md 4.3). Mirrors `PipelineScheduleRoutesSpec`'s isolated-route-class pattern. */
+ *  (tasks.md 4.3). Mirrors `PipelineScheduleRoutesSpec`'s isolated-route-class pattern.
+ *
+ *  HEL-531 (420-E) tasks.md 5.6 — also covers the new `PUT /preferences/memory-enabled` endpoint
+ *  (opt out, opt back in) and a route-level proof that `PUT /preferences` doesn't reset a
+ *  previously-set `memoryEnabled`. Unauthenticated-401 coverage for the new endpoint lives in
+ *  `ApiRoutesSpec` (composed-route-tree), mirroring where this file's own 401 coverage for the
+ *  existing endpoints already lives — this isolated route class is constructed with an
+ *  already-authenticated `AuthenticatedUser`, so 401 is not reachable from here. */
 class AgentPreferencesRoutesSpec
     extends AnyWordSpec
     with Matchers
@@ -155,6 +162,71 @@ class AgentPreferencesRoutesSpec
       Get("/preferences") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
         responseAs[AgentPreferencesResponse].defaultPanelStyle shouldBe None
+      }
+    }
+  }
+
+  // ── PUT /preferences/memory-enabled (HEL-531 / 420-E tasks.md 5.6) ───────
+
+  "PUT /preferences/memory-enabled" should {
+
+    "opt out: a subsequent GET /preferences reflects memoryEnabled = false" in {
+      cleanDb()
+      Put("/preferences/memory-enabled", PutMemoryEnabledRequest(memoryEnabled = false)) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AgentPreferencesResponse].memoryEnabled shouldBe false
+      }
+
+      Get("/preferences") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AgentPreferencesResponse].memoryEnabled shouldBe false
+      }
+    }
+
+    "opt back in: a subsequent GET /preferences reflects memoryEnabled = true for a caller who " +
+      "had previously opted out" in {
+        cleanDb()
+        Put("/preferences/memory-enabled", PutMemoryEnabledRequest(memoryEnabled = false)) ~> routesFor(userA) ~> check {
+          status shouldBe StatusCodes.OK
+        }
+
+        Put("/preferences/memory-enabled", PutMemoryEnabledRequest(memoryEnabled = true)) ~> routesFor(userA) ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[AgentPreferencesResponse].memoryEnabled shouldBe true
+        }
+
+        Get("/preferences") ~> routesFor(userA) ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[AgentPreferencesResponse].memoryEnabled shouldBe true
+        }
+      }
+  }
+
+  // ── PUT /preferences must not reset memory-enabled (design.md Decision 2) ─
+
+  "PUT /preferences (memoryEnabled carry-forward, HEL-531 / 420-E)" should {
+
+    "not reset a previously-opted-out caller's memoryEnabled when saving unrelated preferences" in {
+      cleanDb()
+      Put("/preferences/memory-enabled", PutMemoryEnabledRequest(memoryEnabled = false)) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val unrelatedBody = PutAgentPreferencesRequest(
+        defaultSeriesColors = Some(Vector("#abcabc")),
+        defaultPanelStyle   = None,
+        namingConventions   = None,
+        extras              = None
+      )
+      Put("/preferences", unrelatedBody) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AgentPreferencesResponse]
+        resp.memoryEnabled shouldBe false
+        resp.defaultSeriesColors shouldBe Some(Vector("#abcabc"))
+      }
+
+      Get("/preferences") ~> routesFor(userA) ~> check {
+        responseAs[AgentPreferencesResponse].memoryEnabled shouldBe false
       }
     }
   }

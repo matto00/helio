@@ -279,7 +279,15 @@ final class ApiRoutes(
   private val agentPreferencesServiceOpt  = Option(agentPreferencesRepo).map(new AgentPreferencesService(_))
   // HEL-478 (420-B): same optional-wiring pattern — fixtures that don't pass
   // an AgentMemoryRepository simply don't get the /api/agent/memory routes.
-  private val agentMemoryServiceOpt       = Option(agentMemoryRepo).map(new AgentMemoryService(_))
+  // HEL-531 (420-E): also requires agentPreferencesServiceOpt (AgentMemoryService's new
+  // AgentPreferencesService dependency, design.md Decision 4) — a fixture that passes
+  // agentMemoryRepo without agentPreferencesRepo (none currently do) simply doesn't get the
+  // /api/agent/memory routes either, same nullable-optional discipline as every other pair here.
+  private val agentMemoryServiceOpt: Option[AgentMemoryService] =
+    for {
+      memoryRepo      <- Option(agentMemoryRepo)
+      preferencesSvc  <- agentPreferencesServiceOpt
+    } yield new AgentMemoryService(memoryRepo, preferencesSvc)
   // HEL-663: same nullable-optional wiring pattern as metricServiceOpt above — fixtures that don't
   // pass a DbContext simply don't get the /api/assistant-conversations routes mounted
   // (assistantConversationServiceOpt.fold(reject)). fileSystem is always present (a required,

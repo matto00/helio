@@ -210,19 +210,33 @@ final class WorkspaceContextService(
    *  `agentMemoryServiceOpt` is `None` (tasks.md 2.2) -- a partially-wired environment degrades to
    *  fully empty, not a half-populated section. The wire response carries the pre-touch
    *  `lastUsedAt` values (design.md Decision 3's "re-sorted here, not re-fetched") -- `touch`'s
-   *  effect is only ever observable on a LATER `list`/`assemble` call, never this same one. */
+   *  effect is only ever observable on a LATER `list`/`assemble` call, never this same one.
+   *
+   *  HEL-531 (420-E) design.md Decision 4: when the already-fetched `preferences.memoryEnabled`
+   *  is `false`, the `memoryService.list`/`touch` calls are skipped ENTIRELY -- `agentContext.memory`
+   *  is empty, but `agentContext.preferences` still reflects the caller's stored preferences. No
+   *  new dependency needed here -- `preferences` was already being fetched before this ticket. */
   private def buildAgentContext(user: AuthenticatedUser): Future[WorkspaceContextAgentSection] =
     (agentPreferencesServiceOpt, agentMemoryServiceOpt) match {
       case (Some(preferencesService), Some(memoryService)) =>
-        for {
-          preferences <- preferencesService.get(user)
-          entries     <- memoryService.list(user).map(_.getOrElse(Seq.empty))
-          surfaced     = rankMemoryEntries(entries).take(AgentMemoryTopN)
-          _           <- Future.traverse(surfaced)(entry => memoryService.touch(entry.id, user))
-        } yield WorkspaceContextAgentSection(
-          preferences = AgentPreferencesResponse.fromDomain(preferences),
-          memory      = surfaced.map(AgentMemoryEntryResponse.fromDomain)
-        )
+        preferencesService.get(user).flatMap { preferences =>
+          if (preferences.memoryEnabled)
+            for {
+              entries  <- memoryService.list(user).map(_.getOrElse(Seq.empty))
+              surfaced  = rankMemoryEntries(entries).take(AgentMemoryTopN)
+              _        <- Future.traverse(surfaced)(entry => memoryService.touch(entry.id, user))
+            } yield WorkspaceContextAgentSection(
+              preferences = AgentPreferencesResponse.fromDomain(preferences),
+              memory      = surfaced.map(AgentMemoryEntryResponse.fromDomain)
+            )
+          else
+            Future.successful(
+              WorkspaceContextAgentSection(
+                preferences = AgentPreferencesResponse.fromDomain(preferences),
+                memory      = Vector.empty
+              )
+            )
+        }
       case _ => Future.successful(WorkspaceContextAgentSection.empty)
     }
 

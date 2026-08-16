@@ -56,6 +56,11 @@ class WorkspaceContextServiceAgentContextSpec
   private val theUserId = UUID.randomUUID().toString
   private val theUser   = AuthenticatedUser(UserId(theUserId))
 
+  // A retention window large enough that none of this file's non-retention-focused tests are
+  // ever affected by pruning (HEL-531 / 420-E; retention itself is covered by
+  // AgentMemoryRepositorySpec).
+  private val NoPruning = 36500
+
   override def beforeAll(): Unit = {
     // Local (method-scoped), not a class-level field -- shadows RouteTest's inherited `executor`
     // cleanly instead of competing with it, mirroring WorkspaceContextServiceSpec's identical
@@ -95,7 +100,7 @@ class WorkspaceContextServiceAgentContextSpec
     agentMemoryRepo = new AgentMemoryRepository(ctx)
     val agentPreferencesRepo = new AgentPreferencesRepository(ctx)
     agentPreferencesService = new AgentPreferencesService(agentPreferencesRepo)
-    agentMemoryService      = new AgentMemoryService(agentMemoryRepo)
+    agentMemoryService      = new AgentMemoryService(agentMemoryRepo, agentPreferencesService)
 
     serviceWithAgent = new WorkspaceContextService(
       dashboardService, dataSourceService, dataTypeService, pipelineService,
@@ -174,15 +179,19 @@ class WorkspaceContextServiceAgentContextSpec
   "assemble (7.1 top-20 ranking)" should {
     "surface exactly 20 entries: touched entries most-recently-used first, never-used entries last" in {
       cleanDb()
-      val base = Instant.parse("2026-01-01T00:00:00Z")
+      // HEL-531 (420-E): relative to "now", not a hardcoded past calendar date -- assemble()'s
+      // internal AgentMemoryService.list call now prunes entries past the retention window
+      // (default 90 days), so a fixed past date would eventually fall outside it and break this
+      // test's own assertions independent of retention (this test isn't about retention at all).
+      val base = Instant.now()
 
       // 15 touched entries, distinct ascending lastUsedAt (touched-15 is the most recently used).
       val touchedEntries = (1 to 15).map(i => rawEntry(s"touched-$i", base.plusSeconds(i.toLong), lastUsedAt = Some(base.plusSeconds(1000L + i.toLong))))
-      touchedEntries.foreach(e => await(agentMemoryRepo.add(e, cap = 100)))
+      touchedEntries.foreach(e => await(agentMemoryRepo.add(e, cap = 100, retentionDays = NoPruning)))
 
       // 10 never-used entries, distinct createdAt, all newer than every touched entry's createdAt.
       val untouchedEntries = (1 to 10).map(i => rawEntry(s"untouched-$i", base.plusSeconds(2000L + i.toLong)))
-      untouchedEntries.foreach(e => await(agentMemoryRepo.add(e, cap = 100)))
+      untouchedEntries.foreach(e => await(agentMemoryRepo.add(e, cap = 100, retentionDays = NoPruning)))
 
       val resp = await(serviceWithAgent.assemble(theUser))
 
@@ -203,13 +212,14 @@ class WorkspaceContextServiceAgentContextSpec
   "assemble (7.2 touch side effect)" should {
     "touch each surfaced memory entry's lastUsedAt, leaving non-surfaced entries unchanged" in {
       cleanDb()
-      val base = Instant.parse("2026-02-01T00:00:00Z")
+      // HEL-531 (420-E): relative to "now" -- see the top-20-ranking test's identical comment.
+      val base = Instant.now()
 
       // 25 never-used entries, distinct createdAt -- rankMemoryEntries keeps list()'s
       // createdAt-desc order for untouched entries, so the 20 most-recently-created are exactly
       // the ones assemble() surfaces (and therefore touches).
       val entries = (1 to 25).map(i => rawEntry(s"entry-$i", base.plusSeconds(i.toLong)))
-      entries.foreach(e => await(agentMemoryRepo.add(e, cap = 100)))
+      entries.foreach(e => await(agentMemoryRepo.add(e, cap = 100, retentionDays = NoPruning)))
 
       val surfacedIds    = entries.sortBy(_.createdAt.toEpochMilli)(Ordering.Long.reverse).take(20).map(_.id).toSet
       val nonSurfacedIds = entries.map(_.id).toSet -- surfacedIds
@@ -220,9 +230,34 @@ class WorkspaceContextServiceAgentContextSpec
       // every surfaced entry's lastUsedAt is still absent on THIS response.
       resp.agentContext.memory.foreach(_.lastUsedAt shouldBe None)
 
-      val afterTouch = await(agentMemoryRepo.list(theUser))
+      val afterTouch = await(agentMemoryRepo.list(theUser, NoPruning))
       afterTouch.filter(e => surfacedIds.contains(e.id)).foreach(_.lastUsedAt shouldBe defined)
       afterTouch.filter(e => nonSurfacedIds.contains(e.id)).foreach(_.lastUsedAt shouldBe None)
     }
+  }
+
+  // ── 7.3 memoryEnabled opt-out (HEL-531 / 420-E tasks.md 5.4) ─────────────
+
+  "assemble (7.3 memoryEnabled opt-out)" should {
+    "produce an empty agentContext.memory when memoryEnabled is false, while agentContext.preferences " +
+      "still reflects the caller's stored preferences" in {
+        cleanDb()
+        await(agentPreferencesService.put(
+          theUser,
+          PutAgentPreferencesRequest(defaultSeriesColors = Some(Vector("#abcabc")), defaultPanelStyle = None, namingConventions = None, extras = None)
+        ))
+        await(agentPreferencesService.setMemoryEnabled(theUser, enabled = false))
+        // Inserted directly via the repository (bypassing AgentMemoryService.add's own opt-out
+        // no-op) so this entry genuinely EXISTS and is within the retention window -- proving
+        // buildAgentContext skips the list/touch call entirely (design.md Decision 4), not merely
+        // that the entry happens to be absent.
+        await(agentMemoryRepo.add(rawEntry("should not surface", Instant.now()), cap = 100, retentionDays = NoPruning))
+
+        val resp = await(serviceWithAgent.assemble(theUser))
+
+        resp.agentContext.memory shouldBe Vector.empty
+        resp.agentContext.preferences.defaultSeriesColors shouldBe Some(Vector("#abcabc"))
+        resp.agentContext.preferences.memoryEnabled shouldBe false
+      }
   }
 }

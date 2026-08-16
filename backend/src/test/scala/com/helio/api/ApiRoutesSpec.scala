@@ -27,7 +27,7 @@ import com.helio.domain.{
   UserSession
 }
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest}
+import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -3233,6 +3233,18 @@ class ApiRoutesSpec
     "return 401 for PUT /api/preferences without Authorization (HEL-472)" in {
       val body = PutAgentPreferencesRequest(None, None, None, None)
       Put("/api/preferences", body) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    // HEL-531 (420-E): same composed-route-tree 401 coverage as the two /api/preferences tests
+    // above — the dedicated memory-enabled endpoint sits behind the SAME AuthDirectives layer, so
+    // this holds even though `rawRoutes()` doesn't wire an AgentPreferencesRepository either. Full
+    // opt-out/opt-in round-trip coverage lives in the isolated `AgentPreferencesRoutesSpec`.
+    "return 401 for PUT /api/preferences/memory-enabled without Authorization (HEL-531)" in {
+      val body = PutMemoryEnabledRequest(memoryEnabled = false)
+      Put("/api/preferences/memory-enabled", body) ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
         responseAs[ErrorResponse].message shouldBe "Unauthorized"
       }

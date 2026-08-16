@@ -147,9 +147,13 @@ final case class WorkspaceContextAgentSection(
 )
 
 object WorkspaceContextAgentSection {
+  // HEL-531 (420-E): `memoryEnabled = true` here is the same hardcoded, never-`sys.env`-read
+  // default `AgentPreferencesResponse`'s own no-row-stored fields use above -- this path only
+  // triggers when the underlying services aren't wired at all (design.md Decision 2), so there is
+  // no real stored/env-configured value to read; `true` mirrors "no opt-out has ever existed".
   val empty: WorkspaceContextAgentSection =
     WorkspaceContextAgentSection(
-      preferences = AgentPreferencesResponse(None, None, None, JsObject.empty),
+      preferences = AgentPreferencesResponse(None, None, None, JsObject.empty, memoryEnabled = true),
       memory      = Vector.empty
     )
 }

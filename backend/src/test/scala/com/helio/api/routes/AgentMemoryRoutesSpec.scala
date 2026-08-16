@@ -8,8 +8,8 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.JsonProtocols
 import com.helio.api.protocols.{AgentMemoryEntryResponse, CreateAgentMemoryRequest}
 import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.infrastructure.{AgentMemoryRepository, DbContext}
-import com.helio.services.AgentMemoryService
+import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, DbContext}
+import com.helio.services.{AgentMemoryService, AgentPreferencesService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -25,7 +25,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  `DELETE /api/agent/memory/:id`, and `DELETE /api/agent/memory`: create-then-list round-trip,
  *  invalid-`kind` 400, delete-then-404-on-repeat, and clear-then-empty-list (tasks.md 4.4).
  *  Composed-route-tree 401-without-auth coverage lives in `ApiRoutesSpec` (mirrors
- *  `AgentPreferencesRoutesSpec`'s split). */
+ *  `AgentPreferencesRoutesSpec`'s split).
+ *
+ *  HEL-531 (420-E) tasks.md 5.5 — also proves `GET`/`DELETE /api/agent/memory[/:id]` behave
+ *  identically regardless of `memoryEnabled` (design.md Decision 4's "management UI unaffected"
+ *  requirement). */
 class AgentMemoryRoutesSpec
     extends AnyWordSpec
     with Matchers
@@ -35,9 +39,10 @@ class AgentMemoryRoutesSpec
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
-  private var embeddedPostgres: EmbeddedPostgres   = _
-  private var db: JdbcBackend.Database             = _
-  private var repo: AgentMemoryRepository          = _
+  private var embeddedPostgres: EmbeddedPostgres              = _
+  private var db: JdbcBackend.Database                        = _
+  private var repo: AgentMemoryRepository                     = _
+  private var agentPreferencesService: AgentPreferencesService = _
 
   private val ownerAId = UUID.randomUUID().toString
   private val userA    = AuthenticatedUser(UserId(ownerAId))
@@ -51,7 +56,9 @@ class AgentMemoryRoutesSpec
       .load()
       .migrate()
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    repo = new AgentMemoryRepository(new DbContext(db, db))
+    val ctx = new DbContext(db, db)(typedSystem.executionContext)
+    repo = new AgentMemoryRepository(ctx)(typedSystem.executionContext)
+    agentPreferencesService = new AgentPreferencesService(new AgentPreferencesRepository(ctx)(typedSystem.executionContext))(typedSystem.executionContext)
     seedUser()
   }
 
@@ -69,10 +76,11 @@ class AgentMemoryRoutesSpec
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM agent_memory"))
+    await(db.run(sqlu"DELETE FROM agent_preferences"))
   }
 
   private def routesFor(user: AuthenticatedUser): Route = {
-    val service = new AgentMemoryService(repo)(typedSystem.executionContext)
+    val service = new AgentMemoryService(repo, agentPreferencesService)(typedSystem.executionContext)
     new AgentMemoryRoutes(service, user)(typedSystem).routes
   }
 
@@ -211,6 +219,58 @@ class AgentMemoryRoutesSpec
       cleanDb()
       Delete("/agent/memory") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.NoContent
+      }
+    }
+  }
+
+  // ── HEL-531 (420-E) tasks.md 5.5 — GET/DELETE unaffected by memoryEnabled ─
+
+  "GET/DELETE /agent/memory[/:id] with memoryEnabled = false" should {
+
+    "still return the caller's existing entries via GET, unchanged by opting out" in {
+      cleanDb()
+      Post("/agent/memory", CreateAgentMemoryRequest("fact", "seen-before-opt-out")) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      await(agentPreferencesService.setMemoryEnabled(userA, enabled = false))
+
+      Get("/agent/memory") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[Vector[AgentMemoryEntryResponse]].map(_.content) shouldBe Vector("seen-before-opt-out")
+      }
+    }
+
+    "still delete an individual entry via DELETE /:id, unchanged by opting out" in {
+      cleanDb()
+      var id = ""
+      Post("/agent/memory", CreateAgentMemoryRequest("fact", "to delete after opt-out")) ~> routesFor(userA) ~> check {
+        id = responseAs[AgentMemoryEntryResponse].id
+      }
+
+      await(agentPreferencesService.setMemoryEnabled(userA, enabled = false))
+
+      Delete(s"/agent/memory/$id") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+      Get("/agent/memory") ~> routesFor(userA) ~> check {
+        responseAs[Vector[AgentMemoryEntryResponse]] shouldBe Vector.empty
+      }
+    }
+
+    "still clear all entries via DELETE (clear all), unchanged by opting out" in {
+      cleanDb()
+      Post("/agent/memory", CreateAgentMemoryRequest("fact", "one")) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      await(agentPreferencesService.setMemoryEnabled(userA, enabled = false))
+
+      Delete("/agent/memory") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+      Get("/agent/memory") ~> routesFor(userA) ~> check {
+        responseAs[Vector[AgentMemoryEntryResponse]] shouldBe Vector.empty
       }
     }
   }
