@@ -7,6 +7,7 @@ import {
   fetchConversations,
   selectConversation,
   setSelectedConversationId,
+  startNewConversation,
   togglePinned,
 } from "./assistantConversationsSlice";
 import * as assistantConversationsService from "../services/assistantConversationsService";
@@ -67,6 +68,21 @@ describe("assistantConversationsSlice reducers", () => {
 
   it("setSelectedConversationId updates selectedConversationId", () => {
     const nextState = assistantConversationsReducer(undefined, setSelectedConversationId("conv-1"));
+    expect(nextState.selectedConversationId).toBe("conv-1");
+  });
+
+  it("startNewConversation sets startingNewConversation", () => {
+    const nextState = assistantConversationsReducer(undefined, startNewConversation());
+    expect(nextState.startingNewConversation).toBe(true);
+  });
+
+  it("setSelectedConversationId clears startingNewConversation -- selecting the freshly-created conversation (or any other) exits new-chat mode", () => {
+    const startingNew = assistantConversationsReducer(undefined, startNewConversation());
+    const nextState = assistantConversationsReducer(
+      startingNew,
+      setSelectedConversationId("conv-1"),
+    );
+    expect(nextState.startingNewConversation).toBe(false);
     expect(nextState.selectedConversationId).toBe("conv-1");
   });
 

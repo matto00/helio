@@ -43,14 +43,22 @@ function buildToolResultsById(
  * `MessageComposer` (HEL-665, reopened composer ticket, design.md D5) renders as the LAST child of
  * the success-state tree (after the transcript/`ProposalHandoff`), and ALSO alongside `EmptyState`
  * when `effectiveId === null` — so a first-time user with zero conversations can start one by
- * typing directly, never blocked behind a separate, unreachable "create conversation" step. */
+ * typing directly, never blocked behind a separate, unreachable "create conversation" step. The
+ * sidebar's "New chat" button reaches the same `effectiveId === null` branch via
+ * `startingNewConversation` even when `items` is non-empty. */
 export function ActiveConversationPanel() {
   const dispatch = useAppDispatch();
-  const { items, selectedConversationId, activeConversation, lastTurnOutcome } = useAppSelector(
-    (state) => state.assistantConversations,
-  );
+  const {
+    items,
+    selectedConversationId,
+    startingNewConversation,
+    activeConversation,
+    lastTurnOutcome,
+  } = useAppSelector((state) => state.assistantConversations);
 
-  const effectiveId = selectedConversationId ?? items[0]?.id ?? null;
+  const effectiveId = startingNewConversation
+    ? null
+    : (selectedConversationId ?? items[0]?.id ?? null);
 
   useEffect(() => {
     if (effectiveId !== null) {
@@ -64,7 +72,7 @@ export function ActiveConversationPanel() {
         <EmptyState
           variant="main"
           icon={faComments}
-          title="No conversations yet"
+          title={items.length > 0 ? "New conversation" : "No conversations yet"}
           description="Start a conversation to see it here."
         />
         <MessageComposer conversationId={null} />
