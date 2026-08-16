@@ -13,6 +13,7 @@ import { useState } from "react";
 import { updatePipelineStep } from "../services/pipelineService";
 import {
   aggregateConfigOf,
+  assertConfigOf,
   castsOf,
   chunkByTokenCountConfigOf,
   computeConfigOf,
@@ -36,6 +37,7 @@ import {
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
+import type { AssertConfigValue } from "../ui/AssertConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
@@ -73,6 +75,7 @@ export interface StepCardStateHandlers {
   stringOpsConfig: StringOpsConfigValue;
   unionConfig: UnionConfigValue;
   lookupConfig: LookupConfigValue;
+  assertConfig: AssertConfigValue;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -93,6 +96,7 @@ export interface StepCardStateHandlers {
   onStringOpsChange: (config: StringOpsConfigValue) => void;
   onUnionChange: (config: UnionConfigValue) => void;
   onLookupChange: (config: LookupConfigValue) => void;
+  onAssertChange: (config: AssertConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -143,6 +147,7 @@ export function useStepCardState(
   );
   const [unionConfig, setUnionConfig] = useState<UnionConfigValue>(() => unionConfigOf(step));
   const [lookupConfig, setLookupConfig] = useState<LookupConfigValue>(() => lookupConfigOf(step));
+  const [assertConfig, setAssertConfig] = useState<AssertConfigValue>(() => assertConfigOf(step));
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -166,6 +171,7 @@ export function useStepCardState(
     setStringOpsConfig(stringOpsConfigOf(step));
     setUnionConfig(unionConfigOf(step));
     setLookupConfig(lookupConfigOf(step));
+    setAssertConfig(assertConfigOf(step));
   }
 
   /** Shared persistence path — PATCHes the typed config, then notifies the
@@ -330,6 +336,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onAssertChange(newConfig: AssertConfigValue) {
+    setAssertConfig(newConfig);
+    persist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -351,6 +362,7 @@ export function useStepCardState(
     stringOpsConfig,
     unionConfig,
     lookupConfig,
+    assertConfig,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -371,5 +383,6 @@ export function useStepCardState(
     onStringOpsChange,
     onUnionChange,
     onLookupChange,
+    onAssertChange,
   };
 }

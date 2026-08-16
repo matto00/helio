@@ -221,6 +221,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
+      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"

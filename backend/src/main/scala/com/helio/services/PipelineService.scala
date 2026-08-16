@@ -4,6 +4,7 @@ import com.helio.api.RequestValidation
 import com.helio.api.protocols.{
   AggregateAnalyzeStepResponse,
   AnalyzeStepResponse,
+  AssertAnalyzeStepResponse,
   CastAnalyzeStepResponse,
   ChunkByTokenCountAnalyzeStepResponse,
   ComputeAnalyzeStepResponse,
@@ -42,6 +43,7 @@ import com.helio.api.protocols.{
 }
 import com.helio.domain.{
   AggregateConfig,
+  AssertConfig,
   AuthenticatedUser,
   CastConfig,
   ChunkByTokenCountConfig,
@@ -403,6 +405,7 @@ final class PipelineService(
       case Success(cfg: StringOpsConfig) => StringOpsAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: UnionConfig) => UnionAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: LookupConfig) => LookupAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: AssertConfig) => AssertAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"

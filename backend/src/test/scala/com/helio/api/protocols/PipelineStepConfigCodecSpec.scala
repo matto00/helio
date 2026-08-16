@@ -169,6 +169,12 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.decode("lookup", raw).get shouldBe
         LookupConfig("ds-2", "code", "code", Vector("label", "price"))
     }
+
+    "preserve assert config" in {
+      val raw = """{"rules":[{"kind":"notNull","field":"id","params":{},"severity":"error"}]}"""
+      PipelineStepConfigCodec.decode("assert", raw).get shouldBe
+        AssertConfig(Vector(AssertRule("notNull", Some("id"), JsObject.empty, "error")))
+    }
   }
 
   "tolerance" should {
@@ -277,6 +283,15 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         LookupConfig("", "", "", Vector.empty)
     }
 
+    "assert — decode({}) yields an empty rules vector" in {
+      PipelineStepConfigCodec.decode("assert", "{}").get shouldBe AssertConfig(Vector.empty)
+    }
+
+    "assert — a malformed rule entry decodes to typed defaults rather than throwing" in {
+      PipelineStepConfigCodec.decode("assert", """{"rules":[{"kind":"notNull"}]}""").get shouldBe
+        AssertConfig(Vector(AssertRule("notNull", None, JsObject.empty, "warn")))
+    }
+
     "every kind tolerates decode({}) without throwing" in {
       PipelineStepKind.All.foreach { kind =>
         val result = PipelineStepConfigCodec.decode(kind, "{}")
@@ -324,7 +339,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "fillnull"   -> FillNullConfig(Vector("price"), "mean", None),
         "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None),
         "union"      -> UnionConfig("ds-2", "byName"),
-        "lookup"     -> LookupConfig("ds-2", "code", "code", Vector("label"))
+        "lookup"     -> LookupConfig("ds-2", "code", "code", Vector("label")),
+        "assert"     -> AssertConfig(Vector(AssertRule("range", Some("amount"), JsObject("min" -> JsNumber(0)), "warn")))
       )
       cases.foreach { case (kind, cfg) =>
         val encoded = PipelineStepConfigCodec.encodeConfig(cfg)

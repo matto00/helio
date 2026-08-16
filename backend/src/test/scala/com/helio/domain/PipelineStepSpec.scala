@@ -2,6 +2,7 @@ package com.helio.domain
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import spray.json.JsObject
 
 import java.time.Instant
 
@@ -37,16 +38,17 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val stringOps = StringOpsStep(id, pid, 0, StringOpsConfig("trim", "name", "name", None, None, None, None), now, now)
   private val union = UnionStep(id, pid, 0, UnionConfig("ds-2", "byPosition"), now, now)
   private val lookup = LookupStep(id, pid, 0, LookupConfig("ds-3", "code", "code", Vector("label")), now, now)
+  private val assertStep = AssertStep(id, pid, 0, AssertConfig(Vector(AssertRule("notNull", Some("id"), JsObject.empty, "error"))), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assertStep)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
       PipelineStepKind.All shouldBe Set(
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
-        "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops", "union", "lookup"
+        "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops", "union", "lookup", "assert"
       )
     }
 
@@ -88,6 +90,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       stringOps.kind shouldBe PipelineStepKind.StringOps
       union.kind shouldBe PipelineStepKind.Union
       lookup.kind shouldBe PipelineStepKind.Lookup
+      assertStep.kind shouldBe PipelineStepKind.Assert
     }
 
     "every subtype carries the common base fields" in {
@@ -132,6 +135,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: StringOpsStep  => PipelineStepKind.StringOps
           case _: UnionStep      => PipelineStepKind.Union
           case _: LookupStep     => PipelineStepKind.Lookup
+          case _: AssertStep     => PipelineStepKind.Assert
         }
         tag shouldBe s.kind
       }

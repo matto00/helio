@@ -12,6 +12,7 @@ import {
   faCalculator,
   faCalendarWeek,
   faChartColumn,
+  faClipboardCheck,
   faClone,
   faFilter,
   faFillDrip,
@@ -31,6 +32,7 @@ import {
 
 import type {
   AggregateConfig as AggregateConfigType,
+  AssertConfig as AssertConfigType,
   CastConfig as CastConfigType,
   ChunkByTokenCountConfig as ChunkByTokenCountConfigType,
   ComputeConfig as ComputeConfigType,
@@ -55,6 +57,7 @@ import type {
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import type { AggregateConfigValue } from "../ui/AggregateConfig";
+import type { AssertConfigValue } from "../ui/AssertConfig";
 import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
 import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
 import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
@@ -82,6 +85,9 @@ import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
 // ships both a full editor (LookupConfig.tsx) and its own ACL check
 // (design.md Decision 9 there / Decision 9 here), so it also does NOT
 // mirror join's exclusion.
+// `assert` (HEL-454 / 419-A) is purely local (no second-DataSource reference,
+// no ACL pre-flight) — a pass-through step like `filter`/`limit`/`sort`, so
+// it ships a full editor (AssertConfig.tsx) with no ACL-check counterpart.
 export const OP_TYPES: OpType[] = [
   { id: "select", label: "Select fields", icon: faSquareCheck },
   { id: "rename", label: "Rename column", icon: faPencil },
@@ -103,6 +109,7 @@ export const OP_TYPES: OpType[] = [
   { id: "stringops", label: "String operation", icon: faFont },
   { id: "union", label: "Union / append rows", icon: faObjectGroup },
   { id: "lookup", label: "Lookup / enrich", icon: faTags },
+  { id: "assert", label: "Assert / validate", icon: faClipboardCheck },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -198,6 +205,8 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         lookupKey: "",
         columns: [],
       } as LookupConfigType;
+    case "assert":
+      return { rules: [] } as AssertConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -483,5 +492,21 @@ export function lookupConfigOf(step: Step): LookupConfigValue {
     sourceKey: cfg.sourceKey ?? "",
     lookupKey: cfg.lookupKey ?? "",
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],
+  };
+}
+
+export function assertConfigOf(step: Step): AssertConfigValue {
+  const empty: AssertConfigValue = { rules: [] };
+  if (step.opType.id !== "assert") return empty;
+  const cfg = step.config as AssertConfigType;
+  return {
+    rules: Array.isArray(cfg.rules)
+      ? cfg.rules.map((r) => ({
+          kind: r.kind ?? "",
+          field: r.field ?? "",
+          params: r.params ?? {},
+          severity: r.severity ?? "warn",
+        }))
+      : [],
   };
 }

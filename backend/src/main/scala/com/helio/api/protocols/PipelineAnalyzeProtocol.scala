@@ -3,6 +3,7 @@ package com.helio.api.protocols
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.{
   AggregateConfig,
+  AssertConfig,
   CastConfig,
   ChunkByTokenCountConfig,
   ComputeConfig,
@@ -178,6 +179,12 @@ final case class LookupAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Lookup }
 
+final case class AssertAnalyzeStepResponse(
+    id: String, position: Int, config: AssertConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Assert }
+
 final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
@@ -222,6 +229,7 @@ trait PipelineAnalyzeProtocol
   private val stringOpsAnalyzeFormat: RootJsonFormat[StringOpsAnalyzeStepResponse] = jsonFormat6(StringOpsAnalyzeStepResponse.apply)
   private val unionAnalyzeFormat: RootJsonFormat[UnionAnalyzeStepResponse] = jsonFormat6(UnionAnalyzeStepResponse.apply)
   private val lookupAnalyzeFormat: RootJsonFormat[LookupAnalyzeStepResponse] = jsonFormat6(LookupAnalyzeStepResponse.apply)
+  private val assertAnalyzeFormat: RootJsonFormat[AssertAnalyzeStepResponse] = jsonFormat6(AssertAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -248,6 +256,7 @@ trait PipelineAnalyzeProtocol
         case o: StringOpsAnalyzeStepResponse => stringOpsAnalyzeFormat.write(o).asJsObject
         case u: UnionAnalyzeStepResponse => unionAnalyzeFormat.write(u).asJsObject
         case l: LookupAnalyzeStepResponse => lookupAnalyzeFormat.write(l).asJsObject
+        case a: AssertAnalyzeStepResponse => assertAnalyzeFormat.write(a).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -275,6 +284,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.StringOps))  => stringOpsAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Union))      => unionAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Lookup))     => lookupAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.Assert))     => assertAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

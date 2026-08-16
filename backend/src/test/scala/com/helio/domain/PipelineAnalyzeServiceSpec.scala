@@ -177,6 +177,90 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
+    // ── assert inference (HEL-454 / 419-A) ──────────────────────────────────────
+
+    "assert — identity output schema, no validationError for a well-formed config" in {
+      val cfg = """{"rules":[{"kind":"notNull","field":"order_id","params":{},"severity":"error"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe baseSchema
+      result(0).validationError shouldBe None
+    }
+
+    "assert — empty rules produces identity output schema and no validationError" in {
+      val steps  = Vector(step("assert", """{"rules":[]}"""))
+      val result = analyze(steps, baseSchema)
+      result(0).outputSchema shouldBe baseSchema
+      result(0).validationError shouldBe None
+    }
+
+    "assert — unknown field on a notNull rule produces a validationError naming the field, output schema unchanged" in {
+      val cfg = """{"rules":[{"kind":"notNull","field":"missing_field","params":{},"severity":"error"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError.get should include ("missing_field")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — invalid kind produces a validationError naming the kind, output schema unchanged" in {
+      val cfg = """{"rules":[{"kind":"bogus","field":null,"params":{},"severity":"error"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError.get should include ("bogus")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — invalid severity produces a validationError naming the severity, output schema unchanged" in {
+      val cfg = """{"rules":[{"kind":"unique","field":"order_id","params":{},"severity":"critical"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError.get should include ("critical")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — rowCountMin rule is not checked against field, no validationError from an absent field" in {
+      val cfg = """{"rules":[{"kind":"rowCountMin","field":null,"params":{"count":1},"severity":"warn"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — rowCountMax rule is not checked against field, no validationError from an absent field" in {
+      val cfg = """{"rules":[{"kind":"rowCountMax","field":null,"params":{"count":100},"severity":"warn"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — missing field on a field-required rule produces a validationError" in {
+      val cfg = """{"rules":[{"kind":"unique","field":null,"params":{},"severity":"warn"}]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError.get should include ("missing field")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — problems across multiple rules are aggregated into one validationError, not short-circuited on the first" in {
+      val cfg = """{"rules":[
+          {"kind":"bogus","field":null,"params":{},"severity":"error"},
+          {"kind":"notNull","field":"missing_field","params":{},"severity":"error"}
+        ]}"""
+      val steps  = Vector(step("assert", cfg))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError.get should include ("bogus")
+      result(0).validationError.get should include ("missing_field")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "assert — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("assert", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {
