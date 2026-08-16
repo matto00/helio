@@ -42,6 +42,14 @@ jobs:
           image: ${{ env.IMAGE }}
           # COOKIE_SECURE=true is required in prod for the cross-site httpOnly
           # session cookie (SameSite=None) — see HEL-287 / docs/deployment.md.
-          # --update-env-vars is additive: it sets only this var and preserves
+          # CLAUDE_MODEL pins the ClaudeConfig default away from ClaudeConfig's
+          # own claude-opus-4-8 default (cost) — see CLAUDE.md's env var table.
+          # --update-env-vars is additive: it sets only these vars and preserves
           # DATABASE_URL / CORS_ALLOWED_ORIGINS / etc. already on the service.
-          flags: "--update-env-vars=COOKIE_SECURE=true"
+          # --update-secrets is the same additive idiom for Secret Manager refs
+          # (--set-secrets would instead replace the whole secrets list on
+          # every deploy, dropping any not named here).
+          # --max-instances=2 keeps the privileged DB pool (5 connections/instance,
+          # helio.db.privileged in application.conf) within db-g1-small's
+          # connection budget — 3+ instances previously exhausted it under load.
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001 --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest --max-instances=2"

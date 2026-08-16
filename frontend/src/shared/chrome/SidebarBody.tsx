@@ -13,6 +13,7 @@ import {
 import {
   fetchConversations,
   setSelectedConversationId,
+  startNewConversation,
   togglePinned,
 } from "../../features/assistant/state/assistantConversationsSlice";
 import {
@@ -239,6 +240,8 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         emptyText="No conversations yet"
         emptyIcon={faComments}
         emptyDescription="Start a conversation to see it here."
+        onAdd={() => dispatch(startNewConversation())}
+        addLabel="New chat"
         // No `onDelete` — HEL-663's API has no delete endpoint (design.md D3).
         renderBadge={(item) =>
           pinnedIds.has(item.id) ? (

@@ -103,6 +103,7 @@ interface TestState {
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
     selectedConversationId?: string | null;
+    startingNewConversation?: boolean;
     activeConversation?: {
       data?: AssistantConversationDetail | null;
       status?: "idle" | "loading" | "succeeded" | "failed";
@@ -220,6 +221,8 @@ export function renderWithStore(
           error: preloadedState.assistantConversations?.error ?? null,
           selectedConversationId:
             preloadedState.assistantConversations?.selectedConversationId ?? null,
+          startingNewConversation:
+            preloadedState.assistantConversations?.startingNewConversation ?? false,
           activeConversation: {
             data: preloadedState.assistantConversations?.activeConversation?.data ?? null,
             status: preloadedState.assistantConversations?.activeConversation?.status ?? "idle",

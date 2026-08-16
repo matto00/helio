@@ -9,6 +9,11 @@ import {
 } from "../services/assistantConversationsService";
 import type { AssistantConversationDetail, AssistantConversationSummary } from "../types";
 
+function toSummary(detail: AssistantConversationDetail): AssistantConversationSummary {
+  const { id, title, pinned, updatedAt } = detail;
+  return { id, title, pinned, updatedAt };
+}
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
     const data = err.response?.data as Record<string, unknown> | undefined;
@@ -27,6 +32,12 @@ interface AssistantConversationsState {
    * back to the first item" — `ActiveConversationPanel` derives the
    * effective selection so the panel is never blank (design.md D4). */
   selectedConversationId: string | null;
+  /** Set by the sidebar's "New chat" button — forces `ActiveConversationPanel`'s effective
+   * selection to null (the empty-state/composer view) even though `items` is non-empty, so a user
+   * with existing conversations can start a fresh one. Cleared the instant any conversation is
+   * explicitly selected (`setSelectedConversationId`), including the one `MessageComposer` creates
+   * on the first send from this state. */
+  startingNewConversation: boolean;
   /** The selected conversation's full detail (including transcript),
    * fetched separately via `GET /:id` — distinct from `items`' summary-only
    * data (design.md D4). */
@@ -54,6 +65,7 @@ const initialState: AssistantConversationsState = {
   status: "idle",
   error: null,
   selectedConversationId: null,
+  startingNewConversation: false,
   activeConversation: {
     data: null,
     status: "idle",
@@ -125,6 +137,21 @@ const assistantConversationsSlice = createSlice({
   reducers: {
     setSelectedConversationId(state, action: { payload: string | null }) {
       state.selectedConversationId = action.payload;
+      state.startingNewConversation = false;
+    },
+    startNewConversation(state) {
+      state.startingNewConversation = true;
+    },
+    /** `MessageComposer`'s null-`conversationId` send path calls `createConversation` directly
+     *  (outside any thunk lifecycle here), so the sidebar's `items` list -- populated once by
+     *  `fetchConversations` on mount -- never otherwise learns a new conversation exists. Inserts it
+     *  directly rather than a full refetch, at the position matching the backend's own list order
+     *  (`AssistantConversationRepository`: `ORDER BY pinned DESC, updated_at DESC`) -- a fresh,
+     *  unpinned conversation goes after any existing pinned ones, not always at index 0. */
+    conversationCreated(state, action: { payload: AssistantConversationDetail }) {
+      const insertAt = state.items.findIndex((item) => !item.pinned);
+      const index = insertAt === -1 ? state.items.length : insertAt;
+      state.items.splice(index, 0, toSummary(action.payload));
     },
   },
   extraReducers: (builder) => {
@@ -180,5 +207,6 @@ const assistantConversationsSlice = createSlice({
   },
 });
 
-export const { setSelectedConversationId } = assistantConversationsSlice.actions;
+export const { setSelectedConversationId, startNewConversation, conversationCreated } =
+  assistantConversationsSlice.actions;
 export const assistantConversationsReducer = assistantConversationsSlice.reducer;

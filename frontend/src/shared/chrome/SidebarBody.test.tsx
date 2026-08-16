@@ -270,6 +270,21 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
     expect(screen.queryByRole("button", { name: /actions$/ })).not.toBeInTheDocument();
   });
 
+  it('clicking "New chat" sets startingNewConversation even with existing conversations and a selection', () => {
+    const items = [buildConversation({ id: "conv-1" })];
+    const { store } = renderAt("/chat", [], {
+      conversationItems: items,
+      conversationStatus: "succeeded",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    const state = store.getState() as {
+      assistantConversations: { startingNewConversation: boolean };
+    };
+    expect(state.assistantConversations.startingNewConversation).toBe(true);
+  });
+
   it("pinning a conversation sends PATCH {pinned: true} and shows the pinned indicator", async () => {
     updateConversationMock.mockResolvedValueOnce({
       id: "conv-1",

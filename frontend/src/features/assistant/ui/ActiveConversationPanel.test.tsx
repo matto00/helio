@@ -96,6 +96,23 @@ describe("ActiveConversationPanel", () => {
     await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
   });
 
+  // Sidebar's "New chat" button dispatches startNewConversation -- effectiveId must stay null
+  // even though items/selectedConversationId are both non-empty, so the panel shows the
+  // empty-state composer instead of falling back to the first (or previously-selected) item.
+  it("shows the new-chat composer instead of falling back to an existing conversation when startingNewConversation is set", () => {
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: {
+        items: [summaryOne, summaryTwo],
+        selectedConversationId: "conv-2",
+        startingNewConversation: true,
+      },
+    });
+
+    expect(screen.getByText("New conversation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    expect(getConversationMock).not.toHaveBeenCalled();
+  });
+
   it("replaces the active conversation cleanly when a second selection resolves", async () => {
     getConversationMock.mockResolvedValueOnce(detailOf(summaryTwo, 5));
 

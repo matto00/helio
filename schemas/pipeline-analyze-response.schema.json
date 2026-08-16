@@ -38,7 +38,8 @@
     "steps": {
       "type": "array",
       "items": { "$ref": "#/$defs/AnalyzeStep" }
-    }
+    },
+    "sourceSchemaDrift": { "$ref": "#/$defs/SourceSchemaDrift" }
   },
   "additionalProperties": false,
   "$defs": {
@@ -48,6 +49,35 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "TypeChangedColumn": {
+      "type": "object",
+      "required": ["name", "previousType", "currentType"],
+      "properties": {
+        "name": { "type": "string" },
+        "previousType": { "type": "string" },
+        "currentType": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "SourceSchemaDrift": {
+      "type": "object",
+      "required": ["addedColumns", "removedColumns", "typeChangedColumns"],
+      "properties": {
+        "addedColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "removedColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaField" }
+        },
+        "typeChangedColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TypeChangedColumn" }
+        }
       },
       "additionalProperties": false
     },

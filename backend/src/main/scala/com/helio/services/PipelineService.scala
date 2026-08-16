@@ -33,9 +33,11 @@ import com.helio.api.protocols.{
   SchemaFieldResponse,
   SelectAnalyzeStepResponse,
   SortAnalyzeStepResponse,
+  SourceSchemaDriftResponse,
   SplitTextAnalyzeStepResponse,
   SqlSourceConfigPayload,
   StringOpsAnalyzeStepResponse,
+  TypeChangedColumnResponse,
   UnionAnalyzeStepResponse,
   UnpivotAnalyzeStepResponse,
   UpdatePipelineRequest,
@@ -64,11 +66,13 @@ import com.helio.domain.{
   LookupConfig,
   PipelineAnalyzeService,
   PipelineId,
+  PipelineSchemaDrift,
   PipelineStepId,
   PipelineStepKind,
   PivotConfig,
   RenameConfig,
   RestApiConnector,
+  SchemaDrift,
   SchemaField,
   SelectConfig,
   SortConfig,
@@ -79,13 +83,16 @@ import com.helio.domain.{
   UnpivotConfig,
   WindowConfig
 }
+import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Business logic for `/api/pipelines` and `/api/pipeline-steps`.
  *
@@ -195,10 +202,15 @@ final class PipelineService(
     combined.flatMap {
       case (Some(summary), Some(pipeline)) =>
         // Safe: access confirmed by findByIdShared above.
+        // HEL-412/HEL-462 merge: keep HEAD's `allSteps` naming (the unconflicted
+        // `val steps = allSteps.filter(_.enabled)` below depends on it) and
+        // origin/main's `.flatMap`/`deriveSourceSchema` (required by the
+        // schema-drift continuation this block now returns — see the merge
+        // commit body for the full rationale, including why the drift capture/
+        // compare sides never need an enabled-vs-full-list decision at all).
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-          dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).map { sourceDataTypes =>
-            val sourceSchema: Vector[SchemaField] =
-              sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
+          dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).flatMap { sourceDataTypes =>
+            val sourceSchema: Vector[SchemaField] = PipelineAnalyzeService.deriveSourceSchema(sourceDataTypes)
 
             // HEL-412 (design.md Decision 3, boundary iii): disabled steps are
             // dropped before analysis — the response therefore contains
@@ -214,21 +226,53 @@ final class PipelineService(
             )
             val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
 
-            Right(PipelineAnalyzeResponse(
-              id                   = summary.id,
-              name                 = summary.name,
-              sourceDataSourceName = summary.sourceDataSourceName,
-              outputDataTypeName   = summary.outputDataTypeName,
-              outputDataTypeId     = summary.outputDataTypeId,
-              sourceSchema         = sourceSchema.map(toFieldResponse),
-              steps                = analyzed.map(toAnalyzeStepResponse)
-            ))
+            // HEL-462: compare the current source schema against the baseline
+            // captured on the pipeline's last successful (non-dry) run.
+            pipelineRepo.findLastSourceSchema(pipelineId, user).map { baselineJson =>
+              val baseline = parseBaselineSchema(pipelineId, baselineJson)
+              val drift    = PipelineSchemaDrift.diff(baseline, sourceSchema)
+
+              Right(PipelineAnalyzeResponse(
+                id                   = summary.id,
+                name                 = summary.name,
+                sourceDataSourceName = summary.sourceDataSourceName,
+                outputDataTypeName   = summary.outputDataTypeName,
+                outputDataTypeId     = summary.outputDataTypeId,
+                sourceSchema         = sourceSchema.map(toFieldResponse),
+                steps                = analyzed.map(toAnalyzeStepResponse),
+                sourceSchemaDrift    = drift.map(toDriftResponse)
+              ))
+            }
           }
         }
       case _ =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
     }
   }
+
+  /** Tolerant-parse of the persisted `last_source_schema` baseline (design
+   *  D5): malformed or legacy JSON is treated as "no baseline" (never a hard
+   *  analyze failure), with a warn-level log naming the pipeline. `None`
+   *  (never a successful run) is the ordinary first-run case and is not
+   *  logged. */
+  private def parseBaselineSchema(pipelineId: PipelineId, baselineJson: Option[String]): Option[Vector[SchemaField]] =
+    baselineJson.flatMap { json =>
+      Try(json.parseJson.convertTo[Vector[SchemaField]]) match {
+        case Success(schema) => Some(schema)
+        case Failure(ex) =>
+          log.warn(s"HEL-462: failed to parse last_source_schema baseline for pipeline ${pipelineId.value}", ex)
+          None
+      }
+    }
+
+  private def toDriftResponse(drift: SchemaDrift): SourceSchemaDriftResponse =
+    SourceSchemaDriftResponse(
+      addedColumns       = drift.addedColumns.map(toFieldResponse),
+      removedColumns     = drift.removedColumns.map(toFieldResponse),
+      typeChangedColumns = drift.typeChangedColumns.map(c =>
+        TypeChangedColumnResponse(c.name, previousType = c.previousType, currentType = c.currentType)
+      )
+    )
 
   /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381): resolve/derive the
    *  source schema, fold the proposed steps through the same `PipelineAnalyzeService`

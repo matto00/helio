@@ -14,6 +14,13 @@ object PipelineAnalyzeService {
 
   private val log = LoggerFactory.getLogger(getClass)
 
+  /** JSON codec for `SchemaField` (design D2's `{name, type}` shape) — shared
+    * by `PipelineRunService` (serializing the run-success baseline into
+    * `pipelines.last_source_schema`) and `PipelineService` (tolerant-parsing
+    * it back out at analyze time), so both sides of the HEL-462 baseline
+    * round-trip through one definition. */
+  implicit val schemaFieldJsonFormat: RootJsonFormat[SchemaField] = jsonFormat2(SchemaField.apply)
+
   /** Minimal step input consumed by inference — decoupled from infrastructure row types. */
   final case class PipelineStepInput(
       id:       String,
@@ -31,6 +38,16 @@ object PipelineAnalyzeService {
       outputSchema:    Vector[SchemaField],
       validationError: Option[String]
   )
+
+  /** Derive a pipeline's source schema from its source DataType's declared
+   *  fields (name + type) — the single derivation both `PipelineService.analyze`
+   *  and `PipelineRunService`'s run-success baseline capture use (HEL-462
+   *  design D1), so the two provably stay in lockstep and "no drift" is the
+   *  guaranteed steady-state for an unchanged source. Mirrors the existing
+   *  `sourceDataTypes.headOption.toVector.flatMap(_.fields)` shape: a source
+   *  has at most one companion DataType, so only its `.headOption` is used. */
+  def deriveSourceSchema(sourceDataTypes: Vector[DataType]): Vector[SchemaField] =
+    sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
 
   /** Propagate schemas through the ordered step list.
    *

@@ -332,6 +332,38 @@ class PipelineRepository(
         .update((Some(status), Some(at), rowCount, at))
     ).map(_ => ())
 
+  /** Owner-scoped baseline write (HEL-462). Persists the source schema
+    * captured on a successful run as raw JSON text — `schemaJson` is the
+    * already-serialized `Vector[SchemaField]` from `PipelineSchemaDrift`.
+    * Targeted `.map(...).update(...)` projection, mirroring `updateLastRun` —
+    * `last_source_schema` is deliberately kept off the `*` projection /
+    * `Pipeline` domain model (design D2). Returns silently if no owned row
+    * matches, same resilience convention as `updateLastRun`. */
+  def updateLastSourceSchema(id: PipelineId, schemaJson: String, user: AuthenticatedUser): Future[Unit] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    ctx.withUserContext(user.id.value)(
+      pipelinesTable
+        .filter(r => r.id === id.value && r.ownerId === ownerUuid)
+        .map(_.lastSourceSchema)
+        .update(Some(schemaJson))
+    ).map(_ => ())
+  }
+
+  /** Owner-scoped baseline read (HEL-462). Returns the raw JSON string of the
+    * last successful run's source schema, or `None` when the pipeline has no
+    * baseline yet (never run successfully) or does not exist / is not owned
+    * by the caller. Callers are responsible for parsing. */
+  def findLastSourceSchema(id: PipelineId, user: AuthenticatedUser): Future[Option[String]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    ctx.withUserContext(user.id.value)(
+      pipelinesTable
+        .filter(r => r.id === id.value && r.ownerId === ownerUuid)
+        .map(_.lastSourceSchema)
+        .result
+        .headOption
+    ).map(_.flatten)
+  }
+
   /** Owner-scoped list summaries — only returns pipelines owned by the
     * caller. Replaces the unscoped pre-CS2 listing that leaked every
     * pipeline to every authenticated user. `tag`, when given, exact-matches
@@ -418,6 +450,13 @@ object PipelineRepository {
     def lastRunRowCount    = column[Option[Long]]("last_run_row_count")
     def ownerId            = column[UUID]("owner_id")
     def tag                = column[Option[String]]("tag")
+
+    // HEL-462: schema-drift baseline. Table-local only — deliberately absent
+    // from `*` / `PipelineRow` / the `Pipeline` domain model (design D2), so
+    // every existing read path and the 22-arity projection stay untouched.
+    // Read/written exclusively via the targeted `findLastSourceSchema` /
+    // `updateLastSourceSchema` projections above.
+    def lastSourceSchema   = column[Option[String]]("last_source_schema")
 
     def * =
       (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)

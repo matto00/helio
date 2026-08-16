@@ -5,7 +5,11 @@ import { Textarea } from "../../../shared/ui/Textarea";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { createConversation } from "../services/assistantConversationsService";
-import { converse, setSelectedConversationId } from "../state/assistantConversationsSlice";
+import {
+  conversationCreated,
+  converse,
+  setSelectedConversationId,
+} from "../state/assistantConversationsSlice";
 
 interface MessageComposerProps {
   /** The conversation to send to, or `null` when none is currently selected (e.g. a first-time
@@ -47,6 +51,10 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       if (targetId === null) {
         const created = await createConversation({});
         targetId = created.id;
+        // Sidebar's `items` list is otherwise only populated by `fetchConversations` on mount --
+        // without this, a conversation started from the empty-state/new-chat composer never shows
+        // up in the sidebar until the next full page load.
+        dispatch(conversationCreated(created));
         dispatch(setSelectedConversationId(targetId));
       }
       await dispatch(converse({ id: targetId, message: trimmed })).unwrap();
