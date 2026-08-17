@@ -9,6 +9,7 @@ import { faBrain } from "@fortawesome/free-solid-svg-icons";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { EmptyState } from "../../../shared/ui/index";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { clearAgentMemoryThunk, deleteAgentMemoryEntryThunk } from "../state/settingsSlice";
 import type { AgentMemoryEntry } from "../types/agentMemory";
@@ -47,13 +48,22 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
   }
 
   if (entries.length === 0) {
+    // F-151 — the populated state below always renders inside the shared
+    // `.agent-memory-list` card (matching Preferences/Beta access's bordered
+    // `--app-surface` treatment); the empty state used to bypass that
+    // wrapper entirely and float bare on the page canvas, the one case most
+    // free/fresh accounts actually see. Keep the same wrapper here so
+    // Settings stays internally consistent regardless of whether any memory
+    // has been stored yet.
     return (
-      <EmptyState
-        variant="main"
-        icon={faBrain}
-        title="No memory stored yet"
-        description="The agent hasn't stored any facts, goals, or preference notes about you yet."
-      />
+      <div className="agent-memory-list">
+        <EmptyState
+          variant="main"
+          icon={faBrain}
+          title="No memory stored yet"
+          description="The agent hasn't stored any facts, goals, or preference notes about you yet."
+        />
+      </div>
     );
   }
 
@@ -61,25 +71,11 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
     <div className="agent-memory-list">
       <div className="agent-memory-list__toolbar">
         {confirmClearAll ? (
-          <div className="agent-memory-list__confirm">
-            <span className="agent-memory-list__confirm-label">
-              Clear all {entries.length} entr{entries.length === 1 ? "y" : "ies"}?
-            </span>
-            <button
-              type="button"
-              className="agent-memory-list__confirm-btn"
-              onClick={handleClearAll}
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              className="agent-memory-list__cancel-btn"
-              onClick={() => setConfirmClearAll(false)}
-            >
-              Cancel
-            </button>
-          </div>
+          <ConfirmInline
+            label={`Clear all ${entries.length} entr${entries.length === 1 ? "y" : "ies"}?`}
+            onConfirm={handleClearAll}
+            onCancel={() => setConfirmClearAll(false)}
+          />
         ) : (
           <button
             type="button"
@@ -98,7 +94,9 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
             <th className="agent-memory-list-table__th">Kind</th>
             <th className="agent-memory-list-table__th">Content</th>
             <th className="agent-memory-list-table__th">Last used</th>
-            <th className="agent-memory-list-table__th agent-memory-list-table__th--actions" />
+            <th className="agent-memory-list-table__th agent-memory-list-table__th--actions">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -116,23 +114,11 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
                 <td className="agent-memory-list-table__td">{formatLastUsed(entry.lastUsedAt)}</td>
                 <td className="agent-memory-list-table__td agent-memory-list-table__td--actions">
                   {isConfirming ? (
-                    <div className="agent-memory-list-table__confirm">
-                      <button
-                        type="button"
-                        className="agent-memory-list-table__confirm-btn"
-                        aria-label={`Confirm delete ${label}`}
-                        onClick={() => handleDelete(entry.id)}
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        className="agent-memory-list-table__cancel-btn"
-                        onClick={() => setConfirmDeleteId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    <ConfirmInline
+                      confirmAriaLabel={`Confirm delete ${label}`}
+                      onConfirm={() => handleDelete(entry.id)}
+                      onCancel={() => setConfirmDeleteId(null)}
+                    />
                   ) : (
                     <button
                       type="button"

@@ -44,7 +44,7 @@
 }
 
 .patch-set-review__kind {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--app-text);
 }
 
@@ -73,6 +73,59 @@
   margin: 0;
   font-size: var(--text-xs);
   color: var(--app-warning);
+}
+
+/* F-067 — changed-leaf-key diff for `update` edits: each changed top-level field gets its own row
+   (key eyebrow + struck-through before value → emphasized after value), so the field(s) an edit
+   actually touched are never buried below unrelated, unchanged JSON. */
+.patch-set-review__changes {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.patch-set-review__change-row {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+}
+
+.patch-set-review__change-key {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--app-text-muted);
+}
+
+.patch-set-review__change-values {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.patch-set-review__change-before {
+  color: var(--app-text-muted);
+  text-decoration: line-through;
+  overflow-wrap: anywhere;
+}
+
+.patch-set-review__change-arrow {
+  flex-shrink: 0;
+  color: var(--app-text-muted);
+}
+
+.patch-set-review__change-after {
+  color: var(--app-text);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
 }
 
 .patch-set-review__diff {

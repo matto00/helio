@@ -5,7 +5,7 @@
 // suffices (no `renderWithStore`/`Provider` needed).
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import * as metricService from "../services/metricService";
 import type { MetricSummary } from "../types/metric";
@@ -83,5 +83,61 @@ describe("MetricListTable — delete-confirm shows the real usage count (HEL-560
     expect(
       screen.queryByRole("button", { name: "Confirm delete Total Revenue" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("MetricListTable — actions column header (HEL a11y sweep F-204)", () => {
+  it("gives the actions <th> a visually-hidden accessible name instead of an empty header", () => {
+    renderTable();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+  });
+});
+
+describe("MetricListTable — whole-row navigation (HEL UI-sweep F-069)", () => {
+  it("clicking anywhere in the row (not just the Name link) navigates to the metric", () => {
+    render(
+      <MemoryRouter initialEntries={["/metrics"]}>
+        <Routes>
+          <Route
+            path="/metrics"
+            element={
+              <MetricListTable
+                metrics={[metric]}
+                dataTypeNameById={new Map()}
+                onDelete={jest.fn()}
+              />
+            }
+          />
+          <Route path="/metrics/:id" element={<div>Metric detail page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByText("sum"));
+    expect(screen.getByText("Metric detail page")).toBeInTheDocument();
+  });
+
+  it("clicking Delete navigates nowhere and does not also trigger row navigation", () => {
+    mockedFetchUsage.mockResolvedValueOnce({ metricId: "m-1", count: 0, panels: [] });
+    render(
+      <MemoryRouter initialEntries={["/metrics"]}>
+        <Routes>
+          <Route
+            path="/metrics"
+            element={
+              <MetricListTable
+                metrics={[metric]}
+                dataTypeNameById={new Map()}
+                onDelete={jest.fn()}
+              />
+            }
+          />
+          <Route path="/metrics/:id" element={<div>Metric detail page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Total Revenue" }));
+    expect(screen.queryByText("Metric detail page")).not.toBeInTheDocument();
   });
 });

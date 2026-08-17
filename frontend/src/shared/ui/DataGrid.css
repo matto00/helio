@@ -5,6 +5,30 @@
   overflow: auto;
 }
 
+/* ── Scroll-shadow affordance (HEL a11y/ux sweep F-164) ──
+   `overflow: auto` above makes an overflowing table scrollable, but a phone
+   user has no other cue that more columns exist off-screen (native mobile
+   scrollbars are transient/invisible at rest). `useScrollEdges` (DataGrid.tsx)
+   toggles these modifier classes based on real scroll position, and an inset
+   `box-shadow` — rather than a painted gradient — is used deliberately: it
+   composites over whatever the container's actual background is (opaque
+   `--app-surface` in the `preview` variant, or a user-customized panel
+   appearance in the `full` variant, DESIGN.md §0.2) without needing to know
+   or match that color. */
+.ui-data-grid--scroll-left {
+  box-shadow: inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.ui-data-grid--scroll-right {
+  box-shadow: inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.ui-data-grid--scroll-left.ui-data-grid--scroll-right {
+  box-shadow:
+    inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
+    inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
 /* "preview" variant: a bounded, bordered card — used for read-only inline
    previews (type/source/pipeline preview, step preview, schema preview). */
 .ui-data-grid--preview {
@@ -46,10 +70,17 @@
   top: 0;
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-align: left;
   border-bottom: 1px solid var(--app-border-subtle);
   white-space: nowrap;
+  /* Matches `tbody td`'s truncation below — under `table-layout: fixed`
+     (full variant) a header wider than its column's width previously
+     hard-clipped mid-word with no ellipsis (HEL a11y/ux sweep F-153). The
+     `<th>` also carries a native `title` attribute (DataGrid.tsx) for a
+     hover tooltip of the full column name. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Column resize handle (full variant only, HEL-253) ── */

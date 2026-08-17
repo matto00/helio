@@ -1,0 +1,44 @@
+/* New, co-located styles for MetricListTable.tsx — the rest of this table's
+   classes (`.metric-list-table`, `__th`, `__td`, `__link`, `__row` hover,
+   `__th--actions` sizing, `__delete-btn`, ...) live in the page-level
+   `MetricsPage.css` and are unchanged (its now-superseded
+   `.metric-list-table__confirm*`/`__cancel-btn` rules are dead CSS since the
+   delete-confirm affordance moved to the shared `ConfirmInline` component —
+   see crossPackageRequests). This file only adds what was added here: the
+   table's own scroll container + scroll-shadow affordance (HEL a11y/ux
+   sweep F-164), the row-click-to-navigate cursor (F-069), and a reusable
+   visually-hidden-text utility (F-204). */
+
+/* Visually-hidden text: `.sr-only` is defined once, canonically, in
+   theme.css (HEL UI-sweep F-204). */
+
+/* ── Row-click-to-navigate affordance ──
+   The row already shows a hover wash (`.metric-list-table__row:hover` in
+   MetricsPage.css); MetricListTable.tsx now makes the whole row clickable
+   to match, so the cursor should say so too. */
+.metric-list-table__row {
+  cursor: pointer;
+}
+
+/* ── Scroll container + scroll-shadow affordance ──
+   Own scroll region instead of relying on the page-level `.app-content`
+   scroll container. Mirrors `.ui-data-grid`'s inset-box-shadow technique
+   (DataGrid.css). */
+.metric-list-table__scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.metric-list-table__scroll--left {
+  box-shadow: inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.metric-list-table__scroll--right {
+  box-shadow: inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.metric-list-table__scroll--left.metric-list-table__scroll--right {
+  box-shadow:
+    inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
+    inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}

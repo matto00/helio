@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import "./ActionsMenu.css";
 import "./Popover.css";
@@ -16,7 +17,31 @@ interface ActionsMenuProps {
 }
 
 export function ActionsMenu({ label, items }: ActionsMenuProps) {
-  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
+  const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
+    usePortalPopover<HTMLButtonElement>();
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const enabledIndices = items
+    .map((item, index) => (item.disabled ? -1 : index))
+    .filter((index) => index !== -1);
+
+  // Move real DOM focus onto the first enabled item as soon as the menu
+  // opens (WAI-ARIA menu-button pattern) — previously a keyboard-only user
+  // had no way to reach the menu items at all: Enter opened the menu but
+  // focus stayed on the trigger (HEL a11y sweep F-007). Arrow keys below
+  // handle all internal navigation via explicit .focus() calls, so items
+  // intentionally stay out of the sequential Tab order (tabIndex={-1}) —
+  // Tab is reserved for leaving the menu, which usePortalPopover's
+  // close-on-focusout now handles.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const firstIndex = enabledIndices[0];
+    if (firstIndex !== undefined) itemRefs.current[firstIndex]?.focus();
+    // Only re-run when the menu opens/closes — re-focusing on every
+    // `items` identity change would yank focus away from wherever arrow-key
+    // navigation left it during an unrelated re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   function handleToggle() {
     if (isOpen) {
@@ -31,21 +56,59 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
     item.onClick();
   }
 
+  function focusByOffset(currentIndex: number, delta: number) {
+    if (enabledIndices.length === 0) return;
+    const currentEnabledIdx = enabledIndices.indexOf(currentIndex);
+    const nextEnabledIdx =
+      currentEnabledIdx === -1
+        ? 0
+        : (currentEnabledIdx + delta + enabledIndices.length) % enabledIndices.length;
+    itemRefs.current[enabledIndices[nextEnabledIdx]]?.focus();
+  }
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLUListElement>) {
+    const currentIndex = itemRefs.current.findIndex((el) => el === document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusByOffset(currentIndex, 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusByOffset(currentIndex, -1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      const first = enabledIndices[0];
+      if (first !== undefined) itemRefs.current[first]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      const last = enabledIndices[enabledIndices.length - 1];
+      if (last !== undefined) itemRefs.current[last]?.focus();
+    }
+  }
+
   const panel =
     isOpen && panelPos
       ? createPortal(
           <>
-            <button type="button" className="popover__scrim" onClick={close} />
+            <button type="button" className="popover__scrim" tabIndex={-1} onClick={close} />
             <ul
+              ref={(el) => {
+                panelRef.current = el;
+              }}
               className="popover__panel actions-menu__panel"
               role="menu"
+              aria-label={label}
+              onKeyDown={handleMenuKeyDown}
               style={{ position: "fixed", top: panelPos.top, right: panelPos.right, left: "auto" }}
             >
-              {items.map((item) => (
+              {items.map((item, index) => (
                 <li key={item.label} role="none">
                   <button
+                    ref={(el) => {
+                      itemRefs.current[index] = el;
+                    }}
                     type="button"
                     role="menuitem"
+                    tabIndex={-1}
                     className={`actions-menu__item${item.danger ? " actions-menu__item--danger" : ""}`}
                     disabled={item.disabled}
                     onClick={() => handleItemClick(item)}
@@ -70,6 +133,7 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={label}
+        title={label}
       >
         <span className="actions-menu__dots" aria-hidden="true">
           <span />

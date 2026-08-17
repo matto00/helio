@@ -102,6 +102,13 @@ describe("AgentMemoryList — populated render", () => {
     expect(screen.getByText("Prefers dark mode.")).toBeInTheDocument();
     expect(screen.getByText(new Date(factEntry.lastUsedAt!).toLocaleString())).toBeInTheDocument();
   });
+
+  // HEL a11y sweep F-204: the actions column header had no text/aria-label,
+  // so screen readers announced a blank column header.
+  it("gives the actions <th> a visually-hidden accessible name instead of an empty header", () => {
+    renderList([factEntry]);
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+  });
 });
 
 describe("AgentMemoryList — empty state", () => {
@@ -110,6 +117,16 @@ describe("AgentMemoryList — empty state", () => {
 
     expect(screen.getByText("No memory stored yet")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  // F-151 — the empty state used to bypass the `.agent-memory-list` card
+  // wrapper entirely, rendering bare on the page canvas unlike its populated
+  // sibling and unlike Preferences/Beta access's bordered card treatment —
+  // the one case most free/fresh accounts actually see on first load.
+  it("keeps the same bordered `.agent-memory-list` card wrapper as the populated state", () => {
+    renderList([]);
+
+    expect(screen.getByText("No memory stored yet").closest(".agent-memory-list")).not.toBeNull();
   });
 });
 

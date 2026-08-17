@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
@@ -36,9 +36,12 @@ export function Select({
   ariaLabel,
   className,
 }: SelectProps) {
-  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
+  const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
+    usePortalPopover<HTMLButtonElement>();
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [portalTarget, setPortalTarget] = useState<Element | null>(null);
+  const baseId = useId();
+  const listboxId = `${baseId}-listbox`;
 
   const selected = options.find((o) => o.value === value) ?? null;
   const enabledIndices = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i !== -1);
@@ -127,6 +130,10 @@ export function Select({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-controls={listboxId}
+        aria-activedescendant={
+          isOpen && focusedIndex >= 0 ? `${baseId}-option-${focusedIndex}` : undefined
+        }
         aria-label={ariaLabel}
         disabled={disabled}
       >
@@ -152,6 +159,10 @@ export function Select({
               onClick={closePanel}
             />
             <ul
+              ref={(el) => {
+                panelRef.current = el;
+              }}
+              id={listboxId}
               className="ui-select__panel"
               role="listbox"
               style={{
@@ -176,6 +187,13 @@ export function Select({
                     <button
                       type="button"
                       role="option"
+                      id={`${baseId}-option-${index}`}
+                      // Virtual-focus combobox (aria-activedescendant owns
+                      // "which option is highlighted") — real DOM focus stays
+                      // on the trigger the whole time, so options must not be
+                      // separate Tab stops, or Tab would land inside the
+                      // listbox instead of leaving it (HEL a11y sweep F-048).
+                      tabIndex={-1}
                       aria-selected={isSelected}
                       aria-disabled={option.disabled}
                       className={classes}

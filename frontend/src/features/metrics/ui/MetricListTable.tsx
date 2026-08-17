@@ -7,11 +7,14 @@
 // delete is first initiated, so the real bound-panel count is shown before
 // the user confirms — replacing the previous generic "Delete?" copy.
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, type MouseEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { fetchMetricUsage } from "../services/metricService";
 import type { MetricSummary } from "../types/metric";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
+import { useScrollEdges } from "../../../shared/ui/useScrollEdges";
+import "./MetricListTable.css";
 
 interface MetricListTableProps {
   metrics: MetricSummary[];
@@ -34,6 +37,10 @@ function usageLabel(usage: UsageState): string {
 export function MetricListTable({ metrics, dataTypeNameById, onDelete }: MetricListTableProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageState>("loading");
+  const navigate = useNavigate();
+  // Scroll-shadow affordance (HEL a11y/ux sweep F-164) — own scroll
+  // container rather than the page-level `.app-content` region.
+  const { ref: scrollRef, edges: scrollEdges } = useScrollEdges<HTMLDivElement>();
 
   function startDelete(metric: MetricSummary) {
     setConfirmDeleteId(metric.id);
@@ -43,78 +50,94 @@ export function MetricListTable({ metrics, dataTypeNameById, onDelete }: MetricL
       .catch(() => setUsage("error"));
   }
 
+  // Makes the whole row clickable to match the row-level hover affordance
+  // (`.metric-list-table__row:hover` in MetricsPage.css) — previously only
+  // the Name cell's <Link> actually navigated (HEL UI-sweep F-069).
+  // Interactive descendants (the Name link, Delete/Confirm/Cancel) handle
+  // their own click and are excluded so the row handler never double-fires.
+  function handleRowClick(metricId: string) {
+    return (event: MouseEvent<HTMLTableRowElement>) => {
+      if ((event.target as HTMLElement).closest("a, button")) return;
+      navigate(`/metrics/${metricId}`);
+    };
+  }
+
+  const scrollClasses = [
+    "metric-list-table__scroll",
+    scrollEdges.left ? "metric-list-table__scroll--left" : null,
+    scrollEdges.right ? "metric-list-table__scroll--right" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <table className="metric-list-table">
-      <thead>
-        <tr>
-          <th className="metric-list-table__th">Name</th>
-          <th className="metric-list-table__th">Data type</th>
-          <th className="metric-list-table__th">Measure field</th>
-          <th className="metric-list-table__th">Aggregation</th>
-          <th className="metric-list-table__th">Status</th>
-          <th className="metric-list-table__th metric-list-table__th--actions" />
-        </tr>
-      </thead>
-      <tbody>
-        {metrics.map((metric) => {
-          const isConfirming = confirmDeleteId === metric.id;
-          return (
-            <tr key={metric.id} className="metric-list-table__row">
-              <td className="metric-list-table__td">
-                <Link to={`/metrics/${metric.id}`} className="metric-list-table__link">
-                  {metric.name}
-                </Link>
-              </td>
-              <td className="metric-list-table__td">
-                {dataTypeNameById.get(metric.dataTypeId) ?? metric.dataTypeId}
-              </td>
-              <td className="metric-list-table__td">{metric.measureField}</td>
-              <td className="metric-list-table__td">{metric.aggregation}</td>
-              <td className="metric-list-table__td">
-                {metric.deprecated ? (
-                  <span className="metric-status metric-status--deprecated">deprecated</span>
-                ) : (
-                  <span className="metric-status metric-status--active">active</span>
-                )}
-              </td>
-              <td className="metric-list-table__td metric-list-table__td--actions">
-                {isConfirming ? (
-                  <div className="metric-list-table__confirm">
-                    <span className="metric-list-table__confirm-label">{usageLabel(usage)}</span>
-                    <button
-                      type="button"
-                      className="metric-list-table__confirm-btn"
-                      aria-label={`Confirm delete ${metric.name}`}
-                      onClick={() => {
+    <div className={scrollClasses} ref={scrollRef}>
+      <table className="metric-list-table">
+        <thead>
+          <tr>
+            <th className="metric-list-table__th">Name</th>
+            <th className="metric-list-table__th">Data type</th>
+            <th className="metric-list-table__th">Measure field</th>
+            <th className="metric-list-table__th">Aggregation</th>
+            <th className="metric-list-table__th">Status</th>
+            <th className="metric-list-table__th metric-list-table__th--actions">
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((metric) => {
+            const isConfirming = confirmDeleteId === metric.id;
+            return (
+              <tr
+                key={metric.id}
+                className="metric-list-table__row"
+                onClick={handleRowClick(metric.id)}
+              >
+                <td className="metric-list-table__td">
+                  <Link to={`/metrics/${metric.id}`} className="metric-list-table__link">
+                    {metric.name}
+                  </Link>
+                </td>
+                <td className="metric-list-table__td">
+                  {dataTypeNameById.get(metric.dataTypeId) ?? metric.dataTypeId}
+                </td>
+                <td className="metric-list-table__td">{metric.measureField}</td>
+                <td className="metric-list-table__td">{metric.aggregation}</td>
+                <td className="metric-list-table__td">
+                  {metric.deprecated ? (
+                    <span className="metric-status metric-status--deprecated">deprecated</span>
+                  ) : (
+                    <span className="metric-status metric-status--active">active</span>
+                  )}
+                </td>
+                <td className="metric-list-table__td metric-list-table__td--actions">
+                  {isConfirming ? (
+                    <ConfirmInline
+                      label={usageLabel(usage)}
+                      confirmAriaLabel={`Confirm delete ${metric.name}`}
+                      onConfirm={() => {
                         onDelete(metric);
                         setConfirmDeleteId(null);
                       }}
-                    >
-                      Confirm
-                    </button>
+                      onCancel={() => setConfirmDeleteId(null)}
+                    />
+                  ) : (
                     <button
                       type="button"
-                      className="metric-list-table__cancel-btn"
-                      onClick={() => setConfirmDeleteId(null)}
+                      className="metric-list-table__delete-btn"
+                      aria-label={`Delete ${metric.name}`}
+                      onClick={() => startDelete(metric)}
                     >
-                      Cancel
+                      Delete
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="metric-list-table__delete-btn"
-                    aria-label={`Delete ${metric.name}`}
-                    onClick={() => startDelete(metric)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
