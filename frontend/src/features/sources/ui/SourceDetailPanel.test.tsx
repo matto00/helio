@@ -4,6 +4,8 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/service
 import {
   fetchCsvPreview as fetchCsvPreviewRequest,
   refreshSource as refreshSourceRequest,
+  deleteSource as deleteSourceRequest,
+  updateSource as updateSourceRequest,
 } from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourceDetailPanel } from "./SourceDetailPanel";
@@ -15,6 +17,7 @@ jest.mock("../services/dataSourceService", () => ({
   fetchRestPreview: jest.fn(),
   refreshSource: jest.fn(),
   deleteSource: jest.fn(),
+  updateSource: jest.fn(),
 }));
 
 jest.mock("../../dataTypes/services/dataTypeService", () => ({
@@ -26,6 +29,8 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 const refreshSourceMock = jest.mocked(refreshSourceRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const fetchCsvPreviewMock = jest.mocked(fetchCsvPreviewRequest);
+const deleteSourceMock = jest.mocked(deleteSourceRequest);
+const updateSourceMock = jest.mocked(updateSourceRequest);
 
 const csvSource: DataSource = {
   id: "src-1",
@@ -55,6 +60,9 @@ describe("SourceDetailPanel", () => {
     refreshSourceMock.mockReset();
     fetchDataTypesMock.mockReset();
     fetchDataTypesMock.mockResolvedValue([]);
+    deleteSourceMock.mockReset();
+    deleteSourceMock.mockResolvedValue(undefined);
+    updateSourceMock.mockReset();
   });
 
   it("renders the schema table when a linked DataType has fields", () => {
@@ -129,5 +137,72 @@ describe("SourceDetailPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/failed to refresh source/i);
+  });
+
+  it("F-179: the truncated source name carries a title attribute with the full name", () => {
+    renderWithStore(<SourceDetailPanel source={csvSource} />, {
+      dataTypes: { items: [linkedType] },
+    });
+    expect(screen.getByText("Sales CSV")).toHaveAttribute("title", "Sales CSV");
+  });
+
+  describe("delete confirmation (F-012)", () => {
+    it("requires confirmation before deleting — no single-click delete", () => {
+      renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /delete and re-upload/i }));
+
+      expect(deleteSourceMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /confirm delete/i })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+      expect(deleteSourceMock).toHaveBeenCalledWith("src-1");
+    });
+
+    it("Cancel backs out without deleting", () => {
+      renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /delete and re-upload/i }));
+      fireEvent.click(screen.getByRole("button", { name: /cancel delete/i }));
+
+      expect(deleteSourceMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /delete and re-upload/i })).toBeInTheDocument();
+    });
+  });
+
+  describe("inline rename (F-070)", () => {
+    it("commits a rename via updateSource on Enter", async () => {
+      updateSourceMock.mockResolvedValue({ ...csvSource, name: "Renamed Sales CSV" });
+      renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [linkedType] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /rename sales csv/i }));
+      const input = screen.getByRole("textbox", { name: /rename sales csv/i });
+      fireEvent.change(input, { target: { value: "Renamed Sales CSV" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      await waitFor(() =>
+        expect(updateSourceMock).toHaveBeenCalledWith("src-1", "Renamed Sales CSV"),
+      );
+    });
+
+    it("Escape cancels without saving", () => {
+      renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [linkedType] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /rename sales csv/i }));
+      const input = screen.getByRole("textbox", { name: /rename sales csv/i });
+      fireEvent.change(input, { target: { value: "Something else" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+
+      expect(updateSourceMock).not.toHaveBeenCalled();
+      expect(screen.getByText("Sales CSV")).toBeInTheDocument();
+    });
   });
 });

@@ -3,6 +3,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { type FormEvent, useState } from "react";
 
+import { InlineError } from "../../../shared/chrome/InlineError";
 import type { StaticColumn, StaticColumnType } from "../types/dataSource";
 import { Select, TextField } from "../../../shared/ui/index";
 
@@ -63,6 +64,14 @@ export function StaticSourceForm({
 
   function handleNextStep(e: FormEvent) {
     e.preventDefault();
+    // F-180: require the source name before advancing to the rows step —
+    // otherwise that step's "Enter data rows for <name>." hint renders with
+    // a blank name. Mirrors the CSV/REST configure form's own name gate
+    // before "Preview schema".
+    if (!name.trim()) {
+      setColumnError("Source name is required.");
+      return;
+    }
     const hasEmpty = columns.some((col) => !col.name.trim());
     if (columns.length === 0 || hasEmpty) {
       setColumnError("All columns must have a name.");
@@ -153,18 +162,13 @@ export function StaticSourceForm({
 
         <button
           type="button"
-          className="add-source-modal__btn add-source-modal__btn--secondary"
+          className="add-source-modal__btn add-source-modal__btn--secondary add-source-modal__btn--align-start"
           onClick={addColumn}
-          style={{ alignSelf: "flex-start" }}
         >
           + Add column
         </button>
 
-        {columnError && (
-          <p className="add-source-modal__error" role="alert">
-            {columnError}
-          </p>
-        )}
+        <InlineError error={columnError} />
 
         <div className="add-source-modal__actions">
           <button
@@ -188,7 +192,7 @@ export function StaticSourceForm({
         Enter data rows for <strong>{name}</strong>.
       </p>
 
-      <div style={{ overflowX: "auto" }}>
+      <div className="add-source-modal__table-wrap">
         <table className="add-source-modal__fields-table" aria-label="Data rows">
           <thead>
             <tr>
@@ -205,8 +209,7 @@ export function StaticSourceForm({
               <tr>
                 <td
                   colSpan={columns.length + 1}
-                  className="add-source-modal__empty"
-                  style={{ textAlign: "center", padding: "1rem" }}
+                  className="add-source-modal__empty add-source-modal__empty-cell"
                 >
                   No rows yet. Click &ldquo;Add row&rdquo; to start.
                 </td>
@@ -243,18 +246,13 @@ export function StaticSourceForm({
 
       <button
         type="button"
-        className="add-source-modal__btn add-source-modal__btn--secondary"
+        className="add-source-modal__btn add-source-modal__btn--secondary add-source-modal__btn--align-start"
         onClick={addRow}
-        style={{ alignSelf: "flex-start" }}
       >
         + Add row
       </button>
 
-      {error && (
-        <p className="add-source-modal__error" role="alert">
-          {error}
-        </p>
-      )}
+      <InlineError error={error} />
 
       <div className="add-source-modal__actions">
         <button

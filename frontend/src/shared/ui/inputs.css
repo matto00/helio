@@ -48,6 +48,21 @@
   cursor: not-allowed;
 }
 
+/* Validation state (HEL UI-sweep F-052) — a field a validator has flagged as
+   invalid. Mirrors the focus-ring recipe with the error intent in place of
+   the accent: an error-toned border always, plus the halo only while
+   focused (so an invalid-but-unfocused field doesn't carry a permanent ring). */
+.ui-input[aria-invalid="true"],
+.ui-textarea[aria-invalid="true"] {
+  border-color: var(--app-error);
+}
+
+.ui-input[aria-invalid="true"]:focus-visible,
+.ui-textarea[aria-invalid="true"]:focus-visible {
+  border-color: var(--app-error);
+  box-shadow: 0 0 0 3px var(--app-error-surface);
+}
+
 .ui-input--mono {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
