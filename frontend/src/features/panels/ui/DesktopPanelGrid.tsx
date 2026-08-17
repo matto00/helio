@@ -79,6 +79,11 @@ export function DesktopPanelGrid({
   const [isDragging, setIsDragging] = useState(false);
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
   const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
+  // F-123 — the "Customize" panel-actions-menu item (wired to `onDetail`)
+  // opens the settings form directly; a plain card click (`onCardClick`)
+  // still opens the read-only view. Both previously funneled into the same
+  // `setDetailPanelId` call with no way to tell them apart.
+  const [detailPanelMode, setDetailPanelMode] = useState<"view" | "edit">("view");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
@@ -182,6 +187,7 @@ export function DesktopPanelGrid({
     const pos = mousedownPos.current;
     if (pos !== null && Math.abs(e.clientX - pos.x) + Math.abs(e.clientY - pos.y) > 5) return;
     if ((e.target as Element).closest("button, input, a, .react-resizable-handle")) return;
+    setDetailPanelMode("view");
     setDetailPanelId(panelId);
   }, []);
 
@@ -194,6 +200,9 @@ export function DesktopPanelGrid({
   }, []);
 
   const handleDetail = useCallback((panelId: string) => {
+    // F-123 — "Customize" in the panel actions menu should open the editor
+    // directly, not the same read-only view a plain card click lands on.
+    setDetailPanelMode("edit");
     setDetailPanelId(panelId);
   }, []);
 
@@ -299,6 +308,7 @@ export function DesktopPanelGrid({
           key={detailPanelId}
           panel={panels.find((p) => p.id === detailPanelId)!}
           onClose={() => setDetailPanelId(null)}
+          initialMode={detailPanelMode}
         />
       ) : null}
     </>

@@ -439,14 +439,27 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             fieldMapping, so the field-mapping controls above stay
             independently editable. */}
         {selectedType && (panel.type === "chart" || panel.type === "table") && (
-          <MetricPicker
-            metrics={metricBinding.metrics}
-            metricsStatus={metricBinding.metricsStatus}
-            selectedMetricId={metricBinding.selectedMetricId}
-            onSelect={metricBinding.setSelectedMetricId}
-            showResolvedFields={false}
-            deprecated={metricDeprecated}
-          />
+          <>
+            <MetricPicker
+              metrics={metricBinding.metrics}
+              metricsStatus={metricBinding.metricsStatus}
+              selectedMetricId={metricBinding.selectedMetricId}
+              onSelect={metricBinding.setSelectedMetricId}
+              showResolvedFields={false}
+              deprecated={metricDeprecated}
+            />
+            {/* F-122 — unlike the Metric panel (where binding a metric
+                replaces the Field/Reduce controls entirely), a chart/table's
+                Field mapping/Aggregation above is what actually drives its
+                rendered output; the metric binding here is recorded but not
+                yet applied to that output (HEL-500's Chart/Table
+                materialization follow-up). Make that explicit instead of
+                leaving an interactive control with no visible effect. */}
+            <p className="panel-detail-modal__field-hint">
+              Metric binding isn&apos;t applied to chart/table output yet — configure Field
+              mapping/Aggregation above instead.
+            </p>
+          </>
         )}
 
         {/* HEL-624 — the backend rejects scatter + aggregation (each scatter
@@ -504,6 +517,8 @@ export const BindingEditor = forwardRef<PanelEditorHandle, BindingEditorProps>(
             onToggleVisible={tableDisplay.toggleVisible}
             onMoveUp={tableDisplay.moveUp}
             onMoveDown={tableDisplay.moveDown}
+            onMoveToTop={tableDisplay.moveToTop}
+            onMoveToBottom={tableDisplay.moveToBottom}
             hasStoredWidths={tableDisplay.hasStoredWidths}
             resetWidthsPending={tableDisplay.resetWidthsPending}
             onResetWidths={tableDisplay.requestResetWidths}

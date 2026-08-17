@@ -68,7 +68,11 @@
 .preferences-editor__field input[type="color"] {
   width: 100%;
   min-height: var(--control-md);
-  border: 1px solid var(--app-border-subtle);
+  /* F-233: keeps the swatch boundary legible no matter which theme or fill
+     color is currently active — see `--app-swatch-ring`'s own doc comment
+     in theme.css for why this is a dedicated theme-invariant token rather
+     than one of the existing theme-derived border tokens. */
+  border: 1px solid var(--app-swatch-ring);
   border-radius: var(--app-radius-sm);
   background: transparent;
   cursor: pointer;
@@ -83,6 +87,9 @@
 
 .preferences-editor__slider input[type="range"] {
   width: 100%;
+  /* F-062 — match the app-accent thumb color every other slider/checkbox in
+     the app uses instead of the browser's default blue. */
+  accent-color: var(--app-accent);
 }
 
 .preferences-editor__slider strong {
@@ -112,6 +119,15 @@
   margin: 0;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
+}
+
+/* F-152: live duplicate-key warning (see `duplicateNamingKeys()` in
+   PreferencesEditor.tsx). Warning intent, not error -- nothing has been
+   lost yet, Save is simply blocked until it's resolved. */
+.preferences-editor__naming-warning {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-warning);
 }
 
 /* ── Shared row-action buttons ── */
@@ -172,6 +188,14 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+}
+
+/* F-150: inline success confirmation, mirroring `TypeDetailPanel.css`'s
+   `.type-detail-panel__saved` recipe. */
+.preferences-editor__saved {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-success);
 }
 
 .preferences-editor__save-btn {

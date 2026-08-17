@@ -7,6 +7,22 @@ import { makeCollectionPanel } from "../../../test/panelFixtures";
 import type { DataType } from "../../dataTypes/types/dataType";
 import { PanelDetailModal } from "./PanelDetailModal";
 
+// This suite's tree includes a chart panel path — `ChartPanel.tsx` renders via
+// `echarts-for-react/esm/core` (F-022, tree-shaken `echarts/core`
+// registration) rather than the default `echarts-for-react` export. Mirrors
+// the mock in the co-located `ChartPanel.test.tsx`: this project's CommonJS
+// Jest transform can't handle `echarts`'s ESM-only subpath exports, so both
+// the `/core` entry and the registration module (`echartsCore.ts`, a
+// ship-time bundle-size concern only, irrelevant to anything under test
+// here) are stubbed.
+jest.mock("echarts-for-react/esm/core", () => ({
+  __esModule: true,
+  default: ({ option }: { option: unknown }) => (
+    <div data-testid="echarts" data-option={JSON.stringify(option)} />
+  ),
+}));
+jest.mock("./echartsCore", () => ({ __esModule: true, default: {} }));
+
 // HEL-247 — the Collection editor issues a single config PATCH via
 // `updatePanelCollection` following the absent-vs-null convention: a
 // layout-only change carries `layout` but not unrelated cleared fields.

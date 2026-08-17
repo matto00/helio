@@ -17,6 +17,22 @@ import {
 } from "../../../test/panelFixtures";
 import { PanelDetailModal } from "./PanelDetailModal";
 
+// This suite exercises chart panels (`makeChartPanel`), which pull in
+// `ChartPanel.tsx` — it renders via `echarts-for-react/esm/core` (F-022,
+// tree-shaken `echarts/core` registration) rather than the default
+// `echarts-for-react` export. Mirrors the mock in the co-located
+// `ChartPanel.test.tsx`: this project's CommonJS Jest transform can't handle
+// `echarts`'s ESM-only subpath exports, so both the `/core` entry and the
+// registration module (`echartsCore.ts`, a ship-time bundle-size concern
+// only, irrelevant to anything under test here) are stubbed.
+jest.mock("echarts-for-react/esm/core", () => ({
+  __esModule: true,
+  default: ({ option }: { option: unknown }) => (
+    <div data-testid="echarts" data-option={JSON.stringify(option)} />
+  ),
+}));
+jest.mock("./echartsCore", () => ({ __esModule: true, default: {} }));
+
 jest.mock("../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
@@ -159,6 +175,15 @@ describe("PanelDetailModal", () => {
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Appearance" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  // F-123 — "Customize" in the panel actions menu passes initialMode="edit"
+  // so it opens straight into the settings form, instead of landing on the
+  // same read-only view a plain card click opens.
+  it("opens directly in edit mode when initialMode is 'edit'", () => {
+    renderWithStore(<PanelDetailModal panel={testPanel} onClose={jest.fn()} initialMode="edit" />);
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
   });
 
   it("modal opens in view mode — tab bar not visible, Edit button visible", () => {

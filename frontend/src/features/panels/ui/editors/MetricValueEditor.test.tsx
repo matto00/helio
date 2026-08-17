@@ -74,4 +74,47 @@ describe("MetricValueEditor", () => {
     fireEvent.click(screen.getByRole("option", { name: "price" }));
     expect(onFieldChange).toHaveBeenCalledWith("price");
   });
+
+  // F-120
+  it("shows a first-row hint once a field is bound with Reduce left at None", () => {
+    render(
+      <MetricValueEditor
+        fieldOptions={fieldOptions}
+        fieldValue="price"
+        onFieldChange={jest.fn()}
+        reduceValue=""
+        onReduceChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Shows only the first row's value/)).toBeInTheDocument();
+  });
+
+  it("does not show the first-row hint when no field is bound yet", () => {
+    render(
+      <MetricValueEditor
+        fieldOptions={fieldOptions}
+        fieldValue=""
+        onFieldChange={jest.fn()}
+        reduceValue=""
+        onReduceChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Shows only the first row's value/)).toBeNull();
+  });
+
+  it("does not show the first-row hint once a real Reduce function is chosen", () => {
+    render(
+      <MetricValueEditor
+        fieldOptions={fieldOptions}
+        fieldValue="price"
+        onFieldChange={jest.fn()}
+        reduceValue="sum"
+        onReduceChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Shows only the first row's value/)).toBeNull();
+  });
 });
