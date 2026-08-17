@@ -24,9 +24,17 @@ setupAuthInterceptor(
 function ThemedApp() {
   const dispatch = useDispatch<AppDispatch>();
   const isAuthenticated = useSelector((state: RootState) => state.auth.status === "authenticated");
+  // F-061: the authenticated user's saved accent preference — the one remaining feed into
+  // ThemeProvider now that authSlice.ts no longer applies accent tokens to the DOM directly.
+  const preferredAccentColor = useSelector(
+    (state: RootState) => state.auth.currentUser?.preferences?.accentColor ?? null,
+  );
 
   function handleAccentChange(color: string) {
-    if (isAuthenticated) {
+    // Guards against PATCHing back a value that just arrived FROM the server via
+    // `preferredAccentColor` — without this, ThemeProvider's own sync effect (which calls this
+    // same callback path indirectly through a user-driven change) could round-trip a no-op save.
+    if (isAuthenticated && color !== preferredAccentColor) {
       dispatch(
         updateUserPreferences({
           fields: ["accentColor"],
@@ -37,7 +45,7 @@ function ThemedApp() {
   }
 
   return (
-    <ThemeProvider onAccentChange={handleAccentChange}>
+    <ThemeProvider onAccentChange={handleAccentChange} preferredAccentColor={preferredAccentColor}>
       <OverlayProvider>
         <App />
       </OverlayProvider>

@@ -4,6 +4,9 @@
 // Value input is hidden for unary operators (is null / is not null).
 // Value input type adapts to field type: "number" for numeric types, "text" otherwise.
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
 
@@ -140,11 +143,11 @@ export function FilterConfig({ config, analyzeSchema, onChange }: FilterConfigPr
               {/* Remove button */}
               <button
                 type="button"
-                className="pipeline-detail-page__filter-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove condition ${index + 1}`}
                 onClick={() => handleRemoveCondition(index)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           );

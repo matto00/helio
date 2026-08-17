@@ -1,4 +1,5 @@
 import "./PanelContent.css";
+import { Spinner } from "../../../shared/ui/Spinner";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
@@ -63,7 +64,7 @@ export function PanelContent({
   if (isLoading) {
     return (
       <div className="panel-content panel-content--state" aria-label="Loading data">
-        <span className="panel-content__spinner" aria-hidden="true" />
+        <Spinner size="xl" />
         <span className="panel-content__state-label">Loading...</span>
       </div>
     );

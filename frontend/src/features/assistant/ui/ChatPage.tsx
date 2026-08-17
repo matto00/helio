@@ -19,11 +19,17 @@ export function ChatPage() {
   // this page's `status === "failed"` branch below.
   const isFreeTier = currentUser?.tier === "free";
 
+  // F-104 — every remount of `ChatPage` (e.g. navigating away and back)
+  // re-issued `fetchConversations()` even though the list was already
+  // loaded and unchanged. `fetchConversations` itself has no dedupe
+  // `condition` (unlike `fetchPanels`/`fetchPipelines`), so the guard lives
+  // here at the call site instead: skip while a fetch is already in flight
+  // or has already succeeded, but still allow a retry from `failed`.
   useEffect(() => {
-    if (!isFreeTier) {
+    if (!isFreeTier && status !== "loading" && status !== "succeeded") {
       void dispatch(fetchConversations());
     }
-  }, [dispatch, isFreeTier]);
+  }, [dispatch, isFreeTier, status]);
 
   return (
     <div className="chat-page">

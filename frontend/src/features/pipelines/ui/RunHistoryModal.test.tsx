@@ -122,3 +122,29 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
     expect(screen.queryByRole("button", { name: "Show log" })).not.toBeInTheDocument();
   });
 });
+
+describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
+  it("renders the shared EmptyState primitive (not ad-hoc text) when there are no runs", () => {
+    render(<RunHistoryModal runs={[]} onClose={jest.fn()} />);
+
+    expect(screen.getByText("No runs recorded yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Run or dry-run this pipeline to see its history here."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a sentence-cased status label via the shared StatusChip (not the raw lowercase status)", () => {
+    const run = makeRun({ status: "succeeded" });
+    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+
+    expect(screen.getByText("Succeeded")).toBeInTheDocument();
+    expect(screen.queryByText("succeeded")).not.toBeInTheDocument();
+  });
+
+  it("labels a dry_run row as sentence-case 'Dry run'", () => {
+    const run = makeRun({ status: "dry_run" });
+    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+
+    expect(screen.getByText("Dry run")).toBeInTheDocument();
+  });
+});

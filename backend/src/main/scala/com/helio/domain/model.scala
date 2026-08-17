@@ -175,8 +175,10 @@ object ChartAppearance {
     legend  = ChartLegend(show = true, position = "top"),
     tooltip = ChartTooltip(enabled = true),
     axisLabels = ChartAxisLabels(
-      x = ChartAxisLabel(show = true, label = Some("X Axis")),
-      y = ChartAxisLabel(show = true, label = Some("Y Axis"))
+      // Beta UI-audit F-095: an unconfigured chart shouldn't render a literal placeholder axis
+      // title. Mirrors frontend/src/theme/appearance.ts's defaultChartAppearance.
+      x = ChartAxisLabel(show = true, label = Some("")),
+      y = ChartAxisLabel(show = true, label = Some(""))
     ),
     chartType = Some("line")
   )

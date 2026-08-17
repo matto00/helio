@@ -107,13 +107,13 @@ describe("ProposalReview", () => {
     expect(screen.getByText(/source companion/i)).toBeInTheDocument();
   });
 
-  it("flags an unbound collection panel with a 'needs bound DataType' warning (HEL-310)", () => {
+  it("flags an unbound collection panel with a 'needs bound data type' warning (HEL-310)", () => {
     const proposal: DashboardProposal = {
       dashboardName: "Unbound Collection",
       panels: [{ title: "Top Metrics", type: "collection" }],
     };
     renderReview({ proposal });
-    expect(screen.getByText("No DataType bound")).toBeInTheDocument();
+    expect(screen.getByText("No data type bound")).toBeInTheDocument();
   });
 
   it("disables accept while applying and shows a server error", () => {

@@ -57,9 +57,8 @@ function extractConverseError(err: unknown): ConverseErrorPayload {
 // different UI surfaces reading the same `currentUser.tier`, so the copy is centralized here
 // (rather than duplicated as inline string literals) to keep them from drifting apart.
 export const TierRequestAccessCopy = {
-  title: "Chat access is limited",
-  description:
-    "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+  title: "Assistant access is limited",
+  description: "Assistant access is limited during this rollout. Request access in Settings.",
 };
 
 interface AssistantConversationsState {
