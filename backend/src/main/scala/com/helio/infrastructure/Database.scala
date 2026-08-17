@@ -24,7 +24,6 @@ object Database {
       .configure()
       .dataSource(url, user, password)
       .locations("classpath:db/migration")
-      .outOfOrder(true) // TEMPORARY: reconciling prod's V89 hole (HEL-702 deployed after HEL-704's V90). REVERT next deploy.
       .load()
       .migrate()
 
