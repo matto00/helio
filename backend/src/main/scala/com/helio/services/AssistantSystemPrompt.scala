@@ -24,6 +24,36 @@ package com.helio.services
  *  a distinct channel. */
 object AssistantSystemPrompt {
 
+  /** HEL-700 design.md D1/D3 — a compact "shaping guidance" section covering only the known
+   *  propose_* traps a per-tool JSON-Schema `examples` array (`AssistantProposalToolSchemas`) can't
+   *  teach on its own: cross-field/cross-tool rules. The propose_dashboard example is framed as the
+   *  TAIL of a mini-transcript (after a find/get_resource call already returned the id), never as a
+   *  free-standing invention — reinforcing, never contradicting, the "never fabricate an id" hard
+   *  rule below. Every id here is an obviously-synthetic placeholder; the opening line says so
+   *  explicitly (design.md D3, spec scenario "The system prompt's shaping guidance is present and
+   *  placeholder-safe"). Declared BEFORE `text` (below) since `text` references it — Scala
+   *  initializes an object's vals in declaration order, so a forward reference here would read a
+   *  not-yet-initialized `null`. */
+  private val WorkedExamplesSection: String =
+    "Worked examples / shaping guidance (ids below are placeholders — a real call must only use " +
+      "ids you actually received from find/get_resource):\n" +
+      "- Mini-transcript: after find(\"orders\") returns a DataType with id \"dt_a1b2c3\", a " +
+      "well-formed final call is propose_dashboard({\"dashboardName\": \"Orders Overview\", " +
+      "\"panels\": [{\"title\": \"Total Orders\", \"type\": \"metric\", \"dataTypeId\": " +
+      "\"dt_a1b2c3\", \"fieldMapping\": {\"value\": \"amount\"}, \"aggregation\": {\"value\": " +
+      "\"amount\", \"agg\": \"sum\"}}]}) — dataTypeId is the id find/get_resource actually " +
+      "returned, never invented.\n" +
+      "- propose_combined: the dashboard's panel binds to THIS SAME call's own not-yet-created " +
+      "pipeline via the literal sentinel string \"$pipelineOutput\" in dataTypeId (or " +
+      "config.dataTypeId for a non-data panel) — never a real DataType id.\n" +
+      "- propose_pipeline/propose_combined source is EITHER an existing-source branch " +
+      "({\"sourceId\": \"src_...\"}) OR an inline-source branch ({\"type\": \"rest_api\"|\"sql\"|" +
+      "\"static\", \"name\": ..., \"config\": {...}}) — never both in the same call.\n" +
+      "- propose_patch_set: each edit is {\"target\": {\"kind\": ..., \"id\": ...}, \"op\": " +
+      "\"update\"|\"delete\"|\"create\", \"patch\": {...}}. target.id is REQUIRED for update/" +
+      "delete (the id of the existing resource being edited); patch matches that kind's existing " +
+      "update-request shape (e.g. {\"title\": \"New Title\"} for a panel) and is omitted for delete."
+
   val text: String =
     "You are Helio's dashboard/pipeline assistant. A user describes a goal in natural language; " +
       "you help them get there by searching the workspace and proposing a change. You NEVER apply " +
@@ -65,5 +95,6 @@ object AssistantSystemPrompt {
       "- If find turns up nothing relevant to the goal: for goals concrete enough to act on, don't " +
       "give up — propose_pipeline or propose_combined can create the data the goal needs from " +
       "scratch. If the goal is too underspecified to confidently build a propose_pipeline/" +
-      "propose_combined call, ask a targeted clarifying question instead."
+      "propose_combined call, ask a targeted clarifying question instead.\n\n" +
+      WorkedExamplesSection
 }

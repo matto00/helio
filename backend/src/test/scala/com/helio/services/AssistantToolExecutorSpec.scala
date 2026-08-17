@@ -133,6 +133,19 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       await(executor.execute("propose_dashboard", input)) shouldBe a[Left[_, _]]
     }
 
+    // HEL-700 tasks.md 3.3 (design.md D4) — decode failure increments proposeDecodeFailures AND
+    // proposeAttempts, never proposeValidationFailures.
+    "increment proposeAttempts and proposeDecodeFailures (not proposeValidationFailures) for unparseable input" in {
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val input     = JsObject("dashboardName" -> JsNumber(1))
+
+      await(executor.execute("propose_dashboard", input))
+
+      executor.proposeAttempts shouldBe 1
+      executor.proposeDecodeFailures shouldBe 1
+      executor.proposeValidationFailures shouldBe 0
+    }
+
     "validate, capture the proposal on success, and echo it back as the tool_result" in {
       val dtRepo = mock(classOf[DataTypeRepository])
       when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
@@ -151,6 +164,36 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
       result shouldBe a[Right[_, _]]
       executor.proposal shouldBe Some(AssistantProposal.Dashboard(proposal))
+
+      // HEL-700 tasks.md 3.3 — a clean call counts as an attempt with zero failures.
+      executor.proposeAttempts shouldBe 1
+      executor.proposeDecodeFailures shouldBe 0
+      executor.proposeValidationFailures shouldBe 0
+    }
+
+    // HEL-700 tasks.md 3.3 (design.md D4) — a decodable but semantically-invalid proposal (its
+    // dataTypeId resolves to nothing) increments proposeValidationFailures, never
+    // proposeDecodeFailures — decode already succeeded before validate ever ran.
+    "increment proposeAttempts and proposeValidationFailures (not proposeDecodeFailures) when validate rejects a decodable proposal" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(None))
+      val executor = newExecutor(dtRepo)
+
+      val panel    = ProposalPanel(
+        title = "Total", `type` = "metric", dataTypeId = Some(outputId.value), metricId = None,
+        fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
+        url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
+        seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None
+      )
+      val proposal = DashboardProposal("Sales", Vector(panel))
+      val input     = executorJson.dashboardProposalFormat.write(proposal)
+
+      val result = await(executor.execute("propose_dashboard", input))
+
+      result shouldBe a[Left[_, _]]
+      executor.proposeAttempts shouldBe 1
+      executor.proposeDecodeFailures shouldBe 0
+      executor.proposeValidationFailures shouldBe 1
     }
   }
 
@@ -178,6 +221,30 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "return Left for unparseable input without touching the patch-set preview service" in {
       val executor = newExecutor(mock(classOf[DataTypeRepository]))
       await(executor.execute("propose_patch_set", JsObject("edits" -> JsNumber(1)))) shouldBe a[Left[_, _]]
+    }
+  }
+
+  // HEL-700 tasks.md 3.3 (design.md D4) — find/get_resource dispatch paths never touch the
+  // propose-call counters, even across multiple calls.
+  "propose-call counters" should {
+
+    "stay at zero across find and get_resource calls" in {
+      val dtRepo  = mock(classOf[DataTypeRepository])
+      val rowRepo = mock(classOf[DataTypeRowRepository])
+      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+      when(rowRepo.listRows(meq(outputId.value), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
+      val executor = newExecutor(dtRepo, rowRepo)
+      when(dtRepo.findAll(ownerId, Page.Default, None)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
+
+      // resourceTypes restricted to "dataType" only — this executor's other 4 WorkspaceSearchService
+      // collaborators (dashboard/dataSource/pipeline/metric) are null (mirrors this file's own
+      // established null-unused pattern); an unrestricted find would NPE on one of them.
+      await(executor.execute("find", JsObject("query" -> JsString("orders"), "resourceTypes" -> JsArray(JsString("dataType")))))
+      await(executor.execute("get_resource", JsObject("id" -> JsString(outputId.value), "type" -> JsString("dataType"))))
+
+      executor.proposeAttempts shouldBe 0
+      executor.proposeDecodeFailures shouldBe 0
+      executor.proposeValidationFailures shouldBe 0
     }
   }
 

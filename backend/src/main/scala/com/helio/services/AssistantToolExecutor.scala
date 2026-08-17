@@ -17,7 +17,7 @@ import com.helio.api.protocols.{
 import com.helio.domain.{AuthenticatedUser, DataTypeId, WorkspaceResourceType}
 import spray.json._
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -56,6 +56,24 @@ final class AssistantToolExecutor(
   private val capturedProposal: AtomicReference[Option[AssistantProposal]] = new AtomicReference(None)
 
   def proposal: Option[AssistantProposal] = capturedProposal.get()
+
+  /** HEL-700 design.md D4/D7 — per-turn propose-call quality counters, `AtomicInteger` for the SAME
+   *  concurrency reason `capturedProposal` above is an `AtomicReference`: `ClaudeClient.sendWithTools`
+   *  executes every same-hop `tool_use` block concurrently via `Future.traverse`. Counted ONLY in the
+   *  four `executeProposeX` dispatch paths below — `executeFind`/`executeGetResource` never touch
+   *  these. `proposeAttemptsCounter` increments once per `propose_*` dispatch, unconditionally,
+   *  BEFORE decode is attempted; `proposeDecodeFailuresCounter` increments only when `decode` returns
+   *  `Left` (the shaping signal this ticket exists to measure); `proposeValidationFailuresCounter`
+   *  increments only when a successfully-decoded proposal's `validate`/`preview` call returns `Left`.
+   *  Integer counts only — never the failing `tool_use.input` payload or its deserialization error
+   *  text (design.md D7, mirrors this class's own privacy discipline for `find`/`get_resource`). */
+  private val proposeAttemptsCounter: AtomicInteger           = new AtomicInteger(0)
+  private val proposeDecodeFailuresCounter: AtomicInteger     = new AtomicInteger(0)
+  private val proposeValidationFailuresCounter: AtomicInteger = new AtomicInteger(0)
+
+  def proposeAttempts: Int           = proposeAttemptsCounter.get()
+  def proposeDecodeFailures: Int     = proposeDecodeFailuresCounter.get()
+  def proposeValidationFailures: Int = proposeValidationFailuresCounter.get()
 
   override def execute(name: String, input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
     name match {
@@ -133,53 +151,77 @@ final class AssistantToolExecutor(
 
   // ── propose_* (design.md D5/D6, Hard Boundary) ──────────────────────────────────────────────
 
-  private def executeProposeDashboard(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
+  private def executeProposeDashboard(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+    proposeAttemptsCounter.incrementAndGet()
     decode[DashboardProposal](input, "propose_dashboard") match {
-      case Left(err) => Future.successful(Left(err))
+      case Left(err) =>
+        proposeDecodeFailuresCounter.incrementAndGet()
+        Future.successful(Left(err))
       case Right(proposal) =>
         dashboardProposalService.validate(proposal, user).map {
-          case Left(err) => Left(err.message)
+          case Left(err) =>
+            proposeValidationFailuresCounter.incrementAndGet()
+            Left(err.message)
           case Right(_) =>
             capturedProposal.set(Some(AssistantProposal.Dashboard(proposal)))
             Right(proposal.toJson.compactPrint)
         }
     }
+  }
 
-  private def executeProposePipeline(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
+  private def executeProposePipeline(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+    proposeAttemptsCounter.incrementAndGet()
     decode[PipelineProposal](input, "propose_pipeline") match {
-      case Left(err) => Future.successful(Left(err))
+      case Left(err) =>
+        proposeDecodeFailuresCounter.incrementAndGet()
+        Future.successful(Left(err))
       case Right(proposal) =>
         pipelineProposalService.validate(proposal, user).map {
-          case Left(err) => Left(err.message)
+          case Left(err) =>
+            proposeValidationFailuresCounter.incrementAndGet()
+            Left(err.message)
           case Right(_) =>
             capturedProposal.set(Some(AssistantProposal.Pipeline(proposal)))
             Right(proposal.toJson.compactPrint)
         }
     }
+  }
 
-  private def executeProposeCombined(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
+  private def executeProposeCombined(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+    proposeAttemptsCounter.incrementAndGet()
     decode[CombinedProposal](input, "propose_combined") match {
-      case Left(err) => Future.successful(Left(err))
+      case Left(err) =>
+        proposeDecodeFailuresCounter.incrementAndGet()
+        Future.successful(Left(err))
       case Right(proposal) =>
         combinedProposalService.validate(proposal, user).map {
-          case Left(err) => Left(err.message)
+          case Left(err) =>
+            proposeValidationFailuresCounter.incrementAndGet()
+            Left(err.message)
           case Right(_) =>
             capturedProposal.set(Some(AssistantProposal.Combined(proposal)))
             Right(proposal.toJson.compactPrint)
         }
     }
+  }
 
-  private def executeProposePatchSet(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
+  private def executeProposePatchSet(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+    proposeAttemptsCounter.incrementAndGet()
     decode[PatchSet](input, "propose_patch_set") match {
-      case Left(err) => Future.successful(Left(err))
+      case Left(err) =>
+        proposeDecodeFailuresCounter.incrementAndGet()
+        Future.successful(Left(err))
       case Right(patchSet) =>
         patchSetPreviewService.preview(patchSet, user).map {
-          case Left(err) => Left(err.message)
+          case Left(err) =>
+            proposeValidationFailuresCounter.incrementAndGet()
+            Left(err.message)
           case Right(preview) =>
             capturedProposal.set(Some(AssistantProposal.Patch(patchSet, preview)))
             Right(preview.toJson.compactPrint)
         }
     }
+  }
 
   /** `input.convertTo[T]` either succeeds or throws `DeserializationException` (design.md D5 —
    *  `tool_use.input` arrives as already-structured JSON per Claude's own function-calling

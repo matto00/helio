@@ -166,6 +166,12 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
 
       result.proposal shouldBe Some(AssistantProposal.Dashboard(expected))
       transport.toolInvocations shouldBe 2
+
+      // HEL-700 tasks.md 3.4 (design.md D5) — a FinalResponse outcome carries the executor's own
+      // propose-call counters: one clean attempt, zero failures.
+      result.proposeAttempts shouldBe 1
+      result.proposeDecodeFailures shouldBe 0
+      result.proposeValidationFailures shouldBe 0
     }
 
     // Task 6.4 — find turns up nothing, then propose_pipeline succeeds; no AssistantService code
@@ -249,6 +255,27 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       result.hopBudgetExhausted shouldBe true
       result.proposal shouldBe None
       transport.toolInvocations shouldBe 4
+    }
+
+    // HEL-700 tasks.md 3.4 (design.md D5) — a HopBudgetExhausted outcome ALSO carries the
+    // executor's propose-call counters, not just FinalResponse. Every one of the 4 SCRIPTED
+    // transport responses is an unparseable propose_dashboard call, but (mirrors task 6.7's own
+    // "4th tool_use attempt terminates gracefully... not a 5th transport call" doc comment, and
+    // ClaudeClient.sendWithTools's own "thisHop > maxHops" guard) only the first 3 (maxHops) are
+    // ever actually dispatched to the executor — the 4th arrives but is never executed.
+    "carry the executor's propose-call counters on a hop-budget-exhausted outcome" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val badProposeAttempt = Future.successful(toolUseResponse("t", "propose_dashboard", JsObject("dashboardName" -> JsNumber(1))))
+      val transport          = new FakeToolTransport(Vector.fill(4)(badProposeAttempt))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+
+      result.hopBudgetExhausted shouldBe true
+      result.proposeAttempts shouldBe 3
+      result.proposeDecodeFailures shouldBe 3
+      result.proposeValidationFailures shouldBe 0
     }
 
     // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 1 — a zero-result find immediately followed

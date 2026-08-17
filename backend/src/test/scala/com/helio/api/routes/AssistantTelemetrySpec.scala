@@ -180,6 +180,10 @@ class AssistantTelemetrySpec
           lines.head.fields("cacheReadInputTokens") shouldBe JsString("0")
           lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
           lines.head.fields(TraceContextDirective.TraceMdcKey) shouldBe JsString(TraceValue)
+          // HEL-700 tasks.md 3.5 — a turn with no propose_* call carries all three counters at zero.
+          lines.head.fields("proposeAttempts") shouldBe JsString("0")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("0")
+          lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
         }
 
         // HEL-667 design.md's own privacy rule -- never the raw typed message, anywhere in the
@@ -238,6 +242,40 @@ class AssistantTelemetrySpec
           lines.head.fields("cacheReadInputTokens") shouldBe JsString("200")
           lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
         }
+      }
+    }
+
+    // HEL-700 tasks.md 3.5 (design.md D4/D7, assistant-tool-loop-telemetry spec's "A malformed
+    // propose call is counted as a decode failure" scenario) — every one of the 4 SCRIPTED
+    // transport responses is an unparseable propose_dashboard call (empty input — 'dashboardName'
+    // is required); mirrors this file's own hop-cap-exhausted fixture. Per
+    // ClaudeClient.sendWithTools's "thisHop > maxHops" guard, only the first 3 (maxHops) are ever
+    // actually dispatched to AssistantToolExecutor — the 4th tool_use arrives but is never executed.
+    "a malformed propose_dashboard call is counted as a decode failure, and neither its input payload nor its error text ever reach the log line" in {
+      val user    = newUser()
+      val detail  = await(conversationService.create(user, None, title = None))
+      val modelId = s"model-${UUID.randomUUID()}"
+      val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "propose_dashboard")), modelId)
+
+      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+        tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
+          tracedRoutesFor(user, Some(service)) ~> check {
+            status shouldBe StatusCodes.OK
+          }
+
+        eventually {
+          val lines = linesFor(read, modelId)
+          lines should have size 1
+          lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
+          lines.head.fields("proposeAttempts") shouldBe JsString("3")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("3")
+          lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
+        }
+
+        // HEL-700 design.md D7 — only integer counts reach the log line, never the failing
+        // tool_use.input payload or its deserialization error text.
+        read() should not include "dashboardName"
+        read() should not include "DeserializationException"
       }
     }
   }
