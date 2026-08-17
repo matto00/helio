@@ -150,4 +150,87 @@ describe("MessageComposer", () => {
     await waitFor(() => expect(screen.getByText("network error")).toBeInTheDocument());
     expect((input as HTMLTextAreaElement).value).toBe("Hello");
   });
+
+  // HEL-711 -- reset-on-switch: `conversationId`/`error`/`pendingSend` are local, un-conversation-
+  // scoped state left over from before the composer stopped remounting across switches (HEL-695's
+  // F-021 fix). Without an explicit reset, a draft/failure/retry-key leak across an ordinary switch.
+  describe("reset on conversation switch (HEL-711)", () => {
+    it("clears a typed draft when conversationId changes to a different existing conversation", () => {
+      const { rerender } = renderWithStore(<MessageComposer conversationId="conv-1" />);
+
+      const input = screen.getByLabelText("Message");
+      fireEvent.change(input, { target: { value: "Draft for A" } });
+      expect((input as HTMLTextAreaElement).value).toBe("Draft for A");
+
+      rerender(<MessageComposer conversationId="conv-2" />);
+
+      expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("");
+    });
+
+    it("clears a failed send's preserved draft and pending-send key when switching away before retrying -- a later send from the new conversation mints a fresh key", async () => {
+      converseMock.mockRejectedValueOnce(new Error("network error"));
+      getConversationMock.mockRejectedValueOnce(new Error("reconciliation fetch failed"));
+      converseMock.mockResolvedValueOnce(detailWith([]));
+
+      const { rerender } = renderWithStore(<MessageComposer conversationId="conv-1" />);
+
+      const input = screen.getByLabelText("Message");
+      fireEvent.change(input, { target: { value: "Hello" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() => expect(screen.getByText("network error")).toBeInTheDocument());
+      // Failure preserves the draft + pending-send key for a same-conversation retry (pre-existing).
+      expect((input as HTMLTextAreaElement).value).toBe("Hello");
+
+      rerender(<MessageComposer conversationId="conv-2" />);
+
+      expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("");
+      expect(screen.queryByText("network error")).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hello" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(converseMock).toHaveBeenCalledTimes(2));
+
+      // Not A's preserved key -- switching away cleared pendingSend, so identical text mints fresh.
+      expect(keyOf(1)).not.toBe(keyOf(0));
+    });
+
+    it("preserves sending/draft/pending-send state through its own null -> newId self-created transition -- no regression of HEL-695's continuous-sending-indication fix", async () => {
+      createConversationMock.mockResolvedValueOnce({
+        id: "new-conv",
+        title: "New conversation",
+        pinned: false,
+        updatedAt: "2026-08-16T00:00:00Z",
+        transcript: [],
+      });
+      let resolveConverse: (detail: AssistantConversationDetail) => void = () => {};
+      converseMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveConverse = resolve;
+        }),
+      );
+
+      const { rerender } = renderWithStore(<MessageComposer conversationId={null} />);
+
+      const input = screen.getByLabelText("Message");
+      fireEvent.change(input, { target: { value: "Hello there" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() => expect(createConversationMock).toHaveBeenCalledWith({}));
+      await waitFor(() => expect(converseMock).toHaveBeenCalled());
+
+      // Simulate `ActiveConversationPanel`'s `effectiveId` flipping from `null` to the freshly
+      // created id -- a side effect of THIS send, not a user-initiated switch (design.md D2).
+      rerender(<MessageComposer conversationId="new-conv" />);
+
+      // The in-flight send's state must survive the transition -- not reset.
+      expect(screen.getByText("Sending…")).toBeInTheDocument();
+      expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("Hello there");
+
+      resolveConverse(detailWith([]));
+      await waitFor(() =>
+        expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe(""),
+      );
+    });
+  });
 });
