@@ -81,15 +81,42 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
       )
       await(client.send(req))
 
+      // assistant-prompt-caching design.md D3/skeptic-design-1.md CR1: every real send request with
+      // a non-empty message list now carries the first-message cache marker -- tasks.md 4.6.
       transport.lastRequest shouldBe Some(
         ClaudeApiRequest(
           model = "claude-opus-4-8",
           maxTokens = 100,
-          messages = Seq(ClaudeApiMessage("user", "What is 2+2?")),
+          messages = Seq(ClaudeApiMessage("user", "What is 2+2?", cacheControl = Some(ClaudeApiCacheControl.Ephemeral))),
           temperature = 0.2,
           stream = false
         )
       )
+    }
+
+    // assistant-prompt-caching tasks.md 4.3 (design.md D3) -- toApiRequest marks the first message.
+    "mark the first message with a cache breakpoint" in {
+      val transport = new FakeClaudeTransport(Future.successful(canned))
+      val client    = new ClaudeClient(config(), transport)
+
+      val req = ClaudeRequest(messages = Seq(ClaudeMessage(ClaudeRole.User, "first"), ClaudeMessage(ClaudeRole.Assistant, "second")))
+      await(client.send(req))
+
+      val messages = transport.lastRequest.map(_.messages).getOrElse(Seq.empty)
+      messages.head.cacheControl shouldBe Some(ClaudeApiCacheControl.Ephemeral)
+      messages.last.cacheControl shouldBe None
+    }
+
+    // assistant-prompt-caching tasks.md 4.3 (design.md D3) -- the empty-messages guard: no exception,
+    // no marker to place.
+    "not fail when marking an empty message list (guarded on non-empty)" in {
+      val transport = new FakeClaudeTransport(Future.successful(canned))
+      val client    = new ClaudeClient(config(), transport)
+
+      val result = await(client.send(ClaudeRequest(messages = Seq.empty)))
+
+      result.isRight shouldBe true
+      transport.lastRequest.map(_.messages) shouldBe Some(Seq.empty)
     }
 
     "default maxTokens/temperature from config when the request doesn't override them" in {
@@ -433,6 +460,76 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
       outcome match {
         case ClaudeToolOutcome.FinalResponse(_, _, usage) => usage shouldBe TokenUsage(inputTokens = 35, outputTokens = 13)
         case other                                          => fail(s"expected FinalResponse, got $other")
+      }
+    }
+
+    // assistant-prompt-caching tasks.md 4.3 (design.md D3) -- toApiToolRequest marks the last tools
+    // element and the last content block of the first message, and nowhere else.
+    "mark the last tools element and the first message's last content block with a cache breakpoint" in {
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("done"))))
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("unused")))
+      val client        = new ClaudeClient(config(), transport)
+
+      val multiTools = ClaudeToolRequest(
+        history = Seq(ClaudeToolMessage.text(ClaudeRole.User, "help me"), ClaudeToolMessage.text(ClaudeRole.Assistant, "sure")),
+        tools = Seq(findTool, ClaudeTool(name = "list", description = "List things", inputSchema = JsObject("type" -> JsString("object")))),
+        maxHops = 3
+      )
+      await(client.sendWithTools(multiTools, toolExecutor))
+
+      val built = transport.toolRequests.head
+      built.tools.init.foreach(_.cacheControl shouldBe None)
+      built.tools.last.cacheControl shouldBe Some(ClaudeApiCacheControl.Ephemeral)
+
+      val firstMessageBlocks = built.messages.head.content
+      firstMessageBlocks.init.foreach(_.cacheControl shouldBe None)
+      firstMessageBlocks.last.cacheControl shouldBe Some(ClaudeApiCacheControl.Ephemeral)
+      built.messages.tail.foreach(_.content.foreach(_.cacheControl shouldBe None))
+    }
+
+    // assistant-prompt-caching tasks.md 4.3 (design.md D3) -- empty-tools/empty-messages guard: no
+    // exception, no marker to place.
+    "not fail when tools and history are both empty (guarded on non-empty)" in {
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("done"))))
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("unused")))
+      val client        = new ClaudeClient(config(), transport)
+
+      val empty = ClaudeToolRequest(history = Seq.empty, tools = Seq.empty, maxHops = 3)
+      val outcome = await(client.sendWithTools(empty, toolExecutor))
+
+      outcome shouldBe a[ClaudeToolOutcome.FinalResponse]
+      val built = transport.toolRequests.head
+      built.tools shouldBe Seq.empty
+      built.messages shouldBe Seq.empty
+    }
+
+    // assistant-prompt-caching tasks.md 4.3 (design.md D4) -- the two new cache counters aggregate
+    // across hops exactly like inputTokens/outputTokens already do.
+    "aggregate cache-read and cache-creation input tokens across hops into the FinalResponse" in {
+      val transport = new FakeToolTransport(
+        Vector(
+          Future.successful(
+            toolUseResponse(
+              "toolu_1",
+              "find",
+              JsObject.empty,
+              usage = ClaudeApiUsage(inputTokens = 20, outputTokens = 5, cacheCreationInputTokens = 100, cacheReadInputTokens = 0)
+            )
+          ),
+          Future.successful(
+            finalTextResponse("done", usage = ClaudeApiUsage(inputTokens = 15, outputTokens = 8, cacheCreationInputTokens = 0, cacheReadInputTokens = 100))
+          )
+        )
+      )
+      val toolExecutor = new FakeToolExecutor(Future.successful(Right("ok")))
+      val client        = new ClaudeClient(config(), transport)
+
+      val outcome = await(client.sendWithTools(toolRequest(maxHops = 3), toolExecutor))
+
+      outcome match {
+        case ClaudeToolOutcome.FinalResponse(_, _, usage) =>
+          usage shouldBe TokenUsage(inputTokens = 35, outputTokens = 13, cacheCreationInputTokens = 100, cacheReadInputTokens = 100)
+        case other => fail(s"expected FinalResponse, got $other")
       }
     }
 

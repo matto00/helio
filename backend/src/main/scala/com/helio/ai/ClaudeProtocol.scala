@@ -9,7 +9,39 @@ import spray.json._
  *  codebase for field-name-mismatched shapes (e.g. `PaginationProtocol.pagedResultFormat`). */
 trait ClaudeProtocol extends DefaultJsonProtocol {
 
-  implicit val claudeApiMessageFormat: RootJsonFormat[ClaudeApiMessage] = jsonFormat2(ClaudeApiMessage.apply)
+  /** Hand-written (not `jsonFormat3`, design.md D2): when `cacheControl` is `None`, `content` stays
+   *  a plain `JsString` — byte-identical to this format's pre-cache-support `jsonFormat2` output, and
+   *  every real `send`/`stream` request today constructs `ClaudeApiMessage` this way for every
+   *  message but the marked one (`ClaudeClient.toApiRequest`, design.md D3). When `cacheControl` is
+   *  `Some`, `content` is written as a one-element `text` content-block array carrying
+   *  `cache_control` — the Messages API accepts string-or-block-array content interchangeably, so
+   *  this changes no semantics Claude observes. `read` is kept for symmetry with the prior macro
+   *  behavior (content read back as a plain string) though nothing in this codebase decodes a
+   *  `ClaudeApiMessage` today. */
+  implicit val claudeApiMessageFormat: RootJsonFormat[ClaudeApiMessage] = new RootJsonFormat[ClaudeApiMessage] {
+    def write(m: ClaudeApiMessage): JsValue = {
+      val contentJson: JsValue = m.cacheControl match {
+        case None => JsString(m.content)
+        case Some(cc) =>
+          JsArray(
+            JsObject(
+              "type"          -> JsString("text"),
+              "text"          -> JsString(m.content),
+              "cache_control" -> JsObject("type" -> JsString(cc.cacheType))
+            )
+          )
+      }
+      JsObject("role" -> JsString(m.role), "content" -> contentJson)
+    }
+
+    def read(json: JsValue): ClaudeApiMessage = {
+      val obj = json.asJsObject
+      ClaudeApiMessage(
+        role = obj.fields.get("role").map(_.convertTo[String]).getOrElse(""),
+        content = obj.fields.get("content").map(_.convertTo[String]).getOrElse("")
+      )
+    }
+  }
 
   implicit val claudeApiRequestFormat: RootJsonFormat[ClaudeApiRequest] = new RootJsonFormat[ClaudeApiRequest] {
     def write(r: ClaudeApiRequest): JsValue = JsObject(
@@ -27,15 +59,22 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
 
   implicit val claudeApiUsageFormat: RootJsonFormat[ClaudeApiUsage] = new RootJsonFormat[ClaudeApiUsage] {
     def write(u: ClaudeApiUsage): JsValue = JsObject(
-      "input_tokens"  -> JsNumber(u.inputTokens),
-      "output_tokens" -> JsNumber(u.outputTokens)
+      "input_tokens"               -> JsNumber(u.inputTokens),
+      "output_tokens"              -> JsNumber(u.outputTokens),
+      "cache_creation_input_tokens" -> JsNumber(u.cacheCreationInputTokens),
+      "cache_read_input_tokens"     -> JsNumber(u.cacheReadInputTokens)
     )
 
+    // Cache counters (design.md D4) parse absent-tolerantly, same idiom as input_tokens/
+    // output_tokens above: the API only populates them when a request set a cache_control
+    // breakpoint, so an ordinary uncached response's usage object omits both fields entirely.
     def read(json: JsValue): ClaudeApiUsage = {
       val obj = json.asJsObject
       ClaudeApiUsage(
         inputTokens = obj.fields.get("input_tokens").map(_.convertTo[Int]).getOrElse(0),
-        outputTokens = obj.fields.get("output_tokens").map(_.convertTo[Int]).getOrElse(0)
+        outputTokens = obj.fields.get("output_tokens").map(_.convertTo[Int]).getOrElse(0),
+        cacheCreationInputTokens = obj.fields.get("cache_creation_input_tokens").map(_.convertTo[Int]).getOrElse(0),
+        cacheReadInputTokens = obj.fields.get("cache_read_input_tokens").map(_.convertTo[Int]).getOrElse(0)
       )
     }
   }
@@ -62,7 +101,11 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
           case _ =>
             b.text.map(v => "text" -> JsString(v)).toMap
         }
-        JsObject(typeField ++ shapeFields)
+        // cache_control (design.md D2) is orthogonal to blockType -- any block shape can carry a
+        // breakpoint, so it's appended unconditionally on top of the shape-specific fields above.
+        val cacheField: Map[String, JsValue] =
+          b.cacheControl.map(cc => "cache_control" -> JsObject("type" -> JsString(cc.cacheType))).toMap
+        JsObject(typeField ++ shapeFields ++ cacheField)
       }
 
       def read(json: JsValue): ClaudeApiContentBlock = {
@@ -94,11 +137,17 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
     }
 
   implicit val claudeApiToolFormat: RootJsonFormat[ClaudeApiTool] = new RootJsonFormat[ClaudeApiTool] {
-    def write(t: ClaudeApiTool): JsValue = JsObject(
-      "name"         -> JsString(t.name),
-      "description"  -> JsString(t.description),
-      "input_schema" -> t.inputSchema
-    )
+    def write(t: ClaudeApiTool): JsValue = {
+      val cacheField: Map[String, JsValue] =
+        t.cacheControl.map(cc => "cache_control" -> JsObject("type" -> JsString(cc.cacheType))).toMap
+      JsObject(
+        Map(
+          "name"         -> JsString(t.name),
+          "description"  -> JsString(t.description),
+          "input_schema" -> t.inputSchema
+        ) ++ cacheField
+      )
+    }
 
     // Outbound-only — mirrors claudeApiRequestFormat.read (design.md D4's "outbound-only" pattern).
     def read(json: JsValue): ClaudeApiTool =

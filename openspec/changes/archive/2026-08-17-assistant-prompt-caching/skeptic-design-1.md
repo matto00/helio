@@ -1,0 +1,42 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+
+- **Ticket/proposal/design/tasks read in full**: `openspec/changes/assistant-prompt-caching/{ticket,proposal,design,tasks}.md`.
+- **Spec deltas read in full**: `specs/claude-api-client/spec.md`, `specs/assistant-tool-loop-telemetry/spec.md`, and cross-checked against the **currently-active base specs** at `openspec/specs/claude-api-client/spec.md` and `openspec/specs/assistant-tool-loop-telemetry/spec.md` (both capabilities already exist, correctly modeled as MODIFIED not ADDED).
+- **Ground-truth wire/protocol/client code** — `ClaudeWireModels.scala`, `ClaudeProtocol.scala`, `ClaudeClient.scala`, `ClaudeModels.scala`, `HttpClaudeTransport.scala` — all read in full. Every factual claim the design makes about current code checks out:
+  - `ClaudeApiUsage(inputTokens: Int, outputTokens: Int)` — no cache fields today (`ClaudeWireModels.scala:21`). Confirmed.
+  - `claudeApiMessageFormat` is today `jsonFormat2(ClaudeApiMessage.apply)` (`ClaudeProtocol.scala:12`). Confirmed — D2's "replace jsonFormat2" claim is accurate.
+  - `ClaudeApiMessage(role: String, content: String)` — no `system` field anywhere on `ClaudeApiRequest`/`ClaudeApiToolRequest`. Confirmed; `ClaudeApiMessage`'s `read` side is never actually invoked anywhere in the codebase (`grep -rn "convertTo\[ClaudeApiMessage\]"` returns nothing) — D2's "kept for symmetry, never exercised" claim is accurate and low-risk.
+  - `ClaudeClient.toApiToolRequest`/`toApiRequest`/`addUsage`/`toClaudeResponse`/`sendWithTools` all match the design's description of current behavior line-for-line (`ClaudeClient.scala:71-223`).
+  - `AssistantService.seedHistory` (`AssistantService.scala:99-104`) folds `AssistantSystemPrompt.text + "\n\n" + message` into a single `Text` block that is the LAST block of the first turn only when `history.isEmpty` — confirms the design's D3 placement ("last content block of the first message") lands on exactly the system-prompt-carrying block.
+  - `AssistantTelemetry.emitToolLoopOutcome` (`AssistantTelemetry.scala:34-55`) only carries `inputTokens`/`outputTokens` today, confirming D5's diff is additive and accurate.
+  - **`TokenUsage` never reaches an HTTP response — independently verified, not taken on faith.** `grep -rn "TokenUsage"` across `backend/src/main/scala` found one HTTP-adjacent hit: `AssistantProtocol.scala`'s `AssistantStreamEvent.TurnResult(text, proposal, usage: TokenUsage)`. I confirmed no spray-json formatter exists for `TokenUsage`, `AssistantTurnResult`, or `AssistantStreamEvent` anywhere (`grep -rn "jsonFormat" ... | grep -i "tokenusage\|assistantturnresult\|assistantstreamevent"` → empty), and that type's own doc comment says "Protocol type only: no producer, no route, no SSE wiring in this ticket." I then read `AssistantConversationRoutes.converseFlow` (`AssistantConversationRoutes.scala:130-166`) end to end and confirmed `result.usage` is threaded to exactly one place — `AssistantTelemetry.emitToolLoopOutcome(... tokens = result.usage)` (line 155) — and `AssistantConversationResponse` (`AssistantConversationProtocol.scala:57-66`) has no `usage` field. The design's Context/Impact claim is accurate.
+- **Tasks/spec traceability**: every task-4.x line's quoted scenario title (e.g. "sendTool marks the tools array and the first turn", "Cache counters aggregate across tool-loop hops", "A multi-hop turn's record shows nonzero cache reads") matches a real scenario heading in the two spec deltas verbatim. No placeholders/TODOs/TBDs anywhere in the five change-dir docs (`grep` clean).
+- **Regression-surface check on the actual test suite** (this is the substantive finding below): read `ClaudeClientSpec.scala` and `HttpClaudeTransportSpec.scala` in full, and grepped the whole `backend/src/test` tree for every place that does exact-equality assertion on `ClaudeApiRequest`/`ClaudeApiToolRequest`/`ClaudeApiMessage` (`grep -rn "shouldBe.*ClaudeApiRequest(\|shouldBe Some(ClaudeApiRequest"` and the `ClaudeApiToolRequest` equivalent) to determine whether D3's unconditional first-message marking actually breaks anything already on disk, rather than assuming it's fine.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **The design's own breakpoint placement (D3) will break an existing, currently-passing test, and neither `design.md`'s Risks section nor `tasks.md` accounts for it — while an active, un-superseded spec requirement literally promises the opposite.**
+
+   `openspec/specs/claude-api-client/spec.md:246-253` (the CURRENT, merged/active spec — not this change's delta) contains:
+   > **Requirement: Existing single-shot send and stream are unaffected** — Adding `sendWithTools` SHALL NOT change the request/response shape, behavior, or guardrail semantics of `ClaudeClient.send` or `ClaudeClient.stream`, and SHALL NOT modify `ClaudeApiMessage`/`ClaudeApiRequest`'s existing fields.
+   > **Scenario: send's existing behavior is unchanged** — WHEN the existing `ClaudeClientSpec` suite for `send`/`stream` is run after this change THEN every existing test passes unmodified.
+
+   Under D3, `toApiRequest` unconditionally marks the first message of every non-empty `ClaudeRequest.messages` with `cacheControl = Some(Ephemeral)`. This makes `ClaudeClientSpec.scala:73-93` ("`ClaudeClient.send` should wire model/max-tokens/temperature/messages through to the transport request") fail as written — it does exact case-class equality:
+   ```scala
+   transport.lastRequest shouldBe Some(
+     ClaudeApiRequest(..., messages = Seq(ClaudeApiMessage("user", "What is 2+2?")), ...)
+   )
+   ```
+   The 2-arg `ClaudeApiMessage("user", "What is 2+2?")` defaults `cacheControl = None`, but the real request built by `toApiRequest` after this change will have `cacheControl = Some(Ephemeral)` on that (sole, first) message — so the equality fails. I confirmed via grep this is the *only* such exact-equality fixture in the whole test suite (`ClaudeApiToolRequest`/`sendTool`'s equivalent fixtures only check specific fields like `.isError`/`.text` on `messages.last`, never full-request equality on the first message, so `sendTool` is unaffected).
+
+   This isn't a fatal defect in the plan — AC #1 explicitly requires marking the first message, so the fixture SHOULD change — but the design/tasks currently present this as risk-free ("byte-identical serialization for every request that sets no marker") without acknowledging that *no real `send`/`stream` call with a non-empty message list will ever be unmarked*, which directly contradicts the still-active "every existing test passes unmodified" scenario above. Required revision: add an explicit task (e.g. under tasks.md §4) to update `ClaudeClientSpec.scala`'s "wire model/max-tokens/temperature/messages through" test's expected `ClaudeApiRequest` to include the marker, and add a MODIFIED-requirement entry to this change's `specs/claude-api-client/spec.md` delta that supersedes the "Existing single-shot send and stream are unaffected" requirement's now-false "every existing test passes unmodified" scenario — otherwise the merged spec after archiving will contain a requirement the codebase provably violates, with nothing in the change history explaining why.
+
+### Non-blocking notes
+
+- D3's cache-breakpoint order (last `tools` element, then last block of the first message) is consistent with Anthropic's documented tools→system→messages internal cache-prefix ordering, independent of the JSON object's own key order in `claudeApiToolRequestFormat.write` (which happens to emit `messages` before `tools`) — verified this isn't a real ordering hazard, just worth double-checking against Anthropic's docs during implementation since it's inferred, not itself testable pre-deploy.
+- D6's framing of AC #2 ("A multi-hop turn shows nonzero `cache_read_input_tokens`") as a post-deploy observation, with CI only proving the request/parse/aggregate/log chain via stubbed nonzero values, is an honest and reasonable read of an AC that can't be deterministically reproduced against the real Anthropic caching backend in CI. Flagged, not disputed.
+- The `AssistantSystemPrompt.text` file is ~5KB (`wc -c` = 5159) plus 6 tool schemas' JSON — plausibly over Claude's 1024-token minimum cacheable-prefix length referenced in the Risks section, consistent with the ticket's own "large, byte-stable, fully-repeated prefix" framing. Not independently token-counted, but no red flag.
