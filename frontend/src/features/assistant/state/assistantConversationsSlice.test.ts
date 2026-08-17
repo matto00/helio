@@ -6,6 +6,7 @@ import {
   conversationCreated,
   converse,
   fetchConversations,
+  renameConversation,
   selectConversation,
   setSelectedConversationId,
   startNewConversation,
@@ -145,6 +146,59 @@ describe("assistantConversationsSlice reducers", () => {
       togglePinned.fulfilled(pinned, "req-1", { id: "conv-1", pinned: true }),
     );
     expect(nextState.items[0].pinned).toBe(true);
+  });
+
+  it("replaces the matching item in items when renameConversation fulfills", () => {
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      fetchConversations.fulfilled([summary], "req-0"),
+    );
+    const renamed = { ...summary, title: "Renamed conversation" };
+    const nextState = assistantConversationsReducer(
+      preloaded,
+      renameConversation.fulfilled(renamed, "req-1", {
+        id: "conv-1",
+        title: "Renamed conversation",
+      }),
+    );
+    expect(nextState.items[0].title).toBe("Renamed conversation");
+  });
+
+  it("updates activeConversation.data.title when renameConversation fulfills for the active conversation", () => {
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      selectConversation.fulfilled(detail, "req-0", "conv-1"),
+    );
+    const renamed = { ...summary, title: "Renamed conversation" };
+    const nextState = assistantConversationsReducer(
+      preloaded,
+      renameConversation.fulfilled(renamed, "req-1", {
+        id: "conv-1",
+        title: "Renamed conversation",
+      }),
+    );
+    expect(nextState.activeConversation.data?.title).toBe("Renamed conversation");
+  });
+
+  it("leaves a non-matching activeConversation untouched when renameConversation fulfills", () => {
+    const otherDetail: AssistantConversationDetail = {
+      ...detail,
+      id: "conv-2",
+      title: "Second conversation",
+    };
+    const preloaded = assistantConversationsReducer(
+      undefined,
+      selectConversation.fulfilled(otherDetail, "req-0", "conv-2"),
+    );
+    const renamed = { ...summary, title: "Renamed conversation" };
+    const nextState = assistantConversationsReducer(
+      preloaded,
+      renameConversation.fulfilled(renamed, "req-1", {
+        id: "conv-1",
+        title: "Renamed conversation",
+      }),
+    );
+    expect(nextState.activeConversation.data?.title).toBe("Second conversation");
   });
 
   it("replaces activeConversation.data wholesale when converse fulfills, mirroring selectConversation.fulfilled", () => {
@@ -356,6 +410,34 @@ describe("togglePinned thunk", () => {
     await thunk(dispatch, jest.fn(), undefined);
 
     expect(updateConversationMock).toHaveBeenCalledWith("conv-1", { pinned: true });
+  });
+});
+
+describe("renameConversation thunk", () => {
+  it("calls updateConversation with the id and title", async () => {
+    updateConversationMock.mockResolvedValueOnce({ ...summary, title: "Renamed conversation" });
+
+    const dispatch = jest.fn();
+    const thunk = renameConversation({ id: "conv-1", title: "Renamed conversation" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(updateConversationMock).toHaveBeenCalledWith("conv-1", {
+      title: "Renamed conversation",
+    });
+  });
+
+  it("dispatches rejected with the server's message on service error", async () => {
+    updateConversationMock.mockRejectedValueOnce(new Error("Title already in use."));
+
+    const dispatch = jest.fn();
+    const thunk = renameConversation({ id: "conv-1", title: "Renamed conversation" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "assistantConversations/renameConversation/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toBe("Title already in use.");
   });
 });
 

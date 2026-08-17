@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Pin, PinOff } from "lucide-react";
+import { Pencil, Pin, PinOff } from "lucide-react";
 
 import {
   faDatabase,
@@ -12,6 +12,7 @@ import {
 
 import {
   fetchConversations,
+  renameConversation,
   setSelectedConversationId,
   startNewConversation,
   togglePinned,
@@ -253,22 +254,38 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
             />
           ) : null
         }
-        renderRowAction={(item) => {
+        renderRowAction={(item, helpers) => {
           const pinned = pinnedIds.has(item.id);
           return (
-            <button
-              type="button"
-              className="dashboard-list__row-action-btn"
-              aria-label={pinned ? `Unpin ${item.name}` : `Pin ${item.name}`}
-              onClick={() => dispatch(togglePinned({ id: item.id, pinned: !pinned }))}
-            >
-              {pinned ? (
-                <PinOff size={14} aria-hidden="true" />
-              ) : (
-                <Pin size={14} aria-hidden="true" />
-              )}
-            </button>
+            <>
+              <button
+                type="button"
+                className="dashboard-list__row-action-btn"
+                aria-label={`Rename ${item.name}`}
+                onClick={helpers.startRename}
+              >
+                <Pencil size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="dashboard-list__row-action-btn"
+                aria-label={pinned ? `Unpin ${item.name}` : `Pin ${item.name}`}
+                onClick={() => dispatch(togglePinned({ id: item.id, pinned: !pinned }))}
+              >
+                {pinned ? (
+                  <PinOff size={14} aria-hidden="true" />
+                ) : (
+                  <Pin size={14} aria-hidden="true" />
+                )}
+              </button>
+            </>
           );
+        }}
+        // HEL-693 design.md D5 — `unwrap()` re-throws the thunk's `rejectValue` (a
+        // human-readable message from `extractErrorMessage`) so SidebarItemList's
+        // `onRename` reject path shows it inline.
+        onRename={async (item, title) => {
+          await dispatch(renameConversation({ id: item.id, title })).unwrap();
         }}
       />
     );
