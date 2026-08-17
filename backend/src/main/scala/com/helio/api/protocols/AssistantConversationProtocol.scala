@@ -54,6 +54,15 @@ final case class AssistantConversationResponse(
     searchedWithNoResults: Option[Boolean] = None
 )
 
+/** Tier-gate failure body (HEL-703, design.md D7) -- rendered by `AssistantConversationRoutes`'s
+ *  own bespoke completion helper for EVERY endpoint in this family, never `ServiceResponse.run`'s
+ *  generic `ErrorResponse` (mirrors `AuthoringErrorResponse`'s reasoning exactly). `code` (not
+ *  `kind`, deliberately -- this is a new cross-feature client contract, and `code` is the
+ *  conventional axios-side name) is one of `TIER_FORBIDDEN` (403, `free`-tier, every endpoint) or
+ *  `CHAT_LIMIT_REACHED` (429, `beta`-tier over the daily cap, converse only) -- `limit` is `Some`
+ *  only for the latter. */
+final case class TierErrorResponse(code: String, message: String, limit: Option[Int])
+
 trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createAssistantConversationRequestFormat: RootJsonFormat[CreateAssistantConversationRequest] =
     jsonFormat2(CreateAssistantConversationRequest.apply)
@@ -72,4 +81,7 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
 
   implicit val assistantConversationResponseFormat: RootJsonFormat[AssistantConversationResponse] =
     jsonFormat7(AssistantConversationResponse.apply)
+
+  implicit val tierErrorResponseFormat: RootJsonFormat[TierErrorResponse] =
+    jsonFormat3(TierErrorResponse.apply)
 }

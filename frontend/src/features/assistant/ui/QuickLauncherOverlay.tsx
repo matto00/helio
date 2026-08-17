@@ -5,7 +5,7 @@ import "./QuickLauncherOverlay.css";
 import { Modal } from "../../../shared/ui/Modal";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { fetchConversations } from "../state/assistantConversationsSlice";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActiveConversationPanel } from "./ActiveConversationPanel";
 
 interface QuickLauncherOverlayProps {
@@ -27,6 +27,11 @@ export function QuickLauncherOverlay({ open, onClose }: QuickLauncherOverlayProp
   const dispatch = useAppDispatch();
   const overlay = useOverlay();
   const wasActiveRef = useRef(false);
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
+  // HEL-703 design.md D9 — mirrors ChatPage's own guard: a `free`-tier user never attempts the
+  // list fetch (which would otherwise 403); `ActiveConversationPanel` renders its request-access
+  // state regardless of whether this fetch ran.
+  const isFreeTier = currentUser?.tier === "free";
 
   // Register with the shared single-active-overlay + global Escape handler, and (re)fetch the
   // conversation list on every open -- mirrors ChatPage's own fetch-on-mount, since the
@@ -34,14 +39,16 @@ export function QuickLauncherOverlay({ open, onClose }: QuickLauncherOverlayProp
   useEffect(() => {
     if (open) {
       overlay.open();
-      void dispatch(fetchConversations());
+      if (!isFreeTier) {
+        void dispatch(fetchConversations());
+      }
     } else {
       overlay.close();
       wasActiveRef.current = false;
     }
-    // overlay.open/close are stable (useCallback); dispatch is stable. Only re-run on `open`.
+    // overlay.open/close are stable (useCallback); dispatch is stable. Only re-run on `open`/tier.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, isFreeTier]);
 
   useEffect(() => {
     if (overlay.isActive) {

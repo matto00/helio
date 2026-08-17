@@ -3321,6 +3321,9 @@ class ApiRoutesSpec
         resp.user.email shouldBe "test@example.com"
         resp.user.displayName shouldBe Some("Test User")
         resp.user.id should not be empty
+        // HEL-703: a non-allowlisted email (the test harness's default, empty allowlist) defaults
+        // to `free`.
+        resp.user.tier shouldBe "free"
         // HEL-287 CodeQL #8: the session token is delivered via `Set-Cookie`
         // only — never in the JSON body.
         sessionCookieValue(response) should not be empty
@@ -3397,6 +3400,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[AuthResponse]
         resp.user.email shouldBe "login@example.com"
+        resp.user.tier shouldBe "free"
         sessionCookieValue(response) should not be empty
         val body = responseAs[String]
         body should not include "password_hash"
@@ -3867,6 +3871,7 @@ class ApiRoutesSpec
         user.email shouldBe "me@example.com"
         user.displayName shouldBe Some("Me User")
         user.id should not be empty
+        user.tier shouldBe "free"
       }
     }
 

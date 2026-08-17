@@ -350,7 +350,7 @@ describe("assistantConversationsSlice reducers", () => {
         null,
         "req-1",
         { id: "conv-1", message: "Hello" },
-        "Failed to send message.",
+        { message: "Failed to send message." },
       ),
     );
     expect(rejected.activeConversation.status).toBe("succeeded");
@@ -452,7 +452,9 @@ describe("converse thunk", () => {
     expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello");
   });
 
-  it("dispatches rejected with a fallback message on service error", async () => {
+  // HEL-703 design.md D9 — the rejectValue widened from a plain `string` to `{ code?, message,
+  // limit? }`; a generic (non-tier) failure still carries just `message`, unchanged in content.
+  it("dispatches rejected with a fallback message (no code) on a generic service error", async () => {
     converseMock.mockRejectedValueOnce(new Error("network error"));
 
     const dispatch = jest.fn();
@@ -463,6 +465,64 @@ describe("converse thunk", () => {
     const rejectedCall = calls.find(
       ([action]) => action.type === "assistantConversations/converse/rejected",
     );
-    expect(rejectedCall?.[0].payload).toBe("network error");
+    expect(rejectedCall?.[0].payload).toEqual({ message: "network error" });
+  });
+
+  // HEL-703 tasks.md 6.7 (design.md D7/D9) — a real 429 CHAT_LIMIT_REACHED response surfaces its
+  // code and configured limit on the rejectValue, for MessageComposer to switch on.
+  it("dispatches rejected with code=CHAT_LIMIT_REACHED and the configured limit on a 429 response", async () => {
+    const axiosError = Object.assign(new Error("Too Many Requests"), {
+      isAxiosError: true,
+      response: {
+        data: {
+          code: "CHAT_LIMIT_REACHED",
+          message: "Daily chat message limit reached (5 messages).",
+          limit: 5,
+        },
+      },
+    });
+    converseMock.mockRejectedValueOnce(axiosError);
+
+    const dispatch = jest.fn();
+    const thunk = converse({ id: "conv-1", message: "Hello" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "assistantConversations/converse/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toEqual({
+      code: "CHAT_LIMIT_REACHED",
+      message: "Daily chat message limit reached (5 messages).",
+      limit: 5,
+    });
+  });
+
+  // HEL-703 tasks.md 6.7 (design.md D7/D9) — a real 403 TIER_FORBIDDEN response (stale-tier edge)
+  // surfaces its code with no `limit`.
+  it("dispatches rejected with code=TIER_FORBIDDEN and no limit on a 403 response", async () => {
+    const axiosError = Object.assign(new Error("Forbidden"), {
+      isAxiosError: true,
+      response: {
+        data: {
+          code: "TIER_FORBIDDEN",
+          message: "Chat access is limited during this rollout.",
+        },
+      },
+    });
+    converseMock.mockRejectedValueOnce(axiosError);
+
+    const dispatch = jest.fn();
+    const thunk = converse({ id: "conv-1", message: "Hello" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "assistantConversations/converse/rejected",
+    );
+    expect(rejectedCall?.[0].payload).toEqual({
+      code: "TIER_FORBIDDEN",
+      message: "Chat access is limited during this rollout.",
+    });
   });
 });

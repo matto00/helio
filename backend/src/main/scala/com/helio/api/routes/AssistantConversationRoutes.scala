@@ -10,7 +10,7 @@ import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment
 import com.helio.api.protocols._
 import com.helio.domain._
 import com.helio.infrastructure.AssistantConversationRepository._
-import com.helio.services.{AssistantConversationService, AssistantService, AssistantTelemetry, ServiceError}
+import com.helio.services.{AssistantConversationService, AssistantService, AssistantTelemetry, ChatAccessError, ChatAccessService, ServiceError}
 import com.helio.services.AssistantConversationService.AssistantConversationDetail
 import org.slf4j.MDC
 import spray.json._
@@ -36,10 +36,17 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  `.fold(reject)` in `ApiRoutes.scala`), completely unaffected by whether `AssistantService` is
  *  configured. `assistantServiceOpt = None` (e.g. no `ANTHROPIC_API_KEY`) degrades ONLY the
  *  converse route to a clean `503`, mirroring `DashboardAuthoringRoutes`'s own
- *  `serviceOpt.fold(unavailable)` precedent — never a confusing `404`. */
+ *  `serviceOpt.fold(unavailable)` precedent — never a confusing `404`.
+ *
+ *  `chatAccessService` (HEL-703, design.md D7) wraps the ENTIRE route tree below in a tier-gate
+ *  directive — a `free`-tier caller is denied every endpoint in this family, including any added
+ *  later, with no per-route opt-in required. `converse` alone additionally calls
+ *  `ChatAccessService.checkConverseCap` after the base gate passes, since only that endpoint is
+ *  metered (design.md D6). */
 final class AssistantConversationRoutes(
     service: AssistantConversationService,
     assistantServiceOpt: Option[AssistantService],
+    chatAccessService: ChatAccessService,
     user: AuthenticatedUser
 )(implicit system: ActorSystem[_])
     extends Directives
@@ -51,6 +58,16 @@ final class AssistantConversationRoutes(
 
   private def unavailable: Route =
     complete(StatusCodes.ServiceUnavailable, ErrorResponse("Assistant conversation is not configured"))
+
+  /** Maps a tier-gate denial directly to its status + [[TierErrorResponse]] body (HEL-703,
+   *  design.md D7) — NOT `ServiceResponse.run`, which hardcodes the generic `ErrorResponse` and has
+   *  no `429` case to map onto (`CHAT_LIMIT_REACHED`'s status has no `ServiceError` counterpart). */
+  private def completeTierError(err: ChatAccessError): Route = err match {
+    case ChatAccessError.TierForbidden(message) =>
+      complete(StatusCodes.Forbidden, TierErrorResponse("TIER_FORBIDDEN", message, None))
+    case ChatAccessError.LimitReached(limit) =>
+      complete(StatusCodes.TooManyRequests, TierErrorResponse("CHAT_LIMIT_REACHED", err.message, Some(limit)))
+  }
 
   private def summaryOf(record: AssistantConversationRecord): AssistantConversationSummaryResponse =
     AssistantConversationSummaryResponse(
@@ -157,56 +174,70 @@ final class AssistantConversationRoutes(
 
   val routes: Route =
     pathPrefix("assistant-conversations") {
-      concat(
-        pathEndOrSingleSlash {
+      // HEL-703 design.md D7: the tier gate wraps the WHOLE route tree below — every endpoint in
+      // this family (including any added later) resolves the caller's tier exactly once here.
+      // `free` never reaches any inner route; `beta`/`owner` proceed with `tier` in scope for
+      // `converse`'s own additional cap check below.
+      onSuccess(chatAccessService.guard(user)) {
+        case Left(err) => completeTierError(err)
+        case Right(tier) =>
           concat(
-            get {
-              parameters("limit".as[Int].?) { limitOpt =>
-                val limit = math.min(limitOpt.getOrElse(DefaultListLimit), Page.MaxLimit)
-                onSuccess(service.list(user, limit)) { records =>
-                  complete(records.map(summaryOf))
+            pathEndOrSingleSlash {
+              concat(
+                get {
+                  parameters("limit".as[Int].?) { limitOpt =>
+                    val limit = math.min(limitOpt.getOrElse(DefaultListLimit), Page.MaxLimit)
+                    onSuccess(service.list(user, limit)) { records =>
+                      complete(records.map(summaryOf))
+                    }
+                  }
+                },
+                post {
+                  entity(as[CreateAssistantConversationRequest]) { request =>
+                    val firstMessage = request.firstMessage.map(_.convertTo[ClaudeToolMessage])
+                    onSuccess(service.create(user, firstMessage, request.title)) { detail =>
+                      complete(StatusCodes.Created, detailOf(detail))
+                    }
+                  }
+                }
+              )
+            },
+            path(AssistantConversationIdSegment / "messages") { id =>
+              post {
+                entity(as[AppendAssistantConversationTurnRequest]) { request =>
+                  val turns = request.turns.map(_.convertTo[ClaudeToolMessage])
+                  ServiceResponse.run(service.appendTurn(user, id, turns))(summaryOf)
                 }
               }
             },
-            post {
-              entity(as[CreateAssistantConversationRequest]) { request =>
-                val firstMessage = request.firstMessage.map(_.convertTo[ClaudeToolMessage])
-                onSuccess(service.create(user, firstMessage, request.title)) { detail =>
-                  complete(StatusCodes.Created, detailOf(detail))
+            path(AssistantConversationIdSegment / "converse") { id =>
+              post {
+                assistantServiceOpt.fold(unavailable) { assistantService =>
+                  entity(as[ConverseRequest]) { request =>
+                    // HEL-703 design.md D6: the ONLY metered endpoint — beta's daily cap is
+                    // checked/incremented here, after the base gate above already passed.
+                    onSuccess(chatAccessService.checkConverseCap(user, tier)) {
+                      case Left(err) => completeTierError(err)
+                      case Right(()) =>
+                        ServiceResponse.run(converseFlow(assistantService, id, request.message))(identity)
+                    }
+                  }
                 }
               }
-            }
-          )
-        },
-        path(AssistantConversationIdSegment / "messages") { id =>
-          post {
-            entity(as[AppendAssistantConversationTurnRequest]) { request =>
-              val turns = request.turns.map(_.convertTo[ClaudeToolMessage])
-              ServiceResponse.run(service.appendTurn(user, id, turns))(summaryOf)
-            }
-          }
-        },
-        path(AssistantConversationIdSegment / "converse") { id =>
-          post {
-            assistantServiceOpt.fold(unavailable) { assistantService =>
-              entity(as[ConverseRequest]) { request =>
-                ServiceResponse.run(converseFlow(assistantService, id, request.message))(identity)
-              }
-            }
-          }
-        },
-        path(AssistantConversationIdSegment) { id =>
-          concat(
-            get {
-              ServiceResponse.run(service.get(user, id))(detailOf)
             },
-            patch {
-              entity(as[UpdateAssistantConversationRequest]) { request =>
-                ServiceResponse.run(service.update(user, id, request.pinned, request.title))(summaryOf)
-              }
+            path(AssistantConversationIdSegment) { id =>
+              concat(
+                get {
+                  ServiceResponse.run(service.get(user, id))(detailOf)
+                },
+                patch {
+                  entity(as[UpdateAssistantConversationRequest]) { request =>
+                    ServiceResponse.run(service.update(user, id, request.pinned, request.title))(summaryOf)
+                  }
+                }
+              )
             }
           )
-        }
-      )
+      }
     }
 }

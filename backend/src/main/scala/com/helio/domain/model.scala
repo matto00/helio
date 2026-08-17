@@ -20,7 +20,8 @@ final case class User(
     displayName: Option[String],
     createdAt: Instant,
     googleId: Option[String] = None,
-    avatarUrl: Option[String] = None
+    avatarUrl: Option[String] = None,
+    tier: UserTier = UserTier.Free
 )
 
 final case class UserSession(
@@ -112,6 +113,38 @@ object PanelType {
     case Timeline   => "timeline"
   }
 }
+
+/** Account standing (HEL-703, design.md D1) -- gates access to `AssistantConversationRoutes` via
+ *  `ChatAccessService`. `free` (the default for every new signup) is denied all chat endpoints;
+ *  `beta` is capped per UTC day; `owner` is unlimited. Persisted as `TEXT` + `CHECK` (V88), not a
+ *  Postgres enum -- see V88's own migration comment for why.
+ *
+ *  Declared AFTER `PanelType` deliberately: `scripts/check-schema-drift.mjs`'s panel-type-enum
+ *  parity guard locates its canonical set via a literal-string search for the first
+ *  `def fromString(s: String)` occurrence in this file, assumed to be `PanelType.fromString`'s.
+ *  A `fromString`/`asString` pair declared earlier in the file collides with that assumption (hit
+ *  live in this ticket -- every other fromString-bearing enum below already follows this same
+ *  after-PanelType convention for the same reason). */
+sealed trait UserTier
+object UserTier {
+  case object Free  extends UserTier
+  case object Beta  extends UserTier
+  case object Owner extends UserTier
+
+  def fromString(s: String): Either[String, UserTier] = s match {
+    case "free"  => Right(Free)
+    case "beta"  => Right(Beta)
+    case "owner" => Right(Owner)
+    case other   => Left(s"Unknown tier: '$other'. Valid values: free, beta, owner")
+  }
+
+  def asString(t: UserTier): String = t match {
+    case Free  => "free"
+    case Beta  => "beta"
+    case Owner => "owner"
+  }
+}
+
 final case class ResourceMeta(createdBy: String, createdAt: Instant, lastUpdated: Instant)
 final case class DashboardAppearance(background: String, gridBackground: String)
 

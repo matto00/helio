@@ -447,4 +447,117 @@ describe("ActiveConversationPanel", () => {
     );
     expect((input as HTMLTextAreaElement).value).toBe("Trigger a failure");
   });
+
+  // HEL-703 tasks.md 6.7 (design.md D9) — MessageComposer switches on the converse rejectValue's
+  // `code`, rendering a distinct, actionable message per code; the transcript stays visible in
+  // both cases (the composer error is an ADDITION below the transcript, never a panel swap).
+  it("renders a distinct daily-limit notice (transcript still visible) on CHAT_LIMIT_REACHED", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 1));
+    converseMock.mockRejectedValueOnce(
+      Object.assign(new Error("Too Many Requests"), {
+        isAxiosError: true,
+        response: {
+          data: {
+            code: "CHAT_LIMIT_REACHED",
+            message: "Daily chat message limit reached (1).",
+            limit: 1,
+          },
+        },
+      }),
+    );
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "One more please" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(screen.getByText(/Daily chat limit reached/)).toBeInTheDocument());
+    expect(screen.getByText(/resets at the start of the next UTC day/)).toBeInTheDocument();
+    // The raw server message is NOT what's shown -- a distinct, composer-authored notice is.
+    expect(screen.queryByText("Daily chat message limit reached (1).")).not.toBeInTheDocument();
+    // The existing transcript (message count) is still visible underneath the composer.
+    expect(screen.getByTestId("active-conversation-message-count")).toHaveTextContent("1 messages");
+  });
+
+  it("renders an inline access-revoked message on TIER_FORBIDDEN (stale-tier edge)", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    converseMock.mockRejectedValueOnce(
+      Object.assign(new Error("Forbidden"), {
+        isAxiosError: true,
+        response: { data: { code: "TIER_FORBIDDEN", message: "Chat access is limited." } },
+      }),
+    );
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    const input = await screen.findByLabelText("Message");
+    fireEvent.change(input, { target: { value: "Still trying" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Chat access has changed for your account/)).toBeInTheDocument(),
+    );
+    // The raw server message is NOT what's shown -- a distinct, composer-authored notice is.
+    expect(screen.queryByText("Chat access is limited.")).not.toBeInTheDocument();
+  });
+
+  // HEL-703 tasks.md 6.6 (design.md D9) — tier gating.
+  describe("tier gating", () => {
+    function userWithTier(tier: "free" | "beta" | "owner") {
+      return {
+        id: `user-${tier}`,
+        email: `${tier}@test.local`,
+        displayName: null,
+        avatarUrl: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        tier,
+      };
+    }
+
+    it("a free-tier user sees a request-access state -- no composer, no raw error, no conversation fetch", () => {
+      renderWithStore(<ActiveConversationPanel />, {
+        auth: { currentUser: userWithTier("free") },
+        assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+      });
+
+      expect(screen.getByText("Chat access is limited")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Message")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(getConversationMock).not.toHaveBeenCalled();
+    });
+
+    it("a beta-tier user sees the normal panel (composer, no request-access state)", () => {
+      renderWithStore(<ActiveConversationPanel />, {
+        auth: { currentUser: userWithTier("beta") },
+        assistantConversations: { items: [] },
+      });
+
+      expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+      expect(screen.getByText("No conversations yet")).toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    });
+
+    it("an owner-tier user sees the normal panel (composer, no request-access state)", () => {
+      renderWithStore(<ActiveConversationPanel />, {
+        auth: { currentUser: userWithTier("owner") },
+        assistantConversations: { items: [] },
+      });
+
+      expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+      expect(screen.getByText("No conversations yet")).toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    });
+  });
 });
