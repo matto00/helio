@@ -1,14 +1,31 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { visualizer } from "rollup-plugin-visualizer";
 
 import { navigateFallbackDenylist, pwaManifest, pwaRuntimeCaching } from "./src/pwaConfig";
 
 const backendPort = parseInt(process.env.BACKEND_PORT ?? "8080");
 
+// HEL-512 — bundle-composition report, opt-in only (`npm run build:analyze`, or
+// `ANALYZE=true npm run build`). Never added to the plugin list on an ordinary `npm run build`,
+// so prod build output/timing are unaffected. Report lands in `dist/`, which is already
+// git-ignored — see `.gitignore`.
+const analyzeBuild = process.env.ANALYZE === "true";
+
 export default defineConfig({
   plugins: [
     react(),
+    ...(analyzeBuild
+      ? [
+          visualizer({
+            filename: "dist/stats.html",
+            gzipSize: true,
+            brotliSize: true,
+            template: "treemap",
+          }),
+        ]
+      : []),
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",

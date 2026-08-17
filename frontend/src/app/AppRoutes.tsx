@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { faCompass } from "@fortawesome/free-solid-svg-icons";
 
@@ -15,11 +16,22 @@ import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
 import { SettingsPage } from "../features/settings/ui/SettingsPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
-import { ProposalReviewPage } from "../features/dashboards/ui/ProposalReviewPage";
 import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
+import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
 import { AppShell } from "./App";
+
+// HEL-512 — reached only from NL-authoring's "review proposal" hand-off, not on the critical
+// path of any other route; loaded via a dynamic `import()` so its module graph doesn't ship on
+// every other route's initial navigation. `ProposalReviewPage` is a named export (not default),
+// so `React.lazy` — which requires a promise resolving to a `{ default }` shape — needs this
+// adapter.
+const ProposalReviewPage = lazy(() =>
+  import("../features/dashboards/ui/ProposalReviewPage").then((m) => ({
+    default: m.ProposalReviewPage,
+  })),
+);
 
 /** Rendered for any route that doesn't match a real page — including while
  * unauthenticated, so it never depends on `AppShell`/auth context (design.md
@@ -70,7 +82,14 @@ export function AppRoutes() {
           <Route path="/metrics/:id" element={<MetricDetailPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/proposals/review" element={<ProposalReviewPage />} />
+          <Route
+            path="/proposals/review"
+            element={
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <ProposalReviewPage />
+              </Suspense>
+            }
+          />
           <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
         </Route>
       </Route>

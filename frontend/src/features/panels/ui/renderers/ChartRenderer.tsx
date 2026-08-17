@@ -1,6 +1,16 @@
+import { lazy, Suspense } from "react";
+
 import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
-import { ChartPanel } from "../ChartPanel";
+import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
+
+// HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
+// dynamic `import()` so its module graph lands in a separate, non-entry chunk instead of the
+// initial JS payload. `ChartPanel` is a named export (not default), so `React.lazy` — which
+// requires a promise resolving to a `{ default }` shape — needs this adapter. See design.md
+// Decision 1: only this internal import becomes lazy; `ChartRenderer`'s own export/signature (and
+// `PanelContent.tsx`'s static import of it) are unchanged.
+const ChartPanel = lazy(() => import("../ChartPanel").then((m) => ({ default: m.ChartPanel })));
 
 interface ChartRendererProps {
   appearance?: PanelAppearance;
@@ -31,15 +41,17 @@ export function ChartRenderer({
   return (
     <div className="panel-content panel-content--chart">
       <div className="chart-panel__canvas">
-        <ChartPanel
-          appearance={appearance}
-          rawRows={rawRows}
-          headers={headers}
-          fieldMapping={fieldMapping}
-          chartAggregate={chartAggregate}
-          chartOptions={chartOptions}
-          compact={compact}
-        />
+        <Suspense fallback={<PanelSuspenseFallback />}>
+          <ChartPanel
+            appearance={appearance}
+            rawRows={rawRows}
+            headers={headers}
+            fieldMapping={fieldMapping}
+            chartAggregate={chartAggregate}
+            chartOptions={chartOptions}
+            compact={compact}
+          />
+        </Suspense>
       </div>
       {trimmedAnnotation ? (
         <p className="chart-panel__annotation" title={trimmedAnnotation}>

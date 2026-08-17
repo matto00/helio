@@ -23,8 +23,12 @@ beforeEach(() => {
   capturedChartProps = null;
 });
 
+// HEL-512 — `ChartPanel` is now a `React.lazy` target inside `ChartRenderer` (design.md Decision
+// 1); even with the `./ChartPanel` mock above resolving immediately, it mounts asynchronously
+// behind a `Suspense` boundary, so assertions on `capturedChartProps` must wait for the chunk's
+// (mocked) dynamic `import()` promise to resolve first — `await screen.findByTestId(...)`.
 describe("PanelContent — appearance forwarding", () => {
-  it("forwards appearance prop to ChartPanel", () => {
+  it("forwards appearance prop to ChartPanel", async () => {
     const appearance = {
       background: "transparent",
       color: "inherit",
@@ -41,12 +45,14 @@ describe("PanelContent — appearance forwarding", () => {
     };
     const panel = makeChartPanel({ appearance });
     render(<PanelContent panel={panel} appearance={appearance} />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
 
-  it("forwards panel.appearance when no appearance prop is provided", () => {
+  it("forwards panel.appearance when no appearance prop is provided", async () => {
     const panel = makeChartPanel();
     render(<PanelContent panel={panel} />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
 });
@@ -58,9 +64,9 @@ describe("PanelContent — placeholder (unbound)", () => {
     expect(screen.getByText("No data")).toBeInTheDocument();
   });
 
-  it("renders an ECharts chart panel for type chart", () => {
+  it("renders an ECharts chart panel for type chart", async () => {
     render(<PanelContent panel={makeChartPanel()} />);
-    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
   });
 
   it("renders placeholder lines for type text", () => {
@@ -122,31 +128,35 @@ describe("PanelContent — live metric data", () => {
 });
 
 describe("PanelContent — chart forwards all props to ChartPanel", () => {
-  it("forwards fieldMapping, rawRows, and headers to ChartPanel", () => {
+  it("forwards fieldMapping, rawRows, and headers to ChartPanel", async () => {
     const fieldMapping = { xAxis: "date", yAxis: "price" };
     const rawRows = [["2024-01-01", "100"]];
     const headers = ["date", "price"];
     const panel = makeChartPanel({ config: { fieldMapping } });
     render(<PanelContent panel={panel} rawRows={rawRows} headers={headers} />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
     expect(capturedChartProps?.headers).toEqual(headers);
   });
 
-  it("forwards an empty fieldMapping object to ChartPanel for an unbound chart panel", () => {
+  it("forwards an empty fieldMapping object to ChartPanel for an unbound chart panel", async () => {
     render(<PanelContent panel={makeChartPanel()} />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
 
   // HEL-301 — compact threads through to ChartPanel so the phone stack can
   // hide the legend / shrink axis labels (W5).
-  it("forwards compact=true to ChartPanel", () => {
+  it("forwards compact=true to ChartPanel", async () => {
     render(<PanelContent panel={makeChartPanel()} compact />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
-  it("leaves compact undefined for the desktop grid (no compact prop passed)", () => {
+  it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
     render(<PanelContent panel={makeChartPanel()} />);
+    await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
 });
@@ -156,35 +166,44 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
 // PanelContent resolves the effective annotation literal-wins and passes it to
 // ChartRenderer (real here; only ChartPanel is mocked), which renders the
 // `.chart-panel__annotation` element.
+// HEL-512 — the annotation `<p>` sits outside ChartRenderer's `Suspense` boundary (see
+// design.md Decision 2) so it's present on the synchronous first render regardless of the lazy
+// `ChartPanel` chunk's load state; each test still awaits `chart-panel` mounting so the mocked
+// dynamic import's pending promise doesn't resolve after the test completes (React `act()`
+// warning) — mirrors the pattern used above.
 describe("PanelContent — chart annotation resolution (HEL-323)", () => {
-  it("renders the static config.annotation when set", () => {
+  it("renders the static config.annotation when set", async () => {
     const panel = makeChartPanel({ config: { annotation: "Fixed note" } });
     const { container } = render(<PanelContent panel={panel} />);
+    await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
-  it("renders the bound annotation from data when no static annotation is set", () => {
+  it("renders the bound annotation from data when no static annotation is set", async () => {
     const panel = makeChartPanel({ config: { fieldMapping: { annotation: "note" } } });
     const { container } = render(
       <PanelContent panel={panel} data={{ annotation: "Preliminary — revised weekly" }} />,
     );
+    await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent(
       "Preliminary — revised weekly",
     );
   });
 
-  it("static config.annotation wins over a bound data.annotation when both are present", () => {
+  it("static config.annotation wins over a bound data.annotation when both are present", async () => {
     const panel = makeChartPanel({
       config: { annotation: "Fixed note", fieldMapping: { annotation: "note" } },
     });
     const { container } = render(
       <PanelContent panel={panel} data={{ annotation: "Bound value" }} />,
     );
+    await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
-  it("renders no annotation element when neither static nor bound is set", () => {
+  it("renders no annotation element when neither static nor bound is set", async () => {
     const { container } = render(<PanelContent panel={makeChartPanel()} data={{}} />);
+    await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 });
