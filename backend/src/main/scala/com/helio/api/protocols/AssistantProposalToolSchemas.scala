@@ -1,7 +1,7 @@
 package com.helio.api.protocols
 
 import com.helio.ai.ClaudeTool
-import spray.json.{JsArray, JsObject, JsString}
+import spray.json._
 
 /** JSON-Schema `inputSchema`s for the 4 `propose_*` `ClaudeTool`s (HEL-662 tasks.md 2.4) — each
  *  mirrors the matching JSON Schema file under `schemas/` closely enough for Claude's
@@ -9,6 +9,14 @@ import spray.json.{JsArray, JsObject, JsString}
  *  style `WorkspaceAssistantTools` already established for `find`/`get_resource`. Not a byte-for-byte
  *  copy of the JSON Schema files: `$defs`/`$ref`/`additionalProperties: false` are 2020-12 machinery
  *  a tool-call `input_schema` doesn't need — nested fragments are inlined directly instead.
+ *
+ *  HEL-700 design.md D2: each schema below also carries a top-level `"examples"` array — one
+ *  fully-formed input, authored as a compact parsed-string-literal (`"""...""".parseJson`), never a
+ *  hand-rolled `JsObject` tree (unreadable for a whole dashboard/pipeline/patch-set payload). Every
+ *  entry is pinned by a decode-round-trip test in `AssistantProposalToolSchemasSpec` through the SAME
+ *  `convertTo[T]` path a real `tool_use.input` hits (`AssistantToolExecutor.decode`) — an example
+ *  cannot silently drift from the protocol without a red test. Every id in an example is an
+ *  obviously-synthetic placeholder (design.md D3) — never a real, dereferenceable resource id.
  *
  *  `private[protocols]`: only `AssistantProtocol` (same package, `object AssistantProtocol extends
  *  AssistantProposalToolSchemas`) needs these vals directly; split into this file purely to keep
@@ -60,13 +68,33 @@ private[protocols] trait AssistantProposalToolSchemas {
     "required" -> JsArray(Vector(JsString("title"), JsString("type")))
   )
 
+  // HEL-700 design.md D2/D3 — one fully-formed propose_dashboard call, decode-pinned by
+  // AssistantProposalToolSchemasSpec against `dashboardProposalFormat`. "dt_example_from_find" is an
+  // obviously-synthetic placeholder id, never a real DataType id.
+  private val DashboardProposalExample: JsValue =
+    """{
+      "dashboardName": "Q1 Revenue",
+      "panels": [
+        {
+          "title": "Total Revenue",
+          "type": "metric",
+          "dataTypeId": "dt_example_from_find",
+          "fieldMapping": { "value": "amount" },
+          "aggregation": { "value": "amount", "agg": "sum" },
+          "label": "Total",
+          "unit": "USD"
+        }
+      ]
+    }""".parseJson
+
   private val DashboardProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "dashboardName" -> JsObject("type" -> JsString("string")),
       "panels"        -> JsObject("type" -> JsString("array"), "items" -> ProposalPanelSchema)
     ),
-    "required" -> JsArray(Vector(JsString("dashboardName"), JsString("panels")))
+    "required" -> JsArray(Vector(JsString("dashboardName"), JsString("panels"))),
+    "examples" -> JsArray(Vector(DashboardProposalExample))
   )
 
   // ── PipelineProposal (schemas/pipeline-proposal.schema.json) ───────────────────────────────────
@@ -107,6 +135,22 @@ private[protocols] trait AssistantProposalToolSchemas {
     "required" -> JsArray(Vector(JsString("type"), JsString("config")))
   )
 
+  // HEL-700 design.md D2/D3 — inline-source branch (`type`/`name`/`config`, no `sourceId`),
+  // demonstrating source-branch exclusivity. Decode-pinned against `pipelineProposalFormat`.
+  private val PipelineProposalExample: JsValue =
+    """{
+      "pipelineName": "Weekly Signups",
+      "source": {
+        "type": "rest_api",
+        "name": "Signups API",
+        "config": { "url": "https://api.example.com/signups", "method": "GET" }
+      },
+      "outputDataTypeName": "Weekly Signups",
+      "steps": [
+        { "type": "cast", "config": { "casts": { "signups": "integer" } } }
+      ]
+    }""".parseJson
+
   private val PipelineProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
@@ -115,10 +159,40 @@ private[protocols] trait AssistantProposalToolSchemas {
       "outputDataTypeName" -> JsObject("type" -> JsString("string")),
       "steps"               -> JsObject("type" -> JsString("array"), "items" -> PipelineProposalStepSchema)
     ),
-    "required" -> JsArray(Vector("pipelineName", "source", "outputDataTypeName", "steps").map(JsString(_)))
+    "required" -> JsArray(Vector("pipelineName", "source", "outputDataTypeName", "steps").map(JsString(_))),
+    "examples" -> JsArray(Vector(PipelineProposalExample))
   )
 
   // ── CombinedProposal (schemas/combined-proposal.schema.json) ───────────────────────────────────
+
+  // HEL-700 design.md D2/D3 — the dashboard panel binds to THIS SAME call's pipeline via the literal
+  // sentinel "$pipelineOutput" in place of a real dataTypeId (the pipeline's output doesn't exist
+  // yet). Decode-pinned against `combinedProposalFormat`; the sentinel must survive the round trip.
+  private val CombinedProposalExample: JsValue =
+    """{
+      "pipeline": {
+        "pipelineName": "Weekly Signups",
+        "source": {
+          "type": "rest_api",
+          "name": "Signups API",
+          "config": { "url": "https://api.example.com/signups", "method": "GET" }
+        },
+        "outputDataTypeName": "Weekly Signups",
+        "steps": []
+      },
+      "dashboard": {
+        "dashboardName": "Signups Overview",
+        "panels": [
+          {
+            "title": "Weekly Signups",
+            "type": "metric",
+            "dataTypeId": "$pipelineOutput",
+            "fieldMapping": { "value": "signups" },
+            "aggregation": { "value": "signups", "agg": "sum" }
+          }
+        ]
+      }
+    }""".parseJson
 
   private val CombinedProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
@@ -126,7 +200,8 @@ private[protocols] trait AssistantProposalToolSchemas {
       "pipeline"  -> PipelineProposalSchema,
       "dashboard" -> DashboardProposalSchema
     ),
-    "required" -> JsArray(Vector(JsString("pipeline"), JsString("dashboard")))
+    "required" -> JsArray(Vector(JsString("pipeline"), JsString("dashboard"))),
+    "examples" -> JsArray(Vector(CombinedProposalExample))
   )
 
   // ── PatchSet (schemas/patch-set.schema.json) ────────────────────────────────────────────────────
@@ -156,13 +231,29 @@ private[protocols] trait AssistantProposalToolSchemas {
     "required" -> JsArray(Vector(JsString("target"), JsString("op")))
   )
 
+  // HEL-700 design.md D2/D3 — an update edit with `target.id` present (required for update/delete)
+  // and `patch` matching that kind's existing update-request shape. Decode-pinned against
+  // `patchSetFormat`. "panel_example_from_find" is an obviously-synthetic placeholder id.
+  private val PatchSetExample: JsValue =
+    """{
+      "summary": "Rename the revenue panel and update its unit",
+      "edits": [
+        {
+          "target": { "kind": "panel", "id": "panel_example_from_find" },
+          "op": "update",
+          "patch": { "title": "Total Revenue (USD)" }
+        }
+      ]
+    }""".parseJson
+
   private val PatchSetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "summary" -> JsObject("type" -> JsString("string")),
       "edits"   -> JsObject("type" -> JsString("array"), "items" -> EditSchema)
     ),
-    "required" -> JsArray(Vector(JsString("edits")))
+    "required" -> JsArray(Vector(JsString("edits"))),
+    "examples" -> JsArray(Vector(PatchSetExample))
   )
 
   // ── Tools ────────────────────────────────────────────────────────────────────────────────────

@@ -68,19 +68,29 @@ final class AssistantConversationService(
   /** Appends `turns` onto an existing, owned conversation (`NotFound` if missing/not-owned — checked
    *  BEFORE any blob read, tasks.md 6.9). Re-writes the WHOLE blob (no partial/append-in-place —
    *  `FileSystem` has no such primitive, design.md D2), then updates `updated_at`/`gcs_body_ref` in
-   *  Postgres via `touchUpdatedAt`. */
+   *  Postgres via `touchUpdatedAt`.
+   *
+   *  `idempotencyKey` (HEL-698 design.md D3 append-time check, default `None` so the `/messages`
+   *  route — today with zero real callers — keeps its exact prior behavior): when the key is defined
+   *  AND equals `existing.lastIdempotencyKey`, a concurrent duplicate already applied this send —
+   *  skip the blob write and the touch entirely, returning the record as-is (no-op replay). Otherwise
+   *  the key (`Some` or `None`) is threaded straight into `touchUpdatedAt`, which owns the
+   *  Some-writes/None-leaves-untouched semantics (design.md D2). */
   def appendTurn(
       user: AuthenticatedUser,
       id: AssistantConversationId,
-      turns: Seq[ClaudeToolMessage]
+      turns: Seq[ClaudeToolMessage],
+      idempotencyKey: Option[String] = None
   ): Future[Either[ServiceError, AssistantConversationRecord]] =
     repo.findById(id, user.id).flatMap {
       case None => Future.successful(Left(conversationNotFound))
+      case Some(existing) if idempotencyKey.isDefined && idempotencyKey == existing.lastIdempotencyKey =>
+        Future.successful(Right(existing))
       case Some(existing) =>
         fileSystem.read(existing.gcsBodyRef).flatMap { bytes =>
           val updatedTranscript = deserialize(bytes) ++ turns
           fileSystem.write(existing.gcsBodyRef, serialize(updatedTranscript)).flatMap { _ =>
-            repo.touchUpdatedAt(id, user.id, existing.gcsBodyRef).map {
+            repo.touchUpdatedAt(id, user.id, existing.gcsBodyRef, idempotencyKey).map {
               case Some(record) => Right(record)
               case None         => Left(conversationNotFound)
             }

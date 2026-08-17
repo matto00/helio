@@ -241,7 +241,8 @@ describe("ActiveConversationPanel", () => {
     fireEvent.change(input, { target: { value: "What's our revenue?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(converseMock).toHaveBeenCalledWith("conv-1", "What's our revenue?");
+    // HEL-698 — MessageComposer now always sends a client-generated idempotency key.
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "What's our revenue?", expect.any(String));
     await waitFor(() => expect(screen.getByText("What's our revenue?")).toBeInTheDocument());
     expect(screen.getByText("Revenue is $42,000.")).toBeInTheDocument();
     // The composer clears its input on a successful send (a separate local-state render pass from
@@ -420,7 +421,10 @@ describe("ActiveConversationPanel", () => {
     await waitFor(() =>
       expect(store.getState().assistantConversations.selectedConversationId).toBe("new-conv"),
     );
-    await waitFor(() => expect(converseMock).toHaveBeenCalledWith("new-conv", "Hello there"));
+    // HEL-698 — MessageComposer now always sends a client-generated idempotency key.
+    await waitFor(() =>
+      expect(converseMock).toHaveBeenCalledWith("new-conv", "Hello there", expect.any(String)),
+    );
     await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
     expect(screen.getByText("Hi! How can I help?")).toBeInTheDocument();
   });

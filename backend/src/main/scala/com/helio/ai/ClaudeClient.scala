@@ -135,7 +135,12 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
     }
 
   private def addUsage(accumulated: TokenUsage, hop: ClaudeApiUsage): TokenUsage =
-    TokenUsage(accumulated.inputTokens + hop.inputTokens, accumulated.outputTokens + hop.outputTokens)
+    TokenUsage(
+      inputTokens = accumulated.inputTokens + hop.inputTokens,
+      outputTokens = accumulated.outputTokens + hop.outputTokens,
+      cacheCreationInputTokens = accumulated.cacheCreationInputTokens + hop.cacheCreationInputTokens,
+      cacheReadInputTokens = accumulated.cacheReadInputTokens + hop.cacheReadInputTokens
+    )
 
   private def extractText(blocks: Seq[ClaudeContentBlock]): String =
     blocks.collect { case ClaudeContentBlock.Text(text) => text }.mkString
@@ -158,14 +163,34 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       ClaudeApiContentBlock(blockType = "tool_result", text = Some(content), toolUseId = Some(toolUseId), isError = Some(isError))
   }
 
+  /** Marks the stable prefix's two cache breakpoints (design.md D3): the last `tools` element (end
+   *  of the byte-identical-across-hops tools array) and the last content block of the first message
+   *  (the end of `AssistantService.seedHistory`'s system-prompt-carrying turn). Both markers are
+   *  guarded on non-empty — an empty `tools`/`messages` list is left untouched. */
   private def toApiToolRequest(request: ClaudeToolRequest, history: Seq[ClaudeToolMessage]): ClaudeApiToolRequest = {
     val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
+    val apiTools         = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
+    val markedTools = apiTools match {
+      case Seq() => apiTools
+      case _     => apiTools.init :+ apiTools.last.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
+    }
+    val apiMessages = history.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock)))
+    val markedMessages = apiMessages match {
+      case Seq() => apiMessages
+      case first +: rest =>
+        val markedFirst = first.content match {
+          case Seq() => first
+          case blocks =>
+            first.copy(content = blocks.init :+ blocks.last.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral)))
+        }
+        markedFirst +: rest
+    }
     ClaudeApiToolRequest(
       model = config.model,
       maxTokens = clampedMaxTokens,
-      messages = history.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock))),
+      messages = markedMessages,
       temperature = request.temperature.getOrElse(config.temperature),
-      tools = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
+      tools = markedTools
     )
   }
 
@@ -201,12 +226,19 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       None
   }
 
+  /** Marks the first message as the cache breakpoint for `send`/`stream` (design.md D3) — the
+   *  system-prompt-carrying turn shared identically across repeat calls. Guarded on non-empty. */
   private def toApiRequest(request: ClaudeRequest, stream: Boolean): ClaudeApiRequest = {
     val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
+    val apiMessages       = request.messages.map(m => ClaudeApiMessage(m.role, m.content))
+    val markedMessages = apiMessages match {
+      case Seq()         => apiMessages
+      case first +: rest => first.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral)) +: rest
+    }
     ClaudeApiRequest(
       model = config.model,
       maxTokens = clampedMaxTokens,
-      messages = request.messages.map(m => ClaudeApiMessage(m.role, m.content)),
+      messages = markedMessages,
       temperature = request.temperature.getOrElse(config.temperature),
       stream = stream
     )
@@ -218,7 +250,12 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       id = apiResponse.id,
       text = text,
       stopReason = apiResponse.stopReason,
-      usage = TokenUsage(apiResponse.usage.inputTokens, apiResponse.usage.outputTokens)
+      usage = TokenUsage(
+        inputTokens = apiResponse.usage.inputTokens,
+        outputTokens = apiResponse.usage.outputTokens,
+        cacheCreationInputTokens = apiResponse.usage.cacheCreationInputTokens,
+        cacheReadInputTokens = apiResponse.usage.cacheReadInputTokens
+      )
     )
   }
 }

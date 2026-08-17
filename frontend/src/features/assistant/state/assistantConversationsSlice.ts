@@ -144,18 +144,43 @@ export const selectConversation = createAsyncThunk<
  * converse → append → re-fetch already returns the refreshed detail). Deliberately does NOT wire
  * `pending`/`rejected` into `activeConversation.status`/`error`: those drive `ActiveConversationPanel`'s
  * full-panel loading/error swap, which would hide the transcript AND the composer mid-send — the
- * composer's own local sending/error state (design.md D6) is what surfaces this instead. */
+ * composer's own local sending/error state (design.md D6) is what surfaces this instead.
+ *
+ * `idempotencyKey` (HEL-698 design.md D6) — threaded straight through to `converseRequest`. On a
+ * converse REJECTION, reconciliation kicks in before giving up: re-fetch the conversation and
+ * compare its `lastIdempotencyKey` against the key this call sent. A match proves the send landed
+ * server-side (and, by `appendTurn`'s blob-write atomicity, Claude's reply landed with it) — return
+ * the fetched detail so the thunk FULFILLS exactly as a successful `converse` would (transcript
+ * replaces wholesale, composer clears its input, no error banner). No match, no key, or a failed
+ * reconciliation fetch all fall through to the original rejection — preserving today's failure UX,
+ * with a retry now idempotency-protected via the key. */
 export const converse = createAsyncThunk<
   AssistantConversationDetail,
-  { id: string; message: string },
+  { id: string; message: string; idempotencyKey?: string },
   { rejectValue: ConverseErrorPayload }
->("assistantConversations/converse", async ({ id, message }, { rejectWithValue }) => {
-  try {
-    return await converseRequest(id, message);
-  } catch (err: unknown) {
-    return rejectWithValue(extractConverseError(err));
-  }
-});
+>(
+  "assistantConversations/converse",
+  async ({ id, message, idempotencyKey }, { rejectWithValue }) => {
+    try {
+      return await converseRequest(id, message, idempotencyKey);
+    } catch (err: unknown) {
+      // HEL-703 design.md D9 — the rich `{ code?, message, limit? }` payload (not a plain string)
+      // so MessageComposer can distinguish TIER_FORBIDDEN/CHAT_LIMIT_REACHED from a generic/network
+      // failure. Computed once and reused for BOTH the reconciliation-miss and no-key rejection
+      // paths below (HEL-698 design.md D6) — reconciliation only ever changes whether this call
+      // FULFILLS instead; the rejection payload shape is unaffected by whether a key was sent.
+      const originalPayload = extractConverseError(err);
+      if (idempotencyKey === undefined) return rejectWithValue(originalPayload);
+      try {
+        const reconciled = await getConversationRequest(id);
+        if (reconciled.lastIdempotencyKey === idempotencyKey) return reconciled;
+      } catch {
+        // Reconciliation fetch itself failed -- fall through to the original rejection below.
+      }
+      return rejectWithValue(originalPayload);
+    }
+  },
+);
 
 export const togglePinned = createAsyncThunk<
   AssistantConversationSummary,

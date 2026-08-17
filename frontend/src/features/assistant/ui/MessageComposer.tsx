@@ -57,17 +57,29 @@ interface MessageComposerProps {
  *  derivation never picks up the freshly created conversation, so the panel would stay stuck on the
  *  empty-state branch forever even after a "successful" send) -> `converse(newId, message)` against
  *  it -- the exact same converse call an existing conversation's send uses, never a second,
- *  divergent "first message" mechanism. */
+ *  divergent "first message" mechanism.
+ *
+ *  `pendingSend` (HEL-698 design.md D6) tracks `{key, text}` for the one logical message currently
+ *  being sent/retried -- the retry unit IS this composer's own preserved input, no other component
+ *  retries. On submit: reuse `pendingSend.key` iff the preserved text still matches the trimmed
+ *  input exactly (a same-text retry after a failure); otherwise mint a fresh `crypto.randomUUID()`
+ *  (a previous send succeeded -- `pendingSend` was cleared -- or the text was edited). Cleared only
+ *  on success, so a failed send's key survives into its retry. */
 export function MessageComposer({ conversationId }: MessageComposerProps) {
   const dispatch = useAppDispatch();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingSend, setPendingSend] = useState<{ key: string; text: string } | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = message.trim();
     if (trimmed.length === 0 || sending) return;
+
+    const idempotencyKey =
+      pendingSend !== null && pendingSend.text === trimmed ? pendingSend.key : crypto.randomUUID();
+    setPendingSend({ key: idempotencyKey, text: trimmed });
 
     setSending(true);
     setError(null);
@@ -82,10 +94,11 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
         dispatch(conversationCreated(created));
         dispatch(setSelectedConversationId(targetId));
       }
-      await dispatch(converse({ id: targetId, message: trimmed })).unwrap();
+      await dispatch(converse({ id: targetId, message: trimmed, idempotencyKey })).unwrap();
       // Only cleared on success -- a failed send preserves the typed input so the user can retry
-      // without retyping (tasks.md 6.9).
+      // without retyping (tasks.md 6.9), and preserves pendingSend so the retry reuses the same key.
       setMessage("");
+      setPendingSend(null);
     } catch (err) {
       setError(composerErrorMessage(err));
     } finally {

@@ -23,14 +23,21 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  `Future`) — a telemetry failure must never affect the request it describes.
  *
  *  Never logs the user's typed message text — only `conversationId`/`toolCallCount`/
- *  `hopBudgetExhausted`/`searchedWithNoResults`/`modelId`/token usage ever reach here. */
+ *  `hopBudgetExhausted`/`searchedWithNoResults`/`modelId`/token usage/propose-call quality counters
+ *  ever reach here. */
 object AssistantTelemetry {
   private val log: Logger = LoggerFactory.getLogger("com.helio.services.AssistantTelemetry")
 
   /** `event=assistant_tool_loop_outcome` — emitted once per successful `POST /:id/converse` call
    *  (design.md D6). Callers MUST guard this on `AssistantService.converse` having resolved to
    *  `Right(result)` — never call for a `Left(ClaudeError)`, since no turn actually completed
-   *  (design.md's own explicit non-goal: no telemetry line for a failed call). */
+   *  (design.md's own explicit non-goal: no telemetry line for a failed call).
+   *
+   *  `proposeAttempts`/`proposeDecodeFailures`/`proposeValidationFailures` (HEL-700 design.md D5/D7):
+   *  per-turn propose_* call-quality counters, straight `Int` passthroughs of
+   *  `AssistantTurnResult`'s same-named fields — joined with `modelId` on this same line, Cloud
+   *  Logging can segment propose-call shaping-quality failure rates by model. Integer counts ONLY —
+   *  never the failing tool input payload or its deserialization error text (design.md D7). */
   def emitToolLoopOutcome(
       mdcSnapshot: JMap[String, String],
       conversationId: String,
@@ -38,7 +45,10 @@ object AssistantTelemetry {
       hopBudgetExhausted: Boolean,
       searchedWithNoResults: Boolean,
       modelId: String,
-      tokens: TokenUsage
+      tokens: TokenUsage,
+      proposeAttempts: Int,
+      proposeDecodeFailures: Int,
+      proposeValidationFailures: Int
   )(implicit ec: ExecutionContextExecutor): Unit =
     emit(
       mdcSnapshot,
@@ -50,7 +60,12 @@ object AssistantTelemetry {
         "searchedWithNoResults" -> searchedWithNoResults.toString,
         "modelId"               -> modelId,
         "inputTokens"           -> tokens.inputTokens.toString,
-        "outputTokens"          -> tokens.outputTokens.toString
+        "outputTokens"          -> tokens.outputTokens.toString,
+        "cacheReadInputTokens"      -> tokens.cacheReadInputTokens.toString,
+        "cacheCreationInputTokens"  -> tokens.cacheCreationInputTokens.toString,
+        "proposeAttempts"           -> proposeAttempts.toString,
+        "proposeDecodeFailures"     -> proposeDecodeFailures.toString,
+        "proposeValidationFailures" -> proposeValidationFailures.toString
       )
     )
 

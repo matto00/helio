@@ -38,7 +38,11 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
           .withIdleTimeout(60.seconds)
       )
 
-  private def buildHttpRequest(request: ClaudeApiRequest): HttpRequest =
+  /** `private[ai]`, not `private` (assistant-prompt-caching design.md D6), so `HttpClaudeTransportSpec`
+   *  can assert on the serialized `send`/`stream` request shape directly — including the
+   *  cache-marked first message — without ever invoking [[send]] itself, which would require a
+   *  real (or bound-local) HTTP round trip. Mirrors the `ClaudeApiToolRequest` overload below. */
+  private[ai] def buildHttpRequest(request: ClaudeApiRequest): HttpRequest =
     HttpRequest(
       method = HttpMethods.POST,
       uri = MessagesUri,

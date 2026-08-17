@@ -122,6 +122,19 @@ class AssistantTelemetrySpec
       )
     )
 
+  // assistant-prompt-caching tasks.md 4.4 (design.md D5) -- same tool_use fixture as toolUseResponse
+  // above, but with a nonzero cache_read_input_tokens on every hop's usage, so a multi-hop turn's
+  // aggregated telemetry line shows a nonzero cacheReadInputTokens (AC #2).
+  private def toolUseResponseWithCacheRead(id: String, name: String, cacheReadInputTokens: Int): Future[ClaudeApiResponse] =
+    Future.successful(
+      ClaudeApiResponse(
+        id         = s"msg_$id",
+        content    = Seq(ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some(id), name = Some(name), input = Some(JsObject.empty))),
+        stopReason = Some("tool_use"),
+        usage      = ClaudeApiUsage(inputTokens = 8, outputTokens = 4, cacheCreationInputTokens = 0, cacheReadInputTokens = cacheReadInputTokens)
+      )
+    )
+
   private class FakeTransport(response: Future[ClaudeApiResponse]) extends ClaudeTransport {
     override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse]            = Future.failed(new UnsupportedOperationException("not exercised"))
     override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] = throw new UnsupportedOperationException("not exercised")
@@ -177,7 +190,13 @@ class AssistantTelemetrySpec
           lines.head.fields("modelId") shouldBe JsString(modelId)
           lines.head.fields("inputTokens") shouldBe JsString("10")
           lines.head.fields("outputTokens") shouldBe JsString("6")
+          lines.head.fields("cacheReadInputTokens") shouldBe JsString("0")
+          lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
           lines.head.fields(TraceContextDirective.TraceMdcKey) shouldBe JsString(TraceValue)
+          // HEL-700 tasks.md 3.5 — a turn with no propose_* call carries all three counters at zero.
+          lines.head.fields("proposeAttempts") shouldBe JsString("0")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("0")
+          lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
         }
 
         // HEL-667 design.md's own privacy rule -- never the raw typed message, anywhere in the
@@ -211,6 +230,65 @@ class AssistantTelemetrySpec
           // AssistantConversationRoutes.countToolUses's own doc comment).
           lines.head.fields("toolCallCount") shouldBe JsString("4")
         }
+      }
+    }
+
+    // assistant-tool-loop-telemetry spec delta scenario "A multi-hop turn's record shows nonzero
+    // cache reads" (assistant-prompt-caching tasks.md 4.4/design.md D5) -- 4 hops, each reporting
+    // cache_read_input_tokens=50, aggregate to a nonzero cacheReadInputTokens on the emitted record.
+    "a multi-hop turn's telemetry line shows a nonzero, correctly-aggregated cacheReadInputTokens" in {
+      val user    = newUser()
+      val detail  = await(conversationService.create(user, None, title = None))
+      val modelId = s"model-${UUID.randomUUID()}"
+      val service = assistantServiceWith(new FakeTransport(toolUseResponseWithCacheRead("t", "unknown_tool", cacheReadInputTokens = 50)), modelId)
+
+      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+        tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
+          tracedRoutesFor(user, Some(service)) ~> check {
+            status shouldBe StatusCodes.OK
+          }
+
+        eventually {
+          val lines = linesFor(read, modelId)
+          lines should have size 1
+          // Same 4-round-trip hop-cap-exhausted shape as the sibling test above -- 4 hops x 50.
+          lines.head.fields("cacheReadInputTokens") shouldBe JsString("200")
+          lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
+        }
+      }
+    }
+
+    // HEL-700 tasks.md 3.5 (design.md D4/D7, assistant-tool-loop-telemetry spec's "A malformed
+    // propose call is counted as a decode failure" scenario) — every one of the 4 SCRIPTED
+    // transport responses is an unparseable propose_dashboard call (empty input — 'dashboardName'
+    // is required); mirrors this file's own hop-cap-exhausted fixture. Per
+    // ClaudeClient.sendWithTools's "thisHop > maxHops" guard, only the first 3 (maxHops) are ever
+    // actually dispatched to AssistantToolExecutor — the 4th tool_use arrives but is never executed.
+    "a malformed propose_dashboard call is counted as a decode failure, and neither its input payload nor its error text ever reach the log line" in {
+      val user    = newUser()
+      val detail  = await(conversationService.create(user, None, title = None))
+      val modelId = s"model-${UUID.randomUUID()}"
+      val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "propose_dashboard")), modelId)
+
+      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+        tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
+          tracedRoutesFor(user, Some(service)) ~> check {
+            status shouldBe StatusCodes.OK
+          }
+
+        eventually {
+          val lines = linesFor(read, modelId)
+          lines should have size 1
+          lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
+          lines.head.fields("proposeAttempts") shouldBe JsString("3")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("3")
+          lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
+        }
+
+        // HEL-700 design.md D7 — only integer counts reach the log line, never the failing
+        // tool_use.input payload or its deserialization error text.
+        read() should not include "dashboardName"
+        read() should not include "DeserializationException"
       }
     }
   }

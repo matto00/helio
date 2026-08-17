@@ -358,6 +358,75 @@ class AssistantConversationRoutesSpec
     }
   }
 
+  // HEL-698 tasks.md 4.3 (design.md D3/D4/D5, assistant-live-converse spec) — client-generated
+  // idempotency key: a same-key replay is a no-op, an over-long key is rejected, a keyless call is
+  // unaffected, and both GET/converse responses carry the persisted `lastIdempotencyKey`.
+  "POST /assistant-conversations/:id/converse idempotency key" should {
+
+    "a second converse with the SAME key is a no-op replay -- 200, transcript unchanged, the underlying Claude transport invoked exactly once" in {
+      cleanDb()
+      val detail    = await(conversationService.create(userA, None, title = None))
+      val transport = new SequencedTransport(Vector(finalTextResponse("Hi there!")))
+      val assistantService = assistantServiceWith(transport)
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello","idempotencyKey":"key-1"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        transcriptOf(responseAs[String]) should have size 2
+      }
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello","idempotencyKey":"key-1"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        transcriptOf(responseAs[String]) should have size 2
+      }
+
+      transport.receivedRequests should have size 1
+    }
+
+    "an idempotencyKey longer than 128 characters is rejected with 400 and nothing is persisted" in {
+      cleanDb()
+      val detail            = await(conversationService.create(userA, None, title = None))
+      val assistantService  = assistantServiceWith(new FakeTransport(finalTextResponse("Hi there!")))
+      val overLongKey       = "k" * 129
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity(s"""{"message":"Hello","idempotencyKey":"$overLongKey"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      Get(s"/assistant-conversations/${detail.record.id.value}") ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        transcriptOf(responseAs[String]) shouldBe empty
+      }
+    }
+
+    "a keyless converse behaves exactly as before -- no lastIdempotencyKey field on the response" in {
+      cleanDb()
+      val detail            = await(conversationService.create(userA, None, title = None))
+      val assistantService  = assistantServiceWith(new FakeTransport(finalTextResponse("Hi there!")))
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        val obj = responseAs[String].parseJson.asJsObject
+        obj.fields.keySet should not contain "lastIdempotencyKey"
+      }
+    }
+
+    "GET and converse responses both carry lastIdempotencyKey once a keyed send has landed" in {
+      cleanDb()
+      val detail            = await(conversationService.create(userA, None, title = None))
+      val assistantService  = assistantServiceWith(new FakeTransport(finalTextResponse("Hi there!")))
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello","idempotencyKey":"key-1"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("lastIdempotencyKey") shouldBe JsString("key-1")
+      }
+
+      Get(s"/assistant-conversations/${detail.record.id.value}") ~> routesFor(userA, Some(assistantService)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("lastIdempotencyKey") shouldBe JsString("key-1")
+      }
+    }
+  }
+
   // HEL-667 tasks.md 7.3 (design.md D1, assistant-live-converse spec) — the two new ephemeral
   // turn-outcome signals surface on a converse response and stay absent on GET.
   "POST /assistant-conversations/:id/converse turn-outcome signals" should {

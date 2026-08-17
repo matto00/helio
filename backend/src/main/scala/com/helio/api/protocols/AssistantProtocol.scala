@@ -31,7 +31,14 @@ import com.helio.services.WorkspaceAssistantTools
  *  field so a caller (`AssistantConversationRoutes`, HEL-665) can persist the conversation's
  *  continuation without re-deriving it. Only ever constructed for a `Right` result — see
  *  `AssistantService.converse`'s `Future[Either[ClaudeError, AssistantTurnResult]]` signature; a
- *  `ClaudeToolOutcome.Failed` never produces one. */
+ *  `ClaudeToolOutcome.Failed` never produces one.
+ *
+ *  `proposeAttempts`/`proposeDecodeFailures`/`proposeValidationFailures` (HEL-700 design.md D5): flat
+ *  `Int` passthroughs of `AssistantToolExecutor`'s own same-named counters, copied here at the SAME
+ *  point `proposal`/`toolCallCount` are (this class is backend-internal — never serialized to the
+ *  wire, see `AssistantProtocol.scala`'s own header comment) so `AssistantConversationRoutes
+ *  .converseFlow` can thread them into `AssistantTelemetry.emitToolLoopOutcome` without reaching into
+ *  an `AssistantToolExecutor` instance of its own. */
 final case class AssistantTurnResult(
     text: String,
     proposal: Option[AssistantProposal],
@@ -39,7 +46,10 @@ final case class AssistantTurnResult(
     hopBudgetExhausted: Boolean,
     searchedWithNoResults: Boolean,
     usage: TokenUsage,
-    fullHistory: Seq[ClaudeToolMessage]
+    fullHistory: Seq[ClaudeToolMessage],
+    proposeAttempts: Int,
+    proposeDecodeFailures: Int,
+    proposeValidationFailures: Int
 )
 
 /** Closed union over what a successful `propose_*` tool call can produce (HEL-662 tasks.md 2.2) —
