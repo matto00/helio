@@ -13,12 +13,20 @@ function renderAt(pathname: string) {
 }
 
 describe("BottomNav", () => {
-  it("renders exactly the navDestinations as tabs, in order", () => {
+  it("renders exactly the navDestinations as tabs, in order, using each destination's short label (F-080)", () => {
     renderAt("/");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(navDestinations.map((d) => d.label));
+    // Visible text is the short label where set (falls back to the full
+    // label) — the full label is still the link's accessible name (its own
+    // `aria-label`, asserted below), not its visible text.
+    expect(links.map((link) => link.textContent)).toEqual(
+      navDestinations.map((d) => d.shortLabel ?? d.label),
+    );
+    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(
+      navDestinations.map((d) => d.label),
+    );
   });
 
   it("marks the Dashboards tab active on the root route and no other tab active", () => {
@@ -28,7 +36,7 @@ describe("BottomNav", () => {
     expect(within(nav).getByRole("link", { name: "Dashboards" })).toHaveClass(
       "bottom-nav__tab--active",
     );
-    for (const label of ["Data Sources", "Data Pipelines", "Type Registry", "Metrics", "Chat"]) {
+    for (const label of ["Data Sources", "Data Pipelines", "Data Types", "Metrics", "Assistant"]) {
       expect(within(nav).getByRole("link", { name: label })).not.toHaveClass(
         "bottom-nav__tab--active",
       );

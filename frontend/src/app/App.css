@@ -10,6 +10,31 @@
   transition: background-color var(--app-transition);
 }
 
+/* F-089: skip-to-content link. Off-screen until focused, then a real,
+ * visible, first-in-tab-order control — standard pattern for bypassing the
+ * chrome (command bar + sidebar nav) that otherwise precedes page content on
+ * every load. */
+.app-skip-link {
+  position: fixed;
+  top: -100%;
+  left: var(--space-3);
+  z-index: 10;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition: top var(--app-transition);
+}
+
+.app-skip-link:focus-visible {
+  top: var(--space-3);
+  outline: 2px solid var(--app-text);
+  outline-offset: 2px;
+}
+
 /* --- COMMAND BAR --- */
 .app-command-bar {
   height: 48px;
@@ -139,6 +164,10 @@
   width: var(--control-sm);
   padding: 0;
   justify-content: center;
+  /* F-087: at the inherited --text-xs (12px), the sun/moon theme-toggle icon
+     read as a settings gear. Only icon-only buttons are affected — text-
+     bearing `.cmd-btn` labels (Undo/Redo) are untouched. */
+  font-size: var(--text-base);
 }
 
 /* --- MAIN BODY (sidebar + content) --- */
@@ -161,13 +190,34 @@
   overflow: visible;
   position: relative;
   z-index: 4;
+  transition: width var(--app-transition);
+}
+
+/* F-018: collapsing used to remove primary navigation entirely (the whole
+ * `<aside>`, nav links included, replaced by an unlabeled 20x48px strip with
+ * no nav of its own). Collapsed now keeps a real icon-only rail — same
+ * `<NavLink>`s, same 6 destinations, just no text label — so collapsing only
+ * ever hides the *list* below the top-level nav, never navigation itself.
+ * (Previously dead CSS with zero references anywhere in the app — see
+ * CONTRIBUTING.md's "no dead code" rule — now it does real work.) */
+.app-sidebar--collapsed {
+  width: 56px;
+}
+
+.app-sidebar__nav-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-2) 0;
 }
 
 .app-sidebar__nav {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
@@ -188,6 +238,10 @@
     color var(--app-transition);
 }
 
+.app-sidebar__nav-icon {
+  flex-shrink: 0;
+}
+
 .app-sidebar__nav-link:hover {
   background: var(--app-surface-raised);
   color: var(--app-text);
@@ -195,7 +249,11 @@
 
 .app-sidebar__nav-link.active {
   background: var(--app-accent-dim);
-  color: var(--app-accent);
+  /* F-050: raw --app-accent as text color measures ~3.47:1 against
+     --app-accent-dim, short of WCAG AA's 4.5:1 — the accent marker bar below
+     still carries the accent voice; the label text uses the guaranteed-legible
+     theme text color instead. */
+  color: var(--app-text);
 }
 
 /* Active marker: a short accent bar, not a full glow */
@@ -216,47 +274,52 @@
   outline-offset: -2px;
 }
 
-/* Sidebar collapsed state - just a thin toggle strip */
-.app-sidebar--collapsed {
-  width: 0;
-  border-right: none;
-  overflow: hidden;
+/* Collapsed rail: icon-only. The label stays in the DOM (accessible name,
+ * and the tooltip via the link's `title` in App.tsx) but isn't painted. */
+.app-sidebar--collapsed .app-sidebar__nav-link {
+  justify-content: center;
+  padding: 0;
 }
 
-.app-sidebar-toggle,
-.app-sidebar-collapse {
+.app-sidebar--collapsed .app-sidebar__nav-label {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
-  width: 20px;
-  height: 48px;
-  display: flex;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Real, labeled, `--control-sm`-sized control — not a floating 20x48px
+ * unlabeled strip. */
+.app-sidebar-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--app-surface);
+  width: var(--control-sm);
+  height: var(--control-sm);
+  padding: 0;
+  border-radius: var(--app-radius-sm);
   border: 1px solid var(--app-border-subtle);
-  border-left: none;
-  border-radius: 0 var(--app-radius-sm) var(--app-radius-sm) 0;
+  background: transparent;
   color: var(--app-text-muted);
   cursor: pointer;
   transition:
     color var(--app-transition),
-    border-color var(--app-transition);
+    border-color var(--app-transition),
+    background-color var(--app-transition);
 }
 
-.app-sidebar-toggle {
-  left: 0;
-}
-
-.app-sidebar-collapse {
-  right: -20px;
-}
-
-.app-sidebar-toggle:hover,
-.app-sidebar-collapse:hover {
+.app-sidebar-toggle:hover {
   color: var(--app-text);
   border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.app-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
 }
 
 /* --- CONTENT AREA --- */
@@ -274,63 +337,26 @@
   background-size: 26px 26px;
 }
 
-/* --- UNDO/REDO buttons in command bar --- */
-.undo-redo-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--app-radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  border: 1px solid var(--app-border-subtle);
-  background: transparent;
-  color: var(--app-text-muted);
+/* F-019: visually-hidden per-route heading. Most routed pages render no
+ * `<h1>` of their own; this gives screen-reader/accessibility-tree users a
+ * real landmark heading without changing the visible page layout — the
+ * on-screen "where am I" is still the breadcrumb above. */
+.app-content__sr-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
-  transition:
-    border-color var(--app-transition),
-    color var(--app-transition),
-    background-color var(--app-transition);
 }
 
-.undo-redo-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
-}
-
-.undo-redo-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Theme toggle quick-access button in topbar */
-.topbar-theme-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  padding: 0;
-  border-radius: var(--app-radius-sm);
-  border: 1px solid var(--app-border-subtle);
-  background: transparent;
-  color: var(--app-text-muted);
-  cursor: pointer;
-  font-size: var(--text-xs);
-  transition:
-    border-color var(--app-transition),
-    color var(--app-transition),
-    background-color var(--app-transition);
-}
-
-.topbar-theme-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
-}
+/* F-186: `.undo-redo-btn` and `.topbar-theme-btn` used to be full,
+ * near-byte-identical duplicates of `.cmd-btn`/`.cmd-btn--icon` (same
+ * height, border, colors, hover/disabled states) — three copies of one
+ * recipe. Undo/Redo and the icon-only topbar buttons (App.tsx) now use
+ * `.cmd-btn`/`.cmd-btn--icon` directly; `.undo-redo-btn` survives only as a
+ * marker class for the <=768px hide rule below (mobile has no layout editing
+ * — see that rule's own comment). */
 
 /* --- COMMAND BAR: phone-only dashboard-switcher title (App.tsx) ---
  * Hidden by default; shown only <=768px below. Sits alongside (never
@@ -376,14 +402,16 @@
     display: inline-flex;
   }
 
-  /* Desktop layout-editing affordances (undo/redo, dashboard appearance) are
-     out of scope for the phone viewer (mobile-pwa-handoff.md §2 — no CRUD/
-     editing on phone) and, left in place, they crowd the command bar enough
-     to squeeze the mobile title control to zero width. Hide them here so the
-     dashboard switcher stays usable; this does not touch PanelGrid or any
-     HEL-301 file. */
+  /* Desktop layout-editing affordances (undo/redo, dashboard appearance,
+     save-now) are out of scope for the phone viewer (mobile-pwa-handoff.md
+     §2 — no CRUD/editing on phone) and, left in place, they crowd the
+     command bar enough to squeeze the mobile title control to zero width
+     (F-054/F-077 — "Save now" specifically used to reserve ~90px even while
+     invisible). Hide them here so the dashboard switcher stays usable; this
+     does not touch PanelGrid or any HEL-301 file. */
   .undo-redo-btn,
-  .dashboard-appearance-editor {
+  .dashboard-appearance-editor,
+  .app-command-bar .save-state-indicator {
     display: none;
   }
 
@@ -392,8 +420,7 @@
      replace it entirely below the phone breakpoint; the desktop sidebar is
      simply not rendered here. */
   .app-sidebar,
-  .app-sidebar-toggle,
-  .app-sidebar-collapse {
+  .app-sidebar-toggle {
     display: none;
   }
 
@@ -402,4 +429,15 @@
   .app-content {
     padding-bottom: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
   }
+}
+
+/* F-188: the catch-all "page not found" route renders outside `AppShell`
+ * (it must work while unauthenticated too), so it gets its own minimal
+ * full-viewport centering rather than inheriting `.app-content`'s. */
+.app-not-found {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--app-surface);
 }

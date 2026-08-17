@@ -59,6 +59,18 @@ describe("DataGrid — column derivation", () => {
     const headers = screen.getAllByRole("columnheader").map((el) => el.textContent);
     expect(headers).toEqual(["c", "a"]);
   });
+
+  // HEL a11y/ux sweep F-127: a plain string sort orders "col_10" before
+  // "col_2" — confusing for any real dataset with numeric-suffixed field
+  // names. A live repro hit this on a 30-field DataType (col_0..col_29).
+  it("orders numeric-suffixed keys naturally (col_2 before col_10), not by plain string sort", () => {
+    const row: Record<string, unknown> = {};
+    for (const n of [0, 1, 2, 10, 11, 20]) row[`col_${n}`] = n;
+    render(<DataGrid variant="preview" rows={[row]} />);
+
+    const headers = screen.getAllByRole("columnheader").map((el) => el.textContent);
+    expect(headers).toEqual(["col_0", "col_1", "col_2", "col_10", "col_11", "col_20"]);
+  });
 });
 
 describe("DataGrid — variants and density", () => {
@@ -310,6 +322,38 @@ describe("DataGrid — keyboard-operable resize (arrow-key nudge)", () => {
 // a static-source guard — they fail if a future refactor drops the
 // `table-layout: fixed` rule or the `DEFAULT_COLUMN_WIDTH` fallback that
 // makes it safe — not a substitute for that live-browser check.
+// HEL a11y/ux sweep F-164: an overflowing table gave phone users zero
+// indication that more columns exist off-screen. `useScrollEdges` is unit
+// tested on its own (useScrollEdges.test.tsx); this checks DataGrid actually
+// wires the resulting edge state into its modifier classes.
+describe("DataGrid — scroll-shadow affordance (F-164)", () => {
+  function stubScrollMetrics(el: HTMLElement, scrollWidth: number, clientWidth: number) {
+    Object.defineProperty(el, "scrollWidth", { configurable: true, value: scrollWidth });
+    Object.defineProperty(el, "clientWidth", { configurable: true, value: clientWidth });
+    Object.defineProperty(el, "scrollLeft", { configurable: true, writable: true, value: 0 });
+  }
+
+  it("applies no scroll-edge modifier class when the table fits its container", () => {
+    const { container } = render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} />);
+    const root = container.firstChild as HTMLElement;
+    stubScrollMetrics(root, 300, 300);
+    fireEvent.scroll(root);
+
+    expect(root).not.toHaveClass("ui-data-grid--scroll-left");
+    expect(root).not.toHaveClass("ui-data-grid--scroll-right");
+  });
+
+  it("applies the scroll-right modifier when scrolled to the start of overflowing content", () => {
+    const { container } = render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} />);
+    const root = container.firstChild as HTMLElement;
+    stubScrollMetrics(root, 900, 300);
+    fireEvent.scroll(root);
+
+    expect(root).not.toHaveClass("ui-data-grid--scroll-left");
+    expect(root).toHaveClass("ui-data-grid--scroll-right");
+  });
+});
+
 describe("DataGrid — table-layout:fixed regression guard (static source)", () => {
   const css = readFileSync(join(__dirname, "DataGrid.css"), "utf8");
 
@@ -317,6 +361,22 @@ describe("DataGrid — table-layout:fixed regression guard (static source)", () 
     expect(css).toMatch(
       /\.ui-data-grid--full\s+\.ui-data-grid__table\s*{[^}]*table-layout:\s*fixed/,
     );
+  });
+
+  // HEL a11y/ux sweep F-153: header cells hard-clipped mid-word with no
+  // ellipsis, unlike body cells.
+  it("thead th truncates with an ellipsis, matching tbody td's existing truncation", () => {
+    expect(css).toMatch(
+      /\.ui-data-grid__table thead th\s*{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis/,
+    );
+  });
+
+  // HEL a11y/ux sweep F-239: a numeric font-weight literal bypassed the
+  // --weight-semibold token inside the shared primitive itself.
+  it("thead th uses the --weight-semibold token, not a numeric literal", () => {
+    const theadRule = css.match(/\.ui-data-grid__table thead th\s*{[^}]*}/)?.[0] ?? "";
+    expect(theadRule).toMatch(/font-weight:\s*var\(--weight-semibold\)/);
+    expect(theadRule).not.toMatch(/font-weight:\s*[0-9]/);
   });
 
   it("every full-variant column receives an explicit width, even when unresized", () => {

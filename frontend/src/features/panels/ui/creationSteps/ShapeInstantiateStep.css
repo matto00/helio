@@ -24,6 +24,11 @@
   color: var(--app-text-muted);
 }
 
+/* F-115 — matches `ShapeParamsFields`'s `.shape-params-fields__required`. */
+.shape-instantiate-step__required {
+  color: var(--app-error);
+}
+
 .shape-instantiate-step__status {
   margin: 0;
   font-size: var(--text-sm);

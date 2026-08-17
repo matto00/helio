@@ -24,22 +24,29 @@ export const PANEL_TEMPLATES: Partial<Record<PanelType, PanelTemplate[]>> = {
     },
     {
       id: "metric-percentage-change",
+      // F-117 — was "Show a value with a delta indicator", overpromising: a
+      // trend indicator is a real MetricRenderer feature, but it's bound via
+      // `fieldMapping.trend` in the editor, not configured by this template
+      // (which, like every template here, only pre-fills the title).
       label: "Percentage Change",
-      description: "Show a value with a delta indicator",
+      description: "Starter title for a metric that highlights a change over time",
       defaults: { title: "Percentage Change" },
     },
   ],
   chart: [
     {
+      // F-117 — was "Basic line chart showing trends over time", implying
+      // the chart type is already set; it isn't (chart type is picked on the
+      // very next step). Both chart templates here only pre-fill the title.
       id: "chart-timeseries-line",
       label: "Time-series Line Chart",
-      description: "Basic line chart showing trends over time",
+      description: "Starter title for a trend chart — pick a chart type next",
       defaults: { title: "Time-series Line Chart" },
     },
     {
       id: "chart-trend-overview",
       label: "Trend Overview",
-      description: "Area chart for a high-level trend summary",
+      description: "Starter title for a high-level trend summary — pick a chart type next",
       defaults: { title: "Trend Overview" },
     },
   ],
@@ -59,15 +66,18 @@ export const PANEL_TEMPLATES: Partial<Record<PanelType, PanelTemplate[]>> = {
   ],
   table: [
     {
+      // F-117 — was "Compact table for summarised data" / "Expanded columns
+      // for detailed row-level data", implying distinct column layouts;
+      // neither template configures columns (only the title).
       id: "table-data-summary",
       label: "Data Summary Table",
-      description: "Compact table for summarised data",
+      description: "Starter title for a compact summary table",
       defaults: { title: "Data Summary Table" },
     },
     {
       id: "table-full-grid",
       label: "Full Data Grid",
-      description: "Expanded columns for detailed row-level data",
+      description: "Starter title for a detailed, row-level data table",
       defaults: { title: "Full Data Grid" },
     },
   ],

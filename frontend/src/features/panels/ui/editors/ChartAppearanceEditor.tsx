@@ -100,79 +100,86 @@ export function ChartAppearanceEditor({
         </label>
       </div>
 
-      <div className="panel-detail-modal__chart-subsection">
-        <label className="panel-detail-modal__chart-label">
-          <input
-            type="checkbox"
-            checked={chartAppearance.axisLabels.x.show}
-            onChange={(e) =>
-              setChartAppearance((prev) => ({
-                ...prev,
-                axisLabels: {
-                  ...prev.axisLabels,
-                  x: { ...prev.axisLabels.x, show: e.target.checked },
-                },
-              }))
-            }
-            aria-label="Show X-axis label"
-          />
-          Show X-axis label
-        </label>
-        {chartAppearance.axisLabels.x.show && (
-          <TextField
-            type="text"
-            placeholder="X axis label text"
-            value={chartAppearance.axisLabels.x.label ?? ""}
-            onChange={(e) =>
-              setChartAppearance((prev) => ({
-                ...prev,
-                axisLabels: {
-                  ...prev.axisLabels,
-                  x: { ...prev.axisLabels.x, label: e.target.value },
-                },
-              }))
-            }
-            aria-label="X-axis label text"
-          />
-        )}
-      </div>
+      {/* F-194 — a pie chart has no X/Y axes, so these controls previously
+          showed for every chart type including pie, letting a user "turn on"
+          an axis label that could never render. */}
+      {chartAppearance.chartType !== "pie" && (
+        <div className="panel-detail-modal__chart-subsection">
+          <label className="panel-detail-modal__chart-label">
+            <input
+              type="checkbox"
+              checked={chartAppearance.axisLabels.x.show}
+              onChange={(e) =>
+                setChartAppearance((prev) => ({
+                  ...prev,
+                  axisLabels: {
+                    ...prev.axisLabels,
+                    x: { ...prev.axisLabels.x, show: e.target.checked },
+                  },
+                }))
+              }
+              aria-label="Show X-axis label"
+            />
+            Show X-axis label
+          </label>
+          {chartAppearance.axisLabels.x.show && (
+            <TextField
+              type="text"
+              placeholder="X axis label text"
+              value={chartAppearance.axisLabels.x.label ?? ""}
+              onChange={(e) =>
+                setChartAppearance((prev) => ({
+                  ...prev,
+                  axisLabels: {
+                    ...prev.axisLabels,
+                    x: { ...prev.axisLabels.x, label: e.target.value },
+                  },
+                }))
+              }
+              aria-label="X-axis label text"
+            />
+          )}
+        </div>
+      )}
 
-      <div className="panel-detail-modal__chart-subsection">
-        <label className="panel-detail-modal__chart-label">
-          <input
-            type="checkbox"
-            checked={chartAppearance.axisLabels.y.show}
-            onChange={(e) =>
-              setChartAppearance((prev) => ({
-                ...prev,
-                axisLabels: {
-                  ...prev.axisLabels,
-                  y: { ...prev.axisLabels.y, show: e.target.checked },
-                },
-              }))
-            }
-            aria-label="Show Y-axis label"
-          />
-          Show Y-axis label
-        </label>
-        {chartAppearance.axisLabels.y.show && (
-          <TextField
-            type="text"
-            placeholder="Y axis label text"
-            value={chartAppearance.axisLabels.y.label ?? ""}
-            onChange={(e) =>
-              setChartAppearance((prev) => ({
-                ...prev,
-                axisLabels: {
-                  ...prev.axisLabels,
-                  y: { ...prev.axisLabels.y, label: e.target.value },
-                },
-              }))
-            }
-            aria-label="Y-axis label text"
-          />
-        )}
-      </div>
+      {chartAppearance.chartType !== "pie" && (
+        <div className="panel-detail-modal__chart-subsection">
+          <label className="panel-detail-modal__chart-label">
+            <input
+              type="checkbox"
+              checked={chartAppearance.axisLabels.y.show}
+              onChange={(e) =>
+                setChartAppearance((prev) => ({
+                  ...prev,
+                  axisLabels: {
+                    ...prev.axisLabels,
+                    y: { ...prev.axisLabels.y, show: e.target.checked },
+                  },
+                }))
+              }
+              aria-label="Show Y-axis label"
+            />
+            Show Y-axis label
+          </label>
+          {chartAppearance.axisLabels.y.show && (
+            <TextField
+              type="text"
+              placeholder="Y axis label text"
+              value={chartAppearance.axisLabels.y.label ?? ""}
+              onChange={(e) =>
+                setChartAppearance((prev) => ({
+                  ...prev,
+                  axisLabels: {
+                    ...prev.axisLabels,
+                    y: { ...prev.axisLabels.y, label: e.target.value },
+                  },
+                }))
+              }
+              aria-label="Y-axis label text"
+            />
+          )}
+        </div>
+      )}
 
       <div className="panel-detail-modal__chart-type-section">
         <span className="panel-detail-modal__chart-type-label">Chart type</span>

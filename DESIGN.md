@@ -99,7 +99,17 @@ hardcode a value a token exists for.** **[mechanical]**
 - `--app-surface*` are **opaque**. `buildPanelSurface()` returns alpha 1.0 at
   `transparency: 0`; the dashboard grid override resolves opaque.
   **[mechanical]** Do not add translucent surfaces or `backdrop-filter`
-  glass effects to structural chrome.
+  glass effects to structural chrome. **Carve-out:** the page-behind-overlay
+  scrim (`--app-overlay`, whether painted via a native `<dialog>`'s
+  `::backdrop` or a portalled backdrop element) may use `backdrop-filter:
+blur(1–2px)` to separate the modal from the page behind it — this blurs
+  the page, not the modal, so it doesn't touch the opacity invariant.
+  `Modal.css`, `PanelCreationModal.css`, and `PanelDetailModal.css` all do
+  this consistently. `RefinementChatDrawer` and `MobileNavSheet`'s backdrops
+  intentionally stay flat (no blur) — they're lighter-weight, higher-frequency
+  overlays (drawer/sheet, not a native dialog), and matching them is not
+  required for consistency. Surface backgrounds (modal/popover/menu bodies)
+  remain fully prohibited from translucency.
 - The dot-grid texture is painted only on canvas areas (`.app-content`,
   auth pages) via `--canvas-dot`, derived from the text color — never the
   accent, never as an overlay above interactive chrome.
@@ -115,7 +125,13 @@ tweaks ≤ 4px may be literal).
 Every button, input, and select uses a control-height token:
 `--control-sm` 28px (bar/compact controls) · `--control-md` 32px (default
 inputs & buttons) · `--control-lg` 40px (auth/hero). Inline mini icon-buttons
-inside dense rows may be 24px. **[mechanical]** No other control heights.
+inside dense rows may be 24px. A fifth, mobile-only value applies at the
+430/768 breakpoints: interactive controls reachable on phone (buttons, select
+triggers/options, CTAs) get a literal `44px` min-height/min-width tap-target
+floor (HEL-308/314/319) — this is intentional, not drift; it does not apply
+at desktop widths. Native `input[type="color"]` swatches (accent/appearance
+pickers) are also exempt, sized for visual color-swatch clarity rather than
+by a control token. **[mechanical]** No other control heights.
 
 ### Typography
 
@@ -181,7 +197,13 @@ native `<dialog>`, `--app-overlay` backdrop), **TextField**, **Textarea**,
 **Select** (portal-based), **EmptyState** (variants `main`/`sidebar`; `main`
 titles are Fraunces), **Toast** (intents info/success/warning/error),
 **DataGrid** (table-shaped data primitive; variants `preview`/`full`, cell
-density `condensed`/`normal`/`spacious` — see below).
+density `condensed`/`normal`/`spacious` — see below), **FormField** (label +
+control + help/error layout — the one form-row recipe; new forms use it instead
+of re-deriving `.xxx__field`), **StatusChip** (intent-colored status pill —
+the one pill recipe), **Spinner** (the border-spinner loading indicator),
+**ConfirmInline** (inline confirm/cancel for destructive row actions — Helio
+never uses `window.confirm`), **useScrollEdges** (scroll-shadow edge state
+for overflowing lists/grids).
 Chrome in `frontend/src/shared/chrome/`: **Popover** (opaque
 `--app-surface-strong`), **ActionsMenu**, **SidebarItemList**,
 **StatusMessage**, **InlineError**, **SaveStateIndicator**, **AccentPicker**.

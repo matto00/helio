@@ -123,4 +123,34 @@ describe("useTableDisplayState (HEL-255)", () => {
     const { result } = renderHook(() => useTableDisplayState(tablePanel({}), [], null));
     expect(result.current.columns).toEqual([]);
   });
+
+  // F-126
+  it("moveToTop moves a column to index 0 without disturbing the rest", () => {
+    const panel = tablePanel({});
+    const { result } = renderHook(() => useTableDisplayState(panel, ["a", "b", "c"], "dt1"));
+
+    act(() => result.current.moveToTop(2));
+
+    expect(result.current.columns.map((c) => c.key)).toEqual(["c", "a", "b"]);
+  });
+
+  it("moveToBottom moves a column to the last index without disturbing the rest", () => {
+    const panel = tablePanel({});
+    const { result } = renderHook(() => useTableDisplayState(panel, ["a", "b", "c"], "dt1"));
+
+    act(() => result.current.moveToBottom(0));
+
+    expect(result.current.columns.map((c) => c.key)).toEqual(["b", "c", "a"]);
+  });
+
+  it("moveToTop/moveToBottom are no-ops already at the target end", () => {
+    const panel = tablePanel({});
+    const { result } = renderHook(() => useTableDisplayState(panel, ["a", "b"], "dt1"));
+
+    act(() => result.current.moveToTop(0));
+    act(() => result.current.moveToBottom(1));
+
+    expect(result.current.columns.map((c) => c.key)).toEqual(["a", "b"]);
+    expect(result.current.dirty).toBe(false);
+  });
 });

@@ -38,6 +38,20 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+// F-229: sort the catalog by usefulness rather than backend registry order — most-generally-useful
+// shapes first. Any id not in this list (a future shape the frontend hasn't been updated for yet)
+// sorts after all of these, in whatever order the backend returned it.
+const SHAPE_DISPLAY_ORDER = ["time-series", "top-n", "single-row", "pivot-matrix", "passthrough"];
+
+function byShapeUsefulness(a: PipelineShapeCatalogEntry, b: PipelineShapeCatalogEntry): number {
+  const aIndex = SHAPE_DISPLAY_ORDER.indexOf(a.id);
+  const bIndex = SHAPE_DISPLAY_ORDER.indexOf(b.id);
+  return (
+    (aIndex === -1 ? SHAPE_DISPLAY_ORDER.length : aIndex) -
+    (bIndex === -1 ? SHAPE_DISPLAY_ORDER.length : bIndex)
+  );
+}
+
 export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps) {
   const [catalog, setCatalog] = useState<PipelineShapeCatalogEntry[] | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -50,7 +64,7 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
     let cancelled = false;
     getPipelineShapeCatalog()
       .then((entries) => {
-        if (!cancelled) setCatalog(entries);
+        if (!cancelled) setCatalog([...entries].sort(byShapeUsefulness));
       })
       .catch((err: unknown) => {
         if (!cancelled) setCatalogError(extractErrorMessage(err, "Failed to load shape catalog."));
@@ -116,6 +130,13 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
   const title = selectedShape
     ? `Start from a shape — ${selectedShape.label}`
     : "Start from a shape";
+  // F-158 — "shape" is internal jargon (defined only in backend code and
+  // memory notes); clarify it in-context the first time it appears rather
+  // than assuming the reader already knows the term. Only shown on the list
+  // step — once a shape is picked, the title already names it specifically.
+  const description = selectedShape
+    ? undefined
+    : "A ready-made pipeline template you fill in and run.";
 
   const footer = selectedShape ? (
     <>
@@ -146,6 +167,7 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
     <Modal
       open
       title={title}
+      description={description}
       size="sm"
       ariaLabel="Start from a shape"
       onClose={onClose}

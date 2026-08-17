@@ -6,7 +6,14 @@
 // it always paints above surrounding chrome and cannot be clipped by an
 // ancestor's overflow/stacking context (matches the shared Popover pattern).
 
-import { useLayoutEffect, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -22,17 +29,55 @@ interface OpDropdownProps {
 }
 
 export function OpDropdown({ anchorRef, onSelect, onClose }: OpDropdownProps) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
 
   // Measure the trigger before paint so the menu never flashes at (0,0).
+  // HEL sweep F-040: with 21 op types the menu can be taller than the space
+  // remaining below the trigger, running off the bottom of the viewport
+  // (unclickable items, overlapping the sticky footer). Clamp its max-height
+  // to what's actually left below the trigger — same idea as the shared
+  // Select's portal panel, which caps at a fixed 280px; this one is
+  // viewport-relative since the trigger (and so the available space) moves.
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    setPos({ top: rect.bottom + 4, left: rect.left + rect.width / 2 });
+    const top = rect.bottom + 4;
+    const maxHeight = Math.max(120, window.innerHeight - top - 16);
+    setPos({ top, left: rect.left + rect.width / 2, maxHeight });
   }, [anchorRef]);
 
+  // F-189: opening the menu left focus sitting on the trigger button — the
+  // ArrowDown/ArrowUp handling below only ever fires from a keydown that
+  // bubbles up through the menu, so a keyboard user who never manually
+  // Tabs into the (portalled-to-body) menu can't reach it at all. Move
+  // focus to the first real menuitem as soon as the menu is positioned and
+  // rendered, mirroring UserMenu's popover (this package's other portalled
+  // menu).
+  useEffect(() => {
+    if (pos !== null) {
+      menuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]')?.focus();
+    }
+  }, [pos]);
+
   if (pos === null) return null;
+
+  // F-189: role="menu" had no arrow-key navigation — with 21 op types the
+  // only way to move through the list was Tab, one item at a time. Moves
+  // real focus among the rendered menuitem buttons, wrapping at both ends.
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLUListElement>) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
+    );
+    if (items.length === 0) return;
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = (currentIndex + delta + items.length) % items.length;
+    items[nextIndex]?.focus();
+  }
 
   return createPortal(
     <>
@@ -44,9 +89,17 @@ export function OpDropdown({ anchorRef, onSelect, onClose }: OpDropdownProps) {
         onClick={onClose}
       />
       <ul
+        ref={menuRef}
         className="pipeline-detail-page__op-dropdown"
         role="menu"
-        style={{ position: "fixed", top: pos.top, left: pos.left, transform: "translateX(-50%)" }}
+        onKeyDown={handleMenuKeyDown}
+        style={{
+          position: "fixed",
+          top: pos.top,
+          left: pos.left,
+          maxHeight: pos.maxHeight,
+          transform: "translateX(-50%)",
+        }}
       >
         {OP_TYPES.map((op) => (
           <li key={op.id} role="none">

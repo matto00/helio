@@ -50,6 +50,11 @@
   padding: 0;
   display: grid;
   gap: var(--space-1);
+  /* F-126 — cap and scroll instead of pushing the rest of the form
+     off-screen for wide data types (matches `.panel-detail-modal__type-list`'s
+     pattern in PanelDetailModal.binding.css). */
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .panel-detail-modal__column-row {

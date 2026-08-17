@@ -18,6 +18,8 @@ function renderFields(overrides: Partial<ComponentProps<typeof TableDisplayField
       onToggleVisible={jest.fn()}
       onMoveUp={jest.fn()}
       onMoveDown={jest.fn()}
+      onMoveToTop={jest.fn()}
+      onMoveToBottom={jest.fn()}
       hasStoredWidths={false}
       resetWidthsPending={false}
       onResetWidths={jest.fn()}
@@ -82,5 +84,30 @@ describe("TableDisplayFields (HEL-255)", () => {
   it("reflects a pending width reset in the button label and disables it", () => {
     renderFields({ hasStoredWidths: true, resetWidthsPending: true });
     expect(screen.getByRole("button", { name: "Column widths will reset on save" })).toBeDisabled();
+  });
+
+  // F-126
+  it("does not render jump-to-top/bottom controls for a short column list", () => {
+    renderFields();
+    expect(screen.queryByLabelText("Move a to top")).toBeNull();
+    expect(screen.queryByLabelText("Move b to bottom")).toBeNull();
+  });
+
+  it("renders jump-to-top/bottom controls once the column list is long, and fires the callbacks", () => {
+    const longColumns: TableColumnRow[] = Array.from({ length: 9 }, (_, i) => ({
+      key: `col${i}`,
+      visible: true,
+    }));
+    const onMoveToTop = jest.fn();
+    const onMoveToBottom = jest.fn();
+    renderFields({ columns: longColumns, onMoveToTop, onMoveToBottom });
+
+    fireEvent.click(screen.getByLabelText("Move col5 to top"));
+    expect(onMoveToTop).toHaveBeenCalledWith(5);
+    fireEvent.click(screen.getByLabelText("Move col5 to bottom"));
+    expect(onMoveToBottom).toHaveBeenCalledWith(5);
+
+    expect(screen.getByLabelText("Move col0 to top")).toBeDisabled();
+    expect(screen.getByLabelText("Move col8 to bottom")).toBeDisabled();
   });
 });

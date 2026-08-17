@@ -125,6 +125,17 @@ export const DividerEditor = forwardRef<PanelEditorHandle, DividerEditorProps>(
             onChange={(e) => setColor(e.target.value)}
             aria-label="Divider color"
           />
+          {/* F-165 — the swatch's unset-state value (#cccccc) is only a
+              preview placeholder; an actually-unset divider renders the
+              theme's subtle hairline border color (`--app-border-subtle`,
+              see `DividerPanel.tsx`), which the picker can't display since a
+              CSS custom property isn't a value `<input type="color">` accepts. */}
+          {initialColorStored === null && color === "#cccccc" && (
+            <p className="panel-detail-modal__field-hint">
+              #cccccc is a preview only — the actual default is a subtle hairline that adapts to
+              your theme.
+            </p>
+          )}
         </div>
         <InlineError error={saveError} />
       </>

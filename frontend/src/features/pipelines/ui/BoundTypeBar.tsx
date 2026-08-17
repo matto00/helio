@@ -27,7 +27,7 @@ export function BoundTypeBar({ outputTypeName, canEditType, onEditType }: BoundT
       </div>
       {canEditType && (
         <button className="pipeline-detail-page__edit-btn" onClick={onEditType} type="button">
-          Edit Type
+          Edit type
         </button>
       )}
     </div>

@@ -86,7 +86,7 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
               </button>
               <button
                 type="button"
-                className="pipeline-detail-page__sort-config-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove sort key ${index + 1}`}
                 onClick={() => handleRemoveKey(index)}
               >

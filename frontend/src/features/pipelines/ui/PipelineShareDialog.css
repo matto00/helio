@@ -91,54 +91,17 @@
   flex-wrap: wrap;
 }
 
+/* F-143: the grantee input is now a <TextField> (shared/ui/inputs.css owns
+ * its surface/border/focus-ring styling) — this rule only sets the flex
+ * sizing needed inside the row layout above. */
 .pipeline-share-dialog__input {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  background: var(--app-bg);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  color: var(--app-text);
 }
 
-.pipeline-share-dialog__input:focus {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 1px;
-}
-
+/* F-138/F-142: "Grant access" now uses the shared `ui-modal-btn--primary`
+ * recipe (correct height/radius/--app-accent-ink text) — this rule only adds
+ * the `white-space: nowrap` this button needs inside the wrapping flex row. */
 .pipeline-share-dialog__add-btn {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  background: var(--app-accent);
-  color: var(--app-surface);
-  border: none;
-  border-radius: var(--app-radius-md);
-  cursor: pointer;
   white-space: nowrap;
-}
-
-.pipeline-share-dialog__add-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
-}
-
-.pipeline-share-dialog__add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ── Footer close button ─────────────────────────────────────────────────── */
-
-.pipeline-share-dialog__close-btn {
-  padding: var(--space-2) var(--space-5);
-  font-size: var(--text-sm);
-  background: var(--app-surface-soft);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  color: var(--app-text);
-  cursor: pointer;
-}
-
-.pipeline-share-dialog__close-btn:hover {
-  background: var(--app-surface-raised);
 }

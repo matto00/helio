@@ -4,11 +4,59 @@
    for spacing; the grid wraps responsively so there is never horizontal
    overflow — including at 390px phone width. */
 
+/* F-038 — shared scroll-affordance recipe: every internally-scrolling panel
+   body on the desktop grid (this file, `MarkdownPanel.css`, and
+   `PanelContent.css`'s `.panel-content--text`/`.panel-content--table`) gets
+   the SAME two pieces, verbatim, since the underlying cause is shared —
+   react-grid-layout gives every panel a fixed height, so overflow content
+   scrolls with zero visual hint that more exists (was `overflow-y: auto`
+   and nothing else — no scrollbar styling, no fade, no indicator):
+     1. A themed, always-visible thin scrollbar (`scrollbar-width`/-color`
+        plus the WebKit pseudo-elements) so the region reads as "scrollable"
+        even before the user touches it.
+     2. A CSS-only "scroll shadow": two gradient layers that scroll WITH the
+        content (`background-attachment: local`, sized/colored to match the
+        panel's own surface so they cover the content, not paint over it)
+        stacked on two gradient layers fixed to the viewport
+        (`background-attachment: scroll`, a faint `currentColor` wash). At
+        rest the local layer exactly hides the scroll layer at whichever
+        edge has no more content (nothing scrolled past); scrolling reveals
+        the shadow only at the edge(s) that do have more content. No JS,
+        degrades to plain scrolling if unsupported. (This can't be factored
+        into one shared class/file: the renderers that use it live outside
+        this package's file ownership for this sweep.) */
 .panel-content--collection {
   align-items: stretch;
   justify-content: flex-start;
   overflow-y: auto;
   padding: var(--space-3);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 30%, transparent) transparent;
+  background:
+    linear-gradient(var(--panel-surface-override, var(--app-surface)) 40%, transparent),
+    linear-gradient(transparent, var(--panel-surface-override, var(--app-surface)) 60%) 0 100%,
+    linear-gradient(color-mix(in srgb, currentColor 16%, transparent), transparent),
+    linear-gradient(transparent, color-mix(in srgb, currentColor 16%, transparent)) 0 100%;
+  background-repeat: no-repeat;
+  background-size:
+    100% var(--space-6),
+    100% var(--space-6),
+    100% var(--space-2),
+    100% var(--space-2);
+  background-attachment: local, local, scroll, scroll;
+}
+
+.panel-content--collection::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-content--collection::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: var(--app-radius-pill);
+}
+
+.panel-content--collection::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Grid: responsive auto-fill columns. `min(140px, 100%)` clamps the track so a

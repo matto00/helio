@@ -273,6 +273,51 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText("Run pipeline")).toBeInTheDocument();
   });
 
+  // F-105 regression — opening a pipeline that already has persisted steps
+  // used to fire TWO identical /analyze requests on every open: the mount
+  // effect's own immediate `analyzePipeline`, plus a second one ~300ms later
+  // from the debounced re-analyze effect, which couldn't distinguish "steps
+  // just got seeded from persistedSteps" from a genuine edit. Only one call
+  // should happen, on mount, with no further call once the debounce window
+  // elapses.
+  it("fires analyzePipeline exactly once on open, not twice, when the pipeline already has persisted steps", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "step-persisted-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+
+    jest.useFakeTimers();
+    try {
+      renderDetailPage();
+
+      // Let the mount effect's fetches (steps, analyze) resolve and the
+      // steps-seeded-from-persistedSteps render pass run.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(analyzePipelineMock).toHaveBeenCalledTimes(1);
+
+      // Advance well past the 300ms debounce window — the seeding
+      // transition must not have queued a second, redundant call.
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(analyzePipelineMock).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   // The in-page back-navigation link was removed — the top command bar's
   // section breadcrumb ("Data Pipelines / <name>") now handles that, and is
   // covered by App.test.tsx.
@@ -352,7 +397,7 @@ describe("PipelineDetailPage", () => {
 
   it("empty state shows 'Add your first transformation step' when steps is empty", () => {
     renderDetailPage();
-    expect(screen.getByText("Add your first transformation step")).toBeInTheDocument();
+    expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
   });
 
   it("adding a step adds a card to the river view", () => {
@@ -362,7 +407,7 @@ describe("PipelineDetailPage", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /Filter rows/i }));
 
     expect(screen.getByText("Filter rows")).toBeInTheDocument();
-    expect(screen.queryByText("Add your first transformation step")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Add your first transformation step/)).not.toBeInTheDocument();
   });
 
   // HEL-386 evaluation-1.md change request 3 regression: a failed step-creation
@@ -396,7 +441,7 @@ describe("PipelineDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
-    expect(screen.getByText("Add your first transformation step")).toBeInTheDocument();
+    expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
     // A never-persisted (temp) step has no backend row, so no DELETE is issued.
     expect(deletePipelineStepMock).not.toHaveBeenCalled();
   });
@@ -923,10 +968,10 @@ describe("PipelineDetailPage", () => {
     });
     renderDetailPage("pipe-1", store);
 
-    const outputNameBtn = await screen.findByRole("button", { name: "Edit output name" });
+    const outputNameBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(outputNameBtn);
 
-    const input = screen.getByRole("textbox", { name: "Output name" });
+    const input = screen.getByRole("textbox", { name: "Pipeline name" });
     expect(input).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "New Output" } });
@@ -1231,11 +1276,11 @@ describe("PipelineDetailPage dirty-state detection", () => {
     await act(async () => {});
 
     // Click the output name button to enter edit mode
-    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn);
 
     // Change the name
-    const input = screen.getByRole("textbox", { name: "Output name" });
+    const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Changed Name" } });
     fireEvent.blur(input);
 
@@ -1250,19 +1295,19 @@ describe("PipelineDetailPage dirty-state detection", () => {
     renderDetailPage("pipe-1");
     await act(async () => {});
 
-    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn);
 
-    const input = screen.getByRole("textbox", { name: "Output name" });
+    const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Changed Name" } });
     fireEvent.blur(input);
 
     await waitFor(() => expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument());
 
     // Restore original name
-    const editBtn2 = screen.getByRole("button", { name: "Edit output name" });
+    const editBtn2 = screen.getByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn2);
-    const input2 = screen.getByRole("textbox", { name: "Output name" });
+    const input2 = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input2, { target: { value: defaultPipeline.name } });
     fireEvent.blur(input2);
 
@@ -1289,9 +1334,9 @@ describe("PipelineDetailPage Cancel confirmation", () => {
 
   async function makeDirty() {
     await act(async () => {});
-    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn);
-    const input = screen.getByRole("textbox", { name: "Output name" });
+    const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Dirty Name" } });
     fireEvent.blur(input);
     await waitFor(() => expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument());
@@ -1600,9 +1645,9 @@ describe("PipelineDetailPage beforeunload", () => {
     renderDetailPage("pipe-1");
     await act(async () => {});
 
-    const editBtn = await screen.findByRole("button", { name: "Edit output name" });
+    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn);
-    const input = screen.getByRole("textbox", { name: "Output name" });
+    const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Dirty Value" } });
     fireEvent.blur(input);
 
@@ -1793,9 +1838,13 @@ describe("PipelineDetailPage step preview", () => {
       fireEvent.click(previewBtn);
     });
 
+    // HEL sweep F-155: StepCard reads the error via the app-wide
+    // `extractErrorMessage` convention, which deliberately never surfaces a
+    // raw transport-layer `err.message` (e.g. "Network error") — a plain,
+    // non-Axios `Error` falls through to the caller-supplied fallback copy.
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
-      expect(screen.getByText("Network error")).toBeInTheDocument();
+      expect(screen.getByText("Preview failed — try again.")).toBeInTheDocument();
     });
   });
 
@@ -1968,9 +2017,17 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
     renderDetailPage("pipe-1", store);
     fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
-    const badge = document.querySelector(".run-history-modal__status--dry_run");
-    expect(badge).not.toBeNull();
-    expect(badge?.textContent).toBe("Dry run");
+    // HEL sweep F-137: the run-history status badge is now the shared
+    // `StatusChip` primitive (`.ui-status-chip--neutral.ui-status-chip--
+    // dashed`), not the bespoke `.run-history-modal__status--dry_run` class.
+    // Scoped to that element specifically — the page's own "Dry run" action
+    // button (same visible text) is also on screen underneath the modal.
+    const badge = screen.getByText("Dry run", { selector: ".ui-status-chip" });
+    expect(badge).toHaveClass(
+      "ui-status-chip",
+      "ui-status-chip--neutral",
+      "ui-status-chip--dashed",
+    );
   });
 });
 
@@ -2099,8 +2156,9 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
     fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
-    const badge = document.querySelector(".run-history-modal__status--running");
-    expect(badge).not.toBeNull();
+    // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
+    const badge = screen.getByText("Running…");
+    expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");
   });
 
   // 3.8d — history modal status badge uses --queued class
@@ -2119,8 +2177,9 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
     fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
-    const badge = document.querySelector(".run-history-modal__status--queued");
-    expect(badge).not.toBeNull();
+    // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
+    const badge = screen.getByText("Queued…");
+    expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");
   });
 });
 
@@ -2181,19 +2240,19 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   it("Edit Source button is visible when the bound source is in sources.items", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Edit Source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit source" })).toBeInTheDocument();
   });
 
   it("Edit Source button is absent when the bound source is not in sources.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
   });
 
   it("clicking Edit Source sets sources.selectedSourceId and navigates to /sources", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: "Edit Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit source" }));
     expect(store.getState().sources.selectedSourceId).toBe("src-1");
     expect(screen.getByText("Sources Page")).toBeInTheDocument();
   });
@@ -2201,19 +2260,19 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   it("Edit Type button is visible when the output type is in dataTypes.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Edit Type" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit type" })).toBeInTheDocument();
   });
 
   it("Edit Type button is absent when the output type is not in dataTypes.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
   it("clicking Edit Type sets dataTypes.selectedTypeId and navigates to /registry", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: "Edit Type" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit type" }));
     expect(store.getState().dataTypes.selectedTypeId).toBe("dt-1");
     expect(screen.getByText("Type Registry Page")).toBeInTheDocument();
   });
@@ -2229,8 +2288,8 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     };
     const store = makeStore([], { currentPipeline: sharedPipeline }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit type" })).not.toBeInTheDocument();
   });
 });
 
@@ -2296,7 +2355,9 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     putPipelineScheduleMock.mockResolvedValueOnce({ ...sampleSchedule, enabled: false });
     renderDetailPage("pipe-1");
 
-    const toggle = await screen.findByRole("checkbox", { name: "Disable schedule" });
+    // The shared `Toggle` primitive (`shared/ui/Toggle.tsx`) renders
+    // `<input type="checkbox" role="switch">` for assistive-tech support.
+    const toggle = await screen.findByRole("switch", { name: "Disable schedule" });
     fireEvent.click(toggle);
 
     await waitFor(() => {
@@ -2362,7 +2423,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     getPipelineStepsMock.mockResolvedValue([]);
     renderDetailPage();
 
-    expect(await screen.findByText("Add your first transformation step")).toBeInTheDocument();
+    expect(await screen.findByText(/^Add your first transformation step/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Add step" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start from a shape" })).toBeInTheDocument();
   });

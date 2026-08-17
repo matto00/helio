@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { Modal } from "../../../shared/ui/Modal";
 import { Select } from "../../../shared/ui/Select";
+import { TextField } from "../../../shared/ui/TextField";
 import {
   grantPipelinePermission,
   listPipelinePermissions,
@@ -90,7 +91,7 @@ export function PipelineShareDialog({ pipelineId, pipelineName, open, onClose }:
       size="md"
       ariaLabel={`Share pipeline ${pipelineName}`}
       footer={
-        <button type="button" className="pipeline-share-dialog__close-btn" onClick={onClose}>
+        <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onClose}>
           Done
         </button>
       }
@@ -141,7 +142,7 @@ export function PipelineShareDialog({ pipelineId, pipelineName, open, onClose }:
             </p>
           )}
           <form className="pipeline-share-dialog__add-form" onSubmit={(e) => void handleGrant(e)}>
-            <input
+            <TextField
               className="pipeline-share-dialog__input"
               type="text"
               placeholder="User ID"
@@ -162,7 +163,7 @@ export function PipelineShareDialog({ pipelineId, pipelineName, open, onClose }:
             />
             <button
               type="submit"
-              className="pipeline-share-dialog__add-btn"
+              className="ui-modal-btn ui-modal-btn--primary pipeline-share-dialog__add-btn"
               disabled={adding || !granteeId.trim()}
             >
               {adding ? "Granting…" : "Grant access"}

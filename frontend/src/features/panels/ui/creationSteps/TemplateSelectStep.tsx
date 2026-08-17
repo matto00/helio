@@ -22,11 +22,22 @@ export function TemplateSelectStep({ templates, onSelect, onBack }: TemplateSele
             key={template.id}
             type="button"
             className="panel-creation-modal__template-card"
-            aria-label={template.label}
+            // F-210 — see TypeSelectStep's identical fix: labelledby/describedby
+            // instead of an aria-label override that hides the description.
+            aria-labelledby={`template-label-${template.id}`}
+            aria-describedby={`template-desc-${template.id}`}
             onClick={() => onSelect(template)}
           >
-            <span className="panel-creation-modal__template-label">{template.label}</span>
-            <span className="panel-creation-modal__template-description">
+            <span
+              id={`template-label-${template.id}`}
+              className="panel-creation-modal__template-label"
+            >
+              {template.label}
+            </span>
+            <span
+              id={`template-desc-${template.id}`}
+              className="panel-creation-modal__template-description"
+            >
               {template.description}
             </span>
           </button>
@@ -34,11 +45,14 @@ export function TemplateSelectStep({ templates, onSelect, onBack }: TemplateSele
         <button
           type="button"
           className="panel-creation-modal__template-card panel-creation-modal__template-card--blank"
-          aria-label="Start blank"
+          aria-labelledby="template-label-blank"
+          aria-describedby="template-desc-blank"
           onClick={() => onSelect(null)}
         >
-          <span className="panel-creation-modal__template-label">Start blank</span>
-          <span className="panel-creation-modal__template-description">
+          <span id="template-label-blank" className="panel-creation-modal__template-label">
+            Start blank
+          </span>
+          <span id="template-desc-blank" className="panel-creation-modal__template-description">
             Begin with an empty panel
           </span>
         </button>

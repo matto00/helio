@@ -85,6 +85,16 @@
   background: var(--app-error-surface);
 }
 
+/* F-176 — matches the established HEL-308/314/319 44px mobile tap-target floor already used on
+   Modal's close button and ActionsMenu's trigger/items; this was the one control in the same
+   feature area left at a fixed 24×24. */
+@media (max-width: 768px) {
+  .proposal-review__remove {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .proposal-review__meta {
   margin: 0;
   display: flex;

@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import "./TypeDetailPanel.css";
-import { updateDataType } from "../state/dataTypesSlice";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import {
+  fetchAssertionStatus,
+  selectAssertionInvalid,
+  updateDataType,
+} from "../state/dataTypesSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchDataTypeRows } from "../services/dataTypeService";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import { ComputedFieldsEditor } from "../../pipelines/ui/ComputedFieldsEditor";
@@ -31,17 +35,36 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // HEL-576/F-182: per-type assertion/rule-validity status, same cache PanelCard
+  // already reads via `selectAssertionInvalid` — dispatching here (deduped by
+  // the slice's `condition`) means N surfaces bound to the same DataType share
+  // one request.
+  const isDataInvalid = useAppSelector((state) => selectAssertionInvalid(state, dataType.id));
+  useEffect(() => {
+    void dispatch(fetchAssertionStatus(dataType.id));
+  }, [dispatch, dataType.id]);
+
+  // F-076: monotonic request token so an out-of-order (superseded) preview
+  // response can never overwrite a newer one's rows/error — guards a rapid
+  // double Reload-click, not just a dataType switch (the latter now also
+  // remounts this whole component via `TypeRegistryBrowser`'s `key` prop,
+  // per F-001).
+  const previewRequestIdRef = useRef(0);
+
   const handlePreview = useCallback(async () => {
+    const requestId = ++previewRequestIdRef.current;
     setPreviewLoading(true);
     setPreviewError(null);
     try {
       const result = await fetchDataTypeRows(dataType.id);
+      if (previewRequestIdRef.current !== requestId) return;
       setPreviewRows(result.rows);
     } catch (err) {
+      if (previewRequestIdRef.current !== requestId) return;
       setPreviewError(err instanceof Error ? err.message : "Failed to fetch preview.");
       setPreviewRows(null);
     } finally {
-      setPreviewLoading(false);
+      if (previewRequestIdRef.current === requestId) setPreviewLoading(false);
     }
   }, [dataType.id]);
 
@@ -95,7 +118,17 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
 
       <form onSubmit={(e) => void handleSave(e)}>
         <section className="type-detail-panel__schema" aria-label="Schema">
-          <h4 className="type-detail-panel__section-title">Schema</h4>
+          <div className="type-detail-panel__schema-heading">
+            <h4 className="type-detail-panel__section-title">Schema</h4>
+            {isDataInvalid && (
+              <span
+                className="type-detail-panel__assertion-badge"
+                title="The latest pipeline run for this type failed an assertion rule"
+              >
+                Invalid data
+              </span>
+            )}
+          </div>
           <table className="type-detail-panel__table" aria-label={`Fields for ${dataType.name}`}>
             <thead>
               <tr>

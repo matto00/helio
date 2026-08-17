@@ -74,69 +74,30 @@
   color: var(--app-text-muted);
 }
 
-.type-detail-panel__header-actions {
-  display: inline-flex;
+/* F-182: Schema section heading row + its assertion-invalid badge, matching
+ * `PanelGrid.css`'s `.panel-grid-card__type-badge--invalid` recipe (same
+ * `selectAssertionInvalid`-driven signal, surfaced here too). */
+.type-detail-panel__schema-heading {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-.type-detail-panel__delete-btn,
-.type-detail-panel__delete-confirm-btn,
-.type-detail-panel__delete-cancel-btn {
-  height: var(--control-sm);
-  padding: 0 10px;
-  border-radius: var(--app-radius-sm);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition);
-}
-
-.type-detail-panel__delete-btn {
-  border: 1px solid var(--app-border-subtle);
-  background: transparent;
-  color: var(--app-error);
-}
-
-.type-detail-panel__delete-btn:hover {
-  background: var(--app-error-surface);
-  border-color: var(--app-error);
-}
-
-.type-detail-panel__delete-confirm-btn {
-  border: 1px solid var(--app-error);
-  background: var(--app-error);
-  color: var(--app-bg);
-}
-
-.type-detail-panel__delete-cancel-btn {
-  border: 1px solid var(--app-border-subtle);
-  background: transparent;
-  color: var(--app-text-muted);
-}
-
-.type-detail-panel__title {
+.type-detail-panel__schema-heading .type-detail-panel__section-title {
   margin: 0;
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  color: var(--app-text);
 }
 
-.type-detail-panel__close {
-  border: none;
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-  transition: color var(--app-transition);
-}
-
-.type-detail-panel__close:hover {
-  color: var(--app-text);
+.type-detail-panel__assertion-badge {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--app-error) 40%, transparent);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .type-detail-panel__table {
@@ -164,23 +125,6 @@
   font-size: var(--text-xs);
   color: var(--app-accent);
   padding-left: 0.5rem !important;
-}
-
-.type-detail-panel__cell-input,
-.type-detail-panel__cell-select {
-  width: 100%;
-  padding: 0.3125rem 0.5rem;
-  background: var(--app-surface-soft);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: 6px;
-  color: var(--app-text);
-  font-size: var(--text-xs);
-  outline: none;
-}
-
-.type-detail-panel__cell-input:focus,
-.type-detail-panel__cell-select:focus {
-  border-color: var(--app-accent);
 }
 
 .type-detail-panel__nullable-cell {

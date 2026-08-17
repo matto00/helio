@@ -58,9 +58,9 @@ export function ProposalReview({
 
   const bindingIssue = (panel: ProposalPanel): string | null => {
     if (!DATA_PANEL_TYPES.has(panel.type)) return null;
-    if (!panel.dataTypeId) return "No DataType bound";
+    if (!panel.dataTypeId) return "No data type bound";
     const dt = dataTypesById[panel.dataTypeId];
-    if (!dt) return "Bound DataType not found in this workspace";
+    if (!dt) return "Bound data type not found in this workspace";
     if (dt.sourceId !== null) return "Bound to a source companion — not a pipeline output";
     return null;
   };
@@ -145,7 +145,7 @@ export function ProposalReview({
                     <dl className="proposal-review__meta">
                       {DATA_PANEL_TYPES.has(panel.type) && (
                         <div className="proposal-review__meta-row">
-                          <dt>DataType</dt>
+                          <dt>Data type</dt>
                           <dd className="mono">{boundName ?? "—"}</dd>
                         </div>
                       )}

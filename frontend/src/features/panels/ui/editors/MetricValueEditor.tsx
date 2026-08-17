@@ -61,6 +61,15 @@ export function MetricValueEditor({
           options={REDUCE_OPTIONS}
         />
       </div>
+      {/* F-120 — "None (first row)" silently reads only the bound DataType's
+          first row; on a multi-row type that's very likely not the intended
+          total. Surface the risk instead of leaving it a silent default. */}
+      {fieldValue !== "" && reduceValue === "" && (
+        <p className="panel-detail-modal__field-hint">
+          Shows only the first row&apos;s value. If this field can return more than one row, pick
+          Sum, Average, or another Reduce function to avoid a misleading total.
+        </p>
+      )}
     </div>
   );
 }

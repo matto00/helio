@@ -1,0 +1,46 @@
+/* ── Spinner primitive (F-190) ─────────────────────────────────────────────
+ * One canonical border-spinner recipe + size modifiers, replacing the near-identical hand-rolled
+ * copies each consumer used to define locally (own keyframes, own class, same rule body). */
+
+.ui-spinner {
+  flex-shrink: 0;
+  display: block;
+  border: 2px solid var(--app-border-subtle);
+  border-top-color: var(--app-accent);
+  border-radius: 50%;
+  animation: ui-spinner-spin 0.7s linear infinite;
+}
+
+@keyframes ui-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ui-spinner--sm {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-spinner--md {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-spinner--lg {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}
+
+.ui-spinner--xl {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+.ui-spinner--2xl {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}

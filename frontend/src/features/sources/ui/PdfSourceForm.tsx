@@ -6,6 +6,7 @@
 
 import { type ChangeEvent, type FormEvent, useState } from "react";
 
+import { InlineError } from "../../../shared/chrome/InlineError";
 import { TextField } from "../../../shared/ui/index";
 
 export type PdfIngestMode = "upload" | "url";
@@ -94,11 +95,7 @@ export function PdfSourceForm({ onSubmit, isLoading, error, onCancel }: PdfSourc
         </div>
       )}
 
-      {error && (
-        <p className="add-source-modal__error" role="alert">
-          {error}
-        </p>
-      )}
+      <InlineError error={error} />
 
       <div className="add-source-modal__actions">
         <button

@@ -1,8 +1,8 @@
 .type-registry-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 24px;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
   min-height: 100%;
 }
 

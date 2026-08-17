@@ -20,6 +20,38 @@ function jsonBlock(value: Record<string, unknown> | null | undefined): string {
   return JSON.stringify(value, null, 2);
 }
 
+interface ChangedField {
+  key: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** F-067 — the shallow set of top-level keys whose value actually differs between `before` and
+ *  `after` (by value, not reference — `JSON.stringify` comparison), including keys present on only
+ *  one side. This is what makes the changed field(s) findable without scrolling past unrelated,
+ *  unchanged JSON (design.md D7 still rules out a full per-kind diff widget — this is a flat,
+ *  leaves-only diff, not a structural one). */
+function changedFields(
+  before: Record<string, unknown> | null | undefined,
+  after: Record<string, unknown> | null | undefined,
+): ChangedField[] {
+  if (!before || !after) return [];
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const changed: ChangedField[] = [];
+  for (const key of keys) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+      changed.push({ key, before: before[key], after: after[key] });
+    }
+  }
+  return changed;
+}
+
+function formatFieldValue(value: unknown): string {
+  if (value === undefined) return "—";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
 /** Patch Set Review UI (HEL-408) — the mutation analogue of `ProposalReview`.
  *  Lists each edit's kind/op/impact plus its raw before/after JSON
  *  (design.md D7 — no bespoke per-kind diff widget; a true per-kind visual
@@ -86,6 +118,13 @@ export function PatchSetReview({
 }
 
 function PatchSetEditRow({ edit }: { edit: EditPreview }) {
+  // F-067 — an `update` edit's `before`/`after` are the FULL existing/resulting resource state
+  // (design.md D7), most of which is unrelated to what the edit actually changed; a "rename" edit
+  // could bury its one changed field below a screen of untouched JSON. `create`/`delete` edits have
+  // nothing to diff against (one side is entirely absent), so they keep the raw before/after panes.
+  const changed = edit.op === "update" ? changedFields(edit.before, edit.after) : [];
+  const showChangedFields = changed.length > 0;
+
   return (
     <li className="patch-set-review__edit">
       <div className="patch-set-review__edit-head">
@@ -103,16 +142,40 @@ function PatchSetEditRow({ edit }: { edit: EditPreview }) {
         </ul>
       )}
 
-      <div className="patch-set-review__diff">
-        <div className="patch-set-review__diff-col">
-          <p className="patch-set-review__diff-label">Before</p>
-          <pre className="patch-set-review__json mono">{jsonBlock(edit.before)}</pre>
+      {showChangedFields ? (
+        <dl
+          className="patch-set-review__changes"
+          aria-label={`Changed fields for edit ${edit.index + 1}`}
+        >
+          {changed.map(({ key, before, after }) => (
+            <div key={key} className="patch-set-review__change-row">
+              <dt className="patch-set-review__change-key mono">{key}</dt>
+              <dd className="patch-set-review__change-values">
+                <span className="patch-set-review__change-before mono">
+                  {formatFieldValue(before)}
+                </span>
+                <span className="patch-set-review__change-arrow" aria-hidden="true">
+                  →
+                </span>
+                <span className="patch-set-review__change-after mono">
+                  {formatFieldValue(after)}
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="patch-set-review__diff">
+          <div className="patch-set-review__diff-col">
+            <p className="patch-set-review__diff-label">Before</p>
+            <pre className="patch-set-review__json mono">{jsonBlock(edit.before)}</pre>
+          </div>
+          <div className="patch-set-review__diff-col">
+            <p className="patch-set-review__diff-label">After</p>
+            <pre className="patch-set-review__json mono">{jsonBlock(edit.after)}</pre>
+          </div>
         </div>
-        <div className="patch-set-review__diff-col">
-          <p className="patch-set-review__diff-label">After</p>
-          <pre className="patch-set-review__json mono">{jsonBlock(edit.after)}</pre>
-        </div>
-      </div>
+      )}
     </li>
   );
 }

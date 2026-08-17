@@ -363,7 +363,8 @@ final class ApiRoutes(
     dataTypeService,
     pipelineService,
     agentPreferencesServiceOpt,
-    agentMemoryServiceOpt
+    agentMemoryServiceOpt,
+    Some(panelRepo)
   )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence

@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { Pencil } from "lucide-react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
-import { useAppSelector } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { updateSource } from "../state/sourcesSlice";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
-import { DataGrid } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
+import { DataGrid, TextField } from "../../../shared/ui/index";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 
 interface SourceDetailPanelProps {
@@ -31,10 +34,85 @@ function labelForKind(kind: DataSourceKind): string {
 }
 
 export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
+  const dispatch = useAppDispatch();
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewHeaders, setPreviewHeaders] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // F-070: rename exists end-to-end in state/API (`updateSource`) but had no
+  // UI trigger anywhere in this feature. Wired here rather than on the
+  // sidebar's SidebarItemList (the other option the finding names) because
+  // that file isn't owned by this package. Mirrors SidebarItemList's own
+  // rename affordance: Enter commits, Escape/blur cancels, a failed save
+  // stays in edit mode and shows the rejection message inline.
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameInvalid, setRenameInvalid] = useState(false);
+  const [renameStatus, setRenameStatus] = useState<"idle" | "saving">("idle");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Selecting a different source while mid-rename must not leave a stale
+  // edit open (and definitely must not later commit the wrong source's
+  // typed value).
+  useEffect(() => {
+    setIsRenaming(false);
+    setRenameError(null);
+  }, [source.id]);
+
+  useEffect(() => {
+    if (isRenaming && renameStatus === "idle") {
+      renameInputRef.current?.focus({ preventScroll: true });
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming, renameStatus]);
+
+  function startRename() {
+    setIsRenaming(true);
+    setRenameValue(source.name);
+    setRenameInvalid(false);
+    setRenameStatus("idle");
+    setRenameError(null);
+  }
+
+  function cancelRename() {
+    setIsRenaming(false);
+    setRenameInvalid(false);
+    setRenameStatus("idle");
+    setRenameError(null);
+  }
+
+  async function commitRename() {
+    const trimmed = renameValue.trim();
+    if (trimmed.length === 0) {
+      setRenameInvalid(true);
+      return;
+    }
+    if (trimmed === source.name) {
+      cancelRename();
+      return;
+    }
+    setRenameStatus("saving");
+    setRenameError(null);
+    try {
+      await dispatch(updateSource({ id: source.id, name: trimmed })).unwrap();
+      cancelRename();
+    } catch (err) {
+      setRenameStatus("idle");
+      setRenameError(typeof err === "string" ? err : "Failed to rename source.");
+    }
+  }
+
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commitRename();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelRename();
+    }
+  }
 
   // Pull the DataType inferred from this source (created automatically when the
   // source is added; carries field/column metadata). Showing its schema lets
@@ -75,7 +153,45 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
     <div className="source-detail-panel">
       <div className="source-detail-panel__header">
         <div className="source-detail-panel__title-row">
-          <h3 className="source-detail-panel__name">{source.name}</h3>
+          {isRenaming ? (
+            <TextField
+              ref={renameInputRef}
+              className="source-detail-panel__rename-input"
+              type="text"
+              value={renameValue}
+              disabled={renameStatus === "saving"}
+              aria-label={`Rename ${source.name}`}
+              aria-invalid={renameInvalid ? true : undefined}
+              onChange={(event) => {
+                setRenameValue(event.target.value);
+                setRenameInvalid(false);
+              }}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={() => {
+                // A disabled input (mid-save) can't hold focus, so React
+                // blurs it as a side effect of the save itself — that must
+                // not be treated as the user cancelling out.
+                if (renameStatus === "saving") return;
+                cancelRename();
+              }}
+            />
+          ) : (
+            <>
+              {/* F-179: long names truncate (CSS ellipsis); `title` restores
+                  the full name on hover. */}
+              <h3 className="source-detail-panel__name" title={source.name}>
+                {source.name}
+              </h3>
+              <button
+                type="button"
+                className="source-detail-panel__rename-btn"
+                aria-label={`Rename ${source.name}`}
+                onClick={startRename}
+              >
+                <Pencil size={13} aria-hidden="true" />
+              </button>
+            </>
+          )}
           <span className="source-detail-panel__type">{labelForKind(source.type)}</span>
         </div>
         <div className="source-detail-panel__header-actions">
@@ -89,6 +205,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
           </button>
         </div>
       </div>
+      {isRenaming ? <InlineError error={renameError} variant="banner" /> : null}
 
       {relatedType !== undefined && relatedType.fields.length > 0 ? (
         <section className="source-detail-panel__schema" aria-label="Inferred schema">
@@ -120,11 +237,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
 
       <section className="source-detail-panel__preview" aria-label="Preview">
         <h4 className="source-detail-panel__section-title">Preview</h4>
-        {error && (
-          <p className="source-detail-panel__error" role="alert">
-            {error}
-          </p>
-        )}
+        <InlineError error={error} variant="banner" />
         {previewRows !== null ? (
           <DataGrid
             variant="preview"

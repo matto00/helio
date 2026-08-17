@@ -1,0 +1,55 @@
+/* ── StatusChip primitive ────────────────────────────────────────────────── */
+/* Canonical intent-colored status pill. Consolidates the 6 independently
+   hardcoded `border-radius: 999px` recipes onto `var(--app-radius-pill)`
+   (F-073 / F-238). */
+
+.ui-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.4;
+}
+
+.ui-status-chip--success {
+  background: var(--app-success-surface);
+  color: var(--app-success);
+}
+
+.ui-status-chip--warning {
+  background: var(--app-warning-surface);
+  color: var(--app-warning);
+}
+
+.ui-status-chip--error {
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+.ui-status-chip--accent {
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+}
+
+.ui-status-chip--neutral {
+  background: var(--app-surface-raised);
+  color: var(--app-text-muted);
+}
+
+.ui-status-chip--dashed {
+  border-style: dashed;
+  border-color: var(--app-border-subtle);
+  background: transparent;
+}
+
+.ui-status-chip__dot {
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}

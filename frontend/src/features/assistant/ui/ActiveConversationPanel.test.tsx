@@ -531,14 +531,19 @@ describe("ActiveConversationPanel", () => {
         assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
       });
 
-      expect(screen.getByText("Chat access is limited")).toBeInTheDocument();
+      expect(screen.getByText("Assistant access is limited")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+          "Assistant access is limited during this rollout. Request access in Settings.",
         ),
       ).toBeInTheDocument();
       expect(screen.queryByLabelText("Message")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      // F-017: the locked state used to be a dead end with no way out; it now carries a real CTA
+      // into the self-serve request flow (the only button this state renders).
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+      expect(
+        screen.getByRole("button", { name: "Request access in Settings" }),
+      ).toBeInTheDocument();
       expect(getConversationMock).not.toHaveBeenCalled();
     });
 
@@ -548,7 +553,7 @@ describe("ActiveConversationPanel", () => {
         assistantConversations: { items: [] },
       });
 
-      expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+      expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
       expect(screen.getByText("No conversations yet")).toBeInTheDocument();
       expect(screen.getByLabelText("Message")).toBeInTheDocument();
     });
@@ -559,7 +564,7 @@ describe("ActiveConversationPanel", () => {
         assistantConversations: { items: [] },
       });
 
-      expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+      expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
       expect(screen.getByText("No conversations yet")).toBeInTheDocument();
       expect(screen.getByLabelText("Message")).toBeInTheDocument();
     });

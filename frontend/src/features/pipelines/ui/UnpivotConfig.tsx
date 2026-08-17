@@ -7,6 +7,8 @@
 // parent (StepCard) owns state and calls onChange with the typed config.
 
 import type { ChangeEvent } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
@@ -95,11 +97,11 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove id field ${rowIndex + 1}`}
                 onClick={() => handleRemoveIdVarRow(rowIndex)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -107,7 +109,7 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddIdVarRow}
         >
           + Add id field
@@ -134,11 +136,11 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove value field ${rowIndex + 1}`}
                 onClick={() => handleRemoveValueVarRow(rowIndex)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -146,7 +148,7 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddValueVarRow}
         >
           + Add value field

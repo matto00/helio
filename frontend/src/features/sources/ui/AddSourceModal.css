@@ -9,7 +9,7 @@
 .add-source-modal__field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2);
 }
 
 .add-source-modal__label {
@@ -56,10 +56,26 @@
   color: var(--app-text);
 }
 
+/* F-170: fixed (theme-independent) mix percentages rather than the
+   `--app-accent-surface`/`--app-accent-strong` tokens, whose light-theme
+   values (11% fill, 76%-toward-black text) read noticeably fainter than
+   dark's (15% fill, 78%-toward-white text) for this specific selected-pill
+   use. Deriving straight from the live `--app-accent` still respects the
+   user's chosen accent color and each theme's own hue in both modes; it just
+   stops inheriting the token's per-theme opacity gap. */
 .add-source-modal__type-btn--active {
-  background: var(--app-accent-surface);
+  background: color-mix(in srgb, var(--app-accent) 20%, transparent);
   color: var(--app-accent-strong);
-  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  border-color: color-mix(in srgb, var(--app-accent) 55%, transparent);
+}
+
+/* F-071: `:hover` alone (class + pseudo-class) outranks the bare `--active`
+   class on specificity, so a hovered selected button fell back to the
+   unselected hover treatment. Match `:hover`'s specificity so source order
+   decides — this rule comes later, so it wins. */
+.add-source-modal__type-btn--active:hover {
+  background: color-mix(in srgb, var(--app-accent) 20%, transparent);
+  color: var(--app-accent-strong);
 }
 
 /* Preview / schema section */
@@ -96,10 +112,12 @@
   vertical-align: middle;
 }
 
+/* F-168: no accent override — plain text, matching the near-identical
+   schema table in SourceDetailPanel.css (accent is scarce/solid per
+   DESIGN.md §0, never decorative on a plain table cell). */
 .add-source-modal__field-name {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--app-accent);
   padding-left: 8px !important;
 }
 
@@ -127,7 +145,10 @@
   text-align: center;
 }
 
-/* Error */
+/* Error — F-051: every component in this package now renders errors via the
+   shared <InlineError> instead. Kept here (not deleted) only because
+   SqlTab.tsx — outside this package's ownership — still references this
+   class directly for its own hand-rolled error paragraph. */
 .add-source-modal__error {
   margin: 0;
   font-size: var(--text-sm);
@@ -207,4 +228,33 @@
 .add-source-modal__action-link:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* F-205: local classes for the 4 previously-inline dynamic-looking-but-
+   actually-static styles in StaticSourceForm.tsx. */
+.add-source-modal__btn--align-start {
+  align-self: flex-start;
+}
+
+.add-source-modal__table-wrap {
+  overflow-x: auto;
+}
+
+.add-source-modal__empty-cell {
+  text-align: center;
+  padding: var(--space-4);
+}
+
+/* F-053: `.add-source-modal__btn` mirrors `.ui-modal-btn` (shared/ui/Modal.css)
+   byte-for-byte except this mobile tap-target floor, which the shared one
+   already carries (HEL-319) — this brings it back into parity. Kept as its
+   own class (not merged into `.ui-modal-btn`) because `SqlTab.tsx` — outside
+   this package's ownership — also renders these exact class names for its
+   own footer and would lose its styling entirely if the class were deleted;
+   this rule fixes SqlTab's footer buttons too as a side effect, since it's
+   shared CSS SqlTab.tsx already consumes. */
+@media (max-width: 768px) {
+  .add-source-modal__btn {
+    min-height: 44px;
+  }
 }

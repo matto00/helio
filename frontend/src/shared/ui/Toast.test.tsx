@@ -29,6 +29,13 @@ describe("ToastViewport", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  // F-154 — a bare <div aria-label> has no accessible role, so axe's `aria-prohibited-attr` drops
+  // it from the a11y tree entirely; `role="region"` gives the viewport a real landmark.
+  it("exposes the viewport as a labeled region landmark", () => {
+    renderToastViewport();
+    expect(screen.getByRole("region", { name: "Notifications" })).toBeInTheDocument();
+  });
+
   it("renders a toast after pushToast is dispatched", () => {
     const { store } = renderToastViewport();
 

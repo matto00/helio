@@ -24,6 +24,10 @@ export interface TableDisplayState {
   toggleVisible: (key: string) => void;
   moveUp: (index: number) => void;
   moveDown: (index: number) => void;
+  /** F-126 — coarser reorder for lists beyond a handful of columns, where
+   *  single-step ↑/↓ takes many clicks to reach the ends. */
+  moveToTop: (index: number) => void;
+  moveToBottom: (index: number) => void;
   hasStoredWidths: boolean;
   resetWidthsPending: boolean;
   requestResetWidths: () => void;
@@ -126,6 +130,24 @@ export function useTableDisplayState(
       return next;
     });
 
+  const moveToTop = (index: number) =>
+    setColumns((prev) => {
+      if (index <= 0 || index >= prev.length) return prev;
+      const next = [...prev];
+      const [row] = next.splice(index, 1);
+      next.unshift(row);
+      return next;
+    });
+
+  const moveToBottom = (index: number) =>
+    setColumns((prev) => {
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const next = [...prev];
+      const [row] = next.splice(index, 1);
+      next.push(row);
+      return next;
+    });
+
   const hasStoredWidths = !!storedWidths && Object.keys(storedWidths).length > 0;
 
   // Desired columnOrder: `null` (→ default) when every field is visible in
@@ -164,6 +186,8 @@ export function useTableDisplayState(
     toggleVisible,
     moveUp,
     moveDown,
+    moveToTop,
+    moveToBottom,
     hasStoredWidths,
     resetWidthsPending,
     requestResetWidths: () => setResetWidthsPending(true),

@@ -12,6 +12,8 @@
 // row-add UI shape, with TextField rows instead of Select rows.
 
 import { useEffect, type ChangeEvent } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -127,11 +129,11 @@ export function LookupConfig({ config, analyzeSchema, onChange }: LookupConfigPr
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove column ${rowIndex + 1}`}
                 onClick={() => handleRemoveColumnRow(rowIndex)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -139,7 +141,7 @@ export function LookupConfig({ config, analyzeSchema, onChange }: LookupConfigPr
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddColumnRow}
         >
           + Add column

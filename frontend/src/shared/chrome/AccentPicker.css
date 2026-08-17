@@ -1,7 +1,11 @@
+/* F-169: 8 presets in a flex-wrap row wrapped 7+1 (an orphaned single swatch
+   on its own row). An explicit 4-column grid makes the 4x2 layout
+   deterministic regardless of container width, instead of depending on
+   however many 20px swatches + gap happen to fit per row. */
 .accent-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(4, 20px);
+  gap: var(--space-2);
   padding: 2px 0;
 }
 
@@ -23,14 +27,20 @@
   transform: scale(1.15);
 }
 
+/* F-169: the ring's inner gap used --app-bg (the page background), but this
+   picker only ever renders inside the UserMenu popover, whose surface is
+   --app-surface-strong — a different color in both themes. That mismatch
+   painted a visible ring-shaped halo around the swatch instead of a clean
+   selection ring. Matching the popover's own surface token makes the gap
+   disappear into it as intended. */
 .accent-picker__swatch:focus-visible {
   box-shadow:
-    0 0 0 2px var(--app-bg),
+    0 0 0 2px var(--app-surface-strong),
     0 0 0 4px var(--app-accent);
 }
 
 .accent-picker__swatch--selected {
   box-shadow:
-    0 0 0 2px var(--app-bg),
+    0 0 0 2px var(--app-surface-strong),
     0 0 0 4px var(--app-accent);
 }

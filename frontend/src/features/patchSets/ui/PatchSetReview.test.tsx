@@ -92,4 +92,55 @@ describe("PatchSetReview", () => {
     renderReview({ preview: { edits: [] } });
     expect(screen.getByText("This patch set has no edits.")).toBeInTheDocument();
   });
+
+  // F-067 — an `update` edit shows only its changed leaf field(s), not the full unrelated
+  // before/after JSON, so the actual change is never scrolled out of view.
+  it("isolates the changed field(s) of an update edit instead of the raw JSON panes", () => {
+    renderReview({
+      preview: {
+        edits: [
+          {
+            index: 0,
+            kind: "panel",
+            op: "update",
+            before: { id: "p-1", title: "Old title", unrelatedField: "same on both sides" },
+            after: { id: "p-1", title: "New title", unrelatedField: "same on both sides" },
+            impact: [],
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText("title")).toBeInTheDocument();
+    expect(screen.getByText("Old title")).toBeInTheDocument();
+    expect(screen.getByText("New title")).toBeInTheDocument();
+    // The unrelated, unchanged field isn't rendered as its own changed row.
+    expect(screen.queryByText("unrelatedField")).not.toBeInTheDocument();
+    // No raw JSON pane rendered for an edit with an isolated change.
+    expect(screen.queryByText("Before")).not.toBeInTheDocument();
+    expect(screen.queryByText("After")).not.toBeInTheDocument();
+  });
+
+  // A `delete` edit has no `after` to diff against, so it falls back to the raw before/after
+  // panes (the only shape that makes sense when one side is entirely absent).
+  it("falls back to raw before/after panes for a delete edit", () => {
+    renderReview({
+      preview: {
+        edits: [
+          {
+            index: 0,
+            kind: "dataType",
+            op: "delete",
+            before: { id: "dt-1", name: "Sales" },
+            after: null,
+            impact: [],
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText("Before")).toBeInTheDocument();
+    expect(screen.getByText("After")).toBeInTheDocument();
+    expect(screen.getByText(/"name": "Sales"/)).toBeInTheDocument();
+  });
 });

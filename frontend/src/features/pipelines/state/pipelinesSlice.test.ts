@@ -179,11 +179,21 @@ describe("fetchPipelines thunk", () => {
     getPipelinesMock.mockReset();
   });
 
+  // F-104's dedupe `condition` reads `getState().pipelines.status`, so every
+  // direct-thunk-invocation test here needs a `getState` that resolves a
+  // real `pipelines` slice shape (not a bare `jest.fn()` with no
+  // implementation, which returns `undefined` and makes the condition
+  // callback throw on `undefined.pipelines` — silently aborting the thunk
+  // before its payload creator ever runs).
+  function idleGetState(): RootState {
+    return { pipelines: { status: "idle" } } as unknown as RootState;
+  }
+
   it("dispatches fulfilled with pipeline list on success", async () => {
     getPipelinesMock.mockResolvedValueOnce([testPipeline]);
 
     const dispatch = jest.fn();
-    const getState = jest.fn();
+    const getState = jest.fn(idleGetState);
     const thunk = fetchPipelines();
 
     await thunk(dispatch, getState, undefined);
@@ -196,11 +206,40 @@ describe("fetchPipelines thunk", () => {
     expect(fulfilledCall?.[0].payload).toEqual([testPipeline]);
   });
 
+  it("normalizes an absent lastRunAt/lastRunStatus/lastRunRowCount (never-run pipeline) to null (F-042)", async () => {
+    // spray-json omits an `Option[T] = None` field entirely rather than
+    // serializing `null` — a never-run pipeline's wire payload has no
+    // lastRunAt/lastRunStatus/lastRunRowCount keys at all.
+    const neverRunWire = {
+      id: "p-2",
+      name: "Never Run Pipeline",
+      sourceDataSourceId: "ds-1",
+      sourceDataSourceName: "Source",
+      outputDataTypeName: "Out",
+      outputDataTypeId: "dt-1",
+    } as unknown as PipelineSummary;
+    getPipelinesMock.mockResolvedValueOnce([neverRunWire]);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn(idleGetState);
+    const thunk = fetchPipelines();
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/fetchPipelines/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual([
+      { ...neverRunWire, lastRunAt: null, lastRunStatus: null, lastRunRowCount: null },
+    ]);
+  });
+
   it("dispatches rejected on service error", async () => {
     getPipelinesMock.mockRejectedValueOnce(new Error("network error"));
 
     const dispatch = jest.fn();
-    const getState = jest.fn();
+    const getState = jest.fn(idleGetState);
     const thunk = fetchPipelines();
 
     await thunk(dispatch, getState, undefined);
@@ -210,6 +249,42 @@ describe("fetchPipelines thunk", () => {
       ([action]) => action.type === "pipelines/fetchPipelines/rejected",
     );
     expect(rejectedCall).toBeDefined();
+  });
+
+  // F-104 — revisiting a page that calls `fetchPipelines()` (e.g.
+  // `PipelinesPage`'s mount effect) must not re-issue the request while a
+  // fetch is already in flight or has already succeeded.
+  it("skips the request when a fetch is already in flight", async () => {
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => ({ pipelines: { status: "loading" } }) as unknown as RootState);
+    const thunk = fetchPipelines();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(getPipelinesMock).not.toHaveBeenCalled();
+  });
+
+  it("skips the request when the list has already loaded successfully", async () => {
+    const dispatch = jest.fn();
+    const getState = jest.fn(
+      () => ({ pipelines: { status: "succeeded" } }) as unknown as RootState,
+    );
+    const thunk = fetchPipelines();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(getPipelinesMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a retry when the previous fetch failed", async () => {
+    getPipelinesMock.mockResolvedValueOnce([testPipeline]);
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => ({ pipelines: { status: "failed" } }) as unknown as RootState);
+    const thunk = fetchPipelines();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(getPipelinesMock).toHaveBeenCalledTimes(1);
   });
 });
 

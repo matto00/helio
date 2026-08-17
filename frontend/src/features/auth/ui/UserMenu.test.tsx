@@ -13,22 +13,19 @@ const baseUser: User = {
 
 function renderMenu(overrides: Partial<User> = {}) {
   const user: User = { ...baseUser, ...overrides };
-  const toggleTheme = jest.fn();
   const onLogout = jest.fn();
   const setAccentColor = jest.fn();
   const onNavigateToSettings = jest.fn();
   const utils = render(
     <UserMenu
       currentUser={user}
-      theme="dark"
-      toggleTheme={toggleTheme}
       accentColor="#f97316"
       setAccentColor={setAccentColor}
       onNavigateToSettings={onNavigateToSettings}
       onLogout={onLogout}
     />,
   );
-  return { ...utils, toggleTheme, onLogout, setAccentColor, onNavigateToSettings };
+  return { ...utils, onLogout, setAccentColor, onNavigateToSettings };
 }
 
 describe("UserMenu", () => {
@@ -87,6 +84,30 @@ describe("UserMenu", () => {
     expect(initials?.textContent).toBe("T");
   });
 
+  it("renders initials fallback when avatarUrl is absent from the payload, not just null — F-086", () => {
+    // The real /api/auth/me response is spray-json-serialized: an absent
+    // Option field is omitted from the JSON entirely rather than sent as
+    // `null` (see project pipeline-only-bindings notes), so `avatarUrl`
+    // decodes as `undefined` even though `User` types it as `string | null`.
+    // A strict `avatarUrl !== null` check let `undefined` through and
+    // rendered a permanently broken `<img src={undefined}>`.
+    const { avatarUrl: _omitted, ...userWithoutAvatarUrl } = baseUser;
+    render(
+      <UserMenu
+        currentUser={userWithoutAvatarUrl as User}
+        accentColor="#f97316"
+        setAccentColor={jest.fn()}
+        onNavigateToSettings={jest.fn()}
+        onLogout={jest.fn()}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "User menu" });
+    expect(trigger.querySelector("img.user-menu__avatar")).not.toBeInTheDocument();
+    const initials = trigger.querySelector(".user-menu__initials");
+    expect(initials).toBeInTheDocument();
+    expect(initials?.textContent).toBe("T");
+  });
+
   it("shows display name in popover when displayName is set", () => {
     renderMenu({ displayName: "Test User" });
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
@@ -99,11 +120,19 @@ describe("UserMenu", () => {
     expect(screen.getByText("test@example.com")).toBeInTheDocument();
   });
 
-  it("calls toggleTheme when theme toggle is clicked inside popover", () => {
-    const { toggleTheme } = renderMenu();
+  // F-082: the dropdown used to carry its own "Light mode"/"Dark mode" row
+  // wired to the same toggleTheme as the always-visible top-bar icon. The
+  // top-bar icon (App.tsx, not this component) is the single canonical
+  // theme control now, so the popover renders no theme item at all.
+  it("does not render a theme-toggle control inside the popover", () => {
+    renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Switch to light theme" }));
-    expect(toggleTheme).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("menuitem", { name: /light mode|dark mode/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /switch to (light|dark) theme/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onLogout when sign-out is clicked inside popover", () => {
@@ -126,5 +155,34 @@ describe("UserMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     expect(screen.getByText("Accent color")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Accent color presets" })).toBeInTheDocument();
+  });
+
+  // F-189
+  it("scrim is hidden from the accessibility tree and out of the tab order", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    const scrim = document.querySelector(".popover__scrim");
+    expect(scrim).toHaveAttribute("aria-hidden", "true");
+    expect(scrim).toHaveAttribute("tabIndex", "-1");
+  });
+
+  it("opens with focus on the first item (the first accent swatch) and ArrowDown moves to the next", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    const firstSwatch = screen.getByRole("button", { name: "Orange" });
+    expect(firstSwatch).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    const secondSwatch = screen.getByRole("button", { name: "Red" });
+    expect(secondSwatch).toHaveFocus();
+  });
+
+  it("ArrowUp from the first item wraps focus to the last item in the menu", () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+    expect(screen.getByRole("button", { name: "Orange" })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toHaveFocus();
   });
 });

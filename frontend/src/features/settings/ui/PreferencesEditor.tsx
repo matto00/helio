@@ -57,6 +57,25 @@ function stringEntries(obj: Record<string, unknown>): NamingConventionRow[] {
     .map(([key, value]) => ({ id: nextRowId(), key, value }));
 }
 
+/** F-152 (UI sweep): rows sharing the same trimmed key silently collapse to
+ *  whichever comes last when `Object.fromEntries` runs on save, discarding
+ *  every earlier value with no warning. Surfaced live (as the user types, not
+ *  only at submit time) so the loss can never happen silently, and Save is
+ *  blocked while any collision remains -- see `handleSubmit`. */
+function duplicateNamingKeys(rows: NamingConventionRow[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.key.trim();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const duplicates = new Set<string>();
+  for (const [key, count] of counts) {
+    if (count > 1) duplicates.add(key);
+  }
+  return duplicates;
+}
+
 interface PreferencesEditorProps {
   preferences: AgentPreferences;
 }
@@ -79,37 +98,61 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
   const [namingRows, setNamingRows] = useState<NamingConventionRow[]>(
     stringEntries(namingConventionsBase),
   );
+  // F-150: local confirmation flag, independent of `saveStatus` -- cleared on
+  // every edit and at the start of every submit so it can never keep
+  // claiming "saved" once the form has since changed, then set once a save
+  // actually round-trips successfully (mirrors `TypeDetailPanel.tsx`'s
+  // `saved` state shape).
+  const [showSavedConfirmation, setShowSavedConfirmation] = useState(false);
+
+  function markEdited() {
+    setShowSavedConfirmation(false);
+  }
 
   function addSeriesColor() {
+    markEdited();
     setSeriesColors((prev) => [...prev, DEFAULT_NEW_SWATCH]);
   }
 
   function updateSeriesColor(index: number, hex: string) {
+    markEdited();
     setSeriesColors((prev) => prev.map((c, i) => (i === index ? hex : c)));
   }
 
   function removeSeriesColor(index: number) {
+    markEdited();
     setSeriesColors((prev) => prev.filter((_, i) => i !== index));
   }
 
   function addNamingRow() {
+    markEdited();
     setNamingRows((prev) => [...prev, { id: nextRowId(), key: "", value: "" }]);
   }
 
   function updateNamingRowKey(id: string, key: string) {
+    markEdited();
     setNamingRows((prev) => prev.map((row) => (row.id === id ? { ...row, key } : row)));
   }
 
   function updateNamingRowValue(id: string, value: string) {
+    markEdited();
     setNamingRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
   }
 
   function removeNamingRow(id: string) {
+    markEdited();
     setNamingRows((prev) => prev.filter((row) => row.id !== id));
   }
 
-  function handleSubmit(event: FormEvent) {
+  const duplicateKeys = duplicateNamingKeys(namingRows);
+  const hasDuplicateNamingKeys = duplicateKeys.size > 0;
+
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    markEdited();
+    // F-152: never let a collapsing duplicate-key merge silently discard a
+    // row's value -- block the round-trip entirely until keys are unique.
+    if (hasDuplicateNamingKeys) return;
 
     // Shallow merge: overwrite only the three recognized fields, preserve
     // any other key this editor doesn't expose (design.md Decision 4).
@@ -142,15 +185,18 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
       extras: preferences.extras,
     };
 
-    void dispatch(savePreferences(request));
+    const result = await dispatch(savePreferences(request));
+    if (savePreferences.fulfilled.match(result)) setShowSavedConfirmation(true);
   }
 
   const isSaving = saveStatus === "loading";
 
   return (
-    <form className="preferences-editor" onSubmit={handleSubmit}>
+    <form className="preferences-editor" onSubmit={(e) => void handleSubmit(e)}>
       <section className="preferences-editor__section">
-        <h2 className="preferences-editor__section-heading">Default series colors</h2>
+        {/* F-149: subsection heading nested under this page's "Preferences"
+            H2 (`SettingsPage.tsx`) -- H3, not a sibling H2. */}
+        <h3 className="preferences-editor__section-heading">Default series colors</h3>
         <ul className="preferences-editor__swatch-list">
           {seriesColors.map((hex, index) => (
             <li key={index} className="preferences-editor__swatch-row">
@@ -184,14 +230,17 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
       </section>
 
       <section className="preferences-editor__section">
-        <h2 className="preferences-editor__section-heading">Default panel style</h2>
+        <h3 className="preferences-editor__section-heading">Default panel style</h3>
         <div className="preferences-editor__row">
           <label className="preferences-editor__field">
             <span>Background</span>
             <input
               type="color"
               value={background}
-              onChange={(e) => setBackground(e.target.value)}
+              onChange={(e) => {
+                markEdited();
+                setBackground(e.target.value);
+              }}
               aria-label="Default panel background color"
             />
           </label>
@@ -200,7 +249,10 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
             <input
               type="color"
               value={color}
-              onChange={(e) => setColor(e.target.value)}
+              onChange={(e) => {
+                markEdited();
+                setColor(e.target.value);
+              }}
               aria-label="Default panel text color"
             />
           </label>
@@ -213,7 +265,10 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
             max="100"
             step="1"
             value={transparency}
-            onChange={(e) => setTransparency(Number(e.target.value))}
+            onChange={(e) => {
+              markEdited();
+              setTransparency(Number(e.target.value));
+            }}
             aria-label="Default panel transparency"
           />
           <strong>{transparency}%</strong>
@@ -221,35 +276,50 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
       </section>
 
       <section className="preferences-editor__section">
-        <h2 className="preferences-editor__section-heading">Naming conventions</h2>
+        <h3 className="preferences-editor__section-heading">Naming conventions</h3>
         <ul className="preferences-editor__row-list">
-          {namingRows.map((row) => (
-            <li key={row.id} className="preferences-editor__kv-row">
-              <TextField
-                value={row.key}
-                onChange={(e) => updateNamingRowKey(row.id, e.target.value)}
-                placeholder="Key"
-                aria-label="Naming convention key"
-              />
-              <TextField
-                value={row.value}
-                onChange={(e) => updateNamingRowValue(row.id, e.target.value)}
-                placeholder="Value"
-                aria-label="Naming convention value"
-              />
-              <button
-                type="button"
-                className="preferences-editor__icon-btn"
-                aria-label={`Remove naming convention ${row.key || "row"}`}
-                onClick={() => removeNamingRow(row.id)}
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
-            </li>
-          ))}
+          {namingRows.map((row) => {
+            const trimmedKey = row.key.trim();
+            const isDuplicateKey = trimmedKey !== "" && duplicateKeys.has(trimmedKey);
+            return (
+              <li key={row.id} className="preferences-editor__kv-row">
+                <TextField
+                  value={row.key}
+                  onChange={(e) => updateNamingRowKey(row.id, e.target.value)}
+                  placeholder="Key"
+                  aria-label="Naming convention key"
+                  aria-invalid={isDuplicateKey}
+                />
+                <TextField
+                  value={row.value}
+                  onChange={(e) => updateNamingRowValue(row.id, e.target.value)}
+                  placeholder="Value"
+                  aria-label="Naming convention value"
+                />
+                <button
+                  type="button"
+                  className="preferences-editor__icon-btn"
+                  aria-label={`Remove naming convention ${row.key || "row"}`}
+                  onClick={() => removeNamingRow(row.id)}
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
         {namingRows.length === 0 && (
           <p className="preferences-editor__empty-hint">No naming conventions set.</p>
+        )}
+        {hasDuplicateNamingKeys && (
+          // F-152: live, as-you-type warning (not just a submit-time toast) --
+          // the row-level `aria-invalid` above marks which fields collide,
+          // this names them and explains the consequence, and Save is
+          // disabled below until every key is unique.
+          <p className="preferences-editor__naming-warning" role="alert">
+            Duplicate key{duplicateKeys.size === 1 ? "" : "s"}: {[...duplicateKeys].join(", ")} —
+            only the last row for each will be saved. Rename one before saving.
+          </p>
         )}
         <button type="button" className="preferences-editor__add-btn" onClick={addNamingRow}>
           <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
@@ -258,8 +328,22 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
       </section>
 
       <div className="preferences-editor__actions">
+        {showSavedConfirmation && (
+          <p className="preferences-editor__saved" role="status">
+            Preferences saved.
+          </p>
+        )}
         <InlineError error={saveError} />
-        <button type="submit" className="preferences-editor__save-btn" disabled={isSaving}>
+        <button
+          type="submit"
+          className="preferences-editor__save-btn"
+          disabled={isSaving || hasDuplicateNamingKeys}
+          title={
+            hasDuplicateNamingKeys
+              ? "Resolve duplicate naming-convention keys before saving."
+              : undefined
+          }
+        >
           {isSaving ? "Saving…" : "Save preferences"}
         </button>
       </div>

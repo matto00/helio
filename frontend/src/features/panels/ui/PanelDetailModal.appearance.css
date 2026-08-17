@@ -11,13 +11,6 @@
   gap: var(--space-3);
 }
 
-.panel-detail-modal__chart-preview {
-  height: 160px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  overflow: hidden;
-}
-
 .panel-detail-modal__chart-subsection {
   display: grid;
   gap: 6px;
@@ -29,6 +22,14 @@
   gap: 6px;
   font-size: var(--text-sm);
   color: var(--app-text-muted);
+}
+
+/* F-062 — every other checkbox/slider in the app paints the native control
+   with the app accent (see e.g. `.panel-detail-modal__column-visibility
+   input` / `.panel-detail-modal__toggle-row input`); these chart-appearance
+   checkboxes were missed, so they rendered the browser's default blue. */
+.panel-detail-modal__chart-label input[type="checkbox"] {
+  accent-color: var(--app-accent);
 }
 
 .panel-detail-modal__color-swatches {
@@ -45,32 +46,6 @@
   background: transparent;
   cursor: pointer;
   padding: 1px;
-}
-
-.panel-detail-modal__chart-position {
-  width: 100%;
-  padding: 6px var(--space-2);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-size: var(--text-sm);
-}
-
-.panel-detail-modal__chart-text-input {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  font-size: var(--text-sm);
-  box-sizing: border-box;
-}
-
-.panel-detail-modal__chart-text-input:focus {
-  outline: 2px solid var(--app-accent);
-  outline-offset: 1px;
 }
 
 /* Chart type selector */
@@ -141,30 +116,32 @@
   font-weight: var(--weight-medium);
 }
 
-.panel-detail-modal__chart-preview {
-  height: 160px;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  overflow: hidden;
+/* F-125 — live preview swatch for the Background/Text/Transparency trio,
+   mirroring `DashboardAppearanceEditor`'s resolved-color swatches so a panel
+   editor gives the same "see it before you save it" feedback the dashboard
+   editor already does. */
+
+.panel-detail-modal__appearance-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.panel-detail-modal__markdown-textarea {
-  width: 100%;
-  resize: vertical;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  padding: var(--space-2);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-surface);
-  color: var(--app-text);
-  box-sizing: border-box;
+.panel-detail-modal__appearance-preview-label {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
 }
 
-.panel-detail-modal__markdown-textarea:focus {
-  outline: none;
-  border-color: var(--app-accent);
+.panel-detail-modal__appearance-preview-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 36px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
 /* Image upload control (HEL-246) — "Upload" button beside the URL field */

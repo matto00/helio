@@ -12,6 +12,7 @@
 import type { ChangeEvent } from "react";
 
 import { Select, TextField } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
 
 export const DATE_BUCKET_GRANULARITIES = ["day", "week", "month", "quarter", "year"] as const;
 
@@ -62,6 +63,10 @@ export function DateBucketConfig({ config, analyzeColumns, onChange }: DateBucke
           options={analyzeColumns.map((col) => ({ value: col, label: col }))}
           onChange={handleFieldChange}
         />
+        {/* HEL sweep F-147: a required field with no validation lets an
+         *  empty-named upstream schema field (or an unset config) silently
+         *  propagate downstream as blank chips/messages. */}
+        {config.field === "" && <InlineError error="Source field is required." />}
       </div>
 
       <div className="pipeline-detail-page__compute-field">

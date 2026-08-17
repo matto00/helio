@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGripVertical } from "@fortawesome/free-solid-svg-icons";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
@@ -245,7 +247,10 @@ export const PanelCard = React.memo(function PanelCard({
             <>
               <h3 className="panel-grid-card__title">{panel.title}</h3>
               {panel.dataAsOf ? (
-                <p className="panel-grid-card__freshness">
+                <p
+                  className="panel-grid-card__freshness"
+                  title={`Data as of ${new Date(panel.dataAsOf).toLocaleString()}`}
+                >
                   Data as of {formatRelativeTime(panel.dataAsOf)}
                 </p>
               ) : null}
@@ -270,25 +275,37 @@ export const PanelCard = React.memo(function PanelCard({
                 ×
               </button>
             </>
-          ) : isEditingTitle ? null : (
-            <ActionsMenu
-              label={`${panel.title} panel actions`}
-              items={[
-                { label: "Rename", onClick: handleRename },
-                { label: "Customize", onClick: handleDetail },
-                { label: "Duplicate", onClick: handleDuplicate },
-                { label: "Delete", onClick: handleRequestDelete, danger: true },
-              ]}
-            />
+          ) : (
+            // F-128: the drag handle is only meaningful once the header
+            // returns to its normal (non-delete-confirm) state — rendering it
+            // alongside Confirm/× crowds the header at the exact moment the
+            // user should be making a focused binary choice.
+            <>
+              {isEditingTitle ? null : (
+                <ActionsMenu
+                  label={`${panel.title} panel actions`}
+                  items={[
+                    { label: "Rename", onClick: handleRename },
+                    { label: "Customize", onClick: handleDetail },
+                    { label: "Duplicate", onClick: handleDuplicate },
+                    { label: "Delete", onClick: handleRequestDelete, danger: true },
+                  ]}
+                />
+              )}
+              <button
+                type="button"
+                className="panel-grid-card__handle"
+                aria-label={`Move ${panel.title} panel`}
+                title={`Move ${panel.title} panel`}
+              >
+                {/* F-099: a grip-vertical glyph reads as distinctly different
+                    from the adjacent ActionsMenu trigger's horizontal 3-dot
+                    ellipsis, instead of the old 2-dot mark that only differed
+                    from it by dot count. */}
+                <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            className="panel-grid-card__handle"
-            aria-label={`Move ${panel.title} panel`}
-          >
-            <span />
-            <span />
-          </button>
         </div>
       </div>
       <PanelCardBody panel={panel} frozen={isDragging} />

@@ -1,9 +1,15 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
-import { createStaticSource, createSqlSource, fetchSources } from "../state/sourcesSlice";
+import {
+  createStaticSource,
+  createSqlSource,
+  fetchSources,
+  setSelectedSourceId,
+} from "../state/sourcesSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useToast } from "../../toasts/hooks/useToast";
 import type { InferredField, StaticColumn } from "../types/dataSource";
 import {
   createCsvSource,
@@ -28,6 +34,7 @@ import { SourceTypeToggle } from "./SourceTypeToggle";
 import { StaticSourceForm } from "./StaticSourceForm";
 import { SqlTab } from "./SqlTab";
 import { TextSourceForm, type TextIngestMode } from "./TextSourceForm";
+import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 
@@ -40,6 +47,7 @@ interface AddSourceModalProps {
 
 export function AddSourceModal({ onClose }: AddSourceModalProps) {
   const dispatch = useAppDispatch();
+  const { push: pushToast } = useToast();
 
   const [step, setStep] = useState<Step>("configure");
   const [sourceType, setSourceType] = useState<SourceType>("rest_api");
@@ -50,11 +58,38 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
   const [fields, setFields] = useState<EditableField[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // F-052: only one of the per-source-type "Source name" fields below is ever
+  // mounted at once (they're mutually exclusive on `sourceType`), so a single
+  // ref/invalid pair can serve all of them.
+  const [nameInvalid, setNameInvalid] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
+    setName(event.target.value);
+    if (nameInvalid) setNameInvalid(false);
+  }
+
+  function flagNameInvalid(message: string) {
+    setError(message);
+    setNameInvalid(true);
+    nameInputRef.current?.focus();
+  }
+
+  // F-008: every create handler ends the same way once the source exists —
+  // refetch the list, select the new source so it's not silently buried, and
+  // toast. Centralized here so none of the 7 call sites can drift again.
+  function finishCreate(created: { id: string }) {
+    void dispatch(fetchSources());
+    void dispatch(fetchDataTypes());
+    dispatch(setSelectedSourceId(created.id));
+    pushToast({ variant: "success", message: "Source added." });
+    onClose();
+  }
 
   async function handlePreview(event: FormEvent) {
     event.preventDefault();
     if (!name.trim()) {
-      setError("Name is required.");
+      flagNameInvalid("Name is required.");
       return;
     }
 
@@ -105,13 +140,12 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           method: "GET",
           ...(jsonPath.trim() ? { jsonPath: jsonPath.trim() } : {}),
         };
-        await createRestSource(name.trim(), config, fields);
+        const { source } = await createRestSource(name.trim(), config, fields);
+        finishCreate(source);
       } else {
-        await createCsvSource(name.trim(), csvFile!, fields);
+        const created = await createCsvSource(name.trim(), csvFile!, fields);
+        finishCreate(created);
       }
-      void dispatch(fetchSources());
-      void dispatch(fetchDataTypes());
-      onClose();
     } catch {
       setError("Failed to create source.");
     } finally {
@@ -121,15 +155,16 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
   async function handleCreateStatic(columns: StaticColumn[], rows: unknown[][]) {
     if (!name.trim()) {
-      setError("Name is required.");
+      flagNameInvalid("Name is required.");
       return;
     }
     setIsLoading(true);
     setError(null);
     try {
-      await dispatch(createStaticSource({ name: name.trim(), columns, rows })).unwrap();
-      void dispatch(fetchDataTypes());
-      onClose();
+      const created = await dispatch(
+        createStaticSource({ name: name.trim(), columns, rows }),
+      ).unwrap();
+      finishCreate(created);
     } catch {
       setError("Failed to create static source.");
     } finally {
@@ -145,9 +180,8 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      await dispatch(createSqlSource({ name: sourceName, config })).unwrap();
-      void dispatch(fetchDataTypes());
-      onClose();
+      const created = await dispatch(createSqlSource({ name: sourceName, config })).unwrap();
+      finishCreate(created);
     } catch (err: unknown) {
       const msg =
         typeof err === "string" && err
@@ -163,7 +197,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
   async function handleCreateText(mode: TextIngestMode, file: File | null, textUrl: string) {
     if (!name.trim()) {
-      setError("Name is required.");
+      flagNameInvalid("Name is required.");
       return;
     }
     if (mode === "upload" && !file) {
@@ -177,14 +211,11 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      if (mode === "upload") {
-        await createTextSourceUpload(name.trim(), file!);
-      } else {
-        await createTextSourceUrl(name.trim(), textUrl.trim());
-      }
-      void dispatch(fetchSources());
-      void dispatch(fetchDataTypes());
-      onClose();
+      const created =
+        mode === "upload"
+          ? await createTextSourceUpload(name.trim(), file!)
+          : await createTextSourceUrl(name.trim(), textUrl.trim());
+      finishCreate(created);
     } catch {
       setError("Failed to create text source.");
     } finally {
@@ -194,7 +225,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
   async function handleCreatePdf(mode: PdfIngestMode, file: File | null, pdfUrl: string) {
     if (!name.trim()) {
-      setError("Name is required.");
+      flagNameInvalid("Name is required.");
       return;
     }
     if (mode === "upload" && !file) {
@@ -208,14 +239,11 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      if (mode === "upload") {
-        await createPdfSourceUpload(name.trim(), file!);
-      } else {
-        await createPdfSourceUrl(name.trim(), pdfUrl.trim());
-      }
-      void dispatch(fetchSources());
-      void dispatch(fetchDataTypes());
-      onClose();
+      const created =
+        mode === "upload"
+          ? await createPdfSourceUpload(name.trim(), file!)
+          : await createPdfSourceUrl(name.trim(), pdfUrl.trim());
+      finishCreate(created);
     } catch {
       setError("Failed to create PDF source.");
     } finally {
@@ -225,7 +253,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
   async function handleCreateImage(mode: ImageIngestMode, file: File | null, imageUrl: string) {
     if (!name.trim()) {
-      setError("Name is required.");
+      flagNameInvalid("Name is required.");
       return;
     }
     if (mode === "upload" && !file) {
@@ -239,14 +267,11 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      if (mode === "upload") {
-        await createImageSourceUpload(name.trim(), file!);
-      } else {
-        await createImageSourceUrl(name.trim(), imageUrl.trim());
-      }
-      void dispatch(fetchSources());
-      void dispatch(fetchDataTypes());
-      onClose();
+      const created =
+        mode === "upload"
+          ? await createImageSourceUpload(name.trim(), file!)
+          : await createImageSourceUrl(name.trim(), imageUrl.trim());
+      finishCreate(created);
     } catch {
       setError("Failed to create image source.");
     } finally {
@@ -258,7 +283,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [key]: value } : f)));
   }
 
-  const title = step === "configure" ? "Add Data Source" : "Preview Schema";
+  const title = step === "configure" ? "Add data source" : "Preview schema";
 
   // Footer for the configure step (non-static, non-SQL, non-text, non-pdf,
   // non-image — those render their own self-contained form + footer since
@@ -328,11 +353,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               Source name
             </label>
             <TextField
+              ref={nameInputRef}
               id="source-name-static"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               placeholder="e.g. Reference table"
               aria-label="Source name"
+              aria-invalid={nameInvalid}
             />
           </div>
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
@@ -351,11 +378,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               Source name
             </label>
             <TextField
+              ref={nameInputRef}
               id="source-name-text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               placeholder="e.g. Release notes"
               aria-label="Source name"
+              aria-invalid={nameInvalid}
             />
           </div>
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
@@ -373,11 +402,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               Source name
             </label>
             <TextField
+              ref={nameInputRef}
               id="source-name-pdf"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               placeholder="e.g. Quarterly report"
               aria-label="Source name"
+              aria-invalid={nameInvalid}
             />
           </div>
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
@@ -395,11 +426,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               Source name
             </label>
             <TextField
+              ref={nameInputRef}
               id="source-name-image"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               placeholder="e.g. Product photo"
               aria-label="Source name"
+              aria-invalid={nameInvalid}
             />
           </div>
           <SourceTypeToggle active={sourceType} onChange={setSourceType} />
@@ -421,11 +454,13 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               Source name
             </label>
             <TextField
+              ref={nameInputRef}
               id="source-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               placeholder="e.g. Sales API"
               aria-label="Source name"
+              aria-invalid={nameInvalid}
             />
           </div>
 
@@ -448,11 +483,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
             <CsvForm onFileChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
           )}
 
-          {error && (
-            <p className="add-source-modal__error" role="alert">
-              {error}
-            </p>
-          )}
+          <InlineError error={error} />
         </form>
       ) : (
         <form
@@ -466,11 +497,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
           <InferredFieldsTable fields={fields} onFieldChange={handleFieldChange} />
 
-          {error && (
-            <p className="add-source-modal__error" role="alert">
-              {error}
-            </p>
-          )}
+          <InlineError error={error} />
         </form>
       )}
     </Modal>

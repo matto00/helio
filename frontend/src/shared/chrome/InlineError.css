@@ -3,3 +3,13 @@
   color: var(--app-error);
   font-size: var(--text-xs);
 }
+
+/* Boxed, higher-emphasis treatment for a standalone error surface (HEL
+   UI-sweep F-051) — e.g. a failed preview fetch, as opposed to a bare
+   validation message inside a form. */
+.inline-error--banner {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-danger-surface);
+}

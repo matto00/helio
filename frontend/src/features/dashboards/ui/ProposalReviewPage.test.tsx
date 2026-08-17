@@ -66,10 +66,10 @@ function HomeProbe() {
   return <div data-testid="home-route">{location.pathname}</div>;
 }
 
-function renderPage(routeState: { proposal: DashboardProposal; authoringRequestId?: string }) {
+function renderPage(routeState?: { proposal: DashboardProposal; authoringRequestId?: string }) {
   return render(
     <Provider store={makeStore()}>
-      <MemoryRouter initialEntries={[{ pathname: "/proposals/review", state: routeState }]}>
+      <MemoryRouter initialEntries={[{ pathname: "/proposals/review", state: routeState ?? null }]}>
         <Routes>
           <Route path="/proposals/review" element={<ProposalReviewPage />} />
           <Route path="/" element={<HomeProbe />} />
@@ -86,6 +86,28 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockedFetchDataTypes.mockResolvedValue([]);
   mockedPostAuthoringOutcome.mockResolvedValue(undefined);
+});
+
+describe("ProposalReviewPage — route guard (F-002)", () => {
+  // The demo-fixture synthesis path (`synthesizeDemoProposal`) is DEV-build-
+  // only now — `config/env`'s `IS_DEV` is mocked `false` under Jest
+  // (`src/test/envMock.ts`), so this exercises the same "no location.state"
+  // entry a production user would actually hit. Regression: this must never
+  // reach a live, applyable proposal (or an Accept/Apply dispatch) built from
+  // the workspace's own real data with no explicit hand-off.
+  it("shows a 'nothing to review' empty state — never synthesizes a demo proposal — when no router state is supplied", async () => {
+    renderPage();
+
+    await screen.findByText("Nothing to review");
+    expect(mockedFetchDataTypes).not.toHaveBeenCalled();
+    expect(mockedApplyDashboardProposal).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /back to dashboards/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("home-route")).toBeInTheDocument();
+    });
+  });
 });
 
 describe("ProposalReviewPage — authoring outcome correlation (HEL-401 design.md D4)", () => {

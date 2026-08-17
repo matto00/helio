@@ -1,6 +1,16 @@
 // Static SVG ribbon used between river-view steps on the PipelineDetailPage.
 // Pure decoration — no props, no state.
-
+//
+// HEL sweep F-014: this used to paint four `--app-accent`/`--app-accent-
+// strong`/`--app-accent-mid` bands on *every* gap between *every* step of
+// *every* pipeline at rest — a persistent accent-tinted texture across the
+// whole canvas, which DESIGN.md §0 calls out directly ("if a screen looks
+// tinted, accent discipline has broken"). The auth page's single accent
+// glow (`auth.css`'s `.auth-page::before`) is a one-off, low-opacity,
+// once-per-screen moment; this was the opposite — a saturated, repeated
+// structural element. Two thin neutral bands (the same border tokens the
+// rest of the app's structural chrome uses) keep the "connector between
+// steps" motif without recoloring the canvas with the user's accent.
 export function RibbonSegment() {
   return (
     <svg
@@ -9,41 +19,13 @@ export function RibbonSegment() {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {/* Band 1 */}
       <path
-        d="M0,5 C400,5 400,5 800,5 L800,15 C400,15 400,15 0,15 Z"
-        fill="var(--app-accent)"
-        fillOpacity="0.15"
-        stroke="var(--app-accent)"
-        strokeOpacity="0.3"
-        strokeWidth="0.5"
+        d="M0,22 C400,22 400,22 800,22 L800,25 C400,25 400,25 0,25 Z"
+        fill="var(--app-border-strong)"
       />
-      {/* Band 2 */}
       <path
-        d="M0,17 C400,17 400,17 800,17 L800,28 C400,28 400,28 0,28 Z"
-        fill="var(--app-accent-strong)"
-        fillOpacity="0.12"
-        stroke="var(--app-accent-strong)"
-        strokeOpacity="0.25"
-        strokeWidth="0.5"
-      />
-      {/* Band 3 */}
-      <path
-        d="M0,30 C400,30 400,30 800,30 L800,38 C400,38 400,38 0,38 Z"
-        fill="var(--app-accent)"
-        fillOpacity="0.08"
-        stroke="var(--app-accent)"
-        strokeOpacity="0.2"
-        strokeWidth="0.5"
-      />
-      {/* Band 4 */}
-      <path
-        d="M0,40 C400,40 400,40 800,40 L800,46 C400,46 400,46 0,46 Z"
-        fill="var(--app-accent-mid)"
-        fillOpacity="0.1"
-        stroke="var(--app-accent-mid)"
-        strokeOpacity="0.2"
-        strokeWidth="0.5"
+        d="M0,28 C400,28 400,28 800,28 L800,30 C400,30 400,30 0,30 Z"
+        fill="var(--app-border-subtle)"
       />
     </svg>
   );

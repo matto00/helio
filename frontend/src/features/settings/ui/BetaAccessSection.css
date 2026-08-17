@@ -32,19 +32,41 @@
   align-self: flex-start;
   padding: 0 var(--space-4);
   height: var(--control-md);
-  border: 1px solid transparent;
   border-radius: var(--app-radius-sm);
-  background: var(--app-accent);
-  color: var(--app-accent-ink);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background-color var(--app-transition);
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
 }
 
-.beta-access-section__request-btn:hover:not(:disabled),
-.beta-access-section__redeem-btn:hover:not(:disabled) {
+/* F-148: "Request Beta access" is this section's one Primary action
+   (DESIGN.md §5 -- one primary per section). */
+.beta-access-section__request-btn {
+  border: 1px solid transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.beta-access-section__request-btn:hover:not(:disabled) {
   background: var(--app-accent-strong);
+}
+
+/* "Redeem code" demoted to the Secondary recipe (DESIGN.md §5) so it no
+   longer competes with "Request Beta access" as a second solid-accent
+   primary in the same small card. */
+.beta-access-section__redeem-btn {
+  border: 1px solid var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.beta-access-section__redeem-btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 .beta-access-section__request-btn:disabled,

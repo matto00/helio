@@ -59,7 +59,7 @@ describe("BetaAccessSection — tier-aware rendering", () => {
       auth: { status: "authenticated", currentUser: userWithTier("owner") },
     });
 
-    expect(screen.getByText("You have workspace-owner access.")).toBeInTheDocument();
+    expect(screen.getByText("You have Owner access.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request Beta access" })).not.toBeInTheDocument();
   });
 
@@ -84,6 +84,9 @@ describe("BetaAccessSection — request action", () => {
       expect(screen.getByText("Request sent — the owner has been notified.")).toBeInTheDocument(),
     );
     expect(requestBetaAccessMock).toHaveBeenCalledTimes(1);
+    // F-232: once the request has succeeded there's nothing left to click — the button that
+    // would just re-request is replaced by the confirmation, not shown alongside it.
+    expect(screen.queryByRole("button", { name: "Request Beta access" })).not.toBeInTheDocument();
   });
 
   it("shows the endpoint's error inline when the request fails", async () => {

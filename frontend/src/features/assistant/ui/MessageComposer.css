@@ -1,7 +1,7 @@
 /* ── Message composer (HEL-665, reopened composer ticket) ─────────────────────────────────────
  * Text input + send action, rendered inside ActiveConversationPanel (both the transcript's
- * success-state and the empty-conversation-list state, design.md D5). Button/spinner recipe
- * mirrors RefinementChatDrawer.css's identical submit/spinner pattern. */
+ * success-state and the empty-conversation-list state, design.md D5). The "Sending…" indicator
+ * uses the shared `Spinner` primitive (F-190), not a local recipe. */
 
 .message-composer {
   display: grid;
@@ -28,23 +28,6 @@
   gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--app-text-muted);
-}
-
-.message-composer__spinner {
-  flex-shrink: 0;
-  display: block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--app-border-subtle);
-  border-top-color: var(--app-accent);
-  border-radius: 50%;
-  animation: message-composer-spin 0.7s linear infinite;
-}
-
-@keyframes message-composer-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .message-composer__submit {

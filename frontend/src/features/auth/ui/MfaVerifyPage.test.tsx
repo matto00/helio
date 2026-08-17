@@ -29,6 +29,7 @@ function makeStore(authState: Partial<AuthState> = {}) {
   const preloaded: AuthState = {
     currentUser: null,
     status: "unauthenticated",
+    submitStatus: "idle",
     mfaChallenge: { challengeToken: "challenge-token-123" },
     ...authState,
   };

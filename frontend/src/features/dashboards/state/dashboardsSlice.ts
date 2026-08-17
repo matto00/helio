@@ -279,15 +279,29 @@ const dashboardsSlice = createSlice({
           dashboard.id === action.payload.id ? action.payload : dashboard,
         );
       })
+      // F-031 defense-in-depth: DashboardList.tsx now surfaces these three
+      // failures inline via `.unwrap()`, but recording the rejection on
+      // `state.error` too means a caller that dispatches these thunks
+      // without unwrapping (present or future) still can't silently drop a
+      // failure on the floor.
+      .addCase(renameDashboard.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to rename dashboard.";
+      })
       .addCase(deleteDashboard.fulfilled, (state, action) => {
         state.items = state.items.filter((d) => d.id !== action.payload);
         if (state.selectedDashboardId === action.payload) {
           state.selectedDashboardId = getMostRecentDashboardId(state.items);
         }
       })
+      .addCase(deleteDashboard.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to delete dashboard.";
+      })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
         state.items.push(action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
+      })
+      .addCase(duplicateDashboard.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to duplicate dashboard.";
       })
       .addCase(importDashboard.fulfilled, (state, action) => {
         state.items.push(action.payload.dashboard);

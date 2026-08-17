@@ -19,12 +19,18 @@ export function BottomNav() {
             key={destination.to}
             to={destination.to}
             end={destination.end}
+            // F-080: the visible label is the short form (fits the 72px
+            // tab); the accessible name stays the full label so screen
+            // reader users aren't shortchanged by the space constraint.
+            aria-label={destination.label}
             className={({ isActive }) =>
               isActive ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"
             }
           >
             <Icon className="bottom-nav__icon" size={22} aria-hidden="true" />
-            <span className="bottom-nav__label">{destination.label}</span>
+            <span className="bottom-nav__label" aria-hidden="true">
+              {destination.shortLabel ?? destination.label}
+            </span>
           </NavLink>
         );
       })}

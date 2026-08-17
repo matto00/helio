@@ -10,14 +10,22 @@ export interface NavDestination {
    * stay "active" for every nested route. */
   end?: boolean;
   label: string;
+  /** Shorter label for width-constrained contexts (F-080: `BottomNav`'s
+   * six 72px phone tabs — "Data Pipelines"/"Type Registry" overflowed their
+   * slots at the full label). Falls back to `label` when unset. */
+  shortLabel?: string;
   icon: LucideIcon;
 }
 
+// F-009/F-085: "Chat" renamed to "Assistant" — the interaction surfaces this
+// destination opens onto (QuickLauncherOverlay, the command-bar trigger, the
+// message-turn role label) already used "Assistant"; this was the one
+// structural label still saying "Chat". The route path (/chat) is unchanged.
 export const navDestinations: NavDestination[] = [
-  { to: "/", end: true, label: "Dashboards", icon: LayoutDashboard },
-  { to: "/sources", label: "Data Sources", icon: Database },
-  { to: "/pipelines", label: "Data Pipelines", icon: Workflow },
-  { to: "/registry", label: "Type Registry", icon: BookOpen },
+  { to: "/", end: true, label: "Dashboards", shortLabel: "Home", icon: LayoutDashboard },
+  { to: "/sources", label: "Data Sources", shortLabel: "Sources", icon: Database },
+  { to: "/pipelines", label: "Data Pipelines", shortLabel: "Pipelines", icon: Workflow },
+  { to: "/registry", label: "Data Types", shortLabel: "Types", icon: BookOpen },
   { to: "/metrics", label: "Metrics", icon: Gauge },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
+  { to: "/chat", label: "Assistant", icon: MessageSquare },
 ];

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faImage } from "@fortawesome/free-solid-svg-icons";
 
@@ -47,20 +47,42 @@ export function ImagePanel({ imageUrl, imageFit, caption }: ImagePanelProps) {
   const trimmedCaption = caption?.trim();
   const objectFit = (imageFit ?? "contain") as CSSProperties["objectFit"];
 
-  const visual = safeUrl ? (
-    <div className="image-panel">
-      <img className="image-panel__img" src={safeUrl} alt="" style={{ objectFit }} />
-    </div>
-  ) : (
-    <div className="image-panel image-panel--empty">
-      <span className="image-panel__placeholder-icon" aria-hidden="true">
-        <FontAwesomeIcon icon={faImage} />
-      </span>
-      <span className="image-panel__placeholder-text">
-        No image URL set. Open panel settings to configure.
-      </span>
-    </div>
-  );
+  // F-112: a broken/unreachable image URL used to leave the browser's native broken-image glyph
+  // on screen indefinitely. Swap to the same placeholder markup the "no URL set" case already
+  // uses, with copy specific to a load failure. Resets whenever the URL itself changes, so a
+  // previously-broken image gets a fresh chance once the user points it somewhere new — adjusted
+  // during render (React's documented pattern for "reset state when a prop changes"), not in an
+  // effect, since this repo's eslint config flags synchronous setState-in-effect as an error.
+  const [hasLoadError, setHasLoadError] = useState(false);
+  const [lastSeenUrl, setLastSeenUrl] = useState(safeUrl);
+  if (safeUrl !== lastSeenUrl) {
+    setLastSeenUrl(safeUrl);
+    setHasLoadError(false);
+  }
+
+  const visual =
+    safeUrl && !hasLoadError ? (
+      <div className="image-panel">
+        <img
+          className="image-panel__img"
+          src={safeUrl}
+          alt=""
+          style={{ objectFit }}
+          onError={() => setHasLoadError(true)}
+        />
+      </div>
+    ) : (
+      <div className="image-panel image-panel--empty">
+        <span className="image-panel__placeholder-icon" aria-hidden="true">
+          <FontAwesomeIcon icon={faImage} />
+        </span>
+        <span className="image-panel__placeholder-text">
+          {safeUrl
+            ? "Image failed to load. Check the URL in panel settings."
+            : "No image URL set. Open panel settings to configure."}
+        </span>
+      </div>
+    );
 
   return (
     <div className="image-panel-frame">

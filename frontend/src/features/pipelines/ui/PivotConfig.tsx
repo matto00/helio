@@ -7,6 +7,9 @@
 // Follows the same props-driven pattern as AggregateConfig / DateBucketConfig:
 // the parent (StepCard) owns state and calls onChange with the typed config.
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import type { SchemaField } from "../types/pipelineStep";
 import { Select } from "../../../shared/ui/index";
 
@@ -73,11 +76,11 @@ export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }:
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove index field ${rowIndex + 1}`}
                 onClick={() => handleRemoveIndexRow(rowIndex)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -85,7 +88,7 @@ export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }:
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddIndexRow}
         >
           + Add index field

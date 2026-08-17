@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
+import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
 
@@ -22,10 +23,13 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 }));
 
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
+const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 
 describe("SourcesPage", () => {
   beforeEach(() => {
     fetchDataTypesMock.mockResolvedValue([]);
+    fetchSourcesMock.mockClear();
+    fetchDataTypesMock.mockClear();
   });
 
   it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
@@ -47,5 +51,30 @@ describe("SourcesPage", () => {
     // The source detail panel renders its inferred-schema table from the
     // dataTypes slice, so the page warms the slice on mount.
     expect(fetchDataTypesMock).toHaveBeenCalled();
+  });
+
+  it("F-011: the empty-state copy names the pipeline step, not a direct source-to-panel binding", async () => {
+    renderWithStore(<SourcesPage />);
+    expect(
+      await screen.findByText(/shape into a bindable type with a pipeline/i),
+    ).toBeInTheDocument();
+  });
+
+  it("F-072: fetches sources and data types on a cold mount", () => {
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [], status: "idle" },
+      dataTypes: { items: [], status: "idle" },
+    });
+    expect(fetchSourcesMock).toHaveBeenCalled();
+    expect(fetchDataTypesMock).toHaveBeenCalled();
+  });
+
+  it("F-072: does not re-dispatch fetchSources/fetchDataTypes once already loaded", () => {
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [], status: "succeeded" },
+      dataTypes: { items: [], status: "succeeded" },
+    });
+    expect(fetchSourcesMock).not.toHaveBeenCalled();
+    expect(fetchDataTypesMock).not.toHaveBeenCalled();
   });
 });

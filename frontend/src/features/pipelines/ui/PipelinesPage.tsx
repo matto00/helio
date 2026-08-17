@@ -7,6 +7,7 @@ import { CreatePipelineModal } from "./CreatePipelineModal";
 import { PipelineEmptyState } from "./PipelineEmptyState";
 import { PipelineListTable } from "./PipelineListTable";
 import { PipelineShareDialog } from "./PipelineShareDialog";
+import { Spinner } from "../../../shared/ui/Spinner";
 import type { PipelineSummary } from "../types/pipelineStep";
 
 export function PipelinesPage() {
@@ -23,7 +24,12 @@ export function PipelinesPage() {
   return (
     <div className="pipelines-page">
       <div className="pipelines-page__section">
-        {status === "loading" && <p className="pipelines-page__loading">Loading pipelines…</p>}
+        {status === "loading" && (
+          <div className="pipelines-page__loading" aria-label="Loading pipelines">
+            <Spinner size="lg" />
+            Loading pipelines…
+          </div>
+        )}
 
         {status === "failed" && error && (
           <p className="pipelines-page__error" role="alert">
@@ -36,11 +42,25 @@ export function PipelinesPage() {
         )}
 
         {status === "succeeded" && items.length > 0 && (
-          <PipelineListTable
-            pipelines={items}
-            currentUserId={currentUser?.id}
-            onShare={(p) => setSharingPipeline(p)}
-          />
+          <>
+            {/* HEL sweep F-133: mirrors MetricsPage.tsx's toolbar — the
+             *  sidebar "+" was the only way to create a pipeline once the
+             *  list was non-empty. */}
+            <div className="pipelines-page__toolbar">
+              <button
+                type="button"
+                className="pipelines-page__create-btn"
+                onClick={() => dispatch(setCreatePipelineModalOpen(true))}
+              >
+                New pipeline
+              </button>
+            </div>
+            <PipelineListTable
+              pipelines={items}
+              currentUserId={currentUser?.id}
+              onShare={(p) => setSharingPipeline(p)}
+            />
+          </>
         )}
       </div>
 

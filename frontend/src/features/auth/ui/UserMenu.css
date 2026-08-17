@@ -111,14 +111,6 @@
   outline-offset: -2px;
 }
 
-.user-menu__item--theme {
-  color: var(--app-text-muted);
-}
-
-.user-menu__item--theme:hover {
-  color: var(--app-text);
-}
-
 .user-menu__item--settings {
   color: var(--app-text-muted);
 }
@@ -150,4 +142,16 @@
   color: var(--app-text-muted);
   text-transform: uppercase;
   letter-spacing: var(--eyebrow-tracking);
+}
+
+/* F-189: at phone/tablet widths the popover is reachable via touch, so its
+   items must meet the 44px a11y tap minimum (DESIGN.md "Control metrics") —
+   `.user-menu__item`'s padding-driven rendered height (~28px) falls well
+   short. 768px matches the codebase's canonical mobile-shell breakpoint
+   (BottomNav.css / PanelDetailModal.mobile.css already use it for the same
+   convention); desktop density is unaffected. */
+@media (max-width: 768px) {
+  .user-menu__item {
+    min-height: 44px;
+  }
 }

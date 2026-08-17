@@ -172,8 +172,19 @@
   background: transparent;
   color: var(--app-text);
   font-size: var(--text-sm);
-  cursor: not-allowed;
-  opacity: 0.6;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+/* F-090: was permanently styled as disabled (cursor:not-allowed,
+ * opacity:0.6) even though the onClick is a fully working OAuth entry
+ * point — this button was never actually wired to a disabled state. */
+.auth-google-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
 }
 
 .auth-error {
@@ -231,18 +242,13 @@
   min-height: 100dvh;
 }
 
-.auth-loading__spinner {
-  display: block;
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--app-border-subtle);
-  border-top-color: var(--app-accent);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+/* F-192: OAuthCallbackPage's spinner sits inside an auth-card alongside its
+ * own brand row/title/subtitle, not as a full-viewport standalone state
+ * (that's what plain .auth-loading is for, e.g. ProtectedRoute's boot gate). */
+.auth-loading--inline {
+  min-height: 0;
+  margin-top: var(--space-6);
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* `.auth-loading__spinner` is now the shared `Spinner` primitive (size `2xl`) — see
+ * ProtectedRoute.tsx / OAuthCallbackPage.tsx (F-190). */

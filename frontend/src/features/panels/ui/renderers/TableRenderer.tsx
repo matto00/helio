@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { DataGrid } from "../../../../shared/ui/index";
+import "./TableRenderer.css";
+import { DataGrid, Spinner } from "../../../../shared/ui/index";
 import type { ColumnDef } from "../../../../shared/ui/index";
 import type { TableDensity } from "../../types/panel";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
@@ -31,7 +32,11 @@ interface TableRendererProps {
   columnOrder?: string[];
 }
 
-/** Union of keys across the first 50 rows, in first-seen order — matches
+/** Matches `DataGrid.deriveColumns`'s natural/numeric collator so a column set
+ *  like col_0, col_1, col_10 sorts numerically instead of lexically. HEL-127. */
+const naturalKeyCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/** Union of keys across the first 50 rows, in natural-sorted order — matches
  *  `DataGrid.deriveColumns` so the natural (unordered) column set is identical
  *  whether or not `columnOrder` is applied. */
 function deriveKeys(rows: Record<string, unknown>[]): string[] {
@@ -39,7 +44,7 @@ function deriveKeys(rows: Record<string, unknown>[]): string[] {
   for (const row of rows.slice(0, 50)) {
     for (const key of Object.keys(row)) seen.add(key);
   }
-  return Array.from(seen);
+  return Array.from(seen).sort((a, b) => naturalKeyCollator.compare(a, b));
 }
 
 /** Build the ordered/filtered `ColumnDef[]` per HEL-255 design D2: absent or
@@ -146,10 +151,7 @@ export function TableRenderer({
             >
               {paginationIsLoadingMore ? (
                 <>
-                  <span
-                    className="panel-content__spinner panel-content__spinner--sm"
-                    aria-hidden="true"
-                  />
+                  <Spinner size="sm" />
                   Loading...
                 </>
               ) : (

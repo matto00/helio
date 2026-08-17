@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import "./DataGrid.css";
+import { useScrollEdges } from "./useScrollEdges";
 
 export interface ColumnDef {
   key: string;
@@ -84,14 +85,24 @@ const DEFAULT_DENSITY: Record<DataGridVariant, DataGridDensity> = {
   full: "normal",
 };
 
-/** Union of keys across the first 50 rows, in first-seen order — matches
- * `PreviewTable`'s former column-derivation behavior. */
+/** Natural/numeric comparator for column keys — plain string sort would
+ *  order "col_10" before "col_2", which is confusing for any real dataset
+ *  with numeric-suffixed or numeric field names (see HEL a11y/ux sweep
+ *  F-127). Module-level singleton: `Intl.Collator` construction is not free
+ *  and this comparator is stateless. `TableRenderer.tsx`'s `deriveKeys`
+ *  mirrors this exact fix — the two must stay in sync (see its docstring). */
+const naturalKeyCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/** Union of keys across the first 50 rows, in natural/numeric order — matches
+ * `PreviewTable`'s former column-derivation behavior, plus the F-127 fix. */
 function deriveColumns(rows: Record<string, unknown>[]): ColumnDef[] {
   const seen = new Set<string>();
   for (const row of rows.slice(0, 50)) {
     for (const key of Object.keys(row)) seen.add(key);
   }
-  return Array.from(seen).map((key) => ({ key }));
+  return Array.from(seen)
+    .sort((a, b) => naturalKeyCollator.compare(a, b))
+    .map((key) => ({ key }));
 }
 
 function formatCell(value: unknown): string {
@@ -116,6 +127,10 @@ export function DataGrid({
   const resolvedColumns = useMemo(() => columns ?? deriveColumns(rows), [rows, columns]);
   const resolvedDensity = density ?? DEFAULT_DENSITY[variant];
   const resizable = variant === "full";
+
+  // Scroll-shadow affordance (HEL a11y/ux sweep F-164) — a wide table gives a
+  // phone user zero indication that more columns exist off-screen otherwise.
+  const { ref: scrollRef, edges: scrollEdges } = useScrollEdges<HTMLDivElement>();
 
   // Transient widths applied while a drag is in progress — `DataGrid` itself
   // does not persist anything (the caller owns storage, see HEL-253
@@ -197,13 +212,15 @@ export function DataGrid({
     "ui-data-grid",
     `ui-data-grid--${variant}`,
     `ui-data-grid--${resolvedDensity}`,
+    scrollEdges.left ? "ui-data-grid--scroll-left" : null,
+    scrollEdges.right ? "ui-data-grid--scroll-right" : null,
     className ?? null,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={rootClasses} role="region" aria-label="Data grid">
+    <div className={rootClasses} role="region" aria-label="Data grid" ref={scrollRef}>
       <table className="ui-data-grid__table">
         <thead>
           <tr>
@@ -217,6 +234,7 @@ export function DataGrid({
               return (
                 <th
                   key={col.key}
+                  title={col.header ?? col.key}
                   style={appliedWidth !== undefined ? { width: appliedWidth } : undefined}
                 >
                   {col.header ?? col.key}

@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
 
 import "./RunHistoryModal.css";
 import type { AssertionSummary, PipelineRunRecord } from "../types/pipelineStep";
 import { Modal } from "../../../shared/ui/Modal";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import { StatusChip } from "../../../shared/ui/StatusChip";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -14,19 +17,35 @@ function formatDuration(startedAt: string, completedAt: string | null): string {
   return `${m}m ${s % 60}s`;
 }
 
+// HEL sweep F-137: run status now reuses the shared `StatusChip` primitive
+// (was a bespoke `.run-history-modal__status` recipe with its own casing —
+// one of three independently-drifted status recipes/casings in this
+// feature). Label + intent kept in one map so every status renders with a
+// single, sentence-cased vocabulary across this modal.
+const STATUS_LABELS: Record<PipelineRunRecord["status"], string> = {
+  succeeded: "Succeeded",
+  failed: "Failed",
+  running: "Running…",
+  queued: "Queued…",
+  dry_run: "Dry run",
+};
+
+const STATUS_INTENTS: Record<
+  PipelineRunRecord["status"],
+  "success" | "error" | "accent" | "neutral"
+> = {
+  succeeded: "success",
+  failed: "error",
+  running: "accent",
+  queued: "accent",
+  dry_run: "neutral",
+};
+
 function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
-  const label =
-    status === "dry_run"
-      ? "Dry run"
-      : status === "running"
-        ? "Running…"
-        : status === "queued"
-          ? "Queued…"
-          : status;
   return (
-    <span className={`run-history-modal__status run-history-modal__status--${status}`}>
-      {label}
-    </span>
+    <StatusChip intent={STATUS_INTENTS[status]} dashed={status === "dry_run"}>
+      {STATUS_LABELS[status]}
+    </StatusChip>
   );
 }
 
@@ -150,7 +169,12 @@ export function RunHistoryModal({ runs, onClose }: RunHistoryModalProps) {
     >
       <div className="run-history-modal__list">
         {runs.length === 0 ? (
-          <p className="run-history-modal__empty">No runs recorded yet.</p>
+          <EmptyState
+            variant="sidebar"
+            icon={faClockRotateLeft}
+            title="No runs recorded yet"
+            description="Run or dry-run this pipeline to see its history here."
+          />
         ) : (
           runs.map((run) => <RunRow key={run.id} run={run} />)
         )}

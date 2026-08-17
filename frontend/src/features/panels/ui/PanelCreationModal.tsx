@@ -14,16 +14,21 @@ import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import "./PanelCreationModal.css";
-import { createPanel } from "../state/panelsSlice";
+import { createPanel, updatePanelBinding } from "../state/panelsSlice";
 import {
   fetchDataTypes,
   selectPipelineOutputDataTypes,
 } from "../../dataTypes/state/dataTypesSlice";
+import {
+  fetchPipelines,
+  selectPipelineNameByOutputTypeId,
+} from "../../pipelines/state/pipelinesSlice";
 import { PANEL_TEMPLATES } from "../state/panelTemplates";
 import type { PanelTemplate } from "../state/panelTemplates";
 import { useShapeOffering } from "../state/useShapeOffering";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { PipelineShapeCatalogEntry } from "../../pipelines/types/pipelineShape";
+import type { DataType } from "../../dataTypes/types/dataType";
 import type {
   ChartTypeConfig,
   ImageTypeConfig,
@@ -49,7 +54,7 @@ type Step =
   | "shape-instantiate"
   | "name-entry";
 
-// 3.2 — Data-bound panel types require a DataType selection before creation.
+// 3.2 — Data-bound panel types offer a DataType selection before creation.
 const DATA_BOUND_TYPES: PanelType[] = [
   "metric",
   "chart",
@@ -60,8 +65,79 @@ const DATA_BOUND_TYPES: PanelType[] = [
   "timeline",
 ];
 
+// F-036 — text and markdown are meaningful panels with no data type bound at
+// all (static content), unlike metric/chart/table/collection/timeline, which
+// render "No data available" unbound. These two may still bind a DataType
+// (the datatype-select step still offers the list), but the step's Next
+// action becomes "Continue without data" instead of a hard-blocked Next —
+// see `DataTypeSelectStep`'s `allowSkip` prop. Binding stays available in the
+// panel editor after creation either way.
+const OPTIONALLY_DATA_BOUND_TYPES: PanelType[] = ["text", "markdown"];
+
 function isDataBound(type: PanelType | null): boolean {
   return type !== null && (DATA_BOUND_TYPES as string[]).includes(type);
+}
+
+function isOptionallyDataBound(type: PanelType | null): boolean {
+  return type !== null && (OPTIONALLY_DATA_BOUND_TYPES as string[]).includes(type);
+}
+
+// 3.9 — A data-bound type genuinely requires a DataType before it can
+// create anything meaningful, UNLESS it's optionally-bound (F-036).
+function requiresDataType(type: PanelType | null): boolean {
+  return isDataBound(type) && !isOptionallyDataBound(type);
+}
+
+// F-117 — the template-select step earns its place only when the selected
+// type actually ships templates; otherwise it's a decorative extra step
+// (e.g. timeline, which has none) and the shell skips straight past it.
+function hasTemplates(type: PanelType | null): boolean {
+  return type !== null && (PANEL_TEMPLATES[type]?.length ?? 0) > 0;
+}
+
+// F-214 — the resolved step path for the current panel type, used to render
+// "Step N of M" (shape-instantiate is inserted only while actually on it,
+// since it's a divergent branch off datatype-select, not a fixed step).
+function resolvedStepPath(type: PanelType | null, currentStep: Step): Step[] {
+  const path: Step[] = ["type-select"];
+  if (hasTemplates(type)) path.push("template-select");
+  if (isDataBound(type)) path.push("datatype-select");
+  if (currentStep === "shape-instantiate") path.push("shape-instantiate");
+  path.push("name-entry");
+  return path;
+}
+
+// F-119 — panel-subtype field slots this wizard can confidently auto-map at
+// create time without a dedicated field-mapping UI (design.md's "sensible
+// default" fix): a metric's lone value slot, and a chart's y (numeric) plus
+// x (timestamp, falling back to a string category) slots. Table/collection/
+// timeline read raw rows directly (`PANEL_SLOTS.table` is empty) and need no
+// mapping to render.
+const NUMERIC_FIELD_TYPES = new Set(["integer", "float"]);
+
+function firstFieldOfType(dataType: DataType, wireType: string): string | undefined {
+  return dataType.fields.find((f) => f.dataType === wireType)?.name;
+}
+
+function firstNumericField(dataType: DataType): string | undefined {
+  return dataType.fields.find((f) => NUMERIC_FIELD_TYPES.has(f.dataType))?.name;
+}
+
+function buildDefaultFieldMapping(
+  type: PanelType,
+  dataType: DataType,
+): Record<string, string> | null {
+  if (type === "metric") {
+    const value = firstNumericField(dataType);
+    return value ? { value } : null;
+  }
+  if (type === "chart") {
+    const yAxis = firstNumericField(dataType);
+    if (!yAxis) return null;
+    const xAxis = firstFieldOfType(dataType, "timestamp") ?? firstFieldOfType(dataType, "string");
+    return xAxis ? { xAxis, yAxis } : { yAxis };
+  }
+  return null;
 }
 
 interface PanelCreationModalProps {
@@ -71,10 +147,16 @@ interface PanelCreationModalProps {
 export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dispatch = useAppDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // F-110 — step heading focus target: refocused on every step change (and
+  // on initial open, since the effect below also fires on mount) and after
+  // dismissing the discard-confirm banner, so focus never drops to <body>.
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const { selectedDashboardId } = useAppSelector((state) => state.dashboards);
   // 3.6 — Slice for DataType picker.
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
+  // F-108 — producing-pipeline provenance for the DataType list's metadata line.
+  const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
   const [step, setStep] = useState<Step>("type-select");
   const [selectedType, setSelectedType] = useState<PanelType | null>(null);
@@ -87,22 +169,36 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   // HEL-399 — the shape selected on datatype-select, driving the
   // shape-instantiate step; catalog fetch/filter lives in `useShapeOffering`.
   const [selectedShape, setSelectedShape] = useState<PipelineShapeCatalogEntry | null>(null);
+  // F-114 — sticky once true: the shape sub-flow does real backend work
+  // (creates + runs a pipeline), so discarding after entering it should warn
+  // even after the flow completes and `selectedShape` resets to null.
+  const [shapeFlowEngaged, setShapeFlowEngaged] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   // Inline discard confirmation banner (replaces window.confirm for dirty dismiss).
   const [isShowingDiscardConfirm, setIsShowingDiscardConfirm] = useState(false);
 
-  // 1.3 — Dirty when the user has selected a type, template, typed a title, entered any config, or selected a DataType.
+  // F-114 — dirty only on genuine user-entered content: a title that no
+  // longer matches the template default (covers both free typing and
+  // "Start blank" + typing), a non-empty typeConfig, or having engaged the
+  // shape sub-flow. Merely clicking a type/template/DataType card — cheap to
+  // redo — no longer trips the discard guard on its own.
   const isDirty =
-    selectedType !== null ||
-    selectedTemplate !== null ||
-    title !== "" ||
+    title !== (selectedTemplate?.defaults.title ?? "") ||
     hasNonEmptyTypeConfig(typeConfig) ||
-    selectedDataTypeId !== null;
+    shapeFlowEngaged;
 
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
+
+  // F-110 — focus the step heading on every step change, including the
+  // initial mount (this effect always runs after first render too), so
+  // focus never lands on <body> or defaults to the first focusable control
+  // (the close button) with no context of what changed.
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, [step]);
 
   // 3.6 — Fetch data types on mount if not yet loaded.
   useEffect(() => {
@@ -110,6 +206,17 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
       void dispatch(fetchDataTypes());
     }
   }, [dispatch, dataTypes.status]);
+
+  // F-108 — the datatype-select step's "producing pipeline · N fields" line
+  // reads `selectPipelineNameByOutputTypeId` (state.pipelines.items), but
+  // nothing here ever populated it: panel creation is most commonly launched
+  // straight from a dashboard, without a prior visit to /pipelines or the
+  // Data Types registry (the only two other call sites that fetch it). Fetch
+  // on mount; `fetchPipelines`'s own `condition` guard (pipelinesSlice.ts)
+  // already skips the request when a load is in flight or already succeeded.
+  useEffect(() => {
+    void dispatch(fetchPipelines());
+  }, [dispatch]);
 
   // HEL-399 — Shape cards offered for the current panel type, fetched
   // lazily once this step is reached (see `useShapeOffering`).
@@ -159,8 +266,15 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     // 1.4 / 3.10 — typeConfig and selectedDataTypeId reset automatically when the component unmounts on close.
   }
 
-  // 1.2 — Shared dismiss helper: shows inline confirm when dirty, closes directly when clean.
+  // 1.2 — Shared dismiss helper: shows inline confirm when dirty, closes
+  // directly when clean. F-114 — a second dismiss signal (Escape, backdrop
+  // click, or the close button) while the banner is already showing now
+  // confirms the discard instead of silently re-showing the same banner.
   function handleDismiss() {
+    if (isShowingDiscardConfirm) {
+      confirmDiscard();
+      return;
+    }
     if (isDirty) {
       setIsShowingDiscardConfirm(true);
     } else {
@@ -175,6 +289,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
 
   function cancelDiscard() {
     setIsShowingDiscardConfirm(false);
+    // F-110 — the focused "Keep editing" button unmounts with the banner;
+    // without an explicit refocus, focus drops to <body>.
+    titleRef.current?.focus();
   }
 
   // 1.4 — Backdrop click: close when the click target is the <dialog> itself (not inner content).
@@ -188,7 +305,16 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     setSelectedType(type);
     // Reset typeConfig whenever a new type is picked so stale values don't carry over.
     setTypeConfig(null);
-    setStep("template-select");
+    // F-117 — skip the decorative template step entirely for a type that
+    // ships no templates (e.g. timeline); go straight to wherever it would
+    // have landed next.
+    if (hasTemplates(type)) {
+      setStep("template-select");
+    } else {
+      setSelectedTemplate(null);
+      setTitle("");
+      setStep(isDataBound(type) ? "datatype-select" : "name-entry");
+    }
   }
 
   // 3.4 — Advance to datatype-select for data-bound types, else name-entry.
@@ -207,18 +333,23 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     setSelectedTemplate(null);
   }
 
-  // 3.5 — Back from datatype-select returns to template-select and clears the DataType selection.
+  // 3.5 — Back from datatype-select returns to template-select (or straight
+  // to type-select when that step was skipped — F-117) and clears the
+  // DataType selection.
   function handleBackFromDataType() {
-    setStep("template-select");
+    setStep(hasTemplates(selectedType) ? "template-select" : "type-select");
     setSelectedDataTypeId(null);
   }
 
   function handleBackFromName() {
-    // For data-bound types, back goes to datatype-select; otherwise to template-select.
+    // Data-bound types go back to datatype-select; otherwise to
+    // template-select, or type-select when that step was skipped (F-117).
     if (isDataBound(selectedType)) {
       setStep("datatype-select");
-    } else {
+    } else if (hasTemplates(selectedType)) {
       setStep("template-select");
+    } else {
+      setStep("type-select");
     }
     setCreateError(null);
   }
@@ -227,6 +358,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   // DataType path (spec: "SHALL NOT select an existing DataType").
   function handleSelectShape(shape: PipelineShapeCatalogEntry) {
     setSelectedShape(shape);
+    setShapeFlowEngaged(true);
     setStep("shape-instantiate");
   }
 
@@ -261,8 +393,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
       return;
     }
 
-    // 3.9 — Block creation if data-bound type has no DataType selected.
-    if (isDataBound(selectedType) && selectedDataTypeId === null) {
+    // 3.9 / F-036 — Block creation only when the type genuinely requires a
+    // DataType (optionally-bound types may proceed with none selected).
+    if (requiresDataType(selectedType) && selectedDataTypeId === null) {
       return;
     }
 
@@ -272,7 +405,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     // 3.1 — Include typeConfig in the payload only when it has non-empty values.
     const nonEmptyConfig = hasNonEmptyTypeConfig(typeConfig) ? typeConfig : undefined;
     try {
-      await dispatch(
+      const created = await dispatch(
         createPanel({
           dashboardId: selectedDashboardId,
           title: normalizedTitle,
@@ -282,6 +415,30 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           dataTypeId: selectedDataTypeId ?? undefined,
         }),
       ).unwrap();
+
+      // F-119 — best-effort default field mapping so a freshly-bound
+      // metric/chart doesn't land as "No data available", forcing an
+      // immediate trip to the editor just to map the obvious field(s). Fires
+      // after creation and is never awaited — a failure here doesn't block
+      // (or undo) the panel that already exists; the user can still map
+      // fields manually in the editor exactly as before this fix.
+      if (selectedDataTypeId !== null) {
+        const boundDataType = pipelineOutputDataTypes.find((dt) => dt.id === selectedDataTypeId);
+        const defaultMapping = boundDataType
+          ? buildDefaultFieldMapping(selectedType, boundDataType)
+          : null;
+        if (defaultMapping) {
+          void dispatch(
+            updatePanelBinding({
+              panelId: created.id,
+              typeId: selectedDataTypeId,
+              fieldMapping: defaultMapping,
+              refreshInterval: created.refreshInterval ?? null,
+            }),
+          );
+        }
+      }
+
       handleClose();
     } catch {
       setCreateError("Failed to create panel.");
@@ -312,11 +469,16 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     typeConfig?.type === "image" ? typeConfig : { type: "image" };
 
   const datatypeStepLoading = dataTypes.status === "loading" || dataTypes.status === "idle";
+  // F-109 — a failed fetch is a distinct state from "successfully empty".
+  const datatypeStepError = dataTypes.status === "failed" ? dataTypes.error : null;
+  // F-214 — "Step N of M", computed from the resolved path for this type.
+  const stepProgress = resolvedStepPath(selectedType, step);
+  const stepProgressIndex = stepProgress.indexOf(step);
 
   return (
     <dialog
       ref={dialogRef}
-      className={`panel-creation-modal${step === "name-entry" ? " panel-creation-modal--wide" : ""}`}
+      className="panel-creation-modal"
       aria-label="Create panel"
       onClose={onClose}
       // 1.3 — Intercept native Escape (cancel event) and route through handleDismiss.
@@ -329,7 +491,24 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     >
       <div className="panel-creation-modal__inner">
         <header className="panel-creation-modal__header">
-          <h2 className="panel-creation-modal__title">{getStepTitle()}</h2>
+          <div className="panel-creation-modal__header-text">
+            {stepProgressIndex !== -1 && (
+              <p className="panel-creation-modal__step-progress eyebrow">
+                Step {stepProgressIndex + 1} of {stepProgress.length}
+              </p>
+            )}
+            {/* F-110 — focusable step heading (see the `[step]`-keyed focus
+                effect above) with `aria-live` so AT announces the step
+                change even without a focus move. */}
+            <h2
+              ref={titleRef}
+              tabIndex={-1}
+              aria-live="polite"
+              className="panel-creation-modal__title"
+            >
+              {getStepTitle()}
+            </h2>
+          </div>
           {/* 1.5 — Close button now routes through handleDismiss for dirty-state guard. */}
           <button
             type="button"
@@ -384,10 +563,16 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
         {step === "datatype-select" && (
           <DataTypeSelectStep
             loading={datatypeStepLoading}
+            error={datatypeStepError}
+            onRetry={() => void dispatch(fetchDataTypes())}
             registryDataTypes={pipelineOutputDataTypes}
+            pipelineNameByTypeId={pipelineNameByTypeId}
             selectedDataTypeId={selectedDataTypeId}
             onSelect={setSelectedDataTypeId}
-            onEmptyStateNavigate={handleClose}
+            allowSkip={isOptionallyDataBound(selectedType)}
+            // F-121 — route through the same dirty-guard every other exit
+            // uses, instead of discarding the in-progress draft unconditionally.
+            onEmptyStateNavigate={handleDismiss}
             onBack={handleBackFromDataType}
             onNext={() => setStep("name-entry")}
             offeredShapes={offeredShapes}
@@ -415,12 +600,21 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
             chartConfig={chartConfig}
             imageConfig={imageConfig}
             onTypeConfigChange={(cfg) => setTypeConfig(cfg)}
+            // F-035 — the live preview needs to know the bound state to
+            // render it honestly (never a stale "bind a data type" hint).
+            dataTypeId={selectedDataTypeId}
+            dataTypeName={
+              selectedDataTypeId === null
+                ? null
+                : (pipelineOutputDataTypes.find((dt) => dt.id === selectedDataTypeId)?.name ?? null)
+            }
             createError={createError}
             submitDisabled={
               isCreating ||
               title.trim().length === 0 ||
-              // 3.9 — Disabled if data-bound type and no DataType selected.
-              (isDataBound(selectedType) && selectedDataTypeId === null)
+              // 3.9 / F-036 — Disabled only when the type genuinely requires
+              // a DataType and none is selected.
+              (requiresDataType(selectedType) && selectedDataTypeId === null)
             }
             isCreating={isCreating}
             onBack={handleBackFromName}

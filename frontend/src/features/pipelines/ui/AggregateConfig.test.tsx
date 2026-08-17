@@ -129,6 +129,53 @@ describe("AggregateConfig", () => {
     expect(parsed.groupBy[0].name).toBe("dept");
   });
 
+  // HEL sweep F-129 regression: the default for a new group-by row must skip
+  // fields already used by an earlier row — duplicating a partition key is
+  // never useful.
+  it("clicking Add group-by field again skips the already-used field and picks the next one", () => {
+    const onChange = jest.fn();
+    const config: AggregateConfigValue = {
+      groupBy: [{ name: "dept", type: "string" }],
+      aggregations: [],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add group-by field/i }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
+    expect(parsed.groupBy.map((g) => g.name)).toEqual(["dept", "age"]);
+  });
+
+  it("leaves a new group-by row unselected once every schema field is already used", () => {
+    const onChange = jest.fn();
+    const config: AggregateConfigValue = {
+      groupBy: sampleSchema.map((f) => ({ name: f.name, type: f.type })),
+      aggregations: [],
+    };
+    render(
+      <AggregateConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add group-by field/i }));
+
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
+    expect(parsed.groupBy).toHaveLength(sampleSchema.length + 1);
+    expect(parsed.groupBy[parsed.groupBy.length - 1].name).toBe("");
+  });
+
   it("removing a group-by row calls onChange without that row", () => {
     const onChange = jest.fn();
     const config: AggregateConfigValue = {
@@ -174,6 +221,44 @@ describe("AggregateConfig", () => {
     const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations).toHaveLength(1);
     expect(parsed.aggregations[0].fn).toBe("sum");
+  });
+
+  // HEL sweep F-129 regression: sum/avg/min/max only make sense on numeric
+  // fields, so a new aggregation must default to the first numeric schema
+  // field ("age", not the string "dept" that happens to come first).
+  it("clicking Add aggregation defaults the field to the first numeric schema field", () => {
+    const onChange = jest.fn();
+    render(
+      <AggregateConfig
+        config={emptyConfig}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add aggregation/i }));
+
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
+    expect(parsed.aggregations[0].field).toBe("age");
+  });
+
+  it("leaves a new aggregation's field unselected when the schema has no numeric field", () => {
+    const onChange = jest.fn();
+    const stringOnlySchema: SchemaField[] = [{ name: "dept", type: "string" }];
+    render(
+      <AggregateConfig
+        config={emptyConfig}
+        analyzeSchema={stringOnlySchema}
+        analyzeColumns={stringOnlySchema.map((f) => f.name)}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add aggregation/i }));
+
+    const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
+    expect(parsed.aggregations[0].field).toBe("");
   });
 
   it("removing an aggregation row calls onChange without that row", () => {

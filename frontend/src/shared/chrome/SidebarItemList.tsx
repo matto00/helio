@@ -84,6 +84,12 @@ interface SidebarItemListProps {
   onRename?: (item: SidebarItem, name: string) => Promise<void>;
 }
 
+// F-187: `heading` is a display string ("Data Types", "Data Pipelines") and can contain spaces —
+// used raw, the filter input's `id` wasn't a valid HTML id token.
+function slugifyHeading(heading: string): string {
+  return heading.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 export function SidebarItemList({
   heading,
   items,
@@ -249,7 +255,7 @@ export function SidebarItemList({
       <div className="dashboard-list__filter">
         <div className="dashboard-list__filter-wrapper">
           <TextField
-            id={`sidebar-filter-${heading}`}
+            id={`sidebar-filter-${slugifyHeading(heading)}`}
             className="dashboard-list__filter-input"
             type="text"
             value={filterQuery}
@@ -432,7 +438,9 @@ function renderItemText(item: SidebarItem, renderBadge?: (item: SidebarItem) => 
   return (
     <span className="dashboard-list__text">
       <span className="dashboard-list__name-group">
-        <span className="dashboard-list__name">{item.name}</span>
+        <span className="dashboard-list__name" title={item.name}>
+          {item.name}
+        </span>
         {renderBadge?.(item)}
       </span>
       {item.subtitle !== undefined ? (

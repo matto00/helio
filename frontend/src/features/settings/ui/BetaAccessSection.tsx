@@ -27,9 +27,7 @@ export function BetaAccessSection() {
     return (
       <div className="beta-access-section">
         <p className="beta-access-section__confirmation">
-          {currentUser.tier === "owner"
-            ? "You have workspace-owner access."
-            : "You have Beta access."}
+          {currentUser.tier === "owner" ? "You have Owner access." : "You have Beta access."}
         </p>
       </div>
     );
@@ -59,18 +57,19 @@ export function BetaAccessSection() {
   return (
     <div className="beta-access-section">
       <div className="beta-access-section__request">
-        <button
-          type="button"
-          className="beta-access-section__request-btn"
-          onClick={handleRequest}
-          disabled={isRequesting}
-        >
-          {isRequesting ? "Requesting…" : "Request Beta access"}
-        </button>
-        {requestStatus === "succeeded" && (
+        {requestStatus === "succeeded" ? (
           <p className="beta-access-section__confirmation">
             Request sent — the owner has been notified.
           </p>
+        ) : (
+          <button
+            type="button"
+            className="beta-access-section__request-btn"
+            onClick={handleRequest}
+            disabled={isRequesting}
+          >
+            {isRequesting ? "Requesting…" : "Request Beta access"}
+          </button>
         )}
         <InlineError error={requestError} />
       </div>

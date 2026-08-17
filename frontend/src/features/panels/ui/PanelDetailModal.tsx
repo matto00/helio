@@ -24,12 +24,13 @@ import {
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelDetailModalLifecycle } from "../hooks/usePanelDetailModalLifecycle";
+import { useTheme } from "../../../theme/ThemeProvider";
 import {
   clampTransparency,
   defaultChartAppearance,
   getColorInputValue,
-  panelAppearanceEditorFallback,
-  panelTextEditorFallback,
+  getPanelAppearanceEditorFallback,
+  getPanelTextEditorFallback,
 } from "../../../theme/appearance";
 import type { ChartAppearance, Panel, PanelAppearance } from "../types/panel";
 import { PanelContent } from "./PanelContent";
@@ -67,14 +68,19 @@ function buildInitialChart(panel: Panel): ChartAppearance {
 interface PanelDetailModalProps {
   panel: Panel;
   onClose: () => void;
+  /** F-123 — lets a caller (e.g. the panel card's "Customize" action) open the
+   *  modal straight into the settings form instead of the read-only view a
+   *  plain card click lands on. Defaults to "view" (unchanged behavior). */
+  initialMode?: "view" | "edit";
 }
 
-export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
+export function PanelDetailModal({ panel, onClose, initialMode = "view" }: PanelDetailModalProps) {
   const dispatch = useAppDispatch();
+  const { theme } = useTheme();
   const { data, rawRows, headers, isLoading, error, noData, chartAggregate } = usePanelData(panel);
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
-  const [modalMode, setModalMode] = useState<"view" | "edit">("view");
+  const [modalMode, setModalMode] = useState<"view" | "edit">(initialMode);
 
   // ── Appearance state (common to every subtype) ──────────────────────────
   // Background / color hold the RAW appearance value — which may be a sentinel
@@ -319,6 +325,7 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
                 type="button"
                 className="panel-detail-modal__edit-btn"
                 aria-label="Edit panel"
+                title="Edit (E)"
                 onClick={() => setModalMode("edit")}
               >
                 Edit
@@ -357,11 +364,12 @@ export function PanelDetailModal({ panel, onClose }: PanelDetailModalProps) {
             >
               <AppearanceEditor
                 panelTitle={panel.title}
+                theme={theme}
                 title={title}
                 setTitle={setTitle}
-                background={getColorInputValue(background, panelAppearanceEditorFallback)}
+                background={getColorInputValue(background, getPanelAppearanceEditorFallback(theme))}
                 setBackground={setBackground}
-                color={getColorInputValue(color, panelTextEditorFallback)}
+                color={getColorInputValue(color, getPanelTextEditorFallback(theme))}
                 setColor={setColor}
                 transparency={transparency}
                 setTransparency={setTransparency}

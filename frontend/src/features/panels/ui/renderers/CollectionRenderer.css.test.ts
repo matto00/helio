@@ -36,3 +36,21 @@ describe("CollectionRenderer.css — tile values wrap instead of overlapping nei
     expect(body).toMatch(/overflow-wrap:\s*anywhere\s*;/);
   });
 });
+
+// Regression guard for F-038: the collection body scrolls internally
+// (`overflow-y: auto`) with zero visual hint that more content exists below.
+// jsdom implements no real layout, so this statically asserts the CSS source
+// keeps the shared scroll-affordance recipe (see the long comment above
+// `.panel-content--collection` for the full rationale): a themed thin
+// scrollbar plus the position-aware "scroll shadow" background layers.
+describe("CollectionRenderer.css — F-038 scroll affordance", () => {
+  it("styles a themed thin scrollbar on the scrolling element", () => {
+    const body = findRuleBody(css, ".panel-content--collection {");
+    expect(body).toMatch(/scrollbar-width:\s*thin\s*;/);
+  });
+
+  it("layers a position-aware scroll-shadow background (local covers over fixed shadows)", () => {
+    const body = findRuleBody(css, ".panel-content--collection {");
+    expect(body).toMatch(/background-attachment:\s*local,\s*local,\s*scroll,\s*scroll\s*;/);
+  });
+});

@@ -35,6 +35,34 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Wire shape of a `PipelineSummary`: spray-json omits an `Option[T] = None`
+ *  field entirely rather than serializing it as `null` (a recurring gotcha
+ *  in this codebase — see `dataTypeService.ts`'s `normalizeDataType`), so a
+ *  never-run pipeline arrives with `lastRunAt`/`lastRunStatus`/
+ *  `lastRunRowCount` *absent*, not `null`. `PipelineListTable.tsx` and this
+ *  page's own meta-bar only guard against `null` (`!== null`/`!= null`), so
+ *  an absent field reads as "has a value" and renders `formatRelativeTime
+ *  (undefined)` → "NaN years ago" (HEL sweep F-042). Normalize once here,
+ *  at the state boundary, so every reducer/selector/component downstream
+ *  can keep trusting the declared `T | null` contract. */
+type PipelineSummaryWire = Omit<
+  PipelineSummary,
+  "lastRunAt" | "lastRunStatus" | "lastRunRowCount"
+> & {
+  lastRunAt?: PipelineSummary["lastRunAt"];
+  lastRunStatus?: PipelineSummary["lastRunStatus"];
+  lastRunRowCount?: PipelineSummary["lastRunRowCount"];
+};
+
+function normalizePipelineSummary(wire: PipelineSummaryWire): PipelineSummary {
+  return {
+    ...wire,
+    lastRunAt: wire.lastRunAt ?? null,
+    lastRunStatus: wire.lastRunStatus ?? null,
+    lastRunRowCount: wire.lastRunRowCount ?? null,
+  };
+}
+
 interface PipelinesState {
   items: PipelineSummary[];
   status: "idle" | "loading" | "succeeded" | "failed";
@@ -115,14 +143,31 @@ const initialState: PipelinesState = {
   scheduleSaveError: null,
 };
 
-export const fetchPipelines = createAsyncThunk<PipelineSummary[], void, { rejectValue: string }>(
+export const fetchPipelines = createAsyncThunk<
+  PipelineSummary[],
+  void,
+  { state: RootState; rejectValue: string }
+>(
   "pipelines/fetchPipelines",
   async (_, { rejectWithValue }) => {
     try {
-      return await getPipelines();
+      const summaries = await getPipelines();
+      return summaries.map(normalizePipelineSummary);
     } catch {
       return rejectWithValue("Failed to load pipelines.");
     }
+  },
+  {
+    // F-104 — every remount of a `fetchPipelines()` caller (e.g. revisiting
+    // `PipelinesPage`) re-issued the request even though `items` was already
+    // loaded and unchanged. Mirrors `panelThunks.ts`'s `fetchPanels` guard:
+    // skip while a fetch is already in flight or has already succeeded, but
+    // still allow a retry from `failed` (unlike a bare `status === "idle"`
+    // check, which would permanently block retries after one failure).
+    condition: (_, { getState }) => {
+      const { status } = getState().pipelines;
+      return status !== "loading" && status !== "succeeded";
+    },
   },
 );
 
@@ -130,7 +175,7 @@ export const fetchPipelineById = createAsyncThunk<PipelineSummary, string, { rej
   "pipelines/fetchPipelineById",
   async (pipelineId, { rejectWithValue }) => {
     try {
-      return await getPipelineById(pipelineId);
+      return normalizePipelineSummary(await getPipelineById(pipelineId));
     } catch {
       return rejectWithValue("Failed to load pipeline.");
     }
@@ -156,7 +201,7 @@ export const updatePipeline = createAsyncThunk<
   { rejectValue: string }
 >("pipelines/updatePipeline", async ({ id, name }, { rejectWithValue }) => {
   try {
-    return await updatePipelineRequest(id, name);
+    return normalizePipelineSummary(await updatePipelineRequest(id, name));
   } catch {
     return rejectWithValue("Failed to update pipeline.");
   }
@@ -210,7 +255,7 @@ export const createPipeline = createAsyncThunk<
   { rejectValue: string }
 >("pipelines/createPipeline", async (payload, { rejectWithValue }) => {
   try {
-    return await createPipelineRequest(payload);
+    return normalizePipelineSummary(await createPipelineRequest(payload));
   } catch {
     return rejectWithValue("Failed to create pipeline.");
   }
@@ -381,9 +426,20 @@ const pipelinesSlice = createSlice({
         state.createStatus = "loading";
         state.createError = null;
       })
-      .addCase(createPipeline.fulfilled, (state) => {
+      .addCase(createPipeline.fulfilled, (state, action) => {
         state.createStatus = "succeeded";
         state.createError = null;
+        // F-104 regression fix: `fetchPipelines`'s `condition` guard (above)
+        // now skips re-fetching once `state.items` has already loaded
+        // successfully — which broke the one caller (CreatePipelineModal)
+        // that relied on a post-create `dispatch(fetchPipelines())` to add
+        // the new pipeline to the list. The thunk already returns the full
+        // created `PipelineSummary` (`normalizePipelineSummary(...)` above),
+        // so add it directly here instead — matches
+        // `dashboardsSlice.ts`'s `createDashboard.fulfilled` convention and
+        // is strictly fewer requests than the old refetch-the-whole-list
+        // approach it replaces.
+        state.items.push(action.payload);
       })
       .addCase(createPipeline.rejected, (state, action) => {
         state.createStatus = "failed";

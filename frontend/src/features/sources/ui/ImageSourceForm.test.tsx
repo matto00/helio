@@ -53,7 +53,11 @@ describe("ImageSourceForm", () => {
         onCancel={noop}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(/unsupported file extension/i);
+    // F-051: routed through the shared <InlineError>, whose default "text"
+    // variant intentionally carries no alert role (matches every other
+    // plain-text InlineError consumer app-wide) — assert on the rendered
+    // text instead.
+    expect(screen.getByText(/unsupported file extension/i)).toBeInTheDocument();
   });
 
   it("disables the submit button while loading", () => {

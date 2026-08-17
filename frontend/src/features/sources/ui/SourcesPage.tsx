@@ -18,12 +18,23 @@ export function SourcesPage() {
     selectedSourceId,
     addModalOpen,
   } = useAppSelector((state) => state.sources);
+  const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
 
   useEffect(() => {
-    void dispatch(fetchSources());
+    // F-072: guard both dispatches on `idle` (mirroring SidebarBody's fetch
+    // pattern). The sidebar's "sources" section mounts alongside this page
+    // and already dispatches `fetchSources()` itself, so an unconditional
+    // dispatch here raced it into a genuine duplicate GET /api/data-sources
+    // on cold mount; guarding also stops both fetches from refiring
+    // pointlessly on every later revisit of /sources.
+    if (sourcesStatus === "idle") {
+      void dispatch(fetchSources());
+    }
     // Schema preview needs the inferred DataType for the selected source.
-    void dispatch(fetchDataTypes());
-  }, [dispatch]);
+    if (dataTypesStatus === "idle") {
+      void dispatch(fetchDataTypes());
+    }
+  }, [dispatch, sourcesStatus, dataTypesStatus]);
 
   // Derive the effective selection so the panel is never blank: explicit user
   // choice from the sidebar wins; otherwise fall back to the first item.
@@ -42,11 +53,17 @@ export function SourcesPage() {
           (selected !== null ? (
             <SourceDetailPanel source={selected} />
           ) : (
+            // F-102/F-174: this "Add source" CTA is fully functional on mobile even though a
+            // non-empty source list is view-only there by design — deliberately blessed, not an
+            // oversight. It's the one intended mobile bootstrap path (mirrors F-003's identical
+            // carve-out for the zero-dashboards case in PanelList.tsx): a user with zero sources
+            // must have a way to add their first one from a phone, same as any other empty state's
+            // CTA in this app.
             <EmptyState
               variant="main"
               icon={faDatabase}
               title="Connect a data source"
-              description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Once connected, Helio infers a type schema you can bind to panels."
+              description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Helio infers a schema you can then shape into a bindable type with a pipeline."
               cta={{
                 label: "Add source",
                 icon: faPlus,

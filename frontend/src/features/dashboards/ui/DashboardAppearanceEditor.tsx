@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
@@ -8,48 +8,94 @@ import { useTheme } from "../../../theme/ThemeProvider";
 import {
   dashboardAppearanceEditorFallback,
   dashboardGridAppearanceEditorFallback,
+  defaultDashboardAppearance,
   getDashboardBgContrastRatio,
   getColorInputValue,
   resolveDashboardBackground,
   resolveDashboardGridBackground,
 } from "../../../theme/appearance";
 import { DASHBOARD_APPEARANCE_PRESETS, type DashboardAppearancePreset } from "../../../theme/theme";
-import type { Dashboard } from "../types/dashboard";
+import type { Dashboard, DashboardAppearance } from "../types/dashboard";
 import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "../../../shared/chrome/InlineError";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
+  /** F-096: called with the in-popover draft appearance whenever it changes while the popover is
+   *  open (preset pick or manual color edit alike), and with `null` on close/cancel — lets a
+   *  parent (e.g. `App.tsx`'s shell background, `PanelList.tsx`'s grid background) live-preview an
+   *  unsaved pick instead of only reflecting it after Save. */
+  onPreviewChange?: (appearance: DashboardAppearance | null) => void;
 }
 
 const WCAG_AA_THRESHOLD = 4.5;
 
-export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEditorProps) {
+// F-098 — a synthetic "preset" that clears both fields back to the actual
+// default a brand-new dashboard starts in ("transparent"), so there's a
+// supported path back to no override. Deliberately local rather than added
+// to `DASHBOARD_APPEARANCE_PRESETS` (theme.ts) — it isn't a color choice
+// like the other 12, and this way it always renders first regardless of
+// that list's own ordering.
+const DEFAULT_APPEARANCE_PRESET: DashboardAppearancePreset = {
+  label: "Default",
+  background: defaultDashboardAppearance.background,
+  gridBackground: defaultDashboardAppearance.gridBackground,
+};
+
+export function DashboardAppearanceEditor({
+  dashboard,
+  onPreviewChange,
+}: DashboardAppearanceEditorProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
-  const [background, setBackground] = useState(dashboardAppearanceEditorFallback);
-  const [gridBackground, setGridBackground] = useState(dashboardGridAppearanceEditorFallback);
+  // Raw appearance values — may legitimately be "transparent", not always a
+  // hex string. `getColorInputValue` is applied only where a value actually
+  // feeds a native `<input type="color">` (which can't render "transparent"),
+  // never to this state itself; collapsing "transparent" into a fallback hex
+  // here is exactly what made F-098 impossible (Save always wrote a color).
+  const [background, setBackground] = useState<string>(defaultDashboardAppearance.background);
+  const [gridBackground, setGridBackground] = useState<string>(
+    defaultDashboardAppearance.gridBackground,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setBackground(
-      getColorInputValue(
-        dashboard?.appearance.background ?? "transparent",
-        dashboardAppearanceEditorFallback,
-      ),
-    );
+  // Discards any unsaved preset/color pick and reverts to the dashboard's
+  // actually-saved appearance.
+  const resetDraftAppearance = useCallback(() => {
+    setBackground(dashboard?.appearance.background ?? defaultDashboardAppearance.background);
     setGridBackground(
-      getColorInputValue(
-        dashboard?.appearance.gridBackground ?? "transparent",
-        dashboardGridAppearanceEditorFallback,
-      ),
+      dashboard?.appearance.gridBackground ?? defaultDashboardAppearance.gridBackground,
     );
     setError(null);
+  }, [dashboard]);
+
+  useEffect(() => {
+    resetDraftAppearance();
     close();
-  }, [dashboard, close]);
+  }, [resetDraftAppearance, close]);
+
+  // F-030 — also reset on close itself (Escape, scrim click, or the trigger
+  // toggle), not only when `dashboard` changes. Without this, dismissing the
+  // popover without saving left the draft pick in place, so it reappeared as
+  // "selected" the next time the popover reopened even though nothing had
+  // actually been saved.
+  useEffect(() => {
+    if (!isOpen) {
+      resetDraftAppearance();
+    }
+  }, [isOpen, resetDraftAppearance]);
+
+  // F-096: live-preview the in-popover draft (preset pick or manual color edit) up to any parent
+  // that wants to reflect it before Save — e.g. the app shell background, the panel grid
+  // background. Reports `null` once the popover closes so the preview reverts to the dashboard's
+  // actually-saved appearance.
+  useEffect(() => {
+    if (!onPreviewChange) return;
+    onPreviewChange(isOpen ? { background, gridBackground } : null);
+  }, [onPreviewChange, isOpen, background, gridBackground]);
 
   if (dashboard === null) {
     return null;
@@ -66,8 +112,11 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
   const contrastRatio = getDashboardBgContrastRatio(theme, appearance);
   const showContrastWarning = contrastRatio !== null && contrastRatio < WCAG_AA_THRESHOLD;
 
+  // Default first, then the 12 color presets (F-098).
+  const presetsWithDefault = [DEFAULT_APPEARANCE_PRESET, ...DASHBOARD_APPEARANCE_PRESETS];
+
   const selectedPresetLabel =
-    DASHBOARD_APPEARANCE_PRESETS.find(
+    presetsWithDefault.find(
       (p) => p.background === background && p.gridBackground === gridBackground,
     )?.label ?? null;
 
@@ -135,8 +184,23 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                 role="group"
                 aria-label="Dashboard appearance presets"
               >
-                {DASHBOARD_APPEARANCE_PRESETS.map((preset) => {
+                {presetsWithDefault.map((preset) => {
                   const isSelected = selectedPresetLabel === preset.label;
+                  const isDefault = preset === DEFAULT_APPEARANCE_PRESET;
+                  // F-200: resolve each preset through the theme (the same functions the header
+                  // preview swatches already use above) before painting the button swatch, so it
+                  // agrees with the header preview and with what the dashboard actually renders
+                  // after applying the preset, instead of showing the raw picker hex.
+                  const resolvedPresetBg =
+                    resolveDashboardBackground(theme, {
+                      background: preset.background,
+                      gridBackground: preset.gridBackground,
+                    }) ?? preset.background;
+                  const resolvedPresetGridBg =
+                    resolveDashboardGridBackground(theme, {
+                      background: preset.background,
+                      gridBackground: preset.gridBackground,
+                    }) ?? preset.gridBackground;
                   return (
                     <button
                       key={preset.label}
@@ -149,9 +213,16 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                       <span
                         className="appearance-preset__swatch"
                         aria-hidden="true"
-                        style={{
-                          background: `linear-gradient(to right, ${preset.background} 50%, ${preset.gridBackground} 50%)`,
-                        }}
+                        // The Default swatch is left unfilled (no gradient) so its
+                        // ring border alone reads as "no color", instead of showing
+                        // a gradient of the literal (invisible) "transparent" value.
+                        style={
+                          isDefault
+                            ? undefined
+                            : {
+                                background: `linear-gradient(to right, ${resolvedPresetBg} 50%, ${resolvedPresetGridBg} 50%)`,
+                              }
+                        }
                       />
                       <span className="appearance-preset__label">{preset.label}</span>
                     </button>
@@ -162,7 +233,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                 <span>Window background</span>
                 <input
                   type="color"
-                  value={background}
+                  value={getColorInputValue(background, dashboardAppearanceEditorFallback)}
                   onChange={(event) => setBackground(event.target.value)}
                   aria-label="Dashboard background color"
                 />
@@ -171,7 +242,7 @@ export function DashboardAppearanceEditor({ dashboard }: DashboardAppearanceEdit
                 <span>Grid background</span>
                 <input
                   type="color"
-                  value={gridBackground}
+                  value={getColorInputValue(gridBackground, dashboardGridAppearanceEditorFallback)}
                   onChange={(event) => setGridBackground(event.target.value)}
                   aria-label="Dashboard grid background color"
                 />

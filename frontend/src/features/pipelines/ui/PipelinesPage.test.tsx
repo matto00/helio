@@ -93,12 +93,12 @@ describe("PipelinesPage", () => {
     expect(screen.getByText("Sales Pipeline")).toBeInTheDocument();
     expect(screen.getByText("Sales API")).toBeInTheDocument();
     expect(screen.getByText("SalesMetrics")).toBeInTheDocument();
-    expect(screen.getByText("succeeded")).toBeInTheDocument();
+    expect(screen.getByText("Succeeded")).toBeInTheDocument();
 
     expect(screen.getByText("Inventory Sync")).toBeInTheDocument();
     expect(screen.getByText("ERP DB")).toBeInTheDocument();
     expect(screen.getByText("InventoryData")).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
   });
 
   it("shows row count in Rows Written column when lastRunRowCount is non-null", async () => {
@@ -122,15 +122,25 @@ describe("PipelinesPage", () => {
     expect(dashes.length).toBeGreaterThan(0);
   });
 
-  // The in-page "Create pipeline" toolbar button was removed; that affordance
-  // now lives on the sidebar (SidebarItemList's onAdd "+"). The modal itself
-  // is still rendered by the page but is controlled via Redux, so it's
-  // covered by sidebar/playwright tests instead of here.
-  it("does not render an in-page Create pipeline toolbar button", async () => {
+  // HEL sweep F-133: a populated list previously had no in-page way to
+  // create a pipeline — only the sidebar "+" (SidebarItemList's onAdd)
+  // worked, an inconsistency with MetricsPage's toolbar. Restored to mirror
+  // MetricsPage.tsx exactly.
+  it("renders an in-page toolbar New pipeline button when pipelines exist", async () => {
     getPipelinesMock.mockResolvedValueOnce(testPipelines);
     renderWithStore(<PipelinesPage />);
     await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Create pipeline" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument();
+  });
+
+  it("opens the create pipeline modal from the toolbar button when pipelines exist", async () => {
+    getPipelinesMock.mockResolvedValueOnce(testPipelines);
+    renderWithStore(<PipelinesPage />);
+    await waitFor(() => expect(screen.getByText("Sales Pipeline")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+
+    expect(screen.getByRole("dialog", { name: "Create pipeline" })).toBeInTheDocument();
   });
 
   it("does not render the empty state when pipelines exist", async () => {

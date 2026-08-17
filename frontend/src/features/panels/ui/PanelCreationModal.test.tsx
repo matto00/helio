@@ -8,6 +8,7 @@ import {
   createPipelineStep,
   expandPipelineShape,
   getPipelineShapeCatalog,
+  getPipelines,
   runPipeline,
 } from "../../pipelines/services/pipelineService";
 import type {
@@ -42,6 +43,11 @@ jest.mock("../../pipelines/services/pipelineService", () => ({
   createPipeline: jest.fn(),
   createPipelineStep: jest.fn(),
   runPipeline: jest.fn(),
+  // F-108 — the modal now dispatches `fetchPipelines()` on mount (so the
+  // datatype-select step's "producing pipeline · N fields" line has data to
+  // read even when the wizard is opened without a prior /pipelines visit);
+  // that thunk calls this service function.
+  getPipelines: jest.fn(),
 }));
 
 const createPanelMock = jest.mocked(createPanelRequest);
@@ -50,6 +56,7 @@ const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
 const createPipelineMock = jest.mocked(createPipeline);
 const createPipelineStepMock = jest.mocked(createPipelineStep);
 const runPipelineMock = jest.mocked(runPipeline);
+const getPipelinesMock = jest.mocked(getPipelines);
 
 const defaultMeta = {
   createdBy: "system",
@@ -81,6 +88,7 @@ const defaultPanelAppearance = {
 beforeEach(() => {
   jest.clearAllMocks();
   getPipelineShapeCatalogMock.mockResolvedValue([]);
+  getPipelinesMock.mockResolvedValue([]);
 });
 
 const baseStore = {
@@ -590,6 +598,39 @@ describe("PanelCreationModal — DataType picker step", () => {
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
+  // F-108 regression — the "producing pipeline · N fields" meta line needs
+  // `state.pipelines.items` populated, but the modal never dispatched
+  // `fetchPipelines()`; it silently no-op'd whenever the wizard was opened
+  // without a prior /pipelines or Data Types registry visit in the same
+  // session (the common case — panel creation is usually launched straight
+  // from a dashboard). Assert the fetched pipeline's name actually reaches
+  // the datatype card.
+  it("F-108 fetches pipelines on mount and shows the producing pipeline's name on the datatype card", async () => {
+    getPipelinesMock.mockResolvedValueOnce([
+      {
+        id: "pipe-1",
+        name: "Revenue Pipeline",
+        sourceDataSourceId: "src-1",
+        sourceDataSourceName: "Sales CSV",
+        outputDataTypeName: "Revenue",
+        outputDataTypeId: "dt-1",
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-01-01T00:00:00Z",
+        lastRunRowCount: 10,
+      },
+    ]);
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, storeWithDataTypes);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+
+    expect(getPipelinesMock).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText("Revenue Pipeline · 0 fields")).toBeInTheDocument();
+    });
+  });
+
   // 4.3a — DataType step renders after template selection for markdown type
   // (HEL-245: markdown joined the data-bound set, mirroring the metric flow).
   it("4.3a DataType step renders after template selection for markdown type", () => {
@@ -775,7 +816,7 @@ describe("PanelCreationModal — DataType picker step", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
-    expect(screen.getByText("Loading data types...")).toBeInTheDocument();
+    expect(screen.getByText("Loading data types…")).toBeInTheDocument();
   });
 
   // 4.9 — DataType list is shown when at least one pipeline-output DataType exists
@@ -953,7 +994,7 @@ describe("PanelCreationModal — shape flow", () => {
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "Sales ETL" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
-    fireEvent.click(screen.getByRole("option", { name: "Sales API" }));
+    fireEvent.click(screen.getByRole("option", { name: "Sales API (REST API)" }));
     fireEvent.change(screen.getByLabelText("Output type name"), {
       target: { value: "SalesMetrics" },
     });
@@ -1008,12 +1049,17 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.2 — Escape on dirty modal (type selected) shows inline confirm and closes on accept
-  it("2.2 Escape on dirty modal (type selected) shows inline confirm and closes on accept", () => {
+  // 2.2 — Escape on dirty modal (title entered) shows inline confirm and closes on accept.
+  // F-114 — merely selecting a type/template is no longer "dirty" on its own
+  // (that was the over-eager-guard bug); genuine dirty state requires actual
+  // user-entered content, so this drives all the way to a typed title.
+  it("2.2 Escape on dirty modal (title entered) shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
 
     const dialog = document.querySelector("dialog")!;
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
@@ -1023,12 +1069,14 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.3 — Escape on dirty modal (type selected) shows inline confirm and stays open on cancel
-  it("2.3 Escape on dirty modal (type selected) shows inline confirm and stays open on cancel", () => {
+  // 2.3 — Escape on dirty modal (title entered) shows inline confirm and stays open on cancel
+  it("2.3 Escape on dirty modal (title entered) shows inline confirm and stays open on cancel", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
 
     const dialog = document.querySelector("dialog")!;
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
@@ -1037,6 +1085,40 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(onClose).not.toHaveBeenCalled();
     expect(dialog).toHaveAttribute("open");
+  });
+
+  // F-114 — merely selecting a type is cheap to redo and no longer trips the
+  // discard guard: Escape on a modal with only a type picked closes directly.
+  it("selecting only a type (no title/config entered) is not dirty — Escape closes directly", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(screen.queryByRole("alertdialog", { name: "Discard changes" })).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // F-114 — a second dismiss signal while the banner is already showing
+  // confirms the discard instead of silently re-showing the same banner.
+  it("a second Escape while the discard banner is showing confirms the discard", () => {
+    const onClose = jest.fn();
+    renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
+
+    const dialog = document.querySelector("dialog")!;
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
+
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   // 2.4 — Click outside on clean modal closes without confirmation
@@ -1051,12 +1133,14 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.5 — Click outside on dirty modal shows inline confirm and closes on accept
-  it("2.5 click outside on dirty modal shows inline confirm and closes on accept", () => {
+  // 2.5 — Click outside on dirty modal (title entered) shows inline confirm and closes on accept
+  it("2.5 click outside on dirty modal (title entered) shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
 
     const dialog = document.querySelector("dialog")!;
     fireEvent.click(dialog);
@@ -1066,12 +1150,14 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.6 — Close button on dirty modal shows inline confirm and closes on accept
-  it("2.6 close button on dirty modal shows inline confirm and closes on accept", () => {
+  // 2.6 — Close button on dirty modal (title entered) shows inline confirm and closes on accept
+  it("2.6 close button on dirty modal (title entered) shows inline confirm and closes on accept", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
+    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
 

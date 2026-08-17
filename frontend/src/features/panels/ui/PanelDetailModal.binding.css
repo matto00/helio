@@ -17,12 +17,15 @@
 
 .panel-detail-modal__field {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
 
 .panel-detail-modal__field input[type="color"] {
+  /* Native color swatch — exempt from the control-height scale (DESIGN.md
+     §3): sized for visual color-swatch clarity, not a button/input of the
+     usual kind. */
   width: 100%;
   min-height: 36px;
   border: 1px solid var(--app-border-subtle);
@@ -33,13 +36,17 @@
 
 .panel-detail-modal__slider {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
 
 .panel-detail-modal__slider input[type="range"] {
   width: 100%;
+  /* F-062 — match the app-accent thumb color every other slider/checkbox in
+     the app uses (see PipelineDetailPage.css / PipelineScheduleDialog.css)
+     instead of the browser's default blue. */
+  accent-color: var(--app-accent);
 }
 
 .panel-detail-modal__slider strong {
@@ -292,7 +299,7 @@
   display: inline-block;
   margin-left: var(--space-2);
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: var(--app-warning-surface);
   color: var(--app-warning);
   font-size: var(--text-xs);

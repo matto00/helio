@@ -28,27 +28,33 @@ export function QuickLauncherOverlay({ open, onClose }: QuickLauncherOverlayProp
   const overlay = useOverlay();
   const wasActiveRef = useRef(false);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
+  const conversationsStatus = useAppSelector((state) => state.assistantConversations.status);
   // HEL-703 design.md D9 — mirrors ChatPage's own guard: a `free`-tier user never attempts the
   // list fetch (which would otherwise 403); `ActiveConversationPanel` renders its request-access
   // state regardless of whether this fetch ran.
   const isFreeTier = currentUser?.tier === "free";
 
-  // Register with the shared single-active-overlay + global Escape handler, and (re)fetch the
-  // conversation list on every open -- mirrors ChatPage's own fetch-on-mount, since the
-  // quick-launcher can be opened before the user ever visits /chat.
+  // Register with the shared single-active-overlay + global Escape handler, and fetch the
+  // conversation list on open -- mirrors ChatPage's own fetch-on-mount, since the quick-launcher
+  // can be opened before the user ever visits /chat. F-104 — this used to re-dispatch
+  // unconditionally on every open even once the list was already loaded (`fetchConversations`
+  // itself has no dedupe `condition`, same as ChatPage.tsx's own call site); gate on status the
+  // same way ChatPage does so repeat opens (e.g. Ctrl/Cmd+K twice) don't re-issue the request,
+  // while still allowing a retry after a prior failure.
   useEffect(() => {
     if (open) {
       overlay.open();
-      if (!isFreeTier) {
+      if (!isFreeTier && conversationsStatus !== "loading" && conversationsStatus !== "succeeded") {
         void dispatch(fetchConversations());
       }
     } else {
       overlay.close();
       wasActiveRef.current = false;
     }
-    // overlay.open/close are stable (useCallback); dispatch is stable. Only re-run on `open`/tier.
+    // overlay.open/close are stable (useCallback); dispatch is stable. Only re-run on
+    // open/tier/status.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isFreeTier]);
+  }, [open, isFreeTier, conversationsStatus]);
 
   useEffect(() => {
     if (overlay.isActive) {
@@ -78,9 +84,14 @@ export function QuickLauncherOverlay({ open, onClose }: QuickLauncherOverlayProp
       {open && (
         <>
           <ActiveConversationPanel />
-          <Link to="/chat" className="quick-launcher-overlay__browse-link" onClick={onClose}>
-            Browse all conversations →
-          </Link>
+          {/* F-068 — a free-tier user has no conversations to browse (`ActiveConversationPanel`
+              renders its request-access state instead, above); this link led nowhere useful for
+              them, mirroring the fetch guard above. */}
+          {!isFreeTier && (
+            <Link to="/chat" className="quick-launcher-overlay__browse-link" onClick={onClose}>
+              Browse all conversations →
+            </Link>
+          )}
         </>
       )}
     </Modal>

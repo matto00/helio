@@ -36,7 +36,12 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
+  /* F-187: literal, not a `--control-*` token, on purpose — this is the HIG
+     44px minimum tap-target width, not a control height. Matches the same
+     documented literal in `MobileNavSheet.css`'s `.mobile-nav-sheet__item`. */
   min-width: 44px;
+  min-height: 44px;
+  padding: 0 2px;
   color: var(--app-text-muted);
   text-decoration: none;
   transition: color var(--app-transition);
@@ -47,6 +52,10 @@
 }
 
 .bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-sans);
   font-size: var(--text-micro);
   font-weight: var(--weight-medium);

@@ -7,10 +7,12 @@ import {
   createTextSourceUrl as createTextSourceUrlRequest,
   createPdfSourceUpload as createPdfSourceUploadRequest,
   createPdfSourceUrl as createPdfSourceUrlRequest,
+  createStaticSource as createStaticSourceRequest,
   inferFromJson as inferFromJsonRequest,
   testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
+import type { Toast } from "../../toasts/state/toastsSlice";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
 
@@ -105,6 +107,7 @@ const createPdfSourceUploadMock = jest.mocked(createPdfSourceUploadRequest);
 const createPdfSourceUrlMock = jest.mocked(createPdfSourceUrlRequest);
 const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
 const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
+const createStaticSourceMock = jest.mocked(createStaticSourceRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const inferFromJsonMock = jest.mocked(inferFromJsonRequest);
 const testConnectionMock = jest.mocked(testConnectionRequest);
@@ -146,7 +149,7 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
       config: { path: "text/ds-1.txt" },
     });
     const onClose = jest.fn();
-    renderWithStore(<AddSourceModal onClose={onClose} />);
+    const { store } = renderWithStore(<AddSourceModal onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: /text\/markdown/i }));
 
     fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Notes" } });
@@ -158,6 +161,14 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
 
     await waitFor(() => expect(createTextSourceUploadMock).toHaveBeenCalledWith("Notes", file));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // F-008: the new source is selected (not silently buried at the bottom
+    // of the list) and a confirmation toast is pushed.
+    expect(store.getState().sources.selectedSourceId).toBe("ds-1");
+    expect(
+      store
+        .getState()
+        .toasts.items.some((t: Toast) => t.variant === "success" && /added/i.test(t.message)),
+    ).toBe(true);
   });
 
   it("creates a text source via URL ingestion", async () => {
@@ -200,7 +211,14 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /create source/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
+    // F-051: the shared <InlineError> default variant carries no alert role
+    // (matches every other plain-text InlineError consumer app-wide); F-052
+    // moves focus to the invalid field and marks it `aria-invalid` instead —
+    // assert both.
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
+    const nameInput = screen.getByLabelText(/source name/i);
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveFocus();
     expect(createTextSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -297,7 +315,14 @@ describe("AddSourceModal — PDF source (HEL-214)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /create source/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
+    // F-051: the shared <InlineError> default variant carries no alert role
+    // (matches every other plain-text InlineError consumer app-wide); F-052
+    // moves focus to the invalid field and marks it `aria-invalid` instead —
+    // assert both.
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
+    const nameInput = screen.getByLabelText(/source name/i);
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveFocus();
     expect(createPdfSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -394,7 +419,14 @@ describe("AddSourceModal — image source (HEL-216)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /create source/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/name is required/i);
+    // F-051: the shared <InlineError> default variant carries no alert role
+    // (matches every other plain-text InlineError consumer app-wide); F-052
+    // moves focus to the invalid field and marks it `aria-invalid` instead —
+    // assert both.
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
+    const nameInput = screen.getByLabelText(/source name/i);
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveFocus();
     expect(createImageSourceUploadMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -460,5 +492,56 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
     await waitFor(() => {
       expect(screen.getByText(/Connected/)).toBeInTheDocument();
     });
+  });
+});
+
+// F-008: the text-source-upload test above covers `finishCreate`'s direct
+// (non-thunk) service-call shape, shared by text/pdf/image/REST/CSV. Static
+// and SQL instead go through `dispatch(thunk(...)).unwrap()` — a distinct
+// code path in `AddSourceModal.tsx` — so it gets its own coverage here.
+describe("AddSourceModal — static source (thunk-dispatched create path, F-008)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchDataTypesMock.mockResolvedValue([]);
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    });
+  });
+
+  it("selects the newly created source (not silently buried) and toasts", async () => {
+    createStaticSourceMock.mockResolvedValue({
+      id: "ds-static-1",
+      name: "Ref table",
+      type: "static",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+    const onClose = jest.fn();
+    const { store } = renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /manual/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Ref table" } });
+    fireEvent.change(screen.getByLabelText(/column 1 name/i), { target: { value: "id" } });
+    fireEvent.click(screen.getByRole("button", { name: /next: add rows/i }));
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() =>
+      expect(createStaticSourceMock).toHaveBeenCalledWith(
+        "Ref table",
+        [{ name: "id", type: "string" }],
+        [],
+      ),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(store.getState().sources.selectedSourceId).toBe("ds-static-1");
+    expect(
+      store
+        .getState()
+        .toasts.items.some((t: Toast) => t.variant === "success" && /added/i.test(t.message)),
+    ).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import * as authService from "../services/authService";
 import type { AuthResponse, User } from "../types/user";
 import { authReducer } from "../state/authSlice";
+import { consumeReturnTo, rememberReturnTo } from "../utils/postLoginReturnTo";
 import { OAuthCallbackPage } from "./OAuthCallbackPage";
 
 jest.mock("../services/authService", () => ({
@@ -47,6 +48,7 @@ function renderCallbackPage(search: string) {
           <Route path="/login" element={<div data-testid="login-page" />} />
           <Route path="/login/verify" element={<div data-testid="mfa-verify-page" />} />
           <Route path="/" element={<div data-testid="home-page" />} />
+          <Route path="/pipelines/abc-123" element={<div data-testid="deep-link-target" />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -58,6 +60,7 @@ function renderCallbackPage(search: string) {
 describe("OAuthCallbackPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
   });
 
   it("navigates to / on successful OAuth callback", async () => {
@@ -97,6 +100,33 @@ describe("OAuthCallbackPage", () => {
     renderCallbackPage("?code=valid-code");
 
     expect(screen.getByText("Signing in…")).toBeInTheDocument();
+  });
+
+  // F-081: LoginPage/RegisterPage stash the deep link in sessionStorage
+  // before the full-page redirect to Google (in-memory router state can't
+  // survive that round trip); this page restores it once the exchange
+  // succeeds, instead of always landing on "/".
+  it("navigates to the stashed deep link on successful OAuth callback", async () => {
+    rememberReturnTo("/pipelines/abc-123");
+    mockedAuthService.oauthCallbackRequest.mockResolvedValue(oauthResponse);
+
+    renderCallbackPage("?code=valid-code");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("deep-link-target")).toBeInTheDocument();
+    });
+  });
+
+  it("clears the stashed deep link on OAuth callback failure", async () => {
+    rememberReturnTo("/pipelines/abc-123");
+    mockedAuthService.oauthCallbackRequest.mockRejectedValue(new Error("exchange failed"));
+
+    renderCallbackPage("?code=bad-code");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("login-page")).toBeInTheDocument();
+    });
+    expect(consumeReturnTo()).toBeNull();
   });
 
   // HEL-702 design.md D7

@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Pencil, Pin, PinOff } from "lucide-react";
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faDatabase,
   faComments,
   faLayerGroup,
   faCodeBranch,
   faGaugeHigh,
+  faLock,
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
@@ -44,18 +46,14 @@ import {
 } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
-import { EmptyState } from "../ui/EmptyState";
+import "./SidebarBody.css";
 import { SidebarItemList, type SidebarItem } from "./SidebarItemList";
-
-interface SidebarBodyProps {
-  onCollapse: () => void;
-}
 
 /** Picks the section-appropriate list based on the current route. The dashboards
  * section keeps DashboardList (full CRUD); other sections use the lighter
  * SidebarItemList (filter + navigate). All sections render a list when their
  * route is active so the sidebar is consistent across sections. */
-export function SidebarBody({ onCollapse }: SidebarBodyProps) {
+export function SidebarBody() {
   const { pathname } = useLocation();
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -94,6 +92,11 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     // pipeline for the provenance subtitle (HEL-270).
     if ((section === "sources" || section === "registry") && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
+    }
+    // F-144: the pipelines section's own delete-confirm warning needs to name
+    // the DataType a pipeline produces (see `deleteWarning` below).
+    if (section === "pipelines" && dataTypes.status === "idle") {
+      void dispatch(fetchDataTypes());
     }
   }, [
     section,
@@ -153,6 +156,19 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         emptyDescription="Pipelines transform raw source data into typed rows you can chart."
         onAdd={() => dispatch(setCreatePipelineModalOpen(true))}
         addLabel="New pipeline"
+        // F-144: deleting a pipeline silently orphaned the data type it
+        // produces (and anything bound to it) with no warning, unlike the
+        // sources section just above. One hop deep, mirroring that same
+        // shallow-dependency style — not a live panel/metric count, but
+        // enough to stop a surprise silent break.
+        deleteWarning={(item) => {
+          const pipeline = pipelines.items.find((p) => p.id === item.id);
+          const outputTypeId = pipeline?.outputDataTypeId;
+          if (outputTypeId === undefined || outputTypeId === null) return null;
+          const outputType = dataTypes.items.find((dt) => dt.id === outputTypeId);
+          const typeName = outputType?.name ?? "its output type";
+          return `Also deletes the "${typeName}" data type — any panels or metrics using it will stop working.`;
+        }}
         onDelete={async (item) => {
           await dispatch(deletePipeline(item.id));
           if (routeId === item.id) navigate("/pipelines");
@@ -202,7 +218,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     });
     return (
       <SidebarItemList
-        heading="Type Registry"
+        heading="Data Types"
         items={registryItems}
         status={dataTypes.status}
         error={dataTypes.error}
@@ -210,7 +226,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
         activeId={effectiveTypeId}
         emptyText="No types defined"
         emptyIcon={faLayerGroup}
-        emptyDescription="Types describe the shape of your data. Each pipeline produces one type as its output."
+        emptyDescription="Types are created by pipelines."
         onDelete={async (item) => {
           await dispatch(deleteDataType(item.id));
           if (dataTypes.selectedTypeId === item.id) {
@@ -231,18 +247,37 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     // conversation list at all (its fetch is gated above, so `conversations.status` would
     // otherwise sit at "idle" with an empty list forever, falling through to `SidebarItemList`'s
     // own generic "No conversations yet" + "+ New chat" empty state — misleading, since starting a
-    // conversation is not actually possible). This CTA-less locked state mirrors
-    // `ActiveConversationPanel`'s own request-access messaging exactly (`TierRequestAccessCopy`),
-    // so the sidebar and main content pane never disagree about why chat is unavailable. No
-    // heading/filter/"+" — none of that list chrome applies to a section the user cannot use.
+    // conversation is not actually possible). No heading/filter/"+" — none of that list chrome
+    // applies to a section the user cannot use.
+    //
+    // F-056 — this used to reuse `<EmptyState variant="sidebar">`, the same icon+title+description
+    // card shape `ActiveConversationPanel`'s main-content locked state renders (just scaled down),
+    // which read as an accidental duplicate stacked directly below it in one viewport. A compact,
+    // single-purpose notice (small icon+heading row, one description line, a text-style link) is
+    // deliberately a different shape from the main pane's full hero card, not just a smaller
+    // version of it — while still sharing `TierRequestAccessCopy` so the two surfaces' wording
+    // never drifts apart.
+    //
+    // F-017: `TierRequestAccessCopy`'s "Contact the workspace owner" text used to be the entire
+    // message, even though a self-serve "Request Beta access" flow already exists in Settings
+    // (`BetaAccessSection`) — this was actively steering free users away from the one path that
+    // works. The link below reaches that flow directly.
     return (
-      <section className="dashboard-list" aria-label="chat">
-        <EmptyState
-          variant="sidebar"
-          icon={faComments}
-          title={TierRequestAccessCopy.title}
-          description={TierRequestAccessCopy.description}
-        />
+      <section className="sidebar-body__locked-notice" aria-label="assistant">
+        <p className="sidebar-body__locked-notice-heading">
+          <FontAwesomeIcon icon={faLock} aria-hidden className="sidebar-body__locked-notice-icon" />
+          {TierRequestAccessCopy.title}
+        </p>
+        <p className="sidebar-body__locked-notice-description">
+          {TierRequestAccessCopy.description}
+        </p>
+        <button
+          type="button"
+          className="sidebar-body__locked-notice-link"
+          onClick={() => navigate("/settings")}
+        >
+          Request access in Settings
+        </button>
       </section>
     );
   }
@@ -261,7 +296,12 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       conversations.selectedConversationId ?? conversations.items[0]?.id ?? null;
     return (
       <SidebarItemList
-        heading="Chat"
+        // F-009/F-085: "Chat" vs "Assistant" naming drift — the interaction
+        // surfaces (QuickLauncherOverlay, the command-bar trigger, the
+        // message-turn role label) already say "Assistant"; this heading and
+        // the nav-destination label (navDestinations.ts) are updated to
+        // match. The route path (/chat) is unaffected.
+        heading="Assistant"
         items={conversationItems}
         status={conversations.status}
         error={conversations.error}
@@ -320,19 +360,33 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     );
   }
 
-  return <DashboardList onCollapse={onCollapse} />;
+  if (section === "other") {
+    // F-016: Settings and the proposal/patch-set review routes aren't a list
+    // section — they used to fall through to the `DashboardList` default
+    // below, which showed a "DASHBOARDS" sidebar with no active nav item and
+    // let picking a dashboard silently do nothing (still on the same route).
+    // Rendering nothing here is the correct "no section" state; the desktop
+    // top nav above already correctly shows no active destination for these
+    // routes.
+    return null;
+  }
+
+  return <DashboardList />;
 }
 
 /** Exported so `App.tsx` can drive the phone section-item sheet off the same
  * route-matching logic as the desktop sidebar — one source of truth for
- * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3). */
+ * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3).
+ * "other" covers routes that aren't a pickable list section at all (Settings,
+ * the proposal/patch-set review routes) — see F-016. */
 export function sectionFromPathname(
   pathname: string,
-): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" | "chat" {
+): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" | "chat" | "other" {
   if (pathname.startsWith("/sources")) return "sources";
   if (pathname.startsWith("/pipelines")) return "pipelines";
   if (pathname.startsWith("/registry")) return "registry";
   if (pathname.startsWith("/metrics")) return "metrics";
   if (pathname.startsWith("/chat")) return "chat";
-  return "dashboards";
+  if (pathname === "/") return "dashboards";
+  return "other";
 }

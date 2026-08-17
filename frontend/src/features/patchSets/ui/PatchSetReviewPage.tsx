@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDashboards } from "../../dashboards/services/dashboardService";
 import { fetchPanels } from "../../panels/services/panelService";
@@ -18,12 +19,15 @@ import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
  *
  *  The patch set comes from either (a) router `location.state.patchSet`
  *  (the future NL-authored-refinement caller this ticket's own Non-Goal
- *  leaves out of scope) or (b) a small, genuinely-applyable demo patch set
- *  synthesized from the first dashboard's first panel — the fixture path
- *  used for development and Playwright, kept valid so Accept actually
- *  applies, mirroring `ProposalReviewPage`'s own `synthesizeDemoProposal`
- *  bootstrapping precedent for the identical "no real producer yet"
- *  problem. */
+ *  leaves out of scope) or (b) — DEV builds only (F-002) — a small,
+ *  genuinely-applyable demo patch set synthesized from the first dashboard's
+ *  first panel, the fixture path used for local development and Playwright,
+ *  mirroring `ProposalReviewPage`'s own `synthesizeDemoProposal`
+ *  bootstrapping precedent for the identical "no real producer yet" problem.
+ *  This route sits inside `ProtectedRoute` with no other gate, so — like
+ *  `ProposalReviewPage` — a signed-in production user landing here with no
+ *  `location.state` used to get a live, applyable patch set synthesized from
+ *  their own real data instead of a "nothing to review" message (F-002). */
 export function PatchSetReviewPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -31,6 +35,7 @@ export function PatchSetReviewPage() {
   const location = useLocation();
   const routeState = location.state as { patchSet?: PatchSet } | null;
   const statePatchSet = routeState?.patchSet;
+  const useDemoFixture = IS_DEV && !statePatchSet;
 
   const [demoPatchSet, setDemoPatchSet] = useState<PatchSet | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,7 +47,7 @@ export function PatchSetReviewPage() {
   const patchSet = statePatchSet ?? demoPatchSet;
 
   useEffect(() => {
-    if (statePatchSet) return;
+    if (!useDemoFixture) return;
     let active = true;
     synthesizeDemoPatchSet()
       .then((ps) => {
@@ -54,7 +59,7 @@ export function PatchSetReviewPage() {
     return () => {
       active = false;
     };
-  }, [statePatchSet]);
+  }, [useDemoFixture]);
 
   useEffect(() => {
     if (!patchSet) return;
@@ -125,6 +130,20 @@ export function PatchSetReviewPage() {
 
   const handleReject = () => navigate("/");
 
+  // F-002: no patch set handed off via navigation state, and not a DEV build
+  // — there is nothing to review and, unlike the DEV fixture path, no
+  // reasonable patch set to synthesize.
+  if (!statePatchSet && !useDemoFixture) {
+    return (
+      <EmptyState
+        icon={faTableColumns}
+        title="Nothing to review"
+        description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+      />
+    );
+  }
+
   if (loadError) {
     return (
       <EmptyState
@@ -179,6 +198,20 @@ export function PatchSetReviewPage() {
   );
 }
 
+// F-002: strips a prior "(previewed)" suffix before re-appending it, so
+// repeated dev/test triggers against the same panel stay idempotent instead
+// of stacking " (previewed) (previewed) (previewed)…" — mirrors the same
+// baseTitle/copyTitleRegex pattern `PanelMutationRepository` already uses on
+// the backend for the real panel-duplicate action, for the identical reason.
+const PREVIEWED_SUFFIX_RE = / \(previewed\)$/;
+
+// Exported for a focused regression test (F-002) — the demo-fixture path
+// itself only runs in DEV builds, unreachable under Jest (`config/env`'s
+// `IS_DEV` is mocked `false`; see `PatchSetReviewPage.test.tsx`).
+export function baseTitle(title: string): string {
+  return title.replace(PREVIEWED_SUFFIX_RE, "");
+}
+
 /** Build a small, genuinely-applyable demo patch set: a single title-only
  *  `update` edit against the first dashboard's first panel (design.md D6).
  *  Returns an edit-less patch set when the workspace has no dashboard/panel
@@ -192,13 +225,15 @@ async function synthesizeDemoPatchSet(): Promise<PatchSet> {
   const firstPanel = panels[0];
   if (!firstPanel) return { edits: [] };
 
+  const title = baseTitle(firstPanel.title);
+
   return {
-    summary: `Rename "${firstPanel.title}"`,
+    summary: `Rename "${title}"`,
     edits: [
       {
         target: { kind: "panel", id: firstPanel.id },
         op: "update",
-        patch: { title: `${firstPanel.title} (previewed)` },
+        patch: { title: `${title} (previewed)` },
       },
     ],
   };

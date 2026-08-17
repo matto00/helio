@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { ImagePanel } from "./ImagePanel";
 
@@ -74,6 +74,34 @@ describe("ImagePanel — without imageUrl", () => {
     const { container } = render(<ImagePanel imageUrl="" imageFit={null} />);
     expect(container.querySelector("img")).not.toBeInTheDocument();
     expect(screen.getByText(/No image URL set/)).toBeInTheDocument();
+  });
+});
+
+describe("ImagePanel — broken image URL (F-112)", () => {
+  it("swaps to the placeholder markup when the <img> fails to load", () => {
+    const { container } = render(
+      <ImagePanel imageUrl="https://example.com/missing.png" imageFit={null} />,
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeInTheDocument();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(screen.getByText(/Image failed to load/)).toBeInTheDocument();
+  });
+
+  it("gives a fresh chance to a new URL after a previous one failed to load", () => {
+    const { container, rerender } = render(
+      <ImagePanel imageUrl="https://example.com/missing.png" imageFit={null} />,
+    );
+    fireEvent.error(container.querySelector("img") as HTMLImageElement);
+    expect(screen.getByText(/Image failed to load/)).toBeInTheDocument();
+
+    rerender(<ImagePanel imageUrl="https://example.com/logo.png" imageFit={null} />);
+
+    expect(container.querySelector("img")).toBeInTheDocument();
+    expect(screen.queryByText(/Image failed to load/)).not.toBeInTheDocument();
   });
 });
 

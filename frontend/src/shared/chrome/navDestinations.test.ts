@@ -11,9 +11,9 @@ describe("navDestinations", () => {
       "Dashboards",
       "Data Sources",
       "Data Pipelines",
-      "Type Registry",
+      "Data Types",
       "Metrics",
-      "Chat",
+      "Assistant",
     ]);
   });
 

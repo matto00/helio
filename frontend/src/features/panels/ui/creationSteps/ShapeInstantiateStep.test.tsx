@@ -64,7 +64,7 @@ const storeWithSources = {
 function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "Sales ETL" } });
   fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
-  fireEvent.click(screen.getByRole("option", { name: "Sales API" }));
+  fireEvent.click(screen.getByRole("option", { name: "Sales API (REST API)" }));
   fireEvent.change(screen.getByLabelText("Output type name"), {
     target: { value: "SalesMetrics" },
   });

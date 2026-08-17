@@ -31,6 +31,7 @@ import com.helio.domain.{
   Page,
   PipelineId
 }
+import com.helio.infrastructure.PanelRepository
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import java.time.Instant
@@ -45,7 +46,11 @@ import scala.math.BigDecimal.RoundingMode
  *  discipline. Every read therefore inherits the owner-scoping already
  *  proven by those methods' own tests; a scoped PAT is denied before this
  *  service is ever reached (`AuthDirectives.confineScopedToken`, design.md
- *  D6).
+ *  D6). Exception: `panelRepoOpt`'s panel-count read (beta UI-audit F-004,
+ *  documented in full below) — no owner-scoped `PanelService` read exists
+ *  that returns a bare count without an ACL/dashboard-detail round trip, so
+ *  this one read goes straight to `PanelRepository`, sharing-aware via the
+ *  same `Some(user)` predicate the D1-abiding services above use internally.
  *
  *  HEL-372: takes `dataTypeService: DataTypeService` rather than a bare
  *  `DataTypeRepository` (design.md D7) — `findAll` is still exactly what
@@ -57,14 +62,25 @@ import scala.math.BigDecimal.RoundingMode
  *  `Option`-guarded, trailing, default-`None` constructor params -- mirrors
  *  `WorkspaceRoutes`'s existing `workspaceTeardownServiceOpt` nullability precedent, and the
  *  default keeps every existing 4-arg construction site (tests, `ApiRoutes`) compiling unchanged.
- *  When either is `None`, `assemble` produces an empty `agentContext` rather than failing. */
+ *  When either is `None`, `assemble` produces an empty `agentContext` rather than failing.
+ *
+ *  Beta UI-audit F-004: `panelRepoOpt` is a NEW `Option`-guarded, trailing, default-`None`
+ *  constructor param -- same precedent as the two above, so every existing 4- and 6-arg
+ *  construction site (tests) keeps compiling unchanged. When `Some`, `toDashboardEntry`'s
+ *  `panelCount` is a real `COUNT(*)` over the panels table instead of the pre-existing
+ *  `distinctPanelCount(d.layout)` heuristic, which undercounts (down to 0) any panel the
+ *  client's default auto-layout placed without ever being manually dragged/resized -- the
+ *  debounce-gated trigger that persists `layout` (`PanelGrid`'s 250ms layout-change debounce).
+ *  See `panelCountFor`'s own doc. `ApiRoutes` always supplies `Some(panelRepo)`; only fixtures
+ *  built without a `PanelRepository` fall back to the legacy heuristic. */
 final class WorkspaceContextService(
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
     dataTypeService: DataTypeService,
     pipelineService: PipelineService,
     agentPreferencesServiceOpt: Option[AgentPreferencesService] = None,
-    agentMemoryServiceOpt: Option[AgentMemoryService] = None
+    agentMemoryServiceOpt: Option[AgentMemoryService] = None,
+    panelRepoOpt: Option[PanelRepository] = None
 )(implicit ec: ExecutionContext) {
 
   /** Bounded sample-row count per pipeline-output DataType (design.md D1/D3)
@@ -177,6 +193,7 @@ final class WorkspaceContextService(
       summaries      <- summariesF
       pipelines      <- Future.traverse(summaries)(buildPipeline(_, user))
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
+      dashboards     <- Future.traverse(dashboardsPage.items)(toDashboardEntry(_, user))
       agentContext   <- agentContextF
     } yield {
       val assembled = WorkspaceContextResponse(
@@ -190,7 +207,7 @@ final class WorkspaceContextService(
         dataSources = sourcesPage.items.map(toDataSourceEntry),
         dataTypes   = dataTypes,
         pipelines   = pipelines,
-        dashboards  = dashboardsPage.items.map(toDashboardEntry),
+        dashboards  = dashboards,
         // HEL-374 design.md D2/D3: computed once, entirely in-memory, AFTER the
         // traverse above completes — `dataTypes` is the exact structure already
         // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
@@ -798,12 +815,32 @@ final class WorkspaceContextService(
   /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by
    *  `WorkspaceSearchService`'s dashboard dispatch (both `find`'s panel-count description synthesis
    *  and `getResource`'s dashboard detail), mirroring `buildPipeline`'s existing same-package-reuse
-   *  precedent. Zero behavior change. */
-  private[services] def toDashboardEntry(d: Dashboard): WorkspaceContextDashboard =
-    WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = distinctPanelCount(d.layout))
+   *  precedent. `Future`-returning (beta UI-audit F-004 fix) -- `panelCountFor` needs a real DB
+   *  read when `panelRepoOpt` is wired, matching `toDataTypeEntry`'s existing
+   *  `(entity, user) => Future[...]` shape immediately below. */
+  private[services] def toDashboardEntry(d: Dashboard, user: AuthenticatedUser): Future[WorkspaceContextDashboard] =
+    panelCountFor(d, user).map(count => WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = count))
+
+  /** Beta UI-audit F-004 fix: when `panelRepoOpt` is wired, the real row count over the panels
+   *  table -- `Page(0, 1)` still returns the accurate total via that same query's own COUNT
+   *  alongside the (discarded) 1-row slice, no over-fetch (same technique
+   *  `PatchSetPreviewImpact.compute`'s `DashboardDelete` case already uses for its cascade hint).
+   *  Falls back to the legacy layout-derived heuristic only when no `PanelRepository` is wired
+   *  (fixtures using the pre-existing 4-/6-arg constructor) -- never in the running app, where
+   *  `ApiRoutes` always supplies `Some(panelRepo)`. */
+  private def panelCountFor(d: Dashboard, user: AuthenticatedUser): Future[Int] =
+    panelRepoOpt match {
+      case Some(panelRepo) => panelRepo.findAllByDashboardId(d.id, Some(user), Page(0, 1)).map(_.total)
+      case None            => Future.successful(distinctPanelCount(d.layout))
+    }
 
   /** Distinct panel ids referenced across all four responsive breakpoints —
-   *  mirrors `context.ts`'s `panelCount` helper. */
+   *  mirrors `context.ts`'s `panelCount` helper. LEGACY fallback ONLY (beta UI-audit F-004) --
+   *  undercounts any panel the client placed via its default auto-layout without ever being
+   *  manually dragged/resized, since `dashboard.layout` is written only by that debounce-gated
+   *  drag/resize persist path. Retained solely so `panelCountFor`'s `panelRepoOpt = None` branch
+   *  (fixtures) keeps its pre-fix behavior; `panelCountFor`'s `Some` branch is the real fix and is
+   *  what the running app always exercises. */
   private def distinctPanelCount(layout: DashboardLayout): Int =
     (layout.lg ++ layout.md ++ layout.sm ++ layout.xs).map(_.panelId).toSet.size
 }

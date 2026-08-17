@@ -21,6 +21,8 @@ interface TableDisplayFieldsProps {
   onToggleVisible: (key: string) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
+  onMoveToTop: (index: number) => void;
+  onMoveToBottom: (index: number) => void;
   hasStoredWidths: boolean;
   resetWidthsPending: boolean;
   onResetWidths: () => void;
@@ -37,10 +39,16 @@ export function TableDisplayFields({
   onToggleVisible,
   onMoveUp,
   onMoveDown,
+  onMoveToTop,
+  onMoveToBottom,
   hasStoredWidths,
   resetWidthsPending,
   onResetWidths,
 }: TableDisplayFieldsProps) {
+  // F-126 — single-step ↑/↓ alone takes many clicks to reach either end of a
+  // wide data type's column list; only add the coarser jump-to-top/bottom
+  // controls once the list is long enough for that to matter.
+  const showJumpControls = columns.length > 8;
   return (
     <>
       <div className="panel-detail-modal__data-section">
@@ -74,6 +82,17 @@ export function TableDisplayFields({
                   <span className="panel-detail-modal__column-key">{column.key}</span>
                 </label>
                 <div className="panel-detail-modal__column-move">
+                  {showJumpControls && (
+                    <button
+                      type="button"
+                      className="panel-detail-modal__column-move-btn"
+                      aria-label={`Move ${column.key} to top`}
+                      onClick={() => onMoveToTop(index)}
+                      disabled={index === 0}
+                    >
+                      ⤒
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="panel-detail-modal__column-move-btn"
@@ -92,6 +111,17 @@ export function TableDisplayFields({
                   >
                     ↓
                   </button>
+                  {showJumpControls && (
+                    <button
+                      type="button"
+                      className="panel-detail-modal__column-move-btn"
+                      aria-label={`Move ${column.key} to bottom`}
+                      onClick={() => onMoveToBottom(index)}
+                      disabled={index === columns.length - 1}
+                    >
+                      ⤓
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

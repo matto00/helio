@@ -8,6 +8,8 @@
 // and `offset` entirely.
 
 import type { ChangeEvent } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
@@ -124,11 +126,11 @@ export function WindowConfig({
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove partition field ${rowIndex + 1}`}
                 onClick={() => handleRemovePartitionRow(rowIndex)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -136,7 +138,7 @@ export function WindowConfig({
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddPartitionRow}
         >
           + Add partition field
