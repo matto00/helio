@@ -1,17 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faUser,
-  faSun,
-  faMoon,
-  faGear,
-  faArrowRightFromBracket,
-} from "@fortawesome/free-solid-svg-icons";
+import { faUser, faGear, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
-import type { Theme } from "../../../theme/theme";
 import type { User } from "../types/user";
 import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
@@ -22,7 +15,15 @@ import "./UserMenu.css";
  * which read as raw text in the chrome — this provides a graceful default. */
 function AvatarOrFallback({ avatarUrl, initial }: { avatarUrl: string | null; initial: string }) {
   const [loadError, setLoadError] = useState(false);
-  if (avatarUrl !== null && !loadError) {
+  // F-086: spray-json omits an absent Option field from the wire entirely
+  // rather than serializing `null` (see project pipeline-only-bindings
+  // notes), so a real `/api/auth/me` response with no avatar arrives as
+  // `avatarUrl: undefined`, not `null`, even though the `User` type claims
+  // `string | null`. A strict `!== null` check let `undefined` through and
+  // rendered `<img src={undefined}>` — a permanently empty ring instead of
+  // the initials fallback. A truthiness check catches `undefined`, `null`,
+  // and `""` alike.
+  if (avatarUrl && !loadError) {
     return (
       <img
         src={avatarUrl}
@@ -48,8 +49,6 @@ function AvatarOrFallback({ avatarUrl, initial }: { avatarUrl: string | null; in
 
 interface UserMenuProps {
   currentUser: User;
-  theme: Theme;
-  toggleTheme: () => void;
   accentColor: string;
   setAccentColor: (hex: string) => void;
   onNavigateToSettings: () => void;
@@ -58,20 +57,22 @@ interface UserMenuProps {
 
 export function UserMenu({
   currentUser,
-  theme,
-  toggleTheme,
   accentColor,
   setAccentColor,
   onNavigateToSettings,
   onLogout,
 }: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
-  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Move focus into the menu when it opens.
+  // Move focus into the menu when it opens. F-082 removed the dropdown's own
+  // theme-toggle row (the top-bar icon is the single canonical theme
+  // control now — see App.tsx), so the first real menuitem varies with
+  // nothing hardcoded here; grab whichever button renders first instead of
+  // pointing a ref at a specific item.
   useEffect(() => {
     if (isOpen) {
-      firstItemRef.current?.focus();
+      panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     }
   }, [isOpen]);
 
@@ -91,6 +92,24 @@ export function UserMenu({
 
   const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
 
+  // F-189: role="menu" had no arrow-key navigation — Up/Down did nothing,
+  // leaving keyboard users to Tab through every item one at a time. This
+  // moves real focus among every focusable button currently rendered in the
+  // popover (the 8 accent swatches, Settings, Sign out), wrapping at both
+  // ends. Tab order is left untouched (nothing gets
+  // `tabIndex={-1}`) so existing keyboard/screen-reader flows keep working
+  // exactly as before; this only adds a faster path.
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+    if (focusable.length === 0) return;
+    event.preventDefault();
+    const currentIndex = focusable.indexOf(document.activeElement as HTMLButtonElement);
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = (currentIndex + delta + focusable.length) % focusable.length;
+    focusable[nextIndex]?.focus();
+  }
+
   function handleToggle() {
     if (isOpen) {
       close();
@@ -103,10 +122,25 @@ export function UserMenu({
     isOpen && panelPos
       ? createPortal(
           <>
-            <button type="button" className="popover__scrim" onClick={close} />
+            {/* F-189: was a plain, unnamed <button> sitting in the tab order
+                between the trigger and the menu's first item — a keyboard
+                user landed on a focusable control with no accessible name
+                before ever reaching a real menu item. It's purely a
+                click-outside-to-close target, so it's pulled out of both the
+                tab order and the accessibility tree (matches OpDropdown's
+                scrim, the other portalled popover this package owns). */}
+            <button
+              type="button"
+              className="popover__scrim"
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={close}
+            />
             <div
+              ref={panelRef}
               className="user-menu__popover"
               role="menu"
+              onKeyDown={handleMenuKeyDown}
               style={{
                 position: "fixed",
                 top: panelPos.top,
@@ -122,18 +156,12 @@ export function UserMenu({
                   <span className="user-menu__email">{currentUser.email}</span>
                 )}
               </div>
-              <div className="user-menu__divider" />
-              <button
-                ref={firstItemRef}
-                type="button"
-                role="menuitem"
-                className="user-menu__item user-menu__item--theme"
-                onClick={toggleTheme}
-                aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-              >
-                <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
-                {theme === "dark" ? "Light mode" : "Dark mode"}
-              </button>
+              {/* F-082: the dropdown used to carry its own "Light mode" /
+                  "Dark mode" row, wired to the exact same `toggleTheme` as
+                  the always-visible top-bar icon — a duplicate control one
+                  click away from a control already one click away. The
+                  top-bar icon (App.tsx) is now the single canonical theme
+                  toggle; this popover no longer renders one. */}
               <div className="user-menu__divider" />
               <div className="user-menu__section">
                 <span className="user-menu__section-label">Accent color</span>
