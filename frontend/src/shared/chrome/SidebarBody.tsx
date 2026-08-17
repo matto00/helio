@@ -47,6 +47,7 @@ import {
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import "./SidebarBody.css";
+import { pickerIdForPathname } from "./sections";
 import { SidebarItemList, type SidebarItem } from "./SidebarItemList";
 
 /** Picks the section-appropriate list based on the current route. The dashboards
@@ -68,7 +69,7 @@ export function SidebarBody() {
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
-  const section = sectionFromPathname(pathname);
+  const section = pickerIdForPathname(pathname);
   // HEL-703 design.md D9 (cycle-2 evaluator CR1) — mirrors `ChatPage.tsx`/`QuickLauncherOverlay.tsx`'s
   // own guard: this was the one `fetchConversations()` dispatch site those two missed, since the
   // sidebar's "chat" section list is driven from here, not from either of those components.
@@ -372,21 +373,4 @@ export function SidebarBody() {
   }
 
   return <DashboardList />;
-}
-
-/** Exported so `App.tsx` can drive the phone section-item sheet off the same
- * route-matching logic as the desktop sidebar — one source of truth for
- * "which section is this route" (see notes/mobile-pwa-handoff.md §W3.3).
- * "other" covers routes that aren't a pickable list section at all (Settings,
- * the proposal/patch-set review routes) — see F-016. */
-export function sectionFromPathname(
-  pathname: string,
-): "dashboards" | "sources" | "pipelines" | "registry" | "metrics" | "chat" | "other" {
-  if (pathname.startsWith("/sources")) return "sources";
-  if (pathname.startsWith("/pipelines")) return "pipelines";
-  if (pathname.startsWith("/registry")) return "registry";
-  if (pathname.startsWith("/metrics")) return "metrics";
-  if (pathname.startsWith("/chat")) return "chat";
-  if (pathname === "/") return "dashboards";
-  return "other";
 }

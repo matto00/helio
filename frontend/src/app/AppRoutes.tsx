@@ -1,0 +1,82 @@
+import { Route, Routes, useNavigate } from "react-router-dom";
+import { faCompass } from "@fortawesome/free-solid-svg-icons";
+
+import { ChatPage } from "../features/assistant/ui/ChatPage";
+import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
+import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
+import { LoginPage } from "../features/auth/ui/LoginPage";
+import { MfaVerifyPage } from "../features/auth/ui/MfaVerifyPage";
+import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
+import { RegisterPage } from "../features/auth/ui/RegisterPage";
+import { MetricDetailPage } from "../features/metrics/ui/MetricDetailPage";
+import { MetricsPage } from "../features/metrics/ui/MetricsPage";
+import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage";
+import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
+import { SettingsPage } from "../features/settings/ui/SettingsPage";
+import { SourcesPage } from "../features/sources/ui/SourcesPage";
+import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
+import { ProposalReviewPage } from "../features/dashboards/ui/ProposalReviewPage";
+import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
+import { PanelList } from "../features/panels/ui/PanelList";
+import { EmptyState } from "../shared/ui/EmptyState";
+import { AppShell } from "./App";
+
+/** Rendered for any route that doesn't match a real page — including while
+ * unauthenticated, so it never depends on `AppShell`/auth context (design.md
+ * D-shell). Replaces the previous silent `<Navigate to="/" />` redirect
+ * (F-188): a genuinely unknown URL now says so instead of pretending nothing
+ * happened. */
+function NotFoundPage() {
+  const navigate = useNavigate();
+  return (
+    <div className="app-not-found">
+      <EmptyState
+        icon={faCompass}
+        title="Page not found"
+        description="That page doesn't exist or may have moved."
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+      />
+    </div>
+  );
+}
+
+/** The app's entire route table, split out of `App.tsx` (HEL-724) — a clean
+ * boundary between routing and shell chrome. `App()` renders this directly;
+ * `AppShell` (still in `App.tsx`) is the layout route every protected page
+ * renders inside. */
+export function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public-only routes (redirect to / when already authenticated) */}
+      <Route element={<PublicOnlyRoute />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/verify" element={<MfaVerifyPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Route>
+
+      {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
+      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+      {/* Protected routes (redirect to /login when unauthenticated) */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<PanelList />} />
+          <Route path="/sources" element={<SourcesPage />} />
+          <Route path="/pipelines" element={<PipelinesPage />} />
+          <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+          <Route path="/registry" element={<TypeRegistryPage />} />
+          <Route path="/registry/:id" element={<TypeRegistryPage />} />
+          <Route path="/metrics" element={<MetricsPage />} />
+          <Route path="/metrics/:id" element={<MetricDetailPage />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/proposals/review" element={<ProposalReviewPage />} />
+          <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
+        </Route>
+      </Route>
+
+      {/* Fallback — F-188: a real "not found" page instead of a silent redirect. */}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  );
+}
