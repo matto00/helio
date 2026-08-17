@@ -27,7 +27,7 @@ import com.helio.domain.{
   UserSession
 }
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
+import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest, RedeemInviteCodeRequest}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -3279,6 +3279,25 @@ class ApiRoutesSpec
 
     "return 401 for DELETE /api/agent/memory (clear all) without Authorization (HEL-478)" in {
       Delete("/api/agent/memory") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    // HEL-704: composed-route-tree coverage for /api/beta-access — proves the request is
+    // rejected by the AuthDirectives layer itself (before ever reaching
+    // betaAccessServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't wire a
+    // DbContext either. Full status-code coverage (204/409/503/502/429 for request, 200/400/409
+    // for redeem) lives in the isolated `BetaAccessRoutesSpec`.
+    "return 401 for POST /api/beta-access/request without Authorization (HEL-704)" in {
+      Post("/api/beta-access/request") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for POST /api/beta-access/redeem without Authorization (HEL-704)" in {
+      Post("/api/beta-access/redeem", RedeemInviteCodeRequest("some-code")) ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
         responseAs[ErrorResponse].message shouldBe "Unauthorized"
       }

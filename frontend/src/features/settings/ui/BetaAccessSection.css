@@ -1,0 +1,60 @@
+.beta-access-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  max-width: 480px;
+}
+
+.beta-access-section__request,
+.beta-access-section__redeem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.beta-access-section__redeem {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.beta-access-section__redeem .ui-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.beta-access-section__request-btn,
+.beta-access-section__redeem-btn {
+  align-self: flex-start;
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.beta-access-section__request-btn:hover:not(:disabled),
+.beta-access-section__redeem-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.beta-access-section__request-btn:disabled,
+.beta-access-section__redeem-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.beta-access-section__confirmation {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}

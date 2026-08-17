@@ -1,6 +1,7 @@
 package com.helio.api
 
 import com.helio.domain.panels.TimelineOptions
+import com.helio.api.protocols.RedeemInviteCodeRequest
 
 object RequestValidation {
 
@@ -165,5 +166,21 @@ object RequestValidation {
         Left(s"idempotencyKey must be at most $MaxIdempotencyKeyLength characters")
       case other => Right(other)
     }
+  }
+
+  /** HEL-704 tasks.md 4.2 -- `POST /api/beta-access/redeem`'s `code` field: trimmed, required
+   *  (unlike `validateIdempotencyKey` above, a blank code is a hard 400, not "treat as absent" --
+   *  there is no meaningful redeem-with-no-code request), length-bounded (design.md D7) so bound
+   *  junk never reaches `TokenHashing.sha256Hex`. */
+  val MaxInviteCodeLength = 128
+
+  def validateRedeemInviteCodeRequest(req: RedeemInviteCodeRequest): Either[String, RedeemInviteCodeRequest] = {
+    val trimmed = req.code.trim
+    if (trimmed.isEmpty)
+      Left("code is required")
+    else if (trimmed.length > MaxInviteCodeLength)
+      Left(s"code must be at most $MaxInviteCodeLength characters")
+    else
+      Right(req.copy(code = trimmed))
   }
 }

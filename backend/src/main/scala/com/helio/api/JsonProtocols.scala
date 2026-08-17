@@ -56,6 +56,8 @@ import com.helio.api.protocols._
  *    `JsValue` — HEL-663)
  *  - `AgentPreferencesProtocol` has no cross-domain dependency (HEL-472 / 420-A)
  *  - `AgentMemoryProtocol` has no cross-domain dependency (HEL-478 / 420-B)
+ *  - `BetaAccessProtocol` has no cross-domain dependency (redeem's response reuses
+ *    `UserResponse`/`AuthProtocol` verbatim, not a nested type of its own — HEL-704)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -107,3 +109,4 @@ trait JsonProtocols
     with AssistantConversationProtocol
     with AgentPreferencesProtocol
     with AgentMemoryProtocol
+    with BetaAccessProtocol

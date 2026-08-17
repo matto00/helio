@@ -6,12 +6,15 @@ import {
   deleteAgentMemoryEntryThunk,
   fetchAgentMemory,
   fetchPreferences,
+  redeemInviteCodeThunk,
+  requestBetaAccessThunk,
   savePreferences,
   settingsReducer,
 } from "./settingsSlice";
 import * as settingsService from "../services/settingsService";
 import type { AgentMemoryEntry } from "../types/agentMemory";
 import type { AgentPreferences } from "../types/preferences";
+import type { User } from "../../auth/types/user";
 
 jest.mock("../services/settingsService", () => ({
   getPreferences: jest.fn(),
@@ -19,6 +22,8 @@ jest.mock("../services/settingsService", () => ({
   listAgentMemory: jest.fn(),
   deleteAgentMemoryEntry: jest.fn(),
   clearAgentMemory: jest.fn(),
+  requestBetaAccess: jest.fn(),
+  redeemInviteCode: jest.fn(),
 }));
 
 const getPreferencesMock = jest.mocked(settingsService.getPreferences);
@@ -26,6 +31,8 @@ const putPreferencesMock = jest.mocked(settingsService.putPreferences);
 const listAgentMemoryMock = jest.mocked(settingsService.listAgentMemory);
 const deleteAgentMemoryEntryMock = jest.mocked(settingsService.deleteAgentMemoryEntry);
 const clearAgentMemoryMock = jest.mocked(settingsService.clearAgentMemory);
+const requestBetaAccessMock = jest.mocked(settingsService.requestBetaAccess);
+const redeemInviteCodeMock = jest.mocked(settingsService.redeemInviteCode);
 
 const testPreferences: AgentPreferences = {
   defaultSeriesColors: ["#ff0000"],
@@ -40,6 +47,15 @@ const testEntry: AgentMemoryEntry = {
   content: "Prefers dark mode.",
   createdAt: "2026-08-01T00:00:00Z",
   lastUsedAt: null,
+};
+
+const testBetaUser: User = {
+  id: "user-1",
+  email: "user@example.com",
+  displayName: null,
+  avatarUrl: null,
+  createdAt: "2026-08-01T00:00:00Z",
+  tier: "beta",
 };
 
 beforeEach(() => {
@@ -184,6 +200,119 @@ describe("settingsSlice agent memory reducers", () => {
     );
     expect(nextState.agentMemory.clearStatus).toBe("failed");
     expect(nextState.agentMemory.clearError).toBe("Failed to clear agent memory.");
+  });
+});
+
+describe("settingsSlice betaAccess reducers", () => {
+  it("sets requestStatus loading when requestBetaAccessThunk is pending", () => {
+    const nextState = settingsReducer(undefined, requestBetaAccessThunk.pending("req-1"));
+    expect(nextState.betaAccess.requestStatus).toBe("loading");
+    expect(nextState.betaAccess.requestError).toBeNull();
+  });
+
+  it("sets requestStatus succeeded when requestBetaAccessThunk fulfills", () => {
+    const nextState = settingsReducer(
+      undefined,
+      requestBetaAccessThunk.fulfilled(undefined, "req-1"),
+    );
+    expect(nextState.betaAccess.requestStatus).toBe("succeeded");
+    expect(nextState.betaAccess.requestError).toBeNull();
+  });
+
+  it("sets requestError when requestBetaAccessThunk rejects", () => {
+    const nextState = settingsReducer(
+      undefined,
+      requestBetaAccessThunk.rejected(null, "req-1", undefined, "Failed to request Beta access."),
+    );
+    expect(nextState.betaAccess.requestStatus).toBe("failed");
+    expect(nextState.betaAccess.requestError).toBe("Failed to request Beta access.");
+  });
+
+  it("sets redeemStatus loading when redeemInviteCodeThunk is pending", () => {
+    const nextState = settingsReducer(undefined, redeemInviteCodeThunk.pending("req-1", "CODE1"));
+    expect(nextState.betaAccess.redeemStatus).toBe("loading");
+    expect(nextState.betaAccess.redeemError).toBeNull();
+  });
+
+  it("sets redeemStatus succeeded when redeemInviteCodeThunk fulfills", () => {
+    const nextState = settingsReducer(
+      undefined,
+      redeemInviteCodeThunk.fulfilled(testBetaUser, "req-1", "CODE1"),
+    );
+    expect(nextState.betaAccess.redeemStatus).toBe("succeeded");
+    expect(nextState.betaAccess.redeemError).toBeNull();
+  });
+
+  it("sets redeemError when redeemInviteCodeThunk rejects", () => {
+    const nextState = settingsReducer(
+      undefined,
+      redeemInviteCodeThunk.rejected(null, "req-1", "CODE1", "Invalid or already-used invite code"),
+    );
+    expect(nextState.betaAccess.redeemStatus).toBe("failed");
+    expect(nextState.betaAccess.redeemError).toBe("Invalid or already-used invite code");
+  });
+});
+
+describe("requestBetaAccessThunk", () => {
+  it("calls settingsService.requestBetaAccess on success", async () => {
+    requestBetaAccessMock.mockResolvedValueOnce(undefined);
+
+    const dispatch = jest.fn();
+    const thunk = requestBetaAccessThunk();
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(requestBetaAccessMock).toHaveBeenCalledTimes(1);
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/requestBetaAccess/fulfilled")).toBe(
+      true,
+    );
+  });
+
+  it("dispatches rejected on service error", async () => {
+    requestBetaAccessMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = requestBetaAccessThunk();
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/requestBetaAccess/rejected")).toBe(
+      true,
+    );
+  });
+});
+
+describe("redeemInviteCodeThunk", () => {
+  it("calls settingsService.redeemInviteCode and dispatches setAuth with the returned user", async () => {
+    redeemInviteCodeMock.mockResolvedValueOnce(testBetaUser);
+
+    const dispatch = jest.fn();
+    const thunk = redeemInviteCodeThunk("CODE1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(redeemInviteCodeMock).toHaveBeenCalledWith("CODE1");
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const setAuthCall = calls.find(([action]) => action.type === "auth/setAuth");
+    expect(setAuthCall?.[0].payload).toEqual({ user: testBetaUser });
+
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "settings/redeemInviteCode/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual(testBetaUser);
+  });
+
+  it("dispatches rejected (and never setAuth) on an invalid code", async () => {
+    redeemInviteCodeMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = redeemInviteCodeThunk("BAD-CODE");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/redeemInviteCode/rejected")).toBe(
+      true,
+    );
+    expect(calls.some(([action]) => action.type === "auth/setAuth")).toBe(false);
   });
 });
 
