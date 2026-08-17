@@ -11,7 +11,7 @@
 // stays a mono TextField with a format hint, since a friendlier cron widget
 // would need a new dependency (non-goal).
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Modal } from "../../../shared/ui/Modal";
 import { Select } from "../../../shared/ui/Select";
@@ -24,6 +24,13 @@ import type {
   PutPipelineScheduleRequest,
   ScheduleKind,
 } from "../types/pipelineSchedule";
+import {
+  computeCronNextRun,
+  computeIntervalNextRun,
+  isValidTimezone,
+  supportedTimezones,
+  validateCronExpression,
+} from "./schedulePreview";
 
 import "./PipelineScheduleDialog.css";
 
@@ -47,6 +54,17 @@ const KIND_OPTIONS = [
   { value: "interval", label: "Interval" },
   { value: "cron", label: "Cron" },
 ];
+
+// F-140: a handful of common cadences so most users never have to write raw
+// cron syntax by hand.
+const CRON_PRESETS: { label: string; expression: string }[] = [
+  { label: "Hourly", expression: "0 * * * *" },
+  { label: "Daily", expression: "0 0 * * *" },
+  { label: "Weekly", expression: "0 0 * * 0" },
+  { label: "Monthly", expression: "0 0 1 * *" },
+];
+
+const TIMEZONE_OPTIONS_ID = "pipeline-schedule-dialog-timezones";
 
 // Matches the backend's `PipelineScheduleService.intervalPattern` shape (design D2).
 const INTERVAL_PATTERN = /^(\d+)(s|m|h|d)$/;
@@ -80,6 +98,14 @@ export function PipelineScheduleDialog({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // F-140: friendly client-side validation errors, keyed per field, so a
+  // malformed interval/cron/timezone is caught before the round-trip that
+  // used to surface the backend's wire-format message verbatim.
+  const [intervalError, setIntervalError] = useState<string | null>(null);
+  const [cronError, setCronError] = useState<string | null>(null);
+  const [timezoneError, setTimezoneError] = useState<string | null>(null);
+
+  const timezoneOptions = useMemo(() => supportedTimezones(), []);
 
   // Initialize local form fields from the (already-loaded) schedule whenever
   // the dialog opens — not on every render, so mid-edit keystrokes aren't
@@ -87,6 +113,9 @@ export function PipelineScheduleDialog({
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setIntervalError(null);
+    setCronError(null);
+    setTimezoneError(null);
     if (schedule) {
       setKind(schedule.kind);
       setEnabled(schedule.enabled);
@@ -125,12 +154,61 @@ export function PipelineScheduleDialog({
     return rawIntervalExpression;
   }
 
+  // F-140: n must be a positive whole number — the backend rejects anything
+  // else with a wire-format message ("Invalid interval expression '': ...")
+  // this dialog deliberately hides behind a number+unit picker, so the same
+  // rule is checked here first with a friendly message instead.
+  function validateInterval(): string | null {
+    const trimmed = intervalValue.trim();
+    if (trimmed === "" || !/^\d+$/.test(trimmed) || Number.parseInt(trimmed, 10) < 1) {
+      return "Enter a whole number of 1 or more.";
+    }
+    return null;
+  }
+
+  function validateTimezone(): string | null {
+    const trimmed = timezone.trim();
+    if (trimmed === "") return "Timezone is required.";
+    if (!isValidTimezone(trimmed)) return `"${trimmed}" is not a recognized timezone.`;
+    return null;
+  }
+
+  /** Runs all client-side checks, updating the per-field error state as a
+   *  side effect, and reports whether the form is currently valid. */
+  function runValidation(): boolean {
+    const nextIntervalError = kind === "interval" ? validateInterval() : null;
+    const nextCronError = kind === "cron" ? validateCronExpression(cronExpression) : null;
+    const nextTimezoneError = validateTimezone();
+    setIntervalError(nextIntervalError);
+    setCronError(nextCronError);
+    setTimezoneError(nextTimezoneError);
+    return nextIntervalError === null && nextCronError === null && nextTimezoneError === null;
+  }
+
+  // F-140: a computed "Next run" preview so a typo (wrong unit, wrong
+  // weekday) is visible before saving rather than only discoverable once the
+  // schedule bar shows a surprising `nextRunAt`. Interval previews are exact
+  // (an absolute instant); cron previews are a local-time approximation —
+  // see schedulePreview.ts's file header for why a real timezone-aware cron
+  // evaluation is out of scope here.
+  const nextRunPreview = useMemo(() => {
+    if (kind === "interval") {
+      if (validateInterval() !== null) return null;
+      return computeIntervalNextRun(Number.parseInt(intervalValue.trim(), 10), intervalUnit);
+    }
+    if (validateCronExpression(cronExpression) !== null) return null;
+    return computeCronNextRun(cronExpression);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, intervalValue, intervalUnit, cronExpression]);
+
   async function handleSave() {
+    if (!runValidation()) return;
+
     const request: PutPipelineScheduleRequest = {
       kind,
       expression: composeExpression(),
       enabled,
-      timezone,
+      timezone: timezone.trim(),
     };
     setSaving(true);
     setError(null);
@@ -170,7 +248,7 @@ export function PipelineScheduleDialog({
           {schedule && (
             <button
               type="button"
-              className="pipeline-schedule-dialog__clear-btn"
+              className="ui-modal-btn pipeline-schedule-dialog__clear-btn"
               onClick={() => void handleClear()}
               disabled={saving}
             >
@@ -180,7 +258,7 @@ export function PipelineScheduleDialog({
           <div className="pipeline-schedule-dialog__footer-spacer" />
           <button
             type="button"
-            className="pipeline-schedule-dialog__cancel-btn"
+            className="ui-modal-btn ui-modal-btn--secondary"
             onClick={onClose}
             disabled={saving}
           >
@@ -188,7 +266,7 @@ export function PipelineScheduleDialog({
           </button>
           <button
             type="button"
-            className="pipeline-schedule-dialog__save-btn"
+            className="ui-modal-btn ui-modal-btn--primary"
             onClick={() => void handleSave()}
             disabled={saving}
           >
@@ -200,7 +278,7 @@ export function PipelineScheduleDialog({
       <div className="pipeline-schedule-dialog">
         <div className="pipeline-schedule-dialog__field">
           <label className="pipeline-schedule-dialog__label" htmlFor="schedule-kind">
-            Kind
+            Schedule kind
           </label>
           <Select
             value={kind}
@@ -221,7 +299,10 @@ export function PipelineScheduleDialog({
                 type="number"
                 min={1}
                 value={intervalValue}
-                onChange={(e) => setIntervalValue(e.target.value)}
+                onChange={(e) => {
+                  setIntervalValue(e.target.value);
+                  setIntervalError(null);
+                }}
                 aria-label="Interval number"
               />
               <Select
@@ -231,6 +312,7 @@ export function PipelineScheduleDialog({
                 ariaLabel="Interval unit"
               />
             </div>
+            <InlineError error={intervalError} />
           </div>
         ) : (
           <div className="pipeline-schedule-dialog__field">
@@ -242,13 +324,40 @@ export function PipelineScheduleDialog({
               mono
               placeholder="0 * * * *"
               value={cronExpression}
-              onChange={(e) => setCronExpression(e.target.value)}
+              onChange={(e) => {
+                setCronExpression(e.target.value);
+                setCronError(null);
+              }}
               aria-label="Cron expression"
             />
+            <div className="pipeline-schedule-dialog__preset-row">
+              {CRON_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="pipeline-schedule-dialog__preset-btn"
+                  onClick={() => {
+                    setCronExpression(preset.expression);
+                    setCronError(null);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <p className="pipeline-schedule-dialog__hint">
               5-field cron: minute hour day-of-month month day-of-week
             </p>
+            <InlineError error={cronError} />
           </div>
+        )}
+
+        {nextRunPreview && (
+          <p className="pipeline-schedule-dialog__next-run-preview">
+            Next run:{" "}
+            {nextRunPreview.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+            {kind === "cron" && " (approximate, your local time zone)"}
+          </p>
         )}
 
         <div className="pipeline-schedule-dialog__field">
@@ -257,11 +366,23 @@ export function PipelineScheduleDialog({
           </label>
           <TextField
             id="schedule-timezone"
+            list={timezoneOptions.length > 0 ? TIMEZONE_OPTIONS_ID : undefined}
             placeholder="e.g. America/Los_Angeles"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
+            onChange={(e) => {
+              setTimezone(e.target.value);
+              setTimezoneError(null);
+            }}
             aria-label="Timezone"
           />
+          {timezoneOptions.length > 0 && (
+            <datalist id={TIMEZONE_OPTIONS_ID}>
+              {timezoneOptions.map((tz) => (
+                <option key={tz} value={tz} />
+              ))}
+            </datalist>
+          )}
+          <InlineError error={timezoneError} />
         </div>
 
         <div className="pipeline-schedule-dialog__field pipeline-schedule-dialog__field--row">

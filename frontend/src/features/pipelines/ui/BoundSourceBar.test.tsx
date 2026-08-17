@@ -20,7 +20,7 @@ const sqlSource: DataSource = {
 };
 
 describe("BoundSourceBar", () => {
-  it("renders the Edit Source button when canEditSource is true", () => {
+  it("renders the Edit source button when canEditSource is true", () => {
     render(
       <BoundSourceBar
         sourceName="Test Source"
@@ -29,10 +29,10 @@ describe("BoundSourceBar", () => {
         onEditSource={jest.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: "Edit Source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit source" })).toBeInTheDocument();
   });
 
-  it("calls onEditSource when the Edit Source button is clicked", () => {
+  it("calls onEditSource when the Edit source button is clicked", () => {
     const onEditSource = jest.fn();
     render(
       <BoundSourceBar
@@ -42,11 +42,11 @@ describe("BoundSourceBar", () => {
         onEditSource={onEditSource}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Edit Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit source" }));
     expect(onEditSource).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render the Edit Source button when canEditSource is false", () => {
+  it("does not render the Edit source button when canEditSource is false", () => {
     render(
       <BoundSourceBar
         sourceName="Test Source"
@@ -55,6 +55,6 @@ describe("BoundSourceBar", () => {
         onEditSource={jest.fn()}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Edit Source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
   });
 });

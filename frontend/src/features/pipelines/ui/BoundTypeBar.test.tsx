@@ -7,20 +7,20 @@ describe("BoundTypeBar", () => {
     expect(screen.getByText("Test Type")).toBeInTheDocument();
   });
 
-  it("renders the Edit Type button when canEditType is true", () => {
+  it("renders the Edit type button when canEditType is true", () => {
     render(<BoundTypeBar outputTypeName="Test Type" canEditType={true} onEditType={jest.fn()} />);
-    expect(screen.getByRole("button", { name: "Edit Type" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit type" })).toBeInTheDocument();
   });
 
-  it("calls onEditType when the Edit Type button is clicked", () => {
+  it("calls onEditType when the Edit type button is clicked", () => {
     const onEditType = jest.fn();
     render(<BoundTypeBar outputTypeName="Test Type" canEditType={true} onEditType={onEditType} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit Type" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit type" }));
     expect(onEditType).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render the Edit Type button when canEditType is false", () => {
+  it("does not render the Edit type button when canEditType is false", () => {
     render(<BoundTypeBar outputTypeName="Test Type" canEditType={false} onEditType={jest.fn()} />);
-    expect(screen.queryByRole("button", { name: "Edit Type" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit type" })).not.toBeInTheDocument();
   });
 });

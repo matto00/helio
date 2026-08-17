@@ -26,7 +26,7 @@ describe("PipelineScheduleBar", () => {
     );
     expect(screen.getByText("No schedule set")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Set schedule" })).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
   it("clicking 'Set schedule' calls onEditSchedule", () => {
@@ -113,7 +113,10 @@ describe("PipelineScheduleBar", () => {
         onToggleEnabled={onToggleEnabled}
       />,
     );
-    const toggle = screen.getByRole("checkbox", { name: "Disable schedule" });
+    // F-139: rendered via the shared Toggle primitive — an ARIA switch, not a
+    // bare checkbox, so its meaning (on/off) is legible from the control's
+    // own shape rather than relying solely on the aria-label.
+    const toggle = screen.getByRole("switch", { name: "Disable schedule" });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     expect(onToggleEnabled).toHaveBeenCalledWith(false);

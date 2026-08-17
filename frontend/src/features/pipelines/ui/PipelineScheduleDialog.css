@@ -29,12 +29,60 @@
   align-items: center;
 }
 
+/* Bug (package brief): the Select's own `width: 100%` (shared/ui/inputs.css)
+ * gave it a flex-basis equal to the whole row, so with `.ui-input` at
+ * `flex: 1` (basis 0%) the row's shrink math squeezed the number field down
+ * to ~26px — visible width, but too narrow to show a typed value. Give both
+ * children an explicit flex-basis of 0 so the 1:2 grow ratio actually
+ * governs the split. */
 .pipeline-schedule-dialog__interval-row .ui-input {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.pipeline-schedule-dialog__interval-row .ui-select {
+  flex: 2 1 0%;
   min-width: 0;
 }
 
 .pipeline-schedule-dialog__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+/* F-140: quick cron presets — small ghost chips (design.md §5 Ghost recipe,
+ * at a denser size for a chip row rather than a full control-sm button). */
+.pipeline-schedule-dialog__preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pipeline-schedule-dialog__preset-btn {
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.pipeline-schedule-dialog__preset-btn:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+  background: var(--app-surface-raised);
+}
+
+/* F-140: computed "Next run" preview. */
+.pipeline-schedule-dialog__next-run-preview {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
@@ -70,60 +118,20 @@
   flex: 1;
 }
 
+/* F-138: Cancel/Save now use the shared `ui-modal-btn`/`ui-modal-btn--
+ * secondary`/`ui-modal-btn--primary` recipe (shared/ui/Modal.css) for
+ * correct height/radius/hover — this file no longer needs to declare its
+ * own copies. "Clear schedule" keeps `ui-modal-btn` as its base (matching
+ * height/radius/mobile tap-target floor) and layers on a danger color
+ * variant here, mirroring the same base+local-color-override pattern
+ * PipelineDetailPage.css uses for its own confirm-danger button. */
 .pipeline-schedule-dialog__clear-btn {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  background: transparent;
   border: 1px solid color-mix(in srgb, var(--app-error) 60%, transparent);
-  border-radius: var(--app-radius-md);
+  background: transparent;
   color: var(--app-error);
-  cursor: pointer;
 }
 
 .pipeline-schedule-dialog__clear-btn:hover:not(:disabled) {
   background: var(--app-error-surface);
-}
-
-.pipeline-schedule-dialog__clear-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pipeline-schedule-dialog__cancel-btn {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  background: var(--app-surface-soft);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  color: var(--app-text);
-  cursor: pointer;
-}
-
-.pipeline-schedule-dialog__cancel-btn:hover:not(:disabled) {
-  background: var(--app-surface-raised);
-}
-
-.pipeline-schedule-dialog__cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pipeline-schedule-dialog__save-btn {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  background: var(--app-accent);
-  color: var(--app-accent-ink);
-  border: none;
-  border-radius: var(--app-radius-md);
-  cursor: pointer;
-  font-weight: var(--weight-medium);
-}
-
-.pipeline-schedule-dialog__save-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
-}
-
-.pipeline-schedule-dialog__save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  border-color: var(--app-error);
 }

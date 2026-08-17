@@ -65,6 +65,69 @@ beforeEach(() => {
   });
 });
 
+describe("CreateMetricModal — F-057 pinned footer actions", () => {
+  it("renders Cancel/Create metric inside the modal's sticky footer, submitting the form by id", () => {
+    renderModal();
+
+    const footer = document.querySelector(".ui-modal__footer");
+    expect(footer).not.toBeNull();
+
+    const cancelBtn = screen.getByRole("button", { name: "Cancel" });
+    const createBtn = screen.getByRole("button", { name: "Create metric" });
+    expect(footer).toContainElement(cancelBtn);
+    expect(footer).toContainElement(createBtn);
+
+    // The form itself no longer renders its own action row inside the
+    // scrollable body — there is exactly one "Create metric" button.
+    expect(screen.getAllByRole("button", { name: "Create metric" })).toHaveLength(1);
+    expect(createBtn).toHaveAttribute("form", "metric-editor-form");
+    expect(createBtn).toHaveAttribute("type", "submit");
+  });
+
+  it("clicking the footer Cancel calls onClose", () => {
+    const { onClose } = renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("the footer's Create button submits the form and disables itself while saving", async () => {
+    let resolveCreate: (
+      metric: Awaited<ReturnType<typeof metricService.createMetric>>,
+    ) => void = () => {};
+    jest
+      .mocked(metricService.createMetric)
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveCreate = resolve)));
+    renderModal();
+
+    fireEvent.change(screen.getByLabelText("Metric name"), { target: { value: "Total Revenue" } });
+    fireEvent.click(screen.getByText("Sales"));
+    fireEvent.click(screen.getByRole("combobox", { name: "Measure field" }));
+    fireEvent.click(screen.getByRole("option", { name: "amount" }));
+
+    const createBtn = screen.getByRole("button", { name: "Create metric" });
+    fireEvent.click(createBtn);
+
+    expect(await screen.findByRole("button", { name: "Creating…" })).toBeDisabled();
+
+    resolveCreate({
+      id: "m-1",
+      ownerId: "owner-1",
+      dataTypeId: "dt-1",
+      name: "Total Revenue",
+      description: null,
+      measureField: "amount",
+      aggregation: "sum",
+      allowedDimensions: [],
+      format: { unit: null, decimals: null, prefix: null, suffix: null },
+      deprecated: false,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+
+    await screen.findByRole("button", { name: "Create metric" });
+  });
+});
+
 describe("CreateMetricModal — Allowed-dimensions Escape containment", () => {
   it("pressing Escape while the Allowed-dimensions popover is open closes only the popover — the modal and in-progress edits survive", () => {
     const { onClose } = renderModal();

@@ -70,14 +70,18 @@ describe("PipelineScheduleDialog", () => {
   it("edit pre-fills fields from the passed-in schedule", () => {
     renderDialog(existingSchedule);
     expect(screen.getByRole("spinbutton", { name: "Interval number" })).toHaveValue(15);
-    expect(screen.getByRole("textbox", { name: "Timezone" })).toHaveValue("America/Los_Angeles");
+    // F-140: the Timezone field now carries a `list` attribute (datalist
+    // suggestions seeded from Intl.supportedValuesOf) — per HTML-AAM, an
+    // <input> with `list` has implicit role "combobox", not "textbox".
+    expect(screen.getByRole("combobox", { name: "Timezone" })).toHaveValue("America/Los_Angeles");
     expect(screen.getByRole("checkbox", { name: "Enabled" })).toBeChecked();
     expect(screen.getByRole("button", { name: "Clear schedule" })).toBeInTheDocument();
   });
 
   it("create: defaults to a new schedule with the browser timezone and no 'Clear schedule' button", () => {
     renderDialog(null);
-    expect(screen.getByRole("textbox", { name: "Timezone" })).toHaveValue(
+    // F-140: see the role note in "edit pre-fills fields" above.
+    expect(screen.getByRole("combobox", { name: "Timezone" })).toHaveValue(
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     );
     expect(screen.queryByRole("button", { name: "Clear schedule" })).not.toBeInTheDocument();
@@ -154,5 +158,81 @@ describe("PipelineScheduleDialog", () => {
   it("edit: pre-fills the cron TextField for a cron schedule", () => {
     renderDialog({ ...existingSchedule, kind: "cron", expression: "0 * * * *" });
     expect(screen.getByRole("textbox", { name: "Cron expression" })).toHaveValue("0 * * * *");
+  });
+
+  // ── F-140: client-side validation, cron presets, next-run preview ────────
+
+  it("blocks save and shows a friendly message for an empty interval, without calling the API", async () => {
+    renderDialog(null);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Enter a whole number of 1 or more.")).toBeInTheDocument();
+    expect(putPipelineScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks save for a malformed cron expression with a field-specific message, without calling the API", async () => {
+    renderDialog(null);
+    fireEvent.click(screen.getByRole("combobox", { name: "Schedule kind" }));
+    fireEvent.click(screen.getByRole("option", { name: "Cron" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Cron expression" }), {
+      target: { value: "0 99 * * *" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/field 2/i)).toBeInTheDocument();
+    expect(putPipelineScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks save for an unrecognized timezone, without calling the API", async () => {
+    renderDialog(null);
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Interval number" }), {
+      target: { value: "5" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Timezone" }), {
+      target: { value: "Not/A_Zone" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/not a recognized timezone/i)).toBeInTheDocument();
+    expect(putPipelineScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it("clicking a cron preset fills the cron field and clears any prior cron error", async () => {
+    renderDialog(null);
+    fireEvent.click(screen.getByRole("combobox", { name: "Schedule kind" }));
+    fireEvent.click(screen.getByRole("option", { name: "Cron" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Cron expression is required.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Daily" }));
+
+    expect(screen.getByRole("textbox", { name: "Cron expression" })).toHaveValue("0 0 * * *");
+    expect(screen.queryByText("Cron expression is required.")).not.toBeInTheDocument();
+  });
+
+  it("shows a computed 'Next run' preview for a valid interval before saving", () => {
+    renderDialog(null);
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Interval number" }), {
+      target: { value: "30" },
+    });
+    expect(screen.getByText(/^Next run:/)).toBeInTheDocument();
+  });
+
+  it("shows no 'Next run' preview while the interval is invalid", () => {
+    renderDialog(null);
+    expect(screen.queryByText(/^Next run:/)).not.toBeInTheDocument();
+  });
+
+  it("a valid interval (e.g. 99) is not blocked client-side — it still reaches the API", async () => {
+    // Regression guard: client-side validation must not reject values the
+    // backend legitimately accepts (see the 400-surfacing test above, which
+    // relies on 99 reaching the API unmodified).
+    putPipelineScheduleMock.mockResolvedValueOnce(existingSchedule);
+    renderDialog(null);
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Interval number" }), {
+      target: { value: "99" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(putPipelineScheduleMock).toHaveBeenCalled());
   });
 });

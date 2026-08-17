@@ -9,7 +9,10 @@
 
 import type { DataSource, DataSourceKind } from "../../sources/types/dataSource";
 
-function labelForKind(kind: DataSourceKind): string {
+/** Exported for reuse anywhere a data source's kind needs a human label next
+ *  to its name (e.g. CreatePipelineModal's source picker, F-224) — keeps the
+ *  kind→label mapping in one place rather than re-declaring it per call site. */
+export function labelForKind(kind: DataSourceKind): string {
   switch (kind) {
     case "rest_api":
       return "REST API";
@@ -62,7 +65,7 @@ export function BoundSourceBar({
       </div>
       {canEditSource && (
         <button className="pipeline-detail-page__edit-btn" onClick={onEditSource} type="button">
-          Edit Source
+          Edit source
         </button>
       )}
     </div>

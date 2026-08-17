@@ -10,6 +10,7 @@
 // `pipeline-schedule-config-ui` spec, "Disabling from the bar").
 
 import type { PipelineSchedule } from "../types/pipelineSchedule";
+import { Toggle } from "../../../shared/ui/Toggle";
 
 import "./PipelineScheduleBar.css";
 
@@ -66,14 +67,17 @@ export function PipelineScheduleBar({
     <div className="pipeline-detail-page__schedule-bar">
       <span className="pipeline-detail-page__schedule-bar-label">SCHEDULE</span>
       <div className="pipeline-detail-page__schedule-summary">
-        <label className="pipeline-detail-page__schedule-toggle">
-          <input
-            type="checkbox"
-            checked={schedule.enabled}
-            onChange={(e) => onToggleEnabled(e.target.checked)}
-            aria-label={schedule.enabled ? "Disable schedule" : "Enable schedule"}
-          />
-        </label>
+        {/* F-139: a bare checkbox read as a row-selection control with no
+         *  visible affordance for its enable/disable meaning. The switch
+         *  shape (shared Toggle primitive) is self-explanatory without
+         *  needing extra visible label text crammed into this already-dense
+         *  row — the aria-label still carries the accessible name. */}
+        <Toggle
+          className="pipeline-detail-page__schedule-toggle"
+          checked={schedule.enabled}
+          onChange={onToggleEnabled}
+          ariaLabel={schedule.enabled ? "Disable schedule" : "Enable schedule"}
+        />
         <span className="pipeline-detail-page__schedule-expression">
           {formatExpressionSummary(schedule)}
         </span>
