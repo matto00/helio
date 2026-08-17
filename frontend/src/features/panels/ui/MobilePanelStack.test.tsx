@@ -12,6 +12,22 @@ import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import { usePanelData } from "../hooks/usePanelData";
 import { MobilePanelStack } from "./MobilePanelStack";
 
+// This suite renders real chart panels (`orderPanelsForMobileStack` puts a
+// chart in the fixture set below), so it transitively imports the real
+// `ChartPanel` → `echarts-for-react`/`echartsCore` chain (F-022's
+// tree-shaken `echarts/core` registration). `echarts` ships ESM-only
+// (`"type": "module"`, no CJS build for `/core`), which this project's
+// ts-jest/CommonJS transform can't parse — without this mock every test
+// below fails at import time with "Cannot use import statement outside a
+// module", not from any assertion. Mirrors `ChartPanel.test.tsx`'s own
+// mock; keep the module specifier in sync with `ChartPanel.tsx`'s import if
+// that changes.
+jest.mock("echarts-for-react/esm/core", () => ({
+  __esModule: true,
+  default: () => <div data-testid="echarts" />,
+}));
+jest.mock("./echartsCore", () => ({ __esModule: true, default: {} }));
+
 // jest.fn() (not a plain factory function) so individual tests — e.g. the
 // divider-orientation test below, which needs `noData: false` to reach
 // DividerRenderer's actual markup instead of PanelContent's "No data

@@ -1,4 +1,4 @@
-import { appearanceToEChartsOption } from "./chartAppearance";
+import { appearanceToEChartsOption, formatChartNumber, resolveChartTheme } from "./chartAppearance";
 import type { ChartAppearance } from "../features/panels/types/panel";
 const baseChart: ChartAppearance = {
   seriesColors: [],
@@ -81,7 +81,7 @@ describe("appearanceToEChartsOption", () => {
     expect(option.yAxis).toMatchObject({ axisLabel: { show: true }, name: "Y" });
   });
 
-  it("defaults to empty string when label is undefined", () => {
+  it("omits the axis name entirely when label is undefined (F-095 — never a placeholder-looking empty title)", () => {
     const chart = {
       ...baseChart,
       axisLabels: {
@@ -90,8 +90,21 @@ describe("appearanceToEChartsOption", () => {
       },
     };
     const { option } = appearanceToEChartsOption(chart);
-    expect(option.xAxis).toMatchObject({ name: "" });
-    expect(option.yAxis).toMatchObject({ name: "" });
+    expect((option.xAxis as { name?: string }).name).toBeUndefined();
+    expect((option.yAxis as { name?: string }).name).toBeUndefined();
+  });
+
+  it("omits the axis name when label is an empty string (F-095)", () => {
+    const chart = {
+      ...baseChart,
+      axisLabels: {
+        x: { show: true, label: "" },
+        y: { show: true, label: "" },
+      },
+    };
+    const { option } = appearanceToEChartsOption(chart);
+    expect((option.xAxis as { name?: string }).name).toBeUndefined();
+    expect((option.yAxis as { name?: string }).name).toBeUndefined();
   });
 
   describe("chartType propagation", () => {
@@ -116,6 +129,80 @@ describe("appearanceToEChartsOption", () => {
       const chart = { ...baseChart, chartType: "scatter" as const };
       const { chartType } = appearanceToEChartsOption(chart);
       expect(chartType).toBe("scatter");
+    });
+  });
+
+  // F-024/F-025/F-196 — gridlines, tooltip chrome, and canvas text were never
+  // theme-aware (no color/backgroundColor/fontFamily set anywhere), so dark
+  // theme rendered ECharts' own defaults: bright white gridlines and a stark
+  // unstyled white tooltip box. jsdom never loads `theme.css`, so
+  // `resolveChartTheme()` resolves through to its documented dark-theme
+  // fallback here — this still asserts the wiring is real (every value comes
+  // from the same `themeTokens` object, not a second hand-rolled palette).
+  describe("theme wiring (F-024/F-025/F-196)", () => {
+    const theme = resolveChartTheme();
+
+    it("styles the tooltip from theme tokens", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      expect(option.tooltip).toMatchObject({
+        backgroundColor: theme.surfaceStrong,
+        borderColor: theme.borderSubtle,
+        textStyle: { color: theme.text, fontFamily: theme.fontSans },
+      });
+    });
+
+    it("colors axisLine/axisTick/splitLine from the border-subtle token", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      const lineStyle = { lineStyle: { color: theme.borderSubtle } };
+      expect(option.xAxis).toMatchObject({
+        axisLine: lineStyle,
+        axisTick: lineStyle,
+        splitLine: lineStyle,
+      });
+      expect(option.yAxis).toMatchObject({
+        axisLine: lineStyle,
+        axisTick: lineStyle,
+        splitLine: lineStyle,
+      });
+    });
+
+    it("sets fontFamily on the global textStyle and axis labels", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      expect(option.textStyle).toMatchObject({ fontFamily: theme.fontSans });
+      expect((option.xAxis as { axisLabel?: { fontFamily?: string } }).axisLabel).toMatchObject({
+        fontFamily: theme.fontMono,
+      });
+      expect((option.yAxis as { axisLabel?: { fontFamily?: string } }).axisLabel).toMatchObject({
+        fontFamily: theme.fontMono,
+      });
+    });
+  });
+
+  // F-195 — the Y axis and tooltip previously fell through to ECharts' own
+  // comma-grouped default, inconsistent with MetricRenderer's deliberate
+  // no-grouping convention for the same underlying numeric field.
+  describe("number formatting (F-195)", () => {
+    it("formats large numbers without thousands grouping, matching MetricRenderer", () => {
+      expect(formatChartNumber(1000000)).toBe("1000000");
+      expect(formatChartNumber(1234.5)).toBe("1234.5");
+    });
+
+    it("caps fraction digits at 2", () => {
+      expect(formatChartNumber(1.23456)).toBe("1.23");
+    });
+
+    it("wires the yAxis axisLabel formatter to the shared numeric formatter", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      const formatter = (option.yAxis as { axisLabel?: { formatter?: (v: number) => string } })
+        .axisLabel?.formatter;
+      expect(formatter?.(1000000)).toBe("1000000");
+    });
+
+    it("wires tooltip.valueFormatter to the shared numeric formatter", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      const valueFormatter = (option.tooltip as { valueFormatter?: (v: unknown) => string })
+        .valueFormatter;
+      expect(valueFormatter?.(2000000)).toBe("2000000");
     });
   });
 });
