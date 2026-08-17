@@ -82,7 +82,7 @@ final class WorkspaceSearchService(
 
     val dashboardSummariesF: Future[Vector[WorkspaceResourceSummary]] =
       if (requested(WorkspaceResourceType.Dashboard))
-        dashboardService.findAll(user, Page.Default).map(_.items.map(toDashboardSummary))
+        dashboardService.findAll(user, Page.Default).flatMap(page => Future.traverse(page.items)(toDashboardSummary(_, user)))
       else Future.successful(Vector.empty)
 
     val metricSummariesF: Future[Vector[WorkspaceResourceSummary]] =
@@ -148,14 +148,17 @@ final class WorkspaceSearchService(
 
   /** Reuses `workspaceContextService.toDashboardEntry` (widened `private[services]`, design.md D2)
    *  for its `panelCount` computation rather than duplicating `distinctPanelCount`'s layout-dedup
-   *  logic here — one implementation, no drift. */
-  private def toDashboardSummary(d: Dashboard): WorkspaceResourceSummary =
-    WorkspaceResourceSummary(
-      id           = d.id.value,
-      resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Dashboard),
-      name         = d.name,
-      description  = s"dashboard, ${workspaceContextService.toDashboardEntry(d).panelCount} panels"
-    )
+   *  logic here — one implementation, no drift. `Future`-returning (beta UI-audit F-004 fix) --
+   *  `toDashboardEntry` now needs `user` for a real DB-backed `panelCount`. */
+  private def toDashboardSummary(d: Dashboard, user: AuthenticatedUser): Future[WorkspaceResourceSummary] =
+    workspaceContextService.toDashboardEntry(d, user).map { entry =>
+      WorkspaceResourceSummary(
+        id           = d.id.value,
+        resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Dashboard),
+        name         = d.name,
+        description  = s"dashboard, ${entry.panelCount} panels"
+      )
+    }
 
   private def toMetricSummary(m: MetricDefinition): WorkspaceResourceSummary =
     WorkspaceResourceSummary(
@@ -192,7 +195,10 @@ final class WorkspaceSearchService(
       getPipelineResource(user, PipelineId(id))
 
     case WorkspaceResourceType.Dashboard =>
-      dashboardService.findById(DashboardId(id), user).map(_.map(d => WorkspaceResourceDetail.DashboardDetail(workspaceContextService.toDashboardEntry(d))))
+      dashboardService.findById(DashboardId(id), user).flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(d)  => workspaceContextService.toDashboardEntry(d, user).map(entry => Right(WorkspaceResourceDetail.DashboardDetail(entry)))
+      }
 
     case WorkspaceResourceType.Metric =>
       metricService.findById(MetricId(id), user).map(_.map(toMetricDetail))
