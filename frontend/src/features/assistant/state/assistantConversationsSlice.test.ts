@@ -449,7 +449,18 @@ describe("converse thunk", () => {
     const thunk = converse({ id: "conv-1", message: "Hello" });
     await thunk(dispatch, jest.fn(), undefined);
 
-    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello");
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", undefined);
+  });
+
+  // HEL-698 design.md D6 — the idempotencyKey arg is threaded straight through.
+  it("calls the converse service function with the given idempotencyKey", async () => {
+    converseMock.mockResolvedValueOnce(detail);
+
+    const dispatch = jest.fn();
+    const thunk = converse({ id: "conv-1", message: "Hello", idempotencyKey: "key-1" });
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", "key-1");
   });
 
   it("dispatches rejected with a fallback message on service error", async () => {
@@ -464,5 +475,61 @@ describe("converse thunk", () => {
       ([action]) => action.type === "assistantConversations/converse/rejected",
     );
     expect(rejectedCall?.[0].payload).toBe("network error");
+  });
+
+  // HEL-698 design.md D6 — rejection reconciliation via a follow-up GET.
+  describe("rejection reconciliation (HEL-698)", () => {
+    it("a matching lastIdempotencyKey on the reconciliation fetch fulfills with the fetched detail", async () => {
+      converseMock.mockRejectedValueOnce(new Error("network error"));
+      const reconciledDetail: AssistantConversationDetail = {
+        ...detail,
+        lastIdempotencyKey: "key-1",
+      };
+      getConversationMock.mockResolvedValueOnce(reconciledDetail);
+
+      const dispatch = jest.fn();
+      const thunk = converse({ id: "conv-1", message: "Hello", idempotencyKey: "key-1" });
+      await thunk(dispatch, jest.fn(), undefined);
+
+      expect(getConversationMock).toHaveBeenCalledWith("conv-1");
+      const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+      const fulfilledCall = calls.find(
+        ([action]) => action.type === "assistantConversations/converse/fulfilled",
+      );
+      expect(fulfilledCall?.[0].payload).toEqual(reconciledDetail);
+    });
+
+    it("a non-matching lastIdempotencyKey on the reconciliation fetch still rejects with the original error", async () => {
+      converseMock.mockRejectedValueOnce(new Error("network error"));
+      getConversationMock.mockResolvedValueOnce({
+        ...detail,
+        lastIdempotencyKey: "some-other-key",
+      });
+
+      const dispatch = jest.fn();
+      const thunk = converse({ id: "conv-1", message: "Hello", idempotencyKey: "key-1" });
+      await thunk(dispatch, jest.fn(), undefined);
+
+      const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+      const rejectedCall = calls.find(
+        ([action]) => action.type === "assistantConversations/converse/rejected",
+      );
+      expect(rejectedCall?.[0].payload).toBe("network error");
+    });
+
+    it("a failed reconciliation fetch itself still rejects with the original error", async () => {
+      converseMock.mockRejectedValueOnce(new Error("network error"));
+      getConversationMock.mockRejectedValueOnce(new Error("reconciliation fetch failed"));
+
+      const dispatch = jest.fn();
+      const thunk = converse({ id: "conv-1", message: "Hello", idempotencyKey: "key-1" });
+      await thunk(dispatch, jest.fn(), undefined);
+
+      const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+      const rejectedCall = calls.find(
+        ([action]) => action.type === "assistantConversations/converse/rejected",
+      );
+      expect(rejectedCall?.[0].payload).toBe("network error");
+    });
   });
 });

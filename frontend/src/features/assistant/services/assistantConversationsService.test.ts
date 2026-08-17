@@ -95,8 +95,20 @@ describe("assistantConversationsService", () => {
 
     expect(mockedHttpClient.post).toHaveBeenCalledWith(
       "/api/assistant-conversations/conv-1/converse",
-      { message: "Hello" },
+      { message: "Hello", idempotencyKey: undefined },
     );
     expect(result).toEqual(detail);
+  });
+
+  // HEL-698 design.md D5 — the idempotencyKey, when supplied, rides along in the same body.
+  it("converse includes idempotencyKey in the request body when supplied", async () => {
+    mockedHttpClient.post.mockResolvedValueOnce({ data: detail });
+
+    await converse("conv-1", "Hello", "key-1");
+
+    expect(mockedHttpClient.post).toHaveBeenCalledWith(
+      "/api/assistant-conversations/conv-1/converse",
+      { message: "Hello", idempotencyKey: "key-1" },
+    );
   });
 });

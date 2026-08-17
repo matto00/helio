@@ -139,6 +139,7 @@ class AssistantConversationRepositorySpec extends AnyWordSpec with Matchers with
       found.get.title      shouldBe "Sales chat"
       found.get.pinned     shouldBe false
       found.get.gcsBodyRef shouldBe record.gcsBodyRef
+      found.get.lastIdempotencyKey shouldBe None
     }
 
     "findById returns None for an unknown id" in {
@@ -243,6 +244,33 @@ class AssistantConversationRepositorySpec extends AnyWordSpec with Matchers with
       cleanDb()
       val result = await(repo.touchUpdatedAt(AssistantConversationId(UUID.randomUUID().toString), ownerA, "some/path.json"))
       result shouldBe None
+    }
+
+    // ── HEL-698 idempotency key (design.md D2/D3) ──────────────────────────
+
+    "touchUpdatedAt with a Some key persists it in the same update as gcs_body_ref/updated_at" in {
+      cleanDb()
+      val record = newRecord(ownerA)
+      await(repo.create(record))
+
+      val newRef = s"${record.gcsBodyRef}.new"
+      val updated = await(repo.touchUpdatedAt(record.id, ownerA, newRef, Some("key-1")))
+      updated shouldBe defined
+      updated.get.lastIdempotencyKey shouldBe Some("key-1")
+      updated.get.gcsBodyRef shouldBe newRef
+    }
+
+    "touchUpdatedAt with a None key leaves a previously-set idempotency key untouched" in {
+      cleanDb()
+      val record = newRecord(ownerA)
+      await(repo.create(record))
+      await(repo.touchUpdatedAt(record.id, ownerA, record.gcsBodyRef, Some("key-1")))
+
+      val newRef = s"${record.gcsBodyRef}.newer"
+      val updated = await(repo.touchUpdatedAt(record.id, ownerA, newRef, None))
+      updated shouldBe defined
+      updated.get.lastIdempotencyKey shouldBe Some("key-1")
+      updated.get.gcsBodyRef shouldBe newRef
     }
 
     // ── List ordering (design.md D1/D5 — `ORDER BY pinned DESC, updated_at DESC`) ───────────────

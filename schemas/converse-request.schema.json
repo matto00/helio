@@ -9,6 +9,11 @@
     "message": {
       "type": "string",
       "description": "The user's typed message text."
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "maxLength": 128,
+      "description": "HEL-698: optional client-generated retry key. A converse whose key matches the conversation's last-applied key is treated as a no-op replay of an already-landed send (no Claude call, no append). Trimmed; blank treated as absent; longer than 128 characters is rejected with a 400."
     }
   },
   "additionalProperties": false

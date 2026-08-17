@@ -31,8 +31,13 @@ final case class UpdateAssistantConversationRequest(pinned: Option[Boolean], tit
 /** `POST /api/assistant-conversations/:id/converse` request (HEL-665 reopened composer ticket,
  *  design.md D7) — the one new user-typed message to send. Reuses the existing
  *  [[AssistantConversationResponse]] shape for the return value; no new response type needed, since
- *  the endpoint returns exactly what `GET /:id` already returns. */
-final case class ConverseRequest(message: String)
+ *  the endpoint returns exactly what `GET /:id` already returns.
+ *
+ *  `idempotencyKey` (HEL-698 design.md D5) — an optional client-generated retry key. Normalized at
+ *  the route boundary (trim, blank → absent, longer than 128 chars → `400`), never here — this
+ *  case class carries whatever the client sent, unnormalized. spray-json omits `None` on the wire,
+ *  so a keyless request is byte-identical to before this change. */
+final case class ConverseRequest(message: String, idempotencyKey: Option[String] = None)
 
 /** List-item shape (`GET /api/assistant-conversations`) — deliberately compact, no transcript
  *  (design.md D5). */
@@ -43,7 +48,12 @@ final case class AssistantConversationSummaryResponse(id: String, title: String,
  *  (HEL-667 design.md D1) are ephemeral, converse-response-only signals describing the turn that
  *  JUST completed: populated (`Some(...)`, whatever the boolean value) only by `POST /:id/converse`,
  *  always `None` on `GET /:id` — never persisted facts about the conversation as a whole, and never
- *  retrofitted onto a historical turn. */
+ *  retrofitted onto a historical turn.
+ *
+ *  `lastIdempotencyKey` (HEL-698 design.md D5) — UNLIKE the two ephemeral signals above, this IS a
+ *  persisted fact about the conversation (the key of the most recent keyed append), so it's populated
+ *  on BOTH `GET /:id` and converse responses — exactly what client-side reconciliation needs. `None`
+ *  until the first keyed append ever occurs. */
 final case class AssistantConversationResponse(
     id: String,
     title: String,
@@ -51,7 +61,8 @@ final case class AssistantConversationResponse(
     updatedAt: String,
     transcript: JsValue,
     hopBudgetExhausted: Option[Boolean] = None,
-    searchedWithNoResults: Option[Boolean] = None
+    searchedWithNoResults: Option[Boolean] = None,
+    lastIdempotencyKey: Option[String] = None
 )
 
 trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonProtocol {
@@ -65,11 +76,11 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
     jsonFormat2(UpdateAssistantConversationRequest.apply)
 
   implicit val converseRequestFormat: RootJsonFormat[ConverseRequest] =
-    jsonFormat1(ConverseRequest.apply)
+    jsonFormat2(ConverseRequest.apply)
 
   implicit val assistantConversationSummaryResponseFormat: RootJsonFormat[AssistantConversationSummaryResponse] =
     jsonFormat4(AssistantConversationSummaryResponse.apply)
 
   implicit val assistantConversationResponseFormat: RootJsonFormat[AssistantConversationResponse] =
-    jsonFormat7(AssistantConversationResponse.apply)
+    jsonFormat8(AssistantConversationResponse.apply)
 }

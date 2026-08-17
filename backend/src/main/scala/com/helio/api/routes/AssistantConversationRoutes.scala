@@ -5,14 +5,14 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.ai.{ClaudeContentBlock, ClaudeError, ClaudeToolMessage}
-import com.helio.api.{ErrorResponse, JsonProtocols}
+import com.helio.api.{ErrorResponse, JsonProtocols, RequestValidation}
 import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment
 import com.helio.api.protocols._
 import com.helio.domain._
 import com.helio.infrastructure.AssistantConversationRepository._
 import com.helio.services.{AssistantConversationService, AssistantService, AssistantTelemetry, ServiceError}
 import com.helio.services.AssistantConversationService.AssistantConversationDetail
-import org.slf4j.MDC
+import org.slf4j.{LoggerFactory, MDC}
 import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -47,6 +47,8 @@ final class AssistantConversationRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
+  private val log = LoggerFactory.getLogger(getClass)
+
   private val DefaultListLimit: Int = 10
 
   private def unavailable: Route =
@@ -65,14 +67,20 @@ final class AssistantConversationRoutes(
    *  unset (design.md D1: `GET`/create/append never carry either signal). Kept as a plain one-arg
    *  function (not a defaulted-param overload of `detailOfConverse`) so it stays eta-expandable bare
    *  at its `ServiceResponse.run(...)(detailOf)` call site below — a method with trailing defaulted
-   *  params does NOT eta-expand to a narrower function type in Scala. */
+   *  params does NOT eta-expand to a narrower function type in Scala.
+   *
+   *  `lastIdempotencyKey` (HEL-698 design.md D5) — UNLIKE those two ephemeral signals, this IS
+   *  populated here, from `detail.record.lastIdempotencyKey`, on every call site (GET, create,
+   *  append, converse, AND the route-entry replay short-circuit below) — it is a persisted fact, not
+   *  a just-this-turn signal. */
   private def detailOf(detail: AssistantConversationDetail): AssistantConversationResponse =
     AssistantConversationResponse(
-      id         = detail.record.id.value,
-      title      = detail.record.title,
-      pinned     = detail.record.pinned,
-      updatedAt  = detail.record.updatedAt.toString,
-      transcript = detail.transcript
+      id                 = detail.record.id.value,
+      title              = detail.record.title,
+      pinned             = detail.record.pinned,
+      updatedAt          = detail.record.updatedAt.toString,
+      transcript         = detail.transcript,
+      lastIdempotencyKey = detail.record.lastIdempotencyKey
     )
 
   /** `converseFlow`'s own re-fetch (design.md D1) — the ONE call site that actually populates
@@ -110,15 +118,27 @@ final class AssistantConversationRoutes(
    *  only the new turns (`result.fullHistory.drop(history.length)`) are appended, then the
    *  conversation is re-fetched so the response always reflects the persisted row, never a
    *  client-reconstructed approximation — now carrying `result`'s two turn-outcome signals
-   *  (design.md D1). */
+   *  (design.md D1).
+   *
+   *  `idempotencyKey` (HEL-698 design.md D3/D4) — a ROUTE-ENTRY replay check runs first, right after
+   *  the initial `service.get`: when the key is defined and equals `existing`'s already-recorded
+   *  `lastIdempotencyKey`, this IS a replay of an already-applied send — return the current detail
+   *  immediately, never call `AssistantService.converse`, never touch `appendTurn`, no telemetry (no
+   *  turn completes), one info log line for observability. Otherwise the key is threaded into
+   *  `appendTurn`, which owns the SECOND check (design.md D3's append-time check against a freshly-
+   *  read record) that closes the timeout-retry race. */
   private def converseFlow(
       assistantService: AssistantService,
       id: AssistantConversationId,
-      message: String
+      message: String,
+      idempotencyKey: Option[String]
   ): Future[Either[ServiceError, AssistantConversationResponse]] = {
     val mdcSnapshot = MDC.getCopyOfContextMap
     service.get(user, id).flatMap {
       case Left(e) => Future.successful(Left(e))
+      case Right(existing) if idempotencyKey.isDefined && idempotencyKey == existing.record.lastIdempotencyKey =>
+        log.info(s"Replaying converse for conversation ${id.value}: idempotency key already applied")
+        Future.successful(Right(detailOf(existing)))
       case Right(existing) =>
         val history = existing.transcript.convertTo[Seq[ClaudeToolMessage]]
         assistantService.converse(history, message, user).flatMap {
@@ -134,7 +154,7 @@ final class AssistantConversationRoutes(
               modelId = assistantService.modelId,
               tokens = result.usage
             )
-            service.appendTurn(user, id, newTurns).flatMap {
+            service.appendTurn(user, id, newTurns, idempotencyKey).flatMap {
               case Left(e) => Future.successful(Left(e))
               case Right(_) =>
                 service
@@ -190,7 +210,11 @@ final class AssistantConversationRoutes(
           post {
             assistantServiceOpt.fold(unavailable) { assistantService =>
               entity(as[ConverseRequest]) { request =>
-                ServiceResponse.run(converseFlow(assistantService, id, request.message))(identity)
+                RequestValidation.validateIdempotencyKey(request.idempotencyKey) match {
+                  case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                  case Right(idempotencyKey) =>
+                    ServiceResponse.run(converseFlow(assistantService, id, request.message, idempotencyKey))(identity)
+                }
               }
             }
           }
