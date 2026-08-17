@@ -117,4 +117,128 @@ describe("ThemeProvider", () => {
 
     await waitFor(() => expect(onAccentChange).toHaveBeenCalledWith("#3b82f6"));
   });
+
+  it("defaults to the dark-theme accent when no preference is stored (dark)", () => {
+    render(
+      <ThemeProvider>
+        <AccentConsumer />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByTestId("accent").textContent).toBe("#f97316");
+  });
+
+  it("defaults to the light-theme accent when no preference is stored (light)", () => {
+    window.localStorage.setItem(ThemeStorageKey, "light");
+
+    render(
+      <ThemeProvider>
+        <AccentConsumer />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByTestId("accent").textContent).toBe("#ea580c");
+  });
+
+  describe("preferredAccentColor (server preference — F-061)", () => {
+    it("overrides a stale localStorage accent with the server preference on mount", async () => {
+      window.localStorage.setItem(AccentStorageKey, "#eab308");
+
+      render(
+        <ThemeProvider preferredAccentColor="#f97316">
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByTestId("accent").textContent).toBe("#f97316"));
+      await waitFor(() =>
+        expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("#f97316"),
+      );
+    });
+
+    it("adopts a preferredAccentColor that arrives after mount (e.g. login completing)", async () => {
+      const { rerender } = render(
+        <ThemeProvider preferredAccentColor={null}>
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      expect(screen.getByTestId("accent").textContent).toBe("#f97316");
+
+      rerender(
+        <ThemeProvider preferredAccentColor="#22c55e">
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByTestId("accent").textContent).toBe("#22c55e"));
+    });
+
+    it("leaves the current accent untouched when preferredAccentColor is absent", () => {
+      window.localStorage.setItem(AccentStorageKey, "#3b82f6");
+
+      render(
+        <ThemeProvider>
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      expect(screen.getByTestId("accent").textContent).toBe("#3b82f6");
+    });
+  });
+
+  describe("onAccentChange write-back (F-106)", () => {
+    it("does not invoke onAccentChange on initial mount", async () => {
+      const onAccentChange = jest.fn();
+      window.localStorage.setItem(AccentStorageKey, "#3b82f6");
+
+      render(
+        <ThemeProvider onAccentChange={onAccentChange}>
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      // Let any effects that would fire settle before asserting the negative.
+      await waitFor(() =>
+        expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("#3b82f6"),
+      );
+      expect(onAccentChange).not.toHaveBeenCalled();
+    });
+
+    it("does not invoke onAccentChange when a preferredAccentColor arrives/changes after mount", async () => {
+      const onAccentChange = jest.fn();
+
+      const { rerender } = render(
+        <ThemeProvider onAccentChange={onAccentChange} preferredAccentColor={null}>
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      rerender(
+        <ThemeProvider onAccentChange={onAccentChange} preferredAccentColor="#22c55e">
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByTestId("accent").textContent).toBe("#22c55e"));
+      expect(onAccentChange).not.toHaveBeenCalled();
+    });
+
+    it("still invokes onAccentChange exactly once for a genuine user-driven pick", async () => {
+      const onAccentChange = jest.fn();
+
+      render(
+        <ThemeProvider onAccentChange={onAccentChange}>
+          <AccentConsumer />
+        </ThemeProvider>,
+      );
+
+      act(() => {
+        fireEvent.click(screen.getByRole("button", { name: "Set blue" }));
+      });
+
+      await waitFor(() => expect(onAccentChange).toHaveBeenCalledWith("#3b82f6"));
+      expect(onAccentChange).toHaveBeenCalledTimes(1);
+    });
+  });
 });

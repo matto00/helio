@@ -2,7 +2,17 @@ export type Theme = "dark" | "light";
 
 export const ThemeStorageKey = "helio-theme";
 export const AccentStorageKey = "helio-accent";
-export const DefaultAccentColor = "#f97316";
+
+// The out-of-the-box accent, before any user or server preference is known.
+// Mirrors theme.css's per-theme `--app-accent` fallback exactly (dark:
+// #f97316, light: #ea580c) — theme.css's light value alone doesn't clear
+// WCAG AA as *text* color, but callers must stop painting text with the raw
+// accent (F-050) rather than expect a single hex to work as both a solid
+// accent and a body-text color in every theme.
+export const DefaultAccentColorByTheme: Record<Theme, string> = {
+  dark: "#f97316",
+  light: "#ea580c",
+};
 
 export interface AccentPreset {
   label: string;
@@ -61,11 +71,11 @@ export function getInitialTheme(): Theme {
   return isTheme(storedTheme) ? storedTheme : "dark";
 }
 
-export function getInitialAccentColor(): string {
+export function getInitialAccentColor(theme: Theme): string {
   if (typeof window === "undefined") {
-    return DefaultAccentColor;
+    return DefaultAccentColorByTheme[theme];
   }
 
   const stored = window.localStorage.getItem(AccentStorageKey);
-  return stored !== null ? stored : DefaultAccentColor;
+  return stored !== null ? stored : DefaultAccentColorByTheme[theme];
 }

@@ -1,7 +1,7 @@
 import {
   AccentStorageKey,
   DASHBOARD_APPEARANCE_PRESETS,
-  DefaultAccentColor,
+  DefaultAccentColorByTheme,
   getInitialAccentColor,
 } from "./theme";
 
@@ -41,12 +41,17 @@ describe("getInitialAccentColor", () => {
     window.localStorage.clear();
   });
 
-  it("returns the default orange when localStorage is empty", () => {
-    expect(getInitialAccentColor()).toBe(DefaultAccentColor);
+  it("returns the dark-theme default orange when localStorage is empty (dark)", () => {
+    expect(getInitialAccentColor("dark")).toBe(DefaultAccentColorByTheme.dark);
   });
 
-  it("returns the stored value when one is present in localStorage", () => {
+  it("returns the light-theme default orange when localStorage is empty (light)", () => {
+    expect(getInitialAccentColor("light")).toBe(DefaultAccentColorByTheme.light);
+  });
+
+  it("returns the stored value when one is present in localStorage, regardless of theme", () => {
     window.localStorage.setItem(AccentStorageKey, "#3b82f6");
-    expect(getInitialAccentColor()).toBe("#3b82f6");
+    expect(getInitialAccentColor("dark")).toBe("#3b82f6");
+    expect(getInitialAccentColor("light")).toBe("#3b82f6");
   });
 });

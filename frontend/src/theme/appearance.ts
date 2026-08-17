@@ -30,12 +30,21 @@ export const defaultChartAppearance: ChartAppearance = {
   legend: { show: true, position: "top" },
   tooltip: { enabled: true },
   axisLabels: {
-    x: { show: true, label: "X Axis" },
-    y: { show: true, label: "Y Axis" },
+    x: { show: true, label: "" },
+    y: { show: true, label: "" },
   },
   chartType: "line",
 };
 
+// dashboardAppearanceEditorFallback / panelAppearanceEditorFallback /
+// panelTextEditorFallback are literal copies of theme.css's dark-theme
+// --app-surface-raised / --app-surface / --app-text (the editors' color
+// inputs default to the dark palette regardless of the active theme) — if
+// those theme.css values ever change, update these three too.
+//
+// dashboardGridAppearanceEditorFallback is a deliberately hand-tuned value
+// (not derived from any single theme.css token) and doesn't need the same
+// lockstep treatment.
 export const dashboardAppearanceEditorFallback = "#232019";
 export const dashboardGridAppearanceEditorFallback = "#2a2620";
 export const panelAppearanceEditorFallback = "#1a1816";
@@ -50,6 +59,14 @@ interface RgbColor {
 const readableLightText = "#fdfcfa";
 const readableDarkText = "#181511";
 
+// appBackground / panelSurface / defaultText (both theme entries below) are
+// literal copies of theme.css's --app-bg / --app-surface / --app-text for
+// that theme — the blend math here can't read CSS custom properties, so if
+// theme.css's values for those tokens ever change, update the matching
+// entries here too (values verified matching at time of writing).
+//
+// gridBackground (both entries) is a deliberately hand-tuned value, not
+// derived from any single theme.css token — no sync obligation for it.
 const themeAppearancePalette: Record<
   Theme,
   {
@@ -79,6 +96,22 @@ export function clampTransparency(value: number): number {
 
 export function getColorInputValue(value: string, fallback: string): string {
   return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+// F-124 — theme-aware counterparts of `panelAppearanceEditorFallback` /
+// `panelTextEditorFallback` above. Those two constants are frozen to the dark
+// theme's values, so a panel's Background/Text `<input type="color">`
+// swatches showed the wrong "current" color for a panel that has never had
+// an override set while viewing in light theme (e.g. a near-black Background
+// swatch on a light-theme panel that actually renders near-white). Callers
+// that need the fallback to track the active theme (`PanelDetailModal.tsx`)
+// should use these instead of the raw constants.
+export function getPanelAppearanceEditorFallback(theme: Theme): string {
+  return themeAppearancePalette[theme].panelSurface;
+}
+
+export function getPanelTextEditorFallback(theme: Theme): string {
+  return themeAppearancePalette[theme].defaultText;
 }
 
 function parseHexColor(value: string): RgbColor | null {
@@ -248,10 +281,17 @@ export function getDashboardBgContrastRatio(
     return null;
   }
 
+  // F-013 — tint strength must match `resolveDashboardBackground`'s blend
+  // (0.55) exactly, not a separate, much weaker 0.22 tint. The mismatch meant
+  // this check was scored against a color the user never actually sees (a
+  // near-white wash), so real low-contrast backgrounds (the user-chosen color
+  // dominates at 0.55) never tripped the warning. Kept as two call sites
+  // rather than parsing `resolveDashboardBackground`'s rgba string back into
+  // an `RgbColor` — same blend, no string round-trip.
   const resolvedBg = resolveTintedSurface(
     themeAppearancePalette[theme].appBackground,
     appearance.background,
-    0.22,
+    0.55,
   );
   const textColor = parseHexColor(themeAppearancePalette[theme].defaultText);
 

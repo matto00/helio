@@ -9,7 +9,6 @@ import {
   registerRequest,
   updateUserPreferencesRequest,
 } from "../services/authService";
-import { applyAccentTokens } from "../../../theme/appearance";
 import type {
   AuthResponse,
   UpdateUserPreferenceRequest,
@@ -20,11 +19,20 @@ import type {
 export interface AuthState {
   currentUser: User | null;
   status: "idle" | "loading" | "authenticated" | "unauthenticated";
+  // F-091: kept separate from `status`, which also carries the unconditional
+  // session-rehydration check that fires on every app mount (App.tsx
+  // dispatches rehydrateAuth() whenever status is "idle"). Login/register
+  // used to derive their submit button's loading state from that same
+  // `status` field, so the button read "Signing in…" for every fresh
+  // visitor until GET /api/auth/me resolved -- not just while a submit was
+  // actually in flight. This flag is only ever touched by login/register.
+  submitStatus: "idle" | "loading";
 }
 
 const initialState: AuthState = {
   currentUser: null,
   status: "idle",
+  submitStatus: "idle",
 };
 
 // HEL-287 CodeQL #8: the session identity now lives in an HttpOnly cookie
@@ -116,9 +124,11 @@ const authSlice = createSlice({
     setAuth(state, action: PayloadAction<{ user: User }>) {
       state.currentUser = action.payload.user;
       state.status = "authenticated";
-      if (action.payload.user.preferences?.accentColor) {
-        applyAccentTokens(action.payload.user.preferences.accentColor);
-      }
+      // Accent is applied by ThemeProvider (fed the resulting currentUser's
+      // preference from outside this slice), never as a side effect here —
+      // see F-061: a reducer writing DOM tokens directly raced ThemeProvider
+      // and left the AccentPicker's selection out of sync with what was
+      // actually applied.
     },
     clearAuth(state) {
       state.currentUser = null;
@@ -132,33 +142,33 @@ const authSlice = createSlice({
       .addCase(rehydrateAuth.pending, (state) => {
         state.status = "loading";
       })
-      // login
+      // login — F-091: submitStatus only, `status` is untouched by .pending
+      // so a submit-in-flight never masquerades as the boot-time rehydrate
+      // check for ProtectedRoute/PublicOnlyRoute.
       .addCase(login.pending, (state) => {
-        state.status = "loading";
+        state.submitStatus = "loading";
       })
       .addCase(login.fulfilled, (state, action) => {
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        if (action.payload.user.preferences?.accentColor) {
-          applyAccentTokens(action.payload.user.preferences.accentColor);
-        }
+        state.submitStatus = "idle";
       })
       .addCase(login.rejected, (state) => {
         state.status = "unauthenticated";
+        state.submitStatus = "idle";
       })
-      // register
+      // register — same submitStatus treatment as login (F-091).
       .addCase(register.pending, (state) => {
-        state.status = "loading";
+        state.submitStatus = "loading";
       })
       .addCase(register.fulfilled, (state, action) => {
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        if (action.payload.user.preferences?.accentColor) {
-          applyAccentTokens(action.payload.user.preferences.accentColor);
-        }
+        state.submitStatus = "idle";
       })
       .addCase(register.rejected, (state) => {
         state.status = "unauthenticated";
+        state.submitStatus = "idle";
       })
       // handleOAuthCallback
       .addCase(handleOAuthCallback.pending, (state) => {
@@ -167,9 +177,6 @@ const authSlice = createSlice({
       .addCase(handleOAuthCallback.fulfilled, (state, action) => {
         state.currentUser = action.payload.user;
         state.status = "authenticated";
-        if (action.payload.user.preferences?.accentColor) {
-          applyAccentTokens(action.payload.user.preferences.accentColor);
-        }
       })
       .addCase(handleOAuthCallback.rejected, (state) => {
         state.currentUser = null;

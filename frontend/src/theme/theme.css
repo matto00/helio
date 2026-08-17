@@ -77,6 +77,17 @@
   --z-popover-scrim: 99;
   --z-popover: 100;
   --z-toast: 1000;
+
+  /* --- Theme-invariant swatch ring (F-233) --- */
+  /* `--app-border-subtle`/`-strong` are both theme-derived hairlines at low
+     alpha (0.09-0.2), so a color-swatch input whose OWN fill happens to be
+     near-black or near-white in the current theme can become nearly
+     invisible against its surrounding card. This ring is deliberately NOT
+     theme-derived — a fixed mid-gray that stays legible against any card
+     background in either theme and against any fill color the swatch itself
+     is currently showing. Not redeclared in the `[data-theme]` blocks below;
+     that's intentional, the whole point is that it never changes. */
+  --app-swatch-ring: #8a8a8a;
 }
 
 /* ─── Dark: warm near-black "stone" ramp ─────────────────────────────────── */
@@ -137,7 +148,11 @@
   --app-surface-strong: #ffffff;
 
   --app-text: #211d19;
-  --app-text-muted: #726b62;
+  /* Darkened from #726b62 (F-049): the original measured 4.45:1 against
+     --app-surface-soft — a hair under WCAG AA's 4.5:1 for text. #6c655c
+     clears it with headroom (~4.9:1) against every surface token while
+     staying visually a "muted" step down from --app-text. */
+  --app-text-muted: #6c655c;
 
   --app-border-subtle: rgba(33, 29, 25, 0.11);
   --app-border-strong: rgba(33, 29, 25, 0.2);
@@ -254,4 +269,21 @@ a {
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Visually-hidden text: visible to assistive tech, removed from layout/paint
+   for sighted users. No design token applies to an intentionally 1px/
+   off-screen technique like this. Canonical home for the "sr-only" clip
+   pattern (HEL UI-sweep F-204) — feature CSS should use this shared class
+   instead of redefining it locally. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

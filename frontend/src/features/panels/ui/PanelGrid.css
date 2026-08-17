@@ -35,7 +35,7 @@
   flex-direction: column;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: clamp(14px, 2vw, 20px);
+  padding: clamp(var(--space-3), 2vw, var(--space-5));
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);
   background: var(--panel-surface-override, var(--app-surface));
@@ -80,7 +80,7 @@
 
 .panel-grid-card__title {
   margin: 0;
-  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  font-size: clamp(var(--text-sm), 1.1vw, var(--text-lg));
   font-weight: var(--weight-semibold);
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -94,22 +94,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-pill);
   background: transparent;
   color: var(--app-text-muted);
+  font-size: var(--text-xs);
   cursor: grab;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
   /* Prevent the browser's default touch gestures (scroll/zoom) on the drag handle
    * so react-grid-layout's pointer-events handler can take over and start a drag. */
   touch-action: none;
 }
 
-.panel-grid-card__handle span {
-  width: 3px;
-  height: 3px;
-  border-radius: var(--app-radius-pill);
-  background: currentColor;
+/* F-099: was undiscoverable beyond the `:active` cursor swap below — no
+   feedback at all before the drag actually starts. */
+.panel-grid-card__handle:hover {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 .panel-grid-card__handle:active {
@@ -161,23 +164,17 @@
   color: var(--app-text);
 }
 
-.panel-grid-card__copy {
-  margin: 0;
-  color: color-mix(in srgb, currentColor 74%, transparent);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-
-/* Footer meta: quiet mono annotations, not shouting badges */
+/* Footer meta: quiet mono annotations, not shouting badges.
+   F-049: was `color-mix(in srgb, currentColor 60%, transparent)`, layering
+   opacity dimming on top of the card's already-full-strength text color —
+   axe measured 4.4:1 (light) / passable-but-uncontrolled in dark. Using the
+   theme's vetted muted token directly keeps this at a guaranteed >=4.5:1
+   instead of an ad hoc opacity blend. */
 .panel-grid-card__footer {
   display: flex;
   gap: var(--space-3);
   align-items: center;
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  color: var(--app-text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   font-weight: var(--weight-medium);
@@ -186,12 +183,14 @@
   flex-wrap: wrap;
 }
 
+/* F-220: no container chrome (no border/padding/pill) — the type badge reads
+   as the same "plain quiet mono text" as its `.panel-grid-card__footer`
+   sibling (the Updated-date span), instead of one fact getting a bordered
+   chip treatment the other doesn't. */
 .panel-grid-card__type-badge {
-  padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  border-radius: var(--app-radius-pill);
-  background: transparent;
-  color: color-mix(in srgb, currentColor 70%, transparent);
+  /* F-049: was `color-mix(in srgb, currentColor 70%, transparent)` —
+     axe measured 2.59:1 (light) / 3.7:1 (dark), both AA failures. */
+  color: var(--app-text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   font-weight: var(--weight-medium);
@@ -200,10 +199,14 @@
 }
 
 /* HEL-576: informational "invalid data" badge — the panel's bound DataType's
- * latest pipeline run had an error-severity assertion failure. Same chip
- * recipe as .panel-grid-card__type-badge, just intent-colored. */
+ * latest pipeline run had an error-severity assertion failure. Unlike the
+ * plain type badge above, this one is a deliberate warning callout, so it
+ * keeps its own chip container (border/padding/pill) rather than inheriting
+ * the plain-text treatment. */
 .panel-grid-card__type-badge--invalid {
-  border-color: color-mix(in srgb, var(--app-error) 40%, transparent);
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--app-error) 40%, transparent);
+  border-radius: var(--app-radius-pill);
   background: var(--app-error-surface);
   color: var(--app-error);
 }

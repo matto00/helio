@@ -1,7 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import * as authService from "../services/authService";
-import { applyAccentTokens } from "../../../theme/appearance";
 import type { AuthResponse, User } from "../types/user";
 import {
   authReducer,
@@ -9,16 +8,15 @@ import {
   handleOAuthCallback,
   login,
   logout,
+  register,
   rehydrateAuth,
   setAuth,
   updateUserPreferences,
 } from "./authSlice";
 
 jest.mock("../services/authService");
-jest.mock("../../../theme/appearance");
 
 const mockedAuthService = jest.mocked(authService);
-const mockedApplyAccentTokens = jest.mocked(applyAccentTokens);
 
 const testUser: User = {
   id: "user-1",
@@ -79,6 +77,71 @@ describe("rehydrateAuth thunk", () => {
 
     expect(store.getState().auth.status).toBe("authenticated");
     expect(store.getState().auth.currentUser).toEqual(testUser);
+  });
+});
+
+describe("submitStatus / status decoupling (F-091)", () => {
+  // The submit button's loading state used to be derived from `status`,
+  // which rehydrateAuth.pending also sets on every app mount — so a
+  // genuinely fresh visitor saw "Signing in…" until GET /api/auth/me
+  // resolved. submitStatus is now the only field login/register touch.
+
+  it("login.pending sets submitStatus without touching status", () => {
+    mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
+    const store = makeStore();
+
+    const pending = store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
+
+    expect(store.getState().auth.submitStatus).toBe("loading");
+    expect(store.getState().auth.status).toBe("idle");
+
+    return pending;
+  });
+
+  it("register.pending sets submitStatus without touching status", () => {
+    mockedAuthService.registerRequest.mockResolvedValue(testAuthResponse);
+    const store = makeStore();
+
+    const pending = store.dispatch(register({ email: "test@example.com", password: "pass1234" }));
+
+    expect(store.getState().auth.submitStatus).toBe("loading");
+    expect(store.getState().auth.status).toBe("idle");
+
+    return pending;
+  });
+
+  it("rehydrateAuth.pending sets status without touching submitStatus", () => {
+    mockedAuthService.getMeRequest.mockResolvedValue(testUser);
+    const store = makeStore();
+
+    const pending = store.dispatch(rehydrateAuth());
+
+    expect(store.getState().auth.status).toBe("loading");
+    expect(store.getState().auth.submitStatus).toBe("idle");
+
+    return pending;
+  });
+
+  it("resets submitStatus to idle after a failed login", async () => {
+    const axiosError = Object.assign(new Error("Unauthorized"), {
+      isAxiosError: true,
+      response: { data: { message: "Invalid email or password" } },
+    });
+    mockedAuthService.loginRequest.mockRejectedValue(axiosError);
+    const store = makeStore();
+
+    await store.dispatch(login({ email: "x@x.com", password: "wrong" }));
+
+    expect(store.getState().auth.submitStatus).toBe("idle");
+  });
+
+  it("resets submitStatus to idle after a successful login", async () => {
+    mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
+    const store = makeStore();
+
+    await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
+
+    expect(store.getState().auth.submitStatus).toBe("idle");
   });
 });
 
@@ -191,10 +254,6 @@ describe("handleOAuthCallback thunk", () => {
 });
 
 describe("updateUserPreferences thunk", () => {
-  beforeEach(() => {
-    mockedApplyAccentTokens.mockClear();
-  });
-
   it("updates currentUser.preferences on successful update", async () => {
     const preferences = { accentColor: "#3b82f6", zoomLevels: { "dash-1": 1.5 } };
     mockedAuthService.updateUserPreferencesRequest.mockResolvedValue(preferences);
@@ -219,10 +278,10 @@ describe("updateUserPreferences thunk", () => {
 
 describe("rehydrateAuth with preferences", () => {
   beforeEach(() => {
-    mockedApplyAccentTokens.mockClear();
+    document.documentElement.style.removeProperty("--app-accent");
   });
 
-  it("calls applyAccentTokens when user has accentColor preference", async () => {
+  it("stores the user's accentColor preference in state without applying it to the DOM directly", async () => {
     const userWithPrefs: User = {
       ...testUser,
       preferences: {
@@ -236,16 +295,21 @@ describe("rehydrateAuth with preferences", () => {
     const store = makeStore();
     await store.dispatch(rehydrateAuth());
 
-    expect(mockedApplyAccentTokens).toHaveBeenCalledWith("#f97316");
     expect(store.getState().auth.currentUser).toEqual(userWithPrefs);
+    // F-061: the slice must never write `--app-accent` itself — ThemeProvider
+    // is the single owner, fed by this state's preferences from outside the
+    // reducer, so the applied accent and the AccentPicker's selection can
+    // never disagree.
+    expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("");
   });
 
-  it("does not call applyAccentTokens when user has no accent color", async () => {
+  it("stores currentUser as-is when the user has no accent color preference", async () => {
     mockedAuthService.getMeRequest.mockResolvedValue(testUser);
 
     const store = makeStore();
     await store.dispatch(rehydrateAuth());
 
-    expect(mockedApplyAccentTokens).not.toHaveBeenCalled();
+    expect(store.getState().auth.currentUser).toEqual(testUser);
+    expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("");
   });
 });
