@@ -5,6 +5,38 @@
   font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--panel-text-override, inherit);
+  /* F-038: the desktop grid gives every panel a fixed height, so markdown
+     taller than its card scrolls internally with zero visual hint that more
+     content exists — see the shared recipe note in
+     `renderers/CollectionRenderer.css` for how this works and why it's
+     duplicated per-file rather than centralized. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 30%, transparent) transparent;
+  background:
+    linear-gradient(var(--panel-surface-override, var(--app-surface)) 40%, transparent),
+    linear-gradient(transparent, var(--panel-surface-override, var(--app-surface)) 60%) 0 100%,
+    linear-gradient(color-mix(in srgb, currentColor 16%, transparent), transparent),
+    linear-gradient(transparent, color-mix(in srgb, currentColor 16%, transparent)) 0 100%;
+  background-repeat: no-repeat;
+  background-size:
+    100% var(--space-6),
+    100% var(--space-6),
+    100% var(--space-2),
+    100% var(--space-2);
+  background-attachment: local, local, scroll, scroll;
+}
+
+.markdown-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.markdown-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: var(--app-radius-pill);
+}
+
+.markdown-panel::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* HEL-245 — constrain embedded images (incl. helio://uploads/image/<id>

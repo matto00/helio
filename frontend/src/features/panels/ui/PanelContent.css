@@ -45,11 +45,51 @@
 
 /* Text */
 
+/* F-038 — shared scroll-affordance recipe: see the full rationale comment above
+   `.panel-content--collection` in `renderers/CollectionRenderer.css` (that
+   file's own copy is a third instance of the same recipe, unavoidably
+   duplicated across the file-ownership split — but `.panel-content--text`
+   and `.panel-content--table` both live in THIS file, so their copies are
+   combined into one shared selector list instead of repeating it twice). */
+.panel-content--text,
+.panel-content--table {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 30%, transparent) transparent;
+  background:
+    linear-gradient(var(--panel-surface-override, var(--app-surface)) 40%, transparent),
+    linear-gradient(transparent, var(--panel-surface-override, var(--app-surface)) 60%) 0 100%,
+    linear-gradient(color-mix(in srgb, currentColor 16%, transparent), transparent),
+    linear-gradient(transparent, color-mix(in srgb, currentColor 16%, transparent)) 0 100%;
+  background-repeat: no-repeat;
+  background-size:
+    100% var(--space-6),
+    100% var(--space-6),
+    100% var(--space-2),
+    100% var(--space-2);
+  background-attachment: local, local, scroll, scroll;
+}
+
 .panel-content--text {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
-  overflow-y: auto;
+}
+
+.panel-content--text::-webkit-scrollbar,
+.panel-content--table::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-content--text::-webkit-scrollbar-thumb,
+.panel-content--table::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: var(--app-radius-pill);
+}
+
+.panel-content--text::-webkit-scrollbar-track,
+.panel-content--table::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .panel-content__text-line {
@@ -69,12 +109,15 @@
 
 /* Table */
 
+/* F-038 — the scroll-affordance recipe (background, scrollbar-width/-color,
+   and the ::-webkit-scrollbar rules) now lives on the combined
+   `.panel-content--text, .panel-content--table` selector above; only this
+   variant's own unique layout properties remain here. */
 .panel-content--table {
   padding: var(--space-2) var(--space-3);
   flex-direction: column;
   justify-content: flex-start;
   align-items: stretch;
-  overflow-y: auto;
   min-height: 0;
 }
 
@@ -144,21 +187,8 @@
   color: var(--app-error);
 }
 
-.panel-content__spinner {
-  display: block;
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--app-border-subtle);
-  border-top-color: var(--app-accent);
-  border-radius: 50%;
-  animation: panel-spin 0.7s linear infinite;
-}
-
-@keyframes panel-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* `.panel-content__spinner` is now the shared `Spinner` primitive (size `xl`, its exact 24px/3px
+ * match) — see PanelContent.tsx / TableRenderer.tsx (F-190). */
 
 .panel-content__state-label {
   font-size: var(--text-xs);
@@ -224,7 +254,10 @@
 
 @container panel-card (min-height: 280px) {
   .panel-content__metric-value {
-    font-size: 2.5rem;
+    /* F-240: 2.5rem/40px exceeded every --text-* token (scale tops out at
+       --text-3xl/30px). Rather than add a --text-4xl token for one caller,
+       clamp to the existing top of the scale. */
+    font-size: var(--text-3xl);
   }
 
   .panel-content__metric-label {
