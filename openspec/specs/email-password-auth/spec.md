@@ -6,19 +6,21 @@ Email/password registration, login, and logout, with bcrypt-hashed credentials a
 ### Requirement: User registration
 The system SHALL expose `POST /api/auth/register` that accepts `email`, `password`, and optional
 `displayName`. On success it SHALL create a user record with the password stored as a bcrypt hash
-(cost factor ≥ 12), create a session, set the session as an `HttpOnly` cookie (`helio_session`) via
+(cost factor ≥ 12), assign the user's tier per the owner-email allowlist (`owner` on a match, else
+`free`), create a session, set the session as an `HttpOnly` cookie (`helio_session`) via
 `Set-Cookie`, and return `201 Created` with `{ expiresAt, user }` — the response body SHALL NOT
 include the session token. The response SHALL NOT include the password hash. The user object SHALL
-include `avatarUrl` (which will be `null` for email/password registrations).
+include `avatarUrl` (which will be `null` for email/password registrations) and `tier`.
 
 #### Scenario: Successful registration
 - **WHEN** a `POST /api/auth/register` request is made with a valid email and a password of at least
   8 characters
 - **THEN** the system returns `201 Created` with `{ expiresAt, user: { id, email, displayName,
-  avatarUrl, createdAt } }` and a `Set-Cookie: helio_session=...; HttpOnly; ...` header
+  avatarUrl, tier, createdAt } }` and a `Set-Cookie: helio_session=...; HttpOnly; ...` header
 - **AND** the response body does not contain a `token` field
 - **AND** the password is stored as a bcrypt hash, never in plaintext
 - **AND** `avatarUrl` is `null`
+- **AND** `tier` is `free` for a non-allowlisted email and `owner` for an allowlisted one
 
 #### Scenario: Duplicate email registration
 - **WHEN** a `POST /api/auth/register` request is made with an email that already exists
@@ -37,20 +39,22 @@ include `avatarUrl` (which will be `null` for email/password registrations).
 - **THEN** the system returns `400 Bad Request` with a descriptive error message
 
 ### Requirement: User login
-The system SHALL expose `POST /api/auth/login` that accepts `email` and `password`. On success for an
-account without MFA enabled it SHALL verify credentials, create a new session, set the session as an
-`HttpOnly` cookie (`helio_session`) via `Set-Cookie`, and return `200 OK` with `{ expiresAt, user }` —
-the response body SHALL NOT include the session token. On success for an account with MFA enabled it
-SHALL NOT create a session or set a cookie, and SHALL instead return `200 OK` with
-`{ mfaRequired: true, challengeToken }` per the `mfa-login-gate` capability. Failed login attempts
-SHALL return `401 Unauthorized` with a generic message that does not distinguish between unknown
-email and wrong password (no user enumeration). The user object SHALL include `avatarUrl`.
+The system SHALL expose `POST /api/auth/login` that accepts `email` and `password`. On success it
+SHALL verify credentials and apply the owner-email allowlist promotion (persisting `tier = owner` for
+a matching email whose stored tier is not already `owner`). For an account without MFA enabled it
+SHALL then create a new session, set the session as an `HttpOnly` cookie (`helio_session`) via
+`Set-Cookie`, and return `200 OK` with `{ expiresAt, user }` — the response body SHALL NOT include the
+session token. For an account with MFA enabled it SHALL NOT create a session or set a cookie, and
+SHALL instead return `200 OK` with `{ mfaRequired: true, challengeToken }` per the `mfa-login-gate`
+capability. Failed login attempts SHALL return `401 Unauthorized` with a generic message that does not
+distinguish between unknown email and wrong password (no user enumeration). The user object SHALL
+include `avatarUrl` and `tier`.
 
 #### Scenario: Successful login
 - **WHEN** a `POST /api/auth/login` request is made with a valid email and correct password for an
   account without MFA enabled
 - **THEN** the system returns `200 OK` with `{ expiresAt, user: { id, email, displayName, avatarUrl,
-  createdAt } }` and a `Set-Cookie: helio_session=...; HttpOnly; ...` header
+  tier, createdAt } }` and a `Set-Cookie: helio_session=...; HttpOnly; ...` header
 - **AND** the response body does not contain a `token` field
 
 #### Scenario: Successful primary auth with MFA enabled

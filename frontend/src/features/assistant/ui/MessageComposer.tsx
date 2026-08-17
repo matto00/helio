@@ -11,6 +11,31 @@ import {
   setSelectedConversationId,
 } from "../state/assistantConversationsSlice";
 
+// HEL-703 design.md D9 — distinct, actionable copy for the two tier-gate error codes; every other
+// converse failure (network/model/generic) keeps showing its own server-provided message, unchanged.
+const LimitReachedMessage =
+  "Daily chat limit reached. Your conversation history is still here — the limit resets at the start of the next UTC day.";
+const TierForbiddenMessage =
+  "Chat access has changed for your account. Refresh the page to see your current access.";
+
+/** Resolves the message `MessageComposer`'s local error state renders. `err` is either a plain
+ *  string (an older/other thunk's rejectValue, or a thrown primitive), a `ConverseErrorPayload`
+ *  object (`converse`'s own widened rejectValue, thrown as-is by RTK's `.unwrap()`), a real `Error`/
+ *  `AxiosError` (e.g. `createConversation`'s own failure path, not a thunk at all), or anything
+ *  else. Only a plain, non-`Error` object carrying a `message` field is treated as the structured
+ *  payload — a real `Error` instance never is, so `createConversation` failures keep their
+ *  pre-existing generic fallback untouched. */
+function composerErrorMessage(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err !== null && typeof err === "object" && !(err instanceof Error) && "message" in err) {
+    const payload = err as { code?: string; message: string };
+    if (payload.code === "CHAT_LIMIT_REACHED") return LimitReachedMessage;
+    if (payload.code === "TIER_FORBIDDEN") return TierForbiddenMessage;
+    if (typeof payload.message === "string" && payload.message) return payload.message;
+  }
+  return "Failed to send message.";
+}
+
 interface MessageComposerProps {
   /** The conversation to send to, or `null` when none is currently selected (e.g. a first-time
    *  user with zero conversations, design.md D5) -- in that case the send handler creates one
@@ -75,7 +100,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       setMessage("");
       setPendingSend(null);
     } catch (err) {
-      setError(typeof err === "string" ? err : "Failed to send message.");
+      setError(composerErrorMessage(err));
     } finally {
       setSending(false);
     }

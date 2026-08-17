@@ -136,6 +136,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
               displayName: null,
               avatarUrl: null,
               createdAt: "2026-01-01T00:00:00Z",
+              tier: "owner" as const,
             },
             status: "authenticated" as const,
             mfaChallenge: null,

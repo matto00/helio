@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { faComments } from "@fortawesome/free-solid-svg-icons";
 
 import "./ActiveConversationPanel.css";
-import { selectConversation } from "../state/assistantConversationsSlice";
+import { selectConversation, TierRequestAccessCopy } from "../state/assistantConversationsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { extractProposal } from "../proposalExtraction";
@@ -48,6 +48,7 @@ function buildToolResultsById(
  * `startingNewConversation` even when `items` is non-empty. */
 export function ActiveConversationPanel() {
   const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
   const {
     items,
     selectedConversationId,
@@ -56,15 +57,34 @@ export function ActiveConversationPanel() {
     lastTurnOutcome,
   } = useAppSelector((state) => state.assistantConversations);
 
+  // HEL-703 design.md D9 — proactive half of the tier gate: a `free`-tier user never fetches or
+  // renders a conversation at all, short-circuiting to a dedicated, CTA-less request-access state
+  // before any of the existing branches below. The reactive half (a `TIER_FORBIDDEN`/
+  // `CHAT_LIMIT_REACHED` response arriving mid-session) is `MessageComposer`'s own local handling.
+  const isFreeTier = currentUser?.tier === "free";
+
   const effectiveId = startingNewConversation
     ? null
     : (selectedConversationId ?? items[0]?.id ?? null);
 
   useEffect(() => {
-    if (effectiveId !== null) {
+    if (!isFreeTier && effectiveId !== null) {
       void dispatch(selectConversation(effectiveId));
     }
-  }, [dispatch, effectiveId]);
+  }, [dispatch, effectiveId, isFreeTier]);
+
+  if (isFreeTier) {
+    return (
+      <div className="active-conversation-panel active-conversation-panel--empty">
+        <EmptyState
+          variant="main"
+          icon={faComments}
+          title={TierRequestAccessCopy.title}
+          description={TierRequestAccessCopy.description}
+        />
+      </div>
+    );
+  }
 
   if (effectiveId === null) {
     return (

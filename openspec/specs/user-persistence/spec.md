@@ -4,7 +4,7 @@
 Database schema and repository for user accounts, supporting both local (password hash) and OAuth (Google ID) authentication. Defines uniqueness constraints and ensures `password_hash` is never returned in API responses.
 ## Requirements
 ### Requirement: Users table has complete schema
-The database SHALL have a `users` table with all columns required for both local and OAuth authentication: `id` (UUID PK), `email` (unique, not null), `display_name` (nullable text), `avatar_url` (nullable text), `password_hash` (nullable text), `google_id` (nullable text, unique), `auth_provider` (enum: google|local, nullable), `created_at` (timestamptz not null), `updated_at` (timestamptz not null).
+The database SHALL have a `users` table with all columns required for both local and OAuth authentication: `id` (UUID PK), `email` (unique, not null), `display_name` (nullable text), `avatar_url` (nullable text), `password_hash` (nullable text), `google_id` (nullable text, unique), `auth_provider` (enum: google|local, nullable), `tier` (text, not null, default `'free'`, constrained to `free|beta|owner`), `created_at` (timestamptz not null), `updated_at` (timestamptz not null).
 
 #### Scenario: Fresh migration runs successfully
 - **WHEN** Flyway runs on an empty database
@@ -25,6 +25,15 @@ The database SHALL have a `users` table with all columns required for both local
 #### Scenario: password_hash is nullable
 - **WHEN** a user row is inserted with NULL password_hash
 - **THEN** the insert succeeds without error
+
+#### Scenario: tier defaults to free and rejects unknown values
+- **WHEN** a user row is inserted without an explicit tier
+- **THEN** the persisted row has `tier = 'free'`
+- **AND** an insert or update with a tier outside `free|beta|owner` is rejected by a check constraint
+
+#### Scenario: Existing rows are backfilled to free
+- **WHEN** the tier migration runs against a database with pre-existing user rows
+- **THEN** every existing row ends with `tier = 'free'` and the column is `NOT NULL`
 
 ### Requirement: auth_provider enum is defined
 The database SHALL have an `auth_provider` PostgreSQL enum type with values `google` and `local`.

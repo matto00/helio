@@ -22,6 +22,7 @@ const testUser = {
   displayName: null,
   avatarUrl: null,
   createdAt: "2026-01-01T00:00:00Z",
+  tier: "free" as const,
 };
 
 function makeStore(authState: Partial<AuthState> = {}) {

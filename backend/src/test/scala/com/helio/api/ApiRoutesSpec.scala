@@ -27,7 +27,7 @@ import com.helio.domain.{
   UserSession
 }
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
+import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest, RedeemInviteCodeRequest}
 import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -3284,6 +3284,25 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-704: composed-route-tree coverage for /api/beta-access — proves the request is
+    // rejected by the AuthDirectives layer itself (before ever reaching
+    // betaAccessServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't wire a
+    // DbContext either. Full status-code coverage (204/409/503/502/429 for request, 200/400/409
+    // for redeem) lives in the isolated `BetaAccessRoutesSpec`.
+    "return 401 for POST /api/beta-access/request without Authorization (HEL-704)" in {
+      Post("/api/beta-access/request") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 401 for POST /api/beta-access/redeem without Authorization (HEL-704)" in {
+      Post("/api/beta-access/redeem", RedeemInviteCodeRequest("some-code")) ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
     "POST /api/dashboards with valid token sets createdBy to the authenticated user ID" in {
       cleanDb()
       Post("/api/dashboards", CreateDashboardRequest(Some("Auth Dashboard"))) ~> routes() ~> check {
@@ -3321,6 +3340,9 @@ class ApiRoutesSpec
         resp.user.email shouldBe "test@example.com"
         resp.user.displayName shouldBe Some("Test User")
         resp.user.id should not be empty
+        // HEL-703: a non-allowlisted email (the test harness's default, empty allowlist) defaults
+        // to `free`.
+        resp.user.tier shouldBe "free"
         // HEL-287 CodeQL #8: the session token is delivered via `Set-Cookie`
         // only — never in the JSON body.
         sessionCookieValue(response) should not be empty
@@ -3397,6 +3419,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[AuthResponse]
         resp.user.email shouldBe "login@example.com"
+        resp.user.tier shouldBe "free"
         sessionCookieValue(response) should not be empty
         val body = responseAs[String]
         body should not include "password_hash"
@@ -3867,6 +3890,7 @@ class ApiRoutesSpec
         user.email shouldBe "me@example.com"
         user.displayName shouldBe Some("Me User")
         user.id should not be empty
+        user.tier shouldBe "free"
       }
     }
 

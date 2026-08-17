@@ -12,7 +12,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.OAuthRoutes
 import com.helio.domain.{UserId, UserMfa}
 import com.helio.infrastructure.{MfaRepository, UserRepository}
-import com.helio.services.{AuthService, MfaService}
+import com.helio.services.{AuthService, MfaService, UserTierConfig}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -74,12 +74,17 @@ class GoogleOAuthRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
-  // HEL-702: defaulted so every existing `makeAuthService()` call site (this
-  // whole file, pre-HEL-702) compiles and behaves exactly as before —
-  // `AuthService`'s own defaulted `mfaService` ctor param is the thing doing
-  // the work here, this helper just forwards it.
-  private def makeAuthService(mfaService: Option[MfaService] = None): AuthService =
-    new AuthService(userRepo, mfaService)(typedSystem.executionContext)
+  // HEL-703: `tierConfig` defaults to an empty allowlist (no owner emails, default beta cap) so
+  // every pre-existing test in this file is unaffected; allowlist-specific tests below pass their
+  // own `UserTierConfig` directly (design.md D4 — specs inject their own, never `fromEnv()`).
+  // HEL-702: `mfaService` defaulted the same way — `AuthService`'s own defaulted `mfaService` ctor
+  // param is the thing doing the work here, this helper just forwards it. Both are named at their
+  // call sites below rather than positional (mechanical HEL-702/HEL-703 merge conflict resolution).
+  private def makeAuthService(
+      tierConfig: UserTierConfig = UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit),
+      mfaService: Option[MfaService] = None
+  ): AuthService =
+    new AuthService(userRepo, tierConfig, mfaService)(typedSystem.executionContext)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
@@ -197,10 +202,111 @@ class GoogleOAuthRoutesSpec
         resp.user.email shouldBe "alice@example.com"
         resp.user.displayName shouldBe Some("Alice")
         resp.user.avatarUrl shouldBe Some("https://pic.url/alice")
+        // HEL-703: not on the (empty, default) allowlist — defaults to free.
+        resp.user.tier shouldBe "free"
         // HEL-287 CodeQL #8: the session token is delivered via `Set-Cookie`
         // only — never in the JSON body.
         header[`Set-Cookie`].map(_.cookie.name) shouldBe Some("helio_session")
         header[`Set-Cookie`].map(_.cookie.value) should not be Some("")
+      }
+    }
+
+    // HEL-703 tasks.md 6.3 (design.md D4) — first-login creation assigns owner per the allowlist.
+    "assigns tier = owner on first-time creation when the email is on the allowlist" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-owner-create", Some("owner-create@example.com"), Some("Owner"), None)
+      val tierConfig = UserTierConfig(Set("owner-create@example.com"), UserTierConfig.DefaultBetaDailyMessageLimit)
+      val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.successful("access-token-owner-create")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.successful(profile)
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AuthResponse].user.tier shouldBe "owner"
+      }
+    }
+
+    // HEL-703 tasks.md 6.3 (design.md D4) — a returning user is promoted when their email joins
+    // the allowlist between logins, and the promotion is persisted (not just reflected in this
+    // one response).
+    "promotes a returning user to owner when their email is on the allowlist, and persists it" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-owner-promote", Some("owner-promote@example.com"), Some("Promotee"), None)
+
+      def routesWith(tierConfig: UserTierConfig): Route = {
+        val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
+          override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+            Future.successful("access-token-owner-promote")
+          override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+            Future.successful(profile)
+        }
+        pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+      }
+
+      // First login — not yet on the allowlist, created as free.
+      val notYetAllowlisted = routesWith(UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit))
+      var stateParam1 = ""
+      Get("/api/auth/google") ~> notYetAllowlisted ~> check {
+        stateParam1 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=code-1&state=$stateParam1") ~> notYetAllowlisted ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AuthResponse].user.tier shouldBe "free"
+      }
+
+      // Second login — now on the allowlist: promoted, and the response reflects it immediately.
+      val nowAllowlisted = routesWith(UserTierConfig(Set("owner-promote@example.com"), UserTierConfig.DefaultBetaDailyMessageLimit))
+      var stateParam2 = ""
+      Get("/api/auth/google") ~> nowAllowlisted ~> check {
+        stateParam2 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=code-2&state=$stateParam2") ~> nowAllowlisted ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AuthResponse].user.tier shouldBe "owner"
+      }
+
+      // Persisted — a raw read confirms it, not just this response.
+      import slick.jdbc.PostgresProfile.api._
+      val storedTier = await(db.run(sql"SELECT tier FROM users WHERE email = 'owner-promote@example.com'".as[String].head))
+      storedTier shouldBe "owner"
+    }
+
+    // HEL-703 tasks.md 6.3 (design.md D4) — a profile with no `email` falls back to the synthetic
+    // `google:<sub>@helio.invalid` address. That shape can never coincidentally match a real
+    // admin's allowlist entry, so a user who never shared their email stays `free` even when a
+    // (realistic, unrelated) owner email is configured.
+    "a profile with no email falls back to google:<sub>@helio.invalid and stays free even with an allowlist configured" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-no-email", None, Some("No Email"), None)
+      val tierConfig = UserTierConfig(Set("mattheworr018@gmail.com"), UserTierConfig.DefaultBetaDailyMessageLimit)
+      val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.successful("access-token-no-email")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.successful(profile)
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[AuthResponse]
+        resp.user.email shouldBe "google:google-sub-no-email@helio.invalid"
+        resp.user.tier shouldBe "free"
       }
     }
 
@@ -362,7 +468,9 @@ class GoogleOAuthRoutesSpec
       // returning-Google-user path as "return 200 with same user on second
       // login" above, but now gated.
       val mfaService  = new MfaService(mfaRepo, userRepo)(typedSystem.executionContext)
-      val secondRoutes = new OAuthRoutes(makeAuthService(Some(mfaService)), "test-client-id", "test-secret", "http://localhost/callback") {
+      // Named (not positional) since makeAuthService's first param is now
+      // tierConfig (HEL-703 merge) — see makeAuthService's own doc comment.
+      val secondRoutes = new OAuthRoutes(makeAuthService(mfaService = Some(mfaService)), "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] = Future.successful("access-token-mfa-2")
         override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] = Future.successful(profile)
       }

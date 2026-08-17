@@ -7,6 +7,8 @@ import {
   getPreferences,
   listAgentMemory,
   putPreferences,
+  redeemInviteCode as redeemInviteCodeRequest,
+  requestBetaAccess as requestBetaAccessRequest,
 } from "../services/settingsService";
 // HEL-702: the MFA HTTP wrappers live in `authService.ts` (task 3.2 — they
 // hang off `/api/auth/mfa/*`), but the Settings "Security" section's own
@@ -20,12 +22,14 @@ import {
   mfaRegenerateRequest,
   mfaStatusRequest,
 } from "../../auth/services/authService";
+import { setAuth } from "../../auth/state/authSlice";
 import type { AgentMemoryEntry } from "../types/agentMemory";
 import type { AgentPreferences, PutAgentPreferencesRequest } from "../types/preferences";
 import type {
   MfaBackupCodesResponse,
   MfaEnrollResponse,
   MfaStatusResponse,
+  User,
 } from "../../auth/types/user";
 
 /** Matches `pipelinesSlice.ts`/`metricsSlice.ts`'s existing error-extraction
@@ -92,13 +96,24 @@ interface MfaState {
   disableError: string | null;
 }
 
+/** HEL-704: request-access and redeem are independent actions a `free`-tier user can trigger
+ *  from the same Settings section — separate status/error pairs so one in-flight/failed action
+ *  never clobbers the other's UI state. */
+interface BetaAccessState {
+  requestStatus: AsyncStatus;
+  requestError: string | null;
+  redeemStatus: AsyncStatus;
+  redeemError: string | null;
+}
+
 /** design.md Decision 1: one `settingsSlice` holding preferences and agent
- *  memory as two sibling sub-trees, not two separate slices. HEL-702 adds
- *  `mfa` as a third sibling. */
+ *  memory as two sibling sub-trees, not two separate slices. HEL-702 adds `mfa` and HEL-704 adds
+ *  `betaAccess` as two more siblings, same convention. */
 interface SettingsState {
   preferences: PreferencesState;
   agentMemory: AgentMemoryState;
   mfa: MfaState;
+  betaAccess: BetaAccessState;
 }
 
 const initialState: SettingsState = {
@@ -134,6 +149,12 @@ const initialState: SettingsState = {
     regenerateError: null,
     disableStatus: "idle",
     disableError: null,
+  },
+  betaAccess: {
+    requestStatus: "idle",
+    requestError: null,
+    redeemStatus: "idle",
+    redeemError: null,
   },
 };
 
@@ -211,6 +232,20 @@ export const fetchMfaStatus = createAsyncThunk<MfaStatusResponse, void, { reject
   },
 );
 
+/** HEL-704: `POST /api/beta-access/request` — no payload, no success value; the endpoint's
+ *  error status (503 unconfigured / 429 cooldown / 409 not-eligible) surfaces via
+ *  `extractErrorMessage`, same as every other thunk in this slice. */
+export const requestBetaAccessThunk = createAsyncThunk<void, void, { rejectValue: string }>(
+  "settings/requestBetaAccess",
+  async (_, { rejectWithValue }) => {
+    try {
+      await requestBetaAccessRequest();
+    } catch (err: unknown) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to request Beta access."));
+    }
+  },
+);
+
 export const startMfaEnrollment = createAsyncThunk<
   MfaEnrollResponse,
   void,
@@ -254,6 +289,23 @@ export const disableMfa = createAsyncThunk<void, string, { rejectValue: string }
       await mfaDisableRequest(code);
     } catch (err: unknown) {
       return rejectWithValue(extractErrorMessage(err, "Invalid code. Please try again."));
+    }
+  },
+);
+
+/** HEL-704: `POST /api/beta-access/redeem` — on success, dispatches `setAuth({ user })` with the
+ *  endpoint's returned (now `tier: "beta"`) user so tier-gated UI unlocks immediately, without a
+ *  re-login (settings-beta-access-ui spec). On failure (invalid/used/foreign code, or a non-free
+ *  caller), the auth slice is left untouched and the inline error is shown instead. */
+export const redeemInviteCodeThunk = createAsyncThunk<User, string, { rejectValue: string }>(
+  "settings/redeemInviteCode",
+  async (code, { dispatch, rejectWithValue }) => {
+    try {
+      const user = await redeemInviteCodeRequest(code);
+      dispatch(setAuth({ user }));
+      return user;
+    } catch (err: unknown) {
+      return rejectWithValue(extractErrorMessage(err, "Invalid or already-used invite code"));
     }
   },
 );
@@ -431,6 +483,32 @@ const settingsSlice = createSlice({
       .addCase(disableMfa.rejected, (state, action) => {
         state.mfa.disableStatus = "failed";
         state.mfa.disableError = action.payload ?? "Invalid code. Please try again.";
+      })
+      // requestBetaAccessThunk
+      .addCase(requestBetaAccessThunk.pending, (state) => {
+        state.betaAccess.requestStatus = "loading";
+        state.betaAccess.requestError = null;
+      })
+      .addCase(requestBetaAccessThunk.fulfilled, (state) => {
+        state.betaAccess.requestStatus = "succeeded";
+        state.betaAccess.requestError = null;
+      })
+      .addCase(requestBetaAccessThunk.rejected, (state, action) => {
+        state.betaAccess.requestStatus = "failed";
+        state.betaAccess.requestError = action.payload ?? "Failed to request Beta access.";
+      })
+      // redeemInviteCodeThunk
+      .addCase(redeemInviteCodeThunk.pending, (state) => {
+        state.betaAccess.redeemStatus = "loading";
+        state.betaAccess.redeemError = null;
+      })
+      .addCase(redeemInviteCodeThunk.fulfilled, (state) => {
+        state.betaAccess.redeemStatus = "succeeded";
+        state.betaAccess.redeemError = null;
+      })
+      .addCase(redeemInviteCodeThunk.rejected, (state, action) => {
+        state.betaAccess.redeemStatus = "failed";
+        state.betaAccess.redeemError = action.payload ?? "Invalid or already-used invite code";
       });
   },
 });

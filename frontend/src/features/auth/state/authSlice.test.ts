@@ -27,6 +27,7 @@ const testUser: User = {
   displayName: "Test User",
   avatarUrl: null,
   createdAt: "2026-01-01T00:00:00Z",
+  tier: "free",
 };
 
 // HEL-287 CodeQL #8: AuthResponse no longer carries a token — the session
@@ -255,6 +256,7 @@ describe("handleOAuthCallback thunk", () => {
       displayName: "Google User",
       avatarUrl: "https://example.com/avatar.jpg",
       createdAt: "2026-01-01T00:00:00Z",
+      tier: "free",
     };
     const oauthResponse: AuthResponse = {
       expiresAt: "2026-12-31T00:00:00Z",

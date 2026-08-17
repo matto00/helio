@@ -6,6 +6,11 @@ export interface UserPreferences {
   zoomLevels: Record<string, number>;
 }
 
+// HEL-703: gates chat/assistant access — `free` (default) is denied every assistant endpoint,
+// `beta` is capped per UTC day, `owner` is unlimited. Rides every existing user payload
+// (register/login/OAuth/GET /api/auth/me) via the backend's UserResponse.
+export type UserTier = "free" | "beta" | "owner";
+
 export interface User {
   id: string;
   email: string;
@@ -13,6 +18,7 @@ export interface User {
   avatarUrl: string | null;
   createdAt: string;
   preferences?: UserPreferences;
+  tier: UserTier;
 }
 
 // HEL-287 CodeQL #8: the session token is delivered via an HttpOnly

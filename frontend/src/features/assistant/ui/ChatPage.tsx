@@ -11,11 +11,19 @@ import { ActiveConversationPanel } from "./ActiveConversationPanel";
  * `SidebarBody.tsx`'s `chat` branch, not here (design.md D4). */
 export function ChatPage() {
   const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
   const { status, error } = useAppSelector((state) => state.assistantConversations);
 
+  // HEL-703 design.md D9 — a `free`-tier user never even attempts the list fetch (which would
+  // otherwise 403), so `ActiveConversationPanel`'s own request-access state never races a 403 into
+  // this page's `status === "failed"` branch below.
+  const isFreeTier = currentUser?.tier === "free";
+
   useEffect(() => {
-    void dispatch(fetchConversations());
-  }, [dispatch]);
+    if (!isFreeTier) {
+      void dispatch(fetchConversations());
+    }
+  }, [dispatch, isFreeTier]);
 
   return (
     <div className="chat-page">

@@ -6,6 +6,8 @@ import com.helio.domain._
 import com.helio.infrastructure._
 import com.helio.services.AssistantConversationService
 import com.helio.services.AssistantService
+import com.helio.services.ChatAccessService
+import com.helio.services.UserTierConfig
 import com.helio.testutil.JsonLogCapture
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
@@ -54,7 +56,13 @@ class AssistantTelemetrySpec
 
   private var embeddedPostgres: EmbeddedPostgres            = _
   private var db: JdbcBackend.Database                        = _
+  private var ctx: DbContext                                  = _
   private var conversationService: AssistantConversationService = _
+  // HEL-703 tasks.md 3.4/D7: this spec's scope is the telemetry line's OWN fields (toolCallCount/
+  // hopBudgetExhausted/etc.), not tier enforcement -- every fixture user below is seeded `owner`
+  // (unlimited, uncounted) so the tier gate never interferes with a converse call this suite is
+  // trying to measure.
+  private var chatAccessService: ChatAccessService            = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
@@ -70,12 +78,17 @@ class AssistantTelemetrySpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     // Non-RLS harness (mirrors AuthoringTelemetrySpec's own `new DbContext(db, db)`) -- this spec's
     // scope is the telemetry line's own fields, not cross-user access control.
-    val ctx  = new DbContext(db, db)
+    ctx      = new DbContext(db, db)
     val repo = new AssistantConversationRepository(ctx)
 
     val tmpDir     = Files.createTempDirectory("helio-assistant-telemetry-spec")
     val fileSystem = new LocalFileSystem(tmpDir)
     conversationService = new AssistantConversationService(repo, fileSystem)(routeEc)
+    chatAccessService = new ChatAccessService(
+      new UserRepository(db),
+      new AssistantDailyUsageRepository(ctx),
+      UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit)
+    )
   }
 
   override def afterAll(): Unit = {
@@ -87,7 +100,7 @@ class AssistantTelemetrySpec
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc
     val id = UUID.randomUUID().toString
-    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($id::uuid, ${s"$id@test.local"}, now())"""))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at, tier) VALUES ($id::uuid, ${s"$id@test.local"}, now(), 'owner')"""))
     AuthenticatedUser(UserId(id))
   }
 
@@ -139,7 +152,7 @@ class AssistantTelemetrySpec
 
   private def tracedRoutesFor(user: AuthenticatedUser, assistantOpt: Option[AssistantService]): Route =
     traceDirective.withTraceContext {
-      new AssistantConversationRoutes(conversationService, assistantOpt, user).routes
+      new AssistantConversationRoutes(conversationService, assistantOpt, chatAccessService, user).routes
     }
 
   private def tracedPost(path: String, body: String) =

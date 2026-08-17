@@ -3,7 +3,7 @@ package com.helio.services
 import com.github.t3hnar.bcrypt._
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
-import com.helio.domain.{User, UserId, UserSession}
+import com.helio.domain.{User, UserId, UserSession, UserTier}
 import com.helio.infrastructure.UserRepository
 
 import java.security.SecureRandom
@@ -64,7 +64,8 @@ object LoginOutcome {
 
 final class AuthService(
     userRepo: UserRepository,
-    // HEL-702: defaulted so every existing positional `new AuthService(userRepo)`
+    tierConfig: UserTierConfig,
+    // HEL-702: defaulted so every existing positional `new AuthService(userRepo, tierConfig)`
     // call site (specs, ApiRoutes fixtures) compiles untouched and keeps minting
     // sessions unconditionally — `None` means "MFA feature absent", identical to
     // today's behaviour. See `finishLogin` at the bottom of this class.
@@ -85,11 +86,15 @@ final class AuthService(
           case None =>
             val passwordHash = req.password.bcryptBounded(BCryptWorkFactor)
             val now          = Instant.now()
+            // HEL-703 design.md D4: owner-email allowlist is applied at insert time — a matching
+            // email is assigned `owner` directly, never `free` then promoted.
+            val tier = if (tierConfig.isOwnerEmail(req.email)) UserTier.Owner else UserTier.Free
             val user = User(
               id          = UserId(UUID.randomUUID().toString),
               email       = req.email,
               displayName = req.displayName,
-              createdAt   = now
+              createdAt   = now,
+              tier        = tier
             )
             val session = buildSession(user.id, now)
             for {
@@ -115,7 +120,10 @@ final class AuthService(
               case None =>
                 Future.successful(Left(ServiceError.Unauthorized()))
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
-                finishLogin(user).map(Right(_))
+                // HEL-702/HEL-703 merge (design.md D3): tier promotion happens first
+                // (HEL-703 design.md D4), then the MFA gate decides whether a session
+                // is minted immediately or a challenge is returned instead.
+                promoteIfAllowlisted(user).flatMap(finishLogin).map(Right(_))
               case Some(_) =>
                 Future.successful(Left(ServiceError.Unauthorized()))
             }
@@ -132,17 +140,26 @@ final class AuthService(
 
   // ── OAuth completion ──────────────────────────────────────────────────────
 
-  /** Given a Google profile fetched by the route layer, upsert the user and
-   *  apply the same MFA gate the password path uses (`finishLogin`) —
-   *  either a session is minted, or a pending challenge is returned
-   *  (HEL-702). */
+  /** Given a Google profile fetched by the route layer, upsert the user (tier assignment/promotion
+   *  happens inside `upsertGoogleUser` itself, alongside its existing avatar-refresh-on-return
+   *  behavior — HEL-703 design.md D4) and apply the same MFA gate the password path uses
+   *  (`finishLogin`) — either a session is minted, or a pending challenge is returned (HEL-702). */
   def completeOAuth(profile: GoogleProfile): Future[LoginOutcome] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
-      user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture)
+      user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
       outcome <- finishLogin(user)
     } yield outcome
   }
+
+  /** Persists `tier = owner` for a returning login whose email now matches the allowlist and whose
+   *  stored tier is not already `owner` (HEL-703 design.md D4) — a strict promotion, never a
+   *  demotion for an email that has left the allowlist. Returns the (possibly updated) user so the
+   *  login response reflects the promotion immediately, without a second `findByEmail` round trip. */
+  private def promoteIfAllowlisted(user: User): Future[User] =
+    if (tierConfig.isOwnerEmail(user.email) && user.tier != UserTier.Owner)
+      userRepo.updateTier(user.id, UserTier.Owner).map(_ => user.copy(tier = UserTier.Owner))
+    else Future.successful(user)
 
   // ── CSRF state token store (OAuth `state` parameter) ──────────────────────
 
