@@ -61,10 +61,14 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       case Left(err)     => fail(s"register failed: $err")
     }
 
+  // HEL-702 merge: `AuthService.login` now returns `LoginOutcome` (MFA gate) instead of `AuthResult`
+  // directly. None of these tests enable MFA (`serviceWith` never passes an `MfaService`), so the
+  // outcome is always `SessionEstablished` — unwrap it, failing loudly if that ever stops holding.
   private def login(service: AuthService, email: String, password: String = "password123"): AuthResult =
     await(service.login(LoginRequest(email, password))) match {
-      case Right(result) => result
-      case Left(err)     => fail(s"login failed: $err")
+      case Right(LoginOutcome.SessionEstablished(result)) => result
+      case Right(other)                                   => fail(s"expected SessionEstablished, got: $other")
+      case Left(err)                                       => fail(s"login failed: $err")
     }
 
   private def storedTier(email: String): String = {

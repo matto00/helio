@@ -29,8 +29,15 @@ export function setupAuthInterceptor(
     (error: unknown) => {
       if (isAxiosError(error) && error.response?.status === 401) {
         const url = error.config?.url ?? "";
-        // Skip redirect loop on the rehydration call itself
-        if (!url.includes("/api/auth/me")) {
+        // Skip redirect loop on the rehydration call itself. HEL-702: also
+        // skip every `/api/auth/mfa/*` call — a wrong TOTP/backup code
+        // returns 401 there too (`ServiceError.Unauthorized`), but it's a
+        // credential-proof failure, not "your session is invalid": the
+        // caller may hold a fully valid session (enroll-confirm/regenerate/
+        // disable re-auth) or have none yet (login-time verify). A global
+        // logout + hard navigate here would blow away the on-page inline
+        // error before the component can render it (design.md D7).
+        if (!url.includes("/api/auth/me") && !url.includes("/api/auth/mfa")) {
           dispatch({ type: "auth/clearAuth" });
           navigate("/login");
         }

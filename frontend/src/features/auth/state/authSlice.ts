@@ -5,12 +5,15 @@ import {
   getMeRequest,
   loginRequest,
   logoutRequest,
+  mfaVerifyRequest,
   oauthCallbackRequest,
   registerRequest,
   updateUserPreferencesRequest,
 } from "../services/authService";
 import type {
   AuthResponse,
+  LoginResult,
+  MfaRequiredResponse,
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
@@ -27,13 +30,25 @@ export interface AuthState {
   // visitor until GET /api/auth/me resolved -- not just while a submit was
   // actually in flight. This flag is only ever touched by login/register.
   submitStatus: "idle" | "loading";
+  /** A pending login-time MFA challenge (HEL-702, design.md D7) — transient,
+   *  never persisted. Set when `login`/`handleOAuthCallback` fulfills with an
+   *  `MfaRequiredResponse` instead of a session; survives the client-side
+   *  route hop to `/login/verify` (component-local state cannot). Cleared on
+   *  `verifyMfa` success, `logout`, and `clearAuth`. */
+  mfaChallenge: { challengeToken: string } | null;
 }
 
 const initialState: AuthState = {
   currentUser: null,
   status: "idle",
   submitStatus: "idle",
+  mfaChallenge: null,
 };
+
+/** Narrows a `LoginResult` union to the MFA-gate branch (HEL-702). */
+export function isMfaRequiredResponse(result: LoginResult): result is MfaRequiredResponse {
+  return "mfaRequired" in result;
+}
 
 // HEL-287 CodeQL #8: the session identity now lives in an HttpOnly cookie
 // (never JS-readable), so rehydration on load can't check for a token —
@@ -53,7 +68,7 @@ export const rehydrateAuth = createAsyncThunk<void, void>(
 );
 
 export const login = createAsyncThunk<
-  AuthResponse,
+  LoginResult,
   { email: string; password: string },
   { rejectValue: string }
 >("auth/login", async (credentials, { rejectWithValue }) => {
@@ -85,7 +100,7 @@ export const register = createAsyncThunk<
 });
 
 export const handleOAuthCallback = createAsyncThunk<
-  AuthResponse,
+  LoginResult,
   { code: string; state?: string },
   { rejectValue: string }
 >("auth/handleOAuthCallback", async ({ code, state }, { rejectWithValue }) => {
@@ -93,6 +108,34 @@ export const handleOAuthCallback = createAsyncThunk<
     return await oauthCallbackRequest(code, state);
   } catch {
     return rejectWithValue("OAuth sign-in failed.");
+  }
+});
+
+/** HEL-702: exchanges the pending `mfaChallenge` (set by `login`/
+ *  `handleOAuthCallback` on the `mfaRequired` branch) plus a TOTP-or-backup
+ *  code for a session. Reads the challenge from state (typed to the minimal
+ *  `{ auth: AuthState }` shape this thunk actually touches, rather than the
+ *  full app `RootState` — keeps this slice self-contained and dispatchable
+ *  against an auth-only test store) rather than requiring every caller to
+ *  thread it through — `MfaVerifyPage` only ever has one challenge active at
+ *  a time. */
+export const verifyMfa = createAsyncThunk<
+  AuthResponse,
+  { code: string },
+  { state: { auth: AuthState }; rejectValue: string }
+>("auth/verifyMfa", async ({ code }, { getState, rejectWithValue }) => {
+  const challenge = getState().auth.mfaChallenge;
+  if (challenge === null) {
+    return rejectWithValue("No pending verification. Please sign in again.");
+  }
+  try {
+    return await mfaVerifyRequest(challenge.challengeToken, code);
+  } catch (err) {
+    const serverMessage =
+      isAxiosError(err) && typeof err.response?.data?.message === "string"
+        ? err.response.data.message
+        : null;
+    return rejectWithValue(serverMessage ?? "Invalid code. Please try again.");
   }
 });
 
@@ -125,7 +168,7 @@ const authSlice = createSlice({
       state.currentUser = action.payload.user;
       state.status = "authenticated";
       // Accent is applied by ThemeProvider (fed the resulting currentUser's
-      // preference from outside this slice), never as a side effect here —
+      // preference from outside this slice), never as a side effect here --
       // see F-061: a reducer writing DOM tokens directly raced ThemeProvider
       // and left the AccentPicker's selection out of sync with what was
       // actually applied.
@@ -133,6 +176,7 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.currentUser = null;
       state.status = "unauthenticated";
+      state.mfaChallenge = null;
     },
   },
   extraReducers: (builder) => {
@@ -149,9 +193,18 @@ const authSlice = createSlice({
         state.submitStatus = "loading";
       })
       .addCase(login.fulfilled, (state, action) => {
+        // HEL-702 design.md D7: mfaRequired stays "unauthenticated" and
+        // stores the challenge for MfaVerifyPage instead of authenticating.
+        if (isMfaRequiredResponse(action.payload)) {
+          state.mfaChallenge = { challengeToken: action.payload.challengeToken };
+          state.status = "unauthenticated";
+          state.submitStatus = "idle";
+          return;
+        }
         state.currentUser = action.payload.user;
         state.status = "authenticated";
         state.submitStatus = "idle";
+        state.mfaChallenge = null;
       })
       .addCase(login.rejected, (state) => {
         state.status = "unauthenticated";
@@ -175,11 +228,33 @@ const authSlice = createSlice({
         state.status = "loading";
       })
       .addCase(handleOAuthCallback.fulfilled, (state, action) => {
+        // HEL-702 design.md D7: same mfaRequired branch as login.fulfilled above.
+        if (isMfaRequiredResponse(action.payload)) {
+          state.mfaChallenge = { challengeToken: action.payload.challengeToken };
+          state.status = "unauthenticated";
+          return;
+        }
         state.currentUser = action.payload.user;
         state.status = "authenticated";
+        state.mfaChallenge = null;
       })
       .addCase(handleOAuthCallback.rejected, (state) => {
         state.currentUser = null;
+        state.status = "unauthenticated";
+      })
+      // verifyMfa
+      .addCase(verifyMfa.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(verifyMfa.fulfilled, (state, action) => {
+        state.currentUser = action.payload.user;
+        state.status = "authenticated";
+        state.mfaChallenge = null;
+      })
+      .addCase(verifyMfa.rejected, (state) => {
+        // The challenge is intentionally retained on failure — the user can
+        // retry until it expires/attempt-caps (design.md D4); only a fresh
+        // login/logout/clearAuth clears it.
         state.status = "unauthenticated";
       })
       // logout — clearAuth is dispatched from the thunk, handled by reducers

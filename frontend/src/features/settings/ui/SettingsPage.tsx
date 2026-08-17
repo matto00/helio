@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchAgentMemory, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
 import { BetaAccessSection } from "./BetaAccessSection";
+import { MfaSecuritySection } from "./MfaSecuritySection";
 import { PreferencesEditor } from "./PreferencesEditor";
 import "./SettingsPage.css";
 
@@ -66,6 +67,15 @@ export function SettingsPage() {
           {!agentMemoryLoading && !agentMemory.error && (
             <AgentMemoryList entries={agentMemory.items} />
           )}
+        </section>
+
+        {/* HEL-702 design.md D7: `MfaSecuritySection` owns its own
+            fetch/loading/error state independently of the F-047 per-section
+            gates above -- no reason to block rendering Security on the
+            unrelated preferences/agent-memory fetches. */}
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Security</h2>
+          <MfaSecuritySection />
         </section>
 
         <section className="settings-page__section">

@@ -21,6 +21,7 @@ function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {
     currentUser: null,
     status: "idle",
     submitStatus: "idle",
+    mfaChallenge: null,
     ...authState,
   };
 

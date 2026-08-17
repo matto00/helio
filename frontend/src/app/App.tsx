@@ -41,6 +41,7 @@ import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage"
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout, rehydrateAuth } from "../features/auth/state/authSlice";
 import { LoginPage } from "../features/auth/ui/LoginPage";
+import { MfaVerifyPage } from "../features/auth/ui/MfaVerifyPage";
 import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
 import { RegisterPage } from "../features/auth/ui/RegisterPage";
 import {
@@ -716,6 +717,7 @@ export function App() {
         {/* Public-only routes (redirect to / when already authenticated) */}
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/verify" element={<MfaVerifyPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 

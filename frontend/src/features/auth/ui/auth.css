@@ -214,6 +214,27 @@
   text-decoration: underline;
 }
 
+/* HEL-702: ghost-recipe toggle button (DESIGN.md §5 Ghost) for the
+ * verify page's "use a backup code instead" affordance. */
+.auth-link-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  cursor: pointer;
+  transition: color var(--app-transition);
+}
+
+.auth-link-btn:hover {
+  color: var(--app-accent);
+}
+
 .auth-loading {
   display: flex;
   align-items: center;

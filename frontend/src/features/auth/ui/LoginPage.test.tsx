@@ -44,6 +44,8 @@ function renderLoginPage(search = "") {
       <MemoryRouter initialEntries={[`/login${search}`]}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/verify" element={<div data-testid="mfa-verify-page" />} />
+          <Route path="/" element={<div data-testid="home-page" />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -112,6 +114,36 @@ describe("LoginPage", () => {
     const submitBtn = screen.getByRole("button", { name: "Sign in" });
     expect(submitBtn).not.toBeDisabled();
     expect(screen.queryByText("Signing in…")).not.toBeInTheDocument();
+  });
+
+  // HEL-702 design.md D7
+  it("navigates to /login/verify when login returns an MFA challenge instead of a session", async () => {
+    mockedAuthService.loginRequest.mockResolvedValue({
+      mfaRequired: true,
+      challengeToken: "challenge-token-123",
+    });
+    renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "test@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pass1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mfa-verify-page")).toBeInTheDocument();
+    });
+  });
+
+  it("navigates to / when login returns a normal session", async () => {
+    mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
+    renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "test@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pass1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
   });
 
   describe("deep-link preservation (F-081)", () => {

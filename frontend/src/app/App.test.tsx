@@ -140,11 +140,13 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
             },
             status: "authenticated" as const,
             submitStatus: "idle" as const,
+            mfaChallenge: null,
           }
         : {
             currentUser: null,
             status: "unauthenticated" as const,
             submitStatus: "idle" as const,
+            mfaChallenge: null,
           },
     },
   });

@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.helio.api._
-import com.helio.services.AuthService
+import com.helio.services.{AuthService, LoginOutcome}
 import org.slf4j.LoggerFactory
 import spray.json._
 
@@ -125,14 +125,19 @@ class OAuthRoutes(
     val result = for {
       accessToken <- exchangeCodeForTokenImpl(code)
       profile     <- fetchGoogleProfileImpl(accessToken)
-      authResult  <- authService.completeOAuth(profile)
-    } yield authResult
+      outcome     <- authService.completeOAuth(profile)
+    } yield outcome
 
     onComplete(result) {
-      case Success(authResult) =>
+      // HEL-702 design.md D3: same MFA-gate branch as AuthRoutes' login —
+      // SessionEstablished behaves exactly as before; MfaRequired sets no
+      // cookie and echoes no user object.
+      case Success(LoginOutcome.SessionEstablished(authResult)) =>
         setCookie(SessionCookies.issue(authResult.token, cookieConfig)) {
           complete(StatusCodes.OK, authResult.response)
         }
+      case Success(LoginOutcome.MfaRequired(challengeToken)) =>
+        complete(StatusCodes.OK, MfaRequiredResponse(mfaRequired = true, challengeToken = challengeToken))
       case Failure(ex) if isUpstreamOAuthError(ex) => complete(StatusCodes.BadGateway, ErrorResponse("Failed to exchange authorization code"))
       case Failure(ex) =>
         // HEL-311: never echo raw exception text to the client — log the full

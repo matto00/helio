@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { Spinner } from "../../../shared/ui/Spinner";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { handleOAuthCallback } from "../state/authSlice";
+import { handleOAuthCallback, isMfaRequiredResponse } from "../state/authSlice";
 import { consumeReturnTo } from "../utils/postLoginReturnTo";
 import "./auth.css";
 
@@ -32,6 +32,12 @@ export function OAuthCallbackPage() {
     if (code !== null) {
       void dispatch(handleOAuthCallback({ code, state })).then((result) => {
         if (handleOAuthCallback.fulfilled.match(result)) {
+          // HEL-702: same MFA branch as LoginPage — route to the
+          // verification step instead of the app when a challenge was issued.
+          if (isMfaRequiredResponse(result.payload)) {
+            void navigate("/login/verify", { replace: true });
+            return;
+          }
           // F-081: restore the deep link stashed by Login/RegisterPage
           // before the redirect to Google, if there was one.
           void navigate(consumeReturnTo() ?? "/", { replace: true });
