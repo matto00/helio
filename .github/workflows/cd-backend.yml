@@ -44,6 +44,9 @@ jobs:
           # session cookie (SameSite=None) — see HEL-287 / docs/deployment.md.
           # CLAUDE_MODEL pins the ClaudeConfig default away from ClaudeConfig's
           # own claude-opus-4-8 default (cost) — see CLAUDE.md's env var table.
+          # HELIO_OWNER_EMAILS assigns the `owner` tier (unlimited assistant
+          # access) to this allowlist at signup/login on both auth paths — see
+          # HEL-703/UserTierConfig.fromEnv. Promote-only; unset/empty is a no-op.
           # --update-env-vars is additive: it sets only these vars and preserves
           # DATABASE_URL / CORS_ALLOWED_ORIGINS / etc. already on the service.
           # --update-secrets is the same additive idiom for Secret Manager refs
@@ -52,4 +55,4 @@ jobs:
           # --max-instances=2 keeps the privileged DB pool (5 connections/instance,
           # helio.db.privileged in application.conf) within db-g1-small's
           # connection budget — 3+ instances previously exhausted it under load.
-          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001 --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest --max-instances=2"
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest --max-instances=2"
