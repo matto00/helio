@@ -36,6 +36,7 @@ import {
   runPipeline,
 } from "../../../pipelines/services/pipelineService";
 import { buildShapeParams, ShapeParamsFields } from "../../../pipelines/ui/ShapeParamsFields";
+import { labelForKind } from "../../../pipelines/ui/BoundSourceBar";
 import type { PipelineShapeCatalogEntry } from "../../../pipelines/types/pipelineShape";
 
 import "./ShapeInstantiateStep.css";
@@ -225,7 +226,12 @@ export function ShapeInstantiateStep({ shape, onBack, onComplete }: ShapeInstant
     await runOnly(pipelineId, dataTypeId);
   }
 
-  const sourceOptions = dataSources.map((ds) => ({ value: ds.id, label: ds.name }));
+  // F-224: append each source's kind (matches CreatePipelineModal.tsx's own fix) so two
+  // same-named sources of different kinds are distinguishable in this picker too.
+  const sourceOptions = dataSources.map((ds) => ({
+    value: ds.id,
+    label: `${ds.name} (${labelForKind(ds.type)})`,
+  }));
   const statusLabel = stage ? STAGE_LABEL[stage] : null;
 
   return (
@@ -236,8 +242,12 @@ export function ShapeInstantiateStep({ shape, onBack, onComplete }: ShapeInstant
         onSubmit={(e) => void handleSubmit(e)}
       >
         <div className="shape-instantiate-step__field">
+          {/* F-115 — asterisk-required marker to match `ShapeParamsFields`'
+              convention below, instead of only the shape's own params
+              looking required. `aria-label` (unchanged) keeps the accessible
+              name plain text, so this is additive, not a breaking change. */}
           <label className="shape-instantiate-step__label" htmlFor="shape-instantiate-name">
-            Pipeline name
+            Pipeline name<span className="shape-instantiate-step__required"> *</span>
           </label>
           <TextField
             id="shape-instantiate-name"
@@ -251,14 +261,11 @@ export function ShapeInstantiateStep({ shape, onBack, onComplete }: ShapeInstant
 
         <div className="shape-instantiate-step__field">
           <label className="shape-instantiate-step__label" htmlFor="shape-instantiate-source">
-            Data source
+            Data source<span className="shape-instantiate-step__required"> *</span>
           </label>
           <Select
             value={sourceDataSourceId}
-            options={[
-              { value: "", label: "Select a data source…", disabled: true },
-              ...sourceOptions,
-            ]}
+            options={sourceOptions}
             onChange={setSourceDataSourceId}
             placeholder="Select a data source…"
             ariaLabel="Data source"
@@ -268,7 +275,7 @@ export function ShapeInstantiateStep({ shape, onBack, onComplete }: ShapeInstant
 
         <div className="shape-instantiate-step__field">
           <label className="shape-instantiate-step__label" htmlFor="shape-instantiate-output-type">
-            Output type name
+            Output type name<span className="shape-instantiate-step__required"> *</span>
           </label>
           <TextField
             id="shape-instantiate-output-type"

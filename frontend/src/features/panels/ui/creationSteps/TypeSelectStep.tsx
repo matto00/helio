@@ -78,14 +78,22 @@ export function TypeSelectStep({ onSelect }: TypeSelectStepProps) {
           key={value}
           type="button"
           className="panel-creation-modal__type-card"
-          aria-label={label}
+          // F-210 — `aria-labelledby`/`aria-describedby` instead of an
+          // `aria-label` override, so the description is exposed to AT as an
+          // accessible description rather than silently dropped.
+          aria-labelledby={`type-label-${value}`}
+          aria-describedby={`type-desc-${value}`}
           onClick={() => onSelect(value)}
         >
           <span className="panel-creation-modal__type-icon" aria-hidden="true">
             <FontAwesomeIcon icon={icon} />
           </span>
-          <span className="panel-creation-modal__type-label">{label}</span>
-          <span className="panel-creation-modal__type-description">{description}</span>
+          <span id={`type-label-${value}`} className="panel-creation-modal__type-label">
+            {label}
+          </span>
+          <span id={`type-desc-${value}`} className="panel-creation-modal__type-description">
+            {description}
+          </span>
         </button>
       ))}
     </div>

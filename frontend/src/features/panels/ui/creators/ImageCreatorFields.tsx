@@ -14,9 +14,16 @@ export function ImageCreatorFields({ config, onChange }: CreatorFieldsProps<Imag
       <label className="panel-creation-modal__label" htmlFor="panel-create-image-url">
         Image URL
       </label>
+      {/* F-112 — `type="text"`, not `type="url"`: the latter's native
+          constraint validation (a bare "Please enter a URL." bubble, no
+          context) fires on submit for anything without an explicit scheme,
+          even though the backend/renderer accept a root-relative upload
+          path just as happily. Matches `ImageEditor`'s own Image URL field
+          (`panel-detail-modal__data-section`), which has never used
+          `type="url"` either. */}
       <TextField
         id="panel-create-image-url"
-        type="url"
+        type="text"
         value={config.imageUrl ?? ""}
         onChange={(e) => onChange({ ...config, imageUrl: e.target.value || undefined })}
         placeholder="https://example.com/image.jpg"

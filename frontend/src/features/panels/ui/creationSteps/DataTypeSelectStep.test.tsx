@@ -44,17 +44,21 @@ function renderStep(overrides?: Partial<Parameters<typeof DataTypeSelectStep>[0]
   const onNext = jest.fn();
   const onBack = jest.fn();
   const onEmptyStateNavigate = jest.fn();
+  const onRetry = jest.fn();
 
   render(
     <MemoryRouter>
       <DataTypeSelectStep
         loading={false}
         registryDataTypes={[dataType]}
+        pipelineNameByTypeId={new Map()}
         selectedDataTypeId={null}
         onSelect={onSelect}
+        allowSkip={false}
         onEmptyStateNavigate={onEmptyStateNavigate}
         onBack={onBack}
         onNext={onNext}
+        onRetry={onRetry}
         offeredShapes={[]}
         onSelectShape={onSelectShape}
         {...overrides}
@@ -62,7 +66,7 @@ function renderStep(overrides?: Partial<Parameters<typeof DataTypeSelectStep>[0]
     </MemoryRouter>,
   );
 
-  return { onSelect, onSelectShape, onNext, onBack };
+  return { onSelect, onSelectShape, onNext, onBack, onRetry };
 }
 
 describe("DataTypeSelectStep — shape offering", () => {
@@ -101,5 +105,92 @@ describe("DataTypeSelectStep — shape offering", () => {
     renderStep({ offeredShapes: [], shapeCatalogError: "Failed to load shape catalog." });
     expect(screen.getByText("Failed to load shape catalog.")).toBeInTheDocument();
     expect(screen.queryByText("Single row")).not.toBeInTheDocument();
+  });
+});
+
+// F-036 — text/markdown are meaningful with no data type bound; `allowSkip`
+// lets Next proceed unselected instead of hard-gating on a DataType pick.
+describe("DataTypeSelectStep — allowSkip (text/markdown)", () => {
+  it("Next is disabled with no selection when allowSkip is false", () => {
+    renderStep({ allowSkip: false });
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
+  it("shows 'Continue without data' and enables it with no selection when allowSkip is true", () => {
+    const { onNext } = renderStep({ allowSkip: true });
+    const button = screen.getByRole("button", { name: "Continue without data" });
+    expect(button).not.toBeDisabled();
+    fireEvent.click(button);
+    expect(onNext).toHaveBeenCalled();
+  });
+
+  it("reverts to the plain 'Next' label once a DataType is selected, even with allowSkip", () => {
+    renderStep({ allowSkip: true, selectedDataTypeId: "dt-1" });
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue without data" })).not.toBeInTheDocument();
+  });
+});
+
+// F-109 — a failed data-types fetch is a distinct state from "successfully
+// empty", with the slice's own error and a Retry action, never the empty copy.
+describe("DataTypeSelectStep — fetch error", () => {
+  it("shows the error and a Retry action instead of the empty state", () => {
+    renderStep({ registryDataTypes: [], error: "Failed to load data types." });
+    expect(screen.getByText("Failed to load data types.")).toBeInTheDocument();
+    expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Retry/ })).toBeInTheDocument();
+  });
+
+  it("Retry dispatches onRetry", () => {
+    const { onRetry } = renderStep({ registryDataTypes: [], error: "Failed to load data types." });
+    fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
+// F-108 — eyebrow header, filter, and a muted per-card metadata line.
+describe("DataTypeSelectStep — list header, filter, and metadata", () => {
+  it("shows the eyebrow without 'Or' when no shape section is present", () => {
+    renderStep({ offeredShapes: [] });
+    expect(screen.getByText("Bind an existing data type")).toBeInTheDocument();
+  });
+
+  it("shows the eyebrow with 'Or' when a shape section is present", () => {
+    renderStep({ offeredShapes: [singleRowShape] });
+    expect(screen.getByText("Or bind an existing data type")).toBeInTheDocument();
+  });
+
+  it("filters the DataType list by name", () => {
+    renderStep({
+      registryDataTypes: [dataType, { ...dataType, id: "dt-2", name: "Signups" }],
+    });
+    expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Signups" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Filter data types by name"), {
+      target: { value: "sign" },
+    });
+
+    expect(screen.queryByRole("button", { name: "Revenue" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Signups" })).toBeInTheDocument();
+  });
+
+  it("shows a muted field-count line, including the producing pipeline when known", () => {
+    renderStep({
+      registryDataTypes: [
+        {
+          ...dataType,
+          fields: [{ name: "amount", displayName: "amount", dataType: "float", nullable: false }],
+        },
+      ],
+      pipelineNameByTypeId: new Map([["dt-1", "Sales ETL"]]),
+    });
+    expect(screen.getByText("Sales ETL · 1 field")).toBeInTheDocument();
+  });
+
+  it("shows a check icon on the selected card", () => {
+    renderStep({ selectedDataTypeId: "dt-1" });
+    const card = screen.getByRole("button", { name: "Revenue" });
+    expect(card.querySelector("svg")).toBeInTheDocument();
   });
 });

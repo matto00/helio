@@ -23,6 +23,20 @@ import { ImageCreatorFields } from "../creators/ImageCreatorFields";
 import { MetricCreatorFields } from "../creators/MetricCreatorFields";
 import { PanelCreationPreview } from "../PanelCreationPreview";
 
+// F-211 — a distinct example per type, instead of "Revenue Pulse" showing on
+// every type regardless of fit (odd on, say, Timeline or Image).
+const TITLE_PLACEHOLDER: Record<PanelType, string> = {
+  metric: "Revenue Pulse",
+  chart: "Revenue by Region",
+  text: "Section Header",
+  table: "Recent Orders",
+  markdown: "Release Notes",
+  image: "Team Photo",
+  collection: "Top Accounts",
+  timeline: "Deployment History",
+  divider: "",
+};
+
 interface NameEntryStepProps {
   selectedType: PanelType;
   title: string;
@@ -32,6 +46,12 @@ interface NameEntryStepProps {
   chartConfig: ChartTypeConfig;
   imageConfig: ImageTypeConfig;
   onTypeConfigChange: (config: TypeConfig) => void;
+  /** F-035 — the DataType bound on datatype-select (or via the shape flow),
+   *  if any, so the preview can render the real bound state instead of
+   *  guessing from `typeConfig` alone. Null for unbound/non-data-bound types. */
+  dataTypeId: string | null;
+  /** Resolved display name for `dataTypeId`, looked up by the shell. */
+  dataTypeName: string | null;
   createError: string | null;
   /** True iff Create panel should be disabled (creating in flight, empty title, or unmet data-binding requirement). */
   submitDisabled: boolean;
@@ -49,6 +69,8 @@ export function NameEntryStep({
   chartConfig,
   imageConfig,
   onTypeConfigChange,
+  dataTypeId,
+  dataTypeName,
   createError,
   submitDisabled,
   isCreating,
@@ -57,7 +79,12 @@ export function NameEntryStep({
 }: NameEntryStepProps) {
   return (
     <div className="panel-creation-modal__name-entry">
-      <form className="panel-creation-modal__form" onSubmit={onSubmit}>
+      {/* F-112 — `noValidate`: no field here still uses `type="url"` (see
+          `ImageCreatorFields`), so no native constraint-validation bubble
+          fires today, but this is defense-in-depth against a future field
+          silently reintroducing one; validation/errors are the existing
+          `InlineError` below instead. */}
+      <form className="panel-creation-modal__form" onSubmit={onSubmit} noValidate>
         <div className="panel-creation-modal__field">
           <label className="panel-creation-modal__label" htmlFor="panel-create-title">
             Panel title
@@ -67,7 +94,7 @@ export function NameEntryStep({
             type="text"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
-            placeholder="Revenue Pulse"
+            placeholder={TITLE_PLACEHOLDER[selectedType]}
             aria-label="Panel title"
             autoFocus
           />
@@ -102,8 +129,15 @@ export function NameEntryStep({
           </button>
         </div>
       </form>
-      {/* 2.6 — Pass typeConfig to preview so it reflects entered config live. */}
-      <PanelCreationPreview type={selectedType} title={title} typeConfig={typeConfig} />
+      {/* 2.6 / F-035 — Pass typeConfig and the resolved binding so the
+          preview reflects entered config and the real bound state live. */}
+      <PanelCreationPreview
+        type={selectedType}
+        title={title}
+        typeConfig={typeConfig}
+        dataTypeId={dataTypeId}
+        dataTypeName={dataTypeName}
+      />
     </div>
   );
 }
