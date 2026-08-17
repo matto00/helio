@@ -138,7 +138,10 @@ final class AssistantService(
           hopBudgetExhausted = false,
           searchedWithNoResults = computeSearchedWithNoResults(executor.proposal, fullHistory, history),
           usage,
-          desanitizeFirstTurn(fullHistory, history.isEmpty, message)
+          desanitizeFirstTurn(fullHistory, history.isEmpty, message),
+          proposeAttempts = executor.proposeAttempts,
+          proposeDecodeFailures = executor.proposeDecodeFailures,
+          proposeValidationFailures = executor.proposeValidationFailures
         )
       )
     case ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
@@ -150,7 +153,10 @@ final class AssistantService(
           hopBudgetExhausted = true,
           searchedWithNoResults = false,
           usage,
-          desanitizeFirstTurn(fullHistory, history.isEmpty, message)
+          desanitizeFirstTurn(fullHistory, history.isEmpty, message),
+          proposeAttempts = executor.proposeAttempts,
+          proposeDecodeFailures = executor.proposeDecodeFailures,
+          proposeValidationFailures = executor.proposeValidationFailures
         )
       )
     case ClaudeToolOutcome.Failed(error) =>

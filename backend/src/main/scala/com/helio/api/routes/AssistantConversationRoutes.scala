@@ -152,7 +152,10 @@ final class AssistantConversationRoutes(
               hopBudgetExhausted = result.hopBudgetExhausted,
               searchedWithNoResults = result.searchedWithNoResults,
               modelId = assistantService.modelId,
-              tokens = result.usage
+              tokens = result.usage,
+              proposeAttempts = result.proposeAttempts,
+              proposeDecodeFailures = result.proposeDecodeFailures,
+              proposeValidationFailures = result.proposeValidationFailures
             )
             service.appendTurn(user, id, newTurns, idempotencyKey).flatMap {
               case Left(e) => Future.successful(Left(e))
