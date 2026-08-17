@@ -31,12 +31,44 @@
   text-overflow: ellipsis;
 }
 
+/* F-070: inline rename trigger + input, mirroring SidebarItemList's rename
+   affordance (pencil button -> full swap to a text input in place). */
+.source-detail-panel__rename-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+.source-detail-panel__rename-btn:hover {
+  color: var(--app-text);
+  background: var(--app-surface-soft);
+}
+
+.source-detail-panel__rename-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+}
+
 .source-detail-panel__type {
   font-size: var(--text-xs);
   color: var(--app-text-muted);
   padding: 2px 8px;
   border: 1px solid var(--app-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: var(--app-surface-soft);
   flex-shrink: 0;
 }
@@ -168,15 +200,6 @@
 
 .source-detail-panel__schema-field-name {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.source-detail-panel__error {
-  margin: 8px 0 0;
-  padding: 8px;
-  border-radius: var(--app-radius-sm);
-  background: var(--app-danger-surface);
-  color: var(--app-error);
   font-size: var(--text-xs);
 }
 

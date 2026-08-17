@@ -6,13 +6,6 @@
   gap: 6px;
 }
 
-.run-history-modal__empty {
-  margin: 16px 0;
-  text-align: center;
-  font-size: var(--text-sm);
-  color: var(--app-text-muted);
-}
-
 .run-history-modal__row {
   padding: 10px 12px;
   border: 1px solid var(--app-border-subtle);
@@ -28,57 +21,43 @@
   color: var(--app-text);
 }
 
+/* F-136/F-228: wrap onto multiple lines rather than clipping/squeezing at
+ * the 430/768 phone+tablet breakpoints (DESIGN.md §4); the fixed min-widths
+ * below keep the time/duration/count columns lined up between rows at any
+ * width instead of drifting per-row with their content. */
+@media (max-width: 768px) {
+  .run-history-modal__row-summary {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+}
+
 .run-history-modal__row-time {
   color: var(--app-text-muted);
   flex-shrink: 0;
+  min-width: 150px;
 }
 
-.run-history-modal__row-duration,
+.run-history-modal__row-duration {
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  white-space: nowrap;
+}
+
 .run-history-modal__row-count {
   color: var(--app-text-muted);
   font-variant-numeric: tabular-nums;
-}
-
-.run-history-modal__status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--app-border-subtle);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-semibold);
-  text-transform: capitalize;
-}
-
-.run-history-modal__status--succeeded {
-  color: var(--app-success);
-  border-color: color-mix(in srgb, var(--app-success) 40%, transparent);
-  background: var(--app-success-surface);
-}
-
-.run-history-modal__status--failed {
-  color: var(--app-error);
-  border-color: color-mix(in srgb, var(--app-error) 40%, transparent);
-  background: var(--app-error-surface);
-}
-
-.run-history-modal__status--running,
-.run-history-modal__status--queued {
-  color: var(--app-accent);
-  border-color: var(--app-border-strong);
-  background: var(--app-accent-surface);
-}
-
-.run-history-modal__status--dry_run {
-  color: var(--app-text-muted);
-  border-style: dashed;
+  min-width: 56px;
+  white-space: nowrap;
 }
 
 .run-history-modal__trigger {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   border: 1px solid var(--app-border-subtle);
   font-size: var(--text-micro);
   font-weight: var(--weight-semibold);
-  text-transform: capitalize;
   color: var(--app-text-muted);
 }
 

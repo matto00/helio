@@ -1,8 +1,8 @@
 .metrics-page {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  padding: 20px 24px;
+  gap: var(--space-7);
+  padding: var(--space-5) var(--space-6);
   min-height: 100%;
 }
 
@@ -103,39 +103,12 @@
   text-align: right;
 }
 
+/* F-171: danger-at-rest, matching the canonical recipe
+ * (`.dashboard-list__delete-confirm-btn` in DashboardList.css / `.actions-menu__item--danger`
+ * in ActionsMenu.css) — a hairline error border + error text at rest, with
+ * :hover reserved for the background wash only, instead of only signaling
+ * destructiveness on hover. */
 .metric-list-table__delete-btn {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.metric-list-table__delete-btn:hover {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
-}
-
-.metric-list-table__confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.metric-list-table__confirm-label {
-  font-size: var(--text-xs);
-  color: var(--app-text-muted);
-}
-
-.metric-list-table__confirm-btn {
   padding: var(--space-1) var(--space-2);
   border: 1px solid color-mix(in srgb, var(--app-error) 60%, transparent);
   border-radius: var(--app-radius-md);
@@ -144,25 +117,28 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
 }
 
-.metric-list-table__cancel-btn {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
+.metric-list-table__delete-btn:hover {
+  border-color: var(--app-error);
+  background: var(--app-error-surface);
 }
+
+/* .metric-list-table__confirm/-label/-btn and __cancel-btn were removed here:
+ * MetricListTable.tsx's delete-confirm affordance now renders the shared
+ * ConfirmInline component (shared/ui/ConfirmInline.tsx) instead, so these
+ * were dead CSS (flagged by FOUND-B's crossPackageRequest, which owns
+ * MetricListTable.tsx). */
 
 /* ── Status badge ── */
 
 .metric-status {
   display: inline-block;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
 }

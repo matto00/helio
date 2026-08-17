@@ -1,10 +1,14 @@
+/* F-113 — one width for every step (was 600px, jumping to 840px only on
+   name-entry via the now-removed `--wide` modifier) so the frame doesn't
+   visibly resize/re-center as the wizard advances. 720px mirrors Modal's
+   `lg` size token. */
 .panel-creation-modal {
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-lg);
   background: var(--app-surface-strong);
   box-shadow: var(--app-shadow-soft);
   padding: 0;
-  max-width: 600px;
+  max-width: 720px;
   width: 100%;
   color: var(--app-text);
 }
@@ -30,10 +34,6 @@
   }
 }
 
-.panel-creation-modal--wide {
-  max-width: 840px;
-}
-
 .panel-creation-modal::backdrop {
   background: var(--app-overlay);
   backdrop-filter: blur(2px);
@@ -55,12 +55,26 @@
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
+.panel-creation-modal__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* F-214 — "Step N of M" wizard-progress indicator. */
+.panel-creation-modal__step-progress {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
 .panel-creation-modal__title {
   margin: 0;
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   color: var(--app-text);
+  border-radius: var(--app-radius-sm);
 }
 
 .panel-creation-modal__close {
@@ -111,7 +125,7 @@
 }
 
 .panel-creation-modal__discard-confirm-btn {
-  height: 26px;
+  height: var(--control-sm);
   padding: 0 var(--space-3);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
@@ -143,13 +157,37 @@
   color: var(--app-error);
 }
 
-/* Body content area — provides padding for all step content */
+/* F-209 — below 430px, stack the banner (text above, actions below) instead
+   of squeezing both into one row, and let a 2-line message grow the button
+   row instead of clipping it. */
+@media (max-width: 430px) {
+  .panel-creation-modal__discard-confirm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-creation-modal__discard-confirm-actions {
+    justify-content: flex-end;
+  }
+
+  .panel-creation-modal__discard-confirm-btn {
+    height: auto;
+    min-height: var(--control-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+/* Body content area — provides padding + a min-height for all step content
+   so the frame's vertical size doesn't jump as sharply between steps
+   (F-113) — content changes, the frame stays put. */
 .panel-creation-modal__type-grid,
 .panel-creation-modal__template-step,
 .panel-creation-modal__datatype-step,
-.panel-creation-modal__name-entry {
+.panel-creation-modal__name-entry,
+.shape-instantiate-step {
   padding: var(--space-5);
   padding-top: 0;
+  min-height: 320px;
 }
 
 /* Type selection grid */
@@ -177,11 +215,12 @@
   font-size: var(--text-sm);
 }
 
-.panel-creation-modal__type-card:hover,
-.panel-creation-modal__type-card:focus-visible {
-  border-color: var(--app-accent);
+/* F-215 / F-203 — one hover recipe for every selectable card in the wizard
+   (neutral border-strong + surface-raised); focus-visible is left to the
+   global 2px accent ring (theme.css) instead of a bespoke override. */
+.panel-creation-modal__type-card:hover {
+  border-color: var(--app-border-strong);
   background: var(--app-surface-raised);
-  outline: none;
 }
 
 .panel-creation-modal__type-icon {
@@ -218,35 +257,6 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   color: var(--app-text-muted);
-}
-
-.panel-creation-modal__input {
-  min-height: var(--control-md);
-  padding: 0 var(--space-3);
-  background: var(--app-surface-soft);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  color: var(--app-text);
-  font-size: var(--text-sm);
-  outline: none;
-  transition:
-    border-color var(--app-transition),
-    box-shadow var(--app-transition);
-}
-
-.panel-creation-modal__input:focus {
-  border-color: var(--app-accent);
-  box-shadow: 0 0 0 3px var(--app-accent-dim);
-}
-
-/* select elements share the same visual treatment as text inputs */
-select.panel-creation-modal__input {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23888' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--space-3) center;
-  padding-right: var(--space-7);
-  cursor: pointer;
 }
 
 .panel-creation-modal__actions {
@@ -342,6 +352,30 @@ select.panel-creation-modal__input {
   overflow: hidden;
 }
 
+/* F-035 — static type illustration + summary line, replacing the renderer
+   preview for every type but image (see PanelCreationPreview.tsx header). */
+.panel-creation-preview__summary {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.panel-creation-preview__summary-icon {
+  font-size: var(--text-2xl);
+  color: var(--app-text-muted);
+}
+
+.panel-creation-preview__summary-text {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
 /* Responsive: single column below the canonical small breakpoint — hide preview */
 @media (max-width: 768px) {
   .panel-creation-modal__name-entry {
@@ -350,6 +384,18 @@ select.panel-creation-modal__input {
 
   .panel-creation-preview {
     display: none;
+  }
+}
+
+/* F-209 — at the canonical phone breakpoint, a 3-column type grid squeezes
+   4-line descriptions into unreadably narrow cards; stack to one column. */
+@media (max-width: 430px) {
+  .panel-creation-modal__type-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-creation-modal__template-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -383,11 +429,9 @@ select.panel-creation-modal__input {
     background-color var(--app-transition);
 }
 
-.panel-creation-modal__template-card:hover,
-.panel-creation-modal__template-card:focus-visible {
-  border-color: var(--app-accent);
+.panel-creation-modal__template-card:hover {
+  border-color: var(--app-border-strong);
   background: var(--app-surface-raised);
-  outline: none;
 }
 
 .panel-creation-modal__template-card--blank {
@@ -416,6 +460,56 @@ select.panel-creation-modal__input {
   gap: var(--space-5);
 }
 
+.panel-creation-modal__datatype-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel-creation-modal__datatype-eyebrow {
+  margin: 0;
+}
+
+.panel-creation-modal__datatype-filter {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.panel-creation-modal__datatype-filter .ui-input {
+  width: 100%;
+  padding-right: var(--space-7);
+}
+
+.panel-creation-modal__datatype-filter-clear {
+  position: absolute;
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.panel-creation-modal__datatype-filter-clear:hover {
+  color: var(--app-text);
+  background: var(--app-surface-raised);
+}
+
+.panel-creation-modal__datatype-no-match {
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
 .panel-creation-modal__datatype-list {
   display: flex;
   flex-direction: column;
@@ -427,7 +521,7 @@ select.panel-creation-modal__input {
 .panel-creation-modal__datatype-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--app-border-subtle);
@@ -442,16 +536,21 @@ select.panel-creation-modal__input {
   width: 100%;
 }
 
-.panel-creation-modal__datatype-card:hover,
-.panel-creation-modal__datatype-card:focus-visible {
-  border-color: var(--app-accent);
+.panel-creation-modal__datatype-card:hover {
+  border-color: var(--app-border-strong);
   background: var(--app-surface-raised);
-  outline: none;
 }
 
 .panel-creation-modal__datatype-card--selected {
-  border-color: var(--app-accent);
+  border-color: var(--app-accent-mid);
   background: var(--app-accent-dim);
+}
+
+.panel-creation-modal__datatype-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .panel-creation-modal__datatype-name {
@@ -459,12 +558,20 @@ select.panel-creation-modal__input {
   font-weight: var(--weight-medium);
 }
 
-.panel-creation-modal__datatype-empty {
-  padding: var(--space-6);
-  text-align: center;
+.panel-creation-modal__datatype-check {
+  flex-shrink: 0;
+  color: var(--app-accent);
+  font-size: var(--text-xs);
+}
+
+.panel-creation-modal__datatype-meta {
+  font-size: var(--text-xs);
   color: var(--app-text-muted);
-  font-size: var(--text-sm);
-  line-height: 1.6;
+}
+
+.panel-creation-modal__datatype-empty__link-row {
+  margin: var(--space-2) 0 0;
+  text-align: center;
 }
 
 .panel-creation-modal__datatype-empty__link {
@@ -478,10 +585,26 @@ select.panel-creation-modal__input {
 }
 
 .panel-creation-modal__datatype-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-6);
   text-align: center;
   color: var(--app-text-muted);
   font-size: var(--text-sm);
+}
+
+.panel-creation-modal__datatype-loading p {
+  margin: 0;
+}
+
+.panel-creation-modal__datatype-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
 }
 
 /* "Start from a shape" cards (HEL-399) */
@@ -501,11 +624,14 @@ select.panel-creation-modal__input {
   gap: var(--space-2);
 }
 
+/* F-108 — icon + trailing chevron distinguish a shape card (selecting one
+   immediately navigates to shape-instantiate) from a datatype card
+   (select-then-Next) at a glance, not just by reading both descriptions. */
 .panel-creation-modal__shape-card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--app-border-subtle);
@@ -519,11 +645,30 @@ select.panel-creation-modal__input {
     background-color var(--app-transition);
 }
 
-.panel-creation-modal__shape-card:hover,
-.panel-creation-modal__shape-card:focus-visible {
-  border-color: var(--app-accent-mid);
-  background: var(--app-accent-surface);
-  outline: none;
+.panel-creation-modal__shape-card:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.panel-creation-modal__shape-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-dim);
+  color: var(--app-accent);
+  font-size: var(--text-xs);
+}
+
+.panel-creation-modal__shape-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .panel-creation-modal__shape-label {
@@ -535,4 +680,10 @@ select.panel-creation-modal__input {
 .panel-creation-modal__shape-desc {
   font-size: var(--text-xs);
   color: var(--app-text-muted);
+}
+
+.panel-creation-modal__shape-chevron {
+  flex-shrink: 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
 }
