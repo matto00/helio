@@ -30,8 +30,15 @@ final case class ClaudeRequest(
 
 /** Token usage as reported by the Anthropic API's own `usage` field — never inferred from the
  *  pre-flight `jtokkit` estimate (design.md D4/D9: the estimate is for the guardrail check only,
- *  real cost accounting always uses this). */
-final case class TokenUsage(inputTokens: Int, outputTokens: Int)
+ *  real cost accounting always uses this). `cacheCreationInputTokens`/`cacheReadInputTokens`
+ *  (assistant-prompt-caching design.md D4) default `0` so every existing 2-arg construction site
+ *  keeps compiling; `ClaudeClient.addUsage` sums all four counters across tool-loop hops. */
+final case class TokenUsage(
+    inputTokens: Int,
+    outputTokens: Int,
+    cacheCreationInputTokens: Int = 0,
+    cacheReadInputTokens: Int = 0
+)
 
 /** Successful, fully-assembled `send` result. */
 final case class ClaudeResponse(id: String, text: String, stopReason: Option[String], usage: TokenUsage)

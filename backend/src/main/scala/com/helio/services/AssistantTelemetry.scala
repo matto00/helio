@@ -50,7 +50,9 @@ object AssistantTelemetry {
         "searchedWithNoResults" -> searchedWithNoResults.toString,
         "modelId"               -> modelId,
         "inputTokens"           -> tokens.inputTokens.toString,
-        "outputTokens"          -> tokens.outputTokens.toString
+        "outputTokens"          -> tokens.outputTokens.toString,
+        "cacheReadInputTokens"     -> tokens.cacheReadInputTokens.toString,
+        "cacheCreationInputTokens" -> tokens.cacheCreationInputTokens.toString
       )
     )
 
