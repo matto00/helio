@@ -4,15 +4,16 @@
 // otherwise). Extracted from PipelineDetailPage.tsx in CS3 cycle 2 to keep
 // the parent under the 400L hard cap.
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faCodeBranch, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
 import { ShapePickerModal } from "./ShapePickerModal";
 import { StepCard } from "./StepCard";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import type { OpType, Step } from "../types/step";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { ShapeStepExpansion } from "../types/pipelineShape";
@@ -89,6 +90,24 @@ export function PipelineRiverView({
   const addStepButtonRef = useRef<HTMLButtonElement>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
 
+  // F-146 — lets `handleMoveUp`/`handleMoveDown` below read the current
+  // `steps` without closing over the prop directly, so they stay stable
+  // (`useCallback` identity unchanged) across the renders that change
+  // `steps` most often — editing one step's config re-renders this
+  // component with a new `steps` array on every keystroke. A
+  // `useCallback([..., steps])` dependency would get a new identity on
+  // exactly those renders, which — since these are `StepCard` props —
+  // would keep every *other*, unrelated `StepCard` re-rendering via
+  // `React.memo`'s prop comparison (see `StepCard.tsx`).
+  const stepsRef = useRef(steps);
+  // eslint-plugin-react-hooks@7's react-hooks/refs rule forbids writing a ref
+  // during render (the assignment used to sit right here) — commit it in an
+  // effect instead. Still runs before any event handler can read it, and the
+  // whole point of this ref is to be read outside render (see above).
+  useEffect(() => {
+    stepsRef.current = steps;
+  }, [steps]);
+
   // HEL-410 — gap "insert step here" affordance (design.md Decision 5): one
   // compact "+" button per gap (before the first card + between each pair;
   // after-last stays the existing add row). The gap count is dynamic, so
@@ -123,14 +142,18 @@ export function PipelineRiverView({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
 
-  function handleStepDragStart(index: number) {
+  // F-146 — `StepCard` props; `useCallback` with empty deps (both close only
+  // over the stable `useState` setters) so every `StepCard` gets the same
+  // reference every render, not a fresh closure — a precondition for
+  // `React.memo` to skip re-rendering the cards a given edit didn't touch.
+  const handleStepDragStart = useCallback((index: number) => {
     setDraggedIndex(index);
-  }
+  }, []);
 
-  function handleStepDragEnd() {
+  const handleStepDragEnd = useCallback(() => {
     setDraggedIndex(null);
     setOverIndex(null);
-  }
+  }, []);
 
   function handleCardDragOver(e: DragEvent<HTMLDivElement>, index: number) {
     if (draggedIndex === null) return;
@@ -156,15 +179,34 @@ export function PipelineRiverView({
     setOverIndex(null);
   }
 
-  function handleMoveUp(index: number) {
-    if (index === 0) return;
-    onReorderSteps(moveStep(steps, index, index - 1));
-  }
+  // F-146 — hoisted out of the per-item `idx > 0 ? () => handleMoveUp(idx) :
+  // undefined` closures the JSX below used to build fresh on every render
+  // for every step: two stable, id-keyed callbacks instead (reading the
+  // step's position from `stepsRef` rather than taking an `index` argument,
+  // so the JSX can pass the *function itself* as `StepCard`'s `onMoveUp`/
+  // `onMoveDown` prop — see the mapping below — instead of allocating a new
+  // wrapper arrow per card per render). `onReorderSteps` is itself stable
+  // (`PipelineDetailPage.handleReorderSteps` is `useCallback`-wrapped), so
+  // these only change identity when it does (i.e. a different pipeline).
+  const handleMoveUp = useCallback(
+    (stepId: string) => {
+      const currentSteps = stepsRef.current;
+      const index = currentSteps.findIndex((s) => s.id === stepId);
+      if (index <= 0) return;
+      onReorderSteps(moveStep(currentSteps, index, index - 1));
+    },
+    [onReorderSteps],
+  );
 
-  function handleMoveDown(index: number) {
-    if (index === steps.length - 1) return;
-    onReorderSteps(moveStep(steps, index, index + 1));
-  }
+  const handleMoveDown = useCallback(
+    (stepId: string) => {
+      const currentSteps = stepsRef.current;
+      const index = currentSteps.findIndex((s) => s.id === stepId);
+      if (index === -1 || index >= currentSteps.length - 1) return;
+      onReorderSteps(moveStep(currentSteps, index, index + 1));
+    },
+    [onReorderSteps],
+  );
 
   // HEL-412 (design.md Decision 8) — one bit per step, same string passed to
   // every StepCard's preview fingerprint: any toggle anywhere refreshes
@@ -204,9 +246,19 @@ export function PipelineRiverView({
       <div className="pipeline-detail-page__river-inner">
         {steps.length === 0 ? (
           <div className="pipeline-detail-page__empty-state">
-            <p className="pipeline-detail-page__empty-state-text">
-              Add your first transformation step
-            </p>
+            {/* HEL sweep F-132/F-159: was a bare <p>; now the shared EmptyState
+             * primitive (icon + title + description). `variant="sidebar"`
+             * because this sits inside an already chrome-heavy detail page
+             * (source/type/schedule bars + footer are all visible at once),
+             * so the full `main`-variant hero would be heavier than
+             * warranted — the two custom action buttons below stay
+             * hand-rolled since EmptyState's `cta` prop only supports one. */}
+            <EmptyState
+              variant="sidebar"
+              icon={faCodeBranch}
+              title="No steps yet"
+              description="Add your first transformation step to start shaping this pipeline's output."
+            />
             <div className="pipeline-detail-page__empty-state-actions">
               <button
                 ref={addStepButtonRef}
@@ -258,8 +310,8 @@ export function PipelineRiverView({
                     rowCount={runStepRowCounts?.[step.id] ?? null}
                     onStepDragStart={handleStepDragStart}
                     onStepDragEnd={handleStepDragEnd}
-                    onMoveUp={idx > 0 ? () => handleMoveUp(idx) : undefined}
-                    onMoveDown={idx < steps.length - 1 ? () => handleMoveDown(idx) : undefined}
+                    onMoveUp={idx > 0 ? handleMoveUp : undefined}
+                    onMoveDown={idx < steps.length - 1 ? handleMoveDown : undefined}
                     onToggleEnabled={onToggleStepEnabled}
                     onDuplicate={onDuplicateStep}
                     enabledBits={enabledBits}
