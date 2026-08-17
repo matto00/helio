@@ -1,8 +1,9 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { getDashboardBgContrastRatio } from "../../../theme/appearance";
 import { DASHBOARD_APPEARANCE_PRESETS } from "../../../theme/theme";
 import { renderWithStore } from "../../../test/renderWithStore";
+import { updateDashboardAppearance as updateDashboardAppearanceRequest } from "../services/dashboardService";
 import type { Dashboard } from "../types/dashboard";
 import { DashboardAppearanceEditor } from "./DashboardAppearanceEditor";
 
@@ -26,6 +27,7 @@ jest.mock("../services/dashboardService", () => ({
 }));
 
 const contrastRatioMock = jest.mocked(getDashboardBgContrastRatio);
+const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
 
 const baseMeta = {
   createdBy: "system",
@@ -119,5 +121,64 @@ describe("DashboardAppearanceEditor", () => {
     const group = screen.getByRole("group", { name: "Dashboard appearance presets" });
     const buttons = group.querySelectorAll("button");
     expect(buttons.length).toBeGreaterThanOrEqual(6);
+  });
+
+  // ── F-030: cancelling a close must not leak the unsaved draft pick ────────────
+  it("reverts an unsaved preset pick when the popover is dismissed without saving", () => {
+    renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
+    openEditor();
+
+    const preset = DASHBOARD_APPEARANCE_PRESETS[2];
+    fireEvent.click(screen.getByRole("button", { name: preset.label }));
+    expect(screen.getByLabelText("Dashboard background color")).toHaveValue(preset.background);
+
+    // Dismiss without saving (Escape — usePortalPopover's document-level
+    // keydown handler closes it) rather than clicking "Save dashboard style".
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // Reopen: the draft must have reverted to the dashboard's actually-saved
+    // appearance, not the abandoned preset pick.
+    openEditor();
+    expect(screen.getByLabelText("Dashboard background color")).toHaveValue(
+      solidDashboard.appearance.background,
+    );
+    expect(screen.getByLabelText("Dashboard grid background color")).toHaveValue(
+      solidDashboard.appearance.gridBackground,
+    );
+    expect(screen.getByRole("button", { name: preset.label })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  // ── F-098: a supported path back to "no override" ─────────────────────────────
+  it("offers a Default preset that resets appearance back to transparent and persists it on save", async () => {
+    const presetDashboard: Dashboard = {
+      ...solidDashboard,
+      appearance: {
+        background: DASHBOARD_APPEARANCE_PRESETS[0].background,
+        gridBackground: DASHBOARD_APPEARANCE_PRESETS[0].gridBackground,
+      },
+    };
+    renderWithStore(<DashboardAppearanceEditor dashboard={presetDashboard} />);
+    openEditor();
+
+    const defaultPreset = screen.getByRole("button", { name: "Default" });
+    // Default renders first, ahead of the 12 color presets.
+    expect(
+      screen.getByRole("group", { name: "Dashboard appearance presets" }).firstElementChild,
+    ).toBe(defaultPreset);
+
+    fireEvent.click(defaultPreset);
+    expect(defaultPreset).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save dashboard style" }));
+
+    await waitFor(() =>
+      expect(updateDashboardAppearanceMock).toHaveBeenCalledWith(presetDashboard.id, {
+        background: "transparent",
+        gridBackground: "transparent",
+      }),
+    );
   });
 });

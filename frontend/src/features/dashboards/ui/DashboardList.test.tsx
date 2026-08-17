@@ -1,13 +1,21 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { waitFor } from "@testing-library/react";
 
-import { createDashboard as createDashboardRequest } from "../services/dashboardService";
+import {
+  createDashboard as createDashboardRequest,
+  deleteDashboard as deleteDashboardRequest,
+  duplicateDashboard as duplicateDashboardRequest,
+  renameDashboard as renameDashboardRequest,
+} from "../services/dashboardService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { DashboardList } from "./DashboardList";
 
 jest.mock("../services/dashboardService", () => ({
   createDashboard: jest.fn(),
+  deleteDashboard: jest.fn(),
+  duplicateDashboard: jest.fn(),
   fetchDashboards: jest.fn(),
+  renameDashboard: jest.fn(),
   updateDashboardAppearance: jest.fn(),
   updateDashboardLayout: jest.fn(),
 }));
@@ -19,10 +27,20 @@ const defaultMeta = {
 };
 
 const createDashboardMock = jest.mocked(createDashboardRequest);
+const deleteDashboardMock = jest.mocked(deleteDashboardRequest);
+const duplicateDashboardMock = jest.mocked(duplicateDashboardRequest);
+const renameDashboardMock = jest.mocked(renameDashboardRequest);
+
+function openActionsMenu(dashboardName: string) {
+  fireEvent.click(screen.getByRole("button", { name: `${dashboardName} actions` }));
+}
 
 describe("DashboardList", () => {
   beforeEach(() => {
     createDashboardMock.mockReset();
+    deleteDashboardMock.mockReset();
+    duplicateDashboardMock.mockReset();
+    renameDashboardMock.mockReset();
   });
 
   it("renders the dashboards heading and backend-backed dashboard items from state", () => {
@@ -273,5 +291,107 @@ describe("DashboardList", () => {
 
     // Clear button should disappear
     expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
+  });
+
+  // F-029 — the active-filtered-out badge used to be an absolutely-positioned
+  // `::after` pseudo-element pinned at a fixed offset, independent of the
+  // name's own truncating flex box, so a long enough name rendered under it.
+  // It's now a real DOM sibling inside `.dashboard-list__name-group`, so the
+  // name (min-width: 0, ellipsis) truncates around it instead.
+  it("renders the outside-filter badge as a real sibling of the dashboard name, not a pseudo-element", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+        ],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter dashboards by name"), {
+      target: { value: "exec" },
+    });
+
+    const operationsButton = screen.getByRole("button", { name: "Operations" });
+    const nameGroup = operationsButton.querySelector(".dashboard-list__name-group");
+    expect(nameGroup).not.toBeNull();
+    const badge = nameGroup?.querySelector(".dashboard-list__pinned-badge");
+    expect(badge).toHaveTextContent("active");
+    // A real sibling, not a pseudo-element: it's an actual DOM node alongside
+    // `.dashboard-list__name` rather than CSS-generated content.
+    expect(badge?.previousElementSibling).toHaveClass("dashboard-list__name");
+  });
+
+  // F-031 — Rename/Duplicate/Delete used to dispatch and never check the
+  // result, so a rejected request left the UI looking like nothing happened.
+  describe("F-031: dashboard action failures are surfaced, not swallowed", () => {
+    function renderTwoDashboards() {
+      return renderWithStore(<DashboardList />, {
+        dashboards: {
+          items: [
+            { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+            { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+          ],
+          selectedDashboardId: "dashboard-1",
+          status: "succeeded",
+        },
+        panels: { items: [] },
+      });
+    }
+
+    it("keeps the row in edit mode and shows an error when rename is rejected", async () => {
+      renameDashboardMock.mockRejectedValue(new Error("network down"));
+      renderTwoDashboards();
+
+      openActionsMenu("Operations");
+      fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+
+      const input = screen.getByLabelText("Dashboard name");
+      fireEvent.change(input, { target: { value: "Ops Renamed" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      await waitFor(() => expect(renameDashboardMock).toHaveBeenCalled());
+      // The rename input is still present (not silently closed) and the
+      // failure is visible next to it.
+      await waitFor(() =>
+        expect(screen.getByText("Failed to rename dashboard.")).toBeInTheDocument(),
+      );
+      // Rename stays in edit mode on failure (matches SidebarItemList's
+      // contract) rather than silently closing as if it had saved.
+      expect(screen.getByLabelText("Dashboard name")).toHaveValue("Ops Renamed");
+    });
+
+    it("keeps the confirm row open and shows an error when delete is rejected", async () => {
+      deleteDashboardMock.mockRejectedValue(new Error("network down"));
+      renderTwoDashboards();
+
+      openActionsMenu("Operations");
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => expect(deleteDashboardMock).toHaveBeenCalledWith("dashboard-1"));
+      await waitFor(() =>
+        expect(screen.getByText("Failed to delete dashboard.")).toBeInTheDocument(),
+      );
+      // The dashboard was not removed and the confirm row is still open.
+      expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
+    });
+
+    it("shows an inline error when duplicate is rejected", async () => {
+      duplicateDashboardMock.mockRejectedValue(new Error("network down"));
+      renderTwoDashboards();
+
+      openActionsMenu("Operations");
+      fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+
+      await waitFor(() => expect(duplicateDashboardMock).toHaveBeenCalledWith("dashboard-1"));
+      await waitFor(() =>
+        expect(screen.getByText("Failed to duplicate dashboard.")).toBeInTheDocument(),
+      );
+    });
   });
 });

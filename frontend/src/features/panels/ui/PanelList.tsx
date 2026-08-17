@@ -1,23 +1,35 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faTableCellsLarge, faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import "./PanelList.css";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
 import { updateUserPreferences } from "../../auth/state/authSlice";
+import { createDashboard } from "../../dashboards/state/dashboardsSlice";
 import { PanelGrid } from "./PanelGrid";
 import { PanelCreationModal } from "./PanelCreationModal";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import { resolveDashboardGridBackground } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
+import { useDashboardAppearancePreview } from "../../dashboards/hooks/dashboardAppearancePreviewContext";
 
 export function PanelList() {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  // F-096: `App.tsx`'s `DashboardAppearanceEditor` popover broadcasts its unsaved draft via
+  // context (PanelList is rendered through `<Outlet />`, one function scope below AppShell, so a
+  // plain prop can't reach it — see dashboardAppearancePreviewContext.ts). `null` outside that
+  // provider (e.g. this component's own tests) preserves pre-F-096 behavior.
+  const previewAppearance = useDashboardAppearancePreview();
   const { items: dashboards, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const { items, status, error } = useAppSelector((state) => state.panels);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreatingDashboard, setIsCreatingDashboard] = useState(false);
+  const [createDashboardError, setCreateDashboardError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedDashboard =
     dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -67,6 +79,21 @@ export function PanelList() {
     );
   }
 
+  // F-003: the main content pane's own "no dashboards yet" empty state needs
+  // a real way out, not just a re-statement of "use the sidebar" — mirrors
+  // DashboardList.tsx's own quick-create (a bare name, renameable afterward).
+  async function handleCreateDashboard() {
+    setIsCreatingDashboard(true);
+    setCreateDashboardError(null);
+    try {
+      await dispatch(createDashboard({ name: "Untitled dashboard" })).unwrap();
+    } catch {
+      setCreateDashboardError("Failed to create dashboard.");
+    } finally {
+      setIsCreatingDashboard(false);
+    }
+  }
+
   // Ctrl+scroll and trackpad-pinch zoom gesture handler.
   // React registers onWheel as passive since React 17, so a native listener
   // with { passive: false } is required to call preventDefault() and suppress
@@ -100,17 +127,19 @@ export function PanelList() {
     return () => container.removeEventListener("wheel", handleWheel);
   }, [handleZoomChange]);
 
+  const effectiveDashboardAppearance = previewAppearance ?? selectedDashboard?.appearance;
+
   return (
     <section
       className="panel-list"
       aria-label="panels"
       style={
-        selectedDashboard?.appearance.gridBackground &&
-        selectedDashboard.appearance.gridBackground !== "transparent"
+        effectiveDashboardAppearance?.gridBackground &&
+        effectiveDashboardAppearance.gridBackground !== "transparent"
           ? ({
               "--dashboard-grid-background-override": resolveDashboardGridBackground(
                 theme,
-                selectedDashboard.appearance,
+                effectiveDashboardAppearance,
               ),
             } as CSSProperties)
           : undefined
@@ -125,11 +154,12 @@ export function PanelList() {
             <button
               type="button"
               className="panel-list__add"
-              aria-label="Add panel"
               onClick={() => setIsModalOpen(true)}
               disabled={selectedDashboardId === null}
+              title={selectedDashboardId === null ? "Select a dashboard first" : undefined}
             >
-              <span aria-hidden="true">+</span>
+              <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
+              Add panel
             </button>
           </div>
         </div>
@@ -172,27 +202,38 @@ export function PanelList() {
         message={status === "loading" ? "Loading panels..." : (error ?? undefined)}
       />
       {status !== "loading" && status !== "failed" && selectedDashboardId === null ? (
-        <p className="panel-list__state">Select a dashboard to view panels.</p>
+        dashboards.length === 0 ? (
+          <EmptyState
+            icon={faTableColumns}
+            title="No dashboards yet"
+            description={
+              createDashboardError ?? "Create your first dashboard to start adding panels."
+            }
+            cta={{
+              label: isCreatingDashboard ? "Creating..." : "New dashboard",
+              icon: faPlus,
+              onClick: handleCreateDashboard,
+            }}
+          />
+        ) : (
+          <EmptyState
+            icon={faTableColumns}
+            title="Select a dashboard"
+            description="Choose a dashboard from the sidebar to view its panels."
+          />
+        )
       ) : null}
       {status === "succeeded" && items.length === 0 ? (
-        <div className="panel-list__empty-state">
-          <img
-            className="panel-list__empty-icon"
-            src="/empty-panel-grid.svg"
-            alt=""
-            aria-hidden="true"
-          />
-          <h3 className="panel-list__empty-heading">No panels yet</h3>
-          <p className="panel-list__empty-subtext">Add a panel to start building your dashboard</p>
-          <button
-            type="button"
-            className="panel-list__empty-cta"
-            onClick={() => setIsModalOpen(true)}
-            disabled={selectedDashboardId === null}
-          >
-            Add panel
-          </button>
-        </div>
+        <EmptyState
+          icon={faTableCellsLarge}
+          title="No panels yet"
+          description="Add a panel to start building your dashboard."
+          cta={
+            selectedDashboardId !== null
+              ? { label: "Add panel", icon: faPlus, onClick: () => setIsModalOpen(true) }
+              : undefined
+          }
+        />
       ) : null}
       {items.length > 0 && selectedDashboardId !== null ? (
         <div

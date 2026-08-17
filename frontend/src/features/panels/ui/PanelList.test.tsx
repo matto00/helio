@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import {
   createPanel as createPanelRequest,
   fetchPanels as fetchPanelsRequest,
 } from "../services/panelService";
+import { createDashboard as createDashboardRequest } from "../../dashboards/services/dashboardService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelGrid } from "./PanelGrid";
 import { PanelList } from "./PanelList";
@@ -55,6 +56,10 @@ jest.mock("../services/panelService", () => ({
   updatePanelAppearance: jest.fn(),
 }));
 
+jest.mock("../../dashboards/services/dashboardService", () => ({
+  createDashboard: jest.fn(),
+}));
+
 jest.mock("../../auth/services/authService", () => ({
   updateUserPreferencesRequest: jest.fn().mockResolvedValue({ accentColor: null, zoomLevels: {} }),
 }));
@@ -85,6 +90,7 @@ const defaultPanelAppearance = {
 
 const createPanelMock = jest.mocked(createPanelRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
+const createDashboardMock = jest.mocked(createDashboardRequest);
 
 /** Base dashboard store slice used by most tests. */
 const baseDashboardsState = {
@@ -140,9 +146,10 @@ describe("PanelList", () => {
     MockPanelGrid.mockClear();
     createPanelMock.mockReset();
     fetchPanelsMock.mockReset();
+    createDashboardMock.mockReset();
   });
 
-  it("renders a prompt when no dashboard has been selected yet", () => {
+  it("renders a 'no dashboards yet' empty state when the user has zero dashboards (F-201)", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [],
@@ -154,7 +161,62 @@ describe("PanelList", () => {
       },
     });
 
-    expect(screen.getByText("Select a dashboard to view panels.")).toBeInTheDocument();
+    expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Create your first dashboard to start adding panels."),
+    ).toBeInTheDocument();
+  });
+
+  it("the 'no dashboards yet' empty state's CTA creates a dashboard (F-003)", async () => {
+    createDashboardMock.mockResolvedValueOnce({
+      id: "dashboard-new",
+      name: "Untitled dashboard",
+      meta: defaultMeta,
+      appearance: defaultDashboardAppearance,
+      layout: defaultDashboardLayout,
+    });
+
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "New dashboard" }));
+      await waitFor(() => expect(createDashboardMock).toHaveBeenCalledWith("Untitled dashboard"));
+    });
+  });
+
+  it("renders a 'select a dashboard' empty state when dashboards exist but none is selected (F-201)", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Operations",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: null,
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    expect(screen.getByText("Select a dashboard")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose a dashboard from the sidebar to view its panels."),
+    ).toBeInTheDocument();
   });
 
   it("renders an error fallback when panel loading fails", () => {
@@ -203,10 +265,10 @@ describe("PanelList", () => {
       },
     });
 
-    const emptyState = screen.getByRole("heading", { name: "No panels yet" }).closest("div")!;
+    const emptyState = screen.getByLabelText("No panels yet");
     expect(emptyState).toBeInTheDocument();
     expect(
-      within(emptyState).getByText("Add a panel to start building your dashboard"),
+      within(emptyState).getByText("Add a panel to start building your dashboard."),
     ).toBeInTheDocument();
     expect(within(emptyState).getByRole("button", { name: "Add panel" })).toBeInTheDocument();
   });
@@ -232,7 +294,7 @@ describe("PanelList", () => {
       },
     });
 
-    const emptyState = screen.getByRole("heading", { name: "No panels yet" }).closest("div")!;
+    const emptyState = screen.getByLabelText("No panels yet");
     fireEvent.click(within(emptyState).getByRole("button", { name: "Add panel" }));
 
     // Modal type-select step is shown

@@ -106,3 +106,92 @@ describe("PanelCard — HEL-576 invalid-data badge", () => {
     expect(fetchAssertionStatusMock).not.toHaveBeenCalled();
   });
 });
+
+describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips)", () => {
+  beforeEach(() => {
+    fetchAssertionStatusMock.mockReset();
+    fetchAssertionStatusMock.mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  it("hides the drag handle while confirming delete, leaving only Confirm/Cancel", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} isConfirmingDelete />, {
+      panels: { items: [] },
+    });
+
+    expect(screen.getByText("Confirm")).toBeInTheDocument();
+    expect(screen.getByText("×")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move Revenue panel" })).not.toBeInTheDocument();
+  });
+
+  it("shows the drag handle (not Confirm/Cancel) when not confirming delete", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.getByRole("button", { name: "Move Revenue panel" })).toBeInTheDocument();
+    expect(screen.queryByText("Confirm")).not.toBeInTheDocument();
+  });
+
+  it("gives the drag handle a native title tooltip mirroring its aria-label (F-221)", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const handle = screen.getByRole("button", { name: "Move Revenue panel" });
+    expect(handle).toHaveAttribute("title", "Move Revenue panel");
+  });
+});
+
+describe("PanelCard — F-066 freshness tooltip", () => {
+  beforeEach(() => {
+    fetchAssertionStatusMock.mockReset();
+    fetchAssertionStatusMock.mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  it("exposes the exact timestamp via title on the relative-time freshness line", () => {
+    const dataAsOf = "2026-07-18T12:00:00Z";
+    const panel = makeMetricPanel({ dataAsOf });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const freshness = screen.getByText(/Data as of/);
+    expect(freshness).toHaveAttribute("title", `Data as of ${new Date(dataAsOf).toLocaleString()}`);
+  });
+
+  it("renders no freshness line (and no tooltip) when the panel has no dataAsOf", () => {
+    const panel = makeMetricPanel({ dataAsOf: null });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.queryByText(/Data as of/)).not.toBeInTheDocument();
+  });
+});
+
+// F-099: the drag handle used to be two bare `<span>` dots — visually
+// near-identical to the adjacent ActionsMenu trigger's 3-dot ellipsis, with
+// no icon/shape/color differentiation between "open a menu" and "drag to
+// move the whole panel".
+describe("PanelCard — F-099 drag handle visual distinction", () => {
+  beforeEach(() => {
+    fetchAssertionStatusMock.mockReset();
+    fetchAssertionStatusMock.mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  it("renders the drag handle with a grip icon instead of the old bare dot spans", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const handle = screen.getByRole("button", { name: "Move Revenue panel" });
+    expect(handle.querySelector("svg")).toBeInTheDocument();
+    expect(handle.querySelectorAll("span")).toHaveLength(0);
+  });
+});
