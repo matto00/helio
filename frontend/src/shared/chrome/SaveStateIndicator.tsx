@@ -19,14 +19,21 @@ export function SaveStateIndicator({ onSaveNow }: SaveStateIndicatorProps) {
       <span className="save-state-indicator__label">
         {isDirty ? "Unsaved changes" : lastSavedAt !== null ? `Last saved ${relativeTime}` : null}
       </span>
-      <button
-        type="button"
-        className="save-state-indicator__save-now cmd-btn"
-        onClick={isDirty ? onSaveNow : undefined}
-        aria-label="Save now"
-      >
-        Save now
-      </button>
+      {/* F-054/F-077: "Save now" used to always render at opacity:0, revealed
+          only on hover — an invisible first Tab stop, unreachable on touch,
+          and it still reserved ~90px in the phone command bar (crowding out
+          the dashboard-switcher title down to "Reve…"). It's only rendered
+          — visible and reachable — when there's actually something to save. */}
+      {isDirty && (
+        <button
+          type="button"
+          className="save-state-indicator__save-now cmd-btn"
+          onClick={onSaveNow}
+          aria-label="Save now"
+        >
+          Save now
+        </button>
+      )}
     </div>
   );
 }

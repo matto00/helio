@@ -27,6 +27,14 @@ interface MobileNavSheetProps {
 
 const DRAG_DISMISS_THRESHOLD_PX = 80;
 
+// F-235: matches `PanelCreationModal.tsx`'s own hand-rolled focus-trap
+// selector — this sheet isn't built on the native `<dialog>` `Modal`
+// primitive (it's a portalled div, for the drag-to-dismiss gesture), so none
+// of the trap/initial-focus/return-focus behavior `<dialog showModal>` gives
+// the app's other "modal" implementations for free happens here on its own.
+const FOCUSABLE_SELECTORS =
+  'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Generic bottom-sheet picker, portalled to `document.body`. Reused for both
  * the dashboard switcher and (later) section-item navigation — one overlay
@@ -57,6 +65,55 @@ export function MobileNavSheet({
   // `open` already `true` (e.g. a controlled test, or a future caller),
   // rather than always mounting closed and flipping `open` true later.
   const wasActiveRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // F-235: initial focus + return focus. Moves focus into the sheet's first
+  // focusable item when it opens (nothing does this automatically for a
+  // plain portalled div, unlike `<dialog showModal>`), and restores focus to
+  // whatever opened it — the mobile-title trigger button, typically — when
+  // it closes.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const firstFocusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTORS);
+    (firstFocusable ?? panel).focus();
+    return () => {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, [open]);
+
+  // F-235: Tab/Shift+Tab cycle only through the sheet's own focusable
+  // elements while it's open, mirroring `PanelCreationModal.tsx`'s identical
+  // hand-rolled trap.
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    function handleFocusTrapKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(panel!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    panel.addEventListener("keydown", handleFocusTrapKeyDown);
+    return () => panel.removeEventListener("keydown", handleFocusTrapKeyDown);
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -125,10 +182,12 @@ export function MobileNavSheet({
         onClick={onClose}
       />
       <div
+        ref={panelRef}
         className="mobile-nav-sheet__panel"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         style={panelStyle}
       >
         <div

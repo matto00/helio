@@ -139,10 +139,12 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
               tier: "owner" as const,
             },
             status: "authenticated" as const,
+            submitStatus: "idle" as const,
           }
         : {
             currentUser: null,
             status: "unauthenticated" as const,
+            submitStatus: "idle" as const,
           },
     },
   });
@@ -337,7 +339,10 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Move CPU Usage panel" })).toBeInTheDocument();
   });
 
-  it("toggles theme from the user menu", async () => {
+  // F-082: the theme toggle used to be duplicated (a dropdown row inside the user menu AND the
+  // standalone top-bar icon button) — the dropdown row is gone now, so this exercises the one
+  // remaining toggle.
+  it("toggles theme from the top-bar toggle button", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -345,8 +350,7 @@ describe("App", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
 
-    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Switch to light theme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
     expect(window.localStorage.getItem("helio-theme")).toBe("light");
@@ -370,15 +374,19 @@ describe("App", () => {
 
     renderApp();
 
-    const collapseButton = await screen.findByRole("button", { name: "Collapse dashboard list" });
+    // F-018: the toggle is a single, properly-sized/labeled control now
+    // (dynamic aria-label, not two separate fixed-text buttons) — collapsing
+    // no longer removes the top-level nav (it becomes an icon rail), only
+    // the dashboards list below it.
+    const collapseButton = await screen.findByRole("button", { name: "Collapse sidebar" });
     fireEvent.click(collapseButton);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Expand dashboard list" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument(),
     );
     expect(screen.queryByRole("heading", { name: "Dashboards" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand dashboard list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument(),
     );
@@ -474,7 +482,7 @@ describe("App", () => {
     expect(dataSourcesLink).toHaveAttribute("href", "/sources");
   });
 
-  it("renders a Type Registry nav link in the sidebar", async () => {
+  it("renders a Data Types nav link in the sidebar", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -482,10 +490,10 @@ describe("App", () => {
 
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
     const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    expect(within(sidebarNav).getByRole("link", { name: "Type Registry" })).toBeInTheDocument();
+    expect(within(sidebarNav).getByRole("link", { name: "Data Types" })).toBeInTheDocument();
   });
 
-  it("navigates to /registry and renders the Type Registry page", async () => {
+  it("navigates to /registry and renders the Data Types page", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -494,7 +502,7 @@ describe("App", () => {
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
 
     const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Type Registry" }));
+    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Data Types" }));
 
     // The in-page heading was dropped (top breadcrumb shows the section).
     // Verify the page rendered by looking for its container.
@@ -552,15 +560,18 @@ describe("App", () => {
   });
 
   // HEL-664 (tasks.md 4.1/4.2/4.2a) — the /chat nav entry, route, and
-  // breadcrumb, mirroring the Metrics tests immediately above.
-  it("renders a Chat nav link pointing to /chat in the sidebar", async () => {
+  // breadcrumb, mirroring the Metrics tests immediately above. F-009/F-085:
+  // the nav label/breadcrumb are "Assistant" now (the interaction surfaces
+  // this destination opens onto already said "Assistant"); the route path
+  // (/chat) is unchanged.
+  it("renders an Assistant nav link pointing to /chat in the sidebar", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
     renderApp();
 
     const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
-    const chatLink = within(sidebarNav).getByRole("link", { name: "Chat" });
+    const chatLink = within(sidebarNav).getByRole("link", { name: "Assistant" });
     expect(chatLink).toBeInTheDocument();
     expect(chatLink).toHaveAttribute("href", "/chat");
   });
@@ -574,19 +585,19 @@ describe("App", () => {
     await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
 
     const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Chat" }));
+    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Assistant" }));
 
     await waitFor(() => expect(document.querySelector(".chat-page")).toBeInTheDocument());
   });
 
-  it("shows 'Chat' breadcrumb when route is /chat", async () => {
+  it("shows 'Assistant' breadcrumb when route is /chat", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
     renderApp({ initialPath: "/chat" });
 
     await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Chat"),
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Assistant"),
     );
   });
 
@@ -747,7 +758,7 @@ describe("App", () => {
 
     const { store } = renderApp({ initialPath: "/chat" });
 
-    const titleButton = await screen.findByRole("button", { name: /Switch chat/i });
+    const titleButton = await screen.findByRole("button", { name: /Switch assistant/i });
     fireEvent.click(titleButton);
 
     // Scoped to the sheet's dialog: the desktop sidebar (not hidden by jsdom,
@@ -781,7 +792,7 @@ describe("App", () => {
 
     renderApp({ initialPath: "/chat" });
 
-    const titleButton = await screen.findByRole("button", { name: /Switch chat/i });
+    const titleButton = await screen.findByRole("button", { name: /Switch assistant/i });
     fireEvent.click(titleButton);
 
     expect(await screen.findByText("No conversations yet.")).toBeInTheDocument();
@@ -841,12 +852,8 @@ describe("App", () => {
     const customizePanelButton = await screen.findByRole("menuitem", { name: "Customize" });
     fireEvent.click(customizePanelButton);
 
-    // Modal opens in view mode by default, click Edit to enter edit mode
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-
+    // F-123: "Customize" opens the modal directly in edit mode now (not the read-only view a
+    // plain card click lands on), so there's no separate "Edit panel" click to fire first.
     await waitFor(() =>
       expect(screen.getByLabelText("Revenue Pulse background color")).toBeInTheDocument(),
     );

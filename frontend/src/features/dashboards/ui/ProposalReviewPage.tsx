@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
 import type { DataType } from "../../dataTypes/types/dataType";
@@ -16,11 +17,15 @@ import type { DashboardProposal } from "../types/proposal";
  *
  *  The proposal comes from either (a) router `location.state.proposal` (e.g.
  *  produced by the MCP `propose_dashboard` tool and handed to the app) or
- *  (b) a demo proposal synthesized from the first pipeline-output DataType in
- *  the workspace — the fixture path used for development and Playwright, kept
- *  valid so Accept actually applies. Wiring an in-app natural-language → Claude
- *  author for the proposal is a deliberate follow-on and is intentionally not
- *  done here. */
+ *  (b) — DEV builds only (F-002) — a demo proposal synthesized from the first
+ *  pipeline-output DataType in the workspace, the fixture path used for
+ *  local development and Playwright. This route sits inside `ProtectedRoute`
+ *  with no other gate, so a signed-in production user landing here with no
+ *  `location.state` (a stale bookmark, a back-navigation, a typo) used to get
+ *  a *live, applyable* proposal synthesized from their own real data instead
+ *  of a "nothing to review" message — see F-002. Wiring an in-app
+ *  natural-language → Claude author for the proposal is a deliberate
+ *  follow-on and is intentionally not done here. */
 export function ProposalReviewPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -41,7 +46,16 @@ export function ProposalReviewPage() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
+  // F-002: the demo-fixture fallback is a DEV-only convenience for local
+  // development/Playwright — never in a production build, regardless of
+  // whether `location.state` is empty. A signed-in prod user reaching this
+  // route with no state (stale bookmark, back-navigation) gets an explicit
+  // "nothing to review" message instead of a live proposal synthesized from
+  // their own real data.
+  const useDemoFixture = IS_DEV && !stateProposal;
+
   useEffect(() => {
+    if (!useDemoFixture) return;
     let active = true;
     fetchDataTypes()
       .then((types) => {
@@ -53,7 +67,7 @@ export function ProposalReviewPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [useDemoFixture]);
 
   const dataTypesById = useMemo<Record<string, ReviewDataType>>(() => {
     const map: Record<string, ReviewDataType> = {};
@@ -63,9 +77,9 @@ export function ProposalReviewPage() {
 
   const proposal = useMemo<DashboardProposal | null>(() => {
     if (stateProposal) return stateProposal;
-    if (!dataTypes) return null;
+    if (!useDemoFixture || !dataTypes) return null;
     return synthesizeDemoProposal(dataTypes);
-  }, [stateProposal, dataTypes]);
+  }, [stateProposal, useDemoFixture, dataTypes]);
 
   const handleAccept = async (edited: DashboardProposal) => {
     setApplying(true);
@@ -101,6 +115,20 @@ export function ProposalReviewPage() {
     }
     navigate("/");
   };
+
+  // F-002: no proposal handed off via navigation state, and not a DEV build
+  // — there is nothing to review and, unlike the DEV fixture path, no
+  // reasonable proposal to synthesize.
+  if (!stateProposal && !useDemoFixture) {
+    return (
+      <EmptyState
+        icon={faTableColumns}
+        title="Nothing to review"
+        description="This page reviews a dashboard proposal handed off from another flow. Start from the dashboards list instead."
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+      />
+    );
+  }
 
   if (loadError) {
     return (

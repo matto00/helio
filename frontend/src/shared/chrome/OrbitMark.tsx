@@ -6,6 +6,8 @@
  * and the accent-colour override. Rendered flat — no glow — per the design
  * language (accent appears solid and deliberate, never as atmosphere).
  */
+import "./OrbitMark.css";
+
 export function OrbitMark({ size = 14, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -15,8 +17,7 @@ export function OrbitMark({ size = 14, className }: { size?: number; className?:
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className={className}
-      style={{ flexShrink: 0 }}
+      className={["orbit-mark", className].filter(Boolean).join(" ")}
     >
       {/* Outer circle ring */}
       <circle

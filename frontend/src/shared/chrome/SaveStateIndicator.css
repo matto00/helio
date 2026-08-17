@@ -2,7 +2,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  position: relative;
 }
 
 .save-state-indicator__label {
@@ -11,17 +10,6 @@
   white-space: nowrap;
 }
 
-.save-state-indicator__save-now {
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease,
-    border-color var(--app-transition),
-    color var(--app-transition),
-    background-color var(--app-transition);
-}
-
-.save-state-indicator:hover .save-state-indicator__save-now {
-  opacity: 1;
-  pointer-events: auto;
-}
+/* F-054/F-077: "Save now" is only mounted when dirty (SaveStateIndicator.tsx)
+ * now, so it no longer needs an opacity/hover reveal — `.cmd-btn` (App.css)
+ * supplies the full visible recipe. */

@@ -80,10 +80,12 @@ describe("SaveStateIndicator", () => {
     expect(onSaveNow).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call onSaveNow when clicked with no pending changes", () => {
-    const onSaveNow = jest.fn();
-    renderWithState({}, Date.now(), onSaveNow);
-    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
-    expect(onSaveNow).not.toHaveBeenCalled();
+  // F-054/F-077: "Save now" used to always render (at opacity:0, revealed
+  // only on hover) — an invisible first Tab stop that was still reachable
+  // (and clickable, as a no-op) via keyboard/testing-library. It's not
+  // rendered at all now when there's nothing to save.
+  it("does not render 'Save now' when clean (no pending changes)", () => {
+    renderWithState({}, Date.now());
+    expect(screen.queryByRole("button", { name: "Save now" })).not.toBeInTheDocument();
   });
 });

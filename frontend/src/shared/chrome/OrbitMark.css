@@ -1,0 +1,6 @@
+/* F-187: was an inline `style={{ flexShrink: 0 }}` on the <svg> — moved to a
+ * real class so the component has no inline styles left (DESIGN.md's
+ * mechanical no-inline-styles rule; layout concerns belong in CSS). */
+.orbit-mark {
+  flex-shrink: 0;
+}

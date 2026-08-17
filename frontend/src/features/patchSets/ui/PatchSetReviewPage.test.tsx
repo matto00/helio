@@ -10,7 +10,7 @@ import { patchSetsReducer } from "../state/patchSetsSlice";
 import { fetchDashboards } from "../../dashboards/services/dashboardService";
 import { fetchPanels } from "../../panels/services/panelService";
 import { applyPatchSet, previewPatchSet, undoPatchSet } from "../services/patchSetService";
-import { PatchSetReviewPage } from "./PatchSetReviewPage";
+import { PatchSetReviewPage, baseTitle } from "./PatchSetReviewPage";
 import type { Dashboard } from "../../dashboards/types/dashboard";
 import type { Panel } from "../../panels/types/panel";
 import type {
@@ -160,26 +160,26 @@ beforeEach(() => {
 });
 
 describe("PatchSetReviewPage", () => {
-  it("renders the synthesized demo patch set's preview when no router state is supplied", async () => {
-    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Revenue (previewed)"));
-
+  // F-002: the demo-fixture synthesis path (`synthesizeDemoPatchSet`) is
+  // DEV-build-only now — `config/env`'s `IS_DEV` is mocked `false` under
+  // Jest (`src/test/envMock.ts`), so this exercises the same "no
+  // location.state" entry a production user would actually hit. Route guard
+  // regression: this must never reach a live, applyable patch set (or an
+  // Accept/Apply dispatch) built from the workspace's own real data with no
+  // explicit hand-off.
+  it("shows a 'nothing to review' empty state — never synthesizes a demo patch set — when no router state is supplied", async () => {
     renderPage();
 
+    await screen.findByText("Nothing to review");
+    expect(mockedFetchDashboards).not.toHaveBeenCalled();
+    expect(mockedFetchPanels).not.toHaveBeenCalled();
+    expect(mockedPreviewPatchSet).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /back to dashboards/i }));
     await waitFor(() => {
-      expect(mockedFetchDashboards).toHaveBeenCalledTimes(1);
-      expect(mockedFetchPanels).toHaveBeenCalledWith("dash-1");
+      expect(screen.getByTestId("home-route")).toBeInTheDocument();
     });
-    await screen.findByText(/Revenue \(previewed\)/);
-    expect(mockedPreviewPatchSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        edits: [
-          expect.objectContaining({
-            target: { kind: "panel", id: "panel-1" },
-            op: "update",
-          }),
-        ],
-      }),
-    );
   });
 
   it("renders location.state.patchSet's preview when one is supplied, skipping demo synthesis", async () => {
@@ -187,7 +187,7 @@ describe("PatchSetReviewPage", () => {
 
     renderPage({ patchSet: explicitPatchSet });
 
-    await screen.findByText(/"Renamed"/);
+    await screen.findByText("Renamed");
     expect(mockedFetchDashboards).not.toHaveBeenCalled();
     expect(mockedPreviewPatchSet).toHaveBeenCalledWith(explicitPatchSet);
   });
@@ -458,6 +458,26 @@ describe("PatchSetReviewPage", () => {
 
     await waitFor(() => {
       expect(mockedFetchPanels).toHaveBeenCalledWith("dash-1");
+    });
+  });
+
+  // F-002: mirrors `PanelMutationRepository`'s backend baseTitle/copyTitleRegex
+  // pattern — repeated demo-fixture triggers against the same panel must stay
+  // idempotent instead of stacking " (previewed) (previewed) (previewed)…".
+  describe("baseTitle (F-002 idempotency)", () => {
+    it("strips a single trailing '(previewed)' suffix", () => {
+      expect(baseTitle("Revenue (previewed)")).toBe("Revenue");
+    });
+
+    it("strips a stacked suffix down to just the last occurrence in one pass, not the whole tail", () => {
+      // A single `baseTitle` call only strips one trailing occurrence — this
+      // documents that behavior on already-corrupted input rather than
+      // asserting full recovery in one call.
+      expect(baseTitle("Revenue (previewed) (previewed)")).toBe("Revenue (previewed)");
+    });
+
+    it("leaves an un-suffixed title unchanged", () => {
+      expect(baseTitle("Revenue")).toBe("Revenue");
     });
   });
 

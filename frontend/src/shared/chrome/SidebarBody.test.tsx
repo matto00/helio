@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../../features/assistant/state/assistantConversationsSlice";
 import * as assistantConversationsService from "../../features/assistant/services/assistantConversationsService";
@@ -139,6 +139,15 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
   });
 }
 
+/** Surfaces `useNavigate()` calls made from inside `SidebarBody` for
+ *  assertion — there's no `<Routes>` table here otherwise, so a click that
+ *  navigates would be silently unobservable (F-017's "Request access in
+ *  Settings" CTA regression test needs this). */
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
+}
+
 function renderAt(path: string, dataTypeItems: DataType[] = [], options: StoreOptions = {}) {
   const store = makeStore(dataTypeItems, options);
   return {
@@ -146,8 +155,9 @@ function renderAt(path: string, dataTypeItems: DataType[] = [], options: StoreOp
     ...render(
       <MemoryRouter initialEntries={[path]}>
         <Provider store={store}>
-          <SidebarBody onCollapse={() => {}} />
+          <SidebarBody />
         </Provider>
+        <LocationProbe />
       </MemoryRouter>,
     ),
   };
@@ -244,6 +254,54 @@ describe("SidebarBody — regression check for other sections", () => {
     expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Metrics" })).toBeInTheDocument();
   });
+
+  // F-016: Settings and the proposal/patch-set review routes aren't a list section — this used to
+  // fall through to the dashboards `DashboardList` default (a "DASHBOARDS" heading with no active
+  // nav item, and a dead-end dashboard picker). It renders nothing now.
+  it.each(["/settings", "/proposals/review", "/patch-sets/review"])(
+    "renders nothing for the non-list route %s",
+    (path) => {
+      renderAt(path);
+      expect(document.querySelector(".dashboard-list")).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    },
+  );
+});
+
+describe("SidebarBody pipelines section — delete-dependency warning (F-144)", () => {
+  function openDeleteConfirm(itemName: string) {
+    fireEvent.click(screen.getByRole("button", { name: `${itemName} actions` }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+  }
+
+  it("warns that deleting a pipeline also deletes the data type it produces", () => {
+    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
+    renderAt("/pipelines", [dt], {
+      pipelineItems: [
+        buildPipeline({ id: "pipe-1", name: "Revenue ETL", outputDataTypeId: "type-1" }),
+      ],
+      pipelineStatus: "succeeded",
+    });
+
+    openDeleteConfirm("Revenue ETL");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      'Also deletes the "RevenueRow" data type — any panels or metrics using it will stop working.',
+    );
+  });
+
+  it("shows no warning for a pipeline with no output data type yet", () => {
+    renderAt("/pipelines", [], {
+      pipelineItems: [
+        buildPipeline({ id: "pipe-2", name: "Draft ETL", outputDataTypeId: undefined }),
+      ],
+      pipelineStatus: "succeeded",
+    });
+
+    openDeleteConfirm("Draft ETL");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 function buildConversation(
@@ -263,13 +321,13 @@ function buildConversation(
 // correctly). A free-tier user landing directly on `/chat` drives the sidebar's list through
 // THIS component, not through either of those two.
 describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
-  it("a free-tier user sees the CTA-less locked state, not the raw list/error, and never fetches", async () => {
+  it("a free-tier user sees the locked state with a working link to the self-serve request flow, not the raw list/error, and never fetches", async () => {
     renderAt("/chat", [], { currentUser: buildUser("free") });
 
-    expect(screen.getByText("Chat access is limited")).toBeInTheDocument();
+    expect(screen.getByText("Assistant access is limited")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+        "Assistant access is limited during this rollout. Request access in Settings.",
       ),
     ).toBeInTheDocument();
     // Neither the generic "No conversations yet" empty state nor its "+ New chat" CTA renders —
@@ -278,6 +336,19 @@ describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
     expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
     // No filter box either — none of the list chrome applies to a locked section.
     expect(screen.queryByLabelText("Filter chat by name")).not.toBeInTheDocument();
+
+    // F-056: a compact, single-purpose locked notice, not the same
+    // icon+title+description(+CTA) `EmptyState` card `ActiveConversationPanel`'s
+    // main-content pane renders (just scaled down) — the two used to read as
+    // an accidental duplicate stacked in one viewport.
+    expect(document.querySelector(".sidebar-body__locked-notice")).toBeInTheDocument();
+    expect(document.querySelector(".ui-empty-state")).not.toBeInTheDocument();
+
+    // F-017: the locked state used to be a dead end ("Contact the workspace owner", no link) even
+    // though a self-serve "Request Beta access" flow already exists in Settings. Now it's a real
+    // CTA into that flow.
+    fireEvent.click(screen.getByRole("button", { name: "Request access in Settings" }));
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/settings");
 
     // Give any pending effect a chance to run, then assert the fetch never fired.
     await Promise.resolve();
@@ -288,7 +359,7 @@ describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
     renderAt("/chat", [], { currentUser: buildUser("beta"), conversationStatus: "idle" });
 
     await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
     // Two elements share this accessible name at zero conversations: the header "+" button and
     // the empty-state's own CTA (both use `addLabel="New chat"`) — either is proof the normal,
     // ungated branch rendered.
@@ -299,7 +370,7 @@ describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
     renderAt("/chat", [], { currentUser: buildUser("owner"), conversationStatus: "idle" });
 
     await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "New chat" }).length).toBeGreaterThan(0);
   });
 });
