@@ -4,11 +4,25 @@
 Frontend authentication UI: login and registration pages, Google OAuth entry point, logout control, and global 401 handling.
 ## Requirements
 ### Requirement: Login page
-The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed. The page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth flow. If on-device verification (HEL-300) determines that Google OAuth cannot complete inside an iOS standalone PWA, the Google button SHALL be hidden below the ratified phone breakpoint (430px) when the app runs in standalone display mode (via a `display-mode: standalone` media query); email/password login SHALL remain fully available in that state. Login and registration inputs SHALL keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
+The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL
+dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On
+success for an account without MFA the user SHALL be redirected to `/`; when the thunk resolves with
+`mfaRequired: true` the user SHALL instead be taken to the `/login/verify` step (per the
+`mfa-login-verification-ui` capability). On failure an inline error message SHALL be displayed. The
+page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth
+flow. If on-device verification (HEL-300) determines that Google OAuth cannot complete inside an iOS
+standalone PWA, the Google button SHALL be hidden below the ratified phone breakpoint (430px) when
+the app runs in standalone display mode (via a `display-mode: standalone` media query);
+email/password login SHALL remain fully available in that state. Login and registration inputs SHALL
+keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
 
 #### Scenario: Successful login redirects to home
-- **WHEN** the user submits valid credentials on the login page
+- **WHEN** the user submits valid credentials on the login page for an account without MFA
 - **THEN** the app navigates to `/` and the main dashboard view is shown
+
+#### Scenario: MFA-enabled login proceeds to verification
+- **WHEN** the user submits valid credentials for an account with MFA enabled
+- **THEN** the app navigates to `/login/verify` and the user is not yet authenticated
 
 #### Scenario: Failed login shows error message
 - **WHEN** the user submits incorrect credentials on the login page
@@ -25,10 +39,12 @@ The frontend SHALL provide a `/login` page with an email/password form. Submitti
 #### Scenario: Google login button is visible and functional
 - **WHEN** the user is on the login page in a regular browser context
 - **THEN** a "Continue with Google" button is rendered and enabled
-- **AND** clicking it navigates the browser to `GET /api/auth/google` (a full browser navigation, not a fetch)
+- **AND** clicking it navigates the browser to `GET /api/auth/google` (a full browser navigation, not
+  a fetch)
 
 #### Scenario: Standalone OAuth degradation (contingent on device test)
-- **WHEN** the on-device test recorded on HEL-300 shows OAuth failing in iOS standalone mode, and the app runs in standalone display mode at a viewport at or below the phone breakpoint
+- **WHEN** the on-device test recorded on HEL-300 shows OAuth failing in iOS standalone mode, and the
+  app runs in standalone display mode at a viewport at or below the phone breakpoint
 - **THEN** the "Continue with Google" button is hidden and email/password login remains usable
 
 ### Requirement: Registration page

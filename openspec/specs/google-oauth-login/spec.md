@@ -14,10 +14,12 @@ The system SHALL expose `GET /api/auth/google` as a public route that redirects 
 The system SHALL expose `GET /api/auth/google/callback` as a public route that handles the
 authorization code returned by Google. On receiving a valid `code` query parameter the system SHALL
 exchange it for an access token using Google's token endpoint, fetch the user profile from Google's
-userinfo endpoint, upsert the user record (creating on first login, matching by `google_id` on
-subsequent logins), create a new `user_sessions` row, set the session as an `HttpOnly` cookie
-(`helio_session`) via `Set-Cookie`, and return `200 OK` with `{ expiresAt, user }` — the response body
-SHALL NOT include the session token.
+userinfo endpoint, and upsert the user record (creating on first login, matching by `google_id` on
+subsequent logins). For an account without MFA enabled it SHALL then create a new `user_sessions`
+row, set the session as an `HttpOnly` cookie (`helio_session`) via `Set-Cookie`, and return `200 OK`
+with `{ expiresAt, user }` — the response body SHALL NOT include the session token. For an account
+with MFA enabled it SHALL NOT create a session or set a cookie, and SHALL instead return `200 OK`
+with `{ mfaRequired: true, challengeToken }` per the `mfa-login-gate` capability.
 
 #### Scenario: New user first-time Google login
 - **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received and no user with the returned
@@ -30,10 +32,15 @@ SHALL NOT include the session token.
 
 #### Scenario: Returning user Google login
 - **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received and a user with the returned
-  `google_id` already exists
+  `google_id` already exists and does not have MFA enabled
 - **THEN** the system creates a new session for the existing user, sets the `helio_session` cookie,
   and returns `200 OK` with `{ expiresAt, user: { id, email, displayName, avatarUrl, createdAt } }`
 - **AND** no duplicate user record is created
+
+#### Scenario: Returning user with MFA enabled
+- **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received for a user with MFA enabled
+- **THEN** the system returns `200 OK` with `{ mfaRequired: true, challengeToken }`, no `Set-Cookie`
+  header, and no `user` object
 
 #### Scenario: Google profile includes avatar URL
 - **WHEN** Google's userinfo response contains a `picture` field
