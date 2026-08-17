@@ -1,0 +1,25 @@
+.suspense-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.suspense-fallback--panel {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.suspense-fallback__label {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  text-align: center;
+}
+
+.suspense-fallback--page {
+  width: 100%;
+  min-height: 60vh;
+}

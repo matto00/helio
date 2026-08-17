@@ -11,3 +11,4 @@ export { StatusChip } from "./StatusChip";
 export { Spinner } from "./Spinner";
 export { ConfirmInline } from "./ConfirmInline";
 export { useScrollEdges } from "./useScrollEdges";
+export { PanelSuspenseFallback, PageSuspenseFallback } from "./SuspenseFallback";
