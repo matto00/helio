@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { RunHistoryModal } from "./RunHistoryModal";
@@ -10,8 +10,11 @@ import { BoundTypeBar } from "./BoundTypeBar";
 import { PipelineScheduleBar } from "./PipelineScheduleBar";
 import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
+import { StatusChip } from "../../../shared/ui/StatusChip";
+import { Spinner } from "../../../shared/ui/Spinner";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
+import { extractErrorMessage } from "../../../services/extractErrorMessage";
 
 import "./PipelineDetailPage.css";
 import { fetchSources, setSelectedSourceId } from "../../sources/state/sourcesSlice";
@@ -40,14 +43,16 @@ import {
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
 import { useToast } from "../../toasts/hooks/useToast";
-import type {
-  AnalyzeStepResult,
-  PipelineStepConfig,
-  PipelineStepKind,
-  SchemaField,
-} from "../types/pipelineStep";
+import type { PipelineStepConfig, PipelineStepKind, SchemaField } from "../types/pipelineStep";
 import type { ShapeStepExpansion } from "../types/pipelineShape";
 import type { OpType, Step } from "../types/step";
+
+// F-146 — module-level (not per-render) so a step with no analyze data yet
+// gets the same empty-array reference on every call, not a fresh `[]` per
+// lookup; see `analyzeByStepId` below for why that reference stability
+// matters for `StepCard`'s `React.memo`.
+const EMPTY_ANALYZE_COLUMNS: string[] = [];
+const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
@@ -90,7 +95,22 @@ export function PipelineDetailPage() {
   const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
 
   const [steps, setSteps] = useState<Step[]>([]);
+  // F-146 — lets the step-mutation callbacks below read the current `steps`
+  // without closing over it directly, so their `useCallback` identity stays
+  // stable across the edits that change `steps` most often (every keystroke
+  // in one step's config). A `useCallback([..., steps])` dependency would
+  // defeat the point: it would get a new identity on exactly the renders
+  // this is meant to guard against, which — since these callbacks are
+  // `StepCard` props — would keep every *other*, unrelated `StepCard`
+  // re-rendering via `React.memo`'s prop comparison (see `StepCard.tsx`).
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
   const [stepsInitialized, setStepsInitialized] = useState(false);
+  // F-105 — set (during render, alongside `stepsInitialized`) the one time
+  // `steps` is seeded from `persistedSteps`; consumed by the debounced
+  // re-analyze effect below so that seeding doesn't count as a "genuine
+  // edit" and duplicate the mount effect's own immediate `analyzePipeline`.
+  const skipNextAnalyzeRef = useRef(false);
   const [dropdownOpenAt, setDropdownOpenAt] = useState<"bottom" | null>(null);
   const [sseActive, setSseActive] = useState(false);
   const [outputName, setOutputName] = useState("");
@@ -135,6 +155,12 @@ export function PipelineDetailPage() {
   if (!stepsInitialized && persistedSteps.length > 0) {
     setStepsInitialized(true);
     setSteps(persistedSteps.map(pipelineStepToStep));
+    // F-105 — this transition changes `stepsFingerprint` below from "" to a
+    // real value, which the debounced re-analyze effect can't tell apart
+    // from a genuine edit. Without this flag it fires its own /analyze
+    // ~300ms after the mount effect's own immediate one (two identical
+    // requests on every page open). Consumed by that effect's next run.
+    skipNextAnalyzeRef.current = true;
   }
 
   // 3.1 Fetch pipeline and steps on mount / id change.
@@ -186,6 +212,10 @@ export function PipelineDetailPage() {
     .join("|");
   useEffect(() => {
     if (!id || steps.length === 0) return;
+    if (skipNextAnalyzeRef.current) {
+      skipNextAnalyzeRef.current = false;
+      return;
+    }
     const handle = window.setTimeout(() => {
       void dispatch(analyzePipeline(id));
     }, 300);
@@ -210,39 +240,61 @@ export function PipelineDetailPage() {
   // ── Per-step analyze columns / schema ──
   // Build helpers from step.id → inputSchema data so each StepCard can receive
   // the correct columns/schema without re-running the analyze logic in the UI.
+  //
+  // F-146 — this used to be 4 separate `.find()` scans over
+  // `analyzeResult.steps` per lookup, called fresh for every StepCard on
+  // every render (any keystroke in any one step's config re-renders
+  // `PipelineDetailPage`, since `steps` state changes). Besides the
+  // repeated O(n) scans, every call minted a brand-new array (`.map()` for
+  // columns; even the pass-through `inputSchema`/`outputSchema` reads were
+  // wrapped in a fresh closure invocation each time) — so even an unrelated
+  // step's `StepCard` received new-identity `analyzeColumns`/`analyzeSchema`/
+  // `analyzeOutputSchema` props every render, which defeats `React.memo`'s
+  // shallow prop comparison (see `StepCard.tsx`) regardless of whether the
+  // underlying `analyzeResult` actually changed. Built once per
+  // `analyzeResult` change instead; lookups below are O(1) Map reads that
+  // return the *same* array reference across renders until analyze data
+  // itself changes.
+  const analyzeByStepId = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        columns: string[];
+        schema: SchemaField[];
+        outputSchema: SchemaField[];
+        validationError?: string;
+      }
+    >();
+    if (analyzeResult) {
+      for (const s of analyzeResult.steps) {
+        map.set(s.id, {
+          columns: s.inputSchema.map((f) => f.name),
+          schema: s.inputSchema,
+          outputSchema: s.outputSchema,
+          validationError: s.validationError,
+        });
+      }
+    }
+    return map;
+  }, [analyzeResult]);
+
   function getAnalyzeColumns(stepId: string): string[] {
-    if (!analyzeResult) return [];
-    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
-      (s) => s.id === stepId,
-    );
-    return analyzeStep ? analyzeStep.inputSchema.map((f) => f.name) : [];
+    return analyzeByStepId.get(stepId)?.columns ?? EMPTY_ANALYZE_COLUMNS;
   }
 
   function getAnalyzeSchema(stepId: string): SchemaField[] {
-    if (!analyzeResult) return [];
-    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
-      (s) => s.id === stepId,
-    );
-    return analyzeStep ? analyzeStep.inputSchema : [];
+    return analyzeByStepId.get(stepId)?.schema ?? EMPTY_ANALYZE_SCHEMA;
   }
 
   // HEL-404 — mirror of getAnalyzeSchema, reading outputSchema instead of
   // inputSchema, so StepCard can render the step's output schema inline in
   // its preview tray without any new backend call.
   function getAnalyzeOutputSchema(stepId: string): SchemaField[] {
-    if (!analyzeResult) return [];
-    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
-      (s) => s.id === stepId,
-    );
-    return analyzeStep ? analyzeStep.outputSchema : [];
+    return analyzeByStepId.get(stepId)?.outputSchema ?? EMPTY_ANALYZE_SCHEMA;
   }
 
   function getAnalyzeValidationError(stepId: string): string | undefined {
-    if (!analyzeResult) return undefined;
-    const analyzeStep: AnalyzeStepResult | undefined = analyzeResult.steps.find(
-      (s) => s.id === stepId,
-    );
-    return analyzeStep?.validationError;
+    return analyzeByStepId.get(stepId)?.validationError;
   }
 
   // ── Dirty-state tracking ──
@@ -336,7 +388,7 @@ export function PipelineDetailPage() {
       // Keep temp step if POST fails; PATCH calls will be no-ops until ID is real.
       // Surface the failure — a silent catch here previously let a step creation
       // 404 vanish with no user feedback (evaluation-1.md change request 3).
-      const message = err instanceof Error ? err.message : "Failed to add step.";
+      const message = extractErrorMessage(err, "Failed to add step.");
       pushToast({
         variant: "error",
         message: `Failed to add ${opType.label.toLowerCase()} step: ${message}`,
@@ -366,7 +418,7 @@ export function PipelineDetailPage() {
         setSteps((prev) => [...prev, pipelineStepToStep(persisted)]);
         createdCount += 1;
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to create step.";
+        const message = extractErrorMessage(err, "Failed to create step.");
         pushToast({
           variant: "error",
           message: `Shape only partially applied: ${createdCount} of ${expansions.length} steps were added (${message}).`,
@@ -376,11 +428,19 @@ export function PipelineDetailPage() {
     }
   }
 
-  function handleStepConfigChange(stepId: string, config: PipelineStepConfig) {
+  // F-146 — `handleStepConfigChange` through `handleDuplicateStep` below are
+  // all `StepCard` props (some via `PipelineRiverView` pass-through, some —
+  // `handleReorderSteps` — indirectly, via `PipelineRiverView`'s own
+  // `onMoveUp`/`onMoveDown`). Wrapped in `useCallback` with a stable
+  // dependency set (reading `steps` through `stepsRef` above instead of
+  // closing over it directly) so their identity doesn't change on every
+  // `steps` update — the precondition for `React.memo`'s `StepCard` to
+  // actually skip re-rendering the steps a given edit didn't touch.
+  const handleStepConfigChange = useCallback((stepId: string, config: PipelineStepConfig) => {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
-  }
+  }, []);
 
-  function handleRemoveStep(stepId: string) {
+  const handleRemoveStep = useCallback((stepId: string) => {
     setSteps((prev) => prev.filter((s) => s.id !== stepId));
     // Persist the deletion for steps that exist server-side. Temp steps created
     // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
@@ -391,7 +451,7 @@ export function PipelineDetailPage() {
         // No-op: the step is already gone from the local view.
       });
     }
-  }
+  }, []);
 
   // HEL-407 — drag/keyboard reorder handler (design.md Decision 7). `newOrder`
   // is the full reordered `Step[]` computed by `PipelineRiverView` (drop or
@@ -401,75 +461,84 @@ export function PipelineDetailPage() {
   // *persisted* step ids only, (d) reconcile the response into the optimistic
   // order by id on success, (e) revert + toast on failure — never a silently
   // lost reorder.
-  async function handleReorderSteps(newOrder: Step[]) {
-    if (!id) return;
-    const previousOrder = steps;
-    setSteps(newOrder);
-    // Temp (`step-N`) steps have no backend row yet — a still-in-flight POST
-    // from handleAddStep/handleInstantiateShape. Sending one would fail the
-    // server's set-equality check, so exclude them (mirrors handleRemoveStep's
-    // temp-id no-op convention above).
-    const persistedIds = newOrder.filter((s) => !s.id.startsWith("step-")).map((s) => s.id);
-    try {
-      const response = await reorderPipelineSteps(id, persistedIds);
-      // Reconcile by mapping over the *optimistic* newOrder, replacing each
-      // persisted entry with its corresponding response entry by id. Never
-      // `setSteps(response.map(...))` wholesale — the response contains only
-      // persisted steps, so a wholesale replace would drop any temp step
-      // still mid-flight.
-      setSteps(
-        newOrder.map((s) => {
-          if (s.id.startsWith("step-")) return s;
-          const persisted = response.find((r) => r.id === s.id);
-          return persisted ? pipelineStepToStep(persisted) : s;
-        }),
-      );
-    } catch (err: unknown) {
-      setSteps(previousOrder);
-      const message = err instanceof Error ? err.message : "Failed to reorder steps.";
-      pushToast({ variant: "error", message: `Failed to reorder steps: ${message}` });
-    }
-  }
+  const handleReorderSteps = useCallback(
+    async (newOrder: Step[]) => {
+      if (!id) return;
+      const previousOrder = stepsRef.current;
+      setSteps(newOrder);
+      // Temp (`step-N`) steps have no backend row yet — a still-in-flight POST
+      // from handleAddStep/handleInstantiateShape. Sending one would fail the
+      // server's set-equality check, so exclude them (mirrors handleRemoveStep's
+      // temp-id no-op convention above).
+      const persistedIds = newOrder.filter((s) => !s.id.startsWith("step-")).map((s) => s.id);
+      try {
+        const response = await reorderPipelineSteps(id, persistedIds);
+        // Reconcile by mapping over the *optimistic* newOrder, replacing each
+        // persisted entry with its corresponding response entry by id. Never
+        // `setSteps(response.map(...))` wholesale — the response contains only
+        // persisted steps, so a wholesale replace would drop any temp step
+        // still mid-flight.
+        setSteps(
+          newOrder.map((s) => {
+            if (s.id.startsWith("step-")) return s;
+            const persisted = response.find((r) => r.id === s.id);
+            return persisted ? pipelineStepToStep(persisted) : s;
+          }),
+        );
+      } catch (err: unknown) {
+        setSteps(previousOrder);
+        const message = extractErrorMessage(err, "Failed to reorder steps.");
+        pushToast({ variant: "error", message: `Failed to reorder steps: ${message}` });
+      }
+    },
+    [id, pushToast],
+  );
 
   // HEL-412 — optimistic flip → PATCH `{enabled}` → reconcile from the
   // response; revert + toast on failure (the reorder handler's precedent
   // above: a silently-lost disable is worse than a snap-back).
-  async function handleToggleStepEnabled(stepId: string, enabled: boolean) {
-    const previousSteps = steps;
-    setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, enabled } : s)));
-    try {
-      const persisted = await updatePipelineStepEnabled(stepId, enabled);
-      setSteps((prev) => prev.map((s) => (s.id === stepId ? pipelineStepToStep(persisted) : s)));
-    } catch (err: unknown) {
-      setSteps(previousSteps);
-      const message = err instanceof Error ? err.message : "Failed to update step.";
-      pushToast({
-        variant: "error",
-        message: `Failed to ${enabled ? "enable" : "disable"} step: ${message}`,
-      });
-    }
-  }
+  const handleToggleStepEnabled = useCallback(
+    async (stepId: string, enabled: boolean) => {
+      const previousSteps = stepsRef.current;
+      setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, enabled } : s)));
+      try {
+        const persisted = await updatePipelineStepEnabled(stepId, enabled);
+        setSteps((prev) => prev.map((s) => (s.id === stepId ? pipelineStepToStep(persisted) : s)));
+      } catch (err: unknown) {
+        setSteps(previousSteps);
+        const message = extractErrorMessage(err, "Failed to update step.");
+        pushToast({
+          variant: "error",
+          message: `Failed to ${enabled ? "enable" : "disable"} step: ${message}`,
+        });
+      }
+    },
+    [pushToast],
+  );
 
   // HEL-412 — call the duplicate endpoint, then splice the clone in directly
   // after the original (server already renumbered positions; local order is
   // what renders). Non-optimistic by design (design.md Decision 7) — there's
   // no user-entered config to preserve ahead of the response, so a temp-step
   // placeholder buys nothing for a single fast POST.
-  async function handleDuplicateStep(stepId: string) {
-    try {
-      const created = await duplicatePipelineStep(stepId);
-      setSteps((prev) => {
-        const index = prev.findIndex((s) => s.id === stepId);
-        if (index === -1) return prev;
-        const next = [...prev];
-        next.splice(index + 1, 0, pipelineStepToStep(created));
-        return next;
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to duplicate step.";
-      pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
-    }
-  }
+  const handleDuplicateStep = useCallback(
+    async (stepId: string) => {
+      try {
+        const created = await duplicatePipelineStep(stepId);
+        setSteps((prev) => {
+          const index = prev.findIndex((s) => s.id === stepId);
+          if (index === -1) return prev;
+          const next = [...prev];
+          next.splice(index + 1, 0, pipelineStepToStep(created));
+          return next;
+        });
+      } catch (err: unknown) {
+        const message = extractErrorMessage(err, "Failed to duplicate step.");
+        pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
+      }
+    },
+    [pushToast],
+  );
 
   async function handleRunPipeline() {
     if (!id) return;
@@ -540,6 +609,7 @@ export function PipelineDetailPage() {
     return (
       <div className="pipeline-detail-page">
         <div className="pipeline-detail-page__loading" aria-label="Loading pipeline">
+          <Spinner size="xl" />
           Loading…
         </div>
       </div>
@@ -587,9 +657,15 @@ export function PipelineDetailPage() {
         onStepConfigChange={handleStepConfigChange}
         runStepRowCounts={runStepRowCounts}
         onInstantiateShape={handleInstantiateShape}
-        onReorderSteps={(newOrder) => void handleReorderSteps(newOrder)}
-        onToggleStepEnabled={(stepId, enabled) => void handleToggleStepEnabled(stepId, enabled)}
-        onDuplicateStep={(stepId) => void handleDuplicateStep(stepId)}
+        // F-146 — passed directly (not `(newOrder) => void handleX(newOrder)`):
+        // that wrapper allocated a fresh function every render, which — since
+        // `onReorderSteps`/`onToggleStepEnabled`/`onDuplicateStep` feed
+        // `StepCard` props (the latter two directly; `onReorderSteps` via
+        // `PipelineRiverView`'s own `onMoveUp`/`onMoveDown`) — defeated
+        // `StepCard`'s `React.memo` regardless of the `useCallback` above.
+        onReorderSteps={handleReorderSteps}
+        onToggleStepEnabled={handleToggleStepEnabled}
+        onDuplicateStep={handleDuplicateStep}
       />
 
       {/* ── Footer bar ── */}
@@ -600,6 +676,7 @@ export function PipelineDetailPage() {
         setOutputName={setOutputName}
         setEditingOutputName={setEditingOutputName}
         stepCount={steps.length}
+        outputSchema={steps.length > 0 ? getAnalyzeOutputSchema(steps[steps.length - 1].id) : []}
         sseData={sseData}
         runStatus={runStatus}
         runError={runError}
@@ -634,6 +711,11 @@ export function PipelineDetailPage() {
           }
           isDry={runIsDry}
           onClose={() => setPreviewModalOpen(false)}
+          outputDataTypeId={currentPipeline.outputDataTypeId}
+          lastRunAt={currentPipeline.lastRunAt}
+          lastRunRowCount={currentPipeline.lastRunRowCount}
+          onRunPipeline={handleRunPipeline}
+          onDryRun={() => void handleDryRun()}
         />
       )}
 
@@ -687,11 +769,11 @@ export function PipelineDetailPage() {
             </span>
           )}
           {currentPipeline.lastRunStatus != null && (
-            <span
-              className={`pipeline-detail-page__meta-bar-badge pipeline-detail-page__meta-bar-badge--${currentPipeline.lastRunStatus}`}
+            <StatusChip
+              intent={currentPipeline.lastRunStatus === "succeeded" ? "success" : "error"}
             >
-              {currentPipeline.lastRunStatus}
-            </span>
+              {currentPipeline.lastRunStatus === "succeeded" ? "Succeeded" : "Failed"}
+            </StatusChip>
           )}
         </div>
       )}

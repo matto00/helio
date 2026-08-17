@@ -8,7 +8,7 @@
 // local state and PATCH in lockstep. StepCard.tsx becomes a presentational
 // shell over this hook.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
 import {
@@ -53,6 +53,15 @@ import type { StringOpsConfigValue } from "../ui/StringOpsConfig";
 import type { UnionConfigValue } from "../ui/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
 import type { WindowConfigValue } from "../ui/WindowConfig";
+
+/** Debounce window (ms) between the last config-editor edit and the
+ *  persisted PATCH — matches the hand-rolled ref+setTimeout debounce idiom
+ *  used by `ComputedFieldForm.tsx` / `TableRenderer.tsx`'s column-resize
+ *  persistence (`RESIZE_PERSIST_DEBOUNCE_MS`). Every step-config editor
+ *  (filter values, compute expressions, renames, casts, …) previously
+ *  PATCHed the backend on every keystroke; debouncing collapses a burst of
+ *  edits into one request. */
+const STEP_CONFIG_PERSIST_DEBOUNCE_MS = 400;
 
 export interface StepCardStateHandlers {
   selectedFields: string[];
@@ -174,17 +183,44 @@ export function useStepCardState(
     setAssertConfig(assertConfigOf(step));
   }
 
-  /** Shared persistence path — PATCHes the typed config, then notifies the
-   *  parent. Local editor state is updated by the caller (so the UI stays
-   *  responsive regardless of network result). */
+  // Debounce ref for the persist path below, plus a monotonically
+  // increasing request token: `persist` may be called many times in a row
+  // (one keystroke = one call, across any of the 20 change handlers) but
+  // must only PATCH once the caller stops calling for
+  // STEP_CONFIG_PERSIST_DEBOUNCE_MS. The token additionally guards against
+  // an *out-of-order response* — e.g. the network reorders two PATCHes so an
+  // older request's response arrives after a newer one's — by only applying
+  // a response to `onConfigChange` when it's still the most recently
+  // *dispatched* request for this step.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestTokenRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  /** Shared persistence path — debounces, then PATCHes the typed config and
+   *  notifies the parent. Local editor state is updated by the caller (so
+   *  the UI stays responsive regardless of debounce/network latency). */
   function persist(newConfig: PipelineStepConfig): void {
-    void updatePipelineStep(step.id, newConfig)
-      .then(() => {
-        onConfigChange(step.id, newConfig);
-      })
-      .catch(() => {
-        // No-op: local state always reflects user intent even if PATCH fails.
-      });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const token = ++requestTokenRef.current;
+      void updatePipelineStep(step.id, newConfig)
+        .then(() => {
+          // Drop a stale response: a newer edit may have already dispatched
+          // (and possibly already resolved) its own PATCH while this one
+          // was in flight.
+          if (requestTokenRef.current === token) {
+            onConfigChange(step.id, newConfig);
+          }
+        })
+        .catch(() => {
+          // No-op: local state always reflects user intent even if PATCH fails.
+        });
+    }, STEP_CONFIG_PERSIST_DEBOUNCE_MS);
   }
 
   function onFieldToggle(field: string, checked: boolean) {

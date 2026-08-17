@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
 
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
+import type { SchemaField } from "../types/pipelineStep";
 
 interface SseLike {
   status: RunStatusEventData["status"] | null;
@@ -24,6 +25,10 @@ interface PipelineDetailFooterProps {
   setOutputName: (v: string) => void;
   setEditingOutputName: (v: boolean) => void;
   stepCount: number;
+  /** The pipeline's real final-step output schema (HEL-404's
+   *  `getAnalyzeOutputSchema`, keyed to the last step) — `[]` while the
+   *  pipeline has no steps or /analyze hasn't returned yet. */
+  outputSchema: SchemaField[];
   sseData: SseLike;
   runStatus: string | null;
   runError: string | null;
@@ -51,6 +56,7 @@ export function PipelineDetailFooter({
   setOutputName,
   setEditingOutputName,
   stepCount,
+  outputSchema,
   sseData,
   runStatus,
   runError,
@@ -73,12 +79,21 @@ export function PipelineDetailFooter({
   return (
     <div className="pipeline-detail-page__footer">
       <div className="pipeline-detail-page__footer-left">
-        <span className="pipeline-detail-page__footer-output-label">OUTPUT</span>
+        {/* This edits `currentPipeline.name` (handleSave →
+         *  `updatePipeline({ id, name: outputName })`) — i.e. the pipeline's
+         *  own name, not the bound output DataType's name. Labeled
+         *  "PIPELINE" (not "OUTPUT") so it isn't mistaken for the schema
+         *  label immediately to its right. Accessible name (aria-label)
+         *  renamed to match ("Pipeline name" / "Edit pipeline name") —
+         *  formerly "(Edit) output name", which drifted from the visible
+         *  label once it changed. PipelineDetailPage.test.tsx's assertions
+         *  were updated alongside this (see crossPackageRequests). */}
+        <span className="pipeline-detail-page__footer-output-label">PIPELINE</span>
         {editingOutputName ? (
           <input
             className="pipeline-detail-page__footer-output-input"
             value={outputName}
-            aria-label="Output name"
+            aria-label="Pipeline name"
             onChange={(e) => setOutputName(e.target.value)}
             onBlur={() => setEditingOutputName(false)}
             autoFocus
@@ -88,16 +103,22 @@ export function PipelineDetailFooter({
             type="button"
             className="pipeline-detail-page__footer-output-name"
             onClick={() => setEditingOutputName(true)}
-            aria-label="Edit output name"
+            aria-label="Edit pipeline name"
           >
             {outputName || pipelineName}
           </button>
         )}
+        <span className="pipeline-detail-page__footer-output-label">OUTPUT</span>
         <span className="pipeline-detail-page__footer-schema">
-          <span className="pipeline-detail-page__footer-schema-chip">id</span>
-          <span className="pipeline-detail-page__footer-schema-chip">name</span>
-          <span className="pipeline-detail-page__footer-schema-chip">value</span>
-          <em className="pipeline-detail-page__footer-inferred">inferred</em>
+          {outputSchema.length > 0 ? (
+            outputSchema.map((field) => (
+              <span key={field.name} className="pipeline-detail-page__footer-schema-chip">
+                {field.name}
+              </span>
+            ))
+          ) : (
+            <em className="pipeline-detail-page__footer-inferred">no output yet</em>
+          )}
         </span>
       </div>
       <div className="pipeline-detail-page__footer-right">
@@ -147,40 +168,55 @@ export function PipelineDetailFooter({
             >
               {updateStatus === "loading" ? "Saving…" : "Save"}
             </button>
-            {isConfirmingCancel ? (
-              <span
-                className="pipeline-detail-page__cancel-confirm"
-                role="alertdialog"
-                aria-label="Discard unsaved changes"
-              >
-                <span className="pipeline-detail-page__cancel-confirm-text">Discard changes?</span>
-                <button
-                  type="button"
-                  className="pipeline-detail-page__cancel-confirm-btn pipeline-detail-page__cancel-confirm-btn--danger"
-                  onClick={confirmCancelDiscard}
-                  aria-label="Discard changes"
-                >
-                  Discard
-                </button>
-                <button
-                  type="button"
-                  className="pipeline-detail-page__cancel-confirm-btn"
-                  onClick={dismissCancelConfirm}
-                  aria-label="Keep editing"
-                >
-                  Keep editing
-                </button>
-              </span>
-            ) : (
+            {/* F-230: the confirm popover is anchored to the Cancel button
+                (position: absolute, out of flex flow) instead of swapping in
+                as a wider inline flex sibling, so appearing/dismissing it
+                never grows or reflows the footer-right row. The Cancel
+                button itself stays mounted (invisible, not display:none) so
+                the wrap keeps its normal box size and tab order. */}
+            <span className="pipeline-detail-page__cancel-wrap">
               <button
                 type="button"
-                className="pipeline-detail-page__cancel-btn"
+                className={
+                  isConfirmingCancel
+                    ? "pipeline-detail-page__cancel-btn pipeline-detail-page__cancel-btn--hidden"
+                    : "pipeline-detail-page__cancel-btn"
+                }
                 onClick={handleCancel}
                 aria-label="Cancel changes"
+                aria-hidden={isConfirmingCancel}
+                tabIndex={isConfirmingCancel ? -1 : undefined}
               >
                 Cancel
               </button>
-            )}
+              {isConfirmingCancel && (
+                <span
+                  className="pipeline-detail-page__cancel-confirm"
+                  role="alertdialog"
+                  aria-label="Discard unsaved changes"
+                >
+                  <span className="pipeline-detail-page__cancel-confirm-text">
+                    Discard changes?
+                  </span>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn pipeline-detail-page__cancel-confirm-btn--danger"
+                    onClick={confirmCancelDiscard}
+                    aria-label="Discard changes"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="pipeline-detail-page__cancel-confirm-btn"
+                    onClick={dismissCancelConfirm}
+                    aria-label="Keep editing"
+                  >
+                    Keep editing
+                  </button>
+                </span>
+              )}
+            </span>
           </>
         )}
         <button
