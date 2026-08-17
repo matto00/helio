@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchAgentMemory, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
+import { BetaAccessSection } from "./BetaAccessSection";
 import { PreferencesEditor } from "./PreferencesEditor";
 import "./SettingsPage.css";
 
@@ -57,6 +58,11 @@ export function SettingsPage() {
           <section className="settings-page__section">
             <h2 className="settings-page__section-heading">Agent memory</h2>
             <AgentMemoryList entries={agentMemory.items} />
+          </section>
+
+          <section className="settings-page__section">
+            <h2 className="settings-page__section-heading">Beta access</h2>
+            <BetaAccessSection />
           </section>
         </div>
       )}
