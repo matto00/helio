@@ -78,6 +78,27 @@ describe("DateBucketConfig", () => {
     expect(onChange).toHaveBeenCalledWith({ ...emptyConfig, outputColumn: "ts_month" });
   });
 
+  // HEL sweep F-147: DateBucket's required "Source field" previously had no
+  // validation, letting an unset (or upstream-corrupted, empty-named)
+  // schema field silently propagate downstream as blank chips/messages.
+  it("shows a required-field error when the source field is empty", () => {
+    render(<DateBucketConfig config={emptyConfig} analyzeColumns={columns} onChange={jest.fn()} />);
+
+    expect(screen.getByText(/source field is required/i)).toBeInTheDocument();
+  });
+
+  it("does not show a required-field error once a source field is selected", () => {
+    render(
+      <DateBucketConfig
+        config={{ ...emptyConfig, field: "ts" }}
+        analyzeColumns={columns}
+        onChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/source field is required/i)).not.toBeInTheDocument();
+  });
+
   it("clearing the output column input patches outputColumn back to empty string", () => {
     const onChange = jest.fn();
     render(

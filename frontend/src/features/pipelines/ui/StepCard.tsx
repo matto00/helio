@@ -3,7 +3,7 @@
 // and the local, inline "preview data" panel (rows + output schema — HEL-404).
 // Per-op editor state + PATCH-on-change persistence live in `useStepCardState`.
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronDown,
@@ -17,6 +17,7 @@ import {
 import { useStepCardState } from "../hooks/useStepCardState";
 import { DataGrid } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
+import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
 import { renamesOf } from "../state/stepNarrowing";
@@ -109,9 +110,14 @@ interface StepCardProps {
   onStepDragStart: (index: number) => void;
   onStepDragEnd: () => void;
   /** Undefined disables the button — RiverView omits the handler at the
-   *  first/last position rather than StepCard reasoning about bounds. */
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+   *  first/last position rather than StepCard reasoning about bounds.
+   *  F-146 — id-keyed (not `() => void`) so RiverView can hand every
+   *  StepCard the *same* stable callback reference instead of allocating a
+   *  fresh index-closing arrow per card per render (see
+   *  `PipelineRiverView.handleMoveUp`/`handleMoveDown`); StepCard supplies
+   *  its own `step.id` at the call site below. */
+  onMoveUp?: (stepId: string) => void;
+  onMoveDown?: (stepId: string) => void;
   /** HEL-412 — persists the disable/enable toggle; the page owns the
    *  optimistic flip + revert-on-failure convention. */
   onToggleEnabled: (stepId: string, enabled: boolean) => void;
@@ -124,7 +130,19 @@ interface StepCardProps {
   enabledBits: string;
 }
 
-export function StepCard({
+// F-146 — 615 lines, rendered once per pipeline step, and every edit to any
+// one step's config re-renders `PipelineDetailPage`/`PipelineRiverView` with
+// a new `steps` array (one keystroke in one step's editor). Without `memo`,
+// that re-render cascaded into every OTHER step's `StepCard` too — each
+// re-running its own hooks, effects, and (for expanded/preview-open cards)
+// full editor + preview markup for no reason. `PipelineDetailPage` and
+// `PipelineRiverView` were the other half of this fix (HEL sweep F-146):
+// they now hand down referentially-stable callbacks/arrays (`useCallback`,
+// id-keyed `onMoveUp`/`onMoveDown`, a memoized `analyzeByStepId` map) so
+// `memo`'s shallow prop comparison actually holds for the steps an edit
+// didn't touch, instead of every prop being a fresh reference every render
+// regardless of this wrapper.
+export const StepCard = React.memo(function StepCard({
   step,
   stepIndex,
   pipelineId,
@@ -205,8 +223,11 @@ export function StepCard({
         const result: StepPreviewResponse = await fetchStepPreview(pipelineId, step.id);
         setPreviewRows(result.rows);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Preview failed";
-        setPreviewError(message);
+        // HEL sweep F-155: don't surface raw Axios/transport text (e.g.
+        // "Request failed with status code 422") — read the backend's
+        // parsed error body first, matching the app-wide extractErrorMessage
+        // convention (see its docstring).
+        setPreviewError(extractErrorMessage(err, "Preview failed — try again."));
       } finally {
         setPreviewLoading(false);
       }
@@ -384,7 +405,7 @@ export function StepCard({
             className="pipeline-detail-page__step-card-move-btn"
             aria-label="Move step up"
             disabled={onMoveUp === undefined}
-            onClick={onMoveUp}
+            onClick={() => onMoveUp?.(step.id)}
           >
             <FontAwesomeIcon icon={faChevronUp} aria-hidden="true" />
           </button>
@@ -393,7 +414,7 @@ export function StepCard({
             className="pipeline-detail-page__step-card-move-btn"
             aria-label="Move step down"
             disabled={onMoveDown === undefined}
-            onClick={onMoveDown}
+            onClick={() => onMoveDown?.(step.id)}
           >
             <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
           </button>
@@ -612,4 +633,4 @@ export function StepCard({
       )}
     </div>
   );
-}
+});

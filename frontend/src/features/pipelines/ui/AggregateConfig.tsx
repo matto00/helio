@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faTriangleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../types/pipelineStep";
 import { Select, TextField } from "../../../shared/ui/index";
@@ -30,6 +30,11 @@ export interface AggregateConfigValue {
 }
 
 export const AGG_FNS = ["sum", "avg", "min", "max", "count"] as const;
+
+/** Schema types a new aggregation should default its field to (HEL sweep
+ *  F-129) — mirrors FilterConfig's own NUMERIC_TYPES set for value-input
+ *  type-awareness. */
+const NUMERIC_TYPES = new Set(["number", "integer", "long", "double", "float"]);
 
 export const FN_HINTS: Record<(typeof AGG_FNS)[number], string> = {
   sum: "Sums numeric values; ignores nulls",
@@ -65,7 +70,17 @@ export function AggregateConfig({
   // ── Group-by handlers ──────────────────────────────────────────────────────
 
   function handleAddGroupByRow() {
-    const defaultField = analyzeSchema.length > 0 ? analyzeSchema[0] : { name: "", type: "string" };
+    // HEL sweep F-129: default to the first schema field not already used by
+    // another group-by row — duplicating a partition key is never useful and
+    // previously happened by default (every new row picked analyzeSchema[0]
+    // regardless of what earlier rows already held). Leave the new row
+    // unselected once every field is already spoken for rather than forcing
+    // a duplicate.
+    const usedNames = new Set(config.groupBy.map((g) => g.name));
+    const defaultField = analyzeSchema.find((f) => !usedNames.has(f.name)) ?? {
+      name: "",
+      type: "string",
+    };
     emit({
       ...config,
       groupBy: [...config.groupBy, { name: defaultField.name, type: defaultField.type }],
@@ -87,10 +102,18 @@ export function AggregateConfig({
   // ── Aggregation handlers ───────────────────────────────────────────────────
 
   function handleAddAggregation() {
-    const defaultField = analyzeColumns.length > 0 ? analyzeColumns[0] : "";
+    // HEL sweep F-129: default to the first numeric-typed schema field
+    // (sum/avg/min/max only make sense on numbers) rather than
+    // unconditionally analyzeColumns[0], which could be e.g. a string
+    // "region" column. Leave the field unselected — the picker's placeholder
+    // — when no numeric field is available, instead of guessing.
+    const numericField = analyzeSchema.find((f) => NUMERIC_TYPES.has(f.type));
     emit({
       ...config,
-      aggregations: [...config.aggregations, { alias: "", fn: "sum", field: defaultField }],
+      aggregations: [
+        ...config.aggregations,
+        { alias: "", fn: "sum", field: numericField?.name ?? "" },
+      ],
     });
   }
 
@@ -127,11 +150,11 @@ export function AggregateConfig({
               />
               <button
                 type="button"
-                className="pipeline-detail-page__aggregate-remove-btn"
+                className="pipeline-detail-page__row-remove-btn"
                 aria-label={`Remove group-by field ${index + 1}`}
                 onClick={() => handleRemoveGroupByRow(index)}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
           ))}
@@ -139,7 +162,7 @@ export function AggregateConfig({
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddGroupByRow}
         >
           + Add group-by field
@@ -192,17 +215,17 @@ export function AggregateConfig({
                 {/* Remove button */}
                 <button
                   type="button"
-                  className="pipeline-detail-page__aggregate-remove-btn"
+                  className="pipeline-detail-page__row-remove-btn"
                   aria-label={`Remove aggregation ${index + 1}`}
                   onClick={() => handleRemoveAggregation(index)}
                 >
-                  ×
+                  <FontAwesomeIcon icon={faXmark} />
                 </button>
 
                 {/* Inline warning: field not found in inputSchema */}
                 {fieldMissing && (
                   <span
-                    className="pipeline-detail-page__aggregate-field-warning"
+                    className="pipeline-detail-page__filter-warning"
                     role="alert"
                     aria-label={`Warning: field "${agg.field}" not in schema`}
                   >
@@ -217,7 +240,7 @@ export function AggregateConfig({
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddAggregation}
         >
           + Add aggregation

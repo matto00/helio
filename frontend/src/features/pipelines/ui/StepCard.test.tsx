@@ -147,14 +147,31 @@ describe("StepCard preview — rows + schema (3.1)", () => {
     expect(screen.getByText("Loading preview…")).toBeInTheDocument();
   });
 
-  it("shows an inline error message when the preview request fails", async () => {
+  // HEL sweep F-155: a plain transport-layer failure (no parseable backend
+  // body) must fall back to a friendly generic message — never a raw
+  // Axios/JS error string like "Network error" or "Request failed with
+  // status code 422".
+  it("shows a generic inline error when the preview request fails with no backend error body", async () => {
     fetchStepPreviewMock.mockRejectedValue(new Error("Network error"));
 
     render(<StepCard {...baseProps()} />);
     await click("Limit rows");
     await click("Preview data");
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Network error");
+    expect(screen.getByRole("alert")).toHaveTextContent("Preview failed — try again.");
+  });
+
+  it("shows the backend's parsed error message when the preview request fails with one", async () => {
+    fetchStepPreviewMock.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 422, data: { error: "Row limit must be greater than 0" } },
+    });
+
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Row limit must be greater than 0");
   });
 
   it("second toggle hides the preview", async () => {

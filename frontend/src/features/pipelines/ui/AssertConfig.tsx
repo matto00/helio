@@ -9,6 +9,9 @@
 // dataset-level and never show the field picker). This is the identity
 // pass-through step's editor — no evaluation/results UI (419-B).
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
 import { Select, TextField } from "../../../shared/ui/index";
 import type { SchemaField } from "../types/pipelineStep";
 
@@ -205,11 +208,11 @@ export function AssertConfig({ config, analyzeSchema, onChange }: AssertConfigPr
                 {/* Remove button */}
                 <button
                   type="button"
-                  className="pipeline-detail-page__aggregate-remove-btn"
+                  className="pipeline-detail-page__row-remove-btn"
                   aria-label={`Remove rule ${index + 1}`}
                   onClick={() => handleRemoveRule(index)}
                 >
-                  ×
+                  <FontAwesomeIcon icon={faXmark} />
                 </button>
               </div>
             );
@@ -218,7 +221,7 @@ export function AssertConfig({ config, analyzeSchema, onChange }: AssertConfigPr
 
         <button
           type="button"
-          className="pipeline-detail-page__aggregate-add-btn"
+          className="pipeline-detail-page__filter-add-btn"
           onClick={handleAddRule}
         >
           + Add rule
