@@ -41,7 +41,7 @@
   gap: var(--space-3);
 }
 
-/* State overlays: loading, error — mirrors PanelContent.css's spinner recipe. */
+/* State overlays: loading, error. */
 
 .active-conversation-panel--state {
   flex-direction: row;
@@ -53,20 +53,15 @@
   color: var(--app-error);
 }
 
-.active-conversation-panel__spinner {
-  display: block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid var(--app-border-subtle);
-  border-top-color: var(--app-accent);
-  border-radius: 50%;
-  animation: active-conversation-panel-spin 0.7s linear infinite;
-}
-
-@keyframes active-conversation-panel-spin {
-  to {
-    transform: rotate(360deg);
-  }
+/* Loading row (F-190) — nests inside the always-mounted root instead of replacing it wholesale
+   (see this component's own doc comment), so it needs its own row layout rather than reusing
+   `--state` (which is applied to the ROOT element for the error case). Spinner itself comes from
+   the shared `Spinner` primitive. */
+.active-conversation-panel__state-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .active-conversation-panel__state-label {

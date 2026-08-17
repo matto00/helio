@@ -92,7 +92,10 @@ export function ToastViewport() {
   const items = useAppSelector((state) => state.toasts.items);
 
   return createPortal(
-    <div className="toast-viewport" aria-label="Notifications">
+    // F-154 — `aria-label` on a bare `<div>` (no valid role) is dropped from the accessibility
+    // tree entirely (axe `aria-prohibited-attr`); `role="region"` gives it one, which also makes
+    // it the page's landmark region for notifications.
+    <div className="toast-viewport" role="region" aria-label="Notifications">
       {items.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

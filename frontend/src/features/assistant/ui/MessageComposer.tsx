@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import "./MessageComposer.css";
 import { Textarea } from "../../../shared/ui/Textarea";
+import { Spinner } from "../../../shared/ui/Spinner";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { createConversation } from "../services/assistantConversationsService";
@@ -116,11 +117,12 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
         aria-label="Message"
         rows={2}
         disabled={sending}
+        submitOnEnter
       />
       <div className="message-composer__actions">
         {sending && (
           <span className="message-composer__sending" role="status">
-            <span className="message-composer__spinner" aria-hidden="true" />
+            <Spinner size="sm" />
             Sending…
           </span>
         )}

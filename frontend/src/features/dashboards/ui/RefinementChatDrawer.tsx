@@ -5,9 +5,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { Textarea } from "../../../shared/ui/Textarea";
+import { Spinner } from "../../../shared/ui/Spinner";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { useRefinement } from "../hooks/useRefinement";
+import { MessageTurn } from "../../assistant/ui/MessageTurn";
 import { fetchAuthoringConversation } from "../services/authoringService";
 import { summarizeRefinementPatchSet } from "../utils/refinementSummary";
 import type { AuthoringDisplayTurn, AuthoringErrorKind } from "../types/authoring";
@@ -244,20 +246,14 @@ export function RefinementChatDrawer({ open, onClose, dashboardId }: RefinementC
           changes until you accept it.
         </p>
 
+        {/* F-010 — reuses the same role-differentiated `MessageTurn` bubble
+            `ActiveConversationPanel` renders, instead of a hand-rolled flat card. */}
         {isFollowUp && (
-          <ul className="refinement-drawer__thread" aria-label="Conversation">
+          <div className="refinement-drawer__thread" aria-label="Conversation">
             {thread.map((turn, index) => (
-              <li
-                key={index}
-                className={`refinement-drawer__turn refinement-drawer__turn--${turn.role}`}
-              >
-                <span className="refinement-drawer__turn-role">
-                  {turn.role === "user" ? "You" : "Assistant"}
-                </span>
-                <span className="refinement-drawer__turn-text">{turn.text}</span>
-              </li>
+              <MessageTurn key={index} role={turn.role} text={turn.text} />
             ))}
-          </ul>
+          </div>
         )}
 
         <form className="refinement-drawer__form" onSubmit={handleSubmit}>
@@ -274,6 +270,7 @@ export function RefinementChatDrawer({ open, onClose, dashboardId }: RefinementC
             rows={4}
             disabled={phase !== "idle"}
             autoFocus
+            submitOnEnter
           />
           {phase === "idle" && (
             <div className="refinement-drawer__actions">
@@ -299,7 +296,7 @@ export function RefinementChatDrawer({ open, onClose, dashboardId }: RefinementC
 
         {phase === "loading" && (
           <div className="refinement-drawer__progress" role="status">
-            <span className="refinement-drawer__spinner" aria-hidden="true" />
+            <Spinner size="md" />
             <span>Composing your patch set…</span>
           </div>
         )}
