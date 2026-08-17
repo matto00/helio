@@ -30,6 +30,22 @@ package object api {
   type UpdateUserPreferenceRequest = protocols.UpdateUserPreferenceRequest
   val UpdateUserPreferenceRequest: protocols.UpdateUserPreferenceRequest.type = protocols.UpdateUserPreferenceRequest
 
+  // MFA / TOTP (HEL-702)
+  type MfaStatusResponse = protocols.MfaStatusResponse
+  val MfaStatusResponse: protocols.MfaStatusResponse.type = protocols.MfaStatusResponse
+  type MfaEnrollResponse = protocols.MfaEnrollResponse
+  val MfaEnrollResponse: protocols.MfaEnrollResponse.type = protocols.MfaEnrollResponse
+  type MfaConfirmRequest = protocols.MfaConfirmRequest
+  val MfaConfirmRequest: protocols.MfaConfirmRequest.type = protocols.MfaConfirmRequest
+  type MfaBackupCodesResponse = protocols.MfaBackupCodesResponse
+  val MfaBackupCodesResponse: protocols.MfaBackupCodesResponse.type = protocols.MfaBackupCodesResponse
+  type MfaReauthRequest = protocols.MfaReauthRequest
+  val MfaReauthRequest: protocols.MfaReauthRequest.type = protocols.MfaReauthRequest
+  type MfaVerifyRequest = protocols.MfaVerifyRequest
+  val MfaVerifyRequest: protocols.MfaVerifyRequest.type = protocols.MfaVerifyRequest
+  type MfaRequiredResponse = protocols.MfaRequiredResponse
+  val MfaRequiredResponse: protocols.MfaRequiredResponse.type = protocols.MfaRequiredResponse
+
   // ApiToken (PAT)
   type CreateApiTokenRequest = protocols.CreateApiTokenRequest
   val CreateApiTokenRequest: protocols.CreateApiTokenRequest.type = protocols.CreateApiTokenRequest

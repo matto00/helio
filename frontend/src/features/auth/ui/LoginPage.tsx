@@ -5,7 +5,7 @@ import { TextField } from "../../../shared/ui/index";
 import { API_BASE_URL } from "../../../config/env";
 import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { login } from "../state/authSlice";
+import { isMfaRequiredResponse, login } from "../state/authSlice";
 import "./auth.css";
 
 export function LoginPage() {
@@ -29,7 +29,9 @@ export function LoginPage() {
     setError(null);
     const result = await dispatch(login({ email, password }));
     if (login.fulfilled.match(result)) {
-      void navigate("/");
+      // HEL-702: MFA-enabled accounts get a pending challenge instead of a
+      // session — route to the verification step rather than the app.
+      void navigate(isMfaRequiredResponse(result.payload) ? "/login/verify" : "/");
     } else {
       setError((result.payload as string | undefined) ?? "Login failed.");
     }

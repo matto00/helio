@@ -38,3 +38,36 @@ export interface UpdateUserPreferenceRequest {
   fields: string[];
   user: UserPreferencePayload;
 }
+
+// ── TOTP MFA (HEL-702) ───────────────────────────────────────────────────────
+
+/** Returned by `POST /api/auth/login` / `GET /api/auth/google/callback` in
+ *  place of `AuthResponse` when the account has MFA enabled (design.md D3/D5)
+ *  — no session cookie is set and no user object is returned. */
+export interface MfaRequiredResponse {
+  mfaRequired: true;
+  challengeToken: string;
+}
+
+/** Either primary-auth path can now return this union once MFA can gate
+ *  session establishment (HEL-702). */
+export type LoginResult = AuthResponse | MfaRequiredResponse;
+
+/** `GET /api/auth/mfa`. */
+export interface MfaStatusResponse {
+  enabled: boolean;
+  verifiedAt: string | null;
+  backupCodesRemaining: number;
+}
+
+/** `POST /api/auth/mfa/enroll` — a fresh, unconfirmed secret + otpauth URI. */
+export interface MfaEnrollResponse {
+  secret: string;
+  otpauthUri: string;
+}
+
+/** `POST /api/auth/mfa/enroll/confirm` and `.../backup-codes/regenerate` —
+ *  plaintext codes, returned exactly once. */
+export interface MfaBackupCodesResponse {
+  backupCodes: string[];
+}

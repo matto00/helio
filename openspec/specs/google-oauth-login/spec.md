@@ -15,12 +15,14 @@ The system SHALL expose `GET /api/auth/google/callback` as a public route that h
 authorization code returned by Google. On receiving a valid `code` query parameter the system SHALL
 exchange it for an access token using Google's token endpoint, fetch the user profile from Google's
 userinfo endpoint, upsert the user record (creating on first login, matching by `google_id` on
-subsequent logins), assign or promote the user's tier per the owner-email allowlist (a newly created
-user gets `owner` on a match, else `free`; a returning user with a matching email whose stored tier is
-not already `owner` is promoted and the promotion persisted), create a new `user_sessions` row, set
-the session as an `HttpOnly` cookie (`helio_session`) via `Set-Cookie`, and return `200 OK` with
-`{ expiresAt, user }` — the response body SHALL NOT include the session token. The user object SHALL
-include `tier`.
+subsequent logins), and assign or promote the user's tier per the owner-email allowlist (a newly
+created user gets `owner` on a match, else `free`; a returning user with a matching email whose stored
+tier is not already `owner` is promoted and the promotion persisted). For an account without MFA
+enabled it SHALL then create a new `user_sessions` row, set the session as an `HttpOnly` cookie
+(`helio_session`) via `Set-Cookie`, and return `200 OK` with `{ expiresAt, user }` — the response body
+SHALL NOT include the session token. For an account with MFA enabled it SHALL NOT create a session or
+set a cookie, and SHALL instead return `200 OK` with `{ mfaRequired: true, challengeToken }` per the
+`mfa-login-gate` capability. The user object SHALL include `tier`.
 
 #### Scenario: New user first-time Google login
 - **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received and no user with the returned
@@ -33,11 +35,16 @@ include `tier`.
 
 #### Scenario: Returning user Google login
 - **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received and a user with the returned
-  `google_id` already exists
+  `google_id` already exists and does not have MFA enabled
 - **THEN** the system applies the owner-email allowlist promotion, creates a new session for the
   existing user, sets the `helio_session` cookie, and returns `200 OK` with `{ expiresAt, user: { id,
   email, displayName, avatarUrl, tier, createdAt } }`
 - **AND** no duplicate user record is created
+
+#### Scenario: Returning user with MFA enabled
+- **WHEN** `GET /api/auth/google/callback?code=<valid-code>` is received for a user with MFA enabled
+- **THEN** the system returns `200 OK` with `{ mfaRequired: true, challengeToken }`, no `Set-Cookie`
+  header, and no `user` object
 
 #### Scenario: Google profile includes avatar URL
 - **WHEN** Google's userinfo response contains a `picture` field

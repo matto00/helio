@@ -1,0 +1,198 @@
+.mfa-security-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 640px;
+}
+
+.mfa-security-section__loading {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.mfa-security-section__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.mfa-security-section__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  height: var(--control-sm);
+  border-radius: var(--app-radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+}
+
+.mfa-security-section__badge--on {
+  border: 1px solid color-mix(in srgb, var(--app-success) 35%, transparent);
+  background: var(--app-success-surface);
+  color: var(--app-success);
+}
+
+.mfa-security-section__badge--off {
+  border: 1px solid var(--app-border-subtle);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.mfa-security-section__detail {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.mfa-security-section__enable-btn {
+  align-self: flex-start;
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.mfa-security-section__enable-btn:hover {
+  background: var(--app-accent-strong);
+}
+
+.mfa-security-section__actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mfa-security-section__action-btn {
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.mfa-security-section__action-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.mfa-security-section__action-btn--danger {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  color: var(--app-error);
+}
+
+.mfa-security-section__action-btn--danger:hover {
+  background: var(--app-error-surface);
+}
+
+.mfa-security-section__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.mfa-security-section__prompt-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.mfa-security-section__prompt-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mfa-security-section__confirm-btn {
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--app-transition);
+}
+
+.mfa-security-section__confirm-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.mfa-security-section__confirm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mfa-security-section__confirm-btn--danger {
+  background: var(--app-error);
+  /* DESIGN.md [mechanical]: no hardcoded hex where a token applies -- matches
+   * the established danger-confirm-button pattern (SourceDetailPanel.css /
+   * TypeDetailPanel.css). */
+  color: var(--app-bg);
+}
+
+.mfa-security-section__confirm-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--app-error) 85%, black);
+}
+
+.mfa-security-section__cancel-btn {
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.mfa-security-section__cancel-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.mfa-security-section__done-btn {
+  align-self: flex-end;
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.mfa-security-section__done-btn:hover {
+  background: var(--app-accent-strong);
+}

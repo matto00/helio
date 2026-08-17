@@ -5,6 +5,12 @@
 import { screen, waitFor } from "@testing-library/react";
 
 import * as settingsService from "../services/settingsService";
+// HEL-702: `MfaSecuritySection` (mounted unconditionally by `SettingsPage`
+// once its own fetches succeed) dispatches `fetchMfaStatus` on mount, which
+// calls the real `authService.mfaStatusRequest` unless mocked here too --
+// matching this file's existing house pattern of mocking every service call
+// a mounted page/section makes, so no test attempts a real network request.
+import * as authService from "../../auth/services/authService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import type { AgentPreferences } from "../types/preferences";
 import { SettingsPage } from "./SettingsPage";
@@ -17,8 +23,13 @@ jest.mock("../services/settingsService", () => ({
   clearAgentMemory: jest.fn(),
 }));
 
+jest.mock("../../auth/services/authService", () => ({
+  mfaStatusRequest: jest.fn(),
+}));
+
 const getPreferencesMock = jest.mocked(settingsService.getPreferences);
 const listAgentMemoryMock = jest.mocked(settingsService.listAgentMemory);
+const mfaStatusRequestMock = jest.mocked(authService.mfaStatusRequest);
 
 const testPreferences: AgentPreferences = {
   defaultSeriesColors: ["#ff0000"],
@@ -30,6 +41,12 @@ const testPreferences: AgentPreferences = {
 beforeEach(() => {
   getPreferencesMock.mockReset();
   listAgentMemoryMock.mockReset();
+  mfaStatusRequestMock.mockReset();
+  mfaStatusRequestMock.mockResolvedValue({
+    enabled: false,
+    verifiedAt: null,
+    backupCodesRemaining: 0,
+  });
 });
 
 describe("SettingsPage", () => {

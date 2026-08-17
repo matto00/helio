@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mfa-required-response.schema.json",
+  "title": "MfaRequiredResponse",
+  "description": "Returned by POST /api/auth/login and GET /api/auth/google/callback in place of the normal login response when the account has MFA enabled — no session is created and no user object is included.",
+  "type": "object",
+  "properties": {
+    "mfaRequired": {
+      "type": "boolean",
+      "const": true
+    },
+    "challengeToken": {
+      "type": "string"
+    }
+  },
+  "required": ["mfaRequired", "challengeToken"],
+  "additionalProperties": false
+}

@@ -2,7 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import * as authService from "../services/authService";
 import { applyAccentTokens } from "../../../theme/appearance";
-import type { AuthResponse, User } from "../types/user";
+import type { AuthResponse, MfaRequiredResponse, User } from "../types/user";
 import {
   authReducer,
   clearAuth,
@@ -12,6 +12,7 @@ import {
   rehydrateAuth,
   setAuth,
   updateUserPreferences,
+  verifyMfa,
 } from "./authSlice";
 
 jest.mock("../services/authService");
@@ -34,6 +35,13 @@ const testUser: User = {
 const testAuthResponse: AuthResponse = {
   expiresAt: "2026-12-31T00:00:00Z",
   user: testUser,
+};
+
+// HEL-702: returned by `login`/`handleOAuthCallback` in place of
+// `testAuthResponse` when the account has MFA enabled.
+const testMfaRequiredResponse: MfaRequiredResponse = {
+  mfaRequired: true,
+  challengeToken: "challenge-token-123",
 };
 
 function makeStore() {
@@ -106,6 +114,105 @@ describe("login thunk", () => {
     expect(login.rejected.match(result)).toBe(true);
     expect(result.payload).toBe("Invalid email or password");
     expect(store.getState().auth.status).toBe("unauthenticated");
+  });
+
+  // HEL-702 design.md D7
+  it("stores the challenge and stays unauthenticated when MFA is required", async () => {
+    mockedAuthService.loginRequest.mockResolvedValue(testMfaRequiredResponse);
+    const store = makeStore();
+
+    const result = await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
+
+    expect(login.fulfilled.match(result)).toBe(true);
+    expect(store.getState().auth.status).toBe("unauthenticated");
+    expect(store.getState().auth.currentUser).toBeNull();
+    expect(store.getState().auth.mfaChallenge).toEqual({ challengeToken: "challenge-token-123" });
+  });
+});
+
+// HEL-702 design.md D7
+describe("handleOAuthCallback thunk (MFA gate)", () => {
+  it("stores the challenge and stays unauthenticated when MFA is required", async () => {
+    mockedAuthService.oauthCallbackRequest.mockResolvedValue(testMfaRequiredResponse);
+    const store = makeStore();
+
+    const result = await store.dispatch(handleOAuthCallback({ code: "auth-code-123" }));
+
+    expect(handleOAuthCallback.fulfilled.match(result)).toBe(true);
+    expect(store.getState().auth.status).toBe("unauthenticated");
+    expect(store.getState().auth.mfaChallenge).toEqual({ challengeToken: "challenge-token-123" });
+  });
+});
+
+// HEL-702 design.md D4/D7
+describe("verifyMfa thunk", () => {
+  async function storeWithPendingChallenge() {
+    mockedAuthService.loginRequest.mockResolvedValue(testMfaRequiredResponse);
+    const store = makeStore();
+    await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
+    return store;
+  }
+
+  it("authenticates and clears the challenge on success", async () => {
+    const store = await storeWithPendingChallenge();
+    mockedAuthService.mfaVerifyRequest.mockResolvedValue(testAuthResponse);
+
+    const result = await store.dispatch(verifyMfa({ code: "123456" }));
+
+    expect(verifyMfa.fulfilled.match(result)).toBe(true);
+    expect(store.getState().auth.status).toBe("authenticated");
+    expect(store.getState().auth.currentUser).toEqual(testUser);
+    expect(store.getState().auth.mfaChallenge).toBeNull();
+    expect(mockedAuthService.mfaVerifyRequest).toHaveBeenCalledWith(
+      "challenge-token-123",
+      "123456",
+    );
+  });
+
+  it("retains the challenge and reports the error on a wrong code", async () => {
+    const store = await storeWithPendingChallenge();
+    const axiosError = Object.assign(new Error("Unauthorized"), {
+      isAxiosError: true,
+      response: { data: { message: "Invalid code." } },
+    });
+    mockedAuthService.mfaVerifyRequest.mockRejectedValue(axiosError);
+
+    const result = await store.dispatch(verifyMfa({ code: "000000" }));
+
+    expect(verifyMfa.rejected.match(result)).toBe(true);
+    expect(result.payload).toBe("Invalid code.");
+    expect(store.getState().auth.status).toBe("unauthenticated");
+    // The challenge is retained on failure -- the user can retry until it
+    // expires/attempt-caps (design.md D4).
+    expect(store.getState().auth.mfaChallenge).toEqual({ challengeToken: "challenge-token-123" });
+  });
+
+  it("rejects immediately when there is no pending challenge in state", async () => {
+    // Prior tests in this describe block already invoked mfaVerifyRequest —
+    // clear its call history so this assertion checks THIS dispatch only.
+    mockedAuthService.mfaVerifyRequest.mockClear();
+    const store = makeStore();
+
+    const result = await store.dispatch(verifyMfa({ code: "123456" }));
+
+    expect(verifyMfa.rejected.match(result)).toBe(true);
+    expect(result.payload).toBe("No pending verification. Please sign in again.");
+    expect(mockedAuthService.mfaVerifyRequest).not.toHaveBeenCalled();
+  });
+});
+
+// HEL-702 design.md D7
+describe("clearAuth (MFA challenge)", () => {
+  it("clears a pending mfaChallenge", () => {
+    const action = login.fulfilled(testMfaRequiredResponse, "request-1", {
+      email: "test@example.com",
+      password: "pass1234",
+    });
+    const withChallenge = authReducer(undefined, action);
+    expect(withChallenge.mfaChallenge).toEqual({ challengeToken: "challenge-token-123" });
+
+    const cleared = authReducer(withChallenge, clearAuth());
+    expect(cleared.mfaChallenge).toBeNull();
   });
 });
 

@@ -42,6 +42,23 @@ function buildStore(items: AgentMemoryEntry[]) {
           clearStatus: "idle" as const,
           clearError: null,
         },
+        mfa: {
+          status: "idle" as const,
+          error: null,
+          enabled: false,
+          verifiedAt: null,
+          backupCodesRemaining: 0,
+          enrollStatus: "idle" as const,
+          enrollError: null,
+          enrollment: null,
+          confirmStatus: "idle" as const,
+          confirmError: null,
+          backupCodes: null,
+          regenerateStatus: "idle" as const,
+          regenerateError: null,
+          disableStatus: "idle" as const,
+          disableError: null,
+        },
         // HEL-704: betaAccess is a sibling sub-tree this component never reads/dispatches into —
         // still required by SettingsState's shape.
         betaAccess: {

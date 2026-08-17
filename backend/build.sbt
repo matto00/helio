@@ -112,6 +112,11 @@ lazy val root = (project in file("."))
       "com.networknt" % "json-schema-validator" % "1.0.87" % Test,
       "org.apache.pekko" %% "pekko-http-cors" % "1.1.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
+      // HEL-702: RFC 6238 TOTP MFA. java-otp does the one crypto-sensitive
+      // piece (HMAC-based code generation) with zero transitive deps;
+      // commons-codec supplies RFC 4648 Base32 (the JDK only ships Base64).
+      "com.eatthepath" % "java-otp" % "0.4.0",
+      "commons-codec" % "commons-codec" % "1.17.1",
       "com.mysql" % "mysql-connector-j" % "8.3.0",
       "com.google.cloud.sql" % "postgres-socket-factory" % "1.21.0",
       "com.google.cloud" % "google-cloud-storage" % "2.40.1",

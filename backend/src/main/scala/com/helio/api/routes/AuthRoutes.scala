@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
-import com.helio.services.AuthService
+import com.helio.services.{AuthService, LoginOutcome}
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -48,10 +48,17 @@ class AuthRoutes(
       path("login") {
         post {
           entity(as[LoginRequest]) { request =>
-            ServiceResponse.runWith(authService.login(request)) { result =>
-              setCookie(SessionCookies.issue(result.token, cookieConfig)) {
-                complete(StatusCodes.OK, result.response)
-              }
+            // HEL-702 design.md D3: single MFA-gate branch at the
+            // session-establishment point — SessionEstablished behaves
+            // exactly as before; MfaRequired sets no cookie and echoes no
+            // user object.
+            ServiceResponse.runWith(authService.login(request)) {
+              case LoginOutcome.SessionEstablished(result) =>
+                setCookie(SessionCookies.issue(result.token, cookieConfig)) {
+                  complete(StatusCodes.OK, result.response)
+                }
+              case LoginOutcome.MfaRequired(challengeToken) =>
+                complete(StatusCodes.OK, MfaRequiredResponse(mfaRequired = true, challengeToken = challengeToken))
             }
           }
         }

@@ -12,6 +12,7 @@ function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {
   const fullState: AuthState = {
     currentUser: null,
     status: "idle",
+    mfaChallenge: null,
     ...authState,
   };
 

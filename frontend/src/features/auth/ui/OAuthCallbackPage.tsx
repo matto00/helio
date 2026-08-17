@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { handleOAuthCallback } from "../state/authSlice";
+import { handleOAuthCallback, isMfaRequiredResponse } from "../state/authSlice";
 import "./auth.css";
 
 export function OAuthCallbackPage() {
@@ -28,7 +28,11 @@ export function OAuthCallbackPage() {
     if (code !== null) {
       void dispatch(handleOAuthCallback({ code, state })).then((result) => {
         if (handleOAuthCallback.fulfilled.match(result)) {
-          void navigate("/", { replace: true });
+          // HEL-702: same MFA branch as LoginPage — route to the
+          // verification step instead of the app when a challenge was issued.
+          void navigate(isMfaRequiredResponse(result.payload) ? "/login/verify" : "/", {
+            replace: true,
+          });
         } else {
           void navigate("/login?error=oauth_failed", { replace: true });
         }

@@ -61,6 +61,24 @@ describe("setupAuthInterceptor", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
+  // HEL-702: a wrong TOTP/backup code also returns 401 on `/api/auth/mfa/*`
+  // (`ServiceError.Unauthorized`), but it's a credential-proof failure, not
+  // "your session is invalid" -- a hard navigate here would blow away the
+  // on-page inline error (design.md D7) before MfaVerifyPage/
+  // MfaSecuritySection can render it.
+  it("does NOT navigate to /login when the failing request is a wrong MFA code", async () => {
+    const error = Object.assign(new Error("Unauthorized"), {
+      isAxiosError: true,
+      response: { status: 401 },
+      config: { url: "/api/auth/mfa/verify" },
+    });
+
+    await expect(getLastInterceptor().rejected(error)).rejects.toThrow("Unauthorized");
+
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it("passes through non-401 errors without dispatching or navigating", async () => {
     const error = Object.assign(new Error("Internal Server Error"), {
       isAxiosError: true,
