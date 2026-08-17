@@ -15,6 +15,7 @@ import {
   renameConversation,
   setSelectedConversationId,
   startNewConversation,
+  TierRequestAccessCopy,
   togglePinned,
 } from "../../features/assistant/state/assistantConversationsSlice";
 import {
@@ -43,6 +44,7 @@ import {
 } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
+import { EmptyState } from "../ui/EmptyState";
 import { SidebarItemList, type SidebarItem } from "./SidebarItemList";
 
 interface SidebarBodyProps {
@@ -64,10 +66,15 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const metrics = useAppSelector((state) => state.metrics);
   const conversations = useAppSelector((state) => state.assistantConversations);
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
   const section = sectionFromPathname(pathname);
+  // HEL-703 design.md D9 (cycle-2 evaluator CR1) — mirrors `ChatPage.tsx`/`QuickLauncherOverlay.tsx`'s
+  // own guard: this was the one `fetchConversations()` dispatch site those two missed, since the
+  // sidebar's "chat" section list is driven from here, not from either of those components.
+  const isFreeTier = currentUser?.tier === "free";
 
   useEffect(() => {
     if (section === "sources" && sources.status === "idle") {
@@ -78,7 +85,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
       void dispatch(fetchDataTypes());
     } else if (section === "metrics" && metrics.status === "idle") {
       void dispatch(fetchMetrics());
-    } else if (section === "chat" && conversations.status === "idle") {
+    } else if (section === "chat" && !isFreeTier && conversations.status === "idle") {
       void dispatch(fetchConversations());
     }
     // The sources section also needs pipelines loaded: the delete-confirm
@@ -96,6 +103,7 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
     dataTypes.status,
     metrics.status,
     conversations.status,
+    isFreeTier,
   ]);
 
   if (section === "sources") {
@@ -215,6 +223,27 @@ export function SidebarBody({ onCollapse }: SidebarBodyProps) {
           ) : null
         }
       />
+    );
+  }
+
+  if (section === "chat" && isFreeTier) {
+    // HEL-703 design.md D9 (cycle-2 evaluator CR1) — a `free`-tier user never sees the sidebar's
+    // conversation list at all (its fetch is gated above, so `conversations.status` would
+    // otherwise sit at "idle" with an empty list forever, falling through to `SidebarItemList`'s
+    // own generic "No conversations yet" + "+ New chat" empty state — misleading, since starting a
+    // conversation is not actually possible). This CTA-less locked state mirrors
+    // `ActiveConversationPanel`'s own request-access messaging exactly (`TierRequestAccessCopy`),
+    // so the sidebar and main content pane never disagree about why chat is unavailable. No
+    // heading/filter/"+" — none of that list chrome applies to a section the user cannot use.
+    return (
+      <section className="dashboard-list" aria-label="chat">
+        <EmptyState
+          variant="sidebar"
+          icon={faComments}
+          title={TierRequestAccessCopy.title}
+          description={TierRequestAccessCopy.description}
+        />
+      </section>
     );
   }
 

@@ -6,6 +6,8 @@ import { MemoryRouter } from "react-router-dom";
 import { assistantConversationsReducer } from "../../features/assistant/state/assistantConversationsSlice";
 import * as assistantConversationsService from "../../features/assistant/services/assistantConversationsService";
 import type { AssistantConversationSummary } from "../../features/assistant/types";
+import { authReducer } from "../../features/auth/state/authSlice";
+import type { User, UserTier } from "../../features/auth/types/user";
 import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import type { DataType } from "../../features/dataTypes/types/dataType";
 import { metricsReducer } from "../../features/metrics/state/metricsSlice";
@@ -71,6 +73,21 @@ interface StoreOptions {
   pipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
   conversationItems?: AssistantConversationSummary[];
   conversationStatus?: "idle" | "loading" | "succeeded" | "failed";
+  /** HEL-703 cycle 2 — defaults to `null` (unauthenticated-shaped state), which behaves
+   *  identically to every pre-existing test here: `currentUser?.tier === "free"` is `false`
+   *  whenever `currentUser` is `null`, so the chat section's normal (non-gated) branch renders. */
+  currentUser?: User | null;
+}
+
+function buildUser(tier: UserTier): User {
+  return {
+    id: `user-${tier}`,
+    email: `${tier}@test.local`,
+    displayName: null,
+    avatarUrl: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    tier,
+  };
 }
 
 function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
@@ -79,9 +96,11 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
     pipelineStatus = "idle",
     conversationItems = [],
     conversationStatus = "idle",
+    currentUser = null,
   } = options;
   return configureStore({
     reducer: {
+      auth: authReducer,
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
@@ -89,6 +108,10 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
       assistantConversations: assistantConversationsReducer,
     } as never,
     preloadedState: {
+      auth: {
+        status: "idle" as const,
+        currentUser,
+      },
       dataTypes: {
         items: dataTypeItems,
         status: "succeeded" as const,
@@ -234,6 +257,52 @@ function buildConversation(
     ...overrides,
   };
 }
+
+// HEL-703 design.md D9 (cycle-2 evaluator CR1) — this was the one `fetchConversations()` dispatch
+// site the original pass never gated (`ChatPage.tsx`/`QuickLauncherOverlay.tsx` were gated
+// correctly). A free-tier user landing directly on `/chat` drives the sidebar's list through
+// THIS component, not through either of those two.
+describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
+  it("a free-tier user sees the CTA-less locked state, not the raw list/error, and never fetches", async () => {
+    renderAt("/chat", [], { currentUser: buildUser("free") });
+
+    expect(screen.getByText("Chat access is limited")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+      ),
+    ).toBeInTheDocument();
+    // Neither the generic "No conversations yet" empty state nor its "+ New chat" CTA renders —
+    // starting a conversation is not actually possible for this user.
+    expect(screen.queryByText("No conversations yet")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
+    // No filter box either — none of the list chrome applies to a locked section.
+    expect(screen.queryByLabelText("Filter chat by name")).not.toBeInTheDocument();
+
+    // Give any pending effect a chance to run, then assert the fetch never fired.
+    await Promise.resolve();
+    expect(listConversationsMock).not.toHaveBeenCalled();
+  });
+
+  it("a beta-tier user still sees the normal chat section (list fetch + New chat)", async () => {
+    renderAt("/chat", [], { currentUser: buildUser("beta"), conversationStatus: "idle" });
+
+    await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+    // Two elements share this accessible name at zero conversations: the header "+" button and
+    // the empty-state's own CTA (both use `addLabel="New chat"`) — either is proof the normal,
+    // ungated branch rendered.
+    expect(screen.getAllByRole("button", { name: "New chat" }).length).toBeGreaterThan(0);
+  });
+
+  it("an owner-tier user still sees the normal chat section (list fetch + New chat)", async () => {
+    renderAt("/chat", [], { currentUser: buildUser("owner"), conversationStatus: "idle" });
+
+    await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Chat access is limited")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New chat" }).length).toBeGreaterThan(0);
+  });
+});
 
 describe("SidebarBody chat section — conversation list (HEL-664)", () => {
   it("renders conversations in the exact order the API returned them, no client re-sort", () => {

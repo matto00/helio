@@ -10,13 +10,18 @@ set -a; source "$(dirname "$0")/.env.deploy"; set +a
 # proxy), where the session cookie requires Secure + SameSite=None to be set at all (see
 # CookieConfig.scala / design.md D1, HEL-287). It is never operator-configurable.
 
+# HEL-703: HELIO_BETA_DAILY_MESSAGE_LIMIT is optional in .env.deploy (UserTierConfig already
+# falls back to its own default of 50 when the env var is unset) — defaulted here only so this
+# script never emits a literal empty value into --set-env-vars.
+HELIO_BETA_DAILY_MESSAGE_LIMIT="${HELIO_BETA_DAILY_MESSAGE_LIMIT:-50}"
+
 gcloud run deploy helio-backend \
   --image=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:v3 \
   --region=us-west1 \
   --platform=managed \
   --add-cloudsql-instances=helio-493120:us-west1:helio-db \
   --service-account=helio-backend-sa@helio-493120.iam.gserviceaccount.com \
-  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql:///helio?cloudSqlInstance=helio-493120:us-west1:helio-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory|DB_USER=helio|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json" \
+  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql:///helio?cloudSqlInstance=helio-493120:us-west1:helio-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory|DB_USER=helio|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}" \
   --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,GOOGLE_CLIENT_ID=helio-google-client-id:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest \
   --memory=1Gi \
   --cpu=1 \

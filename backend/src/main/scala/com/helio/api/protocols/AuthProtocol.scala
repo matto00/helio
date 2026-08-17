@@ -15,7 +15,11 @@ final case class UserResponse(
     displayName: Option[String],
     createdAt: String,
     avatarUrl: Option[String] = None,
-    preferences: Option[UserPreferences] = None
+    preferences: Option[UserPreferences] = None,
+    // HEL-703: rides every existing user payload (register/login/OAuth/GET /api/auth/me) via
+    // fromDomain below — the frontend needs it proactively (request-access / limit-reached UI),
+    // not just reactively from a 403/429 body.
+    tier: String = "free"
 )
 // HEL-287 CodeQL #8: the session token is no longer echoed in the JSON body
 // (it is delivered via `Set-Cookie` only — see AuthService.AuthResult, which
@@ -33,7 +37,8 @@ object UserResponse {
       email       = user.email,
       displayName = user.displayName,
       createdAt   = user.createdAt.toString,
-      avatarUrl   = user.avatarUrl
+      avatarUrl   = user.avatarUrl,
+      tier        = UserTier.asString(user.tier)
     )
 }
 
@@ -41,7 +46,7 @@ trait AuthProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
   implicit val userPreferencesFormat: RootJsonFormat[UserPreferences] = jsonFormat2(UserPreferences.apply)
-  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat6(UserResponse.apply)
+  implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat7(UserResponse.apply)
   implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat2(AuthResponse.apply)
 
   // Google OAuth — read-only since we only ingest Google's userinfo payload.

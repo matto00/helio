@@ -12,9 +12,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.api.routes._
 import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
-import com.helio.services.{AgentMemoryService, AgentPreferencesService, AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BoundPanelService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
+import com.helio.services.{AgentMemoryService, AgentPreferencesService, AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BoundPanelService, ChatAccessService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, UserTierConfig, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AssistantDailyUsageRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, MetricRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
@@ -145,7 +145,10 @@ final class ApiRoutes(
 
   // Services
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
-  private val authService       = new AuthService(userRepo)
+  // HEL-703: read once, shared by authService (register/login/OAuth tier assignment) and
+  // chatAccessServiceOpt (beta daily cap) below — mirrors cookieConfig's fromEnv-once convention.
+  private val userTierConfig    = UserTierConfig.fromEnv()
+  private val authService       = new AuthService(userRepo, userTierConfig)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
   // HEL-500: metricRepo may be null for fixtures that don't pass one (same
   // nullable-optional wiring convention as the constructor param above) —
@@ -295,6 +298,13 @@ final class ApiRoutes(
   // pipelineRunService/imageUploadServiceOpt already share, no new selection logic (design.md D2).
   private val assistantConversationServiceOpt: Option[AssistantConversationService] =
     Option(dbContext).map(ctx => new AssistantConversationService(new AssistantConversationRepository(ctx), fileSystem))
+  // HEL-703: same nullable-optional wiring pattern as assistantConversationServiceOpt above (both
+  // depend on the same `dbContext`, so they're always Some/None together) — fixtures that don't
+  // pass a DbContext simply don't get a tier gate, but they also don't get the
+  // /api/assistant-conversations routes mounted at all in that case (see the combined `.fold`
+  // below), so there is no route reachable without one.
+  private val chatAccessServiceOpt: Option[ChatAccessService] =
+    Option(dbContext).map(ctx => new ChatAccessService(userRepo, new AssistantDailyUsageRepository(ctx), userTierConfig))
   // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineShapeService        = new PipelineShapeService()
@@ -557,7 +567,15 @@ final class ApiRoutes(
                   // nullable dependency — the whole route family stays gated on dbContext alone
                   // (Pattern A, unaffected); only the new POST /:id/converse route additionally
                   // checks assistantServiceOpt and degrades to its own 503 when it's None.
-                  assistantConversationServiceOpt.fold(reject: Route)(svc => new AssistantConversationRoutes(svc, assistantServiceOpt, authenticatedUser).routes),
+                  // HEL-703: chatAccessServiceOpt is combined via a for-comprehension with
+                  // assistantConversationServiceOpt (both derive from the same `dbContext`, so
+                  // they're always Some/None together) — the route family stays reachable only
+                  // when both are present, same net gating as before this ticket.
+                  (for {
+                    svc        <- assistantConversationServiceOpt
+                    chatAccess <- chatAccessServiceOpt
+                  } yield new AssistantConversationRoutes(svc, assistantServiceOpt, chatAccess, authenticatedUser).routes)
+                    .fold(reject: Route)(identity),
                   // HEL-371: mounted unconditionally (not `.fold(reject)`-gated
                   // on workspaceTeardownServiceOpt like every other nullable-repo
                   // route family in this list) — WorkspaceRoutes itself now

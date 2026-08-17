@@ -2,10 +2,11 @@ package com.helio.api.routes
 
 import com.helio.ai._
 import com.helio.api.JsonProtocols
+import com.helio.api.protocols.TierErrorResponse
 import com.helio.domain._
 import com.helio.infrastructure.AssistantConversationRepository._
-import com.helio.infrastructure.{AssistantConversationRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem}
-import com.helio.services.{AssistantConversationService, AssistantService, DataTypeService, WorkspaceContextService, WorkspaceSearchService}
+import com.helio.infrastructure.{AssistantConversationRepository, AssistantDailyUsageRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, UserRepository}
+import com.helio.services.{AssistantConversationService, AssistantService, ChatAccessService, DataTypeService, UserTierConfig, WorkspaceContextService, WorkspaceSearchService}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
@@ -57,6 +58,12 @@ class AssistantConversationRoutesSpec
   private var ctx: DbContext                          = _
   private var repo: AssistantConversationRepository   = _
   private var conversationService: AssistantConversationService = _
+  // HEL-703 tasks.md 6.4: userRepo/usageRepo back the tier gate under test — `appDb` is correct
+  // here (not the privileged pool) because `users` carries no RLS (V88's own migration comment),
+  // so a plain `UserRepository(appDb)` resolves exactly as it does in production.
+  private var userRepo: UserRepository                 = _
+  private var usageRepo: AssistantDailyUsageRepository = _
+  private var chatAccessService: ChatAccessService      = _
 
   private val ownerA = UserId(UUID.randomUUID().toString)
   private val ownerB = UserId(UUID.randomUUID().toString)
@@ -117,14 +124,22 @@ class AssistantConversationRoutesSpec
     val fileSystem = new LocalFileSystem(tmpDir)
     conversationService = new AssistantConversationService(repo, fileSystem)(routeEc)
 
+    userRepo  = new UserRepository(appDb)(routeEc)
+    usageRepo = new AssistantDailyUsageRepository(ctx)(routeEc)
+    // HEL-703: the module-level userA/userB fixtures below are seeded `owner`-tier (not the
+    // `free` default) precisely so every PRE-EXISTING test in this file — written before tier
+    // gating existed — keeps exercising unrestricted, uncounted access. The dedicated tier-gating
+    // tests near the bottom of this file seed their OWN fresh users at whichever tier they need.
+    chatAccessService = new ChatAccessService(userRepo, usageRepo, UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit))
+
     await(
       ctx.withSystemContext(
         DBIO.seq(
-          sqlu"""INSERT INTO users (id, email, created_at)
-                 VALUES (${ownerA.value}::uuid, ${s"${ownerA.value}@test.local"}, now())
+          sqlu"""INSERT INTO users (id, email, created_at, tier)
+                 VALUES (${ownerA.value}::uuid, ${s"${ownerA.value}@test.local"}, now(), 'owner')
                  ON CONFLICT DO NOTHING""",
-          sqlu"""INSERT INTO users (id, email, created_at)
-                 VALUES (${ownerB.value}::uuid, ${s"${ownerB.value}@test.local"}, now())
+          sqlu"""INSERT INTO users (id, email, created_at, tier)
+                 VALUES (${ownerB.value}::uuid, ${s"${ownerB.value}@test.local"}, now(), 'owner')
                  ON CONFLICT DO NOTHING"""
         )
       )
@@ -206,7 +221,51 @@ class AssistantConversationRoutesSpec
   }
 
   private def routesFor(user: AuthenticatedUser, assistantOpt: Option[AssistantService]): Route =
-    new AssistantConversationRoutes(conversationService, assistantOpt, user).routes
+    routesForWithChatAccess(user, assistantOpt, chatAccessService)
+
+  // HEL-703 tasks.md 6.4: lets the tier-gating tests below inject a `ChatAccessService` built with
+  // a different (usually much smaller, for a fast test) `UserTierConfig` than the module-level
+  // default, while still sharing the SAME userRepo/usageRepo instances (and therefore the same
+  // underlying tables) every other helper in this file uses.
+  private def routesForWithChatAccess(user: AuthenticatedUser, assistantOpt: Option[AssistantService], chatAccess: ChatAccessService): Route =
+    new AssistantConversationRoutes(conversationService, assistantOpt, chatAccess, user).routes
+
+  // HEL-703 tasks.md 6.4 — a `ChatAccessService` sharing the SAME userRepo/usageRepo (and
+  // therefore the same underlying tables) as `chatAccessService`, but with a caller-chosen daily
+  // limit — lets the beta-cap tests below use a small limit instead of the module-level default.
+  private def chatAccessServiceWithLimit(limit: Int): ChatAccessService =
+    new ChatAccessService(userRepo, usageRepo, UserTierConfig(Set.empty, limit))
+
+  // HEL-703 tasks.md 6.4 — a fresh user seeded directly at `tier` (never via register/login —
+  // per the ticket's own non-goal, tier assignment beyond the owner allowlist is a direct DB
+  // update for this pass).
+  private def newUserWithTier(tier: String): AuthenticatedUser = {
+    val id = UUID.randomUUID().toString
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO users (id, email, created_at, tier)
+             VALUES ($id::uuid, ${s"$id@test.local"}, now(), $tier)"""
+    ))
+    AuthenticatedUser(UserId(id))
+  }
+
+  // HEL-703 tasks.md 6.4 — reads `assistant_daily_usage` for TODAY (UTC), matching exactly what
+  // `AssistantDailyUsageRepository.incrementIfUnderCap` writes -- deliberately NOT `CURRENT_DATE`
+  // (Postgres session-timezone-dependent), so this assertion can never disagree with production
+  // behavior over a timezone mismatch.
+  private def dailyUsageCount(user: AuthenticatedUser): Option[Int] = {
+    val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString
+    await(ctx.withSystemContext(
+      sql"""SELECT message_count FROM assistant_daily_usage
+            WHERE user_id = ${user.id.value}::uuid AND usage_date = $today::date"""
+        .as[Int]
+        .headOption
+    ))
+  }
+
+  private def conversationCountFor(user: AuthenticatedUser): Int =
+    await(ctx.withSystemContext(
+      sql"SELECT COUNT(*) FROM assistant_conversations WHERE owner_id = ${user.id.value}::uuid".as[Int].head
+    ))
 
   private def jsonEntity(body: String): HttpEntity.Strict = HttpEntity(ContentTypes.`application/json`, body)
 
@@ -470,6 +529,91 @@ class AssistantConversationRoutesSpec
         case Seq(a, b) => a should not be b
         case _         => ()
       }
+    }
+  }
+
+  // ── HEL-703 tasks.md 6.4 — tier gating ──────────────────────────────────────────────────────
+
+  "Tier gating" should {
+
+    "deny a free-tier user 403 TIER_FORBIDDEN on every endpoint in the family, with nothing persisted" in {
+      cleanDb()
+      val freeUser = newUserWithTier("free")
+      val routes   = routesFor(freeUser, None)
+      // A conversation created by a DIFFERENT (owner) user — proves the 403 wins even when a real
+      // id exists, i.e. the gate runs strictly before any handler/persistence logic.
+      val existing = await(conversationService.create(userA, None, title = None))
+
+      def assertForbidden() = {
+        status shouldBe StatusCodes.Forbidden
+        responseAs[TierErrorResponse].code shouldBe "TIER_FORBIDDEN"
+      }
+
+      Get("/assistant-conversations") ~> routes ~> check { assertForbidden() }
+      Post("/assistant-conversations", jsonEntity("{}")) ~> routes ~> check { assertForbidden() }
+      Get(s"/assistant-conversations/${existing.record.id.value}") ~> routes ~> check { assertForbidden() }
+      Post(s"/assistant-conversations/${existing.record.id.value}/messages", jsonEntity("""{"turns":[]}""")) ~> routes ~> check { assertForbidden() }
+      Post(s"/assistant-conversations/${existing.record.id.value}/converse", jsonEntity("""{"message":"hi"}""")) ~> routes ~> check { assertForbidden() }
+      Patch(s"/assistant-conversations/${existing.record.id.value}", jsonEntity("""{"pinned":true}""")) ~> routes ~> check { assertForbidden() }
+
+      // Nothing the free user attempted was persisted (the owner's pre-existing conversation is
+      // untouched, and the free user created none of their own).
+      conversationCountFor(freeUser) shouldBe 0
+    }
+
+    "a beta-tier user under the cap converses normally, then gets 429 CHAT_LIMIT_REACHED once at the cap -- no model call, no turns persisted for the denied attempt" in {
+      cleanDb()
+      val betaUser  = newUserWithTier("beta")
+      val transport = new SequencedTransport(Vector(finalTextResponse("Hi there!")))
+      val detail    = await(conversationService.create(betaUser, None, title = None))
+      val routes    = routesForWithChatAccess(betaUser, Some(assistantServiceWith(transport)), chatAccessServiceWithLimit(1))
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"one"}""")) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"two"}""")) ~> routes ~> check {
+        status shouldBe StatusCodes.TooManyRequests
+        val body = responseAs[TierErrorResponse]
+        body.code shouldBe "CHAT_LIMIT_REACHED"
+        body.limit shouldBe Some(1)
+      }
+
+      // The model was invoked exactly once (for the first, under-cap call) -- the second,
+      // over-cap call never reached AssistantService.converse at all.
+      transport.receivedRequests should have size 1
+      // Exactly one user+assistant turn pair persisted -- from the first call only.
+      val after = await(conversationService.get(betaUser, detail.record.id))
+      after.map(_.transcript.convertTo[Vector[ClaudeToolMessage]].size) shouldBe Right(2)
+    }
+
+    "a beta-tier user at the cap can still list conversations and read one (200)" in {
+      cleanDb()
+      val betaUser = newUserWithTier("beta")
+      val detail   = await(conversationService.create(betaUser, None, title = None))
+      // limit = 0 deterministically puts this user "at the cap" (design.md D6: < 1 is always
+      // capped) without needing to first burn through N real messages.
+      val routes = routesForWithChatAccess(betaUser, None, chatAccessServiceWithLimit(0))
+
+      Get("/assistant-conversations") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      Get(s"/assistant-conversations/${detail.record.id.value}") ~> routes ~> check { status shouldBe StatusCodes.OK }
+    }
+
+    "an owner-tier user converses successfully with no cap, past the beta limit, and writes no assistant_daily_usage row" in {
+      cleanDb()
+      val ownerUser = newUserWithTier("owner")
+      val transport = new SequencedTransport(Vector(finalTextResponse("a"), finalTextResponse("b"), finalTextResponse("c")))
+      val detail    = await(conversationService.create(ownerUser, None, title = None))
+      // The "beta" limit here is deliberately tiny (1) -- proves owner ignores it entirely.
+      val routes = routesForWithChatAccess(ownerUser, Some(assistantServiceWith(transport)), chatAccessServiceWithLimit(1))
+
+      (1 to 3).foreach { n =>
+        Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity(s"""{"message":"msg-$n"}""")) ~> routes ~> check {
+          status shouldBe StatusCodes.OK
+        }
+      }
+
+      transport.receivedRequests should have size 3
+      dailyUsageCount(ownerUser) shouldBe None
     }
   }
 }

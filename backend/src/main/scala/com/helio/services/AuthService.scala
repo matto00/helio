@@ -3,7 +3,7 @@ package com.helio.services
 import com.github.t3hnar.bcrypt._
 import com.helio.api.RequestValidation
 import com.helio.api.protocols.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
-import com.helio.domain.{User, UserId, UserSession}
+import com.helio.domain.{User, UserId, UserSession, UserTier}
 import com.helio.infrastructure.UserRepository
 
 import java.security.SecureRandom
@@ -35,7 +35,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class AuthResult(token: String, response: AuthResponse)
 
 final class AuthService(
-    userRepo: UserRepository
+    userRepo: UserRepository,
+    tierConfig: UserTierConfig
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
@@ -52,11 +53,15 @@ final class AuthService(
           case None =>
             val passwordHash = req.password.bcryptBounded(BCryptWorkFactor)
             val now          = Instant.now()
+            // HEL-703 design.md D4: owner-email allowlist is applied at insert time — a matching
+            // email is assigned `owner` directly, never `free` then promoted.
+            val tier = if (tierConfig.isOwnerEmail(req.email)) UserTier.Owner else UserTier.Free
             val user = User(
               id          = UserId(UUID.randomUUID().toString),
               email       = req.email,
               displayName = req.displayName,
-              createdAt   = now
+              createdAt   = now,
+              tier        = tier
             )
             val session = buildSession(user.id, now)
             for {
@@ -82,9 +87,11 @@ final class AuthService(
               case None =>
                 Future.successful(Left(ServiceError.Unauthorized()))
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
-                val session = buildSession(user.id, Instant.now())
-                userRepo.createSession(session).map { created =>
-                  Right(authResultOf(created, user))
+                promoteIfAllowlisted(user).flatMap { promotedUser =>
+                  val session = buildSession(promotedUser.id, Instant.now())
+                  userRepo.createSession(session).map { created =>
+                    Right(authResultOf(created, promotedUser))
+                  }
                 }
               case Some(_) =>
                 Future.successful(Left(ServiceError.Unauthorized()))
@@ -103,14 +110,25 @@ final class AuthService(
   // ── OAuth completion ──────────────────────────────────────────────────────
 
   /** Given a Google profile fetched by the route layer, upsert the user, mint
-   *  a session, and return the [[AuthResult]] (raw token + wire body). */
+   *  a session, and return the [[AuthResult]] (raw token + wire body).
+   *  HEL-703: tier assignment/promotion happens inside `upsertGoogleUser` itself, alongside its
+   *  existing avatar-refresh-on-return behavior (design.md D4). */
   def completeOAuth(profile: GoogleProfile): Future[AuthResult] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
-      user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture)
+      user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
       session <- userRepo.createSession(buildSession(user.id, Instant.now()))
     } yield authResultOf(session, user)
   }
+
+  /** Persists `tier = owner` for a returning login whose email now matches the allowlist and whose
+   *  stored tier is not already `owner` (HEL-703 design.md D4) — a strict promotion, never a
+   *  demotion for an email that has left the allowlist. Returns the (possibly updated) user so the
+   *  login response reflects the promotion immediately, without a second `findByEmail` round trip. */
+  private def promoteIfAllowlisted(user: User): Future[User] =
+    if (tierConfig.isOwnerEmail(user.email) && user.tier != UserTier.Owner)
+      userRepo.updateTier(user.id, UserTier.Owner).map(_ => user.copy(tier = UserTier.Owner))
+    else Future.successful(user)
 
   // ── CSRF state token store (OAuth `state` parameter) ──────────────────────
 

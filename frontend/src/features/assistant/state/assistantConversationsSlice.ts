@@ -24,6 +24,44 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+// HEL-703 design.md D9 — the CONVERSE thunk's rejectValue widens from a plain `string` (every
+// other thunk here keeps that string contract) to this small object so `MessageComposer` can
+// switch on `code` (`TIER_FORBIDDEN` / `CHAT_LIMIT_REACHED`) instead of string-matching a message.
+// `code`/`limit` mirror the backend's `TierErrorResponse` wire shape verbatim.
+export interface ConverseErrorPayload {
+  code?: string;
+  message: string;
+  limit?: number;
+}
+
+function extractConverseError(err: unknown): ConverseErrorPayload {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    const code = typeof data?.code === "string" ? data.code : undefined;
+    const limit = typeof data?.limit === "number" ? data.limit : undefined;
+    const message =
+      (typeof data?.message === "string" && data.message) ||
+      (typeof data?.error === "string" && data.error) ||
+      undefined;
+    if (code !== undefined || message !== undefined) {
+      return { code, message: message ?? "Failed to send message.", limit };
+    }
+  }
+  if (err instanceof Error && err.message) return { message: err.message };
+  return { message: "Failed to send message." };
+}
+
+// HEL-703 design.md D9 (cycle-2 evaluator CR1) — the single source of truth for the free-tier
+// CTA-less "request access" copy. `ActiveConversationPanel` (main content) and `SidebarBody`'s
+// "chat" section (sidebar list) both render this same locked state independently -- they are two
+// different UI surfaces reading the same `currentUser.tier`, so the copy is centralized here
+// (rather than duplicated as inline string literals) to keep them from drifting apart.
+export const TierRequestAccessCopy = {
+  title: "Chat access is limited",
+  description:
+    "Assistant access is limited during this rollout. Contact the workspace owner to request access.",
+};
+
 interface AssistantConversationsState {
   items: AssistantConversationSummary[];
   status: "idle" | "loading" | "succeeded" | "failed";
@@ -119,22 +157,27 @@ export const selectConversation = createAsyncThunk<
 export const converse = createAsyncThunk<
   AssistantConversationDetail,
   { id: string; message: string; idempotencyKey?: string },
-  { rejectValue: string }
+  { rejectValue: ConverseErrorPayload }
 >(
   "assistantConversations/converse",
   async ({ id, message, idempotencyKey }, { rejectWithValue }) => {
     try {
       return await converseRequest(id, message, idempotencyKey);
     } catch (err: unknown) {
-      const originalMessage = extractErrorMessage(err, "Failed to send message.");
-      if (idempotencyKey === undefined) return rejectWithValue(originalMessage);
+      // HEL-703 design.md D9 — the rich `{ code?, message, limit? }` payload (not a plain string)
+      // so MessageComposer can distinguish TIER_FORBIDDEN/CHAT_LIMIT_REACHED from a generic/network
+      // failure. Computed once and reused for BOTH the reconciliation-miss and no-key rejection
+      // paths below (HEL-698 design.md D6) — reconciliation only ever changes whether this call
+      // FULFILLS instead; the rejection payload shape is unaffected by whether a key was sent.
+      const originalPayload = extractConverseError(err);
+      if (idempotencyKey === undefined) return rejectWithValue(originalPayload);
       try {
         const reconciled = await getConversationRequest(id);
         if (reconciled.lastIdempotencyKey === idempotencyKey) return reconciled;
       } catch {
         // Reconciliation fetch itself failed -- fall through to the original rejection below.
       }
-      return rejectWithValue(originalMessage);
+      return rejectWithValue(originalPayload);
     }
   },
 );
