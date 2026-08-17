@@ -52,9 +52,35 @@ interface MetricEditorFormProps {
   metric?: Metric | null;
   onSaved: (metric: Metric) => void;
   onCancel: () => void;
+  /** F-057: when true, this form does not render its own Cancel/Save action
+   *  row — the caller renders equivalent buttons itself (typically via
+   *  Modal's `footer` prop, submitting this form by id) so they stay pinned
+   *  outside the modal's scrollable body, matching every sibling create-flow
+   *  modal. Defaults to false — MetricDetailPage's inline (non-modal) edit
+   *  usage keeps its actions inline, unaffected. */
+  hideActions?: boolean;
+  /** Mirrors the form's internal submit-in-flight state to the caller, so an
+   *  externally-rendered submit button (see `hideActions`) can disable
+   *  itself / show a "Saving…" label the same way the form's own button
+   *  would have. Ignored when `hideActions` is false. */
+  onSubmittingChange?: (submitting: boolean) => void;
 }
 
-export function MetricEditorForm({ mode, metric, onSaved, onCancel }: MetricEditorFormProps) {
+/** Stable id for the `<form>` element — exactly one `MetricEditorForm` is
+ *  ever mounted at a time (either CreateMetricModal or MetricDetailPage's
+ *  edit view, never both), so a fixed id is safe and lets an externally
+ *  rendered submit button associate via the standard `form="..."` attribute
+ *  (see `hideActions`). */
+const FORM_ID = "metric-editor-form";
+
+export function MetricEditorForm({
+  mode,
+  metric,
+  onSaved,
+  onCancel,
+  hideActions = false,
+  onSubmittingChange,
+}: MetricEditorFormProps) {
   const dispatch = useAppDispatch();
   const dataTypes = useAppSelector((state) => state.dataTypes.items);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
@@ -137,6 +163,7 @@ export function MetricEditorForm({ mode, metric, onSaved, onCancel }: MetricEdit
     }
 
     setIsSubmitting(true);
+    onSubmittingChange?.(true);
     try {
       if (mode === "create") {
         const created = await dispatch(
@@ -174,11 +201,12 @@ export function MetricEditorForm({ mode, metric, onSaved, onCancel }: MetricEdit
       setFormError(typeof err === "string" ? err : "Failed to save metric.");
     } finally {
       setIsSubmitting(false);
+      onSubmittingChange?.(false);
     }
   }
 
   return (
-    <form className="metric-editor-form" onSubmit={(e) => void handleSubmit(e)}>
+    <form id={FORM_ID} className="metric-editor-form" onSubmit={(e) => void handleSubmit(e)}>
       <div className="metric-editor-form__field">
         <label className="metric-editor-form__label" htmlFor="metric-name">
           Name
@@ -209,12 +237,17 @@ export function MetricEditorForm({ mode, metric, onSaved, onCancel }: MetricEdit
       </div>
 
       <div className="metric-editor-form__field">
-        <span className="metric-editor-form__label">Data type</span>
         {mode === "edit" ? (
-          <p className="metric-editor-form__readonly-type">
-            {selectedType?.name ?? metric?.dataTypeId}{" "}
-            <span className="metric-editor-form__hint">(cannot be changed)</span>
-          </p>
+          // F-064 — `DataTypePicker` (the other branch) already renders its
+          // own "Data type" label internally, so this wrapper label is only
+          // needed here, where the read-only text is the sole content.
+          <>
+            <span className="metric-editor-form__label">Data type</span>
+            <p className="metric-editor-form__readonly-type">
+              {selectedType?.name ?? metric?.dataTypeId}{" "}
+              <span className="metric-editor-form__hint">(cannot be changed)</span>
+            </p>
+          </>
         ) : (
           <DataTypePicker
             selectedType={selectedType}
@@ -306,18 +339,24 @@ export function MetricEditorForm({ mode, metric, onSaved, onCancel }: MetricEdit
         </div>
       )}
 
-      <div className="metric-editor-form__actions">
-        <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="ui-modal-btn ui-modal-btn--primary"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Saving…" : mode === "create" ? "Create metric" : "Save changes"}
-        </button>
-      </div>
+      {/* F-057: CreateMetricModal renders equivalent buttons itself via
+       *  Modal's `footer` prop (pinned outside the scrollable body) and sets
+       *  `hideActions` to skip this in-flow copy — MetricDetailPage's inline
+       *  edit usage leaves `hideActions` unset and keeps this row. */}
+      {!hideActions && (
+        <div className="metric-editor-form__actions">
+          <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="ui-modal-btn ui-modal-btn--primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving…" : mode === "create" ? "Create metric" : "Save changes"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

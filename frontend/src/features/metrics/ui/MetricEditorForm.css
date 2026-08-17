@@ -7,7 +7,7 @@
 .metric-editor-form__field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2);
 }
 
 .metric-editor-form__label {
@@ -30,6 +30,11 @@
 }
 
 .metric-editor-form__hint {
+  /* F-173: `.metric-editor-form__readonly-type` is a flex container, whose
+   * whitespace-only text node between the type name and this hint <span>
+   * collapses to zero width — an explicit margin is needed instead of
+   * relying on that text-node gap. */
+  margin-left: var(--space-1);
   color: var(--app-text-muted);
   font-size: var(--text-xs);
 }

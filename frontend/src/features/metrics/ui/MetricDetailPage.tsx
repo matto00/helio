@@ -5,6 +5,7 @@ import "./MetricDetailPage.css";
 import { fetchMetricUsage } from "../services/metricService";
 import { clearCurrentMetric, deleteMetric, fetchMetricById } from "../state/metricsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import { MetricEditorForm } from "./MetricEditorForm";
 
 /** `"loading"` while the usage fetch is in flight; `"error"` when it failed
@@ -97,23 +98,17 @@ export function MetricDetailPage() {
 
       <div className="metric-detail-page__danger-zone">
         {isConfirmingDelete ? (
-          <div className="metric-detail-page__delete-confirm">
-            <span>{usageCopy(usage)}</span>
-            <button
-              type="button"
-              className="ui-modal-btn ui-modal-btn--secondary"
-              onClick={() => void handleDelete()}
-            >
-              Confirm delete
-            </button>
-            <button
-              type="button"
-              className="ui-modal-btn ui-modal-btn--secondary"
-              onClick={() => setIsConfirmingDelete(false)}
-            >
-              Cancel
-            </button>
-          </div>
+          // F-015: was two identically-styled `ui-modal-btn--secondary`
+          // buttons, giving the one truly destructive click no danger
+          // styling. Reuses the shared `ConfirmInline` primitive — the same
+          // canonical danger-at-rest recipe `MetricListTable.tsx` already
+          // uses for its own delete-confirm affordance.
+          <ConfirmInline
+            label={usageCopy(usage)}
+            confirmLabel="Confirm delete"
+            onConfirm={() => void handleDelete()}
+            onCancel={() => setIsConfirmingDelete(false)}
+          />
         ) : (
           <button type="button" className="metric-detail-page__delete-btn" onClick={startDelete}>
             Delete metric
