@@ -128,4 +128,78 @@ describe("PreferencesEditor — edit + save", () => {
     );
     expect(screen.getByLabelText("Series color 1 hex value")).toHaveValue("#123456");
   });
+
+  // F-150 (UI sweep): a successful save previously gave no positive feedback
+  // beyond the button label reverting -- indistinguishable from the pre-save
+  // idle state.
+  it("shows an inline 'Preferences saved' confirmation after a successful save, and clears it on the next edit", async () => {
+    putPreferencesMock.mockResolvedValueOnce(populatedPreferences);
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    expect(screen.queryByText("Preferences saved.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+
+    await waitFor(() => expect(screen.getByText("Preferences saved.")).toBeInTheDocument());
+
+    // Editing again must retract the (now-stale) confirmation.
+    fireEvent.change(screen.getByLabelText("Series color 1 hex value"), {
+      target: { value: "#123456" },
+    });
+    expect(screen.queryByText("Preferences saved.")).not.toBeInTheDocument();
+  });
+
+  it("does not show the saved confirmation when a save fails", async () => {
+    putPreferencesMock.mockRejectedValueOnce(new Error("network error"));
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Failed to save preferences.")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Preferences saved.")).not.toBeInTheDocument();
+  });
+});
+
+// F-152 (UI sweep): two Naming-convention rows sharing a trimmed key silently
+// collapsed to whichever came last on save (`Object.fromEntries`), discarding
+// the earlier row's value with no warning.
+describe("PreferencesEditor — duplicate naming-convention keys", () => {
+  it("warns live and blocks Save while two rows share the same trimmed key", () => {
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add naming convention" }));
+    const keyFields = screen.getAllByLabelText("Naming convention key");
+    // populatedPreferences already has one string row ("dashboardTitleCase");
+    // rename the newly-added row to collide with it.
+    fireEvent.change(keyFields[keyFields.length - 1], {
+      target: { value: "dashboardTitleCase" },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Duplicate key: dashboardTitleCase");
+    expect(screen.getByRole("button", { name: "Save preferences" })).toBeDisabled();
+  });
+
+  it("never calls putPreferences while a duplicate key is present, and re-enables Save once resolved", async () => {
+    putPreferencesMock.mockResolvedValueOnce(populatedPreferences);
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add naming convention" }));
+    const keyFields = screen.getAllByLabelText("Naming convention key");
+    fireEvent.change(keyFields[keyFields.length - 1], {
+      target: { value: "dashboardTitleCase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+    expect(putPreferencesMock).not.toHaveBeenCalled();
+
+    // Rename the new row's key so it's unique again.
+    fireEvent.change(screen.getAllByLabelText("Naming convention key")[keyFields.length - 1], {
+      target: { value: "uniqueKey" },
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save preferences" })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+    await waitFor(() => expect(putPreferencesMock).toHaveBeenCalledTimes(1));
+  });
 });

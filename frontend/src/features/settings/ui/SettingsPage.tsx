@@ -1,8 +1,11 @@
 // Settings page (`/settings`, HEL-525 / 420-D task 3.1) — the app's first
-// settings surface. Fetch-on-mount for both preferences and agent memory;
-// loading/error states follow `MetricsPage.tsx`'s shape, gated on both
-// fetches together so `PreferencesEditor`/`AgentMemoryList` only ever mount
-// once their backing data actually exists.
+// settings surface. Fetch-on-mount for both preferences and agent memory.
+//
+// F-047 (UI sweep): each section gates on its OWN loading/error state rather
+// than a page-wide combined one. Beta access depends on neither fetch (it
+// reads `state.auth.currentUser`) and always renders regardless of the other
+// two sections' status. Previously a single failing fetch blanked the entire
+// page, including sections with no dependency on it at all.
 
 import { useEffect } from "react";
 
@@ -23,49 +26,53 @@ export function SettingsPage() {
     void dispatch(fetchAgentMemory());
   }, [dispatch]);
 
-  const isLoading =
-    preferences.status === "idle" ||
-    preferences.status === "loading" ||
-    agentMemory.status === "idle" ||
-    agentMemory.status === "loading";
-  const errors = [preferences.error, agentMemory.error].filter(
-    (message): message is string => message !== null,
-  );
+  const preferencesLoading = preferences.status === "idle" || preferences.status === "loading";
+  const agentMemoryLoading = agentMemory.status === "idle" || agentMemory.status === "loading";
 
   return (
     <div className="settings-page">
       <h1 className="settings-page__title">Settings</h1>
 
-      {isLoading && (
-        <p className="settings-page__loading" aria-label="Loading settings">
-          Loading settings…
-        </p>
-      )}
-
-      {!isLoading && errors.length > 0 && (
-        <p className="settings-page__error" role="alert">
-          {errors.join(" ")}
-        </p>
-      )}
-
-      {!isLoading && errors.length === 0 && preferences.data !== null && (
-        <div className="settings-page__sections">
-          <section className="settings-page__section">
-            <h2 className="settings-page__section-heading">Preferences</h2>
+      <div className="settings-page__sections">
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Preferences</h2>
+          {preferencesLoading && (
+            <p className="settings-page__loading" aria-label="Loading preferences">
+              Loading preferences…
+            </p>
+          )}
+          {!preferencesLoading && preferences.error && (
+            <p className="settings-page__error" role="alert">
+              {preferences.error}
+            </p>
+          )}
+          {!preferencesLoading && !preferences.error && preferences.data !== null && (
             <PreferencesEditor preferences={preferences.data} />
-          </section>
+          )}
+        </section>
 
-          <section className="settings-page__section">
-            <h2 className="settings-page__section-heading">Agent memory</h2>
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Agent memory</h2>
+          {agentMemoryLoading && (
+            <p className="settings-page__loading" aria-label="Loading agent memory">
+              Loading agent memory…
+            </p>
+          )}
+          {!agentMemoryLoading && agentMemory.error && (
+            <p className="settings-page__error" role="alert">
+              {agentMemory.error}
+            </p>
+          )}
+          {!agentMemoryLoading && !agentMemory.error && (
             <AgentMemoryList entries={agentMemory.items} />
-          </section>
+          )}
+        </section>
 
-          <section className="settings-page__section">
-            <h2 className="settings-page__section-heading">Beta access</h2>
-            <BetaAccessSection />
-          </section>
-        </div>
-      )}
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Beta access</h2>
+          <BetaAccessSection />
+        </section>
+      </div>
     </div>
   );
 }
