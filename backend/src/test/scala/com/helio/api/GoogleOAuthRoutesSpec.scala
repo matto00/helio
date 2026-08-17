@@ -10,8 +10,9 @@ import org.apache.pekko.http.scaladsl.model.headers.`Set-Cookie`
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.OAuthRoutes
-import com.helio.infrastructure.UserRepository
-import com.helio.services.AuthService
+import com.helio.domain.{UserId, UserMfa}
+import com.helio.infrastructure.{MfaRepository, UserRepository}
+import com.helio.services.{AuthService, MfaService}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -20,6 +21,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 
+import java.time.Instant
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -43,6 +45,7 @@ class GoogleOAuthRoutesSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var userRepo: UserRepository           = _
+  private var mfaRepo: MfaRepository             = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -60,6 +63,7 @@ class GoogleOAuthRoutesSpec
     )
 
     userRepo = new UserRepository(db)(typedSystem.executionContext)
+    mfaRepo  = new MfaRepository(db)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -70,11 +74,16 @@ class GoogleOAuthRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
-  private def makeAuthService(): AuthService = new AuthService(userRepo)(typedSystem.executionContext)
+  // HEL-702: defaulted so every existing `makeAuthService()` call site (this
+  // whole file, pre-HEL-702) compiles and behaves exactly as before —
+  // `AuthService`'s own defaulted `mfaService` ctor param is the thing doing
+  // the work here, this helper just forwards it.
+  private def makeAuthService(mfaService: Option[MfaService] = None): AuthService =
+    new AuthService(userRepo, mfaService)(typedSystem.executionContext)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE user_sessions, users RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE mfa_login_challenges, mfa_backup_codes, user_mfa, user_sessions, users RESTART IDENTITY CASCADE"))
   }
 
   // ─── Configurable stub for Google HTTP calls ──────────────────────────────
@@ -314,6 +323,63 @@ class GoogleOAuthRoutesSpec
         logged shouldBe defined
       } finally {
         logbackLogger.detachAppender(appender)
+      }
+    }
+  }
+
+  "GET /api/auth/google/callback with MFA enabled (HEL-702)" should {
+
+    "return 200 {mfaRequired, challengeToken} with no Set-Cookie, instead of a session" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-mfa", Some("mfa-oauth@example.com"), Some("MFA User"), None)
+
+      // First callback (no MFA yet) creates the user — same happy-path
+      // AuthService every other test in this file uses.
+      val firstRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] = Future.successful("access-token-mfa-1")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] = Future.successful(profile)
+      }
+      val firstRoute: Route = pathPrefix("api") { pathPrefix("auth") { firstRoutes.routes } }
+
+      var stateParam1 = ""
+      Get("/api/auth/google") ~> firstRoute ~> check {
+        stateParam1 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      var userId = ""
+      Get(s"/api/auth/google/callback?code=mfa-code-1&state=$stateParam1") ~> firstRoute ~> check {
+        status shouldBe StatusCodes.OK
+        userId = responseAs[AuthResponse].user.id
+      }
+
+      // Enable MFA directly for that user (bypassing the enrollment HTTP
+      // surface, which is out of scope for this OAuth-focused spec).
+      val now = Instant.now()
+      await(mfaRepo.upsertUserMfa(UserMfa(UserId(userId), "AAAAAAAAAAAAAAAA", enabled = false, 0L, now, None)))
+      await(mfaRepo.confirmEnrollment(UserId(userId), 0L, now))
+
+      // Second callback, this time through an MFA-aware AuthService — same
+      // returning-Google-user path as "return 200 with same user on second
+      // login" above, but now gated.
+      val mfaService  = new MfaService(mfaRepo, userRepo)(typedSystem.executionContext)
+      val secondRoutes = new OAuthRoutes(makeAuthService(Some(mfaService)), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] = Future.successful("access-token-mfa-2")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] = Future.successful(profile)
+      }
+      val secondRoute: Route = pathPrefix("api") { pathPrefix("auth") { secondRoutes.routes } }
+
+      var stateParam2 = ""
+      Get("/api/auth/google") ~> secondRoute ~> check {
+        stateParam2 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=mfa-code-2&state=$stateParam2") ~> secondRoute ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[MfaRequiredResponse]
+        resp.mfaRequired shouldBe true
+        resp.challengeToken should not be empty
+        header[`Set-Cookie`] shouldBe None
+        val body = responseAs[String]
+        body should not include "\"user\""
       }
     }
   }

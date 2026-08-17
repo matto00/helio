@@ -34,8 +34,41 @@ import scala.concurrent.{ExecutionContext, Future}
  *  marshaled to JSON. */
 final case class AuthResult(token: String, response: AuthResponse)
 
+/** HEL-702: shared `AuthResult` constructor for [[MfaService.verifyLogin]],
+ *  which mints a session independently of [[AuthService]] — `MfaService` is
+ *  a collaborator OF `AuthService` (see the `mfaService` ctor param below),
+ *  never the reverse, so it cannot call `AuthService`'s private
+ *  `authResultOf`. Byte-identical to that private method. */
+object AuthResult {
+  def of(session: UserSession, user: User): AuthResult =
+    AuthResult(
+      token = session.token,
+      response = AuthResponse(
+        expiresAt = session.expiresAt.toString,
+        user      = UserResponse.fromDomain(user)
+      )
+    )
+}
+
+/** HEL-702: the outcome of a completed primary-auth attempt (password login
+ *  or OAuth callback) once [[AuthService.finishLogin]] has applied the
+ *  MFA gate — either a session was minted as today, or a pending challenge
+ *  was created and the caller must complete `POST /api/auth/mfa/verify`
+ *  before one exists (`mfa-login-gate` spec). */
+sealed trait LoginOutcome
+
+object LoginOutcome {
+  final case class SessionEstablished(result: AuthResult) extends LoginOutcome
+  final case class MfaRequired(challengeToken: String) extends LoginOutcome
+}
+
 final class AuthService(
-    userRepo: UserRepository
+    userRepo: UserRepository,
+    // HEL-702: defaulted so every existing positional `new AuthService(userRepo)`
+    // call site (specs, ApiRoutes fixtures) compiles untouched and keeps minting
+    // sessions unconditionally — `None` means "MFA feature absent", identical to
+    // today's behaviour. See `finishLogin` at the bottom of this class.
+    mfaService: Option[MfaService] = None
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
@@ -68,7 +101,7 @@ final class AuthService(
 
   // ── Login ─────────────────────────────────────────────────────────────────
 
-  def login(rawRequest: LoginRequest): Future[Either[ServiceError, AuthResult]] =
+  def login(rawRequest: LoginRequest): Future[Either[ServiceError, LoginOutcome]] =
     RequestValidation.validateLoginRequest(rawRequest) match {
       case Left(err)  => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(req) =>
@@ -82,10 +115,7 @@ final class AuthService(
               case None =>
                 Future.successful(Left(ServiceError.Unauthorized()))
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
-                val session = buildSession(user.id, Instant.now())
-                userRepo.createSession(session).map { created =>
-                  Right(authResultOf(created, user))
-                }
+                finishLogin(user).map(Right(_))
               case Some(_) =>
                 Future.successful(Left(ServiceError.Unauthorized()))
             }
@@ -102,14 +132,16 @@ final class AuthService(
 
   // ── OAuth completion ──────────────────────────────────────────────────────
 
-  /** Given a Google profile fetched by the route layer, upsert the user, mint
-   *  a session, and return the [[AuthResult]] (raw token + wire body). */
-  def completeOAuth(profile: GoogleProfile): Future[AuthResult] = {
+  /** Given a Google profile fetched by the route layer, upsert the user and
+   *  apply the same MFA gate the password path uses (`finishLogin`) —
+   *  either a session is minted, or a pending challenge is returned
+   *  (HEL-702). */
+  def completeOAuth(profile: GoogleProfile): Future[LoginOutcome] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
       user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture)
-      session <- userRepo.createSession(buildSession(user.id, Instant.now()))
-    } yield authResultOf(session, user)
+      outcome <- finishLogin(user)
+    } yield outcome
   }
 
   // ── CSRF state token store (OAuth `state` parameter) ──────────────────────
@@ -133,6 +165,34 @@ final class AuthService(
         user      = UserResponse.fromDomain(user)
       )
     )
+
+  // ── MFA gate (HEL-702, design.md D3) ────────────────────────────────────────
+  //
+  // Single call site inserted at both session-establishment points above
+  // (the password `login` success branch, and `completeOAuth`) rather than
+  // restructuring either method — keeps this file's diff isolated to the two
+  // one-line call-site swaps above plus this appended block.
+
+  /** `mfaService` absent (the default) mints a session unconditionally,
+   *  identical to pre-HEL-702 behaviour. When present, delegates to
+   *  [[MfaService.createLoginChallenge]]: `Some(token)` means the account
+   *  has MFA enabled, so a challenge is returned instead of a session;
+   *  `None` means MFA is not enabled for this account and login proceeds
+   *  exactly as if the feature were absent. */
+  private def finishLogin(user: User): Future[LoginOutcome] =
+    mfaService match {
+      case Some(svc) =>
+        svc.createLoginChallenge(user).flatMap {
+          case Some(challengeToken) => Future.successful(LoginOutcome.MfaRequired(challengeToken))
+          case None                 => mintSession(user)
+        }
+      case None => mintSession(user)
+    }
+
+  private def mintSession(user: User): Future[LoginOutcome] = {
+    val session = buildSession(user.id, Instant.now())
+    userRepo.createSession(session).map(created => LoginOutcome.SessionEstablished(authResultOf(created, user)))
+  }
 }
 
 object AuthService {

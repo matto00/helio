@@ -1,0 +1,142 @@
+.mfa-enroll-modal__hint {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.mfa-enroll-modal__retry-btn {
+  margin-top: var(--space-3);
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.mfa-enroll-modal__retry-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.mfa-enroll-modal__scan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mfa-enroll-modal__qr {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  /* Fixed white card regardless of theme -- keeps the quiet zone around the
+   * QR code's fixed-contrast modules (see the inline comment at the call
+   * site). */
+  background: #ffffff;
+  align-self: center;
+}
+
+.mfa-enroll-modal__key-row {
+  display: grid;
+  grid-template-columns: 1fr var(--control-md);
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mfa-enroll-modal__copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.mfa-enroll-modal__copy-btn:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.mfa-enroll-modal__confirm-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--app-border-subtle);
+}
+
+.mfa-enroll-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mfa-enroll-modal__field label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+}
+
+.mfa-enroll-modal__confirm-btn {
+  align-self: flex-start;
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.mfa-enroll-modal__confirm-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.mfa-enroll-modal__confirm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mfa-enroll-modal__codes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mfa-enroll-modal__done-btn {
+  align-self: flex-end;
+  padding: 0 var(--space-4);
+  height: var(--control-md);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.mfa-enroll-modal__done-btn:hover {
+  background: var(--app-accent-strong);
+}

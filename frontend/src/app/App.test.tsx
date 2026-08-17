@@ -138,10 +138,12 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
               createdAt: "2026-01-01T00:00:00Z",
             },
             status: "authenticated" as const,
+            mfaChallenge: null,
           }
         : {
             currentUser: null,
             status: "unauthenticated" as const,
+            mfaChallenge: null,
           },
     },
   });

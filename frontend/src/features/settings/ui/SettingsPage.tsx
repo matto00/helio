@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchAgentMemory, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
+import { MfaSecuritySection } from "./MfaSecuritySection";
 import { PreferencesEditor } from "./PreferencesEditor";
 import "./SettingsPage.css";
 
@@ -57,6 +58,15 @@ export function SettingsPage() {
           <section className="settings-page__section">
             <h2 className="settings-page__section-heading">Agent memory</h2>
             <AgentMemoryList entries={agentMemory.items} />
+          </section>
+
+          {/* HEL-702 design.md D7: `MfaSecuritySection` owns its own
+              fetch/loading/error state independently of the
+              preferences/agent-memory gate above -- no reason to block
+              rendering Security on those two unrelated fetches. */}
+          <section className="settings-page__section">
+            <h2 className="settings-page__section-heading">Security</h2>
+            <MfaSecuritySection />
           </section>
         </div>
       )}
