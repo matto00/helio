@@ -81,9 +81,10 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => 
 // (they sit at --control-sm/--control-md by default, both under 44px).
 //
 // HEL-716: the header close button is no longer PanelDetailModal's own markup
-// — it's Modal's generic `.ui-modal__close`, so its mobile 44x44 tap-target
-// lock now lives in `shared/ui/Modal.css` and is guarded by
-// `shared/ui/Modal.css.test.ts` instead of here.
+// — it's Modal's generic close control. HEL-718: that control now uses the
+// shared `IconButton` primitive, so its mobile 44x44 tap-target lock lives in
+// `shared/ui/IconButton.css` and is guarded by `shared/ui/IconButton.css.test.ts`
+// instead of here.
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 header/footer)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 

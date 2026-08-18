@@ -124,7 +124,12 @@ describe("DashboardList", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add dashboard" }));
+    // HEL-718: the add-dashboard toggle migrated onto the shared IconButton
+    // primitive — verifies the visible tooltip survived alongside the
+    // accessible name.
+    const addButton = screen.getByRole("button", { name: "Add dashboard" });
+    expect(addButton).toHaveAttribute("title", "Add dashboard");
+    fireEvent.click(addButton);
     fireEvent.change(screen.getByLabelText("Dashboard name"), {
       target: { value: "Executive" },
     });
@@ -227,6 +232,9 @@ describe("DashboardList", () => {
 
     // Click the clear button
     const clearButton = screen.getByRole("button", { name: "Clear filter" });
+    // HEL-718: this icon-only control already had aria-label; this locks in
+    // the added visible title tooltip pairing it.
+    expect(clearButton).toHaveAttribute("title", "Clear filter");
     fireEvent.click(clearButton);
 
     // All dashboards should be visible again

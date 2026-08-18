@@ -6,6 +6,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { Textarea } from "../../../shared/ui/Textarea";
 import { Spinner } from "../../../shared/ui/Spinner";
+import { IconButton } from "../../../shared/ui/IconButton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { useRefinement } from "../hooks/useRefinement";
@@ -232,14 +233,13 @@ export function RefinementChatDrawer({ open, onClose, dashboardId }: RefinementC
       >
         <header className="refinement-drawer__header">
           <h2 className="refinement-drawer__title">Refine with AI</h2>
-          <button
-            type="button"
-            className="refinement-drawer__close"
+          <IconButton
+            icon={<FontAwesomeIcon icon={faXmark} />}
+            variant="ghost"
+            size="sm"
             aria-label="Close"
             onClick={handleClose}
-          >
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
+          />
         </header>
         <p className="refinement-drawer__description">
           Describe a change to this dashboard. We&rsquo;ll draft a reviewable patch set — nothing

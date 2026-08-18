@@ -78,28 +78,9 @@
   letter-spacing: -0.01em;
 }
 
-.refinement-drawer__close {
-  flex-shrink: 0;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.refinement-drawer__close:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
-}
+/* Close button: HEL-718 -- migrated onto the shared IconButton primitive
+   (`shared/ui/IconButton.css`, `variant="ghost"`); its recipe lived here as
+   `.refinement-drawer__close` prior to this change. */
 
 .refinement-drawer__description {
   margin: 0;
@@ -206,11 +187,8 @@
 }
 
 @media (max-width: 768px) {
-  .refinement-drawer__close {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
+  /* Close button's own 44px floor now lives in shared/ui/IconButton.css
+     (HEL-718). */
   .refinement-drawer__submit,
   .refinement-drawer__review,
   .refinement-drawer__retry {

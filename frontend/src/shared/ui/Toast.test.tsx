@@ -108,7 +108,12 @@ describe("ToastViewport", () => {
 
     expect(screen.getByText("Close me.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    // HEL-718: the dismiss button kept its bespoke 20px recipe (below
+    // IconButton's 24px floor) but gained a visible title tooltip pairing
+    // its pre-existing aria-label.
+    const dismissButton = screen.getByRole("button", { name: "Dismiss notification" });
+    expect(dismissButton).toHaveAttribute("title", "Dismiss notification");
+    fireEvent.click(dismissButton);
 
     // After exit animation (200ms) the store item is removed.
     await waitFor(() => {

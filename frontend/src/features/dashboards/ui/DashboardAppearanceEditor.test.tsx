@@ -58,6 +58,24 @@ describe("DashboardAppearanceEditor", () => {
     contrastRatioMock.mockReturnValue(null);
   });
 
+  // HEL-718: the trigger migrated from a hand-rolled `cmd-btn cmd-btn--icon`
+  // button onto the shared IconButton primitive, which now forwards `ref` to
+  // the underlying <button> for usePortalPopover's getBoundingClientRect()
+  // positioning — verifies both the tooltip pairing and that the popover
+  // still opens (i.e. the ref forwarding actually works end to end).
+  it("the trigger has a visible title tooltip and opens the popover on click", () => {
+    renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
+
+    const trigger = screen.getByRole("button", { name: "Customize dashboard appearance" });
+    expect(trigger).toHaveAttribute("title", "Customize dashboard appearance");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Dashboard background color")).toBeInTheDocument();
+  });
+
   // ── 3.2a: Preset strip — clicking a preset applies its bg + gridBg values ────
   it("clicking a preset applies its background and gridBackground to the color pickers", () => {
     const preset = DASHBOARD_APPEARANCE_PRESETS[0];

@@ -364,6 +364,13 @@ describe("App", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
 
+    // HEL-718: the toggle migrated onto the shared IconButton primitive —
+    // verifies its visible tooltip survived alongside the accessible name.
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toHaveAttribute(
+      "title",
+      "Switch to light theme",
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
@@ -393,6 +400,9 @@ describe("App", () => {
     // no longer removes the top-level nav (it becomes an icon rail), only
     // the dashboards list below it.
     const collapseButton = await screen.findByRole("button", { name: "Collapse sidebar" });
+    // HEL-718: the toggle migrated onto the shared IconButton primitive —
+    // verifies its visible tooltip survived alongside the accessible name.
+    expect(collapseButton).toHaveAttribute("title", "Collapse sidebar");
     fireEvent.click(collapseButton);
 
     await waitFor(() =>

@@ -38,31 +38,14 @@
   color: var(--app-text-muted);
 }
 
-.dashboard-list__add {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  line-height: 1;
-  padding: 0;
-  transition:
-    border-color var(--app-transition),
-    background-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.dashboard-list__add:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
-}
+/* Add-dashboard toggle: HEL-718 -- migrated onto the shared IconButton
+   primitive (`shared/ui/IconButton.css`, `variant="secondary"` `size="xs"`);
+   its recipe lived here as `.dashboard-list__add` prior to this change.
+   `shared/chrome/SidebarItemList.tsx` imports this stylesheet and reused the
+   same class for its own "+" add button (Data Sources/Pipelines/Metrics/
+   Conversations sections) -- migrated onto IconButton too (evaluation-1.md
+   Change Request 1), so nothing outside this comment depends on the deleted
+   block anymore. */
 
 .dashboard-list__filter {
   margin: 0 0 var(--space-3);

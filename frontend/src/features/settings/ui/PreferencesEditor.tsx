@@ -18,7 +18,7 @@ import { faPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { TextField } from "../../../shared/ui/index";
+import { IconButton, TextField } from "../../../shared/ui/index";
 import { getColorInputValue } from "../../../theme/appearance";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { savePreferences } from "../state/settingsSlice";
@@ -212,14 +212,13 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
                 onChange={(e) => updateSeriesColor(index, e.target.value)}
                 aria-label={`Series color ${index + 1} hex value`}
               />
-              <button
-                type="button"
-                className="preferences-editor__icon-btn"
+              <IconButton
+                icon={<FontAwesomeIcon icon={faXmark} />}
+                variant="danger"
+                size="md"
                 aria-label={`Remove series color ${index + 1}`}
                 onClick={() => removeSeriesColor(index)}
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
+              />
             </li>
           ))}
         </ul>
@@ -296,14 +295,13 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
                   placeholder="Value"
                   aria-label="Naming convention value"
                 />
-                <button
-                  type="button"
-                  className="preferences-editor__icon-btn"
+                <IconButton
+                  icon={<FontAwesomeIcon icon={faXmark} />}
+                  variant="danger"
+                  size="md"
                   aria-label={`Remove naming convention ${row.key || "row"}`}
                   onClick={() => removeNamingRow(row.id)}
-                >
-                  <FontAwesomeIcon icon={faXmark} />
-                </button>
+                />
               </li>
             );
           })}

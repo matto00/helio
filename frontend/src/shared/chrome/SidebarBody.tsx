@@ -332,6 +332,7 @@ export function SidebarBody() {
                 type="button"
                 className="dashboard-list__row-action-btn"
                 aria-label={`Rename ${item.name}`}
+                title={`Rename ${item.name}`}
                 onClick={helpers.startRename}
               >
                 <Pencil size={14} aria-hidden="true" />
@@ -340,6 +341,7 @@ export function SidebarBody() {
                 type="button"
                 className="dashboard-list__row-action-btn"
                 aria-label={pinned ? `Unpin ${item.name}` : `Pin ${item.name}`}
+                title={pinned ? `Unpin ${item.name}` : `Pin ${item.name}`}
                 onClick={() => dispatch(togglePinned({ id: item.id, pinned: !pinned }))}
               >
                 {pinned ? (

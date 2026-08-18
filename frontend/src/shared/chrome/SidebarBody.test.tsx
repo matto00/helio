@@ -435,7 +435,11 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
     const items = [buildConversation({ pinned: false })];
     renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Pin Netflix dashboard build" }));
+    // HEL-718: this icon-only row action already had aria-label; this locks
+    // in the added visible title tooltip pairing it.
+    const pinButton = screen.getByRole("button", { name: "Pin Netflix dashboard build" });
+    expect(pinButton).toHaveAttribute("title", "Pin Netflix dashboard build");
+    fireEvent.click(pinButton);
 
     await waitFor(() =>
       expect(updateConversationMock).toHaveBeenCalledWith("conv-1", { pinned: true }),
@@ -475,7 +479,11 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
 
 describe("SidebarBody chat section — inline rename (HEL-693)", () => {
   function openRename() {
-    fireEvent.click(screen.getByRole("button", { name: "Rename Netflix dashboard build" }));
+    // HEL-718: this icon-only row action already had aria-label; this locks
+    // in the added visible title tooltip pairing it.
+    const renameButton = screen.getByRole("button", { name: "Rename Netflix dashboard build" });
+    expect(renameButton).toHaveAttribute("title", "Rename Netflix dashboard build");
+    fireEvent.click(renameButton);
     return screen.getByRole("textbox", { name: "Rename Netflix dashboard build" });
   }
 

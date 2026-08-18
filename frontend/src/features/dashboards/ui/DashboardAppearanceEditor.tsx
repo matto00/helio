@@ -21,6 +21,7 @@ import type { Dashboard, DashboardAppearance } from "../types/dashboard";
 import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "../../../shared/chrome/InlineError";
+import { IconButton } from "../../../shared/ui/IconButton";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
@@ -270,17 +271,15 @@ export function DashboardAppearanceEditor({
 
   return (
     <div className="popover dashboard-appearance-editor">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
-        className="cmd-btn cmd-btn--icon"
+        icon={<FontAwesomeIcon icon={faSliders} />}
+        variant="secondary"
+        size="sm"
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-label="Customize dashboard appearance"
-        title="Customize dashboard appearance"
-      >
-        <FontAwesomeIcon icon={faSliders} />
-      </button>
+      />
       {panel}
     </div>
   );

@@ -19,6 +19,7 @@ import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
 
 export function DashboardList() {
@@ -185,17 +186,16 @@ export function DashboardList() {
       <header className="dashboard-list__header">
         <h2>Dashboards</h2>
         <div className="dashboard-list__header-actions">
-          <button
-            type="button"
-            className="dashboard-list__add"
+          <IconButton
+            icon="+"
+            variant="secondary"
+            size="xs"
             aria-label={isCreateMode ? "Cancel dashboard create" : "Add dashboard"}
             onClick={() => {
               setIsCreateMode((open) => !open);
               setCreateError(null);
             }}
-          >
-            <span aria-hidden="true">+</span>
-          </button>
+          />
         </div>
       </header>
       <div className="dashboard-list__filter">
@@ -217,6 +217,7 @@ export function DashboardList() {
               type="button"
               className="dashboard-list__filter-clear"
               aria-label="Clear filter"
+              title="Clear filter"
               onClick={() => setFilterQuery("")}
             >
               <FontAwesomeIcon icon={faXmark} />

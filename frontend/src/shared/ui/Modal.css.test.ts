@@ -4,15 +4,17 @@ import path from "path";
 // Regression guard for the HEL-319 mobile touch-target fix. jsdom implements no
 // real layout or media-query evaluation, so no DOM-rendering Jest test can
 // observe the rendered control height at a phone viewport. This test
-// statically asserts the CSS source keeps the mobile-scoped ≥44px overrides
-// for the shared Modal chrome (`.ui-modal__close`, `.ui-modal-btn`).
+// statically asserts the CSS source keeps the mobile-scoped ≥44px override
+// for the shared Modal footer buttons (`.ui-modal-btn`).
 //
 // The shared Modal is used app-wide, reachable on phone via the bottom-nav
-// create/empty-state routes, so its close button and footer buttons must meet
-// the 44px tap-target convention (MobileNavSheet.css / PanelDetailModal.css's
-// mobile block) at the mobile-shell breakpoint, without touching Modal.tsx
-// logic or desktop density (the rules live inside a `max-width: 768px` media
-// block). See `inputs.css.test.ts` for the precedent this reuses.
+// create/empty-state routes, so its footer buttons must meet the 44px
+// tap-target convention (MobileNavSheet.css / PanelDetailModal.css's mobile
+// block) at the mobile-shell breakpoint, without touching Modal.tsx logic or
+// desktop density (the rule lives inside a `max-width: 768px` media block).
+// See `inputs.css.test.ts` for the precedent this reuses. HEL-718: the close
+// button's own mobile floor moved with it onto the shared IconButton
+// primitive — see `IconButton.css.test.ts`.
 
 const CSS_PATH = path.join(__dirname, "Modal.css");
 const css = fs.readFileSync(CSS_PATH, "utf-8");
@@ -105,12 +107,6 @@ describe("Modal.css — [open] entrance animation leaves no containing-block tra
 
 describe("Modal.css — mobile ≥44px tap targets (HEL-319)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
-
-  it("the close button gets min-width and min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".ui-modal__close");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
-  });
 
   it("the footer buttons get min-height: 44px at the mobile-shell breakpoint", () => {
     const body = findRuleBody(mobileBlock, ".ui-modal-btn");

@@ -160,16 +160,6 @@
   color: var(--app-accent-ink);
 }
 
-.cmd-btn--icon {
-  width: var(--control-sm);
-  padding: 0;
-  justify-content: center;
-  /* F-087: at the inherited --text-xs (12px), the sun/moon theme-toggle icon
-     read as a settings gear. Only icon-only buttons are affected — text-
-     bearing `.cmd-btn` labels (Undo/Redo) are untouched. */
-  font-size: var(--text-base);
-}
-
 /* --- MAIN BODY (sidebar + content) --- */
 .app-body {
   flex: 1;
@@ -291,32 +281,12 @@
 }
 
 /* Real, labeled, `--control-sm`-sized control — not a floating 20x48px
- * unlabeled strip. */
-.app-sidebar-toggle {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  padding: 0;
-  border-radius: var(--app-radius-sm);
-  border: 1px solid var(--app-border-subtle);
-  background: transparent;
-  color: var(--app-text-muted);
-  cursor: pointer;
-  transition:
-    color var(--app-transition),
-    border-color var(--app-transition),
-    background-color var(--app-transition);
-}
-
-.app-sidebar-toggle:hover {
-  color: var(--app-text);
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-}
-
+ * unlabeled strip. HEL-718: migrated onto the shared IconButton primitive
+ * (`variant="secondary"` `size="sm"`, matching what this block used to
+ * define directly); `.app-sidebar-toggle` survives only as a modifier class
+ * for its two component-specific deltas — the flush-edge inset focus ring
+ * (DESIGN.md §8's documented `-2px` exception, since this control sits at
+ * the nav rail's trailing edge) and the <=768px hide rule below. */
 .app-sidebar-toggle:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: -2px;
@@ -353,10 +323,12 @@
 /* F-186: `.undo-redo-btn` and `.topbar-theme-btn` used to be full,
  * near-byte-identical duplicates of `.cmd-btn`/`.cmd-btn--icon` (same
  * height, border, colors, hover/disabled states) — three copies of one
- * recipe. Undo/Redo and the icon-only topbar buttons (App.tsx) now use
- * `.cmd-btn`/`.cmd-btn--icon` directly; `.undo-redo-btn` survives only as a
- * marker class for the <=768px hide rule below (mobile has no layout editing
- * — see that rule's own comment). */
+ * recipe. Undo/Redo (icon+text) use `.cmd-btn` directly; `.undo-redo-btn`
+ * survives only as a marker class for the <=768px hide rule below (mobile
+ * has no layout editing — see that rule's own comment). HEL-718: the
+ * icon-only topbar buttons (theme toggle, "Refine with AI", quick-launcher)
+ * moved off `.cmd-btn--icon` (now deleted) onto the shared `IconButton`
+ * primitive (`shared/ui/IconButton.css`, `variant="secondary"`). */
 
 /* --- COMMAND BAR: phone-only dashboard-switcher title (App.tsx) ---
  * Hidden by default; shown only <=768px below. Sits alongside (never

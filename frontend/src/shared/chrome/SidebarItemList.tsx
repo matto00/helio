@@ -9,6 +9,7 @@ import { NavLink } from "react-router-dom";
 import "../../features/dashboards/ui/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
 import { EmptyState } from "../ui/EmptyState";
+import { IconButton } from "../ui/IconButton";
 import { TextField } from "../ui/TextField";
 
 export interface SidebarItem {
@@ -241,14 +242,13 @@ export function SidebarItemList({
         <h2>{heading}</h2>
         {onAdd !== undefined ? (
           <div className="dashboard-list__header-actions">
-            <button
-              type="button"
-              className="dashboard-list__add"
+            <IconButton
+              icon="+"
+              variant="secondary"
+              size="xs"
               aria-label={addLabel ?? `Add ${heading.toLowerCase().replace(/s$/, "")}`}
               onClick={onAdd}
-            >
-              <span aria-hidden="true">+</span>
-            </button>
+            />
           </div>
         ) : null}
       </header>
@@ -268,6 +268,7 @@ export function SidebarItemList({
               type="button"
               className="dashboard-list__filter-clear"
               aria-label="Clear filter"
+              title="Clear filter"
               onClick={() => setFilterQuery("")}
             >
               <FontAwesomeIcon icon={faXmark} />

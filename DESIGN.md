@@ -190,12 +190,48 @@ recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 All at `--control-sm/md` height, `--app-radius-sm`, `--weight-medium`,
 `--text-xs/sm`. **[judgment]** A new button style is a defect, not a variant.
 
+### Icon-only buttons
+
+Icon-only controls (kebab menus, close buttons, theme toggle, sidebar
+collapse, row-action icons) use the shared `IconButton` primitive
+(`frontend/src/shared/ui/IconButton.tsx`) — never a hand-rolled
+`<button className="...">` square. It formalizes the same
+Ghost/Secondary/Danger recipes above at icon-only sizing:
+
+- **`variant`**: `ghost` (borderless, default) | `secondary` (hairline
+  border) | `danger` (error-tinted hover). Same color/hover treatment as
+  the labeled recipes above, just without the horizontal padding.
+- **`size`**: `xs` (24px, the dense-row exception — inline row actions in
+  lists) | `sm` (`--control-sm`, default) | `md` (`--control-md`).
+- **`aria-label`** is a required, non-optional prop — TypeScript, not a
+  lint rule, rejects a missing accessible name at compile time. **[mechanical]**
+- **Tooltip pattern**: `title` defaults to `aria-label`'s value, so every
+  `IconButton` gets a visible native tooltip for free. Pass a distinct,
+  shorter/different `title` when it should diverge from the (often more
+  verbose, task-focused) `aria-label` — e.g.
+  `aria-label="Refine this dashboard with AI"` / `title="Refine with AI"`,
+  or a keyboard-shortcut hint (`title="Undo (Ctrl+Z)"`). This is the
+  general rule for **every** icon-only interactive element in the app, not
+  just `IconButton` instances: a visible tooltip (`title`) or an accessible
+  name (`aria-label`/`aria-labelledby`) is required, and pairing both is
+  the default expectation. **[mechanical]**
+- Forwards `ref` to the underlying `<button>` for `usePortalPopover`-style
+  triggers that need a real DOM node (e.g.
+  `DashboardAppearanceEditor`'s "Customize dashboard appearance" trigger).
+- A hand-rolled icon-only control is acceptable only when it has a genuine,
+  documented reason `IconButton`'s scale can't express (e.g. a sub-24px
+  compact size, like `Toast`'s 20px dismiss button, or a state-dependent
+  accent color `IconButton`'s variants don't cover) — it must still carry
+  both `aria-label` and `title`. **[judgment]**
+
 ## 6. Shared components — reuse, don't reinvent
 
 Canonical primitives in `frontend/src/shared/ui/`: **Modal** (sizes sm/md/lg,
 native `<dialog>`, `--app-overlay` backdrop), **TextField**, **Textarea**,
-**Select** (portal-based), **EmptyState** (variants `main`/`sidebar`; `main`
-titles are Fraunces), **Toast** (intents info/success/warning/error),
+**Select** (portal-based), **IconButton** (icon-only button — ghost/
+secondary/danger variants, required `aria-label`, `title`-defaults-to-
+`aria-label` tooltip — see §5), **EmptyState** (variants `main`/`sidebar`;
+`main` titles are Fraunces), **Toast** (intents info/success/warning/error),
 **DataGrid** (table-shaped data primitive; variants `preview`/`full`, cell
 density `condensed`/`normal`/`spacious` — see below), **FormField** (label +
 control + help/error layout — the one form-row recipe; new forms use it instead

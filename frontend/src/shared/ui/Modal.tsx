@@ -3,6 +3,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 
+import { IconButton } from "./IconButton";
 import "./Modal.css";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
@@ -181,9 +182,13 @@ export function Modal({
             {description && <p className="ui-modal__description">{description}</p>}
           </div>
           {headerActions}
-          <button type="button" className="ui-modal__close" aria-label="Close" onClick={onClose}>
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
+          <IconButton
+            icon={<FontAwesomeIcon icon={faXmark} />}
+            variant="ghost"
+            size="sm"
+            aria-label="Close"
+            onClick={onClose}
+          />
         </header>
 
         <div className="ui-modal__body">{children}</div>

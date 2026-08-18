@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
@@ -142,6 +142,35 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
 
     const handle = screen.getByRole("button", { name: "Move Revenue panel" });
     expect(handle).toHaveAttribute("title", "Move Revenue panel");
+  });
+
+  // HEL-718 (skeptic-final-1.md Change Request 1): the bare "×" cancel button
+  // had neither aria-label nor title -- a live AC-2 counterexample the
+  // FontAwesomeIcon/lucide-react/<svg>-scoped audit methodology couldn't
+  // catch. Migrated onto the shared IconButton primitive, which gives it
+  // both for free.
+  it("gives the delete-cancel button an accessible name and matching title tooltip", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} isConfirmingDelete />, {
+      panels: { items: [] },
+    });
+
+    const cancelButton = screen.getByRole("button", { name: "Cancel delete Revenue" });
+    expect(cancelButton).toHaveAttribute("title", "Cancel delete Revenue");
+    expect(cancelButton).toHaveClass("ui-icon-btn", "ui-icon-btn--secondary", "ui-icon-btn--xs");
+  });
+
+  it("calls onCancelDelete when the delete-cancel button is clicked", () => {
+    const panel = makeMetricPanel({ title: "Revenue" });
+    const onCancelDelete = jest.fn();
+    renderWithStore(
+      <PanelCard panel={panel} {...noopProps} isConfirmingDelete onCancelDelete={onCancelDelete} />,
+      { panels: { items: [] } },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel delete Revenue" }));
+
+    expect(onCancelDelete).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -70,6 +70,38 @@ describe("PreferencesEditor — empty render", () => {
   });
 });
 
+// HEL-718: the remove-row buttons migrated from a hand-rolled
+// `.preferences-editor__icon-btn` onto the shared `IconButton` primitive —
+// verifies the accessible name/tooltip pairing and click behavior survived
+// the migration.
+describe("PreferencesEditor — remove-row IconButtons", () => {
+  it("renders the series-color remove button with a matching aria-label and title, and removes the row on click", () => {
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    const removeBtn = screen.getByRole("button", { name: "Remove series color 1" });
+    expect(removeBtn).toHaveAttribute("title", "Remove series color 1");
+
+    fireEvent.click(removeBtn);
+
+    expect(screen.queryByLabelText("Series color 2 hex value")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Series color 1 hex value")).toHaveValue("#00ff00");
+  });
+
+  it("renders the naming-convention remove button with a matching aria-label and title, and removes the row on click", () => {
+    renderWithStore(<PreferencesEditor preferences={populatedPreferences} />);
+
+    const removeBtn = screen.getByRole("button", {
+      name: "Remove naming convention dashboardTitleCase",
+    });
+    expect(removeBtn).toHaveAttribute("title", "Remove naming convention dashboardTitleCase");
+
+    fireEvent.click(removeBtn);
+
+    expect(screen.queryByDisplayValue("dashboardTitleCase")).not.toBeInTheDocument();
+    expect(screen.getByText("No naming conventions set.")).toBeInTheDocument();
+  });
+});
+
 describe("PreferencesEditor — edit + save", () => {
   it("persists an edited defaultSeriesColors swatch on save", async () => {
     putPreferencesMock.mockResolvedValueOnce(populatedPreferences);

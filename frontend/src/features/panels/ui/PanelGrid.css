@@ -141,28 +141,13 @@
   border-color: var(--app-error);
 }
 
-.panel-grid-card__delete-cancel-btn {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.panel-grid-card__delete-cancel-btn:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
-}
+/* Delete-cancel button: HEL-718 (skeptic-final-1.md Change Request 1) --
+   migrated onto the shared IconButton primitive (`shared/ui/IconButton.css`,
+   `variant="secondary"` `size="xs"`); its recipe lived here as
+   `.panel-grid-card__delete-cancel-btn` prior to this change. Grepped for
+   other consumers before deleting -- none found (`SourceDetailPanel.css`'s
+   and `DashboardList.css`'s own `*__delete-cancel-btn` classes are
+   independent, differently-named recipes, not this one). */
 
 /* Footer meta: quiet mono annotations, not shouting badges.
    F-049: was `color-mix(in srgb, currentColor 60%, transparent)`, layering

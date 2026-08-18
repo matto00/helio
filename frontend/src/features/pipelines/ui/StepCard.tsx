@@ -404,6 +404,7 @@ export const StepCard = React.memo(function StepCard({
             type="button"
             className="pipeline-detail-page__step-card-move-btn"
             aria-label="Move step up"
+            title="Move step up"
             disabled={onMoveUp === undefined}
             onClick={() => onMoveUp?.(step.id)}
           >
@@ -413,6 +414,7 @@ export const StepCard = React.memo(function StepCard({
             type="button"
             className="pipeline-detail-page__step-card-move-btn"
             aria-label="Move step down"
+            title="Move step down"
             disabled={onMoveDown === undefined}
             onClick={() => onMoveDown?.(step.id)}
           >
@@ -426,6 +428,7 @@ export const StepCard = React.memo(function StepCard({
             type="button"
             className="pipeline-detail-page__step-card-toggle-enabled-btn"
             aria-label={step.enabled ? "Disable step" : "Enable step"}
+            title={step.enabled ? "Disable step" : "Enable step"}
             aria-pressed={!step.enabled}
             onClick={() => onToggleEnabled(step.id, !step.enabled)}
           >
@@ -435,6 +438,7 @@ export const StepCard = React.memo(function StepCard({
             type="button"
             className="pipeline-detail-page__step-card-duplicate-btn"
             aria-label="Duplicate step"
+            title="Duplicate step"
             onClick={() => onDuplicate(step.id)}
           >
             <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
