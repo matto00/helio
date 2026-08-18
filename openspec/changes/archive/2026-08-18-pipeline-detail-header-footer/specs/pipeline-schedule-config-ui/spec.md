@@ -1,10 +1,5 @@
-# pipeline-schedule-config-ui Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the frontend schedule config surface in the pipeline editor — the schedule bar and dialog
-that let a user set, edit, enable/disable, and clear a pipeline's cron/interval schedule, backed
-by the HEL-414 schedule CRUD routes.
-## Requirements
 ### Requirement: Schedule bar shows current schedule state
 The pipeline detail page's single header region SHALL show the schedule summary, compactly, on
 one line, alongside the bound-source and bound-type information: "No schedule set" when the
@@ -79,22 +74,6 @@ section SHALL return to the "No schedule set" state.
 - **THEN** `DELETE /api/pipelines/:id/schedule` is called and, after it resolves, the page header
   shows "No schedule set"
 
-### Requirement: Invalid expressions and timezones are surfaced inline
-When `PUT /api/pipelines/:id/schedule` responds with 400, the schedule dialog SHALL display the
-response's `message` field as an inline error near the offending field's input, and SHALL NOT
-close the dialog or clear the user's entered values.
-
-#### Scenario: Invalid cron expression shows inline error
-- **WHEN** the user saves a cron schedule and the backend responds 400 with a message identifying
-  the malformed field
-- **THEN** that message is displayed inline in the dialog and the dialog remains open with the
-  user's input intact
-
-#### Scenario: Invalid timezone shows inline error
-- **WHEN** the user saves a schedule with a timezone the backend rejects as not a valid IANA zone
-  id
-- **THEN** the backend's error message is displayed inline in the dialog
-
 ### Requirement: Backward compatible — no schedule renders as today
 Pipelines without a schedule SHALL render the pipeline editor's header and footer regions exactly
 as they render for a pipeline with a schedule, aside from the schedule section itself showing
@@ -105,4 +84,3 @@ as they render for a pipeline with a schedule, aside from the schedule section i
 - **THEN** the single header region, river view, and single footer region render exactly as they
   would for a pipeline with a schedule, and the header's schedule section shows only
   "No schedule set", with "Set schedule" available as an item in the header's actions menu
-

@@ -5,15 +5,11 @@ import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
-import { BoundSourceBar } from "./BoundSourceBar";
-import { BoundTypeBar } from "./BoundTypeBar";
-import { PipelineScheduleBar } from "./PipelineScheduleBar";
+import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
-import { StatusChip } from "../../../shared/ui/StatusChip";
 import { Spinner } from "../../../shared/ui/Spinner";
 
-import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 
 import "./PipelineDetailPage.css";
@@ -618,26 +614,18 @@ export function PipelineDetailPage() {
 
   return (
     <div className="pipeline-detail-page">
-      {/* ── Bound source bar ── */}
-      <BoundSourceBar
+      {/* ── Header: bound source + bound type + schedule ── */}
+      <PipelineDetailHeader
         sourceName={currentPipeline.sourceDataSourceName}
         source={boundSource}
         canEditSource={canEditSource}
         onEditSource={handleEditSource}
-      />
-
-      {/* ── Bound type bar ── */}
-      <BoundTypeBar
         outputTypeName={currentPipeline.outputDataTypeName}
         canEditType={canEditType}
         onEditType={handleEditType}
-      />
-
-      {/* ── Schedule bar ── */}
-      <PipelineScheduleBar
         schedule={pipelineSchedule}
         onEditSchedule={() => setScheduleOpen(true)}
-        onToggleEnabled={handleToggleScheduleEnabled}
+        onToggleScheduleEnabled={handleToggleScheduleEnabled}
       />
 
       {/* ── River view ── */}
@@ -690,11 +678,15 @@ export function PipelineDetailPage() {
         confirmCancelDiscard={confirmCancelDiscard}
         dismissCancelConfirm={dismissCancelConfirm}
         handleCancel={handleCancel}
-        runHistoryCount={runs.length}
         openHistory={() => setHistoryOpen(true)}
         openPreview={() => setPreviewModalOpen(true)}
         handleDryRun={() => void handleDryRun()}
         handleRunPipeline={handleRunPipeline}
+        isOwner={isOwner}
+        onOpenShare={() => setShareOpen(true)}
+        lastRunAt={currentPipeline.lastRunAt}
+        lastRunRowCount={currentPipeline.lastRunRowCount}
+        lastRunStatus={currentPipeline.lastRunStatus}
       />
 
       {/* ── Run history modal (button lives in the footer) ── */}
@@ -741,42 +733,6 @@ export function PipelineDetailPage() {
 
       {/* In-page back breadcrumb removed — the section breadcrumb in the top
        * command bar already shows "Data Pipelines / <pipeline name>". */}
-
-      {/* ── Share button (owner-only) ── */}
-      {isOwner && (
-        <div className="pipeline-detail-page__share-bar">
-          <button
-            className="pipeline-detail-page__share-btn"
-            onClick={() => setShareOpen(true)}
-            type="button"
-          >
-            Share
-          </button>
-        </div>
-      )}
-
-      {/* ── Last-run metadata bar ── */}
-      {currentPipeline.lastRunAt != null && (
-        <div className="pipeline-detail-page__meta-bar" aria-label="Last run metadata">
-          <span className="pipeline-detail-page__meta-bar-item">
-            <span className="pipeline-detail-page__meta-bar-label">Last run:</span>{" "}
-            {formatRelativeTime(currentPipeline.lastRunAt)}
-          </span>
-          {currentPipeline.lastRunRowCount != null && (
-            <span className="pipeline-detail-page__meta-bar-item">
-              <span className="pipeline-detail-page__meta-bar-label">Rows written:</span>{" "}
-              {currentPipeline.lastRunRowCount.toLocaleString()}
-            </span>
-          )}
-          {currentPipeline.lastRunStatus != null && (
-            <StatusChip
-              intent={currentPipeline.lastRunStatus === "succeeded" ? "success" : "error"}
-            >
-              {currentPipeline.lastRunStatus === "succeeded" ? "Succeeded" : "Failed"}
-            </StatusChip>
-          )}
-        </div>
-      )}
     </div>
   );
 }

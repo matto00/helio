@@ -14,9 +14,21 @@ export interface ActionsMenuItem {
 interface ActionsMenuProps {
   label: string;
   items: ActionsMenuItem[];
+  /** Which side of the trigger the panel opens toward. Defaults to `"below"`
+   *  — unchanged behavior for every pre-existing consumer (`PanelCard`,
+   *  `DashboardList`, `SidebarItemList`), none of which pass this prop. Pass
+   *  `"above"` for a trigger pinned near the bottom of a fixed-height
+   *  container (e.g. a page footer) — opening below would render the panel
+   *  past the viewport's bottom edge, since `usePortalPopover` positions via
+   *  a one-shot `getBoundingClientRect()` read with no viewport-collision
+   *  detection. Mirrors this same page's `.pipeline-detail-page__cancel-
+   *  confirm` "dropup" idiom (PipelineDetailPage.css), the only other
+   *  upward-opening popover in the codebase — see HEL-719 scope amendment,
+   *  files-modified.md's Cycle 4 section for the root-cause writeup. */
+  align?: "below" | "above";
 }
 
-export function ActionsMenu({ label, items }: ActionsMenuProps) {
+export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps) {
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -48,7 +60,14 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
       close();
       return;
     }
-    handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
+    if (align === "above") {
+      handleOpen((rect) => ({
+        bottom: window.innerHeight - rect.top + 8,
+        right: window.innerWidth - rect.right,
+      }));
+    } else {
+      handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
+    }
   }
 
   function handleItemClick(item: ActionsMenuItem) {
@@ -98,7 +117,13 @@ export function ActionsMenu({ label, items }: ActionsMenuProps) {
               role="menu"
               aria-label={label}
               onKeyDown={handleMenuKeyDown}
-              style={{ position: "fixed", top: panelPos.top, right: panelPos.right, left: "auto" }}
+              style={{
+                position: "fixed",
+                top: panelPos.top,
+                bottom: panelPos.bottom,
+                right: panelPos.right,
+                left: "auto",
+              }}
             >
               {items.map((item, index) => (
                 <li key={item.label} role="none">

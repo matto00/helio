@@ -36,7 +36,7 @@ import {
   runPipeline,
 } from "../../../pipelines/services/pipelineService";
 import { buildShapeParams, ShapeParamsFields } from "../../../pipelines/ui/ShapeParamsFields";
-import { labelForKind } from "../../../pipelines/ui/BoundSourceBar";
+import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { PipelineShapeCatalogEntry } from "../../../pipelines/types/pipelineShape";
 
 import "./ShapeInstantiateStep.css";

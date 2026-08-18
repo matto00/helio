@@ -6,17 +6,19 @@
   position: relative;
 }
 
-/* ── Last-run metadata bar ── */
+/* ── Last-run metadata row ──
+ * HEL-719: no longer a standalone top-of-page bar — rendered by
+ * PipelineDetailFooter.tsx as a top row inside the single footer region
+ * (`.pipeline-detail-page__footer-region`), so it shares that region's
+ * background/border-top instead of owning its own (that would still read as
+ * a separate strip, which is exactly what this change eliminates). */
 .pipeline-detail-page__meta-bar {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 6px 20px;
+  padding: 6px 20px 0;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
-  background: var(--app-surface-soft);
-  border-bottom: 1px solid var(--app-border-subtle);
-  order: 0;
 }
 
 .pipeline-detail-page__meta-bar-item {
@@ -28,117 +30,6 @@
 .pipeline-detail-page__meta-bar-label {
   font-weight: var(--weight-medium);
   color: var(--app-text-muted);
-}
-
-/* ── Bound source bar ── */
-.pipeline-detail-page__source-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 20px;
-  background: var(--app-surface-soft);
-  border-bottom: 1px solid var(--app-border-subtle);
-  flex-shrink: 0;
-}
-
-.pipeline-detail-page__source-bar-label {
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
-  color: var(--app-text-muted);
-  white-space: nowrap;
-}
-
-.pipeline-detail-page__bound-source {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.pipeline-detail-page__bound-source-name {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--app-text);
-}
-
-.pipeline-detail-page__bound-source-kind {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-medium);
-  color: var(--app-text-muted);
-  background: var(--app-surface);
-  border: 1px solid var(--app-border-subtle);
-  padding: 2px 6px;
-  border-radius: var(--app-radius-sm);
-}
-
-/* ── Bound type bar ── */
-.pipeline-detail-page__type-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 20px;
-  background: var(--app-surface-soft);
-  border-bottom: 1px solid var(--app-border-subtle);
-  flex-shrink: 0;
-}
-
-.pipeline-detail-page__type-bar-label {
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
-  color: var(--app-text-muted);
-  white-space: nowrap;
-}
-
-.pipeline-detail-page__bound-type {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.pipeline-detail-page__bound-type-name {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--app-text);
-}
-
-/* ── Edit Source / Edit Type buttons (source-bar + type-bar) ──
- * Reuses the __share-btn secondary-button recipe (transparent bg,
- * hairline border, muted text; hover: border-strong + surface-raised + full
- * text) so both buttons match the page's existing secondary-action style. */
-.pipeline-detail-page__edit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.pipeline-detail-page__edit-btn:hover {
-  background: var(--app-surface-raised);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
 }
 
 /* ── River view ── */
@@ -614,16 +505,29 @@
   color: var(--app-error);
 }
 
-/* ── Footer bar ── */
+/* ── Footer region ──
+ * HEL-719: single wrapper for the whole footer — the last-run metadata row
+ * (`__meta-bar`, when present) stacked above the action row
+ * (`__footer`) — so the two share one background/border-top and read as one
+ * footer region rather than two separate strips. `__footer` itself keeps its
+ * row-flex layout and every declaration the 430px/768px media rules below
+ * target unchanged (still the direct parent of `__footer-left`/
+ * `__footer-right`), just without the background/border-top/flex-shrink now
+ * owned by this wrapper instead. */
+.pipeline-detail-page__footer-region {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--app-border-subtle);
+  background: var(--app-surface);
+  flex-shrink: 0;
+}
+
 .pipeline-detail-page__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 10px 20px;
-  border-top: 1px solid var(--app-border-subtle);
-  background: var(--app-surface);
-  flex-shrink: 0;
 }
 
 .pipeline-detail-page__footer-left {
@@ -708,32 +612,6 @@
   font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--app-text-muted);
-}
-
-.pipeline-detail-page__preview-btn,
-.pipeline-detail-page__history-btn {
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.pipeline-detail-page__preview-btn:hover,
-.pipeline-detail-page__history-btn:hover {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
 }
 
 /* Step-config primitive inputs/selects now use the shared ui-input /
@@ -1473,41 +1351,6 @@
   padding: 6px 8px;
 }
 
-/* ── Share bar (owner-only) ─────────────────────────────────────────────── */
-.pipeline-detail-page__share-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--space-1) var(--space-4);
-  background: var(--app-surface-soft);
-  border-bottom: 1px solid var(--app-border-subtle);
-  flex-shrink: 0;
-}
-
-.pipeline-detail-page__share-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.pipeline-detail-page__share-btn:hover {
-  background: var(--app-surface);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
-}
-
 /* ── Phone breakpoint (DESIGN.md §4, 430px) ──────────────────────────────────
  * F-006: the footer's action row (Run history / Preview / Dry run / Run
  * pipeline) is wider than a 430px viewport and never wraps — `.pipeline-
@@ -1528,17 +1371,23 @@
  * convention `Modal.css`'s `.ui-modal-btn` / `inputs.css`'s `.ui-select__
  * trigger` already use for the same floor. A 768px viewport is a real,
  * ratified breakpoint (not a gap between two supported widths) and had the
- * same 27-32px buttons this rule fixes at 430. */
+ * same 27-32px buttons this rule fixes at 430.
+ *
+ * design.md D8 (scope amendment): `.pipeline-detail-page__edit-btn`/
+ * `__history-btn`/`__preview-btn`/`__share-btn` dropped from this list —
+ * D5/D7 replaced those four buttons with `ActionsMenu`-rendered `menuitem`s,
+ * which can never carry these class names (`ActionsMenuItem` has no
+ * `className` field). `ActionsMenu.css.test.ts` already independently
+ * covers the 44px floor for `.actions-menu__trigger`/`.actions-menu__item`,
+ * so both the header's and footer's new menu triggers inherit it for free —
+ * no page-local rule needed. `__dry-run-btn` stays here unchanged: it
+ * remains a real, always-visible button under D7. */
 @media (max-width: 768px) {
-  .pipeline-detail-page__history-btn,
-  .pipeline-detail-page__preview-btn,
   .pipeline-detail-page__dry-run-btn,
   .pipeline-detail-page__run-btn,
   .pipeline-detail-page__save-btn,
   .pipeline-detail-page__cancel-btn,
-  .pipeline-detail-page__cancel-confirm-btn,
-  .pipeline-detail-page__edit-btn,
-  .pipeline-detail-page__share-btn {
+  .pipeline-detail-page__cancel-confirm-btn {
     min-height: 44px;
   }
 }

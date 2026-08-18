@@ -119,3 +119,26 @@ describe("ActionsMenu — keyboard operability (HEL a11y sweep F-007)", () => {
     expect(screen.getByRole("menu", { name: "Panel actions" })).toBeInTheDocument();
   });
 });
+
+// HEL-719 scope amendment — `align="above"` lets a trigger pinned near the
+// viewport bottom (e.g. a page footer) open its panel upward instead of
+// ActionsMenu's default "below", which would otherwise render the panel
+// past the viewport's bottom edge (confirmed live for the pipeline detail
+// footer's "More actions" trigger — see files-modified.md Cycle 4).
+describe("ActionsMenu — align prop (HEL-719 scope amendment)", () => {
+  it('defaults to opening below the trigger (top set, bottom unset) when "align" is omitted', () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole("button", { name: "Panel actions" }));
+    const panel = screen.getByRole("menu");
+    expect(panel.style.top).not.toBe("");
+    expect(panel.style.bottom).toBe("");
+  });
+
+  it('opens above the trigger (bottom set, top unset) when align="above"', () => {
+    renderMenu({ align: "above" });
+    fireEvent.click(screen.getByRole("button", { name: "Panel actions" }));
+    const panel = screen.getByRole("menu");
+    expect(panel.style.bottom).not.toBe("");
+    expect(panel.style.top).toBe("");
+  });
+});
